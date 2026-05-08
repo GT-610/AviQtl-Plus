@@ -28,7 +28,11 @@ if(NOT EXISTS "${FILAMENT_LOCAL_DIR}")
 endif()
 
 include_directories(SYSTEM "${FILAMENT_LOCAL_DIR}/include")
-link_directories("${FILAMENT_LOCAL_DIR}/lib/x86_64")
+if(APPLE AND CMAKE_OSX_ARCHITECTURES MATCHES "arm64" OR (APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64"))
+    link_directories("${FILAMENT_LOCAL_DIR}/lib/arm64")
+else()
+    link_directories("${FILAMENT_LOCAL_DIR}/lib/x86_64")
+endif()
 
 set(FILAMENT_LIBS 
     filament backend bluevk bluegl filabridge filaflat utils geometry smol-v zstd pthread dl
@@ -225,6 +229,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         stdc++
         # carla が間接依存する fluidsynth を --as-needed 対策で明示リンク
         fluidsynth
+    )
+elseif(APPLE)
+    target_link_libraries(AviQtl PRIVATE ${FILAMENT_LIBS}
+        "-framework CoreVideo"
+        "-framework QuartzCore"
     )
 endif()
 

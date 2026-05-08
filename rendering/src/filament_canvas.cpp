@@ -2,6 +2,10 @@
 #include <QQuickWindow>
 #include <filament/Viewport.h>
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+
 namespace AviQtl::Rendering {
 
 FilamentCanvas::FilamentCanvas(QQuickItem *parent) : QQuickItem(parent) {
@@ -39,7 +43,11 @@ void FilamentCanvas::initFilament(QQuickWindow *win) {
     if (m_engine)
         return;
     void *nativeWindow = reinterpret_cast<void *>(win->winId());
+#if defined(__APPLE__) && TARGET_OS_OSX
+    m_engine = filament::Engine::create(filament::Engine::Backend::METAL);
+#else
     m_engine = filament::Engine::create(filament::Engine::Backend::VULKAN);
+#endif
     m_swapChain = m_engine->createSwapChain(nativeWindow);
     m_renderer = m_engine->createRenderer();
     m_scene = m_engine->createScene();

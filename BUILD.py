@@ -381,7 +381,7 @@ class XcodeBuilder(PlatformBuilder):
 
     def package(self):
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
-        src_app = self.config.work_dir / "AviQtl.app"
+        src_app = self.config.work_dir / "bin" / "AviQtl.app"
         dest_app = self.config.output_dir / "AviQtl.app"
         if dest_app.exists():
             shutil.rmtree(dest_app)
@@ -396,6 +396,8 @@ class XcodeBuilder(PlatformBuilder):
             f"-qmldir={self.config.source_dir / 'ui/qml'}",
             "-verbose=1",
         ])
+        self.logger.log("codesign を実行中...")
+        self.run_cmd(["codesign", "--deep", "--force", "--sign", "-", str(dest_app)])
         self.logger.log(f"App バンドル: {dest_app}")
 
     def get_archive_name(self) -> str:

@@ -17,6 +17,7 @@
 #include "window_manager.hpp"
 #include "workspace.hpp"
 #include <QApplication>
+#include <QDir>
 #include <QIcon>
 #include <QPixmap>
 #include <QQmlApplicationEngine>
@@ -47,7 +48,11 @@ static void aviqtl_ffmpeg_log_callback(void *ptr, int level, const char *fmt, va
 }
 
 auto main(int argc, char *argv[]) -> int {
+#if defined(__APPLE__)
+    qputenv("QSG_RHI_BACKEND", "metal");
+#else
     qputenv("QSG_RHI_BACKEND", "vulkan");
+#endif
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
@@ -58,11 +63,16 @@ auto main(int argc, char *argv[]) -> int {
     QString appDir = QCoreApplication::applicationDirPath();
 
     // システムのロケールに合わせて翻訳ファイルをロード
+    QString resourceDir = appDir;
+#if defined(__APPLE__)
+    if (resourceDir.endsWith(QStringLiteral("/MacOS")))
+        resourceDir = QDir(resourceDir).absoluteFilePath(QStringLiteral("../Resources"));
+#endif
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();
     for (const QString &locale : uiLanguages) {
         const QString baseName = QStringLiteral("AviQtl_") + QLocale(locale).name();
-        if (translator.load(baseName, appDir + QStringLiteral("/i18n"))) {
+        if (translator.load(baseName, resourceDir + QStringLiteral("/i18n"))) {
             qDebug() << QStringLiteral("[Main] 翻訳ファイルをロードしました:") << baseName;
             QApplication::installTranslator(&translator);
             break;
@@ -124,6 +134,10 @@ auto main(int argc, char *argv[]) -> int {
         modEngine.loadPlugins();
 
         QString appDir = QCoreApplication::applicationDirPath();
+#if defined(__APPLE__)
+        if (appDir.endsWith(QStringLiteral("/MacOS")))
+            appDir = QDir(appDir).absoluteFilePath(QStringLiteral("../Resources"));
+#endif
         AviQtl::Core::EffectRegistry::instance().loadEffectsFromDirectory(appDir + QStringLiteral("/effects"));
         AviQtl::Core::EffectRegistry::instance().loadEffectsFromDirectory(appDir + QStringLiteral("/objects"));
 
