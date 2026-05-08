@@ -113,3 +113,6 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+# macOS related
+.DS_Store

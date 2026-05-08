@@ -28,7 +28,11 @@ if(NOT EXISTS "${FILAMENT_LOCAL_DIR}")
 endif()
 
 include_directories(SYSTEM "${FILAMENT_LOCAL_DIR}/include")
-link_directories("${FILAMENT_LOCAL_DIR}/lib/x86_64")
+if(APPLE AND (CMAKE_OSX_ARCHITECTURES MATCHES "arm64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64"))
+    link_directories("${FILAMENT_LOCAL_DIR}/lib/arm64")
+else()
+    link_directories("${FILAMENT_LOCAL_DIR}/lib/x86_64")
+endif()
 
 set(FILAMENT_LIBS 
     filament backend bluevk bluegl filabridge filaflat utils geometry smol-v zstd pthread dl
@@ -36,7 +40,11 @@ set(FILAMENT_LIBS
 set(FILAMENT_TOOLS_DIR "${FILAMENT_LOCAL_DIR}/bin")
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui GuiPrivate Quick QuickControls2 Widgets Core5Compat Sql Svg Multimedia Concurrent ShaderTools LinguistTools Network ${EXTRA_QT_COMPONENTS})
-find_package(Vulkan REQUIRED)
+if(APPLE)
+    find_package(Vulkan)
+else()
+    find_package(Vulkan REQUIRED)
+endif()
 find_package(ECM REQUIRED NO_MODULE)
 list(APPEND CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 find_package(PkgConfig REQUIRED)
@@ -127,6 +135,8 @@ qt_add_executable(AviQtl
 
 if(APPLE)
     set_target_properties(AviQtl PROPERTIES MACOSX_BUNDLE ON)
+    enable_language(OBJCXX)
+    set_source_files_properties(rendering/src/filament_canvas.cpp PROPERTIES LANGUAGE OBJCXX)
 endif()
 
 # Phase 2.1: シンボルのエクスポート設定 (Lua FFI用)
@@ -208,11 +218,18 @@ endif()
 
 # リンク設定
 target_link_libraries(
-    AviQtl PRIVATE Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Svg Qt6::Core5Compat Qt6::Multimedia Qt6::Concurrent Qt6::Network Vulkan::Vulkan
+    AviQtl PRIVATE Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Svg Qt6::Core5Compat Qt6::Multimedia Qt6::Concurrent Qt6::Network
                    PkgConfig::LUAJIT
                    PkgConfig::FFMPEG
                    ${CARLA_LIBRARIES}
 )
+
+# VulkanはLinux/Windowsで必須。macOSではMetalを使用するためオプション
+if(NOT APPLE)
+    target_link_libraries(AviQtl PRIVATE Vulkan::Vulkan)
+elseif(Vulkan_FOUND)
+    target_link_libraries(AviQtl PRIVATE Vulkan::Vulkan)
+endif()
 
 # Carlaのライブラリパスを明示（/usr/lib/carla/ 等の非標準ディレクトリ対策）
 target_link_directories(AviQtl PRIVATE ${CARLA_LIBRARY_DIRS})
@@ -225,6 +242,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         stdc++
         # carla が間接依存する fluidsynth を --as-needed 対策で明示リンク
         fluidsynth
+    )
+elseif(APPLE)
+    target_link_libraries(AviQtl PRIVATE ${FILAMENT_LIBS}
+        "-framework CoreVideo"
+        "-framework QuartzCore"
     )
 endif()
 

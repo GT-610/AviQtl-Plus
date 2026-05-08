@@ -17,6 +17,7 @@
 #include "window_manager.hpp"
 #include "workspace.hpp"
 #include <QApplication>
+#include <QDir>
 #include <QIcon>
 #include <QPixmap>
 #include <QQmlApplicationEngine>
@@ -46,8 +47,22 @@ static void aviqtl_ffmpeg_log_callback(void *ptr, int level, const char *fmt, va
     av_log_default_callback(ptr, level, fmt, vl);
 }
 
+/// macOS App Bundle 内での実行時、実行ファイルパスを Resources ディレクトリに解決する
+static QString resolveAppBundleResourceDir(const QString &appDirPath) {
+    QString resolved = appDirPath;
+#if defined(__APPLE__)
+    if (resolved.endsWith(QStringLiteral("/MacOS")))
+        resolved = QDir(resolved).absoluteFilePath(QStringLiteral("../Resources"));
+#endif
+    return resolved;
+}
+
 auto main(int argc, char *argv[]) -> int {
+#if defined(__APPLE__)
+    qputenv("QSG_RHI_BACKEND", "metal");
+#else
     qputenv("QSG_RHI_BACKEND", "vulkan");
+#endif
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
@@ -55,14 +70,15 @@ auto main(int argc, char *argv[]) -> int {
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("AviQtl"));
 
-    QString appDir = QCoreApplication::applicationDirPath();
+    const QString appDir = QCoreApplication::applicationDirPath();
 
     // システムのロケールに合わせて翻訳ファイルをロード
+    const QString resourceDir = resolveAppBundleResourceDir(appDir);
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();
     for (const QString &locale : uiLanguages) {
         const QString baseName = QStringLiteral("AviQtl_") + QLocale(locale).name();
-        if (translator.load(baseName, appDir + QStringLiteral("/i18n"))) {
+        if (translator.load(baseName, resourceDir + QStringLiteral("/i18n"))) {
             qDebug() << QStringLiteral("[Main] 翻訳ファイルをロードしました:") << baseName;
             QApplication::installTranslator(&translator);
             break;
@@ -123,9 +139,9 @@ auto main(int argc, char *argv[]) -> int {
         modEngine.registerController(workspace->currentTimeline());
         modEngine.loadPlugins();
 
-        QString appDir = QCoreApplication::applicationDirPath();
-        AviQtl::Core::EffectRegistry::instance().loadEffectsFromDirectory(appDir + QStringLiteral("/effects"));
-        AviQtl::Core::EffectRegistry::instance().loadEffectsFromDirectory(appDir + QStringLiteral("/objects"));
+        const QString effectsDir = resolveAppBundleResourceDir(QCoreApplication::applicationDirPath());
+        AviQtl::Core::EffectRegistry::instance().loadEffectsFromDirectory(effectsDir + QStringLiteral("/effects"));
+        AviQtl::Core::EffectRegistry::instance().loadEffectsFromDirectory(effectsDir + QStringLiteral("/objects"));
 
         // 音声プラグインの読み込み完了時にスプラッシュ画面を消去する
         QObject::connect(&AviQtl::Engine::Plugin::AudioPluginManager::instance(), &AviQtl::Engine::Plugin::AudioPluginManager::pluginsReady, splash, [&engine, splash](int) -> void {

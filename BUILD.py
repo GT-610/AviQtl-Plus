@@ -381,7 +381,7 @@ class XcodeBuilder(PlatformBuilder):
 
     def package(self):
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
-        src_app = self.config.work_dir / "AviQtl.app"
+        src_app = self.config.work_dir / "bin" / "AviQtl.app"
         dest_app = self.config.output_dir / "AviQtl.app"
         if dest_app.exists():
             shutil.rmtree(dest_app)
@@ -395,7 +395,43 @@ class XcodeBuilder(PlatformBuilder):
             f"{qt_prefix}/bin/macdeployqt", str(dest_app),
             f"-qmldir={self.config.source_dir / 'ui/qml'}",
             "-verbose=1",
+            "-no-codesign",
         ])
+
+        self.logger.log("RPATH を修正中...")
+        binary = dest_app / "Contents/MacOS/AviQtl"
+        rpaths_to_remove = [
+            "/opt/homebrew/lib",
+        ]
+        for rp in rpaths_to_remove:
+            try:
+                self.run_cmd(["install_name_tool", "-delete_rpath", rp, str(binary)])
+                self.logger.log(f"  削除: {rp}")
+            except subprocess.CalledProcessError:
+                self.logger.log(f"  スキップ: {rp}")
+
+        # 既知のQtバグ対策: macdeployqt が AviQtl QMLモジュールを Resources/qml にコピーすると、
+        # qrc:/ 内の同名モジュールと衝突して "AviQtl is ambiguous" エラーが発生する。
+        # リソースシステム内にのみ存在させることで回避する。
+        self.logger.log("QMLモジュールの重複コピーをクリーンアップ中...")
+        duplicate_qml_dirs = [
+            dest_app / "Contents/Resources/qml/AviQtl",
+            dest_app / "Contents/PlugIns/qml/AviQtl",
+        ]
+        for d in duplicate_qml_dirs:
+            if d.exists():
+                shutil.rmtree(d)
+                self.logger.log(f"  削除: {d}")
+
+        # carla-discovery-native をバイナリ同梱
+        self.logger.log("carla-discovery-native を同梱中...")
+        carla_bin_src = Path("/opt/homebrew/Cellar/carla/2.5.10_1/lib/carla/carla-discovery-native")
+        carla_bin_dst = dest_app / "Contents/MacOS/carla-discovery-native"
+        if carla_bin_src.exists() and not carla_bin_dst.exists():
+            shutil.copy2(carla_bin_src, carla_bin_dst)
+
+        self.logger.log("codesign を実行中...")
+        self.run_cmd(["codesign", "--deep", "--force", "--sign", "-", str(dest_app)])
         self.logger.log(f"App バンドル: {dest_app}")
 
     def get_archive_name(self) -> str:
