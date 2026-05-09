@@ -7,7 +7,9 @@ import multiprocessing
 import shlex
 import urllib.request
 import platform
+import locale
 import signal
+import tempfile
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Type
@@ -525,6 +527,320 @@ class Msys2Builder(PlatformBuilder):
         return "AviQtl-MSYS2-UCRT64-x86_64"
 
 
+class MsvcBuilder(PlatformBuilder):
+    def __init__(self, config: BuildConfig, logger: Logger):
+        super().__init__(config, logger)
+        if os.name != "nt":
+            raise RuntimeError("MSVC ビルドは Windows でのみ実行できます")
+        self.vcpkg_root: Path | None = None
+        self.vcpkg_triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", "x64-windows")
+        self.vs_install_dir: Path | None = None
+        self.cmake_path: str | None = None
+        self.ninja_path: str | None = None
+
+    def install_dependencies(self):
+        self.setup_msvc_environment()
+        self.ensure_vcpkg()
+        self.setup_vcpkg_environment()
+        self.cmake_path = self.find_msvc_tool("cmake")
+        self.ninja_path = self.find_msvc_tool("ninja")
+        if not self.cmake_path:
+            raise RuntimeError("cmake が見つかりません。CMake を PATH に追加してください")
+        if not self.ninja_path:
+            raise RuntimeError("ninja が見つかりません。Ninja を PATH に追加してください")
+        if not shutil.which("cl", path=self.env.get("PATH")):
+            raise RuntimeError("cl.exe が見つかりません。vcvarsall.bat の読み込みに失敗した可能性があります")
+        self.setup_carla_sdk(is_windows=True)
+        self.setup_filament_sdk("windows", "x86_64")
+
+    def ensure_vcpkg(self):
+        self.vcpkg_root = self.find_vcpkg_root(need_executable=True)
+        if self.vcpkg_root:
+            self.logger.log(f"vcpkg 発見: {self.vcpkg_root}")
+            self.env["VCPKG_ROOT"] = str(self.vcpkg_root)
+            return
+
+        incomplete = self.find_vcpkg_root(need_executable=False)
+        if incomplete and (incomplete / "bootstrap-vcpkg.bat").exists():
+            self.vcpkg_root = incomplete
+            self.logger.log(f"vcpkg ディレクトリを検出 (vcpkg.exe なし)。ブートストラップを試みます: {self.vcpkg_root}")
+            self._bootstrap_vcpkg()
+            self.env["VCPKG_ROOT"] = str(self.vcpkg_root)
+            return
+
+        self.vcpkg_root = self.config.source_dir / "vcpkg"
+        self.logger.log(f"vcpkg が見つかりません。{self.vcpkg_root} にクローン中...")
+        self.run_cmd(["git", "clone", "--depth", "1", "https://github.com/microsoft/vcpkg.git", str(self.vcpkg_root)], force_host=True)
+        self._bootstrap_vcpkg()
+        self.env["VCPKG_ROOT"] = str(self.vcpkg_root)
+
+    def _bootstrap_vcpkg(self):
+        bootstrap = self.vcpkg_root / "bootstrap-vcpkg.bat"
+        if not bootstrap.exists():
+            raise RuntimeError(f"vcpkg のブートストラップスクリプトが見つかりません: {bootstrap}")
+        self.logger.log("vcpkg をブートストラップ中...")
+        self.run_cmd([str(bootstrap)], force_host=True)
+        if not (self.vcpkg_root / "vcpkg.exe").exists():
+            raise RuntimeError("vcpkg のブートストラップに失敗しました。vcpkg.exe が生成されていません。ネットワーク接続を確認してください。")
+        self.logger.log("vcpkg の準備完了")
+
+    def configure(self):
+        self.run_cmd(self.get_cmake_config_cmd())
+
+    def update_translations(self):
+        self.run_cmd([self.cmake_path or "cmake", "--build", str(self.config.work_dir), "--target", "AviQtl_lupdate"])
+
+    def compile(self):
+        j = multiprocessing.cpu_count()
+        self.logger.log(f"並列ジョブ数: {j}")
+        self.run_cmd([self.cmake_path or "cmake", "--build", str(self.config.work_dir), "-j", str(j)])
+
+    def find_vcvarsall(self) -> Path | None:
+        candidates = []
+        for var in ("VCVARSALL", "VCVARSALL_BAT"):
+            value = os.environ.get(var)
+            if value:
+                candidates.append(Path(value))
+
+        vswhere_roots = [
+            Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe",
+            Path(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"),
+        ]
+        for vswhere in vswhere_roots:
+            if not vswhere.exists():
+                continue
+            for args in (
+                ["-latest", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath"],
+                ["-latest", "-products", "*", "-property", "installationPath"],
+            ):
+                try:
+                    result = subprocess.run([str(vswhere)] + args, capture_output=True, text=True, encoding=locale.getpreferredencoding(False), errors="replace")
+                except OSError:
+                    continue
+                if result.returncode == 0 and result.stdout.strip():
+                    candidates.append(Path(result.stdout.strip()) / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat")
+
+        for var in ("VSINSTALLDIR", "VCINSTALLDIR"):
+            value = os.environ.get(var)
+            if value:
+                root = Path(value)
+                candidates.append(root / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat")
+                candidates.append(root.parent / "Auxiliary" / "Build" / "vcvarsall.bat")
+
+        candidates.extend([
+            Path(r"C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"),
+            Path(r"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"),
+            Path(r"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"),
+            Path(r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"),
+        ])
+
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def setup_msvc_environment(self):
+        vcvarsall = self.find_vcvarsall()
+        if not vcvarsall:
+            raise RuntimeError("vcvarsall.bat が見つかりません。Visual Studio Build Tools の C++ ツールセットをインストールしてください")
+        self.logger.log(f"vcvarsall: {vcvarsall}")
+        self.vs_install_dir = vcvarsall.parents[3]
+        wrapper_path = None
+        try:
+            with tempfile.NamedTemporaryFile("w", suffix=".bat", delete=False, encoding="utf-8") as wrapper:
+                wrapper.write("@echo off\n")
+                wrapper.write(f'call "{vcvarsall}" x64 > nul\n')
+                wrapper.write("if errorlevel 1 exit /b %errorlevel%\n")
+                wrapper.write("set\n")
+                wrapper_path = wrapper.name
+            proc = subprocess.run(
+                ["cmd.exe", "/d", "/c", wrapper_path],
+                capture_output=True,
+                text=True,
+                encoding=locale.getpreferredencoding(False),
+                errors="replace",
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(f"vcvarsall.bat の実行に失敗しました:\n{proc.stdout}\n{proc.stderr}")
+            for line in proc.stdout.splitlines():
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                self.env[key] = value
+            if "Path" in self.env:
+                self.env["PATH"] = self.env["Path"]
+            elif "PATH" in self.env:
+                self.env["Path"] = self.env["PATH"]
+            self.sanitize_msvc_environment()
+        finally:
+            if wrapper_path:
+                try:
+                    Path(wrapper_path).unlink()
+                except OSError:
+                    pass
+
+    def is_msys_path(self, path: str | None) -> bool:
+        if not path:
+            return False
+        lowered = path.replace("/", "\\").lower()
+        return "\\msys2\\" in lowered or "\\mingw" in lowered or "\\ucrt64\\" in lowered
+
+    def sanitize_msvc_environment(self):
+        for name in ("PATH", "Path", "PKG_CONFIG_PATH", "CMAKE_PREFIX_PATH"):
+            value = self.env.get(name)
+            if not value:
+                continue
+            filtered = [part for part in value.split(os.pathsep) if part and not self.is_msys_path(part)]
+            if filtered:
+                self.env[name] = os.pathsep.join(filtered)
+            else:
+                self.env.pop(name, None)
+        if "PATH" in self.env:
+            self.env["Path"] = self.env["PATH"]
+        elif "Path" in self.env:
+            self.env["PATH"] = self.env["Path"]
+
+    def find_msvc_tool(self, name: str) -> str | None:
+        exe = f"{name}.exe"
+        env_name = f"{name.upper()}_EXE"
+        if self.env.get(env_name) and Path(self.env[env_name]).exists():
+            return self.env[env_name]
+
+        candidates = []
+        if self.vs_install_dir:
+            if name == "cmake":
+                candidates.append(self.vs_install_dir / "Common7" / "IDE" / "CommonExtensions" / "Microsoft" / "CMake" / "CMake" / "bin" / exe)
+            elif name == "ninja":
+                candidates.append(self.vs_install_dir / "Common7" / "IDE" / "CommonExtensions" / "Microsoft" / "CMake" / "Ninja" / exe)
+        if self.vcpkg_root:
+            candidates.append(self.vcpkg_root / "downloads" / "tools" / name / exe)
+
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+
+        found = shutil.which(exe, path=self.env.get("PATH"))
+        if found and not self.is_msys_path(found):
+            return found
+        if found:
+            self.logger.log(f"警告: MSYS2/MinGW の {exe} を検出したため MSVC ビルドでは使用しません: {found}")
+        return None
+
+    def find_vcpkg_root(self, *, need_executable: bool = True) -> Path | None:
+        candidates = []
+        vcpkg_root_env = self.env.get("VCPKG_ROOT") or os.environ.get("VCPKG_ROOT")
+        if vcpkg_root_env:
+            candidates.append(Path(vcpkg_root_env))
+        candidates.extend([
+            Path.home() / "vcpkg",
+            Path(r"C:\vcpkg"),
+            self.config.source_dir / "vcpkg",
+        ])
+        for candidate in candidates:
+            if not (candidate / "scripts").is_dir():
+                continue
+            if need_executable and not (candidate / "vcpkg.exe").exists():
+                continue
+            return candidate
+        return None
+
+    def vcpkg_installed_dir(self) -> Path:
+        return self.config.source_dir / "vcpkg_installed" / self.vcpkg_triplet
+
+    def setup_vcpkg_environment(self):
+        if not self.vcpkg_root:
+            return
+        installed = self.vcpkg_installed_dir()
+        paths = [
+            installed / "bin",
+            installed / "tools" / "pkgconf",
+            installed / "tools" / "pkg-config",
+            installed / "tools" / "Qt6" / "bin",
+        ]
+        self.env["PATH"] = os.pathsep.join([str(path) for path in paths if path.exists()] + [self.env.get("PATH", "")])
+        self.env["Path"] = self.env["PATH"]
+        pkg_paths = [installed / "lib" / "pkgconfig", installed / "debug" / "lib" / "pkgconfig"]
+        existing_pkg_path = self.env.get("PKG_CONFIG_PATH", "")
+        self.env["PKG_CONFIG_PATH"] = os.pathsep.join([str(path) for path in pkg_paths if path.exists()] + ([existing_pkg_path] if existing_pkg_path else []))
+        self.logger.log(f"vcpkg: {self.vcpkg_root} ({self.vcpkg_triplet}), installed: {installed}")
+
+    def find_qt_prefix(self) -> Path | None:
+        for name in ("QT_MSVC_DIR", "QT_DIR"):
+            value = self.env.get(name)
+            if value and (Path(value) / "bin" / "windeployqt.exe").exists():
+                return Path(value)
+        if self.vcpkg_root:
+            qt_prefix = self.vcpkg_installed_dir()
+            if (qt_prefix / "tools" / "Qt6" / "bin" / "windeployqt.exe").exists() or (qt_prefix / "bin" / "windeployqt.exe").exists():
+                return qt_prefix
+        deployqt = shutil.which("windeployqt", path=self.env.get("PATH"))
+        if deployqt and not self.is_msys_path(deployqt):
+            return Path(deployqt).parent.parent
+        if deployqt:
+            self.logger.log(f"警告: MSYS2/MinGW の windeployqt を検出したため MSVC ビルドでは使用しません: {deployqt}")
+        qt_root = Path(r"C:\Qt")
+        if qt_root.exists():
+            for deployqt_path in sorted(qt_root.glob("*/*msvc*_64/bin/windeployqt.exe"), reverse=True):
+                return deployqt_path.parent.parent
+        return None
+
+    def get_cmake_config_cmd(self) -> List[str]:
+        cmd = [
+            self.cmake_path or "cmake", "-B", str(self.config.work_dir), "-G", "Ninja",
+            f"-DCMAKE_BUILD_TYPE={self.config.build_type}",
+            f"-DCMAKE_MAKE_PROGRAM={self.ninja_path or 'ninja'}",
+        ]
+        cmd.extend(["-DCMAKE_C_COMPILER=cl", "-DCMAKE_CXX_COMPILER=cl"])
+        if self.vcpkg_root:
+            cmd.extend([
+                f"-DCMAKE_TOOLCHAIN_FILE={self.vcpkg_root / 'scripts/buildsystems/vcpkg.cmake'}",
+                f"-DVCPKG_TARGET_TRIPLET={self.vcpkg_triplet}",
+            ])
+            if not self.config.is_debug:
+                cmd.append("-DVCPKG_BUILD_TYPE=release")
+        qt_prefix = self.find_qt_prefix()
+        if qt_prefix:
+            cmd.append(f"-DCMAKE_PREFIX_PATH={qt_prefix}")
+        if (self.config.source_dir / "vendor" / "carla").exists():
+            cmd.append(f"-DCARLA_SDK_DIR={self.config.source_dir / 'vendor' / 'carla'}")
+        cmd.append(str(self.config.source_dir))
+        return cmd
+
+    def package(self):
+        self.config.output_dir.mkdir(parents=True, exist_ok=True)
+        dest_bin = self.config.output_dir / "AviQtl.exe"
+        src_bin = self.config.work_dir / "bin" / "AviQtl.exe"
+        if dest_bin.exists():
+            dest_bin.unlink()
+        if not src_bin.exists():
+            raise FileNotFoundError(f"実行ファイルが見つかりません: {src_bin}")
+        shutil.copy2(src_bin, dest_bin)
+        self.copy_assets(self.config.output_dir)
+
+        deployqt = shutil.which("windeployqt", path=self.env.get("PATH"))
+        if not deployqt:
+            qt_prefix = self.find_qt_prefix()
+            if qt_prefix:
+                deployqt = str(qt_prefix / "bin" / "windeployqt.exe")
+        if not deployqt:
+            raise RuntimeError("windeployqt が見つかりません。Qt MSVC の bin ディレクトリを PATH に追加するか QT_MSVC_DIR を設定してください")
+        self.logger.log("windeployqt を実行中...")
+        self.run_cmd([
+            deployqt,
+            "--qmldir", str(self.config.source_dir / "ui/qml"),
+            "--no-translations", "--no-compiler-runtime",
+            "--release" if not self.config.is_debug else "--debug",
+            str(dest_bin),
+            "--dir", str(self.config.output_dir),
+        ])
+        with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
+            f.write("[Paths]\nPlugins = .\n")
+        self.logger.log(f"実行ファイル: {dest_bin}")
+
+    def get_archive_name(self) -> str:
+        return "AviQtl-MSVC-x86_64"
+
+
 class XcodeBuilder(PlatformBuilder):
     def install_dependencies(self):
         if self.config.is_offline:
@@ -633,6 +949,7 @@ class XcodeBuilder(PlatformBuilder):
 BUILDERS: dict[str, Type[PlatformBuilder]] = {
     "arch": ArchBuilder,
     "msys2": Msys2Builder,
+    "msvc": MsvcBuilder,
     "xcode": XcodeBuilder,
 }
 
@@ -675,6 +992,7 @@ def parse_args() -> argparse.Namespace:
             "使用例:\n"
             "  python BUILD.py --arch\n"
             "  python BUILD.py --msys2 --debug\n"
+            "  python BUILD.py --msvc\n"
             "  python BUILD.py --xcode --offline\n"
         ),
     )
@@ -686,6 +1004,10 @@ def parse_args() -> argparse.Namespace:
     target_group.add_argument(
         "--msys2", action="store_true",
         help="Windows (MSYS2) 向けビルド",
+    )
+    target_group.add_argument(
+        "--msvc", action="store_true",
+        help="Windows (MSVC x64) 向けビルド。vcvarsall.bat を自動検出して MSVC 環境を読み込みます。",
     )
     target_group.add_argument(
         "--xcode", action="store_true",
@@ -707,12 +1029,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     args = parse_args()
 
     # ターゲットの決定
     target = None
     if args.arch: target = "arch"
     elif args.msys2: target = "msys2"
+    elif args.msvc: target = "msvc"
     elif args.xcode: target = "xcode"
     else:
         # フラグがない場合は現在の OS から判定
@@ -723,7 +1051,7 @@ def main():
         }.get(platform.system().lower())
 
     if not target:
-        print("エラー: ビルドターゲットを特定できません。--arch, --msys2, --xcode のいずれかを指定してください。")
+        print("エラー: ビルドターゲットを特定できません。--arch, --msys2, --msvc, --xcode のいずれかを指定してください。")
         sys.exit(1)
 
     source_dir = Path.cwd()
