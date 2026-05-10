@@ -1,13 +1,17 @@
 #pragma once
+
+#include <QMetaObject>
 #include <QQuickItem>
-#include <QQuickWindow>
-#include <filament/Camera.h>
-#include <filament/Engine.h>
-#include <filament/Renderer.h>
-#include <filament/Scene.h>
-#include <filament/SwapChain.h>
-#include <filament/View.h>
-#include <utils/EntityManager.h>
+#include <utils/Entity.h>
+
+namespace filament {
+class Engine;
+class Renderer;
+class Scene;
+class View;
+class Camera;
+class SwapChain;
+} // namespace filament
 
 namespace AviQtl::Rendering {
 
@@ -26,6 +30,7 @@ class FilamentCanvas : public QQuickItem {
 
     int sceneId() const { return m_sceneId; }
     void setSceneId(int id);
+
     int currentFrame() const { return m_currentFrame; }
     void setCurrentFrame(int frame);
 
@@ -38,29 +43,35 @@ class FilamentCanvas : public QQuickItem {
     void itemChange(ItemChange change, const ItemChangeData &value) override;
 
   private slots:
+    void handleWindowChanged(QQuickWindow *win);
     void renderFrame();
+    void destroyFilament();
 
   private:
-    void handleWindowChanged(QQuickWindow *win);
     void initFilament();
-    void destroyFilament();
     void updateViewport(int w, int h);
     void updateNativeSurfaceGeometry();
 
     int m_sceneId = -1;
     int m_currentFrame = 0;
+
     QQuickWindow *m_window = nullptr;
     QMetaObject::Connection m_beforeRenderingConnection;
     QMetaObject::Connection m_sceneGraphInvalidatedConnection;
-    void *m_nativeSurface = nullptr;
 
+    // Filament objects (Forward declared)
     filament::Engine *m_engine = nullptr;
     filament::Renderer *m_renderer = nullptr;
     filament::Scene *m_scene = nullptr;
-    filament::Camera *m_camera = nullptr;
     filament::View *m_view = nullptr;
+    filament::Camera *m_camera = nullptr;
     filament::SwapChain *m_swapChain = nullptr;
-    utils::Entity m_cameraEntity{};
+
+    // Utils::Entity handles
+    utils::Entity m_cameraEntity;
+
+    // Native surface pointer (e.g. CAMetalLayer* for Apple/Metal)
+    void *m_nativeSurface = nullptr;
 };
 
 } // namespace AviQtl::Rendering

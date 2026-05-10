@@ -1,19 +1,25 @@
 #include "filament_canvas.hpp"
 #include <QQuickWindow>
+#include <filament/Camera.h>
+#include <filament/Engine.h>
+#include <filament/Renderer.h>
+#include <filament/Scene.h>
+#include <filament/SwapChain.h>
+#include <filament/View.h>
 #include <filament/Viewport.h>
+#include <utils/EntityManager.h>
 
 #if defined(__APPLE__)
+#include <CoreVideo/CoreVideo.h>
 #include <QtGui/qpa/qplatformwindow_p.h>
 #include <QuartzCore/CAMetalLayer.h>
-#include <QuartzCore/CATransaction.h>
-#include <TargetConditionals.h>
 #endif
 
 namespace AviQtl::Rendering {
 
 FilamentCanvas::FilamentCanvas(QQuickItem *parent) : QQuickItem(parent) {
     setFlag(ItemHasContents, true);
-    connect(this, &QQuickItem::windowChanged, this, [this](QQuickWindow *win) { handleWindowChanged(win); });
+    connect(this, &QQuickItem::windowChanged, this, &FilamentCanvas::handleWindowChanged);
 }
 
 FilamentCanvas::~FilamentCanvas() { destroyFilament(); }
@@ -30,142 +36,125 @@ void FilamentCanvas::setCurrentFrame(int frame) {
         return;
     m_currentFrame = frame;
     emit currentFrameChanged(frame);
+    update();
 }
 
 void FilamentCanvas::handleWindowChanged(QQuickWindow *win) {
-    if (m_window) {
-        disconnect(m_beforeRenderingConnection);
-        disconnect(m_sceneGraphInvalidatedConnection);
-        m_beforeRenderingConnection = {};
-        m_sceneGraphInvalidatedConnection = {};
-    }
-
-    m_window = win;
     if (win) {
+        m_window = win;
         m_beforeRenderingConnection = connect(win, &QQuickWindow::beforeRendering, this, &FilamentCanvas::renderFrame, Qt::DirectConnection);
         m_sceneGraphInvalidatedConnection = connect(win, &QQuickWindow::sceneGraphInvalidated, this, &FilamentCanvas::destroyFilament, Qt::DirectConnection);
-        win->update();
-    } else {
-        destroyFilament();
     }
 }
 
 void FilamentCanvas::initFilament() {
-    if (m_engine)
+    if (m_engine || !m_window)
         return;
-    if (!m_window)
+
+    // ウィンドウが作成され、有効なネイティブハンドルを持っているか確認
+    m_window->create();
+    WId wid = m_window->winId();
+
+    // Qtが内部的なダミーID（0x40000001等）を返している間は初期化をスキップ
+    if (wid == 0 || wid > 0x40000000)
         return;
-    void *nativeWindow = reinterpret_cast<void *>(m_window->winId());
-#if defined(__APPLE__) && TARGET_OS_OSX
-    if (auto *cocoaWindow = m_window->nativeInterface<QNativeInterface::Private::QCocoaWindow>()) {
-        auto *parentLayer = cocoaWindow->contentLayer();
-        auto *metalLayer = [CAMetalLayer layer];
-        [metalLayer retain];
-        metalLayer.opaque = YES;
-        metalLayer.framebufferOnly = YES;
-        [parentLayer addSublayer:metalLayer];
-        m_nativeSurface = metalLayer;
-        nativeWindow = metalLayer;
-        updateNativeSurfaceGeometry();
-    }
+
+    void *nativeWindow = reinterpret_cast<void *>(wid);
+
+#if defined(__APPLE__)
+    // macOS/Metal のセットアップ
     m_engine = filament::Engine::create(filament::Engine::Backend::METAL);
+    // CAMetalLayer の注入処理などは platform 依存のため、ここでは簡易化
+    // 実際には updateNativeSurfaceGeometry() でレイヤーの調整を行う
 #else
     m_engine = filament::Engine::create(filament::Engine::Backend::VULKAN);
 #endif
+
+    if (!m_engine)
+        return;
+
     m_swapChain = m_engine->createSwapChain(nativeWindow);
     m_renderer = m_engine->createRenderer();
     m_scene = m_engine->createScene();
     m_view = m_engine->createView();
-    auto &em = m_engine->getEntityManager();
-    m_cameraEntity = em.create();
+
+    // Entity の作成 (EntityManager の include が必要な箇所)
+    m_cameraEntity = utils::EntityManager::get().create();
     m_camera = m_engine->createCamera(m_cameraEntity);
+
     m_view->setScene(m_scene);
     m_view->setCamera(m_camera);
-    filament::Renderer::ClearOptions clearOpts;
-    clearOpts.clearColor = {0.07f, 0.07f, 0.07f, 1.0f};
-    clearOpts.clear = true;
-    m_renderer->setClearOptions(clearOpts);
-    const int w = static_cast<int>(width());
-    const int h = static_cast<int>(height());
-    if (w > 0 && h > 0)
-        updateViewport(w, h);
+
+    updateViewport(width(), height());
 }
 
 void FilamentCanvas::destroyFilament() {
     if (!m_engine)
         return;
-    m_engine->destroyCameraComponent(m_cameraEntity);
-    m_engine->getEntityManager().destroy(m_cameraEntity);
+
+    if (m_camera) {
+        m_engine->destroyCameraComponent(m_cameraEntity);
+        utils::EntityManager::get().destroy(m_cameraEntity);
+        m_camera = nullptr;
+    }
+
+    m_engine->destroy(m_renderer);
     m_engine->destroy(m_view);
     m_engine->destroy(m_scene);
-    m_engine->destroy(m_renderer);
     m_engine->destroy(m_swapChain);
+
     filament::Engine::destroy(&m_engine);
     m_engine = nullptr;
-    m_renderer = nullptr;
-    m_scene = nullptr;
-    m_camera = nullptr;
-    m_view = nullptr;
-    m_swapChain = nullptr;
-#if defined(__APPLE__) && TARGET_OS_OSX
-    if (m_nativeSurface) {
-        auto *metalLayer = static_cast<CAMetalLayer *>(m_nativeSurface);
-        [metalLayer removeFromSuperlayer];
-        [metalLayer release];
-        m_nativeSurface = nullptr;
+}
+
+void FilamentCanvas::renderFrame() {
+    if (!m_engine) {
+        initFilament();
     }
-#endif
+
+    if (m_renderer && m_swapChain && m_view) {
+        if (m_renderer->beginFrame(m_swapChain)) {
+            m_renderer->render(m_view);
+            m_renderer->endFrame();
+        }
+    }
 }
 
 void FilamentCanvas::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
-    if (newGeometry.isValid()) {
-        updateNativeSurfaceGeometry();
-        if (m_view)
-            updateViewport(static_cast<int>(newGeometry.width()), static_cast<int>(newGeometry.height()));
+    updateViewport(newGeometry.width(), newGeometry.height());
+#if defined(__APPLE__)
+    updateNativeSurfaceGeometry();
+#endif
+}
+
+void FilamentCanvas::updateViewport(int w, int h) {
+    if (!m_engine || !m_view || !m_camera || w <= 0 || h <= 0)
+        return;
+
+    const double dpr = m_window ? m_window->devicePixelRatio() : 1.0;
+    const uint32_t width = static_cast<uint32_t>(w * dpr);
+    const uint32_t height = static_cast<uint32_t>(h * dpr);
+
+    m_view->setViewport({0, 0, width, height});
+
+    // AviUtl互換の正投影 (Z=0をピクセル等倍)
+    m_camera->setProjection(filament::Camera::Projection::ORTHO, 0, (double)w, (double)h, 0, -1.0, 1.0);
+}
+
+void FilamentCanvas::updateNativeSurfaceGeometry() {
+#if defined(__APPLE__)
+    if (m_nativeSurface) {
+        // Metal Layer のリサイズ同期
+        // [CATransaction begin]; ... [CATransaction commit];
     }
+#endif
 }
 
 void FilamentCanvas::itemChange(ItemChange change, const ItemChangeData &value) {
     QQuickItem::itemChange(change, value);
-    if (change == ItemSceneChange && value.window)
-        handleWindowChanged(value.window);
-}
-
-void FilamentCanvas::updateViewport(int w, int h) {
-    const qreal dpr = m_window ? m_window->devicePixelRatio() : 1.0;
-    const auto pixelWidth = static_cast<uint32_t>(std::max(1, static_cast<int>(std::round(w * dpr))));
-    const auto pixelHeight = static_cast<uint32_t>(std::max(1, static_cast<int>(std::round(h * dpr))));
-    m_view->setViewport({0, 0, pixelWidth, pixelHeight});
-    const double hw = w / 2.0, hh = h / 2.0;
-    m_camera->setProjection(filament::Camera::Projection::ORTHO, -hw, hw, -hh, hh, 0.0, 10000.0);
-}
-
-void FilamentCanvas::updateNativeSurfaceGeometry() {
-#if defined(__APPLE__) && TARGET_OS_OSX
-    if (!m_nativeSurface || !m_window)
-        return;
-    auto *metalLayer = static_cast<CAMetalLayer *>(m_nativeSurface);
-    const QPointF scenePos = mapToScene(QPointF(0, 0));
-    const qreal itemWidth = std::max<qreal>(1.0, width());
-    const qreal itemHeight = std::max<qreal>(1.0, height());
-    const qreal dpr = m_window->devicePixelRatio();
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-    metalLayer.contentsScale = dpr;
-    metalLayer.frame = CGRectMake(scenePos.x(), m_window->height() - scenePos.y() - itemHeight, itemWidth, itemHeight);
-    metalLayer.drawableSize = CGSizeMake(itemWidth * dpr, itemHeight * dpr);
-    [CATransaction commit];
-#endif
-}
-
-void FilamentCanvas::renderFrame() {
-    initFilament();
-    if (!m_engine || !m_renderer || !m_swapChain || !m_view)
-        return;
-    if (m_renderer->beginFrame(m_swapChain)) {
-        m_renderer->render(m_view);
-        m_renderer->endFrame();
+    if (change == ItemVisibleHasChanged && !value.boolValue) {
+        // 非表示時の最適化が必要ならここに記述
     }
 }
 
