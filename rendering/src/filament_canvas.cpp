@@ -2,14 +2,13 @@
 
 #include <QDebug>
 #include <QQuickWindow>
-#include <QRhi>
 #include <QSGRendererInterface>
 #include <QSGSimpleTextureNode>
 #include <QSGTexture>
+#include <rhi/qrhi.h>
 
 // Qt 6.8+ Vulkan ネイティブテクスチャ API
 #include <QNativeInterface>
-#include <rhi/qrhi.h>
 
 #include <filament/Camera.h>
 #include <filament/Engine.h>

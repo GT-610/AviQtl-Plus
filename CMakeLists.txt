@@ -145,6 +145,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_options(AviQtl PRIVATE "-rdynamic")
 endif()
 
+# Vulkan のバージョン衝突回避と Filament/BlueVK の要件
+target_compile_definitions(AviQtl PRIVATE 
+    VK_NO_PROTOTYPES
+)
+
 # Qt Policy設定: QMLモジュールのディレクトリ構造に関する警告を抑制・解決
 qt_policy(SET QTP0004 NEW)
 
@@ -258,7 +263,6 @@ target_include_directories(AviQtl PRIVATE
     ui/include
     rendering/include
     ${PROJECT_SOURCE_DIR}/vendor/filament/include/backend
-    ${PROJECT_SOURCE_DIR}/vendor/filament/src/bluevk/include
     ${CARLA_INCLUDE_DIRS}
 )
 

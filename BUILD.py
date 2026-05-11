@@ -2,8 +2,8 @@ import sys
 import os
 import subprocess
 import shutil
-import multiprocessing
 import argparse
+import multiprocessing
 import shlex
 import urllib.request
 import platform
@@ -183,10 +183,16 @@ class PlatformBuilder:
 
     def setup_filament_sdk(self, platform_suffix: str, lib_arch: str, is_universal: bool = False):
         filament_dir = self.config.source_dir / "vendor" / "filament"
+        filament_include_dir = filament_dir / "include"
+        bluevk_include_dir = filament_include_dir / "bluevk"
+        
         if (filament_dir / "include" / "filament" / "Engine.h").exists():
-            return
+            # Check if BlueVK.h is also present, if not, proceed to generate it
+            if (bluevk_include_dir / "BlueVK.h").exists():
+                self.logger.log("Filament SDK と BlueVK.h は既に存在します。")
+                return
 
-        if self.config.is_offline:
+        if self.config.is_offline and not (filament_dir / "include" / "filament" / "Engine.h").exists():
             self.logger.log("Filament SDK が見つかりませんが、オフラインモードのため取得をスキップします")
             return
 
@@ -230,6 +236,47 @@ class PlatformBuilder:
                 for item in temp_lib.iterdir():
                     shutil.move(str(item), str(dest_lib / item.name))
                 shutil.rmtree(temp_lib)
+
+        # --- bluevk-gen.py のダウンロードと実行 ---
+        # BlueVK.h が存在しない場合のみ生成
+        if not (bluevk_include_dir / "BlueVK.h").exists():
+            self.logger.log("bluevk/BlueVK.h を生成中...")
+            version = "1.71.3" # Filament SDK のバージョンと合わせる
+            bluevk_gen_script_url = f"https://raw.githubusercontent.com/google/filament/v{version}/libs/bluevk/bluevk-gen.py"
+            bluevk_gen_script_path = self.config.temp_base / "bluevk-gen.py"
+            
+            # Ensure temp_base exists
+            self.config.temp_base.mkdir(parents=True, exist_ok=True)
+
+            try:
+                self.logger.log(f"  bluevk-gen.py をダウンロード: {bluevk_gen_script_url}")
+                urllib.request.urlretrieve(bluevk_gen_script_url, bluevk_gen_script_path)
+                
+                # Create the target directory for BlueVK.h
+                bluevk_include_dir.mkdir(parents=True, exist_ok=True)
+
+                # Run bluevk-gen.py to generate BlueVK.h and BlueVK.cpp
+                # BlueVK.cpp はプリビルド済みライブラリに含まれるため、一時ディレクトリに出力して破棄する
+                dummy_bluevk_cpp_dir = self.config.temp_base / "bluevk_cpp_dummy"
+                dummy_bluevk_cpp_dir.mkdir(exist_ok=True)
+
+                self.run_cmd([
+                    sys.executable, # 現在の Python インタープリタを使用
+                    str(bluevk_gen_script_path),
+                    "-I", str(filament_include_dir), # BlueVK.h を vendor/filament/include/bluevk に出力
+                    "-o", str(dummy_bluevk_cpp_dir) # BlueVK.cpp を一時ディレクトリに出力
+                ], force_host=True) # ホスト環境で実行 (ネットワークアクセスと Python 環境が必要なため)
+
+                shutil.rmtree(dummy_bluevk_cpp_dir) # 一時ディレクトリをクリーンアップ
+                bluevk_gen_script_path.unlink() # スクリプトファイルを削除
+
+                if not (bluevk_include_dir / "BlueVK.h").exists():
+                    raise FileNotFoundError(f"BlueVK.h の生成に失敗しました: {bluevk_include_dir / 'BlueVK.h'} が見つかりません。")
+                self.logger.log("bluevk/BlueVK.h の生成が完了しました。")
+
+            except Exception as e:
+                self.logger.log(f"bluevk/BlueVK.h の自動生成中にエラーが発生しました: {e}")
+                raise # 致命的なエラーとして再スロー
 
     def download_and_extract(self, url: str, dest_dir: Path):
         tmp_file = dest_dir / "download.tmp"

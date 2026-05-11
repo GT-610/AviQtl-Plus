@@ -9,6 +9,10 @@
 #include <cstdint>
 #include <memory>
 
+// Arch Linux Vulkan SDK と BlueVK の互換性問題の解決
+#include <vulkan/vulkan.h>
+typedef void (VKAPI_PTR *PFN_vkCmdSetDispatchParametersARM)(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z);
+
 // Vulkan ヘッダはFilamentのblueVK経由で取得する
 // (VulkanPlatform.hがbluevk/BlueVK.hをインクルード済みのため二重定義を避ける)
 #include <backend/platforms/VulkanPlatform.h>
