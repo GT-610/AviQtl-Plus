@@ -239,7 +239,7 @@ class PlatformBuilder:
 
         self.logger.log(f"Filament バイナリ ({platform_suffix}) を取得中...")
         version = "1.71.3"
-        ext = "zip" if "windows" in platform_suffix else "tgz"
+        ext = "tgz"
         
         suffix = "mac" if is_universal else platform_suffix
         url = f"https://github.com/google/filament/releases/download/v{version}/filament-v{version}-{suffix}.{ext}"
