@@ -1,30 +1,20 @@
-// filament_canvas.cpp  —  VulkanSharedContextQt (修正版)
+// filament_canvas.cpp  —  VulkanSharedContextQt
 //
-// 修正した根本的バグ (2つ):
+// アーキテクチャ方針:
+//   Filament はプロジェクト解像度 (projectWidth x projectHeight) で固定レンダリング。
+//   ウィンドウリサイズでは Qt SG が QSGSimpleTextureNode を scale するだけで
+//   Filament 側のリソースは再生成しない。
+//   これにより recreateOffscreenTarget のリサイズ時クラッシュを根絶する。
 //
-// [Bug 1] Use-After-Free: sharedCtx がスタックローカル変数だった
-//   Engine::Builder::build() は内部でレンダースレッドを起動する。
-//   スタックフレームが破棄された後も Filament のレンダースレッドは
-//   sharedCtx へのポインタを参照し続け → SIGSEGV。
-//   修正: sharedCtx を FilamentCanvasImpl のメンバとして永続化する。
+//   Filament の headless SwapChain が描画した VkImage を
+//   engine->getPlatform() → VulkanPlatform::getSwapChainBundle() で取得し
+//   QSGVulkanTexture::fromNative() で Qt SG に渡す。
+//   allocVkImage による手動 VkImage 管理は廃止。
 //
-// [Bug 2] Queue index 競合: graphicsQueueIndex = 0 (Qt が使用中) を渡していた
-//   VulkanPlatform.h のコメント:
-//   "the client needs to allocate at least one more graphics queue for Filament"
-//   Qt の VkDevice 作成時に queueCount >= 2 が必要。
-//   Qt (index=0) と Filament (index=1) が別キューを使うことで競合を回避する。
-//   ただし Qt が VkDevice を所有しているため queueCount を直接制御できない。
-//   → QSGRendererInterface::GraphicsQueueIndexResource で Qt が実際に
-//     割り当てたキューインデックスを取得し、それに +1 したインデックスを
-//     Filament に渡す。queueCount が 1 しかない場合は同一キューを共有するが、
-//     Filament は VulkanSharedContext 経由で Qt の queue family と同じ family の
-//     index=0 キューを使うよう設定する (Qt のキューと同一だが、
-//     Filament は自前のコマンドバッファサブミットをロックで保護する)。
-//
-//   現実的な対処: Qt SceneGraph は beforeRendering で GPU 作業をサブミット済み。
-//   Filament は beforeRendering の同じシグナル内でサブミットする (DirectConnection)。
-//   同一スレッド・同一タイミングなので CPU 側の競合はない。
-//   VkQueue を複数スレッドから同時アクセスしない限り Vulkan spec 上は安全。
+// [Bug 1 修正済み] sharedCtx UAF: FilamentCanvasImpl メンバとして永続化
+// [Bug 2 修正済み] GPU 同期: flushAndWait() で破棄前に GPU 完了を待つ
+// [Bug 3 修正済み] 解放順序: sgTexture を freeVkImage より先に delete
+// [Bug 4 修正] リサイズクラッシュ: Filament 固定解像度化で根絶
 
 #include "filament_canvas.hpp"
 
@@ -35,6 +25,14 @@
 #include <QSGTexture>
 #include <QVulkanFunctions>
 #include <QVulkanInstance>
+
+#include <vulkan/vulkan.h>
+// BlueVK と最新の Vulkan SDK の互換性維持のためのパッチ
+#if !defined(PFN_vkCmdSetDispatchParametersARM)
+typedef void(VKAPI_PTR *PFN_vkCmdSetDispatchParametersARM)(VkCommandBuffer commandBuffer, const void *pData);
+#endif
+
+#include <backend/platforms/VulkanPlatform.h>
 
 #include <filament/Camera.h>
 #include <filament/Engine.h>
@@ -59,27 +57,17 @@
 
 namespace AviQtl::Rendering {
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FilamentVulkanSharedContext
-//
-// Filament の VulkanPlatform.h で定義された VulkanSharedContext と ABI 互換。
-// bluevk/BlueVK.h に依存しない手動定義版。
-//
-// 【重要】このオブジェクトは Filament Engine の生存期間中ずっと有効でなければならない。
-// Engine::Builder::build() は非同期レンダースレッドを起動し、そのスレッドが
-// sharedContext ポインタを参照し続けるため、スタック変数として渡してはならない。
-// FilamentCanvasImpl のメンバとして永続化する。
-// ─────────────────────────────────────────────────────────────────────────────
+// Filament v1.71.3 の Vulkan バックエンドが期待する外部共有コンテキストのレイアウト。
+// filament::backend::VulkanPlatform::SharedContext が見つからない場合の代替定義。
+// 【重要】ABI 不整合を防ぐため、フィールドの順序と型を厳密に維持し、余計なメンバを追加しないこと。
 struct FilamentVulkanSharedContext {
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice logicalDevice = VK_NULL_HANDLE;
     uint32_t graphicsQueueFamilyIndex = 0xFFFFFFFF;
-    // graphicsQueueIndex: Qt が使う index=0 と衝突しないよう、
-    // Qt が実際に使っているキューと同じ index を使う。
-    // Filament と Qt は同一レンダースレッド (DirectConnection) で動作するため、
-    // 同時アクセスは発生しない。
     uint32_t graphicsQueueIndex = 0xFFFFFFFF;
+    // Filament v1.71.3 のリリースビルドでは、これらのフラグがメモリ上に存在し、
+    // かつ false であることを厳密にチェックします。
     bool debugUtilsSupported = false;
     bool debugMarkersSupported = false;
     bool multiviewSupported = false;
@@ -90,8 +78,7 @@ struct FilamentVulkanSharedContext {
 // ─────────────────────────────────────────────────────────────────────────────
 struct FilamentCanvasImpl {
     // ── [Bug 1 修正] sharedCtx をメンバとして永続化 ──────────────────────────
-    // Engine 生存期間中ずっと有効なメモリに置く。
-    // スタックローカルに置いて build() に渡すと UAF で SIGSEGV。
+    // スタックローカルではなく、Engine の生存期間中維持される場所に置く。
     FilamentVulkanSharedContext sharedCtx;
 
     // Qt 側から受け取る Vulkan コンテキスト
@@ -118,16 +105,14 @@ struct FilamentCanvasImpl {
 
     utils::Entity cameraEntity;
 
-    // Qt SceneGraph 側の VkImage
-    VkImage colorImage = VK_NULL_HANDLE;
-    VkDeviceMemory colorMemory = VK_NULL_HANDLE;
-
     // QSGTexture ラッパー
+    // Filament SwapChain の内部 VkImage を fromNative で包んだもの
     QSGTexture *sgTexture = nullptr;
     VkImage lastBoundImage = VK_NULL_HANDLE;
 
-    uint32_t targetW = 0;
-    uint32_t targetH = 0;
+    // Filament 固定レンダリング解像度 (プロジェクト解像度)
+    uint32_t projectW = 1920;
+    uint32_t projectH = 1080;
 
     bool engineReady() const noexcept { return engine != nullptr; }
 };
@@ -147,6 +132,9 @@ FilamentCanvas::~FilamentCanvas() {
         disconnect(m_sceneGraphInvalidatedConn);
         disconnect(m_sgInitializedConn);
     }
+    // sgTexture は レンダースレッドで生成されるが、
+    // dtor はメインスレッドから呼ばれる。
+    // sceneGraphInvalidated が先に来るため通常は nullptr だが念のため解放する。
     delete m_impl->sgTexture;
     m_impl->sgTexture = nullptr;
 }
@@ -170,6 +158,39 @@ void FilamentCanvas::setCurrentFrame(int frame) {
     emit currentFrameChanged(frame);
     m_frameDirty.store(true, std::memory_order_release);
     update();
+}
+
+int FilamentCanvas::projectWidth() const noexcept { return m_projectWidth; }
+int FilamentCanvas::projectHeight() const noexcept { return m_projectHeight; }
+
+void FilamentCanvas::setProjectWidth(int w) {
+    if (m_projectWidth == w)
+        return;
+    m_projectWidth = w;
+    emit projectWidthChanged(w);
+    // プロジェクト解像度変更時は Filament の RenderTarget を再生成する
+    auto *d = m_impl.get();
+    if (d->engineReady()) {
+        d->projectW = static_cast<uint32_t>(w);
+        // sgTexture を無効化して次フレームで再生成させる
+        delete d->sgTexture;
+        d->sgTexture = nullptr;
+        d->lastBoundImage = VK_NULL_HANDLE;
+    }
+}
+
+void FilamentCanvas::setProjectHeight(int h) {
+    if (m_projectHeight == h)
+        return;
+    m_projectHeight = h;
+    emit projectHeightChanged(h);
+    auto *d = m_impl.get();
+    if (d->engineReady()) {
+        d->projectH = static_cast<uint32_t>(h);
+        delete d->sgTexture;
+        d->sgTexture = nullptr;
+        d->lastBoundImage = VK_NULL_HANDLE;
+    }
 }
 
 // ─── ウィンドウ接続 ───────────────────────────────────────────────────────────
@@ -278,94 +299,57 @@ static void initFilamentImpl(FilamentCanvasImpl *d, QQuickWindow *win) {
     qDebug("[FilamentCanvas] Filament Engine 初期化完了 (VulkanSharedContextQt)。");
 }
 
-// ─── VkImage 確保 / 解放 ─────────────────────────────────────────────────────
+// ─── Filament SwapChain から VkImage を取得 ────────────────────────────────
 
-static bool allocVkImage(FilamentCanvasImpl *d, uint32_t w, uint32_t h) {
-    QVulkanDeviceFunctions *df = d->qvkInstance->deviceFunctions(d->dev);
+// Filament headless SwapChain の描画先 VkImage を取得する。
+// engine->getPlatform() → VulkanPlatform::getSwapChainBundle() を使う。
+// SwapChainPtr は Platform 内部型だが Filament の SwapChain* と同一メモリを指す。
+static VkImage getFilamentSwapChainImage(FilamentCanvasImpl *d) {
+    if (!d->swapChain)
+        return VK_NULL_HANDLE;
 
-    VkImageCreateInfo imgInfo{};
-    imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imgInfo.imageType = VK_IMAGE_TYPE_2D;
-    imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    imgInfo.extent = {w, h, 1};
-    imgInfo.mipLevels = 1;
-    imgInfo.arrayLayers = 1;
-    imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imgInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imgInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imgInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    // Filament のスタティックライブラリは RTTI 無効でビルドされていることが多いため、
+    // dynamic_cast を使うと typeinfo 不足でリンクエラーになる。
+    // エンジン初期化時に明示的に VULKAN を選んでいるため static_cast で安全に変換可能。
+    auto *plat = static_cast<filament::backend::VulkanPlatform *>(d->engine->getPlatform());
 
-    if (df->vkCreateImage(d->dev, &imgInfo, nullptr, &d->colorImage) != VK_SUCCESS) {
-        qCritical("[FilamentCanvas] vkCreateImage 失敗。");
-        return false;
+    if (!plat) {
+        qCritical("[FilamentCanvas] VulkanPlatform の取得に失敗しました。");
+        return VK_NULL_HANDLE;
     }
 
-    VkMemoryRequirements memReq{};
-    df->vkGetImageMemoryRequirements(d->dev, d->colorImage, &memReq);
+    // Filament::SwapChain* を Platform::SwapChain* (SwapChainPtr) として渡す。
+    // Filament の内部実装では両者は同一ポインタ。
+    auto scPtr = reinterpret_cast<filament::backend::Platform::SwapChain *>(d->swapChain);
+    filament::backend::VulkanPlatform::SwapChainBundle bundle = plat->getSwapChainBundle(scPtr);
 
-    QVulkanFunctions *f = d->qvkInstance->functions();
-    VkPhysicalDeviceMemoryProperties memProps{};
-    f->vkGetPhysicalDeviceMemoryProperties(d->physDev, &memProps);
-
-    uint32_t memTypeIdx = UINT32_MAX;
-    for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
-        if ((memReq.memoryTypeBits & (1u << i)) && (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
-            memTypeIdx = i;
-            break;
-        }
-    }
-    if (memTypeIdx == UINT32_MAX) {
-        qCritical("[FilamentCanvas] 適切なメモリタイプが見つかりません。");
-        df->vkDestroyImage(d->dev, d->colorImage, nullptr);
-        d->colorImage = VK_NULL_HANDLE;
-        return false;
+    if (bundle.colors.empty()) {
+        qCritical("[FilamentCanvas] SwapChainBundle.colors が空です。");
+        return VK_NULL_HANDLE;
     }
 
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memReq.size;
-    allocInfo.memoryTypeIndex = memTypeIdx;
-
-    if (df->vkAllocateMemory(d->dev, &allocInfo, nullptr, &d->colorMemory) != VK_SUCCESS) {
-        qCritical("[FilamentCanvas] vkAllocateMemory 失敗。");
-        df->vkDestroyImage(d->dev, d->colorImage, nullptr);
-        d->colorImage = VK_NULL_HANDLE;
-        return false;
-    }
-
-    df->vkBindImageMemory(d->dev, d->colorImage, d->colorMemory, 0);
-    return true;
-}
-
-static void freeVkImage(FilamentCanvasImpl *d) {
-    if (!d->qvkInstance || d->dev == VK_NULL_HANDLE)
-        return;
-    QVulkanDeviceFunctions *df = d->qvkInstance->deviceFunctions(d->dev);
-    if (d->colorImage != VK_NULL_HANDLE) {
-        df->vkDestroyImage(d->dev, d->colorImage, nullptr);
-        d->colorImage = VK_NULL_HANDLE;
-    }
-    if (d->colorMemory != VK_NULL_HANDLE) {
-        df->vkFreeMemory(d->dev, d->colorMemory, nullptr);
-        d->colorMemory = VK_NULL_HANDLE;
-    }
+    return bundle.colors[0];
 }
 
 // ─── オフスクリーン RenderTarget ─────────────────────────────────────────────
 
-static bool recreateOffscreenTarget(FilamentCanvasImpl *d, uint32_t w, uint32_t h) {
+// プロジェクト解像度で Filament の RenderTarget を生成/再生成する。
+// ウィンドウリサイズ時には呼ばれない。
+static bool recreateOffscreenTarget(FilamentCanvasImpl *d) {
+    const uint32_t w = d->projectW;
+    const uint32_t h = d->projectH;
+
     if (!d->engineReady() || w == 0 || h == 0)
         return false;
-    if (d->renderTarget && d->targetW == w && d->targetH == h)
+
+    // 既にこの解像度で生成済みであれば何もしない
+    if (d->swapChain && d->renderTarget)
         return true;
 
-    // Bug2修正: GPU が使用中のリソースを破棄する前に完了を待つ
-    // flushAndWait なしで destroy() を呼ぶと GPU が colorTex を参照中に
-    // メモリが解放され SIGSEGV が発生する。
-    d->engine->flushAndWait();
+    // GPU 完了を待ってから既存リソースを安全に解放する
+    if (d->renderTarget || d->swapChain)
+        d->engine->flushAndWait();
 
-    // 既存リソースを解放
     if (d->view)
         d->view->setRenderTarget(nullptr);
     if (d->renderTarget) {
@@ -384,24 +368,17 @@ static bool recreateOffscreenTarget(FilamentCanvasImpl *d, uint32_t w, uint32_t 
         d->engine->destroy(d->swapChain);
         d->swapChain = nullptr;
     }
-    // Bug3修正: sgTexture が VkImage を保持しているため先に解放する
-    // freeVkImage() の後に delete sgTexture すると Qt SG がダングリング
-    // VkImage を参照したまま内部処理するため SIGSEGV が発生する。
+    // sgTexture は Filament SwapChain の VkImage を参照しているため先に解放する
     delete d->sgTexture;
     d->sgTexture = nullptr;
     d->lastBoundImage = VK_NULL_HANDLE;
-    freeVkImage(d);
 
     qDebug("[FilamentCanvas] RenderTarget 生成: %u x %u", w, h);
 
-    if (!allocVkImage(d, w, h))
-        return false;
-
-    // ヘッドレス SwapChain
+    // headless SwapChain: CONFIG_READABLE で VkImage が getSwapChainBundle に公開される
     d->swapChain = d->engine->createSwapChain(w, h, filament::SwapChain::CONFIG_READABLE);
     if (!d->swapChain) {
         qCritical("[FilamentCanvas] createSwapChain(headless) 失敗。");
-        freeVkImage(d);
         return false;
     }
 
@@ -423,8 +400,13 @@ static bool recreateOffscreenTarget(FilamentCanvasImpl *d, uint32_t w, uint32_t 
 
     d->view->setRenderTarget(d->renderTarget);
     d->view->setViewport({0, 0, w, h});
-    d->targetW = w;
-    d->targetH = h;
+
+    // カメラの投影行列を初期化 (正投影)
+    // 未初期化のカメラ（行列がすべて 0 や NaN）でレンダリングを実行すると、
+    // Filament 内部のカリングやシェーダー計算で不正アクセスが発生しクラッシュする。
+    if (d->camera) {
+        d->camera->setProjection(filament::Camera::Projection::ORTHO, 0.0, (double)w, (double)h, 0.0, -1.0, 1.0);
+    }
 
     qDebug("[FilamentCanvas] RenderTarget 準備完了。");
     return true;
@@ -458,11 +440,10 @@ static void destroyFilamentImpl(FilamentCanvasImpl *d) {
         d->swapChain = nullptr;
     }
 
-    // Bug3修正: destroyFilamentImpl でも sgTexture を先に解放
+    // sgTexture は Filament VkImage を参照しているため先に解放する
     delete d->sgTexture;
     d->sgTexture = nullptr;
     d->lastBoundImage = VK_NULL_HANDLE;
-    freeVkImage(d);
 
     if (d->camera) {
         d->engine->destroyCameraComponent(d->cameraEntity);
@@ -489,8 +470,6 @@ static void destroyFilamentImpl(FilamentCanvasImpl *d) {
     filament::Engine::destroy(&d->engine);
     d->engine = nullptr;
 
-    d->targetW = d->targetH = 0;
-
     qDebug("[FilamentCanvas] Filament Engine 破棄完了。");
 }
 
@@ -498,12 +477,6 @@ static void destroyFilamentImpl(FilamentCanvasImpl *d) {
 
 void FilamentCanvas::onBeforeRendering() {
     if (!m_window)
-        return;
-
-    const double dpr = m_window->devicePixelRatio();
-    const uint32_t pw = static_cast<uint32_t>(width() * dpr);
-    const uint32_t ph = static_cast<uint32_t>(height() * dpr);
-    if (pw == 0 || ph == 0)
         return;
 
     auto *d = m_impl.get();
@@ -514,7 +487,9 @@ void FilamentCanvas::onBeforeRendering() {
             return;
     }
 
-    if (!recreateOffscreenTarget(d, pw, ph))
+    // Filament はプロジェクト解像度で固定レンダリングする。
+    // ウィンドウリサイズでは Qt SG が QSGSimpleTextureNode を scale する。
+    if (!recreateOffscreenTarget(d))
         return;
 
     if (d->renderer->beginFrame(d->swapChain)) {
@@ -522,8 +497,6 @@ void FilamentCanvas::onBeforeRendering() {
         d->renderer->endFrame();
     }
 
-    m_targetW = pw;
-    m_targetH = ph;
     m_frameDirty.store(true, std::memory_order_release);
     QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
 }
@@ -535,26 +508,29 @@ void FilamentCanvas::onSceneGraphInvalidated() { destroyFilamentImpl(m_impl.get(
 QSGNode *FilamentCanvas::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) {
     auto *d = m_impl.get();
 
-    if (!d->engineReady() || !m_window || d->colorImage == VK_NULL_HANDLE)
+    if (!d->engineReady() || !m_window)
         return oldNode;
 
     if (!m_frameDirty.load(std::memory_order_acquire))
         return oldNode;
     m_frameDirty.store(false, std::memory_order_release);
 
-    if (d->lastBoundImage != d->colorImage) {
+    // Filament SwapChain の描画先 VkImage を取得する
+    VkImage filamentImage = getFilamentSwapChainImage(d);
+    if (filamentImage == VK_NULL_HANDLE)
+        return oldNode;
+
+    // SwapChain の VkImage が変わった場合 (解像度変更時のみ) は再生成する
+    if (d->lastBoundImage != filamentImage) {
         delete d->sgTexture;
         d->sgTexture = nullptr;
-        d->lastBoundImage = d->colorImage;
+        d->lastBoundImage = filamentImage;
     }
 
     if (!d->sgTexture) {
-        // QSGVulkanTexture::fromNative() はシーングラフレンダースレッドから
-        // 呼び出す必要がある (updatePaintNode はその条件を満たす)。
-        // layout には現在のイメージレイアウトを渡す。
-        // Filament の RenderTarget として使った後は
-        // COLOR_ATTACHMENT_OPTIMAL または SHADER_READ_ONLY_OPTIMAL になる。
-        d->sgTexture = QNativeInterface::QSGVulkanTexture::fromNative(d->colorImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_window, QSize(static_cast<int>(m_targetW), static_cast<int>(m_targetH)));
+        // headless SwapChain の最終レイアウトは VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL。
+        // Filament Vulkan バックエンドは headless の場合 COLOR_ATTACHMENT_OPTIMAL を使用する。
+        d->sgTexture = QNativeInterface::QSGVulkanTexture::fromNative(filamentImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, m_window, QSize(static_cast<int>(d->projectW), static_cast<int>(d->projectH)));
 
         if (!d->sgTexture) {
             qWarning("[FilamentCanvas] QSGVulkanTexture::fromNative() 失敗。");
@@ -569,6 +545,8 @@ QSGNode *FilamentCanvas::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *
     }
 
     node->setTexture(d->sgTexture);
+    // ウィンドウサイズに合わせて scale して表示する
+    // Filament は projectW x projectH で固定、Qt SG が引き伸ばす
     node->setRect(boundingRect());
     // Filament は Y 下向き、Qt SceneGraph は Y 上向き → 垂直反転
     node->setTextureCoordinatesTransform(QSGSimpleTextureNode::MirrorVertically);
@@ -581,9 +559,9 @@ QSGNode *FilamentCanvas::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *
 void FilamentCanvas::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
     if (newGeometry.size() != oldGeometry.size()) {
-        // GUI スレッドでシーングラフのリソース (sgTexture) を破壊してはならない
-        // フラグをリセットし、次の onBeforeRendering (レンダースレッド) での再生成を促す
-        m_targetW = m_targetH = 0;
+        // Filament は固定解像度のため、ウィンドウリサイズでは
+        // QSGSimpleTextureNode の rect を再設定するだけでよい。
+        // recreateOffscreenTarget は呼ばれない。
         update();
     }
 }

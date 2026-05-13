@@ -20,6 +20,8 @@ Item {
         anchors.fill: parent
         sceneId: root.sceneId
         currentFrame: root.currentFrame
+        projectWidth: root.projectWidth
+        projectHeight: root.projectHeight
     }
 
 }

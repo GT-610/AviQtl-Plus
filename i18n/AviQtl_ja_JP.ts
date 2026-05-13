@@ -796,7 +796,7 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="145"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1066"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1068"/>
         <source>終了</source>
         <translation type="unfinished"></translation>
     </message>
@@ -917,67 +917,67 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="834"/>
+        <location filename="../ui/qml/MainWindow.qml" line="836"/>
         <source>速度</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1023"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1025"/>
         <source>ファイル</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1052"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1054"/>
         <source>メディアの書き出し...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1094"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1096"/>
         <source>プロジェクト設定</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1107"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1109"/>
         <source>環境設定</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1146"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1148"/>
         <source>ツール</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1149"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1151"/>
         <source>パッケージマネージャー</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1091"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1093"/>
         <source>設定</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1075"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1077"/>
         <source>編集</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1120"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1122"/>
         <source>表示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1123"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1125"/>
         <source>タイムラインの表示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1133"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1135"/>
         <source>設定ダイアログの表示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1160"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1162"/>
         <source>バージョン情報</source>
         <translation type="unfinished"></translation>
     </message>

@@ -669,6 +669,8 @@ ApplicationWindow {
         CompositeView {
             id: compositeView
 
+            projectWidth: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : 1920
+            projectHeight: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : 1080
             Layout.fillWidth: true
             Layout.fillHeight: true
             layerStates: {
