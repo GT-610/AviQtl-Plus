@@ -69,6 +69,11 @@ auto main(int argc, char *argv[]) -> int {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
     QApplication app(argc, argv);
+
+    // ランチャーを単独で起動した際に、それが閉じられただけでアプリが終了するのを防ぐ。
+    // プロジェクトがロードされた後に spawnInitialWindows でメインウィンドウが作られれば、
+    // それ以降は通常通りのウィンドウライフサイクル管理となる。
+    app.setQuitOnLastWindowClosed(false);
     QApplication::setApplicationName(QStringLiteral("AviQtl"));
 
     const QString appDir = QCoreApplication::applicationDirPath();
@@ -145,8 +150,21 @@ auto main(int argc, char *argv[]) -> int {
         AviQtl::Core::EffectRegistry::instance().loadEffectsFromDirectory(effectsDir + QStringLiteral("/objects"));
 
         // 音声プラグインの読み込み完了時にスプラッシュ画面を消去する
-        QObject::connect(&AviQtl::Engine::Plugin::AudioPluginManager::instance(), &AviQtl::Engine::Plugin::AudioPluginManager::pluginsReady, splash, [&engine, splash](int) -> void {
-            AviQtl::UI::WindowManager::instance().spawnInitialWindows(&engine);
+        QObject::connect(&AviQtl::Engine::Plugin::AudioPluginManager::instance(), &AviQtl::Engine::Plugin::AudioPluginManager::pluginsReady, splash, [&engine, workspace, splash](int) -> void {
+            // 修正: 起動時はメインウィンドウを一斉に開かず、プロジェクトランチャーのみを表示する。
+            // これにより、プロジェクト未選択状態で Filament が初期化されるのを防ぎ、SIGSEGVを回避する。
+            AviQtl::UI::WindowManager::instance().showLauncher(&engine);
+
+            // ユーザーがプロジェクトを新規作成またはロードしたタイミングで、メインの編集画面群を生成する。
+            QObject::connect(
+                workspace, &AviQtl::UI::Workspace::currentTimelineChanged, workspace,
+                [&engine, workspace]() {
+                    if (workspace->currentTimeline()) {
+                        AviQtl::UI::WindowManager::instance().spawnInitialWindows(&engine);
+                    }
+                },
+                Qt::SingleShotConnection);
+
             splash->finish(nullptr);
             splash->deleteLater();
         });

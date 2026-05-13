@@ -36,7 +36,11 @@ void WindowManager::spawnInitialWindows(QQmlEngine *engine) {
     showLauncher();
 }
 
-void WindowManager::showLauncher() {
+void WindowManager::showLauncher(QQmlEngine *engine) {
+    if (engine) {
+        m_engine = engine;
+    }
+
     if (m_engine == nullptr) {
         qWarning() << "showLauncher: QMLエンジンが未初期化です";
         return;

@@ -26,7 +26,7 @@ class WindowManager : public QObject {
 
   public slots:
     // タブ 0 / 新規作成要求でランチャーを表示する
-    Q_INVOKABLE void showLauncher();
+    Q_INVOKABLE void showLauncher(QQmlEngine *engine = nullptr);
 
     Q_INVOKABLE void setVisible(const QString &id, bool visible);
     Q_INVOKABLE void toggleVisible(const QString &id);

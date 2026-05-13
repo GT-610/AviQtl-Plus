@@ -45,7 +45,9 @@ ApplicationWindow {
         }
     }
 
-    visible: true
+    // 修正: 有効なプロジェクト（タブ）が存在しない場合はメインウィンドウを非表示にする。
+    // これにより、不必要なレンダリングコンテキストの生成とそれによるクラッシュを抑制する。
+    visible: Workspace && Workspace.tabs && Workspace.tabs.length > 0
     width: 640
     height: 360
     x: 100
@@ -582,7 +584,7 @@ ApplicationWindow {
                     height: parent ? parent.height : 0
 
                     sourceComponent: TabBar {
-                        width: Math.max(parent ? parent.width : 0, contentWidth || 0)
+                        width: (parent && parent.width > 0) ? Math.max(parent.width, contentWidth || 0) : 0
 
                         Repeater {
                             id: projectRepeater
