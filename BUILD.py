@@ -928,6 +928,7 @@ class MsvcBuilder(PlatformBuilder):
             raise FileNotFoundError(f"実行ファイルが見つかりません: {src_bin}")
         shutil.copy2(src_bin, dest_bin)
         self.copy_assets(self.config.output_dir)
+        self.copy_carla_runtime()
 
         deployqt = shutil.which("windeployqt", path=self.env.get("PATH"))
         if not deployqt:
@@ -951,6 +952,25 @@ class MsvcBuilder(PlatformBuilder):
 
     def get_archive_name(self) -> str:
         return "AviQtl-MSVC-x86_64"
+
+    def copy_carla_runtime(self):
+        carla_lib = self.config.source_dir / "vendor" / "carla" / "lib"
+        if not carla_lib.exists():
+            return
+        patterns = [
+            "carla*.dll",
+            "libcarla*.dll",
+            "CarlaVst*.dll",
+        ]
+        copied = set()
+        for pattern in patterns:
+            for dll in carla_lib.glob(pattern):
+                if dll.name in copied:
+                    continue
+                shutil.copy2(dll, self.config.output_dir / dll.name)
+                copied.add(dll.name)
+        if copied:
+            self.logger.log(f"Carla DLL を同梱: {len(copied)} files")
 
 
 class XcodeBuilder(PlatformBuilder):

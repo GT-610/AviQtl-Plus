@@ -68,15 +68,24 @@ if(WIN32)
         set(CARLA_SDK_DIR "${CMAKE_SOURCE_DIR}/vendor/carla")
     endif()
 
-    # Windowsでは手動指定を優先し、なければpkg-configを試す
+    # Windows では Carla 公式バイナリに pkg-config が含まれないため手動指定を優先
     find_path(CARLA_INCLUDE_DIR NAMES CarlaBackend.h PATHS ${CARLA_SDK_DIR}/include)
-    find_library(CARLA_LIBRARY NAMES carla-standalone PATHS ${CARLA_SDK_DIR}/lib ${CARLA_SDK_DIR})
+    find_library(CARLA_STANDALONE_LIBRARY NAMES libcarla_standalone2 carla_standalone2 carla-standalone PATHS ${CARLA_SDK_DIR}/lib ${CARLA_SDK_DIR})
+    find_library(CARLA_NATIVE_PLUGIN_LIBRARY NAMES libcarla_native-plugin carla_native-plugin carla-native-plugin PATHS ${CARLA_SDK_DIR}/lib ${CARLA_SDK_DIR})
+    find_library(CARLA_HOST_PLUGIN_LIBRARY NAMES libcarla_host-plugin carla_host-plugin carla-host-plugin PATHS ${CARLA_SDK_DIR}/lib ${CARLA_SDK_DIR})
+    find_library(CARLA_UTILS_LIBRARY NAMES libcarla_utils carla_utils carla-utils PATHS ${CARLA_SDK_DIR}/lib ${CARLA_SDK_DIR})
 
-    if(CARLA_INCLUDE_DIR AND CARLA_LIBRARY)
+    if(CARLA_INCLUDE_DIR AND CARLA_STANDALONE_LIBRARY AND CARLA_NATIVE_PLUGIN_LIBRARY AND CARLA_HOST_PLUGIN_LIBRARY AND CARLA_UTILS_LIBRARY)
         set(CARLA_FOUND TRUE)
         set(CARLA_INCLUDE_DIRS ${CARLA_INCLUDE_DIR})
-        set(CARLA_LIBRARIES ${CARLA_LIBRARY})
-        message(STATUS "Found Carla manually: ${CARLA_LIBRARY}")
+        set(CARLA_LIBRARY_DIRS ${CARLA_SDK_DIR}/lib)
+        set(CARLA_LIBRARIES
+            ${CARLA_STANDALONE_LIBRARY}
+            ${CARLA_NATIVE_PLUGIN_LIBRARY}
+            ${CARLA_HOST_PLUGIN_LIBRARY}
+            ${CARLA_UTILS_LIBRARY}
+        )
+        message(STATUS "Found Carla manually: ${CARLA_LIBRARIES}")
     endif()
     # If not found manually, try pkg-config
     if(NOT CARLA_FOUND)
