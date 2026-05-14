@@ -273,7 +273,7 @@ elseif(APPLE)
         "-framework QuartzCore"
     )
 elseif(MSVC)
-    target_link_libraries(AviQtl PRIVATE ${FILAMENT_LIBS})
+    target_link_libraries(AviQtl PRIVATE ${FILAMENT_LIBS} opengl32)
 endif()
 
 # ターゲットが定義された後にインクルードを追加

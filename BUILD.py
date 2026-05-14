@@ -962,6 +962,9 @@ class MsvcBuilder(PlatformBuilder):
             "libcarla*.dll",
             "CarlaVst*.dll",
         ]
+        aliases = {
+            "libcarla_native-plugin.dll": "CarlaNativePlugin.dll",
+        }
         copied = set()
         for pattern in patterns:
             for dll in carla_lib.glob(pattern):
@@ -969,6 +972,9 @@ class MsvcBuilder(PlatformBuilder):
                     continue
                 shutil.copy2(dll, self.config.output_dir / dll.name)
                 copied.add(dll.name)
+                if dll.name in aliases:
+                    shutil.copy2(dll, self.config.output_dir / aliases[dll.name])
+                    copied.add(aliases[dll.name])
         if copied:
             self.logger.log(f"Carla DLL を同梱: {len(copied)} files")
 
