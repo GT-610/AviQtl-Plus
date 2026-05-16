@@ -169,7 +169,6 @@ add_custom_target(AviQtl_ExternalShaders ALL DEPENDS ${EXTERNAL_QSB_FILES})
 
 # --- Executable ---
 qt_add_executable(AviQtl
-    MACOSX_BUNDLE
     core/src/main.cpp
     ui/resources.qrc
     ${QML_FILES}
@@ -178,6 +177,7 @@ qt_add_executable(AviQtl
 
 if(APPLE)
     set_target_properties(AviQtl PROPERTIES
+        MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "AviQtl"
         MACOSX_BUNDLE_GUI_IDENTIFIER "org.aviqtl.AviQtl"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
