@@ -480,9 +480,13 @@ class Msys2Builder(PlatformBuilder):
         # pacman経由でインストールされた外部依存DLL(ffmpeg等)をコピーするためのパス解決等も
         # MSYS2の場合はwindeployqt以外にもntlddなどが有用ですが、一旦windeployqtに任せます。
         
-        self.logger.log("windeployqt を実行中...")
+        # MSYS2 ucrt64 の Qt6 パッケージでは windeployqt6 が正式ツール名。
+        # windeployqt (Qt5 用) は存在しないため windeployqt6 を優先し、
+        # 見つからない場合のみ windeployqt にフォールバックする。
+        deploy_tool = "windeployqt6" if shutil.which("windeployqt6") else "windeployqt"
+        self.logger.log(f"{deploy_tool} を実行中...")
         self.run_cmd([
-            "windeployqt",
+            deploy_tool,
             "--qmldir", str(self.config.source_dir / "ui/qml"),
             "--no-translations",
             "--release" if not self.config.is_debug else "--debug",
