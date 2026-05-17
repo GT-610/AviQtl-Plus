@@ -500,7 +500,12 @@ class Msys2Builder(PlatformBuilder):
         self.logger.log(f"{deploy_tool} を実行中...")
         self.run_cmd([
             deploy_tool,
-            "--qmldir", str(self.config.source_dir / "ui/qml"),
+            # --qmldir を使うと windeployqt6 が qmlimportscanner.exe を自身と
+            # 同じディレクトリから探すが、MSYS2 ucrt64 には存在しないためエラーになる。
+            # --no-quick-import で QML スキャンをスキップし、PE インポートテーブルから
+            # Qt Quick DLL を自動検出する方式に切り替える。
+            # QML ファイル自体は copy_assets() で配置済み。
+            "--no-quick-import",
             "--no-translations",
             "--release" if not self.config.is_debug else "--debug",
             str(dest_bin),
