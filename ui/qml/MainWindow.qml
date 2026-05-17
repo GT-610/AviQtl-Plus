@@ -691,9 +691,10 @@ ApplicationWindow {
                 var _trigger = Workspace.currentTimeline ? Workspace.currentTimeline.clips : null;
                 if (Workspace.currentTimeline && sceneId >= 0) {
                     var clips = Workspace.currentTimeline.getSceneClips(sceneId);
-                    // レイヤー番号昇順でソートすることで、描画ツリー上でも正しい順序（奥から手前）で生成されるようにする
+                    // 3Dレンダラーの描画スタックにおいて、レイヤー番号が大きいほど手前に描画されるように
+                    // モデルを降順でソートします。
                     return clips.sort((a, b) => {
-                        return a.layer - b.layer;
+                        return b.layer - a.layer;
                     });
                 }
                 return [];

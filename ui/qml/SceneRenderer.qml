@@ -42,7 +42,7 @@ Item {
             if (root.timelineBridge && root.sceneId >= 0) {
                 var clips = root.timelineBridge.getSceneClips(root.sceneId);
                 return clips.sort((a, b) => {
-                    return a.layer - b.layer;
+                    return b.layer - a.layer;
                 });
             }
             return [];

@@ -104,7 +104,8 @@ void TimelineEngineSynchronizer::updateActiveClipsList() {
     int current = m_controller->transport()->currentFrame();
     QList<ClipData *> active;
     queryIntervalTree(m_treeRoot, current, active);
-    std::ranges::sort(active, [](const ClipData *a, const ClipData *b) { return a->layer > b->layer; });
+    // 合成順（奥から順）に ECS 状態を更新するため、レイヤー番号昇順でソート
+    std::ranges::sort(active, [](const ClipData *a, const ClipData *b) { return a->layer < b->layer; });
 
     for (const ClipData *clip : std::as_const(active)) {
         int relFrame = current - clip->startFrame;
