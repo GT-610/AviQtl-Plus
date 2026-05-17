@@ -484,6 +484,19 @@ class Msys2Builder(PlatformBuilder):
         # windeployqt (Qt5 用) は存在しないため windeployqt6 を優先し、
         # 見つからない場合のみ windeployqt にフォールバックする。
         deploy_tool = "windeployqt6" if shutil.which("windeployqt6") else "windeployqt"
+
+        # windeployqt6 は QML スキャン時に内部で qmlimportscanner を QProcess 経由で
+        # 子プロセス起動する。MSYS2 CI 環境では Windows ネイティブな QProcess が
+        # PATH を正しく解決できず "Process failed to start" になるため、
+        # windeployqt6 が存在する bin ディレクトリを PATH の先頭に明示的に追加する。
+        deploy_exe = shutil.which(deploy_tool)
+        if deploy_exe:
+            qt_bin_dir = str(Path(deploy_exe).resolve().parent)
+            current_path = self.env.get("PATH", os.environ.get("PATH", ""))
+            if qt_bin_dir not in current_path.split(os.pathsep):
+                self.env["PATH"] = qt_bin_dir + os.pathsep + current_path
+                self.logger.log(f"Qt bin を PATH に追加: {qt_bin_dir}")
+
         self.logger.log(f"{deploy_tool} を実行中...")
         self.run_cmd([
             deploy_tool,
