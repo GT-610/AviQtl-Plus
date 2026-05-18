@@ -216,35 +216,44 @@ auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float>
 }
 
 void AudioDecoder::buildPeakCache() {
-    QMutexLocker locker(&m_mutex);
-    m_peakPyramid.clear();
-    if (m_fullAudioData.empty()) {
-        return;
+    // Copy audio data out under lock to avoid a data race with
+    // closeFFmpeg() / setSampleRate(), which may clear the buffer
+    // from another thread while we build the pyramid off-thread.
+    std::vector<float> localAudio;
+    {
+        QMutexLocker locker(&m_mutex);
+        if (m_fullAudioData.empty()) {
+            m_peakPyramid.clear();
+            return;
+        }
+        localAudio = m_fullAudioData; // copy under lock
     }
 
-    int numSamples = static_cast<int>(m_fullAudioData.size() / 2);
+    int numSamples = static_cast<int>(localAudio.size() / 2);
+
+    std::vector<PeakLevel> localPyramid;
 
     // Level 0: 32サンプルごとの最小・最大値 (高精度)
     PeakLevel base;
     base.samplesPerEntry = 32;
-    base.peaks.reserve((numSamples / 32) + 1);
+    base.peaks.reserve(static_cast<size_t>(numSamples / 32) + 1);
 
     for (int i = 0; i < numSamples; i += 32) {
         float pMin = 0.0F;
         float pMax = 0.0F;
         for (int j = 0; j < 32 && (i + j) < numSamples; ++j) {
-            float l = m_fullAudioData[static_cast<std::size_t>(i + j) * 2];
-            float r = m_fullAudioData[(static_cast<std::size_t>(i + j) * 2) + 1];
+            float l = localAudio[static_cast<std::size_t>(i + j) * 2];
+            float r = localAudio[(static_cast<std::size_t>(i + j) * 2) + 1];
             pMin = std::min({pMin, l, r});
             pMax = std::max({pMax, l, r});
         }
         base.peaks.push_back({.min = pMin, .max = pMax});
     }
-    m_peakPyramid.push_back(std::move(base));
+    localPyramid.push_back(std::move(base));
 
     // Level 1-5: 前のレベルの8要素(8倍速)から最大・最小を抽出
     for (int i = 0; i < 5; ++i) {
-        const auto &prev = m_peakPyramid.back();
+        const auto &prev = localPyramid.back();
         if (prev.peaks.size() < 8) {
             break;
         }
@@ -262,7 +271,13 @@ void AudioDecoder::buildPeakCache() {
             }
             next.peaks.push_back({.min = pMin, .max = pMax});
         }
-        m_peakPyramid.push_back(std::move(next));
+        localPyramid.push_back(std::move(next));
+    }
+
+    // Publish the completed pyramid under lock
+    {
+        QMutexLocker locker(&m_mutex);
+        m_peakPyramid = std::move(localPyramid);
     }
 }
 
