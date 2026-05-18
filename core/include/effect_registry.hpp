@@ -35,7 +35,13 @@ class EffectRegistry {
         m_effects.insert(meta.id, meta);
     }
 
-    EffectMetadata getEffect(const QString &id) const { return m_effects.value(id); }
+    /// Returns a reference valid only until the next registerEffect() call.
+    /// Callers must copy if they need a stable value.
+    const EffectMetadata &getEffect(const QString &id) const {
+        static const EffectMetadata s_empty;
+        auto it = m_effects.constFind(id);
+        return it != m_effects.cend() ? it.value() : s_empty;
+    }
 
     QList<EffectMetadata> getAllEffects() const {
         QList<EffectMetadata> list;
