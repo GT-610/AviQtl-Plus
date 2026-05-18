@@ -151,17 +151,19 @@ void TimelineMediaManager::updateMediaDecoders() {
 
             if (m_decoders.contains(clip.id)) {
                 AviQtl::Core::MediaDecoder *existingDecoder = m_decoders.value(clip.id);
-                // If the source has changed, we must recreate the decoder
-                if (existingDecoder->source() != sourceUrl) {
-                    if (qobject_cast<AviQtl::Core::AudioDecoder *>(existingDecoder) != nullptr) {
-                        m_audioMixer->unregisterDecoder(clip.id);
-                    }
-                    if (existingDecoder != nullptr) {
+                if (existingDecoder != nullptr) {
+                    // If the source has changed, we must recreate the decoder
+                    if (existingDecoder->source() != sourceUrl) {
+                        if (qobject_cast<AviQtl::Core::AudioDecoder *>(existingDecoder) != nullptr) {
+                            m_audioMixer->unregisterDecoder(clip.id);
+                        }
                         existingDecoder->deleteLater();
+                        m_decoders.remove(clip.id);
+                    } else {
+                        continue;
                     }
-                    m_decoders.remove(clip.id);
                 } else {
-                    continue;
+                    m_decoders.remove(clip.id);
                 }
             }
 
