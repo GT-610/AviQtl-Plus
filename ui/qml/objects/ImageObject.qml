@@ -55,10 +55,8 @@ Common.BaseObject {
     Item {
         id: containerItem
 
-        readonly property real pad: base.padding * 2
-
-        width: (Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.width : 1920) + pad
-        height: (Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.height : 1080) + pad
+        width: Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.width : 1920
+        height: Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.height : 1080
         visible: false
 
         VideoOutput {

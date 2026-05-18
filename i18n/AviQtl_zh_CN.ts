@@ -87,7 +87,7 @@
         <translation>调整多个片段大小：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="19"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="63"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>保存目标文件路径未知</translation>
     </message>
@@ -980,7 +980,7 @@
         <translation>显示设置对话框</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1204"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1212"/>
         <source>バージョン情報</source>
         <translation>版本信息</translation>
     </message>
@@ -1037,27 +1037,27 @@
         <translation>最大图像尺寸</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="59"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="61"/>
         <source>キャッシュ容量</source>
         <translation>缓存容量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="71"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="73"/>
         <source>描画スレッド数</source>
         <translation>绘制线程数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="85"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="87"/>
         <source>補足</source>
         <translation>补充说明</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="92"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="94"/>
         <source>描画スレッド数が自動のときは実行環境に応じて決定します</source>
         <translation>绘制线程数设为自动时会根据运行环境决定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="98"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="100"/>
         <source>ご使用の実行環境に合わせて、まずは自動設定で動作を確認してください</source>
         <translation>请先使用自动设置，根据您的运行环境确认其工作情况</translation>
     </message>

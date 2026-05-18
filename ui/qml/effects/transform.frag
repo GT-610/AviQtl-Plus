@@ -22,7 +22,7 @@ void main() {
     vec2 uv = qt_TexCoord0 - vec2(0.5);
 
     // 2. 回転・拡大縮小の中心（ピボット）の適用
-    vec2 pivot = vec2(cx / targetWidth, -cy / targetHeight);
+    vec2 pivot = vec2(cx / targetWidth, cy / targetHeight);
     uv -= pivot;
 
     // 3. 拡大縮小の逆変換 (縮小で拡大サンプリング、拡大で縮小サンプリング)
@@ -39,8 +39,8 @@ void main() {
     // 5. ピボットの復元
     uv += pivot;
 
-    // 6. 移動の逆変換 (AviUtl 座標系と Qt の Y 軸方向の補正)
-    vec2 offset = vec2(translationX / targetWidth, -translationY / targetHeight);
+    // 6. 移動の逆変換 (直感的な座標系：反転なし)
+    vec2 offset = vec2(translationX / targetWidth, translationY / targetHeight);
     uv -= offset;
 
     // 7. テクスチャ座標系 [0.0 ~ 1.0] に戻す

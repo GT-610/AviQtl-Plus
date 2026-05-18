@@ -6,9 +6,53 @@
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
 #include <QFile>
+#include <QFileInfo>
 #include <QUrl>
 
 namespace AviQtl::UI {
+
+namespace {
+void addRecentProject(const QString &fileUrl, ProjectService *project) {
+    if (fileUrl.isEmpty() || !project)
+        return;
+
+    QString path = QUrl(fileUrl).toLocalFile();
+    if (path.isEmpty()) {
+        path = fileUrl;
+    }
+    QString name = QFileInfo(path).fileName();
+
+    auto &settingsManager = AviQtl::Core::SettingsManager::instance();
+    QVariantList recentList = settingsManager.value(QStringLiteral("recentProjects"), QVariantList()).toList();
+
+    // 重複を避けて先頭に追加する
+    QVariantList newList;
+    QVariantMap newEntry;
+    newEntry[QStringLiteral("name")] = name;
+    newEntry[QStringLiteral("path")] = path;
+    newEntry[QStringLiteral("width")] = project->width();
+    newEntry[QStringLiteral("height")] = project->height();
+    newEntry[QStringLiteral("fps")] = project->fps();
+
+    newList.append(newEntry);
+
+    for (const auto &val : recentList) {
+        QVariantMap entry = val.toMap();
+        if (entry.value(QStringLiteral("path")).toString() != path) {
+            newList.append(entry);
+        }
+    }
+
+    // 最大件数でトリミング
+    int maxRecent = settingsManager.value(QStringLiteral("recentProjectMaxCount"), 10).toInt();
+    while (newList.size() > maxRecent) {
+        newList.removeLast();
+    }
+
+    settingsManager.setValue(QStringLiteral("recentProjects"), newList);
+    settingsManager.save();
+}
+} // namespace
 
 auto TimelineController::saveProject(const QString &fileUrl) -> bool {
     // 渡されたパスが空の場合は内部で保持しているパスを割り当てる
@@ -29,6 +73,7 @@ auto TimelineController::saveProject(const QString &fileUrl) -> bool {
         m_timeline->undoStack()->setClean();
         emit currentProjectUrlChanged();
         emit hasUnsavedChangesChanged();
+        addRecentProject(targetUrl, m_project);
     } else {
         emit errorOccurred(error);
     }
@@ -45,6 +90,7 @@ auto TimelineController::loadProject(const QString &fileUrl) -> bool {
         m_timeline->undoStack()->setClean();
         emit currentProjectUrlChanged();
         emit hasUnsavedChangesChanged();
+        addRecentProject(fileUrl, m_project);
     } else {
         emit errorOccurred(error);
     }

@@ -78,7 +78,6 @@ Node {
         }
         return res;
     }
-    readonly property real padding: getBlurPadding()
     // 子クラスがオーバーライドするプロパティ
     property Item sourceItem
     property alias renderer: rendererInstance
@@ -134,27 +133,6 @@ Node {
         // visible を落とすと SceneGraph から外れてテクスチャ更新が止まり得るので触らない。
         // 表示は CompositeView 側の host opacity と ShaderEffectSource.hideSource に任せる。
         owned2D.push(item);
-    }
-
-    // ぼかしパディング自動計算（全オブジェクト共通）
-    function getBlurPadding() {
-        for (let i = 0; i < rawEffectModels.length; i++) {
-            if ((rawEffectModels[i].id === "blur" || rawEffectModels[i].id === "border_blur" || rawEffectModels[i].id === "glow" || rawEffectModels[i].id === "flash" || rawEffectModels[i].id === "diffuse_light") && rawEffectModels[i].enabled) {
-                var v = rawEffectModels[i].evaluatedParam ? rawEffectModels[i].evaluatedParam("size", relFrame, projectFps) : undefined;
-                if (v === undefined || v === null)
-                    v = rawEffectModels[i].evaluatedParam ? rawEffectModels[i].evaluatedParam("diffusion", relFrame, projectFps) : undefined;
-
-                if (v === undefined || v === null)
-                    v = rawEffectModels[i].evaluatedParam ? rawEffectModels[i].evaluatedParam("strength", relFrame, projectFps) : undefined;
-
-                if (v === undefined || v === null)
-                    v = rawEffectModels[i].params["size"] || rawEffectModels[i].params["diffusion"] || rawEffectModels[i].params["strength"];
-
-                // FastBlurの特性上、半径の3倍程度の余白がないと端が切れて不自然になるため広めに確保する
-                return Number(v || 0) * 3;
-            }
-        }
-        return 0;
     }
 
     // NodeのプロパティをtransformModelにバインド

@@ -81,11 +81,13 @@ Item {
     }
 
     // 2Dレンダー（sourceItem/effects/ShaderEffectSource）を必ずQQuickWindow配下に置くためのホスト
-    // visible:false でもWindow配下に居ればSceneGraph/Timerが正常に動く
+    // 画面外への移動で見切れるのを防ぐため、十分な余裕を持った巨大なサイズ (ユーザー設定の最大画像サイズ) を確保する
     Item {
         id: offscreenRenderHost
 
-        anchors.fill: parent
+        width: SettingsManager ? SettingsManager.value("maxImageSize", 8192) : 8192
+        height: SettingsManager ? SettingsManager.value("maxImageSize", 8192) : 8192
+        anchors.centerIn: parent
         visible: true
         opacity: 0
         enabled: false
@@ -337,13 +339,12 @@ Item {
 
                     return inTimeRange;
                 }
-                // 座標変換: 中心(0,0)、Y軸下プラス(AviUtl互換)
-                // Qt3DはY上がプラスなので、入力を反転させる
+                // 座標変換: 中心(0,0)、直感的なY軸上プラス（反転なし）
                 x: effectiveTransform.x
-                y: -effectiveTransform.y
+                y: effectiveTransform.y
                 z: effectiveTransform.z
                 // 中心座標 (Pivot)
-                pivot: Qt.vector3d(tParams.anchorX || 0, -(tParams.anchorY || 0), tParams.anchorZ || 0)
+                pivot: Qt.vector3d(tParams.anchorX || 0, tParams.anchorY || 0, tParams.anchorZ || 0)
                 // 3軸回転
                 eulerRotation.x: effectiveTransform.rx
                 eulerRotation.y: -effectiveTransform.ry

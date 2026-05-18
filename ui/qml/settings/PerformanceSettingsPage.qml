@@ -49,10 +49,12 @@ ScrollView {
                     text: qsTr("最大画像サイズ")
                 }
 
-                ComboBox {
-                    model: ["1280x720", "1920x1080", "2560x1440", "3840x2160"]
-                    currentIndex: Math.max(0, model.indexOf(root.valueOr("maxImageSize", "1920x1080")))
-                    onActivated: root.setValue("maxImageSize", currentText)
+                SpinBox {
+                    from: 1024
+                    to: 16384
+                    stepSize: 512
+                    value: Number(root.valueOr("maxImageSize", 8192))
+                    onValueModified: root.setValue("maxImageSize", value)
                 }
 
                 Label {

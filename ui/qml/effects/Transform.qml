@@ -10,7 +10,7 @@ Common.BaseEffect {
         const x = evalNumber("x", 0);
         const y = evalNumber("y", 0);
         const z = evalNumber("z", 0);
-        return Qt.vector3d(x, -y, z);
+        return Qt.vector3d(x, y, z);
     }
     readonly property vector3d outputRotation: {
         const rx = evalNumber("rotationX", 0);
@@ -22,7 +22,7 @@ Common.BaseEffect {
         const cx = evalNumber("cx", 0);
         const cy = evalNumber("cy", 0);
         const cz = evalNumber("cz", 0);
-        return Qt.vector3d(cx, -cy, cz);
+        return Qt.vector3d(cx, cy, cz);
     }
     readonly property real outputOpacity: evalNumber("opacity", 1)
     readonly property int outputCullMode: {

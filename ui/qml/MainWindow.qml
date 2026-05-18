@@ -1192,9 +1192,17 @@ ApplicationWindow {
             Common.IconMenuItem {
                 text: qsTr("パッケージマネージャー")
                 iconName: "archive_line"
-                enabled: false // 後で実装
+                enabled: true
                 onTriggered: {
-                } // TODO: PackageManager window
+                    var win = WindowManager.getWindow("packageManager");
+                    if (win) {
+                        win.x = mainWin.x + (mainWin.width - win.width) / 2;
+                        win.y = mainWin.y + (mainWin.height - win.height) / 2;
+                        win.show();
+                        win.raise();
+                        win.requestActivate();
+                    }
+                }
             }
 
             MenuSeparator {

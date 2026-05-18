@@ -87,7 +87,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Resize multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="19"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="63"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>The destination file path is unknown</translation>
     </message>
@@ -980,7 +980,7 @@ Save before continuing?</translation>
         <translation>Show Settings Dialog</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1204"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1212"/>
         <source>バージョン情報</source>
         <translation>About</translation>
     </message>
@@ -1037,27 +1037,27 @@ Save before continuing?</translation>
         <translation>Maximum image size</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="59"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="61"/>
         <source>キャッシュ容量</source>
         <translation>Cache capacity</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="71"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="73"/>
         <source>描画スレッド数</source>
         <translation>Render thread count</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="85"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="87"/>
         <source>補足</source>
         <translation>Notes</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="92"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="94"/>
         <source>描画スレッド数が自動のときは実行環境に応じて決定します</source>
         <translation>When render thread count is set to automatic, it is determined based on the runtime environment</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="98"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="100"/>
         <source>ご使用の実行環境に合わせて、まずは自動設定で動作を確認してください</source>
         <translation>Start with automatic settings and verify behavior for your runtime environment</translation>
     </message>

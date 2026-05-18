@@ -51,7 +51,7 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"pluginPathsSFZ", getDefaultPluginPaths(QStringLiteral("sfz"), {QStringLiteral("SFZ_PATH")}, {QStringLiteral("/usr/share/sounds/sfz")})},
         {"pluginEnableJSFX", true},
         {"pluginPathsJSFX", getDefaultPluginPaths(QStringLiteral("jsfx"), {}, {})},
-        {"maxImageSize", "1920x1080"},
+        {"maxImageSize", 8192},
         {"cacheSize", 512},
         {"undoCount", 32},
         {"renderThreads", 0},
