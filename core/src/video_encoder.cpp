@@ -393,8 +393,7 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
         if (m_swsCtx != nullptr) {
             sws_freeContext(m_swsCtx);
         }
-        m_swsCtx = sws_getContext(sourceImg.width(), sourceImg.height(), srcPixFmt,
-                                  m_config.width, m_config.height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
+        m_swsCtx = sws_getContext(sourceImg.width(), sourceImg.height(), srcPixFmt, m_config.width, m_config.height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
         m_swsSrcFmt = static_cast<int>(srcPixFmt);
     }
 
