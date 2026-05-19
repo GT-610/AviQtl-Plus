@@ -51,19 +51,34 @@ Item {
     Rectangle {
         id: clipRect
 
+        readonly property var _rawColor: Workspace.currentTimeline ? Workspace.currentTimeline.getClipTypeColor(modelData.type) : ""
+        readonly property color _baseColor: _rawColor !== "" ? _rawColor : Qt.darker(palette.highlight, 1.6)
+
         anchors.fill: parent
         anchors.bottomMargin: 2
-        color: {
-            var c = Workspace.currentTimeline ? Workspace.currentTimeline.getClipTypeColor(modelData.type) : "";
-            if (c !== "")
-                return isSelected ? Qt.lighter(c, 1.3) : c;
-
-            return isSelected ? palette.highlight : Qt.darker(palette.highlight, 1.6);
-        }
+        color: isSelected ? (_rawColor !== "" ? Qt.lighter(_rawColor, 1.3) : palette.highlight) : "transparent"
+        gradient: isSelected ? null : clipGradient
         border.color: isSelected ? palette.highlight : palette.midlight
         border.width: isSelected ? 2 : 1
         opacity: 1
-        radius: 4
+        radius: 0
+
+        Gradient {
+            id: clipGradient
+
+            orientation: Gradient.Horizontal
+
+            GradientStop {
+                position: 0
+                color: clipRect._baseColor
+            }
+
+            GradientStop {
+                position: 1
+                color: Qt.darker(clipRect._baseColor, 2)
+            }
+
+        }
 
         Text {
             readonly property int padding: 4

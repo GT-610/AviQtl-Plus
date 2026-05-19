@@ -25,8 +25,9 @@ Common.AviQtlWindow {
     readonly property bool _isInputFocused: {
         var item = Qt.application.focusItem;
         if (!item)
-            return false; // フォーカスを持つアイテムがない場合は入力中ではない
+            return false;
 
+        // フォーカスを持つアイテムがない場合は入力中ではない
         return item.hasOwnProperty("echoMode") || (item.hasOwnProperty("selectionStart") && item.readOnly === false);
     }
 
