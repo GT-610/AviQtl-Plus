@@ -471,7 +471,8 @@ class EffectModel : public QObject {
         // 未初期化トラックを初期化し、旧終端フレームにある中間点を新終端フレームへ追従させる
         for (auto it = m_params.begin(); it != m_params.end(); ++it) {
             const QString &key = it.key();
-            if (!m_keyframeTracks.contains(key) || !isStructuredTrack(m_keyframeTracks.value(key))) {
+            auto ktIt = m_keyframeTracks.find(key);
+            if (ktIt == m_keyframeTracks.end() || !isStructuredTrack(ktIt.value())) {
                 QVariantMap start;
                 start[QStringLiteral("frame")] = 0;
                 start[QStringLiteral("value")] = it.value();
@@ -482,7 +483,7 @@ class EffectModel : public QObject {
                 m_keyframeTracks[key] = track;
             } else if (oldDuration > 0 && oldDuration != durationFrames) {
                 // 旧終端フレームにある中間点を新終端フレームへ追従させる
-                QVariantMap track = m_keyframeTracks[key].toMap();
+                QVariantMap track = ktIt.value().toMap();
                 QVariantList points = track[QStringLiteral("points")].toList();
                 bool changed = false;
                 for (int i = 0; i < points.size(); ++i) {
@@ -584,8 +585,9 @@ class EffectModel : public QObject {
             m_params[key] = val;
 
             // アニメーショントラックと同期させ、evaluatedParam() 等が常に最新の静値を返すようにする
-            if (m_keyframeTracks.contains(key)) {
-                QVariant trackVar = m_keyframeTracks.value(key);
+            auto ktIt = m_keyframeTracks.find(key);
+            if (ktIt != m_keyframeTracks.end()) {
+                QVariant trackVar = ktIt.value();
                 if (isStructuredTrack(trackVar)) {
                     QVariantMap trackMap = trackVar.toMap();
                     QVariantMap startPoint = trackMap.value(QStringLiteral("start")).toMap();
@@ -681,21 +683,23 @@ class EffectModel : public QObject {
 
     Q_INVOKABLE QVariant evaluatedParam(const QString &paramName, int frame, double fps = 60.0) const {
         const QVariant fallback = m_params.value(paramName);
-        if (!m_keyframeTracks.contains(paramName))
+        auto ktIt = m_keyframeTracks.find(paramName);
+        if (ktIt == m_keyframeTracks.end())
             return fallback;
 
         // 1. キャッシュされた解決済みトラックを使用して評価（ヒープ割り当てを回避）
-        if (!m_resolvedCache.contains(paramName)) {
-            const QVariant raw = m_keyframeTracks.value(paramName);
+        auto rcIt = m_resolvedCache.find(paramName);
+        if (rcIt == m_resolvedCache.end()) {
+            const QVariant raw = ktIt.value();
             if (isStructuredTrack(raw)) {
                 int d = (m_lastDuration > 0) ? m_lastDuration : inferredDurationForTrack(raw);
                 QVariantMap normalized = normalizeTrackForDuration(raw, fallback, d);
-                m_resolvedCache.insert(paramName, flattenStructuredTrack(normalized));
+                rcIt = m_resolvedCache.insert(paramName, flattenStructuredTrack(normalized));
             } else {
-                m_resolvedCache.insert(paramName, sortPoints(raw.toList()));
+                rcIt = m_resolvedCache.insert(paramName, sortPoints(raw.toList()));
             }
         }
-        QVariant baseValue = evaluateTrack(m_resolvedCache.value(paramName), frame, fallback);
+        QVariant baseValue = evaluateTrack(rcIt.value(), frame, fallback);
 
         // 2. パラメータ自体がエクスプレッション定義かチェック（簡易実装）
         QString strVal = m_params.value(paramName).toString();
@@ -715,18 +719,20 @@ class EffectModel : public QObject {
         Q_UNUSED(fps)
         const QVariant fb = m_params.value(paramName);
         const float fbF = fb.isValid() ? static_cast<float>(fb.toDouble()) : fallback;
-        if (!m_keyframeTracks.contains(paramName))
+        auto ktIt = m_keyframeTracks.find(paramName);
+        if (ktIt == m_keyframeTracks.end())
             return fbF;
-        if (!m_resolvedCache.contains(paramName)) {
-            const QVariant raw = m_keyframeTracks.value(paramName);
+        auto rcIt = m_resolvedCache.find(paramName);
+        if (rcIt == m_resolvedCache.end()) {
+            const QVariant raw = ktIt.value();
             if (isStructuredTrack(raw)) {
                 const int d = (m_lastDuration > 0) ? m_lastDuration : inferredDurationForTrack(raw);
-                m_resolvedCache.insert(paramName, flattenStructuredTrack(normalizeTrackForDuration(raw, fb, d)));
+                rcIt = m_resolvedCache.insert(paramName, flattenStructuredTrack(normalizeTrackForDuration(raw, fb, d)));
             } else {
-                m_resolvedCache.insert(paramName, sortPoints(raw.toList()));
+                rcIt = m_resolvedCache.insert(paramName, sortPoints(raw.toList()));
             }
         }
-        return evaluateTrackFloat(m_resolvedCache.value(paramName), frame, fbF);
+        return evaluateTrackFloat(rcIt.value(), frame, fbF);
     }
 
     // bool パラメータ用: float 評価 → 0.5 閾値で bool に変換

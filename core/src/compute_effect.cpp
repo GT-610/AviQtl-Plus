@@ -129,7 +129,8 @@ void ComputeEffect::recalcAutoWorkGroup() {
 auto ComputeEffect::ssboToBytes(const QVariantMap &bufferData) -> QByteArray {
     QByteArray result;
     result.reserve(static_cast<qsizetype>(bufferData.size()) * static_cast<qsizetype>(sizeof(float)));
-    for (const QVariant &v : bufferData.values()) {
+    for (auto it = bufferData.constBegin(); it != bufferData.constEnd(); ++it) {
+        const QVariant &v = it.value();
         if (v.canConvert<float>()) {
             float f = v.toFloat();
             result.append(reinterpret_cast<const char *>(&f), sizeof(float));

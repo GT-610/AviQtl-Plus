@@ -18,7 +18,7 @@ auto WindowManager::instance() -> WindowManager & {
 }
 
 static void ensureWindowCreated(QQmlEngine *engine, QHash<QString, QPointer<QQuickWindow>> &windows, const QString &id) {
-    if (windows.contains(id) && !windows.value(id).isNull()) {
+    if (auto it = windows.find(id); it != windows.end() && !it.value().isNull()) {
         return;
     }
     if (!engine) {
@@ -49,7 +49,6 @@ static void ensureWindowCreated(QQmlEngine *engine, QHash<QString, QPointer<QQui
     } else {
         qWarning() << "[WindowManager] Unknown lazy window id:" << id;
     }
-    // NOLINTEND(bugprone-easily-swappable-parameters)
 }
 
 void WindowManager::spawnInitialWindows(QQmlEngine *engine) {

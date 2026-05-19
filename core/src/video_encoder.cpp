@@ -497,14 +497,6 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
     return true;
 }
 
-auto VideoEncoder::pushTexture(const GpuTextureHandle &handle, int64_t pts) -> bool {
-    // Vulkanバックエンドへの移行に伴い、OpenGL依存のテクスチャ読み出しは廃止。
-    // 代わりに pushFrame(QImage) を使用してください。
-    // 将来的には Vulkan Interop によるゼロコピー転送を実装予定。
-    qWarning() << "pushTexture is deprecated in Vulkan backend. Use pushFrame instead.";
-    return false;
-}
-
 auto VideoEncoder::pushAudio(const float *samples, int sampleCount) -> bool {
     if (m_errorOccurred) {
         return false;

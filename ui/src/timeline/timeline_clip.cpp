@@ -338,7 +338,6 @@ auto TimelineService::computeMagneticSnapPosition(int clipId, int targetLayer, i
     // 注意: ドラッグ完了時に QUndoCommand を発行するアーキテクチャが望ましいです。
     // 修正: この関数は位置を計算して返すだけに責務を限定します。
     // 実際の更新は呼び出し元（QMLのドラッグハンドラなど）が担当べきです。
-    // updateClipInternal(clipId, targetLayer, finalStart, clipDuration);
     return finalStart;
 }
 

@@ -347,8 +347,8 @@ void TimelineMediaManager::requestImageLoad(int clipId, const QString &path) {
 
     const QUrl url = QUrl::fromLocalFile(path);
 
-    if (m_imageDecoders.contains(clipId)) {
-        auto existing = m_imageDecoders.value(clipId);
+    if (auto it = m_imageDecoders.find(clipId); it != m_imageDecoders.end()) {
+        auto existing = it.value();
         if (existing && existing->source() == url) {
             return;
         }

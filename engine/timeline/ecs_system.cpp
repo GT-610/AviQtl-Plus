@@ -79,11 +79,13 @@ void ECS::syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
 void ECS::updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = m_buffers[m_editIndex];
-    if (!editState.transforms.contains(clipId)) {
+    auto *ptr = editState.transforms.find(clipId);
+    if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
+        ptr = &editState.transforms[clipId];
     }
-    auto &transform = editState.transforms[clipId];
+    auto &transform = *ptr;
     bool changed = (transform.layer != layer) || (std::abs(transform.timePosition - time) > 0.001) || (transform.startFrame != startFrame) || (transform.durationFrames != durationFrames);
     if (changed) {
         transform.layer = layer;
@@ -110,11 +112,13 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
 void ECS::updateAudioClipState(int clipId, int startFrame, int durationFrames, float volume, float pan, bool mute) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = m_buffers[m_editIndex];
-    if (!editState.audioStates.contains(clipId)) {
+    auto *ptr = editState.audioStates.find(clipId);
+    if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
+        ptr = &editState.audioStates[clipId];
     }
-    auto &audio = editState.audioStates[clipId];
+    auto &audio = *ptr;
     audio.clipId = clipId;
     audio.startFrame = startFrame;
     audio.durationFrames = durationFrames;
@@ -150,15 +154,17 @@ static auto parseColorRGBA(const QString &colorStr) -> uint32_t {
 void ECS::updateMetadata(int clipId, const QString &name, const QString &source, const QString &type, const QString &color) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = m_buffers[m_editIndex];
-    if (!editState.metadataStates.contains(clipId)) {
+    auto *ptr = editState.metadataStates.find(clipId);
+    if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
+        ptr = &editState.metadataStates[clipId];
     }
     const uint32_t nId = m_stringTable.intern(name.toStdString());
     const uint32_t sId = m_stringTable.intern(source.toStdString());
     const uint32_t tId = m_stringTable.intern(type.toStdString());
     const uint32_t cRGBA = parseColorRGBA(color);
-    auto &meta = editState.metadataStates[clipId];
+    auto &meta = *ptr;
     if (meta.clipId != static_cast<int32_t>(clipId) || meta.nameId != nId || meta.sourceId != sId || meta.typeId != tId || meta.colorRGBA != cRGBA) {
         meta.clipId = static_cast<int32_t>(clipId);
         meta.nameId = nId;
@@ -280,11 +286,13 @@ void ECS::writeSSBOLayout(GpuClipSoA &out) const {
 void ECS::updateKeyframeRef(int clipId, uint32_t effectId) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = m_buffers[m_editIndex];
-    if (!editState.keyframeRefs.contains(clipId)) {
+    auto *ptr = editState.keyframeRefs.find(clipId);
+    if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
+        ptr = &editState.keyframeRefs[clipId];
     }
-    auto &kr = editState.keyframeRefs[clipId];
+    auto &kr = *ptr;
     kr.clipId = static_cast<uint32_t>(clipId);
     kr.effectId = effectId;
 
@@ -300,11 +308,13 @@ void ECS::updateKeyframeRef(int clipId, uint32_t effectId) {
 void ECS::updateEcsTransform(int clipId, float x, float y, float z, float scaleX, float scaleY, float rotX, float rotY, float rotZ, float opacity) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = m_buffers[m_editIndex];
-    if (!editState.ecsTransforms.contains(clipId)) {
+    auto *ptr = editState.ecsTransforms.find(clipId);
+    if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
+        ptr = &editState.ecsTransforms[clipId];
     }
-    auto &et = editState.ecsTransforms[clipId];
+    auto &et = *ptr;
     et.x = x;
     et.y = y;
     et.z = z;
