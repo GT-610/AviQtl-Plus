@@ -175,6 +175,69 @@ Rectangle {
 
     }
 
+    // 複数レイヤー挿入用ダイアログ
+    Dialog {
+        id: insertLayersDialog
+
+        property bool isAbove: true
+
+        anchors.centerIn: Overlay.overlay
+        title: isAbove ? qsTr("上に複数レイヤーを挿入") : qsTr("下に複数レイヤーを挿入")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        modal: true
+        onAccepted: {
+            if (Workspace.currentTimeline)
+                Workspace.currentTimeline.insertLayers(layerMenu.layerIndex, countSpin.value, isAbove);
+
+        }
+
+        ColumnLayout {
+            spacing: 10
+
+            Label {
+                text: qsTr("挿入するレイヤー数:")
+            }
+
+            SpinBox {
+                id: countSpin
+
+                from: 1
+                to: 100
+                value: 5
+                editable: true
+            }
+
+            Label {
+                text: qsTr("挿入方向:")
+            }
+
+            RowLayout {
+                RadioButton {
+                    text: qsTr("選択レイヤーの上")
+                    checked: insertLayersDialog.isAbove
+                    onToggled: {
+                        if (checked)
+                            insertLayersDialog.isAbove = true;
+
+                    }
+                }
+
+                RadioButton {
+                    text: qsTr("選択レイヤーの下")
+                    checked: !insertLayersDialog.isAbove
+                    onToggled: {
+                        if (checked)
+                            insertLayersDialog.isAbove = false;
+
+                    }
+                }
+
+            }
+
+        }
+
+    }
+
     // レイヤーコンテキストメニュー
     Menu {
         id: layerMenu
@@ -187,6 +250,47 @@ Rectangle {
             onTriggered: {
                 var visible = headerRoot.getLayerVisible(layerMenu.layerIndex);
                 headerRoot.setLayerVisible(layerMenu.layerIndex, !visible);
+            }
+        }
+
+        MenuSeparator {
+        }
+
+        Common.IconMenuItem {
+            text: qsTr("上にレイヤーを挿入 (1行)")
+            iconName: "add_line"
+            onTriggered: {
+                if (Workspace.currentTimeline)
+                    Workspace.currentTimeline.insertLayers(layerMenu.layerIndex, 1, true);
+
+            }
+        }
+
+        Common.IconMenuItem {
+            text: qsTr("下にレイヤーを挿入 (1行)")
+            iconName: "add_line"
+            onTriggered: {
+                if (Workspace.currentTimeline)
+                    Workspace.currentTimeline.insertLayers(layerMenu.layerIndex, 1, false);
+
+            }
+        }
+
+        Common.IconMenuItem {
+            text: qsTr("上に複数レイヤーを挿入...")
+            iconName: "apps_2_add_line"
+            onTriggered: {
+                insertLayersDialog.isAbove = true;
+                insertLayersDialog.open();
+            }
+        }
+
+        Common.IconMenuItem {
+            text: qsTr("下に複数レイヤーを挿入...")
+            iconName: "apps_2_add_line"
+            onTriggered: {
+                insertLayersDialog.isAbove = false;
+                insertLayersDialog.open();
             }
         }
 

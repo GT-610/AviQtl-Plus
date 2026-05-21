@@ -34,6 +34,7 @@ class TimelineService : public QObject {
     void createClip(const QString &type, int startFrame, int layer);
     void deleteClip(int clipId);
     void updateClip(int id, int layer, int startFrame, int duration);
+    void insertLayers(int targetLayer, int count, bool above);
     void moveSelectedClips(int deltaLayer, int deltaFrame);
     void applyClipBatchMove(const QVariantList &moves);
     void resizeSelectedClips(int deltaStartFrame, int deltaDuration);

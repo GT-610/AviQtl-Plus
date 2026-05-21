@@ -457,6 +457,8 @@ void TimelineController::updateClip(int id, int layer, int startFrame, int durat
     m_timeline->updateClip(id, layer, startFrame, clamped);
 }
 
+void TimelineController::insertLayers(int targetLayer, int count, bool above) { m_timeline->insertLayers(targetLayer, count, above); }
+
 void TimelineController::selectClip(int id) {
     if (m_timeline != nullptr) {
         m_timeline->applySelectionIds(QVariantList{id});

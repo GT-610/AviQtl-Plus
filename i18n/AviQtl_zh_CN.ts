@@ -1126,6 +1126,19 @@
     </message>
 </context>
 <context>
+    <name>AviQtl::UI::TimelineService</name>
+    <message>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="87"/>
+        <source>レイヤーを上に挿入</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="87"/>
+        <source>レイヤーを下に挿入</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>AviQtl::UI::WindowManager</name>
     <message>
         <location filename="../ui/src/window_manager.cpp" line="30"/>
@@ -1774,26 +1787,76 @@
     <name>LayerHeader</name>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="185"/>
+        <source>上に複数レイヤーを挿入</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="185"/>
+        <source>下に複数レイヤーを挿入</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="198"/>
+        <source>挿入するレイヤー数:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="211"/>
+        <source>挿入方向:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="216"/>
+        <source>選択レイヤーの上</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="226"/>
+        <source>選択レイヤーの下</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="248"/>
         <source>表示/非表示を切り替え</source>
         <translation>切换显示/隐藏</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="199"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="260"/>
+        <source>上にレイヤーを挿入 (1行)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="270"/>
+        <source>下にレイヤーを挿入 (1行)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="280"/>
+        <source>上に複数レイヤーを挿入...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="289"/>
+        <source>下に複数レイヤーを挿入...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="303"/>
         <source>ロックを解除</source>
         <translation>解除锁定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="199"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="303"/>
         <source>ロック</source>
         <translation>锁定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="212"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="316"/>
         <source>すべて表示</source>
         <translation>全部显示</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="222"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="326"/>
         <source>すべて非表示</source>
         <translation>全部隐藏</translation>
     </message>
@@ -2513,37 +2576,37 @@
         <translation>根</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="148"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="172"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>绝对移动多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="204"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="228"/>
         <source>複数クリップ移動: %1</source>
         <translation>移动多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="263"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="287"/>
         <source>複数クリップ変形: %1</source>
         <translation>变换多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="538"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="562"/>
         <source>クリップ削除</source>
         <translation>删除片段</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="538"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="562"/>
         <source>複数クリップ削除: %1</source>
         <translation>删除多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="677"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="701"/>
         <source>複数クリップ分割: %1</source>
         <translation>分割多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="730"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="754"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>粘贴多个片段：%1</translation>
     </message>

@@ -80,6 +80,30 @@ void TimelineService::updateClip(int id, int layer, int startFrame, int duration
     m_undoStack->push(new MoveClipCommand(this, id, clip->layer, clip->startFrame, clip->durationFrames, layer, startFrame, duration, clipName));
 }
 
+void TimelineService::insertLayers(int targetLayer, int count, bool above) {
+    if (count <= 0)
+        return;
+
+    m_undoStack->beginMacro(above ? tr("レイヤーを上に挿入") : tr("レイヤーを下に挿入"));
+
+    // 現在のシーンのクリップのコピーを作成（イテレート中のリスト変更を避けるため）
+    QList<ClipData> sceneClips = clips();
+
+    // レイヤー番号が大きい順にソート（下方向にずらすので、下のものから先に動かせば移動先に既存クリップがいない状態を作れる）
+    std::sort(sceneClips.begin(), sceneClips.end(), [](const ClipData &a, const ClipData &b) { return a.layer > b.layer; });
+
+    for (const auto &clip : sceneClips) {
+        // 「上に挿入」はターゲットレイヤー自体を含む以降をシフト、「下に挿入」はターゲットより下をシフト
+        bool shouldShift = above ? (clip.layer >= targetLayer) : (clip.layer > targetLayer);
+
+        if (shouldShift) {
+            updateClip(clip.id, clip.layer + count, clip.startFrame, clip.durationFrames);
+        }
+    }
+
+    m_undoStack->endMacro();
+}
+
 void TimelineService::applyClipBatchMove(const QVariantList &moves) {
     if (moves.isEmpty()) {
         return;
