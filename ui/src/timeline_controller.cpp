@@ -144,7 +144,12 @@ void TimelineController::updateActiveClipsList() {
 int TimelineController::timelineDuration() const {
     const auto *scene = AviQtl::Core::DocumentModel::instance().findScene(currentSceneId());
     if (scene) {
-        return scene->totalFrames;
+        // 固定値 totalFrames を排除し、配置されている全クリップの末尾から動的に期間を計算する
+        int maxEnd = 0;
+        for (const auto &clip : scene->clips) {
+            maxEnd = std::max(maxEnd, clip.startFrame + clip.durationFrames);
+        }
+        return std::max(1, maxEnd);
     }
     return 300;
 }
@@ -218,7 +223,6 @@ void TimelineController::syncTimelineToDocumentModel() {
         sceneSettings.width = uiScene.width;
         sceneSettings.height = uiScene.height;
         sceneSettings.fps = uiScene.fps;
-        sceneSettings.totalFrames = uiScene.totalFrames;
         sceneSettings.enableSnap = uiScene.enableSnap;
         sceneSettings.gridMode = uiScene.gridMode;
 

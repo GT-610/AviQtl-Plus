@@ -36,7 +36,6 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
         sObj.insert(QStringLiteral("width"), scene.width);
         sObj.insert(QStringLiteral("height"), scene.height);
         sObj.insert(QStringLiteral("fps"), scene.fps);
-        sObj.insert(QStringLiteral("totalFrames"), scene.totalFrames);
         sObj.insert(QStringLiteral("start"), scene.startFrame);
         sObj.insert(QStringLiteral("duration"), scene.durationFrames);
         scenesArray.append(sObj);
@@ -123,7 +122,6 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         scene.width = sobj.value(QStringLiteral("width")).toInt(project->width());
         scene.height = sobj.value(QStringLiteral("height")).toInt(project->height());
         scene.fps = sobj.value(QStringLiteral("fps")).toDouble(project->fps());
-        scene.totalFrames = sobj.value(QStringLiteral("totalFrames")).toInt(300);
         scene.startFrame = sobj.value(QStringLiteral("start")).toInt(0);
         scene.durationFrames = sobj.value(QStringLiteral("duration")).toInt(0);
         tempScenes.append(scene);

@@ -54,7 +54,6 @@ struct SceneSettings {
     int width = 1920;
     int height = 1080;
     double fps = 60.0;
-    int totalFrames = 300;
 
     bool enableSnap = true;
     QString gridMode = QStringLiteral("Auto");

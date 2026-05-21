@@ -91,7 +91,9 @@ ApplicationWindow {
     Connections {
         function onCurrentFrameChanged() {
             if (Workspace.currentTimeline && Workspace.currentTimeline.transport) {
-                if (Workspace.currentTimeline.transport.totalFrames > 0 && Workspace.currentTimeline.transport.currentFrame >= Workspace.currentTimeline.transport.totalFrames)
+                // totalFrames を排除し、動的に計算されるクリップの末尾（seekSlider.to）のみを基準にする。
+                var limit = Math.floor(seekSlider.to) - 1;
+                if (limit > 0 && Workspace.currentTimeline.transport.currentFrame >= limit)
                     Workspace.currentTimeline.transport.pause();
 
             }
