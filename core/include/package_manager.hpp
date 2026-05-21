@@ -31,7 +31,8 @@ class PackageManager : public QObject {
     Q_INVOKABLE void refreshRepositories();
     Q_INVOKABLE void addRepository(const QString &url);
     Q_INVOKABLE void removeRepository(const QString &url);
-    Q_INVOKABLE void installPackage(const QString &packageId);
+    Q_INVOKABLE void fetchAssets(const QString &packageId);
+    Q_INVOKABLE void installPackage(const QString &packageId, const QString &assetUrl = QString());
     Q_INVOKABLE void upgradeAllPackages();
     Q_INVOKABLE void removePackage(const QString &packageId);
     Q_INVOKABLE QVariantList searchPackages(const QString &query) const;
@@ -45,6 +46,7 @@ class PackageManager : public QObject {
     void repositoryRefreshed();
     void hasUpdatesAvailableChanged();
     void repositoriesChanged();
+    void assetsReady(const QString &packageId, const QVariantList &assets);
     void packageInstalled(const QString &packageId);
     void packageRemoved(const QString &packageId);
     void errorOccurred(const QString &message);

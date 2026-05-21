@@ -2,12 +2,12 @@
 // フェーズ8: ComputeEffect スタブを実 Vulkan RHI バインディングに昇格
 // QSGRenderNode::prepare() で SSBO を QRhiBuffer に upload し Compute Shader を dispatch する
 // フェーズ9 で出力テクスチャとの接続 (SceneGraph Compositor) を行う
-#include <rhi/qrhi.h>
-#include <rhi/qshader.h>
 #include <QByteArray>
 #include <QList>
 #include <QSGRenderNode>
 #include <QString>
+#include <rhi/qrhi.h>
+#include <rhi/qshader.h>
 
 QT_FORWARD_DECLARE_CLASS(QQuickWindow)
 

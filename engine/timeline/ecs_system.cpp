@@ -168,20 +168,20 @@ void ECS::commit() {
 
         // dirtyIds を使ってピンポイントで同期
         for (int id : df.dirtyIds) {
-             if (const auto *s = src.transforms.find(id))
-                 dst.transforms[id] = *s;
-             if (const auto *s = src.renderStates.find(id))
-                 dst.renderStates[id] = *s;
-             if (const auto *s = src.audioStates.find(id))
-                 dst.audioStates[id] = *s;
- 
-             // Phase 4 同期
-             if (const auto *s = src.keyframeRefs.find(id))
-                 dst.keyframeRefs[id] = *s;
-             if (const auto *s = src.ecsTransforms.find(id))
-                 dst.ecsTransforms[id] = *s;
-             if (const auto *s = src.globalMatrices.find(id))
-                 dst.globalMatrices[id] = *s;
+            if (const auto *s = src.transforms.find(id))
+                dst.transforms[id] = *s;
+            if (const auto *s = src.renderStates.find(id))
+                dst.renderStates[id] = *s;
+            if (const auto *s = src.audioStates.find(id))
+                dst.audioStates[id] = *s;
+
+            // Phase 4 同期
+            if (const auto *s = src.keyframeRefs.find(id))
+                dst.keyframeRefs[id] = *s;
+            if (const auto *s = src.ecsTransforms.find(id))
+                dst.ecsTransforms[id] = *s;
+            if (const auto *s = src.globalMatrices.find(id))
+                dst.globalMatrices[id] = *s;
         }
         df.dirty.reset();
         df.dirtyIds.clear();

@@ -92,7 +92,6 @@ class TimelineController : public QObject {
     Q_INVOKABLE void applyClipBatchMove(const QVariantList &moves);
     Q_INVOKABLE void resizeSelectedClips(int deltaStartFrame, int deltaDuration);
 
-
     Q_INVOKABLE QVariantMap evaluateClipParams(int clipId, int relFrame) const;
 
     // エフェクト操作
@@ -256,7 +255,6 @@ class TimelineController : public QObject {
     TimelineExportManager *m_exportManager{};
 
     QVariantList m_previewSelectionIds;
-
 
   private:
     QPointer<QQuickItem> m_compositeView; // CompositeViewへの参照

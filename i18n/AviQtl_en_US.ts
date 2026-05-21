@@ -988,57 +988,93 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Synchronization complete</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="412"/>
+        <location filename="../core/src/package_manager.cpp" line="429"/>
+        <source>利用可能なファイルを検索中...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="441"/>
+        <source>リポジトリURLの形式が正しくありません。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="457"/>
+        <source>サポートされていないリポジトリホストです。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="494"/>
+        <source>ダウンロード可能なファイルが見つかりませんでした。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="520"/>
         <source>最新バージョン情報が取得できていません。同期を行ってください。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="420"/>
+        <location filename="../core/src/package_manager.cpp" line="531"/>
+        <source>ダウンロードURLが特定できません。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="536"/>
         <source>パッケージのインストール中: %1</source>
         <translation>Installing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="547"/>
+        <location filename="../core/src/package_manager.cpp" line="663"/>
         <source>アップグレード可能なパッケージはありません。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="552"/>
+        <location filename="../core/src/package_manager.cpp" line="668"/>
         <source>すべてのパッケージをアップグレード中...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="559"/>
+        <location filename="../core/src/package_manager.cpp" line="675"/>
         <source>すべてのアップグレードが完了しました</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="565"/>
+        <location filename="../core/src/package_manager.cpp" line="681"/>
         <source>パッケージをアップグレード中: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="406"/>
+        <location filename="../core/src/package_manager.cpp" line="514"/>
         <source>パッケージが見つかりません: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="425"/>
+        <location filename="../core/src/package_manager.cpp" line="424"/>
+        <source>パッケージのリポジトリURLを特定できません。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="467"/>
+        <source>リリース情報の取得に失敗しました (%1): %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="541"/>
         <source>インストール完了: %1</source>
         <translation>Installation complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="436"/>
+        <location filename="../core/src/package_manager.cpp" line="552"/>
         <source>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="473"/>
+        <location filename="../core/src/package_manager.cpp" line="589"/>
         <source>パッケージを削除中: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="498"/>
+        <location filename="../core/src/package_manager.cpp" line="614"/>
         <source>削除完了: %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2028,67 +2064,77 @@ Save before continuing?</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="47"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="34"/>
+        <source>パッケージマネージャーエラー</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="70"/>
+        <source>ダウンロードするファイルを選択</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="101"/>
         <source>リポジトリ設定</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="69"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="123"/>
         <source>追加</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="132"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="186"/>
         <source>リポジトリを同期</source>
         <translation>Sync Repository</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="139"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="193"/>
         <source>すべてアップグレード</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="153"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="207"/>
         <source>検索...</source>
         <translation>Search...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="179"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="233"/>
         <source>検索結果がありません。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="179"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="233"/>
         <source>パッケージリストが空です。リポジトリを同期して最新情報を取得してください。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="238"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="292"/>
         <source>最新バージョン: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="256"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="310"/>
         <source>インストール済み: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="263"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="317"/>
         <source>アップデートあり: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="270"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="324"/>
         <source>削除</source>
         <translation type="unfinished">Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="277"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="331"/>
         <source>アップデート</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="277"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="331"/>
         <source>インストール</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2416,37 +2462,37 @@ Save before continuing?</translation>
         <translation type="vanished">Delete clip: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="190"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="189"/>
         <source>切り取り: %1</source>
         <translation>Cut: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="201"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="200"/>
         <source>貼り付け: %1</source>
         <translation>Paste: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="213"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="212"/>
         <source>キーフレーム設定: %1</source>
         <translation>Set keyframe: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="239"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="238"/>
         <source>キーフレーム削除: %1 [%2]</source>
         <translation>Delete keyframe: %1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="244"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="243"/>
         <source>シーン追加: %1</source>
         <translation>Add scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="255"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="254"/>
         <source>シーン削除: %1</source>
         <translation>Delete scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="262"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="261"/>
         <source>シーン設定変更: %1</source>
         <translation>Scene settings change: %1</translation>
     </message>
@@ -2472,22 +2518,22 @@ Save before continuing?</translation>
         <translation>Transform multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="539"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="538"/>
         <source>クリップ削除</source>
         <translation>Delete clip</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="539"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="538"/>
         <source>複数クリップ削除: %1</source>
         <translation>Delete multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="678"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="677"/>
         <source>複数クリップ分割: %1</source>
         <translation>Split multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="731"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="730"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>Paste multiple clips: %1</translation>
     </message>

@@ -390,7 +390,115 @@ void PackageManager::updatePackageLatestVersion(const QString &id, const QString
     }
 }
 
-void PackageManager::installPackage(const QString &packageId) {
+void PackageManager::fetchAssets(const QString &packageId) {
+    if (m_isBusy)
+        return;
+
+    QVariantMap pkg;
+    for (const auto &p : std::as_const(m_packageList)) {
+        if (p.toMap().value(QStringLiteral("id")).toString() == packageId) {
+            pkg = p.toMap();
+            break;
+        }
+    }
+
+    if (pkg.isEmpty()) {
+        emit errorOccurred(tr("パッケージが見つかりません: %1").arg(packageId));
+        return;
+    }
+
+    QString repoUrl = pkg.value(QStringLiteral("repository_url")).toString();
+
+    // フォールバック: release_feed からリポジトリURLを推測 (https://host/owner/repo/...)
+    if (repoUrl.isEmpty()) {
+        QString feed = pkg.value(QStringLiteral("release_feed")).toString();
+        if (!feed.isEmpty()) {
+            int idx = feed.indexOf(QStringLiteral("/releases"));
+            if (idx != -1) {
+                repoUrl = feed.left(idx);
+            }
+        }
+    }
+
+    if (repoUrl.isEmpty()) {
+        emit errorOccurred(tr("パッケージのリポジトリURLを特定できません。"));
+        return;
+    }
+
+    setBusy(true);
+    setStatus(tr("利用可能なファイルを検索中..."));
+
+    QUrl apiUrl;
+    bool isGitHub = repoUrl.contains(QStringLiteral("github.com"));
+    bool isCodeberg = repoUrl.contains(QStringLiteral("codeberg.org"));
+
+    QString path = QUrl(repoUrl).path();
+    if (path.startsWith('/'))
+        path.remove(0, 1);
+    QStringList parts = path.split('/');
+    if (parts.size() < 2) {
+        setBusy(false);
+        emit errorOccurred(tr("リポジトリURLの形式が正しくありません。"));
+        return;
+    }
+    QString owner = parts[0];
+    QString repo = parts[1];
+    if (repo.endsWith(".git"))
+        repo.remove(repo.size() - 4, 4);
+
+    if (isGitHub) {
+        // GitHub: 最新のリリースを取得（タグ名の揺れを回避）
+        apiUrl = QStringLiteral("https://api.github.com/repos/%1/%2/releases/latest").arg(owner, repo);
+    } else if (isCodeberg) {
+        // Codeberg: リリース一覧の最新1件を取得
+        apiUrl = QStringLiteral("https://codeberg.org/api/v1/repos/%1/%2/releases?limit=1").arg(owner, repo);
+    } else {
+        setBusy(false);
+        emit errorOccurred(tr("サポートされていないリポジトリホストです。"));
+        return;
+    }
+
+    QNetworkReply *reply = m_networkManager->get(QNetworkRequest(apiUrl));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, packageId]() {
+        reply->deleteLater();
+        setBusy(false);
+
+        if (reply->error() != QNetworkReply::NoError) {
+            emit errorOccurred(tr("リリース情報の取得に失敗しました (%1): %2").arg(packageId, reply->errorString()));
+            return;
+        }
+
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QVariantList assetsList;
+
+        QJsonObject releaseObj;
+        if (doc.isArray() && !doc.array().isEmpty()) {
+            releaseObj = doc.array().at(0).toObject();
+        } else if (doc.isObject()) {
+            releaseObj = doc.object();
+        }
+
+        if (!releaseObj.isEmpty()) {
+            QJsonArray assetsArr = releaseObj.value(QStringLiteral("assets")).toArray();
+            for (const auto &aVal : assetsArr) {
+                QJsonObject aObj = aVal.toObject();
+                QVariantMap asset;
+                asset[QStringLiteral("name")] = aObj.value(QStringLiteral("name")).toString();
+                asset[QStringLiteral("size")] = aObj.value(QStringLiteral("size")).toVariant();
+                asset[QStringLiteral("url")] = aObj.value(QStringLiteral("browser_download_url")).toString();
+                assetsList.append(asset);
+            }
+        }
+
+        if (assetsList.isEmpty()) {
+            emit errorOccurred(tr("ダウンロード可能なファイルが見つかりませんでした。"));
+        } else {
+            emit assetsReady(packageId, assetsList);
+        }
+    });
+}
+
+void PackageManager::installPackage(const QString &packageId, const QString &assetUrl) {
     if (m_isBusy)
         return;
 
@@ -413,8 +521,16 @@ void PackageManager::installPackage(const QString &packageId) {
         return;
     }
 
-    QString downloadUrl = pkg.value(QStringLiteral("download_url_template")).toString();
-    downloadUrl.replace(QStringLiteral("{VERSION}"), versionToInstall);
+    QString downloadUrl = assetUrl;
+    if (downloadUrl.isEmpty()) {
+        downloadUrl = pkg.value(QStringLiteral("download_url_template")).toString();
+        downloadUrl.replace(QStringLiteral("{VERSION}"), versionToInstall);
+    }
+
+    if (downloadUrl.isEmpty()) {
+        emit errorOccurred(tr("ダウンロードURLが特定できません。"));
+        return;
+    }
 
     setBusy(true);
     setStatus(tr("パッケージのインストール中: %1").arg(packageId));

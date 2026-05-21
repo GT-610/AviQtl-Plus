@@ -269,7 +269,6 @@ void TimelineService::resizeSelectedClips(int deltaStartFrame, int deltaDuration
     m_undoStack->endMacro();
 }
 
-
 auto TimelineService::resolveDragPosition(int clipId, int targetLayer, int proposedStartFrame, const QVariantList &batchIds) -> QPoint { // NOLINT(bugprone-easily-swappable-parameters)
     const auto *movingClip = findClipById(clipId);
     if (movingClip == nullptr) {

@@ -8,6 +8,7 @@
       "author": "Taisho Guy",
       "type": "application",
       "release_feed": "https://codeberg.org/taisho-guy/AviQtl/releases.atom",
+      "repository_url": "https://codeberg.org/taisho-guy/AviQtl",
       "download_url_template": "https://codeberg.org/taisho-guy/AviQtl/releases/download/{VERSION}/AviQtl-{VERSION}-win64.zip"
     },
     {
@@ -17,6 +18,7 @@
       "author": "Taisho Guy",
       "type": "effect",
       "release_feed": "https://codeberg.org/taisho-guy/AviQtl-Blur/releases.atom",
+      "repository_url": "https://codeberg.org/taisho-guy/AviQtl-Blur",
       "download_url_template": "https://codeberg.org/taisho-guy/AviQtl-Blur/releases/download/{VERSION}/blur-effect.zip"
     },
     {

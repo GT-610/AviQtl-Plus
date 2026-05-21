@@ -27,7 +27,21 @@ Common.AviQtlWindow {
         buttons: MessageDialog.Ok
     }
 
+    // エラー通知用ダイアログ
+    MessageDialog {
+        id: errorDialog
+
+        title: qsTr("パッケージマネージャーエラー")
+        icon: MessageDialog.Critical
+        buttons: MessageDialog.Ok
+    }
+
     Connections {
+        function onErrorOccurred(message) {
+            errorDialog.text = message;
+            errorDialog.open();
+        }
+
         function onSelfUpdateAvailable(newVersion, downloadUrl) {
             selfUpdateDialog.newVersion = newVersion;
             selfUpdateDialog.downloadUrl = downloadUrl;
@@ -35,6 +49,46 @@ Common.AviQtlWindow {
         }
 
         target: PackageManager
+    }
+
+    Connections {
+        function onAssetsReady(packageId, assets) {
+            assetSelectionDialog.packageId = packageId;
+            assetSelectionDialog.assets = assets;
+            assetSelectionDialog.open();
+        }
+
+        target: PackageManager
+    }
+
+    Dialog {
+        id: assetSelectionDialog
+
+        property string packageId: ""
+        property var assets: []
+
+        title: qsTr("ダウンロードするファイルを選択")
+        modal: true
+        anchors.centerIn: parent
+        standardButtons: Dialog.Cancel
+
+        ListView {
+            implicitWidth: 400
+            implicitHeight: Math.min(300, contentHeight)
+            model: assetSelectionDialog.assets
+            clip: true
+
+            delegate: ItemDelegate {
+                width: parent.width
+                text: modelData.name + " (" + (modelData.size / 1024 / 1024).toFixed(2) + " MB)"
+                onClicked: {
+                    PackageManager.installPackage(assetSelectionDialog.packageId, modelData.url);
+                    assetSelectionDialog.close();
+                }
+            }
+
+        }
+
     }
 
     ColumnLayout {
@@ -279,7 +333,7 @@ Common.AviQtlWindow {
                             // 同期前（latestVerが空）の場合はボタンを無効化
                             enabled: !PackageManager.isBusy && (installedVer === "" || hasUpdate) && latestVer !== ""
                             visible: installedVer === "" || hasUpdate
-                            onClicked: PackageManager.installPackage(modelData.id)
+                            onClicked: PackageManager.fetchAssets(modelData.id)
                         }
 
                     }

@@ -177,7 +177,6 @@ auto TimelineController::resolveDragDelta(int clipId, int deltaFrame, int deltaL
     return {dF, dL};
 }
 
-
 void TimelineController::requestVideoFrame(int clipId, int relFrame) {
     // MediaManagerは直接触れないので、TimelineService側にイベントを発火させる等するか、
     // MediaManagerに直接シグナルで飛ばす。

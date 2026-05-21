@@ -97,7 +97,6 @@ auto TimelineController::loadProject(const QString &fileUrl) -> bool {
     return result;
 }
 
-
 namespace {
 void insertIntoCategoryTree(QVariantList &list, const QStringList &path, const QVariantMap &item) {
     if (path.isEmpty()) {

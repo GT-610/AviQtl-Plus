@@ -710,5 +710,6 @@ void VideoEncoder::close() {
     qDebug() << "VideoEncoder closed.";
 }
 
-} // namespace AviQtl::Core/ /   P R   1 :   M A X   q u e u e   s i z e   f r o m   . h p p   m o v e d   h e r e  
+} // namespace AviQtl::Core
+ 
  

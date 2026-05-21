@@ -162,7 +162,6 @@ void SplitClipCommand::redo() {
     m_service->addClipDirectInternal(newClip);
 }
 
-
 DeleteClipsCommand::DeleteClipsCommand(TimelineService *service, const QList<int> &clipIds, const QString &macroText) : m_service(service), m_clipIds(clipIds) {
     setText(macroText);
     for (int id : std::as_const(clipIds)) {
