@@ -32,7 +32,7 @@ auto VideoDecoder::gethwformat(AVCodecContext *ctx, const enum AVPixelFormat *pi
     return avcodec_default_get_format(ctx, pixfmts);
 }
 
-VideoDecoder::VideoDecoder(int clipId, const QUrl &source, VideoFrameStore *store, QObject *parent) : MediaDecoder(clipId, source, parent), mstore(store), mframe(av_frame_alloc()) {
+VideoDecoder::VideoDecoder(int clipId, const QUrl &source, VideoFrameStore *store, QObject *parent) : MediaDecoder(clipId, source, parent), mstore(store), mframe(av_frame_alloc()), m_pkt(av_packet_alloc()) {
 
     updateCacheSize();
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this, &VideoDecoder::updateCacheSize);
@@ -52,6 +52,9 @@ VideoDecoder::~VideoDecoder() {
     }
     if (mframe != nullptr) {
         av_frame_free(&mframe);
+    }
+    if (m_pkt != nullptr) {
+        av_packet_free(&m_pkt);
     }
 }
 
@@ -412,25 +415,26 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
     newGopBlock.endFrame = gopEndIndex;
 
     bool targetDispatched = false;
-    AVPacket *pkt = av_packet_alloc();
+    // 再使用: デコードループで毎回alloc/unrefする代わりにメンバ変数をunrefして再利用
+    av_packet_unref(m_pkt);
     int maxDecodeCount = std::max(500, (gopEndIndex - keyIndex) + 10);
     bool eof = false;
 
     while (maxDecodeCount-- > 0) {
         int ret = 0;
         if (!eof) {
-            ret = av_read_frame(mfmtCtx, pkt);
+            ret = av_read_frame(mfmtCtx, m_pkt);
             if (ret < 0) {
                 eof = true;
             }
         }
         if (eof) {
             ret = avcodec_send_packet(mdecCtx, nullptr);
-        } else if (pkt->stream_index == mstreamIndex) {
-            ret = avcodec_send_packet(mdecCtx, pkt);
+        } else if (m_pkt->stream_index == mstreamIndex) {
+            ret = avcodec_send_packet(mdecCtx, m_pkt);
         }
         if (!eof) {
-            av_packet_unref(pkt);
+            av_packet_unref(m_pkt);
         }
 
         while (ret >= 0 || ret == AVERROR(EAGAIN)) {
@@ -585,7 +589,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 
             // 途中で新しいフレーム要求が来た場合は即座にこのタスクを中断
             if (mlastRequestedFrame.load(std::memory_order_acquire) != targetFrame) {
-                av_packet_free(&pkt);
+                av_packet_unref(m_pkt);
                 return;
             }
 
@@ -598,7 +602,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
             break;
         }
     }
-    av_packet_free(&pkt);
+    av_packet_unref(m_pkt);
 
     // 【重要】エラー隠蔽 (Error Concealment) - 安全チェックの強化
     if (!targetDispatched && m_lastGoodFrame.isValid() && !mclosing.load(std::memory_order_acquire)) {

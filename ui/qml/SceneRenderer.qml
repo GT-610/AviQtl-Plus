@@ -40,10 +40,7 @@ Item {
         // 外部から注入されたデータを使用
         clipModel: {
             if (root.timelineBridge && root.sceneId >= 0) {
-                var clips = root.timelineBridge.getSceneClips(root.sceneId);
-                return clips.sort((a, b) => {
-                    return b.layer - a.layer;
-                });
+                return root.timelineBridge.getSceneClips(root.sceneId);
             }
             return [];
         }

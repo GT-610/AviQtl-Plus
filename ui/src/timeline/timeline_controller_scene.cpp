@@ -25,6 +25,7 @@ void TimelineController::updateSceneSettings(int sceneId, const QString &name, i
 auto TimelineController::getSceneClips(int sceneId) const -> QVariantList {
     QVariantList list;
     const auto &clips = m_timeline->clips(sceneId);
+    list.reserve(clips.size());
 
     for (const auto &clip : clips) {
         QVariantMap map;
@@ -67,6 +68,13 @@ auto TimelineController::getSceneClips(int sceneId) const -> QVariantList {
 
         list.append(map);
     }
+
+    // 最適化: QMLでの毎フレームO(n log n)の.sort()を回避し、
+    // C++側でレイヤー降順に一回ソートしておく。
+    std::sort(list.begin(), list.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value(QStringLiteral("layer")).toInt() > b.toMap().value(QStringLiteral("layer")).toInt();
+    });
+
     return list;
 }
 

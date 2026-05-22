@@ -333,11 +333,7 @@ Item {
                         return false;
 
                     // 3. 再生ヘッドがクリップの範囲内にあるか（プリロードされたオブジェクトを隠す）
-                    var inTimeRange = root.currentFrame >= clipStartFrameRole && root.currentFrame < (clipStartFrameRole + clipDurationFramesRole);
-                    if (inTimeRange)
-                        console.log("[Debug] CompositeView: Clip", clipIdRole, "(Scene:" + clipSceneIdRole + ") VISIBLE at frame", root.currentFrame, "Pos:", Math.round(clipNode.x), Math.round(clipNode.y), "Scale:", clipNode.scale.x.toFixed(2));
-
-                    return inTimeRange;
+                    return root.currentFrame >= clipStartFrameRole && root.currentFrame < (clipStartFrameRole + clipDurationFramesRole);
                 }
                 // 座標変換: 中心(0,0)、直感的なY軸上プラス（反転なし）
                 x: effectiveTransform.x

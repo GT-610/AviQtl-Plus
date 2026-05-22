@@ -67,17 +67,7 @@ ScrollView {
             "subdivision": 4
         };
     }
-    readonly property int maxClipEndFrame: {
-        var maxEnd = 0;
-        var clipList = (Workspace.currentTimeline && Workspace.currentTimeline.clips) ? Workspace.currentTimeline.clips : [];
-        for (var i = 0; i < clipList.length; i++) {
-            var end = clipList[i].startFrame + clipList[i].durationFrames;
-            if (end > maxEnd)
-                maxEnd = end;
-
-        }
-        return maxEnd;
-    }
+    readonly property int maxClipEndFrame: (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0) ? Workspace.currentTimeline.timelineDuration : 0
     readonly property int timelineLengthFrames: Math.max(100, maxClipEndFrame + tailPaddingFrames)
 
     function beginDragAutoScroll(callback) {

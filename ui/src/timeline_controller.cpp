@@ -31,6 +31,8 @@ TimelineController::TimelineController(QObject *parent) : QObject(parent) {
     syncTimelineToDocumentModel();
     AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
     updateClipActiveState();
+    invalidateTimelineDuration();
+    m_transport->setTotalFrames(timelineDuration());
 }
 
 void TimelineController::initializeServices() {
@@ -52,6 +54,7 @@ void TimelineController::setupConnections() {
             m_mediaManager->updateMediaDecoders();
             m_mediaManager->onCurrentFrameChanged();
             updateActiveClipsList();
+            invalidateTimelineDuration();
             m_transport->setTotalFrames(timelineDuration());
         },
         Qt::QueuedConnection);
@@ -68,9 +71,13 @@ void TimelineController::setupConnections() {
         m_mediaManager->updateMediaDecoders();
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
+        invalidateTimelineDuration();
         emit scenesChanged();
     });
-    connect(m_timeline, &TimelineService::currentSceneIdChanged, this, &TimelineController::currentSceneIdChanged);
+    connect(m_timeline, &TimelineService::currentSceneIdChanged, this, [this]() {
+        invalidateTimelineDuration();
+        emit currentSceneIdChanged();
+    });
     connect(m_timeline, &TimelineService::clipEffectsChanged, this, [this](int id) -> void {
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
@@ -141,17 +148,24 @@ void TimelineController::updateActiveClipsList() {
     AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
 }
 
-int TimelineController::timelineDuration() const {
+void TimelineController::invalidateTimelineDuration() {
+    int oldVal = m_cachedTimelineDuration;
     const auto *scene = AviQtl::Core::DocumentModel::instance().findScene(currentSceneId());
     if (scene) {
-        // 固定値 totalFrames を排除し、配置されている全クリップの末尾から動的に期間を計算する
         int maxEnd = 0;
-        for (const auto &clip : scene->clips) {
-            maxEnd = std::max(maxEnd, clip.startFrame + clip.durationFrames);
+        const auto &sceneClips = m_timeline->clips(currentSceneId());
+        for (const auto &clip : sceneClips) {
+            if (clip.durationFrames > 0) {
+                maxEnd = std::max(maxEnd, clip.startFrame + clip.durationFrames);
+            }
         }
-        return std::max(1, maxEnd);
+        m_cachedTimelineDuration = std::max(1, maxEnd);
+    } else {
+        m_cachedTimelineDuration = 300; // fallback
     }
-    return 300;
+    if (m_cachedTimelineDuration != oldVal) {
+        emit timelineDurationChanged();
+    }
 }
 
 void TimelineController::log(const QString &msg) { qDebug() << "[TimelineBridge] " << msg; }

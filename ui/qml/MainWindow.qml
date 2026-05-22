@@ -849,12 +849,7 @@ ApplicationWindow {
             clipModel: {
                 var _trigger = Workspace.currentTimeline ? Workspace.currentTimeline.clips : null;
                 if (Workspace.currentTimeline && sceneId >= 0) {
-                    var clips = Workspace.currentTimeline.getSceneClips(sceneId);
-                    // 3Dレンダラーの描画スタックにおいて、レイヤー番号が大きいほど手前に描画されるように
-                    // モデルを降順でソートします。
-                    return clips.sort((a, b) => {
-                        return b.layer - a.layer;
-                    });
+                    return Workspace.currentTimeline.getSceneClips(sceneId);
                 }
                 return [];
             }
@@ -915,19 +910,7 @@ ApplicationWindow {
 
                     Layout.fillWidth: true
                     from: 0
-                    to: {
-                        // クリップの末尾を取得して動的に拡張
-                        var maxEnd = 0;
-                        var clipList = (Workspace.currentTimeline && Workspace.currentTimeline.clips) ? Workspace.currentTimeline.clips : [];
-                        for (var j = 0; j < clipList.length; j++) {
-                            var clip = clipList[j];
-                            var end = clip.startFrame + clip.durationFrames;
-                            if (end > maxEnd)
-                                maxEnd = end;
-
-                        }
-                        return Math.max(1, maxEnd + 1);
-                    }
+                    to: (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0) ? Workspace.currentTimeline.timelineDuration : 1
                     onPressedChanged: {
                         if (Workspace.currentTimeline && Workspace.currentTimeline.transport) {
                             Workspace.currentTimeline.transport.isScrubbing = pressed;

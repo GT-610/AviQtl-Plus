@@ -230,7 +230,11 @@ auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float>
     size_t available = m_fullAudioData.size() - startIdx;
     size_t actualCount = std::min(static_cast<size_t>(count), available);
 
-    std::vector<float> result(m_fullAudioData.begin() + static_cast<ptrdiff_t>(startIdx), m_fullAudioData.begin() + static_cast<ptrdiff_t>(startIdx + actualCount));
+    // 最適化: 範囲が全体を超える場合はallocate + memcpy
+    std::vector<float> result;
+    result.reserve(static_cast<size_t>(count));
+    result.assign(m_fullAudioData.begin() + static_cast<ptrdiff_t>(startIdx),
+                  m_fullAudioData.begin() + static_cast<ptrdiff_t>(startIdx + actualCount));
 
     // 足りない分は無音で埋める
     if (result.size() < static_cast<size_t>(count)) {

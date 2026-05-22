@@ -38,6 +38,7 @@ class TimelineController : public QObject {
     Q_PROPERTY(bool isClipActive READ isClipActive NOTIFY isClipActiveChanged)
     Q_PROPERTY(QString activeObjectType READ activeObjectType NOTIFY activeObjectTypeChanged)
     Q_PROPERTY(QVariantList clips READ clips NOTIFY clipsChanged)
+    Q_PROPERTY(int timelineDuration READ timelineDuration NOTIFY timelineDurationChanged)
     Q_PROPERTY(int selectedLayer READ selectedLayer WRITE setSelectedLayer NOTIFY selectedLayerChanged)
     Q_PROPERTY(QVariantList scenes READ scenes NOTIFY scenesChanged)
     Q_PROPERTY(int currentSceneId READ currentSceneId NOTIFY currentSceneIdChanged)
@@ -206,7 +207,8 @@ class TimelineController : public QObject {
     Q_INVOKABLE void updateAudioSampleRate() { m_mediaManager->updateAudioSampleRate(); }
 
     // 動的に計算されたタイムラインの長さ（最後のクリップの末尾フレーム）
-    int timelineDuration() const;
+    int timelineDuration() const { return m_cachedTimelineDuration; }
+    void invalidateTimelineDuration();
 
   signals:
     void videoFrameRequested(int clipId, int relFrame);
@@ -231,6 +233,7 @@ class TimelineController : public QObject {
     void exportStarted(int totalFrames);
     void exportProgressChanged(int progress, int currentFrame, int totalFrames);
     void exportFinished(bool success, const QString &message);
+    void timelineDurationChanged();
 
   private:
     // Initialization Helpers
@@ -266,5 +269,9 @@ class TimelineController : public QObject {
 
   private:
     QPointer<QQuickItem> m_compositeView; // CompositeViewへの参照
+
+    // キャッシュ: タイムラインの長さ（最大クリップ末尾フレーム）
+    // clipsChanged / sceneChanged 時に再計算される
+    mutable int m_cachedTimelineDuration = 300;
 };
 } // namespace AviQtl::UI

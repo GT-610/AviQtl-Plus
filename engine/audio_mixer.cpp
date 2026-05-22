@@ -118,9 +118,9 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             }
         } else {
             // シークまたは初回再生時
-            m_clipPhase.insert(clipId, startTime);
+            m_clipPhase[clipId] = startTime;
         }
-        m_clipLastFrame.insert(clipId, currentFrame);
+        m_clipLastFrame[clipId] = currentFrame;
 
         auto *decoder = decIt->second;
         std::vector<float> clipSamples;
