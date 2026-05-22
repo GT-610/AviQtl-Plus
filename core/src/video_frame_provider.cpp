@@ -7,7 +7,8 @@ VideoFrameProvider::VideoFrameProvider(VideoFrameStore *store) : QQuickImageProv
 
 auto VideoFrameProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize) -> QImage {
     // QMLから "1?v=123" のように来るので、"?"以降を切り捨ててキー "1" を取り出す
-    const QString key = id.split('?').first();
+    const int qIdx = id.indexOf('?');
+    const QString key = (qIdx < 0) ? id : id.left(qIdx);
 
     // 無効なキーや"-1"が来た場合は即座に透明な画像を返す（エラーログ抑制）
     if (key.isEmpty() || key == QLatin1String("-1") || key == QLatin1String("0")) {

@@ -124,7 +124,8 @@ void ImageDecoder::decodeImage(const QString &path) {
         // QQuickImageProvider 用に QImage としても保存する（これがプレビューされない直接的な原因）
         QImage img(rgbaFrame->data[0], rgbaFrame->width, rgbaFrame->height, rgbaFrame->linesize[0], QImage::Format_RGBA8888);
         m_cachedImage = img.copy();
-        m_store->setFrameSafe(QString::number(clipId()), m_cachedImage);
+        const QString clipIdStr = QString::number(clipId());
+        m_store->setFrameSafe(clipIdStr, m_cachedImage);
 
         QVideoFrameFormat fmt(QSize(rgbaFrame->width, rgbaFrame->height), QVideoFrameFormat::Format_RGBA8888);
 #pragma clang diagnostic push
@@ -137,7 +138,7 @@ void ImageDecoder::decodeImage(const QString &path) {
         // FFmpegVideoBuffer が av_frame_ref 済みなので解放可能
         av_frame_free(&rgbaFrame);
 
-        m_store->setVideoFrameSafe(QString::number(clipId()), m_cachedVideoFrame);
+        m_store->setVideoFrameSafe(clipIdStr, m_cachedVideoFrame);
         QMetaObject::invokeMethod(this, [this]() -> void { emit ready(); }, Qt::QueuedConnection);
     }
 

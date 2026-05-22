@@ -72,7 +72,13 @@ void AudioDecoder::startDecoding() {
         av_opt_set_chlayout(m_swrCtx, "out_chlayout", &stereo, 0);
         av_opt_set_int(m_swrCtx, "out_sample_rate", m_sampleRate, 0);
         av_opt_set_sample_fmt(m_swrCtx, "out_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
-        swr_init(m_swrCtx);
+        if (swr_init(m_swrCtx) < 0) {
+            qWarning() << "[AudioDecoder] swr_init failed";
+            closeFFmpeg();
+            m_isReady = true;
+            emit ready();
+            return;
+        }
 
         m_frame = av_frame_alloc();
         m_pkt = av_packet_alloc();
