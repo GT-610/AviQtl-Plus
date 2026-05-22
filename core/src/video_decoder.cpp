@@ -85,11 +85,13 @@ auto VideoDecoder::open(const QString &path) -> bool {
         return false;
     }
     if (avformat_find_stream_info(mfmtCtx, nullptr) < 0) {
+        close();
         return false;
     }
 
     mstreamIndex = av_find_best_stream(mfmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (mstreamIndex < 0) {
+        close();
         return false;
     }
 
@@ -103,6 +105,7 @@ auto VideoDecoder::open(const QString &path) -> bool {
 
     const AVCodec *codec = avcodec_find_decoder(mstream->codecpar->codec_id);
     if (codec == nullptr) {
+        close();
         return false;
     }
 
@@ -144,9 +147,11 @@ hwinitdone:
     }
 
     if (avcodec_open2(mdecCtx, codec, nullptr) != 0) {
+        close();
         return false;
     }
     if (!buildIndex()) {
+        close();
         return false;
     }
     return true;
