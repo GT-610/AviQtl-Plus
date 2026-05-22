@@ -254,7 +254,7 @@ ScrollView {
         Rectangle {
             id: editCursorLine
 
-            visible: Workspace.currentTimeline !== null && !Workspace.currentTimeline.transport.isPlaying
+            visible: Workspace.currentTimeline !== null
             x: (Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
             y: 0
             width: 1
@@ -379,7 +379,8 @@ ScrollView {
             cursorShape: Qt.ArrowCursor
             hoverEnabled: true
             onPositionChanged: (mouse) => {
-                if (Workspace.currentTimeline) {
+                // ボタン押下中（ドラッグ中）やコンテキストメニュー表示中はカーソルを動かさない
+                if (Workspace.currentTimeline && !pressed && !contextMenu.visible) {
                     var scale = Workspace.currentTimeline.timelineScale;
                     var frame = timelineViewRoot.snapFrame(mouse.x / scale, (mouse.modifiers & Qt.ShiftModifier));
                     Workspace.currentTimeline.cursorFrame = frame;
