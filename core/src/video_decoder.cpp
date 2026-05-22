@@ -110,7 +110,14 @@ auto VideoDecoder::open(const QString &path) -> bool {
     }
 
     mdecCtx = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(mdecCtx, mstream->codecpar);
+    if (mdecCtx == nullptr) {
+        close();
+        return false;
+    }
+    if (avcodec_parameters_to_context(mdecCtx, mstream->codecpar) < 0) {
+        close();
+        return false;
+    }
 
     mhwPixFmt = -1;
     const char *hwtypenames[] = {"cuda", "vaapi", "d3d11va", "dxva2", "videotoolbox", nullptr};

@@ -137,6 +137,10 @@ auto VideoEncoder::open(const Config &config) -> bool {
     if (m_hwDeviceCtx != nullptr) {
         // ハードウェアフレームコンテキストの設定
         AVBufferRef *hw_frames_ref = av_hwframe_ctx_alloc(m_hwDeviceCtx);
+        if (hw_frames_ref == nullptr) {
+            qWarning() << "Failed to allocate hardware frame context";
+            return false;
+        }
         auto *frames_ctx = reinterpret_cast<AVHWFramesContext *>(hw_frames_ref->data);
 
         // コーデックに応じたピクセルフォーマット設定
@@ -204,7 +208,10 @@ auto VideoEncoder::open(const Config &config) -> bool {
         return false;
     }
 
-    avcodec_parameters_from_context(m_stream->codecpar, m_encCtx);
+    if (avcodec_parameters_from_context(m_stream->codecpar, m_encCtx) < 0) {
+        qWarning() << "Failed to copy video codec parameters to stream";
+        return false;
+    }
 
     // 5. ファイルオープン
     if ((m_fmtCtx->oformat->flags & AVFMT_NOFILE) == 0) {
@@ -226,6 +233,11 @@ auto VideoEncoder::open(const Config &config) -> bool {
     }
 
     m_hwFrame = av_frame_alloc(); // For HW upload
+    if (m_hwFrame == nullptr) {
+        qWarning() << "Failed to allocate hardware frame";
+        cleanup();
+        return false;
+    }
 
     qDebug() << "VideoEncoder opened using codec:" << config.codecName;
 
@@ -285,10 +297,17 @@ auto VideoEncoder::addAudioStream(int sampleRate, int channels) -> bool {
         return false;
     }
 
-    avcodec_parameters_from_context(m_audioStream->codecpar, m_audioEncCtx);
+    if (avcodec_parameters_from_context(m_audioStream->codecpar, m_audioEncCtx) < 0) {
+        qWarning() << "Failed to copy audio codec parameters to stream";
+        return false;
+    }
 
     // FIFO and resampler initialization
     m_audioFifo = av_audio_fifo_alloc(m_audioEncCtx->sample_fmt, channels, 1024);
+    if (m_audioFifo == nullptr) {
+        qWarning() << "Failed to allocate audio FIFO";
+        return false;
+    }
     m_audioFrame = av_frame_alloc();
     m_audioFrame->nb_samples = m_audioEncCtx->frame_size;
     m_audioFrame->format = m_audioEncCtx->sample_fmt;
@@ -543,10 +562,25 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
     av_samples_alloc_array_and_samples(&convertedData, &linesize, m_audioEncCtx->ch_layout.nb_channels, sampleCount, m_audioEncCtx->sample_fmt, 0);
 
     const uint8_t *inputData[1] = {reinterpret_cast<const uint8_t *>(cleanSamples.data())};
-    swr_convert(m_swrCtx, convertedData, sampleCount, inputData, sampleCount);
+    int converted = swr_convert(m_swrCtx, convertedData, sampleCount, inputData, sampleCount);
+    if (converted < 0) {
+        qWarning() << "[VideoEncoder] swr_convert failed";
+        if (convertedData != nullptr) {
+            av_freep(static_cast<void *>(&convertedData[0]));
+            av_freep(static_cast<void *>(&convertedData));
+        }
+        return false;
+    }
 
     // 2. FIFOに追加
-    av_audio_fifo_write(m_audioFifo, reinterpret_cast<void **>(convertedData), sampleCount);
+    if (av_audio_fifo_write(m_audioFifo, reinterpret_cast<void **>(convertedData), converted) < 0) {
+        qWarning() << "[VideoEncoder] av_audio_fifo_write failed";
+        if (convertedData != nullptr) {
+            av_freep(static_cast<void *>(&convertedData[0]));
+            av_freep(static_cast<void *>(&convertedData));
+        }
+        return false;
+    }
 
     if (convertedData != nullptr) {
         av_freep(static_cast<void *>(&convertedData[0])); // sample buffer
@@ -560,7 +594,10 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
         }
 
         // FIFOから読み出し
-        av_audio_fifo_read(m_audioFifo, reinterpret_cast<void **>(m_audioFrame->data), m_audioEncCtx->frame_size);
+        if (av_audio_fifo_read(m_audioFifo, reinterpret_cast<void **>(m_audioFrame->data), m_audioEncCtx->frame_size) < 0) {
+            qWarning() << "[VideoEncoder] av_audio_fifo_read failed";
+            break;
+        }
 
         m_audioFrame->pts = m_audioPts;
         m_audioPts += m_audioFrame->nb_samples;

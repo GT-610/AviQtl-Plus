@@ -35,7 +35,13 @@ void AudioDecoder::startDecoding() {
             return;
         }
 
-        avformat_find_stream_info(m_fmtCtx, nullptr);
+        if (avformat_find_stream_info(m_fmtCtx, nullptr) < 0) {
+            qWarning() << "[AudioDecoder] avformat_find_stream_info failed";
+            closeFFmpeg();
+            m_isReady = true;
+            emit ready();
+            return;
+        }
 
         m_streamIdx = av_find_best_stream(m_fmtCtx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
         if (m_streamIdx < 0) {
@@ -55,7 +61,20 @@ void AudioDecoder::startDecoding() {
         }
 
         m_decCtx = avcodec_alloc_context3(codec);
-        avcodec_parameters_to_context(m_decCtx, m_stream->codecpar);
+        if (m_decCtx == nullptr) {
+            qWarning() << "[AudioDecoder] avcodec_alloc_context3 failed (OOM?)";
+            closeFFmpeg();
+            m_isReady = true;
+            emit ready();
+            return;
+        }
+        if (avcodec_parameters_to_context(m_decCtx, m_stream->codecpar) < 0) {
+            qWarning() << "[AudioDecoder] avcodec_parameters_to_context failed";
+            closeFFmpeg();
+            m_isReady = true;
+            emit ready();
+            return;
+        }
         if (avcodec_open2(m_decCtx, codec, nullptr) < 0) {
             qWarning() << "[AudioDecoder] avcodec_open2 failed";
             m_isReady = true;

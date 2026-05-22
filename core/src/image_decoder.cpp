@@ -74,7 +74,15 @@ void ImageDecoder::decodeImage(const QString &path) {
     }
 
     AVCodecContext *decCtx = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(decCtx, stream->codecpar);
+    if (decCtx == nullptr) {
+        avformat_close_input(&fmtCtx);
+        return;
+    }
+    if (avcodec_parameters_to_context(decCtx, stream->codecpar) < 0) {
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&fmtCtx);
+        return;
+    }
     if (avcodec_open2(decCtx, codec, nullptr) < 0) {
         avcodec_free_context(&decCtx);
         avformat_close_input(&fmtCtx);
@@ -117,6 +125,14 @@ void ImageDecoder::decodeImage(const QString &path) {
         }
 
         SwsContext *swsCtx = sws_getContext(srcFrame->width, srcFrame->height, static_cast<AVPixelFormat>(srcFrame->format), rgbaFrame->width, rgbaFrame->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr);
+        if (swsCtx == nullptr) {
+            av_frame_free(&rgbaFrame);
+            av_frame_free(&srcFrame);
+            av_packet_free(&pkt);
+            avcodec_free_context(&decCtx);
+            avformat_close_input(&fmtCtx);
+            return;
+        }
 
         sws_scale(swsCtx, srcFrame->data, srcFrame->linesize, 0, srcFrame->height, rgbaFrame->data, rgbaFrame->linesize);
         sws_freeContext(swsCtx);
