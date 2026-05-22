@@ -175,6 +175,76 @@ private slots:
         chain.process(buf.data(), 2);
         QCOMPARE(buf[0], 0.0f);
     }
+
+    void prepareEmptyChain()
+    {
+        AudioPluginChain chain;
+        // Should not crash on empty chain
+        chain.prepare(96000.0, 2048);
+        QCOMPARE(chain.count(), 0);
+    }
+
+    void addAfterPreparePropagatesSettings()
+    {
+        AudioPluginChain chain;
+        chain.prepare(44100.0, 512);
+
+        auto mock = std::make_unique<MockPlugin>();
+        MockPlugin *raw = mock.get();
+        chain.add(std::move(mock));
+
+        QCOMPARE(raw->prepareCalls(), 1);
+        QCOMPARE(raw->lastSampleRate(), 44100.0);
+        QCOMPARE(raw->lastBlockSize(), 512);
+    }
+
+    void removeMiddle()
+    {
+        AudioPluginChain chain;
+        chain.add(std::make_unique<MockPlugin>(QStringLiteral("A")));
+        chain.add(std::make_unique<MockPlugin>(QStringLiteral("B")));
+        chain.add(std::make_unique<MockPlugin>(QStringLiteral("C")));
+        QCOMPARE(chain.count(), 3);
+
+        chain.remove(1);
+        QCOMPARE(chain.count(), 2);
+        QCOMPARE(chain.get(0)->name(), QStringLiteral("A"));
+        QCOMPARE(chain.get(1)->name(), QStringLiteral("C"));
+    }
+
+    void processChainOrder()
+    {
+        // Use a mock plugin that adds 1.0 to every sample, then another that multiplies by 2.0
+        class AddOnePlugin : public MockPlugin {
+          public:
+            AddOnePlugin() : MockPlugin(QStringLiteral("add1")) {}
+            void process(float *buf, int count) override {
+                for (int i = 0; i < count; ++i) buf[i] += 1.0f;
+            }
+        };
+        class MulTwoPlugin : public MockPlugin {
+          public:
+            MulTwoPlugin() : MockPlugin(QStringLiteral("mul2")) {}
+            void process(float *buf, int count) override {
+                for (int i = 0; i < count; ++i) buf[i] *= 2.0f;
+            }
+        };
+
+        AudioPluginChain chain;
+        chain.add(std::make_unique<AddOnePlugin>());
+        chain.add(std::make_unique<MulTwoPlugin>());
+
+        // buf starts at [2, 4, 6, 8] (4 samples = 2 stereo frames)
+        // After add1: [3, 5, 7, 9]
+        // After mul2: [6, 10, 14, 18]
+        std::vector<float> buf = {2.0f, 4.0f, 6.0f, 8.0f};
+        chain.process(buf.data(), 4); // 4 mono samples or 2 stereo frames
+
+        QCOMPARE(buf[0], 6.0f);
+        QCOMPARE(buf[1], 10.0f);
+        QCOMPARE(buf[2], 14.0f);
+        QCOMPARE(buf[3], 18.0f);
+    }
 };
 
 QTEST_MAIN(TestAudioPluginChain)

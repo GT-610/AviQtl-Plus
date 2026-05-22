@@ -71,6 +71,59 @@ private slots:
         double result = LuaHost::evaluate("value + sin(time) * index", 0.0, 2, 10.0);
         QCOMPARE(result, 10.0); // sin(0) = 0
     }
+
+    // ── Extended: table / relational / math edge cases ──
+
+    void evaluateTableLength()
+    {
+        // Lua tables can be manipulated; # returns length for 1-based numeric tables
+        double result = LuaHost::evaluate("#{1,2,3}", 0.0, 0, 0.0);
+        QCOMPARE(result, 3.0);
+    }
+
+    void evaluateMathFunctions()
+    {
+        double sqrtResult = LuaHost::evaluate("m.sqrt(16)", 0.0, 0, 0.0);
+        QCOMPARE(sqrtResult, 4.0);
+
+        double powResult = LuaHost::evaluate("m.pow(2, 10)", 0.0, 0, 0.0);
+        QCOMPARE(powResult, 1024.0);
+
+        double logResult = LuaHost::evaluate("m.log(m.exp(3))", 0.0, 0, 0.0);
+        QVERIFY(std::abs(logResult - 3.0) < 0.001);
+    }
+
+    void evaluateStringConversion()
+    {
+        // tonumber converts string to number
+        double result = LuaHost::evaluate("tonumber('42')", 0.0, 0, 0.0);
+        QCOMPARE(result, 42.0);
+
+        // invalid string should return fallback (0.0 here)
+        double fallback = LuaHost::evaluate("tonumber('hello')", 1.0, 2, 0.0);
+        QCOMPARE(fallback, 0.0);
+    }
+
+    void evaluateLargeNumbers()
+    {
+        double result = LuaHost::evaluate("1e12 + 1e12", 0.0, 0, 0.0);
+        QCOMPARE(result, 2e12);
+    }
+
+    void evaluateZeroDivisionByLua()
+    {
+        // 1/0 in Lua produces +inf; we already tested that
+        // 0/0 in Lua produces -nan(ind)
+        double result = LuaHost::evaluate("0 / 0", 0.0, 0, 0.0);
+        QVERIFY(std::isnan(result));
+    }
+
+    void evaluateAllVariablesCombined()
+    {
+        // time=2, index=3, value=10 -> 2*3 + 10 = 16
+        double result = LuaHost::evaluate("time * index + value", 2.0, 3, 10.0);
+        QCOMPARE(result, 16.0);
+    }
 };
 
 QTEST_MAIN(TestLuaHost)
