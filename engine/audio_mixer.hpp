@@ -52,6 +52,7 @@ class AudioMixer : public QObject {
     QHash<int, int> m_clipLastFrame;
 
     std::vector<float> m_masterBuffer;
+    std::vector<float> m_clipSamples;
     int m_lastSamplesPerFrame = 0;
 };
 

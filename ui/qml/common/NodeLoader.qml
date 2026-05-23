@@ -54,7 +54,7 @@ Node {
 
         status = _component.status;
         if (status === Component.Ready) {
-            item = _component.createObject(loader, properties);
+            item = _component.createObject(loader);
             _applyProperties();
         } else if (status === Component.Error) {
             errorString = _component.errorString();

@@ -130,7 +130,6 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
         m_clipLastFrame[clipId] = currentFrame;
 
         auto *decoder = decIt->second;
-        std::vector<float> clipSamples;
 
         if (std::abs(m_playbackSpeed - 1.0) > 0.01) {
             // リサンプリングが必要な場合
@@ -139,7 +138,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             std::vector<float> rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
 
             if (!rawSamples.empty()) {
-                clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
+                m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
                 int availableSrcSamples = static_cast<int>(rawSamples.size() / 2);
 
                 for (int i = 0; i < samplesPerFrame; ++i) {
@@ -160,9 +159,9 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
                     double t = srcIdx - idx0;
 
                     // L ch
-                    clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
+                    m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
                     // R ch
-                    clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((rawSamples.at((static_cast<std::size_t>(idx0) * 2) + 1) * (1.0 - t)) + (rawSamples.at((static_cast<std::size_t>(idx1) * 2) + 1) * t));
+                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((rawSamples.at((static_cast<std::size_t>(idx0) * 2) + 1) * (1.0 - t)) + (rawSamples.at((static_cast<std::size_t>(idx1) * 2) + 1) * t));
                 }
             }
             // 次のフレームのための開始位置を進める（m_playbackSpeed 分の秒数）
@@ -170,23 +169,23 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
         } else {
             // 1倍速の場合はそのまま取得
             int neededSamples = samplesPerFrame;
-            clipSamples = decoder->getSamples(startTime, neededSamples * 2);
+            m_clipSamples = decoder->getSamples(startTime, neededSamples * 2);
             m_clipPhase[clipId] = startTime + (static_cast<double>(samplesPerFrame) / m_format.sampleRate());
         }
 
         // プラグインチェーンを適用
         auto chainIt = m_chains.find(clipId);
         if (chainIt != m_chains.end()) {
-            chainIt.value()->process(clipSamples.data(), samplesPerFrame);
+            chainIt.value()->process(m_clipSamples.data(), samplesPerFrame);
         }
 
         float leftVol = audio.volume * (audio.pan <= 0 ? 1.0F : 1.0F - audio.pan);
         float rightVol = audio.volume * (audio.pan >= 0 ? 1.0F : 1.0F + audio.pan);
 
-        for (size_t i = 0; i < clipSamples.size() && i < masterBuffer.size(); i += 2) {
-            masterBuffer[i] += clipSamples[i] * leftVol;
-            if (i + 1 < clipSamples.size()) {
-                masterBuffer[i + 1] += clipSamples[i + 1] * rightVol;
+        for (size_t i = 0; i < m_clipSamples.size() && i < masterBuffer.size(); i += 2) {
+            masterBuffer[i] += m_clipSamples[i] * leftVol;
+            if (i + 1 < m_clipSamples.size()) {
+                masterBuffer[i + 1] += m_clipSamples[i + 1] * rightVol;
             }
         }
     }

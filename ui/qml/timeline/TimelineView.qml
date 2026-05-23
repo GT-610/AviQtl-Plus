@@ -1,4 +1,5 @@
 import "../common" as Common
+import "../common/Logger.js" as Logger
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -644,10 +645,9 @@ ScrollView {
 
                 break;
             default:
-                // Unknown command - silently ignored in release builds to avoid
-                // synchronous I/O overhead when the timeline window receives
-                // frequent external messages (shortcuts, automation, etc.).
-                break;
+                // Unknown command: logged via debug channel instead of console.log
+                // so it does not slow down the message handler in production builds.
+                Logger.log("[TimelineView] Unknown command: " + cmd, Workspace.currentTimeline);
             }
         }
 
