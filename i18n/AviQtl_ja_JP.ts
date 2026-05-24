@@ -1128,22 +1128,22 @@
 <context>
     <name>AviQtl::UI::TimelineService</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="105"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="101"/>
         <source>レイヤーを上に挿入</source>
         <translation>レイヤーを上に挿入</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="105"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="101"/>
         <source>レイヤーを下に挿入</source>
         <translation>レイヤーを下に挿入</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="128"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="124"/>
         <source>レイヤーをまとめて下へ移動</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="128"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="124"/>
         <source>レイヤーをまとめて上へ移動</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2633,37 +2633,37 @@
         <translation>ルート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="214"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="210"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>複数クリップ絶対移動: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="270"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="266"/>
         <source>複数クリップ移動: %1</source>
         <translation>複数クリップ移動: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="329"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="325"/>
         <source>複数クリップ変形: %1</source>
         <translation>複数クリップ変形: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="604"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="600"/>
         <source>クリップ削除</source>
         <translation>クリップ削除</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="604"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="600"/>
         <source>複数クリップ削除: %1</source>
         <translation>複数クリップ削除: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="741"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="737"/>
         <source>複数クリップ分割: %1</source>
         <translation>複数クリップ分割: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="794"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="784"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>複数クリップ貼り付け: %1</translation>
     </message>
@@ -3251,67 +3251,67 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="723"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="727"/>
         <source>オブジェクトを追加</source>
         <translation>オブジェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="737"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="741"/>
         <source>元に戻す</source>
         <translation>元に戻す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="738"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="742"/>
         <source>やり直す</source>
         <translation>やり直す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="739"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="743"/>
         <source>貼り付け</source>
         <translation>貼り付け</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="741"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="745"/>
         <source>シーン設定...</source>
         <translation>シーン設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="742"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="746"/>
         <source>プロジェクト設定...</source>
         <translation>プロジェクト設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="743"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="747"/>
         <source>環境設定...</source>
         <translation>環境設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="745"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="749"/>
         <source>削除</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="746"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="750"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="747"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="751"/>
         <source>複製</source>
         <translation type="unfinished">複製</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="749"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="753"/>
         <source>切り取り</source>
         <translation>切り取り</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="750"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="754"/>
         <source>コピー</source>
         <translation>コピー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="753"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="757"/>
         <source>エフェクトを追加</source>
         <translation type="unfinished">エフェクトを追加</translation>
     </message>

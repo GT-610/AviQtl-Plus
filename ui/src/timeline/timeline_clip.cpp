@@ -10,14 +10,17 @@
 
 namespace AviQtl::UI {
 
-void TimelineService::createClip(const QString &type, int startFrame, int layer) {
+int TimelineService::createClip(const QString &type, int startFrame, int layer) {
     int id = m_nextClipId++;
     QString clipName = type;
     auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(type);
     if (!meta.name.isEmpty()) {
         clipName = meta.name;
     }
-    m_undoStack->push(new AddClipCommand(this, id, type, startFrame, layer, clipName));
+    const int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+    int safeFrame = findVacantFrame(layer, startFrame, duration, -1);
+    m_undoStack->push(new AddClipCommand(this, id, type, safeFrame, layer, clipName));
+    return safeFrame;
 }
 
 void TimelineService::createClipInternal(int clipId, const QString &type, int startFrame, int layer, bool emitSignal) {
@@ -30,24 +33,17 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
     }
 
     const int defaultDuration = AviQtl::Core::SettingsManager::instance().settings().value(QStringLiteral("defaultClipDuration"), 100).toInt();
-    auto overlaps = [](int s1, int d1, int s2, int d2) -> bool { return (s1 < (s2 + d2)) && (s2 < (s1 + d1)); };
-    auto &currentClips = clipsMutable();
-    for (const auto &c : std::as_const(currentClips)) {
-        if (c.layer == layer && overlaps(startFrame, defaultDuration, c.startFrame, c.durationFrames)) {
-            qWarning() << "クリップ作成を拒否: レイヤー" << layer << "の" << startFrame << "フレームで衝突が発生";
-            return;
-        }
-    }
+    int safeStartFrame = findVacantFrame(layer, startFrame, defaultDuration, -1);
 
     ClipData newClip;
     newClip.id = clipId;
     newClip.sceneId = m_currentSceneId;
     newClip.type = type;
-    newClip.startFrame = startFrame;
+    newClip.startFrame = safeStartFrame;
     newClip.durationFrames = defaultDuration;
     newClip.layer = layer;
 
-    currentClips.append(newClip);
+    clipsMutable().append(newClip);
 
     addEffectInternal(clipId, QStringLiteral("transform"));
     addEffectInternal(clipId, type);
@@ -745,16 +741,17 @@ void TimelineService::splitSelectedClips(int frame) {
     m_undoStack->endMacro();
 }
 
-void TimelineService::pasteClip(int frame, int layer) {
+int TimelineService::pasteClip(int frame, int layer) {
     if (m_clipboard.isEmpty()) {
-        return;
+        return frame;
     }
 
+    int safeFrame = findVacantFrameForClipboard(frame, layer);
     frame = std::max(frame, 0);
     layer = std::max(layer, 0);
 
-    auto overlaps = [](int s1, int d1, int s2, int d2) -> bool { return (s1 < (s2 + d2)) && (s2 < (s1 + d1)); };
     auto &currentClips = clipsMutable();
+    auto overlaps = [](int s1, int d1, int s2, int d2) -> bool { return (s1 < (s2 + d2)) && (s2 < (s1 + d1)); };
 
     int baseFrame = m_clipboard.first().startFrame;
     int baseLayer = m_clipboard.first().layer;
@@ -766,19 +763,12 @@ void TimelineService::pasteClip(int frame, int layer) {
     QList<ClipData> pending;
     for (const auto &src : std::as_const(m_clipboard)) {
         ClipData newClip = deepCopyClip(src);
-        newClip.startFrame = frame + (src.startFrame - baseFrame);
+        newClip.startFrame = safeFrame + (src.startFrame - baseFrame);
         newClip.layer = std::max(0, layer + (src.layer - baseLayer));
-
-        for (const auto &c : std::as_const(currentClips)) {
-            if (c.layer == newClip.layer && overlaps(newClip.startFrame, newClip.durationFrames, c.startFrame, c.durationFrames)) {
-                qWarning() << "クリップ貼り付けを拒否: レイヤー" << newClip.layer << "の" << newClip.startFrame << "フレームで衝突が発生";
-                return;
-            }
-        }
         for (const auto &c : std::as_const(pending)) {
             if (c.layer == newClip.layer && overlaps(newClip.startFrame, newClip.durationFrames, c.startFrame, c.durationFrames)) {
                 qWarning() << "クリップ貼り付けを拒否: 貼り付け対象同士が衝突";
-                return;
+                return safeFrame;
             }
         }
 
@@ -788,7 +778,7 @@ void TimelineService::pasteClip(int frame, int layer) {
     if (pending.size() == 1) {
         int newId = m_nextClipId++;
         m_undoStack->push(new PasteClipCommand(this, newId, pending.first()));
-        return;
+        return safeFrame;
     }
 
     m_undoStack->beginMacro(QObject::tr("複数クリップ貼り付け: %1").arg(pending.size()));
@@ -797,6 +787,7 @@ void TimelineService::pasteClip(int frame, int layer) {
         m_undoStack->push(new PasteClipCommand(this, newId, clip));
     }
     m_undoStack->endMacro();
+    return safeFrame;
 }
 
 void TimelineService::splitClip(int clipId, int frame) {
@@ -906,6 +897,42 @@ int TimelineService::getClipboardDuration() const {
     if (maxEnd <= minStart)
         return 0;
     return maxEnd - minStart;
+}
+
+int TimelineService::findVacantFrameForClipboard(int requestedFrame, int layerOffset) const {
+    if (m_clipboard.isEmpty())
+        return requestedFrame;
+
+    int minStart = 2147483647;
+    int minLayer = 2147483647;
+    for (const auto &c : m_clipboard) {
+        minStart = std::min(minStart, c.startFrame);
+        minLayer = std::min(minLayer, c.layer);
+    }
+
+    auto overlaps = [](int s1, int d1, int s2, int d2) -> bool { return (s1 < (s2 + d2)) && (s2 < (s1 + d1)); };
+
+    int safeFrame = std::max(0, requestedFrame);
+    bool colliding = true;
+    while (colliding) {
+        colliding = false;
+        int nextJump = safeFrame + 1;
+        for (const auto &src : m_clipboard) {
+            int clipStart = safeFrame + (src.startFrame - minStart);
+            int clipLayer = std::max(0, layerOffset + (src.layer - minLayer));
+            int clipDur = src.durationFrames;
+
+            for (const auto &c : clips()) {
+                if (c.layer == clipLayer && overlaps(clipStart, clipDur, c.startFrame, c.durationFrames)) {
+                    colliding = true;
+                    nextJump = std::max(nextJump, c.startFrame + c.durationFrames - (src.startFrame - minStart));
+                }
+            }
+        }
+        if (colliding)
+            safeFrame = nextJump;
+    }
+    return safeFrame;
 }
 
 } // namespace AviQtl::UI

@@ -22,6 +22,7 @@ class TimelineService : public QObject {
     const QList<ClipData> &clips(int sceneId) const; // 特定シーンのクリップ取得
 
     int findVacantFrame(int layer, int startFrame, int duration, int excludeClipId) const;
+    int findVacantFrameForClipboard(int requestedFrame, int layerOffset) const;
 
     const QList<SceneData> &getAllScenes() const { return m_scenes; }
     void setScenes(const QList<SceneData> &scenes);
@@ -30,7 +31,7 @@ class TimelineService : public QObject {
     // 操作 (公開API)
     void undo();
     void redo();
-    void createClip(const QString &type, int startFrame, int layer);
+    int createClip(const QString &type, int startFrame, int layer);
     void deleteClip(int clipId);
     void updateClip(int id, int layer, int startFrame, int duration);
     void insertLayers(int targetLayer, int count, bool above);
@@ -77,7 +78,7 @@ class TimelineService : public QObject {
     // クリップボード
     void copyClip(int clipId);
     void cutClip(int clipId);
-    void pasteClip(int frame, int layer);
+    int pasteClip(int frame, int layer);
     void copySelectedClips();
     void cutSelectedClips();
     void deleteSelectedClips();

@@ -368,8 +368,12 @@ ScrollView {
             z: -1
             acceptedButtons: Qt.LeftButton
             cursorShape: Qt.ArrowCursor
+            preventStealing: true
             hoverEnabled: true
             onPositionChanged: (mouse) => {
+                if (pressed && Workspace.currentTimeline)
+                    Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
+
             }
             onPressed: (mouse) => {
                 if (Workspace.currentTimeline)
