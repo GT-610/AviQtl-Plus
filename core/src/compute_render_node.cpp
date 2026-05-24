@@ -187,8 +187,11 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(quadData));
             m_vbuf->create();
 
+            // 頂点データのアップロード (Immutable バッファには必須)
             QRhiResourceUpdateBatch *batch = rhi->nextResourceUpdateBatch();
             batch->uploadStaticBuffer(m_vbuf, quadData);
+            // ensureBuffers は prepare() から呼ばれるため、後でまとめてコミットされるようにする
+            rhi->nextResourceUpdateBatch()->merge(batch);
 
             m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64); // Matrix用
             m_ubuf->create();
@@ -254,18 +257,10 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
         inputLayout.setAttributes({{0, 0, QRhiVertexInputAttribute::Float2, 0}, {0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float)}});
         m_renderPipeline->setVertexInputLayout(inputLayout);
 
-        // 実行ファイルからの相対パスで直置きファイルを読み込む (build/bin/ から build/common/shaders/ へ)
-        QString baseDir = QCoreApplication::applicationDirPath();
-        if (baseDir.endsWith("/bin"))
-            baseDir.chop(4);
-        QString shaderDir = baseDir + "/common/shaders/";
-        QFile vfile(shaderDir + "blit.vert.qsb");
-        QFile ffile(shaderDir + "blit.frag.qsb");
-
+        QFile vfile(QStringLiteral(":/qt/qml/AviQtl/ui/qml/common/shaders/blit.vert.qsb"));
+        QFile ffile(QStringLiteral(":/qt/qml/AviQtl/ui/qml/common/shaders/blit.frag.qsb"));
         if (vfile.open(QIODevice::ReadOnly) && ffile.open(QIODevice::ReadOnly)) {
             m_renderPipeline->setShaderStages({{QRhiShaderStage::Vertex, QShader::fromSerialized(vfile.readAll())}, {QRhiShaderStage::Fragment, QShader::fromSerialized(ffile.readAll())}});
-        } else {
-            qCWarning(lcComputeRenderNode) << "ComputeRenderNode: CRITICAL - Failed to load blit shaders from:" << shaderDir;
         }
     }
 
@@ -364,6 +359,17 @@ void ComputeRenderNode::prepare() {
     cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
     cb->endComputePass();
 
+    QRhiResourceUpdateBatch *syncBatch = m_rhi->nextResourceUpdateBatch();
+    // 2. 行列の更新 (render()内は禁止されているため、ここで事前に行う)
+    if (m_ubuf) {
+        QMatrix4x4 mat;
+        mat.ortho(0, 1, 1, 0, -1, 1); // 頂点が 0..1 のため単位行列的な正射影
+        mat.scale(m_width, m_height, 1.0f);
+        syncBatch->updateDynamicBuffer(m_ubuf, 0, 64, mat.constData());
+    }
+
+    cb->resourceUpdate(syncBatch);
+
     m_ssboDirty = false;
 }
 
@@ -371,16 +377,6 @@ void ComputeRenderNode::render(const RenderState *state) {
     auto *cb = resolveCommandBuffer();
     if (!cb || !m_renderPipeline || !m_vbuf || !m_outputTexture)
         return;
-
-    // 表示位置を QML アイテムと同期させるための行列更新
-    // 頂点データが 0..1 の単位正方形のため、アイテムの論理サイズまでスケールをかける
-    if (m_ubuf && state && state->projectionMatrix()) {
-        QRhiResourceUpdateBatch *batch = m_rhi->nextResourceUpdateBatch();
-        QMatrix4x4 mat = *state->projectionMatrix();
-        mat.scale(m_width, m_height, 1.0f);
-        batch->updateDynamicBuffer(m_ubuf, 0, 64, mat.constData());
-        cb->resourceUpdate(batch);
-    }
 
     cb->setGraphicsPipeline(m_renderPipeline);
 
