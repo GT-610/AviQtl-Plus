@@ -2,6 +2,7 @@
 #include <QByteArray>
 #include <QList>
 #include <QLoggingCategory>
+#include <QMatrix4x4>
 #include <QSGRenderNode>
 #include <QSGTexture>
 #include <QString>
@@ -68,7 +69,9 @@ class ComputeRenderNode final : public QSGRenderNode {
     QRhiSampler *m_sampler = nullptr;
     QRhiBuffer *m_vbuf = nullptr;
     QRhiBuffer *m_ubuf = nullptr;
+    QRhiBuffer *m_paramUbuf = nullptr;
     QRhiShaderResourceBindings *m_renderSrb = nullptr;
+    QRhiTexture *m_renderTexture = nullptr;
     QRhiGraphicsPipeline *m_renderPipeline = nullptr;
 
     QRhiShaderResourceBindings *m_srb = nullptr;
@@ -84,13 +87,18 @@ class ComputeRenderNode final : public QSGRenderNode {
     float m_width = 0;
     float m_height = 0;
     QSGTexture *m_inputTexture = nullptr;
+    QRhiTexture *m_inputRhiTexture = nullptr;
 
     bool m_shaderDirty = true;
     bool m_bufferLayoutDirty = true;
+    bool m_renderTargetDirty = true;
+    bool m_verticesUploaded = false;
 
     int m_workGroupX = 1;
     int m_workGroupY = 1;
     int m_workGroupZ = 1;
+
+    QByteArray m_paramData;
 };
 
 } // namespace AviQtl::UI::Effects

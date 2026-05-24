@@ -59,6 +59,7 @@ class ComputeEffect : public QQuickItem {
     void setAutoWorkGroup(bool autoWG);
 
     Q_INVOKABLE void setStorageBufferRaw(const QString &name, int binding, const void *data, qsizetype byteSize);
+    Q_INVOKABLE void setErrorFromRenderThread(const QString &error);
 
   signals:
     void sourceChanged();
@@ -85,6 +86,7 @@ class ComputeEffect : public QQuickItem {
         QByteArray data;
     };
     static QByteArray ssboToBytes(const QVariantMap &bufferData);
+    static QByteArray paramsToUniformBytes(const QVariantMap &params);
 
     QQuickItem *m_source = nullptr;
     QVariantMap m_params;

@@ -42,6 +42,7 @@ BaseEffect {
         id: compEffect
 
         anchors.fill: parent
+        source: root.sourceProxy
         params: root.buildUniforms()
         autoWorkGroup: true
     }

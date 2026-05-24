@@ -2,6 +2,9 @@
 #include "compute_render_node.hpp"
 #include <QDebug>
 #include <QLoggingCategory>
+#include <QMetaObject>
+#include <QMetaType>
+#include <QPointer>
 #include <QSGNode>
 #include <QSGTexture>
 #include <QSGTextureProvider>
@@ -110,6 +113,13 @@ void ComputeEffect::setStorageBufferRaw(const QString &name, int binding, const 
     update();
 }
 
+void ComputeEffect::setErrorFromRenderThread(const QString &error) {
+    if (m_error == error)
+        return;
+    m_error = error;
+    emit errorChanged();
+}
+
 void ComputeEffect::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
     if (m_autoWorkGroup)
@@ -152,6 +162,44 @@ auto ComputeEffect::ssboToBytes(const QVariantMap &bufferData) -> QByteArray {
     return result;
 }
 
+auto ComputeEffect::paramsToUniformBytes(const QVariantMap &params) -> QByteArray {
+    struct ParamsBlock {
+        float blockSize = 24.0f;
+        float minLuma = 0.15f;
+        float maxLuma = 0.90f;
+        float mixAmount = 1.0f;
+        int direction = 0;
+        int reverse = 0;
+        int _pad0 = 0;
+        int _pad1 = 0;
+    };
+
+    auto numberValue = [&params](const QString &key, float fallback) {
+        const QVariant value = params.value(key);
+        bool ok = false;
+        const float result = value.toFloat(&ok);
+        return ok ? result : fallback;
+    };
+    auto intValue = [&params](const QString &key, int fallback) {
+        const QVariant value = params.value(key);
+        if (value.metaType().id() == QMetaType::Bool)
+            return value.toBool() ? 1 : 0;
+        bool ok = false;
+        const int result = value.toInt(&ok);
+        return ok ? result : fallback;
+    };
+
+    ParamsBlock block;
+    block.blockSize = numberValue(QStringLiteral("blockSize"), block.blockSize);
+    block.minLuma = numberValue(QStringLiteral("minLuma"), block.minLuma);
+    block.maxLuma = numberValue(QStringLiteral("maxLuma"), block.maxLuma);
+    block.mixAmount = numberValue(QStringLiteral("mixAmount"), numberValue(QStringLiteral("mix"), block.mixAmount));
+    block.direction = intValue(QStringLiteral("direction"), block.direction);
+    block.reverse = intValue(QStringLiteral("reverse"), block.reverse);
+
+    return QByteArray(reinterpret_cast<const char *>(&block), sizeof(block));
+}
+
 auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> QSGNode * {
     if (!m_enabled) {
         delete oldNode;
@@ -175,11 +223,11 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
                 entries.push_back({raw.binding, raw.data});
         }
 
-        // m_rawSSBOs が空の場合、params (m_params) を Binding 0 として自動転送
+        // m_rawSSBOs が空の場合、params (m_params) を Binding 2 の uniform block として自動転送
         if (entries.isEmpty() && !m_params.isEmpty()) {
-            const QByteArray bytes = ssboToBytes(m_params);
+            const QByteArray bytes = paramsToUniformBytes(m_params);
             if (!bytes.isEmpty())
-                entries.push_back({0, bytes});
+                entries.push_back({2, bytes});
         } else if (entries.isEmpty() && !m_storageBuffers.isEmpty()) {
             // 旧来 QVariantMap パス: m_rawSSBOs が空の場合のみ使用する
             for (auto it = m_storageBuffers.cbegin(); it != m_storageBuffers.cend(); ++it) {
@@ -187,6 +235,10 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
                 if (!bytes.isEmpty())
                     entries.push_back({0, bytes});
             }
+        } else if (entries.isEmpty()) {
+            const QByteArray bytes = paramsToUniformBytes(m_params);
+            if (!bytes.isEmpty())
+                entries.push_back({2, bytes});
         }
 
         // ソーステクスチャの同期
@@ -222,10 +274,16 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
     }
 
     // レンダースレッド側で発生したエラーを QML プロパティへ同期する
-    QString nodeErr = node->errorMessage();
+    const QString nodeErr = node->errorMessage();
     if (m_error != nodeErr) {
-        m_error = nodeErr;
-        emit errorChanged();
+        QPointer<ComputeEffect> self(this);
+        QMetaObject::invokeMethod(
+            this,
+            [self, nodeErr]() {
+                if (self)
+                    self->setErrorFromRenderThread(nodeErr);
+            },
+            Qt::QueuedConnection);
     }
 
     // QSGNode のダーティフラグを立てて prepare() / render() が呼ばれることを保証する

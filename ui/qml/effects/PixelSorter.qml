@@ -20,13 +20,10 @@ Common.BaseComputeEffect {
         // 初期化中の一時的な null は許容する
         return null;
     }
-    // デバッグ用: バインディングの状態をコンソールに出力
-    onSourceChanged: console.log("[PixelSorter] source updated to:", source)
     // Qt.resolvedUrl を使うことで、この QML ファイルと同じディレクトリにある QSB を絶対パスで指定できます
     computeShader: Qt.resolvedUrl("pixelsorter.comp.qsb")
-    // C++ の params プロパティに直接マップする（BaseComputeEffect の実装に依存）
-    params: ({
-        "mix": 1
+    uniformMapping: ({
+        "mix": "mixAmount"
     })
 
     // デバッグ用: シェーダーエラーの表示

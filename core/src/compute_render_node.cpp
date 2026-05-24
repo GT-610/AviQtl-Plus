@@ -4,31 +4,36 @@
 #include <QLoggingCategory>
 #include <QQuickWindow>
 #include <QSGRendererInterface>
+#include <cstring>
 #include <rhi/qrhi.h>
 
 Q_LOGGING_CATEGORY(lcComputeRenderNode, "aviqtl.compute_render_node")
 
 namespace AviQtl::UI::Effects {
 
+namespace {
+static constexpr int kOutputBinding = 0;
+static constexpr int kInputBinding = 1;
+static constexpr int kParamsBinding = 2;
+static constexpr qsizetype kParamsBlockSize = 32;
+
+static const float kQuadData[] = {
+    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+};
+} // namespace
+
 ComputeRenderNode::ComputeRenderNode(QQuickWindow *window) : m_window(window) {}
 
 ComputeRenderNode::~ComputeRenderNode() { destroyResources(); }
 
 void ComputeRenderNode::syncSSBOs(const QList<SSBOEntry> &entries) {
-    // バッファの binding セットが変わった場合はレイアウト再構築フラグを立てる
-    bool layoutChanged = (m_gpuBuffers.size() != entries.size());
-    if (!layoutChanged) {
-        for (int i = 0; i < entries.size(); ++i) {
-            if (m_gpuBuffers[i].binding != entries[i].binding) {
-                layoutChanged = true;
-                break;
-            }
-        }
-    }
     m_pendingSSBOs = entries;
     m_ssboDirty = !entries.isEmpty();
-    if (layoutChanged)
+    const QByteArray nextParams = entries.isEmpty() ? QByteArray() : entries.constFirst().data;
+    if (m_paramData.size() != nextParams.size()) {
         m_bufferLayoutDirty = true;
+    }
+    m_paramData = nextParams;
 }
 
 void ComputeRenderNode::syncShaderPath(const QString &path) {
@@ -53,6 +58,7 @@ void ComputeRenderNode::syncInputTexture(QSGTexture *tex) {
     qCDebug(lcComputeRenderNode) << "ComputeRenderNode: inputTexture updated to" << tex;
     m_inputTexture = tex;
     m_bufferLayoutDirty = true;
+    m_renderTargetDirty = true;
 }
 
 void ComputeRenderNode::syncWorkGroupSize(int x, int y, int z) {
@@ -77,13 +83,16 @@ QRhiCommandBuffer *ComputeRenderNode::resolveCommandBuffer() const {
 }
 
 bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
-    if (!rhi->isFeatureSupported(QRhi::Compute)) {
-        qCWarning(lcComputeRenderNode) << "Compute shaders are not supported on this hardware/backend.";
-        return false;
+    const bool computeSupported = rhi->isFeatureSupported(QRhi::Compute);
+    QRhiTexture *currentInputRhiTexture = m_inputTexture ? m_inputTexture->rhiTexture() : nullptr;
+    if (m_inputRhiTexture != currentInputRhiTexture) {
+        m_inputRhiTexture = currentInputRhiTexture;
+        m_bufferLayoutDirty = true;
+        m_renderTargetDirty = true;
     }
 
     bool textureSizeChanged = false;
-    if (m_inputTexture) {
+    if (computeSupported && m_inputTexture) {
         QSize sz = m_inputTexture->textureSize();
         if (!m_outputTexture || m_outputTexture->pixelSize() != sz) {
             qCDebug(lcComputeRenderNode) << "ComputeRenderNode: Resizing output texture to" << sz;
@@ -92,18 +101,11 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     }
 
     bool needsRebuild = m_bufferLayoutDirty || textureSizeChanged;
-    if (!needsRebuild && m_gpuBuffers.size() == m_pendingSSBOs.size()) {
-        for (int i = 0; i < m_pendingSSBOs.size(); ++i) {
-            if (m_gpuBuffers[i].size < static_cast<quint32>(m_pendingSSBOs[i].data.size())) {
-                needsRebuild = true;
-                break;
-            }
-        }
-    }
+    if (!needsRebuild && m_paramUbuf && m_paramUbuf->size() < m_paramData.size())
+        needsRebuild = true;
 
     if (!needsRebuild)
-        // バッファがなくてもテクスチャ（画像処理）があれば有効とみなす
-        return (m_inputTexture != nullptr) || !m_gpuBuffers.isEmpty();
+        return m_vbuf != nullptr && m_ubuf != nullptr && m_sampler != nullptr;
 
     // 既存 GPU バッファと SRB を安全に破棄
     for (auto &gb : m_gpuBuffers) {
@@ -127,6 +129,10 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         delete m_ubuf;
         m_ubuf = nullptr;
     }
+    if (m_paramUbuf) {
+        delete m_paramUbuf;
+        m_paramUbuf = nullptr;
+    }
     if (m_renderSrb) {
         delete m_renderSrb;
         m_renderSrb = nullptr;
@@ -137,13 +143,8 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     }
     delete m_srb;
     m_srb = nullptr;
-
-    if (m_pendingSSBOs.isEmpty()) {
-        // バッファが空の場合はレイアウトが確定したとみなす
-        if (m_gpuBuffers.isEmpty()) {
-            m_bufferLayoutDirty = false;
-        }
-    }
+    m_renderTexture = nullptr;
+    m_verticesUploaded = false;
 
     // 1. 出力サイズの決定 (入力があればそれに合わせ、なければアイテムサイズに合わせる)
     QSize sz(qMax(1, static_cast<int>(m_width)), qMax(1, static_cast<int>(m_height)));
@@ -153,81 +154,94 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             sz = ts;
     }
 
-    m_srb = rhi->newShaderResourceBindings();
+    if (computeSupported)
+        m_srb = rhi->newShaderResourceBindings();
     QList<QRhiShaderResourceBinding> bindings;
 
     // 2. 表示用リソース (m_renderSrb/m_outputTexture) の構築
     // 入力画像が無くても、サイズさえあれば表示用の「板」は先に作る
     if (true) {
-        QRhiTexture *inRhiTex = m_inputTexture ? m_inputTexture->rhiTexture() : nullptr;
-
         if (!m_sampler) {
             m_sampler = rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None, QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
             m_sampler->create();
         }
 
-        if (inRhiTex) {
-            // 入力サンプラー (Binding 0)
-            bindings.append(QRhiShaderResourceBinding::sampledTexture(0, QRhiShaderResourceBinding::ComputeStage, inRhiTex, m_sampler));
+        if (computeSupported && m_srb && m_inputRhiTexture) {
+            // 入力サンプラー (Binding 1)
+            bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
         }
 
-        // 出力イメージ (Binding 1)
-        m_outputTexture = rhi->newTexture(QRhiTexture::RGBA8, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
-        if (!m_outputTexture->create()) {
-            return false;
+        if (computeSupported && m_srb) {
+            // 出力イメージ (Binding 0)
+            m_outputTexture = rhi->newTexture(QRhiTexture::RGBA8, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+            if (!m_outputTexture->create()) {
+                delete m_outputTexture;
+                m_outputTexture = nullptr;
+                delete m_srb;
+                m_srb = nullptr;
+                m_error = QStringLiteral("Compute output texture creation failed.");
+            } else {
+                bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
+            }
         }
-        bindings.append(QRhiShaderResourceBinding::imageLoadStore(1, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
 
         // 描画用リソースの初期化 (Full-screen quad)
-        static const float quadData[] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-        m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(quadData));
-        m_vbuf->create();
+        m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(kQuadData));
+        if (!m_vbuf->create()) {
+            m_error = QStringLiteral("Compute blit vertex buffer creation failed.");
+            return false;
+        }
 
         // 頂点データは prepare() 内のバッチで安全にアップロードするためここでは作成のみ
 
         m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64);
-        m_ubuf->create();
-
-        m_renderSrb = rhi->newShaderResourceBindings();
-        m_renderSrb->setBindings({QRhiShaderResourceBinding::uniformBuffer(0, QRhiShaderResourceBinding::VertexStage, m_ubuf), QRhiShaderResourceBinding::sampledTexture(1, QRhiShaderResourceBinding::FragmentStage, m_outputTexture, m_sampler)});
-        m_renderSrb->create();
+        if (!m_ubuf->create()) {
+            m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
+            return false;
+        }
 
         // 入力ソースはあるが実体(GPUメモリ)がまだの場合は、次フレームで再構築(Compute用)を促す
-        if (m_inputTexture && !inRhiTex) {
+        if (m_inputTexture && !m_inputRhiTexture) {
             m_bufferLayoutDirty = true;
         }
     }
 
-    // 各 SSBO エントリに対応するバッファを確保
-    for (const auto &entry : std::as_const(m_pendingSSBOs)) {
-        const qsizetype sz = entry.data.size();
-        if (sz == 0)
-            continue;
-        // 頻繁な再確保を避けるため、少し余裕を持って確保
-        auto *buf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::StorageBuffer, static_cast<quint32>(sz));
-        if (!buf->create()) {
-            qCWarning(lcComputeRenderNode) << "QRhiBuffer::create() 失敗 binding=" << entry.binding;
-            delete buf;
-            return false;
+    if (computeSupported && m_srb) {
+        const qsizetype paramSize = qMax<qsizetype>(kParamsBlockSize, m_paramData.size());
+        m_paramUbuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, static_cast<quint32>(paramSize));
+        if (!m_paramUbuf->create()) {
+            delete m_paramUbuf;
+            m_paramUbuf = nullptr;
+            delete m_srb;
+            m_srb = nullptr;
+            if (m_error.isEmpty())
+                m_error = QStringLiteral("Compute parameter uniform buffer creation failed.");
+        } else {
+            bindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
+            m_srb->setBindings(bindings.cbegin(), bindings.cend());
+            if (!m_srb->create()) {
+                delete m_srb;
+                m_srb = nullptr;
+                if (m_error.isEmpty())
+                    m_error = QStringLiteral("Compute shader resource bindings creation failed.");
+                qCWarning(lcComputeRenderNode) << m_error;
+            }
         }
-        m_gpuBuffers.push_back({entry.binding, buf, static_cast<quint32>(sz)});
-        // SSBO は Binding 2 以降へオフセットしてバインド
-        bindings.append(QRhiShaderResourceBinding::bufferLoad(entry.binding + 2, QRhiShaderResourceBinding::ComputeStage, buf));
-    }
-
-    m_srb->setBindings(bindings.cbegin(), bindings.cend());
-    if (!m_srb->create()) {
-        qCWarning(lcComputeRenderNode) << "QRhiShaderResourceBindings::create() 失敗";
-        return false;
     }
 
     m_bufferLayoutDirty = false;
     m_shaderDirty = true;
+    m_renderTargetDirty = true;
     return true;
 }
 
 bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
-    if (!m_shaderDirty && m_pipeline && m_renderPipeline)
+    QRhiTexture *wantedRenderTexture = (m_pipeline && m_inputRhiTexture) ? m_outputTexture : m_inputRhiTexture;
+    if (!wantedRenderTexture && m_outputTexture)
+        wantedRenderTexture = m_outputTexture;
+
+    const bool renderTargetChanged = (m_renderTexture != wantedRenderTexture);
+    if (!m_shaderDirty && !m_renderTargetDirty && !renderTargetChanged && m_pipeline && m_renderPipeline)
         return true;
 
     if (m_pipeline)
@@ -238,16 +252,65 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
         delete m_renderPipeline;
     m_renderPipeline = nullptr;
 
+    if (m_renderSrb) {
+        delete m_renderSrb;
+        m_renderSrb = nullptr;
+    }
+    m_renderTexture = wantedRenderTexture;
+
     m_error.clear();
 
     auto *ri = m_window->rendererInterface();
 
-    // 1. 表示用グラフィックスパイプラインの構築
-    // 1. 表示用グラフィックスパイプラインの構築 (Graphics Framework)
+    // 1. 計算用パイプラインの構築
+    bool computeOk = false;
+    if (!rhi->isFeatureSupported(QRhi::Compute)) {
+        m_error = QStringLiteral("Compute shaders are not supported on this hardware/backend.");
+    } else if (!m_inputRhiTexture) {
+        m_error = QStringLiteral("Compute input texture is not ready.");
+    } else if (m_srb && !m_shaderPath.isEmpty()) {
+        QFile f(m_shaderPath);
+        if (!f.open(QIODevice::ReadOnly)) {
+            m_error = QStringLiteral("Compute shader file cannot be opened: %1").arg(m_shaderPath);
+        } else {
+            m_shader = QShader::fromSerialized(f.readAll());
+            if (!m_shader.isValid()) {
+                m_error = QStringLiteral("Compute shader file is invalid: %1").arg(m_shaderPath);
+            } else {
+                m_pipeline = rhi->newComputePipeline();
+                m_pipeline->setShaderStage({QRhiShaderStage::Compute, m_shader});
+                m_pipeline->setShaderResourceBindings(m_srb);
+                computeOk = m_pipeline->create();
+                if (!computeOk) {
+                    delete m_pipeline;
+                    m_pipeline = nullptr;
+                    m_error = QStringLiteral("Compute pipeline creation failed: %1").arg(m_shaderPath);
+                }
+            }
+        }
+    } else {
+        m_error = QStringLiteral("Compute shader path or resource bindings are not ready.");
+    }
+
+    wantedRenderTexture = computeOk ? m_outputTexture : m_inputRhiTexture;
+    if (!wantedRenderTexture && m_outputTexture)
+        wantedRenderTexture = m_outputTexture;
+    m_renderTexture = wantedRenderTexture;
+
+    // 2. 表示用グラフィックスパイプラインの構築
     bool graphicsOk = false;
-    if (m_renderPipeline) {
-        // 既に構築済みの場合はスキップ
-    } else if (m_renderSrb) {
+    if (m_renderTexture && m_ubuf && m_sampler) {
+        m_renderSrb = rhi->newShaderResourceBindings();
+        m_renderSrb->setBindings({
+            QRhiShaderResourceBinding::uniformBuffer(0, QRhiShaderResourceBinding::VertexStage, m_ubuf),
+            QRhiShaderResourceBinding::sampledTexture(1, QRhiShaderResourceBinding::FragmentStage, m_renderTexture, m_sampler),
+        });
+        if (!m_renderSrb->create()) {
+            if (m_error.isEmpty())
+                m_error = QStringLiteral("Compute blit shader resource bindings creation failed.");
+            return false;
+        }
+
         m_renderPipeline = rhi->newGraphicsPipeline();
         m_renderPipeline->setTopology(QRhiGraphicsPipeline::TriangleStrip);
         m_renderPipeline->setShaderResourceBindings(m_renderSrb);
@@ -267,25 +330,15 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
             m_renderPipeline->setTargetBlends({{}});
             m_renderPipeline->setRenderPassDescriptor(rt);
             graphicsOk = m_renderPipeline->create();
-        }
-    }
-
-    // 2. 計算用パイプラインの構築 (Compute Path)
-    bool computeOk = false;
-    if (m_srb && !m_shaderPath.isEmpty()) {
-        QFile f(m_shaderPath);
-        if (f.open(QIODevice::ReadOnly)) {
-            m_shader = QShader::fromSerialized(f.readAll());
-            if (m_shader.isValid()) {
-                m_pipeline = rhi->newComputePipeline();
-                m_pipeline->setShaderStage({QRhiShaderStage::Compute, m_shader});
-                m_pipeline->setShaderResourceBindings(m_srb);
-                computeOk = m_pipeline->create();
-            }
+            if (!graphicsOk && m_error.isEmpty())
+                m_error = QStringLiteral("Compute blit graphics pipeline creation failed.");
+        } else if (m_error.isEmpty()) {
+            m_error = QStringLiteral("Compute blit shader files cannot be opened.");
         }
     }
 
     m_shaderDirty = false;
+    m_renderTargetDirty = false;
     qCDebug(lcComputeRenderNode) << (graphicsOk ? (computeOk ? "Compute/Graphics" : "Graphics Only") : "Compute Only") << "パイプライン構築完了:" << m_shaderPath;
     return graphicsOk; // 表示用さえ出来ていればOKとする
 }
@@ -302,9 +355,6 @@ void ComputeRenderNode::prepare() {
 
     // 実行リソースが揃っているなら、フラグに関わらず実行を許可
     // (テクスチャの内容そのものが変わっている可能性があるため)
-    if (!m_pipeline || !m_srb)
-        return;
-
     auto *cb = resolveCommandBuffer();
     if (!cb)
         return;
@@ -313,9 +363,10 @@ void ComputeRenderNode::prepare() {
     QRhiResourceUpdateBatch *batch = m_rhi->nextResourceUpdateBatch();
 
     // 1. 頂点データのアップロード (m_vbuf が有効で、かつ中身が未ロードの場合に実行)
-    static const float quadData[] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-    if (m_vbuf)
-        batch->uploadStaticBuffer(m_vbuf, quadData);
+    if (m_vbuf && !m_verticesUploaded) {
+        batch->uploadStaticBuffer(m_vbuf, kQuadData);
+        m_verticesUploaded = true;
+    }
 
     // 実行の追跡（初回またはリセット後のみ）
     static bool firstDispatch = true;
@@ -324,25 +375,30 @@ void ComputeRenderNode::prepare() {
         firstDispatch = false;
     }
 
-    // 2. 行列の更新 (render() 内で行うのは不可。prepare で計算してアップロード)
+    // 2. 表示用 MVP 行列の更新
     if (m_ubuf) {
-        QMatrix4x4 mat;
-        // 2Dエフェクトの場合、Itemの座標系を正規化デバイス座標(NDC)にマッピングする基本行列
-        // projectionMatrix()をUIスレッドから同期するか、ここでウィンドウサイズから計算します。
-        mat.scale(m_width, m_height, 1.0f);
-        batch->updateDynamicBuffer(m_ubuf, 0, 64, mat.constData());
+        QMatrix4x4 mvp;
+        if (const QMatrix4x4 *projection = projectionMatrix())
+            mvp = *projection;
+        if (const QMatrix4x4 *nodeMatrix = matrix())
+            mvp *= *nodeMatrix;
+        mvp.scale(m_width, m_height, 1.0f);
+        batch->updateDynamicBuffer(m_ubuf, 0, 64, mvp.constData());
     }
 
-    // 3. SSBO の更新
-    for (const auto &entry : std::as_const(m_pendingSSBOs)) {
-        for (const auto &gb : std::as_const(m_gpuBuffers)) {
-            if (gb.binding != entry.binding || !gb.buf)
-                continue;
-            // Dynamic バッファの部分更新: サイズ不一致は ensureBuffers 内の再確保で吸収済み
-            const quint32 uploadSize = static_cast<quint32>(qMin(entry.data.size(), gb.size));
-            batch->updateDynamicBuffer(gb.buf, 0, uploadSize, entry.data.constData());
-            break;
-        }
+    // 3. パラメータ UBO の更新
+    if (m_paramUbuf) {
+        QByteArray upload = m_paramData;
+        if (upload.isEmpty())
+            upload.resize(kParamsBlockSize);
+        if (upload.size() < m_paramUbuf->size())
+            upload.resize(m_paramUbuf->size());
+        batch->updateDynamicBuffer(m_paramUbuf, 0, static_cast<quint32>(qMin<qsizetype>(upload.size(), m_paramUbuf->size())), upload.constData());
+    }
+
+    if (!m_pipeline || !m_srb || !m_inputRhiTexture) {
+        cb->resourceUpdate(batch);
+        return;
     }
 
     // Compute パスを実行 (batch は beginComputePass で消費される)
@@ -357,12 +413,11 @@ void ComputeRenderNode::prepare() {
 
 void ComputeRenderNode::render(const RenderState *state) {
     auto *cb = resolveCommandBuffer();
-    if (!cb || !m_renderPipeline || !m_vbuf || !m_outputTexture)
+    if (!cb || !m_renderPipeline || !m_renderSrb || !m_vbuf || !m_ubuf || !m_renderTexture)
         return;
 
     cb->setGraphicsPipeline(m_renderPipeline);
 
-    // Qt 6.11 では RenderState から直接矩形が得られないため、ウィンドウの物理サイズをビューポートに使用
     const float dpr = m_window->devicePixelRatio();
     cb->setViewport(QRhiViewport(0, 0, static_cast<float>(m_window->width()) * dpr, static_cast<float>(m_window->height()) * dpr));
 
@@ -398,6 +453,11 @@ void ComputeRenderNode::destroyResources() {
     m_vbuf = nullptr;
     delete m_ubuf;
     m_ubuf = nullptr;
+    delete m_paramUbuf;
+    m_paramUbuf = nullptr;
+    m_renderTexture = nullptr;
+    m_inputRhiTexture = nullptr;
+    m_verticesUploaded = false;
 
     for (auto &gb : m_gpuBuffers) {
         if (gb.buf)
@@ -407,14 +467,11 @@ void ComputeRenderNode::destroyResources() {
     m_gpuBuffers.clear();
     m_bufferLayoutDirty = true;
     m_shaderDirty = true;
+    m_renderTargetDirty = true;
 }
 
-QSGRenderNode::StateFlags ComputeRenderNode::changedStates() const { return {}; }
+QSGRenderNode::StateFlags ComputeRenderNode::changedStates() const { return ViewportState | ScissorState | ColorState | BlendState | CullState; }
 
-QSGRenderNode::RenderingFlags ComputeRenderNode::flags() const {
-    // BoundedRectRendering: バウンディングボックス内のみ描画
-    // OpaqueRendering: アルファブレンド不要
-    return BoundedRectRendering | OpaqueRendering;
-}
+QSGRenderNode::RenderingFlags ComputeRenderNode::flags() const { return BoundedRectRendering; }
 
 } // namespace AviQtl::UI::Effects
