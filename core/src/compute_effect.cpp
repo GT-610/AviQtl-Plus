@@ -19,6 +19,7 @@ ComputeEffect::~ComputeEffect() = default;
 void ComputeEffect::setSource(QQuickItem *s) {
     if (m_source == s)
         return;
+    qCDebug(lcComputeRenderNode) << "ComputeEffect: setSource called with" << s << (s ? s->objectName() : "null");
     m_source = s;
     m_dirty = true;
     emit sourceChanged();
