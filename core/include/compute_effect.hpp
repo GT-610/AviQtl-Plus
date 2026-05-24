@@ -1,6 +1,7 @@
 #pragma once
 #include <QByteArray>
 #include <QList>
+#include <QMatrix4x4>
 #include <QObject>
 #include <QQuickItem>
 #include <QSGNode>
@@ -18,12 +19,14 @@ class ComputeEffect : public QQuickItem {
     QML_ELEMENT
 
     // 旧来プロパティ (Phase 6 以前)
+    Q_PROPERTY(QQuickItem *source READ source WRITE setSource NOTIFY sourceChanged)
     Q_PROPERTY(QVariantMap params READ params WRITE setParams NOTIFY paramsChanged)
     Q_PROPERTY(QVariantMap storageBuffers READ storageBuffers WRITE setStorageBuffers NOTIFY storageBuffersChanged)
-    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
+    Q_PROPERTY(bool shaderEnabled READ shaderEnabled WRITE setShaderEnabled NOTIFY shaderEnabledChanged)
     Q_PROPERTY(QString shaderPath READ shaderPath WRITE setShaderPath NOTIFY shaderPathChanged)
 
     Q_PROPERTY(QString computeShader READ shaderPath WRITE setShaderPath NOTIFY shaderPathChanged)
+    Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(int workGroupSizeX READ workGroupSizeX WRITE setWorkGroupSizeX NOTIFY workGroupSizeXChanged)
     Q_PROPERTY(int workGroupSizeY READ workGroupSizeY WRITE setWorkGroupSizeY NOTIFY workGroupSizeYChanged)
     Q_PROPERTY(bool autoWorkGroup READ autoWorkGroup WRITE setAutoWorkGroup NOTIFY autoWorkGroupChanged)
@@ -32,10 +35,14 @@ class ComputeEffect : public QQuickItem {
     explicit ComputeEffect(QQuickItem *parent = nullptr);
     ~ComputeEffect() override;
 
+    QQuickItem *source() const { return m_source; }
+    void setSource(QQuickItem *s);
+
     QVariantMap params() const { return m_params; }
     QVariantMap storageBuffers() const { return m_storageBuffers; }
-    bool enabled() const { return m_enabled; }
+    bool shaderEnabled() const { return m_enabled; }
     QString shaderPath() const { return m_shaderPath; }
+    QString error() const { return m_error; }
 
     int workGroupSizeX() const { return m_workGroupX; }
     int workGroupSizeY() const { return m_workGroupY; }
@@ -43,7 +50,7 @@ class ComputeEffect : public QQuickItem {
 
     void setParams(const QVariantMap &params);
     void setStorageBuffers(const QVariantMap &buffers);
-    void setEnabled(bool enabled);
+    void setShaderEnabled(bool enabled);
     void setShaderPath(const QString &path);
 
     void setWorkGroupSizeX(int x);
@@ -53,10 +60,12 @@ class ComputeEffect : public QQuickItem {
     Q_INVOKABLE void setStorageBufferRaw(const QString &name, int binding, const void *data, qsizetype byteSize);
 
   signals:
+    void sourceChanged();
     void paramsChanged();
     void storageBuffersChanged();
-    void enabledChanged();
+    void shaderEnabledChanged();
     void shaderPathChanged();
+    void errorChanged();
     void workGroupSizeXChanged();
     void workGroupSizeYChanged();
     void autoWorkGroupChanged();
@@ -76,10 +85,12 @@ class ComputeEffect : public QQuickItem {
     };
     static QByteArray ssboToBytes(const QVariantMap &bufferData);
 
+    QQuickItem *m_source = nullptr;
     QVariantMap m_params;
     QVariantMap m_storageBuffers;
     bool m_enabled = true;
     QString m_shaderPath;
+    QString m_error;
     bool m_dirty = false;
 
     int m_workGroupX = 1;

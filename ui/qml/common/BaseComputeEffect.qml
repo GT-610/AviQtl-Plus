@@ -1,3 +1,4 @@
+import AviQtl
 import QtQuick
 
 BaseEffect {
@@ -13,12 +14,6 @@ BaseEffect {
     // 例: { "mix": "mixAmount" }
     property var uniformMapping: ({
     })
-
-    signal ssboReadbackCompleted(int binding, var data)
-
-    function requestReadback(binding) {
-        compEffect.requestReadback(binding);
-    }
 
     // params からキーフレーム評価済みの Uniform オブジェクトを自動構築する
     function buildUniforms() {
@@ -47,12 +42,8 @@ BaseEffect {
         id: compEffect
 
         anchors.fill: parent
-        source: root.sourceProxy
-        uniforms: root.buildUniforms()
+        params: root.buildUniforms()
         autoWorkGroup: true
-        onSsboReadbackCompleted: (binding, data) => {
-            root.ssboReadbackCompleted(binding, data);
-        }
     }
 
 }

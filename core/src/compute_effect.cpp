@@ -2,6 +2,8 @@
 #include "compute_render_node.hpp"
 #include <QDebug>
 #include <QSGNode>
+#include <QSGTexture>
+#include <QSGTextureProvider>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -11,6 +13,15 @@ namespace AviQtl::UI::Effects {
 ComputeEffect::ComputeEffect(QQuickItem *parent) : QQuickItem(parent) { setFlag(ItemHasContents, true); }
 
 ComputeEffect::~ComputeEffect() = default;
+
+void ComputeEffect::setSource(QQuickItem *s) {
+    if (m_source == s)
+        return;
+    m_source = s;
+    m_dirty = true;
+    emit sourceChanged();
+    update();
+}
 
 void ComputeEffect::setParams(const QVariantMap &params) {
     if (m_params == params)
@@ -30,12 +41,12 @@ void ComputeEffect::setStorageBuffers(const QVariantMap &buffers) {
     update();
 }
 
-void ComputeEffect::setEnabled(bool enabled) {
+void ComputeEffect::setShaderEnabled(bool enabled) {
     if (m_enabled == enabled)
         return;
     m_enabled = enabled;
     m_dirty = true;
-    emit enabledChanged();
+    emit shaderEnabledChanged();
     update();
 }
 
@@ -164,6 +175,17 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
                 if (!bytes.isEmpty())
                     entries.push_back({0, bytes});
             }
+        }
+
+        // ソーステクスチャの同期
+        if (m_source) {
+            // updatePaintNode はレンダースレッドで呼ばれるため、テクスチャプロバイダーから安全にテクスチャを取得可能
+            QSGTextureProvider *provider = m_source->textureProvider();
+            if (provider) {
+                node->syncInputTexture(provider->texture());
+            }
+        } else {
+            node->syncInputTexture(nullptr);
         }
 
         node->syncSSBOs(entries);

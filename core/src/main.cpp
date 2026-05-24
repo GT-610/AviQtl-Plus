@@ -51,7 +51,7 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
 
     // 型登録
     qmlRegisterType<Core::VideoEncoder>("AviQtl.Core", 1, 0, "VideoEncoder");
-    qmlRegisterType<UI::Effects::ComputeEffect>("AviQtl.Compute", 1, 0, "ComputeEffect");
+    qmlRegisterType<UI::Effects::ComputeEffect>("AviQtl", 1, 0, "ComputeEffect");
     qmlRegisterUncreatableType<UI::TimelineController>("AviQtl.UI", 1, 0, "TimelineController", "Managed by C++");
     qmlRegisterSingletonInstance<UI::CoreBridge>("AviQtl.UI", 1, 0, "CoreBridge", &UI::CoreBridge::instance());
 

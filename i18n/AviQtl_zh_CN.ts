@@ -1151,52 +1151,52 @@
 <context>
     <name>AviQtl::UI::WindowManager</name>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="34"/>
+        <location filename="../ui/src/window_manager.cpp" line="35"/>
         <source>AviQtl メインプレビュー</source>
         <translation>AviQtl 主预览</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="36"/>
+        <location filename="../ui/src/window_manager.cpp" line="37"/>
         <source>タイムライン</source>
         <translation>时间线</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="38"/>
+        <location filename="../ui/src/window_manager.cpp" line="39"/>
         <source>プロジェクト設定</source>
         <translation>项目设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="40"/>
+        <location filename="../ui/src/window_manager.cpp" line="41"/>
         <source>オブジェクト設定</source>
         <translation>对象设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="42"/>
+        <location filename="../ui/src/window_manager.cpp" line="43"/>
         <source>環境設定</source>
         <translation>首选项</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="44"/>
+        <location filename="../ui/src/window_manager.cpp" line="45"/>
         <source>AviQtlについて</source>
         <translation>关于 AviQtl</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="46"/>
+        <location filename="../ui/src/window_manager.cpp" line="47"/>
         <source>シーン設定</source>
         <translation>场景设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="48"/>
+        <location filename="../ui/src/window_manager.cpp" line="49"/>
         <source>メディアの書き出し</source>
         <translation>导出媒体</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="50"/>
+        <location filename="../ui/src/window_manager.cpp" line="51"/>
         <source>補間設定</source>
         <translation>插值设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="52"/>
+        <location filename="../ui/src/window_manager.cpp" line="53"/>
         <source>パッケージマネージャー</source>
         <translation>软件包管理器</translation>
     </message>

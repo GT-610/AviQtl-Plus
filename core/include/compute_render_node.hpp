@@ -2,6 +2,7 @@
 #include <QByteArray>
 #include <QList>
 #include <QSGRenderNode>
+#include <QSGTexture>
 #include <QString>
 #include <rhi/qrhi.h>
 #include <rhi/qshader.h>
@@ -25,6 +26,7 @@ class ComputeRenderNode final : public QSGRenderNode {
     // updatePaintNode から呼ぶ同期 API (UI スレッドブロック保証)
     void syncSSBOs(const QList<SSBOEntry> &entries);
     void syncShaderPath(const QString &path);
+    void syncInputTexture(QSGTexture *tex);
     void syncWorkGroupSize(int x, int y, int z = 1);
 
     // QSGRenderNode オーバーライド
@@ -55,6 +57,13 @@ class ComputeRenderNode final : public QSGRenderNode {
     QRhi *m_rhi = nullptr;
 
     QList<GpuBuffer> m_gpuBuffers;
+    QRhiTexture *m_outputTexture = nullptr;
+    QRhiSampler *m_sampler = nullptr;
+    QRhiBuffer *m_vbuf = nullptr;
+    QRhiBuffer *m_ubuf = nullptr;
+    QRhiShaderResourceBindings *m_renderSrb = nullptr;
+    QRhiGraphicsPipeline *m_renderPipeline = nullptr;
+
     QRhiShaderResourceBindings *m_srb = nullptr;
     QRhiComputePipeline *m_pipeline = nullptr;
     QShader m_shader;
@@ -64,6 +73,8 @@ class ComputeRenderNode final : public QSGRenderNode {
     bool m_ssboDirty = false;
 
     QString m_shaderPath;
+    QSGTexture *m_inputTexture = nullptr;
+
     bool m_shaderDirty = true;
     bool m_bufferLayoutDirty = true;
 

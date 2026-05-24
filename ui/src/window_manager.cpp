@@ -50,7 +50,8 @@ static void ensureWindowCreated(QQmlEngine *engine, QHash<QString, QPointer<QQui
     } else if (id == QStringLiteral("easingConfig")) {
         WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/common/EasingConfigWindow.qml"), WindowManager::tr("補間設定"), get("width", 820), get("height", 540), get("x", 420), get("y", 180), false, maximized);
     } else if (id == QStringLiteral("packageManager")) {
-        WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/PackageManagerWindow.qml"), WindowManager::tr("パッケージマネージャー"), get("width", 600), get("height", 400), get("x", 500), get("y", 300), false, maximized);
+        WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/PackageManagerWindow.qml"), WindowManager::tr("パッケージマネージャー"), get("width", 600), get("height", 400), get("x", 500), get("y", 300), false,
+                                              maximized);
     } else {
         qWarning() << "[WindowManager] Unknown lazy window id:" << id;
     }
