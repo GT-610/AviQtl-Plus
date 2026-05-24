@@ -399,13 +399,18 @@ ScrollView {
                 boxSelectionStart = mapToItem(timelineFlickable.contentItem, mouse.x, mouse.y);
                 boxSelectionCurrent = boxSelectionStart;
                 boxSelectionAdditive = !!(mouse.modifiers & Qt.ControlModifier);
-                if (Workspace.currentTimeline)
+                if (Workspace.currentTimeline) {
                     Workspace.currentTimeline.clearSelectionPreview();
+                    // クリックされた位置のレイヤー番号を計算
+                    var l = Math.floor(boxSelectionStart.y / layerHeight);
+                    if (l >= 0 && l < layerCount) {
+                        // 選択中のレイヤーと異なるレイヤーを右クリックした場合は、編集カーソルもそのフレーム位置へ移動させる
+                        if (Workspace.currentTimeline.selectedLayer !== l)
+                            Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(boxSelectionStart.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
 
-                var l = Math.floor(mouse.y / layerHeight);
-                if (Workspace.currentTimeline && l >= 0 && l < layerCount)
-                    Workspace.currentTimeline.selectedLayer = l;
-
+                        Workspace.currentTimeline.selectedLayer = l;
+                    }
+                }
             }
             onPositionChanged: (mouse) => {
                 boxSelectionCurrent = mapToItem(timelineFlickable.contentItem, mouse.x, mouse.y);
