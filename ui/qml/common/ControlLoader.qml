@@ -42,11 +42,10 @@ Loader {
             s = s.replace(/^\/{1,2}([A-Za-z])\//, function(_, drive) {
                 return drive.toUpperCase() + ":/";
             });
-
             if (/^[A-Za-z]:\//.test(s))
                 return "file:///" + s;
-        }
 
+        }
         if (s.startsWith("file://"))
             return s;
 
@@ -64,7 +63,6 @@ Loader {
                 return drive.toUpperCase() + ":/";
             });
         }
-
         return s.replace(/^file:\/\//, "");
     }
 

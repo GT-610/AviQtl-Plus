@@ -1243,37 +1243,37 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Parameters</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="346"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="344"/>
         <source>開始色 (f%1)</source>
         <translation>Start color (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="346"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="344"/>
         <source>色を選択</source>
         <translation>Select Color</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="423"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="421"/>
         <source>終了色 (f%1)</source>
         <translation>End color (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="469"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="467"/>
         <source>ファイルを選択</source>
         <translation>Select File</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="602"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="600"/>
         <source>設定</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="694"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="692"/>
         <source>フォントを選択</source>
         <translation>Select Font</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="710"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="708"/>
         <source>デフォルト</source>
         <translation>Default</translation>
     </message>

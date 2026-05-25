@@ -9,8 +9,10 @@ Item {
     property alias output: textureSource
     readonly property Item finalItem: textureSource.sourceItem
 
-    width: originalSource ? originalSource.width : 1
-    height: originalSource ? originalSource.height : 1
+    // ソースの本来の解像度(implicitWidth/Height)を優先して使用する。
+    // これにより、拡大率100%が「ソースの解像度」と一致するようになります。
+    width: originalSource ? (originalSource.implicitWidth > 0 ? originalSource.implicitWidth : originalSource.width) : 1
+    height: originalSource ? (originalSource.implicitHeight > 0 ? originalSource.implicitHeight : originalSource.height) : 1
 
     Item {
         id: fallbackItem

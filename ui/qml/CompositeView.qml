@@ -26,6 +26,7 @@ Item {
     property var groupControls: []
     // カメラ制御管理
     property var activeCameraControl: null
+
     signal childRendererOutputsChanged()
 
     function getLayerVisible(layer) {
@@ -372,21 +373,7 @@ Item {
                     Qt.callLater(updateClipMaskItem);
                 }
                 onRawFbRendererOutputChanged: Qt.callLater(updateClipMaskItem)
-
                 onFbRendererOutputChanged: root.childRendererOutputsChanged()
-
-                Connections {
-                    function onCurrentFrameChanged() {
-                        Qt.callLater(clipNode.updateClipMaskItem);
-                    }
-
-                    function onChildRendererOutputsChanged() {
-                        Qt.callLater(clipNode.updateClipMaskItem);
-                    }
-
-                    target: root
-                }
-
                 visible: {
                     // 1. レイヤー自体の表示設定
                     // QMLエンジンのバインディングシステムに検知させるため、layerStatesを直接参照する
@@ -427,6 +414,19 @@ Item {
                 onAspectYChanged: objectContainer._syncTransformToItem()
                 onPOpacityChanged: objectContainer._syncTransformToItem()
                 onEffectiveTransformChanged: objectContainer._syncTransformToItem()
+
+                Connections {
+                    function onCurrentFrameChanged() {
+                        Qt.callLater(clipNode.updateClipMaskItem);
+                    }
+
+                    function onChildRendererOutputsChanged() {
+                        Qt.callLater(clipNode.updateClipMaskItem);
+                    }
+
+                    target: root
+                }
+
                 Binding {
                     target: clipNode
                     property: "fbRendererOutput"
@@ -475,6 +475,7 @@ Item {
                                 recursive: false
                                 hideSource: false
                             }
+
                         }
 
                         ShaderEffectSource {
@@ -487,7 +488,9 @@ Item {
                             recursive: false
                             format: ShaderEffectSource.RGBA
                         }
+
                     }
+
                 }
 
                 Connections {

@@ -275,9 +275,9 @@ Node {
         Item {
             id: fbTransformItem
 
-            // テクスチャサイズをスケール適用後のサイズに設定
-            width: (rendererInstance && rendererInstance.output && rendererInstance.output.sourceItem ? rendererInstance.output.sourceItem.width : 1) * base.clipNodeScaleX
-            height: (rendererInstance && rendererInstance.output && rendererInstance.output.sourceItem ? rendererInstance.output.sourceItem.height : 1) * base.clipNodeScaleY
+            // rendererInstanceのimplicitサイズを参照することで、プロジェクトサイズへの強制リサイズを防ぎます
+            width: (rendererInstance && rendererInstance.output && rendererInstance.output.sourceItem ? (rendererInstance.output.sourceItem.implicitWidth || rendererInstance.output.sourceItem.width) : 1) * base.clipNodeScaleX
+            height: (rendererInstance && rendererInstance.output && rendererInstance.output.sourceItem ? (rendererInstance.output.sourceItem.implicitHeight || rendererInstance.output.sourceItem.height) : 1) * base.clipNodeScaleY
             // AviUtl 座標系: 中心(0,0)、Y下プラス → Qt2D: 中心 = parent の center + offset
             x: _fbCaptureItemImpl.width / 2 + base.clipNodePosX - width / 2
             y: _fbCaptureItemImpl.height / 2 - base.clipNodePosY - height / 2

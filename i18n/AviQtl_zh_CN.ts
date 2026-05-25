@@ -1243,37 +1243,37 @@
         <translation>参数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="346"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="344"/>
         <source>開始色 (f%1)</source>
         <translation>起始颜色 (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="346"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="344"/>
         <source>色を選択</source>
         <translation>选择颜色</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="423"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="421"/>
         <source>終了色 (f%1)</source>
         <translation>结束颜色 (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="469"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="467"/>
         <source>ファイルを選択</source>
         <translation>选择文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="602"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="600"/>
         <source>設定</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="694"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="692"/>
         <source>フォントを選択</source>
         <translation>选择字体</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="710"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="708"/>
         <source>デフォルト</source>
         <translation>默认</translation>
     </message>

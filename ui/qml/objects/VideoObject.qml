@@ -64,15 +64,20 @@ Common.BaseObject {
     sourceItem: Item {
         id: containerItem
 
-        width: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : 1920
-        height: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : 1080
+        // 動画素材の本来のサイズに合わせる
+        width: videoOut.width
+        height: videoOut.height
+        implicitWidth: width
+        implicitHeight: height
         visible: false
 
         VideoOutput {
             id: videoOut
 
-            anchors.fill: parent
-            fillMode: VideoOutput.PreserveAspectFit
+            // sourceRect (デコードされた動画の解像度) を使用する
+            width: sourceRect.width
+            height: sourceRect.height
+            fillMode: VideoOutput.Stretch
             opacity: base.opacity
             // FBOキャプチャの黒画面制約を突破するGPUレイヤー化
             layer.enabled: true

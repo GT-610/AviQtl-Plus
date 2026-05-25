@@ -56,16 +56,19 @@ Common.BaseObject {
     Item {
         id: containerItem
 
-        width: Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.width : 1920
-        height: Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.height : 1080
+        // プロジェクトサイズへの強制リサイズを解除し、ソース本来のサイズに合わせます
+        width: videoOut.width
+        height: videoOut.height
+        implicitWidth: width
+        implicitHeight: height
         visible: false
 
         VideoOutput {
             id: videoOut
 
-            anchors.centerIn: parent
-            width: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : 1920
-            height: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : 1080
+            // sourceRect (デコードされたフレームの解像度) を使用することで 1:1 表示を実現します
+            width: sourceRect.width
+            height: sourceRect.height
             fillMode: base.fillMode
             opacity: base.imageOpacity
             layer.enabled: true
