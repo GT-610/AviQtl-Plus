@@ -33,6 +33,18 @@ class MoveClipCommand : public QUndoCommand {
     QString m_clipName;
 };
 
+class SetClipByUpperObjectCommand : public QUndoCommand {
+  public:
+    SetClipByUpperObjectCommand(TimelineService *service, int clipId, bool enabled);
+    void undo() override;
+    void redo() override;
+
+  private:
+    TimelineService *m_service;
+    int m_clipId;
+    bool m_enabled;
+};
+
 class UpdateEffectParamCommand : public QUndoCommand {
   public:
     UpdateEffectParamCommand(TimelineService *service, int clipId, int effectIndex, const QString &paramName, QVariant newValue, QVariant oldValue, const QString &effectName);

@@ -45,7 +45,8 @@ Common.BaseObject {
 
     Model {
         source: "#Rectangle"
-        scale: Qt.vector3d(base.sourceItem.width / 100, base.sourceItem.height / 100, 1)
+        visible: base.outputModelVisible
+        scale: Qt.vector3d((base.displayOutput && base.displayOutput.sourceItem ? base.displayOutput.sourceItem.width : base.sourceItem.width) / 100, (base.displayOutput && base.displayOutput.sourceItem ? base.displayOutput.sourceItem.height : base.sourceItem.height) / 100, 1)
         opacity: base.opacity
 
         materials: DefaultMaterial {
@@ -53,7 +54,7 @@ Common.BaseObject {
             blendMode: DefaultMaterial.SourceOver
 
             diffuseMap: Texture {
-                sourceItem: renderer.output
+                sourceItem: base.displayOutput
             }
 
         }

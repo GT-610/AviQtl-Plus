@@ -138,3 +138,9 @@ aviqtl_add_test(
     SOURCES test_transport_service.cpp
     LINKS AviQtl_UI
 )
+
+aviqtl_add_test(
+    NAME clip_by_upper_object
+    SOURCES test_clip_by_upper_object.cpp
+    LINKS AviQtl_UI
+)

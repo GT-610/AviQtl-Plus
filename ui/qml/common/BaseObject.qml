@@ -23,6 +23,7 @@ Node {
     property real clipNodePosY: 0
     property real clipNodeRotZ: 0
     property real clipNodeOpacity: 1
+    property bool outputModelVisible: true
     property alias fbCaptureItem: _fbCaptureItemImpl
     // --- 座標変換のモジュール化 ---
     // transformエフェクトのモデルを探す
@@ -79,6 +80,7 @@ Node {
     // 子クラスがオーバーライドするプロパティ
     property Item sourceItem
     property alias renderer: rendererInstance
+    property Item displayOutput: rendererInstance.output
 
     function evalParam(effectId, paramName, fallback) {
         var _ = base._tmRev; // リアクティブ依存

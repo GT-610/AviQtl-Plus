@@ -460,6 +460,35 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
     }
 }
 
+auto TimelineService::clipByUpperObject(int clipId) const -> bool {
+    const auto *clip = findClipById(clipId);
+    return clip != nullptr ? clip->clipByUpperObject : false;
+}
+
+void TimelineService::setClipByUpperObject(int clipId, bool enabled) {
+    const auto *clip = findClipById(clipId);
+    if (clip == nullptr || clip->clipByUpperObject == enabled) {
+        return;
+    }
+    m_undoStack->push(new SetClipByUpperObjectCommand(this, clipId, enabled));
+}
+
+void TimelineService::setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal) {
+    auto *clip = findClipById(clipId);
+    if (clip == nullptr || clip->clipByUpperObject == enabled) {
+        return;
+    }
+    clip->clipByUpperObject = enabled;
+    if (emitSignal) {
+        emit clipsChanged();
+    }
+    if (m_selection != nullptr && m_selection->selectedClipId() == clipId) {
+        QVariantMap data = m_selection->selectedClipData();
+        data.insert(QStringLiteral("clipByUpperObject"), enabled);
+        m_selection->refreshSelectionData(clipId, data);
+    }
+}
+
 void TimelineService::selectClip(int id) { applySelectionIds(QVariantList{id}); }
 
 void TimelineService::toggleSelection(int id, const QVariantMap &data) {
@@ -511,6 +540,7 @@ void TimelineService::applySelectionIds(const QVariantList &ids) {
             primaryData.insert(QStringLiteral("startFrame"), clip->startFrame);
             primaryData.insert(QStringLiteral("durationFrames"), clip->durationFrames);
             primaryData.insert(QStringLiteral("layer"), clip->layer);
+            primaryData.insert(QStringLiteral("clipByUpperObject"), clip->clipByUpperObject);
             primaryData.insert(QStringLiteral("type"), clip->type);
         }
     }
@@ -551,6 +581,7 @@ void TimelineService::selectClipsInRange(int frameA, int frameB, int layerA, int
             primaryData.insert(QStringLiteral("startFrame"), clip.startFrame);
             primaryData.insert(QStringLiteral("durationFrames"), clip.durationFrames);
             primaryData.insert(QStringLiteral("layer"), clip.layer);
+            primaryData.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
             primaryData.insert(QStringLiteral("type"), clip.type);
         }
     }
@@ -653,6 +684,9 @@ auto TimelineService::deepCopyClip(const ClipData &source) -> ClipData {
     newClip.startFrame = source.startFrame;
     newClip.durationFrames = source.durationFrames;
     newClip.layer = source.layer;
+    newClip.clipByUpperObject = source.clipByUpperObject;
+    newClip.sceneId = source.sceneId;
+    newClip.params = source.params;
 
     for (const auto *oldEffect : std::as_const(source.effects)) {
         auto *newEffect = new EffectModel(oldEffect->id(), oldEffect->name(), oldEffect->kind(), oldEffect->categories(), oldEffect->params(), oldEffect->qmlSource(), oldEffect->uiDefinition(), this);

@@ -29,6 +29,7 @@ struct ClipData {
     int startFrame;
     int durationFrames;
     int layer;
+    bool clipByUpperObject = false;
 
     mutable bool isSceneObject = false;
     mutable bool isSceneIdCached = false;

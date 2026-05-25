@@ -35,6 +35,7 @@ auto TimelineController::getSceneClips(int sceneId) const -> QVariantList {
         map.insert(QStringLiteral("startFrame"), clip.startFrame);
         map.insert(QStringLiteral("durationFrames"), clip.durationFrames);
         map.insert(QStringLiteral("layer"), clip.layer);
+        map.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
 
         // QMLソースの解決
         auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(clip.type);

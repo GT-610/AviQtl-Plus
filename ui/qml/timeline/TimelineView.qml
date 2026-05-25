@@ -757,6 +757,19 @@ ScrollView {
                 contextMenu.addItem(createMenuItem(qsTr("切り取り"), "clip.cut", "scissors_line"));
                 contextMenu.addItem(createMenuItem(qsTr("コピー"), "clip.copy", "file_copy_line"));
                 addSeparator();
+                if (!Workspace.currentTimeline.isAudioClip(targetClipId)) {
+                    var upperClipItem = menuItemComp.createObject(timelineViewRoot, {
+                        "text": qsTr("上のオブジェクトでクリッピング"),
+                        "iconName": "crop_line",
+                        "checkable": true,
+                        "checked": Workspace.currentTimeline.clipByUpperObject(targetClipId)
+                    });
+                    upperClipItem.triggered.connect(function() {
+                        Workspace.currentTimeline.setClipByUpperObject(targetClipId, !Workspace.currentTimeline.clipByUpperObject(targetClipId));
+                    });
+                    contextMenu.addItem(upperClipItem);
+                    addSeparator();
+                }
                 var addEffSub = subMenuComp.createObject(timelineViewRoot, {
                     "title": qsTr("エフェクトを追加")
                 });

@@ -33,7 +33,8 @@ Common.BaseObject {
 
     Model {
         source: "#Rectangle"
-        scale: Qt.vector3d((renderer.output.sourceItem ? renderer.output.sourceItem.width : 1) / 100, (renderer.output.sourceItem ? renderer.output.sourceItem.height : 1) / 100, 1)
+        visible: root.outputModelVisible
+        scale: Qt.vector3d((root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.width : 1) / 100, (root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.height : 1) / 100, 1)
 
         materials: DefaultMaterial {
             lighting: DefaultMaterial.NoLighting
@@ -41,7 +42,7 @@ Common.BaseObject {
             cullMode: root.cullMode
 
             diffuseMap: Texture {
-                sourceItem: renderer.output
+                sourceItem: root.displayOutput
             }
 
         }

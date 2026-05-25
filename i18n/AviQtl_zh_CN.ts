@@ -1097,7 +1097,7 @@
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="319"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="328"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1204,32 +1204,32 @@
 <context>
     <name>BaseObject</name>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="42"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="43"/>
         <source>通常</source>
         <translation>正常</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="43"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="44"/>
         <source>スクリーン</source>
         <translation>滤色</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="46"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="47"/>
         <source>乗算</source>
         <translation>正片叠底</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="49"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="50"/>
         <source>オーバーレイ</source>
         <translation>叠加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="52"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="53"/>
         <source>焼き込み</source>
         <translation>颜色加深</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="55"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="56"/>
         <source>覆い焼き</source>
         <translation>颜色减淡</translation>
     </message>
@@ -1243,37 +1243,37 @@
         <translation>参数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="307"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="346"/>
         <source>開始色 (f%1)</source>
         <translation>起始颜色 (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="307"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="346"/>
         <source>色を選択</source>
         <translation>选择颜色</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="384"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="423"/>
         <source>終了色 (f%1)</source>
         <translation>结束颜色 (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="430"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="469"/>
         <source>ファイルを選択</source>
         <translation>选择文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="572"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="602"/>
         <source>設定</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="664"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="694"/>
         <source>フォントを選択</source>
         <translation>选择字体</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="680"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="710"/>
         <source>デフォルト</source>
         <translation>默认</translation>
     </message>
@@ -2550,72 +2550,82 @@
         <translation>移动片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="24"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="23"/>
+        <source>上のオブジェクトでクリッピング</source>
+        <translation>用上方对象裁剪</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="23"/>
+        <source>上のオブジェクトでクリッピング解除</source>
+        <translation>取消用上方对象裁剪</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="30"/>
         <source>パラメータ変更: %1 - %2</source>
         <translation>参数更改：%1 - %2</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="44"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="50"/>
         <source>エフェクト追加: %1</source>
         <translation>添加效果：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="51"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="57"/>
         <source>エフェクト削除: %1</source>
         <translation>删除效果：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="65"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="71"/>
         <source>エフェクト順序変更</source>
         <translation>更改效果顺序</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="78"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="84"/>
         <source>オーディオプラグイン順序変更</source>
         <translation>更改音频插件顺序</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="84"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="90"/>
         <source>エフェクト有効/無効切り替え</source>
         <translation>切换效果启用/禁用</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="90"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="96"/>
         <source>オーディオプラグイン有効/無効切り替え</source>
         <translation>切换音频插件启用/禁用</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="98"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="104"/>
         <source>エフェクト貼り付け</source>
         <translation>粘贴效果</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="105"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
         <source>レイヤーロック</source>
         <translation>锁定图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="105"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
         <source>ロック解除</source>
         <translation>解除锁定</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="105"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
         <source>レイヤー非表示</source>
         <translation>隐藏图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="105"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
         <source>レイヤー表示</source>
         <translation>显示图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="106"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="112"/>
         <source>%1: レイヤー %2</source>
         <translation>%1：图层 %2</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="113"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="119"/>
         <source>クリップ分割: %1</source>
         <translation>分割片段：%1</translation>
     </message>
@@ -2624,37 +2634,37 @@
         <translation type="vanished">删除片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="190"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="196"/>
         <source>切り取り: %1</source>
         <translation>剪切：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="201"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="207"/>
         <source>貼り付け: %1</source>
         <translation>粘贴：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="213"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="219"/>
         <source>キーフレーム設定: %1</source>
         <translation>设置关键帧：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="240"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="246"/>
         <source>キーフレーム削除: %1 [%2]</source>
         <translation>删除关键帧：%1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="245"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="251"/>
         <source>シーン追加: %1</source>
         <translation>添加场景：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="256"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="262"/>
         <source>シーン削除: %1</source>
         <translation>删除场景：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="263"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="269"/>
         <source>シーン設定変更: %1</source>
         <translation>场景设置更改：%1</translation>
     </message>
@@ -2680,22 +2690,22 @@
         <translation>变换多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="600"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="631"/>
         <source>クリップ削除</source>
         <translation>删除片段</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="600"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="631"/>
         <source>複数クリップ削除: %1</source>
         <translation>删除多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="737"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="771"/>
         <source>複数クリップ分割: %1</source>
         <translation>分割多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="784"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="818"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>粘贴多个片段：%1</translation>
     </message>
@@ -3371,7 +3381,12 @@
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="761"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="762"/>
+        <source>上のオブジェクトでクリッピング</source>
+        <translation>用上方对象裁剪</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="774"/>
         <source>エフェクトを追加</source>
         <translation type="unfinished">添加效果</translation>
     </message>

@@ -19,6 +19,12 @@ MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int oldLa
 void MoveClipCommand::undo() { m_service->updateClipInternal(m_clipId, m_oldLayer, m_oldStart, m_oldDuration); }
 void MoveClipCommand::redo() { m_service->updateClipInternal(m_clipId, m_newLayer, m_newStart, m_newDuration); }
 
+SetClipByUpperObjectCommand::SetClipByUpperObjectCommand(TimelineService *service, int clipId, bool enabled) : m_service(service), m_clipId(clipId), m_enabled(enabled) {
+    setText(enabled ? QObject::tr("上のオブジェクトでクリッピング") : QObject::tr("上のオブジェクトでクリッピング解除"));
+}
+void SetClipByUpperObjectCommand::undo() { m_service->setClipByUpperObjectInternal(m_clipId, !m_enabled); }
+void SetClipByUpperObjectCommand::redo() { m_service->setClipByUpperObjectInternal(m_clipId, m_enabled); }
+
 UpdateEffectParamCommand::UpdateEffectParamCommand(TimelineService *service, int clipId, int effectIndex, const QString &paramName, QVariant newValue, QVariant oldValue, const QString &effectName) // NOLINT(bugprone-easily-swappable-parameters)
     : m_service(service), m_clipId(clipId), m_effectIndex(effectIndex), m_paramName(paramName), m_newValue(std::move(newValue)), m_oldValue(std::move(oldValue)), m_effectName(effectName) {
     setText(QObject::tr("パラメータ変更: %1 - %2").arg(effectName).arg(paramName));

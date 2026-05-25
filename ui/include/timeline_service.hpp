@@ -34,6 +34,8 @@ class TimelineService : public QObject {
     int createClip(const QString &type, int startFrame, int layer);
     void deleteClip(int clipId);
     void updateClip(int id, int layer, int startFrame, int duration);
+    Q_INVOKABLE bool clipByUpperObject(int clipId) const;
+    Q_INVOKABLE void setClipByUpperObject(int clipId, bool enabled);
     void insertLayers(int targetLayer, int count, bool above);
     void shiftLayers(int startLayer, int endLayer, int delta);
     void moveSelectedClips(int deltaLayer, int deltaFrame);
@@ -89,6 +91,7 @@ class TimelineService : public QObject {
     void deleteClipInternal(int clipId, bool emitSignal = true);
     void createClipInternal(int clipId, const QString &type, int startFrame, int layer, bool emitSignal = true);
     void updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal = true);
+    void setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal = true);
     void addEffectInternal(int clipId, const QString &effectId);
     void addClipsDirectInternal(const QList<ClipData> &clips);
     void addClipDirectInternal(const ClipData &clip, bool emitSignal = true);

@@ -225,6 +225,7 @@ auto TimelineController::clips() const -> QVariantList {
         map.insert(QStringLiteral("startFrame"), clip.startFrame);
         map.insert(QStringLiteral("durationFrames"), clip.durationFrames);
         map.insert(QStringLiteral("layer"), clip.layer);
+        map.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
 
         auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(clip.type);
         map.insert(QStringLiteral("name"), !meta.name.isEmpty() ? meta.name : clip.type);
@@ -263,6 +264,14 @@ auto TimelineController::clips() const -> QVariantList {
         list.append(map);
     }
     return list;
+}
+
+auto TimelineController::clipByUpperObject(int clipId) const -> bool { return m_timeline != nullptr ? m_timeline->clipByUpperObject(clipId) : false; }
+
+void TimelineController::setClipByUpperObject(int clipId, bool enabled) {
+    if (m_timeline != nullptr) {
+        m_timeline->setClipByUpperObject(clipId, enabled);
+    }
 }
 
 void TimelineController::moveSelectedClips(int deltaLayer, int deltaFrame) {

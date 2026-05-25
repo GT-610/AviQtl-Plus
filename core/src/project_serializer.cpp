@@ -52,6 +52,7 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
             clipObj.insert(QStringLiteral("start"), clip.startFrame);
             clipObj.insert(QStringLiteral("duration"), clip.durationFrames);
             clipObj.insert(QStringLiteral("layer"), clip.layer);
+            clipObj.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
             clipObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(clip.params));
 
             QJsonArray audioPluginsArray;
@@ -140,6 +141,7 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         clip.startFrame = c.value(QStringLiteral("start")).toInt();
         clip.durationFrames = c.value(QStringLiteral("duration")).toInt();
         clip.layer = c.value(QStringLiteral("layer")).toInt();
+        clip.clipByUpperObject = c.value(QStringLiteral("clipByUpperObject")).toBool(false);
         clip.params = c.value(QStringLiteral("params")).toObject().toVariantMap();
 
         QJsonArray audioPluginsArray = c.value(QStringLiteral("audioPlugins")).toArray();

@@ -26,7 +26,6 @@ Item {
     property var groupControls: []
     // カメラ制御管理
     property var activeCameraControl: null
-
     signal childRendererOutputsChanged()
 
     function getLayerVisible(layer) {
@@ -200,6 +199,11 @@ Item {
                 property var clipEffectModelsRole: _clipData.effectModels || []
                 property Item fbRendererOutput: null // NodeLoader 完了後に接続
                 property int _tmRev: 0
+                property bool clipByUpperObjectRole: Boolean(_clipData.clipByUpperObject)
+                property Item rawFbRendererOutput: null
+                readonly property bool clipByUpperActive: clipByUpperObjectRole && clipMaskItem && rawFbRendererOutput
+                readonly property Item clippedRendererOutput: clipByUpperLoader.item ? clipByUpperLoader.item.output : null
+                property Item clipMaskItem: null
                 readonly property var evaluatedParams: {
                     var _trig = clipNode._tmRev; // 変更検知トリガー
                     if (!Workspace.currentTimeline)
@@ -317,6 +321,72 @@ Item {
                 }
 
                 // レイヤーが非表示の場合は描画しない
+                function isClipActiveAtCurrentFrame(node) {
+                    if (!node || node.clipStartFrameRole === undefined || node.clipDurationFramesRole === undefined)
+                        return false;
+
+                    var start = Number(node.clipStartFrameRole);
+                    var duration = Number(node.clipDurationFramesRole);
+                    return root.currentFrame >= start && root.currentFrame < start + duration;
+                }
+
+                function findUpperClipMask() {
+                    if (!clipByUpperObjectRole || clipLayerRole <= 0 || !sceneRoot)
+                        return null;
+
+                    var bestLayer = -1;
+                    var bestMask = null;
+                    var nodes = sceneRoot.children;
+                    for (var i = 0; i < nodes.length; ++i) {
+                        var node = nodes[i];
+                        if (!node || node === clipNode)
+                            continue;
+
+                        if (node.clipLayerRole === undefined || node.clipLayerRole >= clipLayerRole || node.clipLayerRole <= bestLayer)
+                            continue;
+
+                        if (node.clipSceneIdRole !== clipSceneIdRole)
+                            continue;
+
+                        if (!node.visible || !isClipActiveAtCurrentFrame(node) || !node.rawFbRendererOutput)
+                            continue;
+
+                        bestLayer = node.clipLayerRole;
+                        bestMask = node.rawFbRendererOutput;
+                    }
+                    return bestMask;
+                }
+
+                function updateClipMaskItem() {
+                    clipMaskItem = findUpperClipMask();
+                }
+
+                Component.onCompleted: Qt.callLater(updateClipMaskItem)
+                onClipStartFrameRoleChanged: Qt.callLater(updateClipMaskItem)
+                onClipDurationFramesRoleChanged: Qt.callLater(updateClipMaskItem)
+                onClipByUpperObjectRoleChanged: Qt.callLater(updateClipMaskItem)
+                onClipLayerRoleChanged: Qt.callLater(updateClipMaskItem)
+                onClipSceneIdRoleChanged: Qt.callLater(updateClipMaskItem)
+                onVisibleChanged: {
+                    root.childRendererOutputsChanged();
+                    Qt.callLater(updateClipMaskItem);
+                }
+                onRawFbRendererOutputChanged: Qt.callLater(updateClipMaskItem)
+
+                onFbRendererOutputChanged: root.childRendererOutputsChanged()
+
+                Connections {
+                    function onCurrentFrameChanged() {
+                        Qt.callLater(clipNode.updateClipMaskItem);
+                    }
+
+                    function onChildRendererOutputsChanged() {
+                        Qt.callLater(clipNode.updateClipMaskItem);
+                    }
+
+                    target: root
+                }
+
                 visible: {
                     // 1. レイヤー自体の表示設定
                     // QMLエンジンのバインディングシステムに検知させるため、layerStatesを直接参照する
@@ -357,7 +427,68 @@ Item {
                 onAspectYChanged: objectContainer._syncTransformToItem()
                 onPOpacityChanged: objectContainer._syncTransformToItem()
                 onEffectiveTransformChanged: objectContainer._syncTransformToItem()
-                onVisibleChanged: root.childRendererOutputsChanged()
+                Binding {
+                    target: clipNode
+                    property: "fbRendererOutput"
+                    value: clipNode.rawFbRendererOutput
+                }
+
+                Loader {
+                    id: clipByUpperLoader
+
+                    parent: offscreenRenderHost
+                    active: clipNode.clipByUpperActive
+                    sourceComponent: clipByUpperComponent
+                }
+
+                Component {
+                    id: clipByUpperComponent
+
+                    Item {
+                        id: clipByUpperHost
+
+                        property alias output: clippedCapture
+
+                        width: root.projectWidth
+                        height: root.projectHeight
+                        visible: true
+
+                        ShaderEffect {
+                            id: clipByUpperEffect
+
+                            property variant source
+                            property variant maskSource
+
+                            anchors.fill: parent
+                            fragmentShader: AviQtlAssetUrl + "/effects/clip_by_upper_object.frag.qsb"
+
+                            source: ShaderEffectSource {
+                                sourceItem: clipNode.rawFbRendererOutput
+                                live: true
+                                recursive: false
+                                hideSource: false
+                            }
+
+                            maskSource: ShaderEffectSource {
+                                sourceItem: clipNode.clipMaskItem
+                                live: true
+                                recursive: false
+                                hideSource: false
+                            }
+                        }
+
+                        ShaderEffectSource {
+                            id: clippedCapture
+
+                            anchors.fill: parent
+                            sourceItem: clipByUpperEffect
+                            live: true
+                            hideSource: false
+                            recursive: false
+                            format: ShaderEffectSource.RGBA
+                        }
+                    }
+                }
 
                 Connections {
                     // これにより tParams や BaseObject 内部が再評価される
@@ -441,7 +572,17 @@ Item {
                     // NodeLoader 完了後に fbRendererOutput を clipNode へ接続
                     onItemChanged: {
                         if (item) {
-                            clipNode.fbRendererOutput = item.fbCaptureItem ?? null;
+                            clipNode.rawFbRendererOutput = item.fbCaptureItem ?? null;
+                            if ("outputModelVisible" in item)
+                                item.outputModelVisible = Qt.binding(function() {
+                                return true;
+                            });
+
+                            if ("displayOutput" in item)
+                                item.displayOutput = Qt.binding(function() {
+                                return clipNode.clipByUpperActive && clipNode.clippedRendererOutput ? clipNode.clippedRendererOutput : item.renderer.output;
+                            });
+
                             if ("clipLayer" in item)
                                 item.clipLayer = clipNode.clipLayerRole;
 

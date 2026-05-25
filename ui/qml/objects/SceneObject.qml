@@ -37,9 +37,9 @@ Common.BaseObject {
     // 3Dモデルとして表示
     Model {
         source: "#Rectangle"
+        visible: root.outputModelVisible && !root.recursiveReference
         scale: Qt.vector3d(root.sourceItem.width / 100, root.sourceItem.height / 100, 1)
         opacity: root.opacity
-        visible: !root.recursiveReference
 
         materials: DefaultMaterial {
             lighting: DefaultMaterial.NoLighting
@@ -47,7 +47,7 @@ Common.BaseObject {
             cullMode: root.cullMode
 
             diffuseMap: Texture {
-                sourceItem: renderer.output
+                sourceItem: root.displayOutput
             }
 
         }

@@ -34,8 +34,10 @@ Common.BaseObject {
         for (var i = 0; i < ch.length; i++) {
             var node = ch[i];
             var nodeLayer = (node.clipLayerRole !== undefined) ? node.clipLayerRole : -1;
-            if (nodeLayer >= 0 && nodeLayer < root.clipLayer && node.visible) {
-                var out = node.fbRendererOutput;
+            var sameScene = node.clipSceneIdRole === undefined || node.clipSceneIdRole === root.sceneId;
+            var sameClip = node.clipIdRole !== undefined && node.clipIdRole === root.clipId;
+            if (nodeLayer >= 0 && nodeLayer < root.clipLayer && sameScene && !sameClip && node.visible) {
+                var out = node.rawFbRendererOutput || node.fbRendererOutput;
                 if (out)
                     outputs.push({
                     "layer": nodeLayer,
@@ -189,6 +191,7 @@ Common.BaseObject {
     // ─── 3D Model として View3D に配置 ───────────────────────────
     Model {
         source: "#Rectangle"
+        visible: root.outputModelVisible
         scale: Qt.vector3d(flattenHost.width / 100, flattenHost.height / 100, 1)
 
         materials: DefaultMaterial {
@@ -198,7 +201,7 @@ Common.BaseObject {
             cullMode: root.hasOwnProperty("cullMode") ? root.cullMode : DefaultMaterial.BackFaceCulling
 
             diffuseMap: Texture {
-                sourceItem: renderer.output
+                sourceItem: root.displayOutput
             }
 
         }

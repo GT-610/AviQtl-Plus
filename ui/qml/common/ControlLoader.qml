@@ -29,6 +29,45 @@ Loader {
         return (d.label && d.label !== "") ? d.label : (d.param || d.name || qsTr("パラメータ"));
     }
 
+    function _pathToDialogUrl(value) {
+        if (!value || value.toString() === "")
+            return null;
+
+        var s = value.toString();
+        if (Qt.platform.os === "windows") {
+            if (s.startsWith("file://"))
+                s = controlLoader._dialogUrlToPath(s);
+
+            s = s.replace(/\\/g, "/");
+            s = s.replace(/^\/{1,2}([A-Za-z])\//, function(_, drive) {
+                return drive.toUpperCase() + ":/";
+            });
+
+            if (/^[A-Za-z]:\//.test(s))
+                return "file:///" + s;
+        }
+
+        if (s.startsWith("file://"))
+            return s;
+
+        return "file://" + s;
+    }
+
+    function _dialogUrlToPath(url) {
+        var s = url.toString();
+        if (Qt.platform.os === "windows") {
+            s = s.replace(/^file:\/\/\//, "");
+            s = s.replace(/^\/([A-Za-z])\//, function(_, drive) {
+                return drive.toUpperCase() + ":/";
+            });
+            return s.replace(/^([A-Za-z])\//, function(_, drive) {
+                return drive.toUpperCase() + ":/";
+            });
+        }
+
+        return s.replace(/^file:\/\//, "");
+    }
+
     function _resolveSwatchColor(val) {
         if (!val || typeof val !== "string")
             return "#ffffff";
@@ -428,14 +467,6 @@ Loader {
                 id: fileDialog
 
                 title: controlLoader.definition.label || qsTr("ファイルを選択")
-                currentFile: {
-                    var v = controlLoader.value;
-                    if (!v || v.toString() === "")
-                        return "";
-
-                    var s = v.toString();
-                    return s.startsWith("file://") ? s : "file://" + s;
-                }
                 nameFilters: {
                     var f = controlLoader.definition.filter;
                     if (Array.isArray(f))
@@ -444,12 +475,7 @@ Loader {
                     return f ? [f, "All files (*)"] : ["All files (*)"];
                 }
                 onAccepted: {
-                    var path = selectedFile.toString();
-                    if (Qt.platform.os === "windows")
-                        path = path.replace(/^(file:\/{3})/, "");
-                    else
-                        path = path.replace(/^(file:\/\/)/, "");
-                    controlLoader.valueModified(path);
+                    controlLoader.valueModified(controlLoader._dialogUrlToPath(selectedFile));
                 }
             }
 
@@ -472,6 +498,10 @@ Loader {
                 text: "..."
                 Layout.preferredWidth: 30
                 onClicked: {
+                    var dialogUrl = controlLoader._pathToDialogUrl(controlLoader.value);
+                    if (dialogUrl)
+                        fileDialog.currentFile = dialogUrl;
+
                     fileDialog.open();
                 }
             }

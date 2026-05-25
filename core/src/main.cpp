@@ -7,6 +7,7 @@
 #include <QSplashScreen>
 #include <QTimer>
 #include <QTranslator>
+#include <QUrl>
 
 // Core Headers
 #include "compute_effect.hpp"
@@ -60,6 +61,15 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
     ctx->setContextProperty(QStringLiteral("AviQtlVersion"), QString::fromUtf8(VERSION_STRING));
     ctx->setContextProperty(QStringLiteral("PackageManager"), &Core::PackageManager::instance());
     ctx->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&UI::WindowManager::instance()));
+
+    QString assetDir = QCoreApplication::applicationDirPath();
+    const QString macResourceDir = QDir(assetDir + QStringLiteral("/../Resources")).canonicalPath();
+    if (!macResourceDir.isEmpty()) {
+        assetDir = macResourceDir;
+    } else if (assetDir.endsWith(QStringLiteral("/bin"))) {
+        assetDir.chop(4);
+    }
+    ctx->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QUrl::fromLocalFile(assetDir).toString());
 }
 
 auto main(int argc, char *argv[]) -> int {
