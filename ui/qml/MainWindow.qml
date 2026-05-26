@@ -498,7 +498,9 @@ ApplicationWindow {
             if (Workspace.currentTimeline) {
                 var step = SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10;
                 var maxZ = SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400;
-                Workspace.currentTimeline.timelineScale = Math.min(Workspace.currentTimeline.timelineScale + step / 100, maxZ / 100);
+                var curPercent = Workspace.currentTimeline.timelineScale <= 1 ? Workspace.currentTimeline.timelineScale * 100 : 100 + ((Workspace.currentTimeline.timelineScale - 1) * 300 / 9);
+                var nextPercent = Math.min(curPercent + step, maxZ);
+                Workspace.currentTimeline.timelineScale = nextPercent <= 100 ? nextPercent / 100 : 1 + ((nextPercent - 100) * 9 / 300);
             }
         }
     }
@@ -513,7 +515,9 @@ ApplicationWindow {
             if (Workspace.currentTimeline) {
                 var step = SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10;
                 var minZ = SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10;
-                Workspace.currentTimeline.timelineScale = Math.max(Workspace.currentTimeline.timelineScale - step / 100, minZ / 100);
+                var curPercent = Workspace.currentTimeline.timelineScale <= 1 ? Workspace.currentTimeline.timelineScale * 100 : 100 + ((Workspace.currentTimeline.timelineScale - 1) * 300 / 9);
+                var nextPercent = Math.max(curPercent - step, minZ);
+                Workspace.currentTimeline.timelineScale = nextPercent <= 100 ? nextPercent / 100 : 1 + ((nextPercent - 100) * 9 / 300);
             }
         }
     }

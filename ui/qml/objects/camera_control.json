@@ -1,5 +1,5 @@
 {
-    "id": "camera",
+    "id": "camera_control",
     "name": "カメラ制御",
     "qml": "CameraControlObject.qml",
     "params": {

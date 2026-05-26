@@ -27,20 +27,28 @@ Node {
     property bool _registered: false
     readonly property int relFrame: currentFrame - clipStartFrame
     readonly property real projectFps: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60
-    property int layerCount: Math.max(1, Number(evalParam("camera", "layerCount", 1)))
-    property real camX: Number(evalParam("camera", "x", 0))
-    property real camY: Number(evalParam("camera", "y", 0))
-    property real camZ: Number(evalParam("camera", "z", 0))
-    property real tarX: Number(evalParam("camera", "tx", 0))
-    property real tarY: Number(evalParam("camera", "ty", 0))
-    property real tarZ: Number(evalParam("camera", "tz", 0))
-    property real roll: Number(evalParam("camera", "roll", 0))
-    property real fov: Math.max(1, Math.min(170, Number(evalParam("camera", "fov", 30))))
+    property int layerCount: Math.max(1, Number(evalCameraParam("layerCount", 1)))
+    property real camX: Number(evalCameraParam("x", 0))
+    property real camY: Number(evalCameraParam("y", 0))
+    property real camZ: Number(evalCameraParam("z", 0))
+    property real tarX: Number(evalCameraParam("tx", 0))
+    property real tarY: Number(evalCameraParam("ty", 0))
+    property real tarZ: Number(evalCameraParam("tz", 0))
+    property real roll: Number(evalCameraParam("roll", 0))
+    property real fov: Math.max(1, Math.min(170, Number(evalCameraParam("fov", 30))))
     // CompositeView が View3D.camera に直接バインドするノード
     property alias camera: cam
     readonly property real _defaultDist: {
         var h = (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : 1080;
         return h / (2 * Math.tan(fov * Math.PI / 360));
+    }
+
+    function evalCameraParam(paramName, fallback) {
+        var v = evalParam("camera_control", paramName, undefined);
+        if (v !== undefined && v !== null)
+            return v;
+
+        return evalParam("camera", paramName, fallback);
     }
 
     function evalParam(effectId, paramName, fallback) {

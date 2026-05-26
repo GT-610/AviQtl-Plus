@@ -24,12 +24,33 @@ Rectangle {
         return Math.max(lo, Math.min(hi, v));
     }
 
+    function zoomPercentToScale(percent) {
+        if (percent <= 100)
+            return percent / 100;
+
+        return 1 + ((percent - 100) * 9 / 300);
+    }
+
+    function seekCursorFrame(frame) {
+        if (!Workspace.currentTimeline)
+            return ;
+
+        var nextFrame = Math.max(0, Math.round(frame));
+        if (Workspace.currentTimeline.cursorFrame !== nextFrame)
+            Workspace.currentTimeline.cursorFrame = nextFrame;
+
+        if (Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.currentFrame !== nextFrame)
+            Workspace.currentTimeline.transport.setCurrentFrame_seek(nextFrame);
+    }
+
     function zoomAt(wheel, zoomFactor) {
         if (!Workspace.currentTimeline || !targetFlickable)
             return ;
 
         var oldScale = Workspace.currentTimeline.timelineScale;
-        var newScale = clamp(oldScale * zoomFactor, 0.1, 20);
+        var minZ = SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10;
+        var maxZ = SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400;
+        var newScale = clamp(oldScale * zoomFactor, zoomPercentToScale(minZ), zoomPercentToScale(maxZ));
         if (Math.abs(newScale - oldScale) < 1e-06)
             return ;
 
@@ -174,29 +195,31 @@ Rectangle {
 
             }
 
+            // ルーラー上の編集カーソル表示
             Rectangle {
-                id: rulerPlayhead
+                id: rulerCurrentFrameMarker
 
-                x: Math.round(((Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport.currentFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
+                visible: Workspace.currentTimeline !== null
+                x: Math.round(((Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
                 y: 0
-                width: 2
+                width: Math.max(1, Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
                 height: parent.height
                 color: palette.highlight
-                z: 10
+                opacity: 0.16
+                z: 6
             }
 
-            // ルーラー上の編集カーソル表示
             Rectangle {
                 id: rulerEditCursor
 
                 visible: Workspace.currentTimeline !== null
                 x: Math.round(((Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
-                y: rulerRoot.height * 0.6
+                y: 0
                 width: 1
-                height: rulerRoot.height * 0.4
+                height: parent.height
                 color: palette.highlight
-                opacity: 0.7
-                z: 5
+                opacity: 0.8
+                z: 10
             }
 
             // マウス操作（スクラブ & ズーム）
@@ -206,19 +229,12 @@ Rectangle {
                 cursorShape: pressed ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onPressed: (mouse) => {
-                    if (mouse.button === Qt.LeftButton && targetFlickable && Workspace.currentTimeline && Workspace.currentTimeline.transport) {
-                        Workspace.currentTimeline.transport.beginScrub();
-                        Workspace.currentTimeline.transport.scrubTo(pxToFrame(mouse.x, targetFlickable.contentX));
-                    }
+                    if (mouse.button === Qt.LeftButton && targetFlickable && Workspace.currentTimeline)
+                        rulerRoot.seekCursorFrame(pxToFrame(mouse.x, targetFlickable.contentX));
                 }
                 onPositionChanged: (mouse) => {
-                    if (pressed && (mouse.buttons & Qt.LeftButton) && targetFlickable && Workspace.currentTimeline && Workspace.currentTimeline.transport)
-                        Workspace.currentTimeline.transport.scrubTo(pxToFrame(mouse.x, targetFlickable.contentX));
-
-                }
-                onReleased: (mouse) => {
-                    if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
-                        Workspace.currentTimeline.transport.endScrub();
+                    if (pressed && (mouse.buttons & Qt.LeftButton) && targetFlickable && Workspace.currentTimeline)
+                        rulerRoot.seekCursorFrame(pxToFrame(mouse.x, targetFlickable.contentX));
 
                 }
                 onWheel: (wheel) => {

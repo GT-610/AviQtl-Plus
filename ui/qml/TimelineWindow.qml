@@ -33,6 +33,68 @@ Common.AviQtlWindow {
         return state ? state.visible : true;
     }
 
+    function currentSceneData() {
+        if (!Workspace.currentTimeline || !Workspace.currentTimeline.scenes)
+            return null;
+
+        for (var i = 0; i < Workspace.currentTimeline.scenes.length; i++) {
+            if (Workspace.currentTimeline.scenes[i].id === Workspace.currentTimeline.currentSceneId)
+                return Workspace.currentTimeline.scenes[i];
+
+        }
+        return null;
+    }
+
+    function syncGlobalLayerStates() {
+        if (!Workspace.currentTimeline)
+            return ;
+
+        var next = ({});
+        for (var i = 0; i < layerCount; i++) {
+            next[i] = {
+                "visible": !Workspace.currentTimeline.isLayerHidden(i),
+                "locked": Workspace.currentTimeline.isLayerLocked(i)
+            };
+        }
+        globalLayerStates = next;
+    }
+
+    function clamp(v, lo, hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
+    function zoomPercentToScale(percent) {
+        if (percent <= 100)
+            return percent / 100;
+
+        return 1 + ((percent - 100) * 9 / 300);
+    }
+
+    function scaleToZoomPercent(scale) {
+        if (scale <= 1)
+            return scale * 100;
+
+        return 100 + ((scale - 1) * 300 / 9);
+    }
+
+    function setTimelineZoomPercent(percent, anchorMode) {
+        if (!Workspace.currentTimeline)
+            return ;
+
+        var minZ = SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10;
+        var maxZ = SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400;
+        var nextPercent = clamp(percent, minZ, maxZ);
+        var flick = timelineView.flickable;
+        var oldScale = Workspace.currentTimeline.timelineScale;
+        var anchorX = anchorMode === "center" && flick ? flick.width / 2 : 0;
+        var anchorFrame = flick && oldScale > 0 ? (flick.contentX + anchorX) / oldScale : 0;
+        Workspace.currentTimeline.timelineScale = zoomPercentToScale(nextPercent);
+        if (flick) {
+            var maxX = Math.max(0, flick.contentWidth - flick.width);
+            flick.contentX = clamp(anchorFrame * Workspace.currentTimeline.timelineScale - anchorX, 0, maxX);
+        }
+    }
+
     title: qsTr("タイムライン")
     objectName: "timelineWindow"
     width: 1280
@@ -45,12 +107,17 @@ Common.AviQtlWindow {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: sceneTabHeight
+            Layout.minimumHeight: sceneTabHeight
+            Layout.maximumHeight: sceneTabHeight
             spacing: 0
             z: 1
 
             ScrollView {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: sceneTabHeight
+                Layout.minimumHeight: sceneTabHeight
+                Layout.maximumHeight: sceneTabHeight
+                implicitHeight: sceneTabHeight
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 ScrollBar.vertical.policy: ScrollBar.AlwaysOff
 
@@ -59,6 +126,8 @@ Common.AviQtlWindow {
 
                     // ScrollView内で適切に広がるように設定
                     width: Math.max(parent.width, contentWidth)
+                    height: sceneTabHeight
+                    implicitHeight: sceneTabHeight
 
                     Repeater {
                         id: sceneRepeater
@@ -69,6 +138,7 @@ Common.AviQtlWindow {
                             id: tabBtn
 
                             implicitWidth: Math.max(100, contentItem.implicitWidth + leftPadding + rightPadding)
+                            height: sceneTabHeight
                             checked: Workspace.currentTimeline && Workspace.currentTimeline.currentSceneId === modelData.id
                             onClicked: {
                                 if (Workspace.currentTimeline)
@@ -122,6 +192,12 @@ Common.AviQtlWindow {
 
                             }
 
+                            background: Rectangle {
+                                color: tabBtn.checked ? palette.highlight : (tabBtn.hovered ? Qt.rgba(palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.16) : "transparent")
+                                border.color: tabBtn.checked ? palette.highlight : palette.mid
+                                border.width: tabBtn.checked ? 1 : 0
+                            }
+
                         }
 
                     }
@@ -133,8 +209,10 @@ Common.AviQtlWindow {
             Button {
                 flat: true
                 Layout.preferredWidth: 40
+                Layout.preferredHeight: sceneTabHeight
+                Layout.minimumHeight: sceneTabHeight
+                Layout.maximumHeight: sceneTabHeight
                 hoverEnabled: true
-                Layout.fillHeight: true
                 onClicked: {
                     var win = WindowManager.getWindow("sceneSettings");
                     if (win)
@@ -157,6 +235,9 @@ Common.AviQtlWindow {
             rulerHeight: timelineWindow.rulerHeight
             timeWidth: timelineWindow.headerWidth
             fps: Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.fps : 60
+            Layout.preferredHeight: timelineWindow.rulerHeight
+            Layout.minimumHeight: timelineWindow.rulerHeight
+            Layout.maximumHeight: timelineWindow.rulerHeight
         }
 
         RowLayout {
@@ -214,6 +295,113 @@ Common.AviQtlWindow {
 
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 30
+            Layout.minimumHeight: 30
+            Layout.maximumHeight: 30
+            spacing: 6
+
+            Rectangle {
+                Layout.preferredWidth: timelineWindow.headerWidth
+                Layout.fillHeight: true
+                color: palette.base
+                border.color: palette.mid
+                border.width: 1
+            }
+
+            Button {
+                flat: true
+                Layout.preferredWidth: 28
+                Layout.preferredHeight: 28
+                enabled: Workspace.currentTimeline !== null
+                hoverEnabled: true
+                onClicked: {
+                    var step = SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10;
+                    setTimelineZoomPercent(zoomSlider.value - step, "center");
+                }
+
+                contentItem: Common.AviQtlIcon {
+                    iconName: "subtract_line"
+                    size: 18
+                    color: parent.enabled && parent.hovered ? parent.palette.highlight : parent.palette.text
+                }
+            }
+
+            Slider {
+                id: zoomSlider
+
+                from: SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10
+                to: SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400
+                stepSize: SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10
+                Layout.fillWidth: true
+                Layout.preferredHeight: 28
+                enabled: Workspace.currentTimeline !== null
+                live: true
+                value: Workspace.currentTimeline ? Math.round(timelineWindow.scaleToZoomPercent(Workspace.currentTimeline.timelineScale)) : 100
+                onMoved: setTimelineZoomPercent(value, "center")
+            }
+
+            Label {
+                Layout.preferredWidth: 54
+                horizontalAlignment: Text.AlignRight
+                verticalAlignment: Text.AlignVCenter
+                text: Workspace.currentTimeline ? Math.round(timelineWindow.scaleToZoomPercent(Workspace.currentTimeline.timelineScale)) + "%" : "--"
+                color: palette.text
+                font.pixelSize: 11
+            }
+
+            Button {
+                flat: true
+                Layout.preferredWidth: 28
+                Layout.preferredHeight: 28
+                enabled: Workspace.currentTimeline !== null
+                hoverEnabled: true
+                onClicked: {
+                    var step = SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10;
+                    setTimelineZoomPercent(zoomSlider.value + step, "center");
+                }
+
+                contentItem: Common.AviQtlIcon {
+                    iconName: "add_line"
+                    size: 18
+                    color: parent.enabled && parent.hovered ? parent.palette.highlight : parent.palette.text
+                }
+            }
+
+            Item {
+                Layout.preferredWidth: 14
+                Layout.fillHeight: true
+            }
+
+        }
+
+    }
+
+    Component.onCompleted: syncGlobalLayerStates()
+
+    Connections {
+        function onCurrentTimelineChanged() {
+            timelineWindow.syncGlobalLayerStates();
+        }
+
+        target: Workspace
+    }
+
+    Connections {
+        function onClipsChanged() {
+            timelineWindow.syncGlobalLayerStates();
+        }
+
+        function onCurrentSceneIdChanged() {
+            timelineWindow.syncGlobalLayerStates();
+        }
+
+        function onScenesChanged() {
+            timelineWindow.syncGlobalLayerStates();
+        }
+
+        target: Workspace.currentTimeline
     }
 
     Shortcut {

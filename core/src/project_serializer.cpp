@@ -138,6 +138,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         clip.sceneId = c.value(QStringLiteral("sceneId")).toInt(0);
         maxClipId = std::max(clip.id, maxClipId);
         clip.type = c.value(QStringLiteral("type")).toString();
+        if (clip.type == QLatin1String("camera")) {
+            clip.type = QStringLiteral("camera_control");
+        }
         clip.startFrame = c.value(QStringLiteral("start")).toInt();
         clip.durationFrames = c.value(QStringLiteral("duration")).toInt();
         clip.layer = c.value(QStringLiteral("layer")).toInt();
@@ -160,6 +163,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         for (const auto &ev : std::as_const(effArr)) {
             QJsonObject eObj = ev.toObject();
             QString effId = eObj.value(QStringLiteral("id")).toString();
+            if (effId == QLatin1String("camera")) {
+                effId = QStringLiteral("camera_control");
+            }
             EffectMetadata meta = EffectRegistry::instance().getEffect(effId);
             if (effId.isEmpty() || meta.id.isEmpty()) {
                 qWarning().noquote() << QStringLiteral("Skipping missing effect while loading project:") << effId;

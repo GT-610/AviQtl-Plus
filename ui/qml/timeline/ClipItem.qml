@@ -22,6 +22,22 @@ Item {
     readonly property bool forcedSelected: forceVisualSelection && forcedSelectedIds.includes(modelData.id)
     readonly property bool isSelected: previewSelected || (forceVisualSelection ? forcedSelected : committedSelected)
     readonly property bool isLayerLocked: getLayerLocked(modelData.layer)
+    property int effectRevision: 0
+    readonly property int controlLayerCount: {
+        var _ = effectRevision;
+        var effects = modelData.effectModels || [];
+        for (var i = 0; i < effects.length; i++) {
+            var eff = effects[i];
+            if (!eff)
+                continue;
+
+            if (eff.id === "GroupControl" || eff.id === "camera_control" || eff.id === "camera") {
+                var params = eff.params || {};
+                return Math.max(0, Number(params.layerCount || 0));
+            }
+        }
+        return Math.max(0, Number(modelData.groupLayerCount || 0));
+    }
     property string clipDisplayName: (typeof modelData.name === "string" && modelData.name.length > 0) ? modelData.name : modelData.type
     property int dragDeltaStart: (isSelected && timelineViewRoot.isDraggingMulti) ? timelineViewRoot.activeDragDeltaFrame : 0
     property int dragDeltaLayer: (isSelected && timelineViewRoot.isDraggingMulti) ? timelineViewRoot.activeDragDeltaLayer : 0
@@ -37,15 +53,25 @@ Item {
     z: modelData.layer
 
     Rectangle {
-        visible: modelData.groupLayerCount > 0
+        visible: clipDelegate.controlLayerCount > 0
         x: 0
         y: parent.height
         width: parent.width
-        height: modelData.groupLayerCount * layerHeight
+        height: clipDelegate.controlLayerCount * layerHeight
         color: Qt.rgba(palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.18)
         border.color: Qt.rgba(palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.55)
         border.width: 1
         z: -1
+    }
+
+    Connections {
+        function onEffectParamChanged(clipId, effectIndex, paramName, value) {
+            if (clipId === modelData.id && paramName === "layerCount")
+                clipDelegate.effectRevision++;
+
+        }
+
+        target: Workspace.currentTimeline ?? null
     }
 
     Rectangle {

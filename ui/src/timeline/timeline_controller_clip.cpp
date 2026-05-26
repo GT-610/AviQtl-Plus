@@ -20,6 +20,7 @@ static int getControlLayerCount(const ClipData &clip) {
     // カーテンを持つエフェクトID と layerCountパラメータ名のリスト
     static const QList<QLatin1String> kControlEffectIds = {
         QLatin1String("GroupControl"),
+        QLatin1String("camera_control"),
         QLatin1String("camera"),
     };
     for (auto *eff : clip.effects) {
@@ -173,9 +174,13 @@ void TimelineController::setLayer(int layer) {
 }
 
 void TimelineController::setCursorFrame(int frame) {
+    frame = std::max(0, frame);
     if (m_cursorFrame != frame) {
         m_cursorFrame = frame;
         emit cursorFrameChanged();
+    }
+    if (m_transport != nullptr && m_transport->currentFrame() != frame) {
+        m_transport->setCurrentFrame_seek(frame);
     }
 }
 

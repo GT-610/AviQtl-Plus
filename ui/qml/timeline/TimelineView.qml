@@ -4,7 +4,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-ScrollView {
+Item {
     id: timelineViewRoot
 
     property alias flickable: timelineFlickable
@@ -69,7 +69,9 @@ ScrollView {
         };
     }
     readonly property int maxClipEndFrame: (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0) ? Workspace.currentTimeline.timelineDuration : 0
-    readonly property int timelineLengthFrames: Math.max(100, maxClipEndFrame + tailPaddingFrames)
+    readonly property int sceneTotalFrames: currentSceneData && currentSceneData.totalFrames !== undefined ? currentSceneData.totalFrames : 0
+    readonly property int timelineLengthFrames: Math.max(100, sceneTotalFrames, maxClipEndFrame + tailPaddingFrames)
+    readonly property int scrollBarThickness: 14
 
     function beginDragAutoScroll(callback) {
         dragAutoScrollCallback = callback;
@@ -99,6 +101,32 @@ ScrollView {
 
     function clamp(v, lo, hi) {
         return Math.max(lo, Math.min(hi, v));
+    }
+
+    function zoomPercentToScale(percent) {
+        if (percent <= 100)
+            return percent / 100;
+
+        return 1 + ((percent - 100) * 9 / 300);
+    }
+
+    function scaleToZoomPercent(scale) {
+        if (scale <= 1)
+            return scale * 100;
+
+        return 100 + ((scale - 1) * 300 / 9);
+    }
+
+    function seekCursorFrame(frame) {
+        if (!Workspace.currentTimeline)
+            return ;
+
+        var nextFrame = Math.max(0, Math.round(frame));
+        if (Workspace.currentTimeline.cursorFrame !== nextFrame)
+            Workspace.currentTimeline.cursorFrame = nextFrame;
+
+        if (Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.currentFrame !== nextFrame)
+            Workspace.currentTimeline.transport.setCurrentFrame_seek(nextFrame);
     }
 
     function getGridInterval() {
@@ -139,13 +167,15 @@ ScrollView {
     }
 
     clip: true
-    ScrollBar.horizontal.policy: ScrollBar.AlwaysOn
-    ScrollBar.vertical.policy: ScrollBar.AlwaysOn
 
     Flickable {
         // unified loop handles viewport updates now
         id: timelineFlickable
 
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.right: verticalScrollBar.left
+        anchors.bottom: horizontalScrollBar.top
         clip: true
         contentWidth: Math.max(width, timelineLengthFrames * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1))
         contentHeight: layerCount * layerHeight
@@ -165,15 +195,15 @@ ScrollView {
                 if (typeof Workspace.currentTimeline.updateViewport === "function")
                     Workspace.currentTimeline.updateViewport(timelineFlickable.contentX, timelineFlickable.contentY);
 
-                if (timelineViewRoot.ScrollBar.horizontal && timelineViewRoot.ScrollBar.horizontal.pressed)
+                if (horizontalScrollBar.pressed)
                     timelineViewRoot.autoScrollSuspended = true;
 
-                if (timelineViewRoot.ScrollBar.vertical && timelineViewRoot.ScrollBar.vertical.pressed)
+                if (verticalScrollBar.pressed)
                     timelineViewRoot.autoScrollSuspended = true;
 
                 if (Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.isPlaying && !timelineViewRoot.autoScrollSuspended) {
                     let viewportWidth = timelineFlickable.width;
-                    let playheadX = Workspace.currentTimeline.transport.currentFrame * Workspace.currentTimeline.timelineScale;
+                    let playheadX = Workspace.currentTimeline.cursorFrame * Workspace.currentTimeline.timelineScale;
                     let left = timelineFlickable.contentX;
                     let right = left + viewportWidth;
                     let margin = 24;
@@ -217,6 +247,16 @@ ScrollView {
         }
 
         Connections {
+            function onCurrentFrameChanged() {
+                if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                    timelineViewRoot.seekCursorFrame(Workspace.currentTimeline.transport.currentFrame);
+
+            }
+
+            target: Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport : null
+        }
+
+        Connections {
             function onIsPlayingChanged() {
                 if (Workspace.currentTimeline.transport.isPlaying)
                     timelineViewRoot.autoScrollSuspended = false;
@@ -239,6 +279,19 @@ ScrollView {
         }
 
         // 編集カーソル（マウス追従ガイド）
+        Rectangle {
+            id: currentFrameMarker
+
+            visible: Workspace.currentTimeline !== null
+            x: (Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
+            y: 0
+            width: Math.max(1, Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
+            height: timelineFlickable.contentHeight
+            color: palette.highlight
+            opacity: 0.12
+            z: 85
+        }
+
         Rectangle {
             id: editCursorLine
 
@@ -349,17 +402,6 @@ ScrollView {
 
         }
 
-        Rectangle {
-            id: playhead
-
-            x: (Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport.currentFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
-            y: 0
-            width: 2
-            height: parent.height
-            color: palette.highlight
-            z: 100
-        }
-
         MouseArea {
             anchors.fill: parent
             z: -1
@@ -369,12 +411,12 @@ ScrollView {
             hoverEnabled: true
             onPositionChanged: (mouse) => {
                 if (pressed && Workspace.currentTimeline)
-                    Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
+                    timelineViewRoot.seekCursorFrame(timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier)));
 
             }
             onPressed: (mouse) => {
                 if (Workspace.currentTimeline)
-                    Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
+                    timelineViewRoot.seekCursorFrame(timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier)));
 
                 var l = Math.floor(mouse.y / layerHeight);
                 if (Workspace.currentTimeline && l >= 0 && l < layerCount) {
@@ -403,7 +445,7 @@ ScrollView {
                     if (l >= 0 && l < layerCount) {
                         // 選択中のレイヤーと異なるレイヤーを右クリックした場合は、編集カーソルもそのフレーム位置へ移動させる
                         if (Workspace.currentTimeline.selectedLayer !== l)
-                            Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(boxSelectionStart.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
+                            timelineViewRoot.seekCursorFrame(timelineViewRoot.snapFrame(boxSelectionStart.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier)));
 
                         Workspace.currentTimeline.selectedLayer = l;
                     }
@@ -473,8 +515,8 @@ ScrollView {
                         var minZ = SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10;
                         var maxZ = SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400;
                         var direction = (Math.abs(dy) > Math.abs(dx) ? dy : dx) > 0 ? 1 : -1;
-                        var newScale = Workspace.currentTimeline.timelineScale + (direction * step / 100);
-                        newScale = clamp(newScale, minZ / 100, maxZ / 100);
+                        var zoomPercent = scaleToZoomPercent(Workspace.currentTimeline.timelineScale);
+                        var newScale = zoomPercentToScale(clamp(zoomPercent + (direction * step), minZ, maxZ));
                         // Zoom keeping the mouse position stationary if possible
                         var contentX = timelineFlickable.contentX;
                         var mouseX = wheel.x;
@@ -499,6 +541,56 @@ ScrollView {
             }
         }
 
+    }
+
+    ScrollBar {
+        id: horizontalScrollBar
+
+        anchors.left: parent.left
+        anchors.right: scrollCorner.left
+        anchors.bottom: parent.bottom
+        height: timelineViewRoot.scrollBarThickness
+        orientation: Qt.Horizontal
+        policy: ScrollBar.AlwaysOn
+        active: true
+        size: timelineFlickable.visibleArea.widthRatio
+        position: timelineFlickable.visibleArea.xPosition
+        onPositionChanged: {
+            if (pressed)
+                timelineFlickable.contentX = position * timelineFlickable.contentWidth;
+
+        }
+    }
+
+    ScrollBar {
+        id: verticalScrollBar
+
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.bottom: scrollCorner.top
+        width: timelineViewRoot.scrollBarThickness
+        orientation: Qt.Vertical
+        policy: ScrollBar.AlwaysOn
+        active: true
+        size: timelineFlickable.visibleArea.heightRatio
+        position: timelineFlickable.visibleArea.yPosition
+        onPositionChanged: {
+            if (pressed)
+                timelineFlickable.contentY = position * timelineFlickable.contentHeight;
+
+        }
+    }
+
+    Rectangle {
+        id: scrollCorner
+
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: timelineViewRoot.scrollBarThickness
+        height: timelineViewRoot.scrollBarThickness
+        color: palette.window
+        border.color: palette.mid
+        border.width: 1
     }
 
     Menu {

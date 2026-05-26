@@ -10,8 +10,8 @@ Rectangle {
     property int layerHeight: 30
     property int layerCount: 128
     property var syncFlickable: null // TimelineViewのFlickable
-    property var _layerStates: ({
-    })
+    // レイヤー状態管理 (内部保持)
+    property int layerStateRevision: 0
 
     // 外部への通知シグナル
     signal layerVisibilityChanged(int layer, bool visible)
@@ -22,38 +22,34 @@ Rectangle {
     }
 
     function getLayerVisible(layer) {
-        var state = _layerStates[layer];
-        return state ? state.visible : true;
+        if (!Workspace.currentTimeline || typeof Workspace.currentTimeline.isLayerHidden !== "function")
+            return true;
+
+        return !Workspace.currentTimeline.isLayerHidden(layer);
     }
 
     function getLayerLocked(layer) {
-        var state = _layerStates[layer];
-        return state ? state.locked : false;
+        if (!Workspace.currentTimeline || typeof Workspace.currentTimeline.isLayerLocked !== "function")
+            return false;
+
+        return Workspace.currentTimeline.isLayerLocked(layer);
     }
 
     function setLayerVisible(layer, visible) {
-        if (!_layerStates[layer])
-            _layerStates[layer] = {
-            "visible": true,
-            "locked": false
-        };
+        if (Workspace.currentTimeline && typeof Workspace.currentTimeline.setLayerState === "function")
+            Workspace.currentTimeline.setLayerState(layer, !visible, 1);
 
-        _layerStates[layer].visible = visible;
         layerVisibilityChanged(layer, visible);
+        layerStateRevision++;
         // 強制的に再評価を促す
-        _layerStatesChanged();
     }
 
     function setLayerLocked(layer, locked) {
-        if (!_layerStates[layer])
-            _layerStates[layer] = {
-            "visible": true,
-            "locked": false
-        };
+        if (Workspace.currentTimeline && typeof Workspace.currentTimeline.setLayerState === "function")
+            Workspace.currentTimeline.setLayerState(layer, locked, 0);
 
-        _layerStates[layer].locked = locked;
         layerLockChanged(layer, locked);
-        _layerStatesChanged();
+        layerStateRevision++;
     }
 
     Layout.preferredWidth: headerWidth
@@ -80,8 +76,8 @@ Rectangle {
                     id: layerBtn
 
                     property int layerIndex: index
-                    property bool isVisible: headerRoot.getLayerVisible(layerIndex)
-                    property bool isLocked: headerRoot.getLayerLocked(layerIndex)
+                    property bool isVisible: (headerRoot.layerStateRevision, headerRoot.getLayerVisible(layerIndex))
+                    property bool isLocked: (headerRoot.layerStateRevision, headerRoot.getLayerLocked(layerIndex))
                     property bool isSelected: (Workspace.currentTimeline && Workspace.currentTimeline.selectedLayer === layerIndex)
 
                     width: headerRoot.headerWidth
@@ -177,6 +173,30 @@ Rectangle {
     }
 
     // 複数レイヤー挿入用ダイアログ
+    Connections {
+        function onCurrentTimelineChanged() {
+            headerRoot.layerStateRevision++;
+        }
+
+        target: Workspace
+    }
+
+    Connections {
+        function onClipsChanged() {
+            headerRoot.layerStateRevision++;
+        }
+
+        function onCurrentSceneIdChanged() {
+            headerRoot.layerStateRevision++;
+        }
+
+        function onScenesChanged() {
+            headerRoot.layerStateRevision++;
+        }
+
+        target: Workspace.currentTimeline
+    }
+
     Dialog {
         id: insertLayersDialog
 
@@ -344,6 +364,7 @@ Rectangle {
 
         property int layerIndex: 0
 
+        // --- 挿入系 ---
         MenuSeparator {
         }
 
@@ -373,6 +394,7 @@ Rectangle {
             onTriggered: insertLayersDialog.open()
         }
 
+        // --- 移動系 ---
         MenuSeparator {
         }
 
@@ -405,6 +427,7 @@ Rectangle {
         MenuSeparator {
         }
 
+        // --- 状態設定系 ---
         Common.IconMenuItem {
             text: headerRoot.getLayerVisible(layerMenu.layerIndex) ? qsTr("このレイヤーを非表示にする") : qsTr("このレイヤーを表示する")
             iconName: headerRoot.getLayerVisible(layerMenu.layerIndex) ? "eye_off_line" : "eye_line"
@@ -426,6 +449,7 @@ Rectangle {
             }
         }
 
+        // --- 一括操作系 ---
         MenuSeparator {
         }
 
