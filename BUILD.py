@@ -465,6 +465,18 @@ class Msys2Builder(PlatformBuilder):
         "libstdc++-6.dll",
         "lua51.dll",
     )
+    WINDOWS_SYSTEM_DLLS = {
+        "advapi32.dll", "authz.dll", "avrt.dll", "bcrypt.dll", "bcryptprimitives.dll",
+        "cfgmgr32.dll", "comctl32.dll", "comdlg32.dll", "crypt32.dll", "d3d9.dll",
+        "d3d11.dll", "d3d12.dll", "d3dcompiler_47.dll", "dnsapi.dll", "dwmapi.dll",
+        "dwrite.dll", "dxgi.dll", "dxva2.dll", "gdi32.dll", "gdiplus.dll", "imm32.dll", "iphlpapi.dll",
+        "kernel32.dll", "mpr.dll", "msimg32.dll", "msvcp_win.dll", "msvcrt.dll",
+        "mf.dll", "mfplat.dll", "mfreadwrite.dll", "ncrypt.dll", "netapi32.dll", "ntdll.dll", "ole32.dll", "oleaut32.dll",
+        "opengl32.dll", "powrprof.dll", "propsys.dll", "rpcrt4.dll", "secur32.dll",
+        "setupapi.dll", "shcore.dll", "shell32.dll", "shlwapi.dll", "user32.dll", "userenv.dll",
+        "usp10.dll", "uxtheme.dll", "version.dll", "winhttp.dll", "wininet.dll",
+        "winmm.dll", "winspool.drv", "ws2_32.dll", "wsock32.dll", "wtsapi32.dll",
+    }
 
     def install_dependencies(self):
         if self.config.is_offline:
@@ -540,6 +552,7 @@ class Msys2Builder(PlatformBuilder):
             str(dest_bin),
             "--dir", str(self.config.output_dir),
         ])
+        self.copy_msys2_dependency_dlls()
         with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
             f.write("[Paths]\nPlugins = .\n")
         self.logger.log(f"実行ファイル: {dest_bin}")
@@ -576,14 +589,117 @@ class Msys2Builder(PlatformBuilder):
         return result
 
     def find_runtime_dll(self, dll_name: str) -> Path | None:
-        found = shutil.which(dll_name, path=self.env.get("PATH"))
-        if found:
-            return Path(found)
         for directory in self.get_msys2_bin_dirs():
             candidate = directory / dll_name
             if candidate.exists():
                 return candidate
+        found = shutil.which(dll_name, path=self.env.get("PATH"))
+        if found:
+            return Path(found)
         return None
+
+    def find_objdump(self) -> Path:
+        for directory in self.get_msys2_bin_dirs():
+            for name in ("objdump.exe", "objdump"):
+                candidate = directory / name
+                if candidate.exists():
+                    return candidate
+        found = shutil.which("objdump", path=self.env.get("PATH"))
+        if found:
+            return Path(found)
+        raise FileNotFoundError("objdump was not found. Run the MSYS2 package step from an environment with binutils in PATH.")
+
+    def is_windows_system_dll(self, dll_name: str) -> bool:
+        lower = dll_name.lower()
+        if lower.startswith(("api-ms-win-", "ext-ms-win-")):
+            return True
+        if lower in self.WINDOWS_SYSTEM_DLLS:
+            return True
+        windir = os.environ.get("WINDIR") or os.environ.get("SystemRoot")
+        if windir:
+            for subdir in ("System32", "SysWOW64"):
+                if (Path(windir) / subdir / dll_name).exists():
+                    return True
+        return False
+
+    def get_packaged_binary_files(self) -> List[Path]:
+        binaries: List[Path] = []
+        for path in self.config.output_dir.rglob("*"):
+            if not path.is_file():
+                continue
+            try:
+                relative = path.relative_to(self.config.output_dir)
+            except ValueError:
+                continue
+            if relative.parts and relative.parts[0].lower() == "carla":
+                continue
+            if path.suffix.lower() in (".exe", ".dll"):
+                binaries.append(path)
+        return binaries
+
+    def get_imported_dlls(self, binary: Path, objdump: Path) -> List[str]:
+        try:
+            result = subprocess.run(
+                [str(objdump), "-p", str(binary)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=self.env,
+                check=False,
+            )
+        except OSError:
+            return []
+        if result.returncode != 0:
+            return []
+        imports = []
+        for line in result.stdout.splitlines():
+            match = re.search(r"DLL Name:\s*(\S+)", line)
+            if match:
+                imports.append(match.group(1))
+        return imports
+
+    def copy_msys2_dependency_dlls(self):
+        """Recursively bundle MSYS2 DLL dependencies missed by windeployqt."""
+        objdump = self.find_objdump()
+        self.logger.log(f"MSYS2 dependency scan with objdump: {objdump}")
+
+        scanned: set[str] = set()
+        copied: set[str] = set()
+        unresolved: set[str] = set()
+
+        while True:
+            copied_this_pass = False
+            for binary in self.get_packaged_binary_files():
+                key = str(binary.resolve()).lower()
+                if key in scanned:
+                    continue
+                scanned.add(key)
+                for dll_name in self.get_imported_dlls(binary, objdump):
+                    if self.is_windows_system_dll(dll_name):
+                        continue
+                    if (self.config.output_dir / dll_name).exists():
+                        continue
+                    src = self.find_runtime_dll(dll_name)
+                    if not src:
+                        unresolved.add(dll_name)
+                        continue
+                    shutil.copy2(src, self.config.output_dir / dll_name)
+                    copied.add(dll_name)
+                    copied_this_pass = True
+                    unresolved.discard(dll_name)
+                    self.logger.log(f"MSYS2 dependency DLL bundled: {dll_name}")
+            if not copied_this_pass:
+                break
+
+        if unresolved:
+            raise FileNotFoundError(
+                "MSYS2 dependency DLLs were not found: "
+                + ", ".join(sorted(unresolved, key=str.lower))
+                + ". Check that the package step is running from the MSYS2 UCRT64 environment."
+            )
+        self.logger.log(f"MSYS2 dependency DLL scan complete: {len(copied)} copied, {len(scanned)} binaries scanned")
 
     def copy_msys2_runtime_dlls(self):
         """Copy MinGW/LuaJIT runtime DLLs that windeployqt does not always deploy."""
