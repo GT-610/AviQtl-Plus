@@ -1272,7 +1272,7 @@
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="355"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="351"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -3521,72 +3521,72 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="822"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="797"/>
         <source>オブジェクトを追加</source>
         <translation>添加对象</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="835"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="810"/>
         <source>元に戻す</source>
         <translation>撤销</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="836"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="811"/>
         <source>やり直す</source>
         <translation>重做</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="837"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="812"/>
         <source>貼り付け</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="839"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="814"/>
         <source>シーン設定...</source>
         <translation>场景设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="840"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="815"/>
         <source>プロジェクト設定...</source>
         <translation>项目设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="841"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="816"/>
         <source>環境設定...</source>
         <translation>首选项...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="843"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="818"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="844"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="819"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="845"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="820"/>
         <source>複製</source>
         <translation type="unfinished">复制副本</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="847"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="822"/>
         <source>切り取り</source>
         <translation>剪切</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="848"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="823"/>
         <source>コピー</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="852"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="827"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>用上方对象裁剪</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="864"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="839"/>
         <source>エフェクトを追加</source>
         <translation type="unfinished">添加效果</translation>
     </message>

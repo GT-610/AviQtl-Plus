@@ -117,19 +117,6 @@ Item {
         return 100 + ((scale - 1) * 300 / 9);
     }
 
-    function seekCursorFrame(frame) {
-        if (!Workspace.currentTimeline)
-            return ;
-
-        var nextFrame = Math.max(0, Math.round(frame));
-        if (Workspace.currentTimeline.cursorFrame !== nextFrame)
-            Workspace.currentTimeline.cursorFrame = nextFrame;
-
-        if (Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.currentFrame !== nextFrame)
-            Workspace.currentTimeline.transport.setCurrentFrame_seek(nextFrame);
-
-    }
-
     function getGridInterval() {
         if (!Workspace.currentTimeline)
             return 1;
@@ -204,7 +191,7 @@ Item {
 
                 if (Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.isPlaying && !timelineViewRoot.autoScrollSuspended) {
                     let viewportWidth = timelineFlickable.width;
-                    let playheadX = Workspace.currentTimeline.cursorFrame * Workspace.currentTimeline.timelineScale;
+                    let playheadX = Workspace.currentTimeline.transport.currentFrame * Workspace.currentTimeline.timelineScale;
                     let left = timelineFlickable.contentX;
                     let right = left + viewportWidth;
                     let margin = 24;
@@ -248,16 +235,6 @@ Item {
         }
 
         Connections {
-            function onCurrentFrameChanged() {
-                if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
-                    timelineViewRoot.seekCursorFrame(Workspace.currentTimeline.transport.currentFrame);
-
-            }
-
-            target: Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport : null
-        }
-
-        Connections {
             function onIsPlayingChanged() {
                 if (Workspace.currentTimeline.transport.isPlaying)
                     timelineViewRoot.autoScrollSuspended = false;
@@ -280,19 +257,6 @@ Item {
         }
 
         // 編集カーソル（マウス追従ガイド）
-        Rectangle {
-            id: currentFrameMarker
-
-            visible: Workspace.currentTimeline !== null
-            x: (Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
-            y: 0
-            width: Math.max(1, Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
-            height: timelineFlickable.contentHeight
-            color: palette.highlight
-            opacity: 0.12
-            z: 85
-        }
-
         Rectangle {
             id: editCursorLine
 
@@ -412,12 +376,12 @@ Item {
             hoverEnabled: true
             onPositionChanged: (mouse) => {
                 if (pressed && Workspace.currentTimeline)
-                    timelineViewRoot.seekCursorFrame(timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier)));
+                    Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
 
             }
             onPressed: (mouse) => {
                 if (Workspace.currentTimeline)
-                    timelineViewRoot.seekCursorFrame(timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier)));
+                    Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
 
                 var l = Math.floor(mouse.y / layerHeight);
                 if (Workspace.currentTimeline && l >= 0 && l < layerCount) {
@@ -446,7 +410,7 @@ Item {
                     if (l >= 0 && l < layerCount) {
                         // 選択中のレイヤーと異なるレイヤーを右クリックした場合は、編集カーソルもそのフレーム位置へ移動させる
                         if (Workspace.currentTimeline.selectedLayer !== l)
-                            timelineViewRoot.seekCursorFrame(timelineViewRoot.snapFrame(boxSelectionStart.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier)));
+                            Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(boxSelectionStart.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
 
                         Workspace.currentTimeline.selectedLayer = l;
                     }
@@ -540,6 +504,17 @@ Item {
                 }
                 wheel.accepted = true;
             }
+        }
+
+        Rectangle {
+            id: playhead
+
+            x: (Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport.currentFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
+            y: 0
+            width: 2
+            height: parent.height
+            color: palette.highlight
+            z: 100
         }
 
     }

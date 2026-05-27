@@ -31,19 +31,6 @@ Rectangle {
         return 1 + ((percent - 100) * 9 / 300);
     }
 
-    function seekCursorFrame(frame) {
-        if (!Workspace.currentTimeline)
-            return ;
-
-        var nextFrame = Math.max(0, Math.round(frame));
-        if (Workspace.currentTimeline.cursorFrame !== nextFrame)
-            Workspace.currentTimeline.cursorFrame = nextFrame;
-
-        if (Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.currentFrame !== nextFrame)
-            Workspace.currentTimeline.transport.setCurrentFrame_seek(nextFrame);
-
-    }
-
     function zoomAt(wheel, zoomFactor) {
         if (!Workspace.currentTimeline || !targetFlickable)
             return ;
@@ -198,16 +185,14 @@ Rectangle {
 
             // ルーラー上の編集カーソル表示
             Rectangle {
-                id: rulerCurrentFrameMarker
+                id: rulerPlayhead
 
-                visible: Workspace.currentTimeline !== null
-                x: Math.round(((Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
+                x: Math.round(((Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport.currentFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
                 y: 0
-                width: Math.max(1, Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
+                width: 2
                 height: parent.height
                 color: palette.highlight
-                opacity: 0.16
-                z: 6
+                z: 10
             }
 
             Rectangle {
@@ -215,12 +200,12 @@ Rectangle {
 
                 visible: Workspace.currentTimeline !== null
                 x: Math.round(((Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
-                y: 0
+                y: rulerRoot.height * 0.6
                 width: 1
-                height: parent.height
+                height: rulerRoot.height * 0.4
                 color: palette.highlight
-                opacity: 0.8
-                z: 10
+                opacity: 0.7
+                z: 5
             }
 
             // マウス操作（スクラブ & ズーム）
@@ -230,13 +215,19 @@ Rectangle {
                 cursorShape: pressed ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onPressed: (mouse) => {
-                    if (mouse.button === Qt.LeftButton && targetFlickable && Workspace.currentTimeline)
-                        rulerRoot.seekCursorFrame(pxToFrame(mouse.x, targetFlickable.contentX));
-
+                    if (mouse.button === Qt.LeftButton && targetFlickable && Workspace.currentTimeline && Workspace.currentTimeline.transport) {
+                        Workspace.currentTimeline.transport.beginScrub();
+                        Workspace.currentTimeline.transport.scrubTo(pxToFrame(mouse.x, targetFlickable.contentX));
+                    }
                 }
                 onPositionChanged: (mouse) => {
-                    if (pressed && (mouse.buttons & Qt.LeftButton) && targetFlickable && Workspace.currentTimeline)
-                        rulerRoot.seekCursorFrame(pxToFrame(mouse.x, targetFlickable.contentX));
+                    if (pressed && (mouse.buttons & Qt.LeftButton) && targetFlickable && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                        Workspace.currentTimeline.transport.scrubTo(pxToFrame(mouse.x, targetFlickable.contentX));
+
+                }
+                onReleased: (mouse) => {
+                    if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                        Workspace.currentTimeline.transport.endScrub();
 
                 }
                 onWheel: (wheel) => {

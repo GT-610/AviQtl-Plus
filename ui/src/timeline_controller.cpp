@@ -117,11 +117,6 @@ void TimelineController::setupConnections() {
 void TimelineController::onPlayingChanged() { m_mediaManager->onPlayingChanged(); }
 
 void TimelineController::onCurrentFrameChanged() {
-    const int frame = m_transport->currentFrame();
-    if (m_cursorFrame != frame) {
-        m_cursorFrame = frame;
-        emit cursorFrameChanged();
-    }
     m_mediaManager->onCurrentFrameChanged();
     updateActiveClipsList();
 }
