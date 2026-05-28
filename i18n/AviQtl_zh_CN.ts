@@ -3100,9 +3100,14 @@
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1386"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1477"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1488"/>
+        <source>検索...</source>
+        <translation type="unfinished">搜索...</translation>
     </message>
 </context>
 <context>
@@ -3521,74 +3526,79 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="797"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="858"/>
         <source>オブジェクトを追加</source>
         <translation>添加对象</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="810"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="871"/>
         <source>元に戻す</source>
         <translation>撤销</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="811"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="872"/>
         <source>やり直す</source>
         <translation>重做</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="812"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="873"/>
         <source>貼り付け</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="814"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="875"/>
         <source>シーン設定...</source>
         <translation>场景设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="815"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="876"/>
         <source>プロジェクト設定...</source>
         <translation>项目设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="816"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="877"/>
         <source>環境設定...</source>
         <translation>首选项...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="818"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="879"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="819"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="880"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="820"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="881"/>
         <source>複製</source>
         <translation type="unfinished">复制副本</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="822"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="883"/>
         <source>切り取り</source>
         <translation>剪切</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="823"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="884"/>
         <source>コピー</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="827"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="888"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>用上方对象裁剪</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="839"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="900"/>
         <source>エフェクトを追加</source>
         <translation type="unfinished">添加效果</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="920"/>
+        <source>エフェクト/オブジェクトを検索...</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

@@ -1339,8 +1339,21 @@ Common.AviQtlWindow {
 
             id: filterMenu
 
+            property string searchText: ""
             property int _lastBuiltClipId: -2
             property var _dynamicObjects: []
+
+            function rebuildMenu() {
+                if (_lastBuiltClipId === targetClipId && filterMenu.count > 0 && searchText === "")
+                    return ;
+
+                _clearDynamicMenu();
+                _lastBuiltClipId = targetClipId;
+                if (!Workspace.currentTimeline)
+                    return ;
+
+                _doBuild();
+            }
 
             function _registerDynamic(obj) {
                 if (obj)
@@ -1356,7 +1369,85 @@ Common.AviQtlWindow {
 
                 }
                 _dynamicObjects = [];
-                while (filterMenu.count > 0)filterMenu.takeItem(0)
+                // 検索ボックス (index 0) を除外してクリア
+                while (filterMenu.count > 1)filterMenu.takeItem(1)
+            }
+
+            function _doBuild() {
+                if (searchText !== "") {
+                    if (targetClipId !== -1 && Workspace.currentTimeline.isAudioClip(targetClipId)) {
+                        var cats = Workspace.currentTimeline.getPluginCategories();
+                        for (var c = 0; c < cats.length; c++) {
+                            var plugins = Workspace.currentTimeline.getPluginsByCategory(cats[c]);
+                            for (var p = 0; p < plugins.length; p++) {
+                                var plug = plugins[p];
+                                if (plug.name.toLowerCase().indexOf(searchText.toLowerCase()) !== -1)
+                                    (function(id) {
+                                    var it = _registerDynamic(menuItemComp.createObject(root.contentItem, {
+                                        "text": plug.name,
+                                        "iconName": "music_line"
+                                    }));
+                                    it.triggered.connect(() => {
+                                        Workspace.currentTimeline.addAudioPlugin(targetClipId, id);
+                                    });
+                                    filterMenu.addItem(it);
+                                })(plug.id);
+
+                            }
+                        }
+                    } else {
+                        var effects = Workspace.currentTimeline.getAvailableEffects();
+                        buildFiltered(filterMenu, effects);
+                    }
+                    return ;
+                }
+                if (targetClipId !== -1 && Workspace.currentTimeline.isAudioClip(targetClipId)) {
+                    var categories = Workspace.currentTimeline.getPluginCategories();
+                    for (var c = 0; c < categories.length; c++) {
+                        var catName = categories[c];
+                        var subMenu = _registerDynamic(subMenuComp.createObject(root.contentItem, {
+                            "title": catName
+                        }));
+                        var plugins = Workspace.currentTimeline.getPluginsByCategory(catName);
+                        for (var p = 0; p < plugins.length; p++) {
+                            (function(id) {
+                                var plugItem = _registerDynamic(menuItemComp.createObject(root.contentItem, {
+                                    "text": plugins[p].name,
+                                    "iconName": "music_line"
+                                }));
+                                plugItem.triggered.connect(() => {
+                                    Workspace.currentTimeline.addAudioPlugin(targetClipId, id);
+                                });
+                                subMenu.addItem(plugItem);
+                            })(plugins[p].id);
+                        }
+                        filterMenu.addMenu(subMenu);
+                    }
+                } else {
+                    var effects = Workspace.currentTimeline.getAvailableEffects();
+                    buildMenu(filterMenu, effects);
+                }
+            }
+
+            function buildFiltered(parentMenu, items) {
+                var filter = searchText.toLowerCase();
+                for (var i = 0; i < items.length; ++i) {
+                    var node = items[i];
+                    if (node.isCategory) {
+                        buildFiltered(parentMenu, node.children);
+                    } else if (node.name.toLowerCase().indexOf(filter) !== -1) {
+                        var effItem = _registerDynamic(menuItemComp.createObject(root.contentItem, {
+                            "text": node.name,
+                            "iconName": "magic_line"
+                        }));
+                        (function(id) {
+                            effItem.triggered.connect(() => {
+                                Workspace.currentTimeline.addEffect(targetClipId, id);
+                            });
+                        })(node.id);
+                        parentMenu.addItem(effItem);
+                    }
+                }
             }
 
             function buildMenu(parentMenu, items) {
@@ -1385,44 +1476,32 @@ Common.AviQtlWindow {
 
             title: qsTr("エフェクトを追加")
             onAboutToShow: {
-                // 同じクリップに対してすでにメニューが構築されている場合は再構築をスキップ
-                if (_lastBuiltClipId === targetClipId && filterMenu.count > 0)
-                    return ;
+                rebuildMenu();
+                Qt.callLater(() => {
+                    effectSearchField.forceActiveFocus();
+                });
+            }
 
-                _clearDynamicMenu();
-                _lastBuiltClipId = targetClipId;
-                if (!Workspace.currentTimeline)
-                    return ;
+            TextField {
+                id: effectSearchField
 
-                if (targetClipId !== -1 && Workspace.currentTimeline.isAudioClip(targetClipId)) {
-                    // オーディオプラグイン (VST等)
-                    var categories = Workspace.currentTimeline.getPluginCategories();
-                    for (var c = 0; c < categories.length; c++) {
-                        var catName = categories[c];
-                        var subMenu = _registerDynamic(subMenuComp.createObject(root.contentItem, {
-                            "title": catName
-                        }));
-                        var plugins = Workspace.currentTimeline.getPluginsByCategory(catName);
-                        for (var p = 0; p < plugins.length; p++) {
-                            var plug = plugins[p];
-                            var plugItem = _registerDynamic(menuItemComp.createObject(root.contentItem, {
-                                "text": plug.name,
-                                "iconName": "music_line"
-                            }));
-                            (function(id) {
-                                plugItem.triggered.connect(() => {
-                                    Workspace.currentTimeline.addAudioPlugin(targetClipId, id);
-                                });
-                            })(plug.id);
-                            subMenu.addItem(plugItem);
-                        }
-                        filterMenu.addMenu(subMenu);
-                    }
-                } else {
-                    // 標準エフェクト (木構造)
-                    var effects = Workspace.currentTimeline.getAvailableEffects();
-                    buildMenu(filterMenu, effects);
+                placeholderText: qsTr("検索...")
+                width: parent.width
+                onTextChanged: {
+                    filterMenu.searchText = text;
+                    filterMenu.rebuildMenu();
                 }
+
+                // メニューが閉じられないようにクリックイベントを制御
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.AllButtons
+                    onPressed: (mouse) => {
+                        mouse.accepted = false;
+                        effectSearchField.forceActiveFocus();
+                    }
+                }
+
             }
 
             Component {

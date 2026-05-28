@@ -574,6 +574,7 @@ Item {
 
         id: contextMenu
 
+        property string searchText: ""
         property string targetType: ""
         property int targetClipId: -1
 
@@ -582,8 +583,13 @@ Item {
             targetClipId = clipId;
             contextClickFrame = frame;
             contextClickLayer = layer;
+            searchText = "";
+            searchField.text = "";
             rebuildMenu();
             popup();
+            Qt.callLater(() => {
+                searchField.forceActiveFocus();
+            });
         }
 
         function createMenuItem(label, cmd, icon) {
@@ -709,6 +715,30 @@ Item {
         }
 
         function rebuildMenu() {
+            function buildFilteredItems(items, isEffect) {
+                var filter = contextMenu.searchText.toLowerCase();
+                for (var i = 0; i < items.length; ++i) {
+                    var node = items[i];
+                    if (node.isCategory) {
+                        buildFilteredItems(node.children, isEffect);
+                    } else if (node.name.toLowerCase().indexOf(filter) !== -1) {
+                        var item = menuItemComp.createObject(timelineViewRoot, {
+                            "text": node.name,
+                            "iconName": isEffect ? "magic_line" : "shape_line"
+                        });
+                        (function(nodeId) {
+                            item.triggered.connect(() => {
+                                if (isEffect)
+                                    Workspace.currentTimeline.addEffect(targetClipId, nodeId);
+                                else
+                                    Workspace.currentTimeline.createObject(nodeId, Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+                            });
+                        })(node.id);
+                        contextMenu.addItem(item);
+                    }
+                }
+            }
+
             function buildObjMenu(parentMenu, items) {
                 for (var i = 0; i < items.length; ++i) {
                     var node = items[i];
@@ -783,14 +813,45 @@ Item {
                 }
             }
 
-            while (contextMenu.count > 0) {
-                var it = contextMenu.takeItem(0);
+            // 検索ボックス (index 0) を残して他の項目を削除
+            while (contextMenu.count > 1) {
+                var it = contextMenu.takeItem(1);
                 if (it) {
                     try {
                         it.destroy();
                     } catch (e) {
                     }
                 }
+            }
+            if (searchText !== "") {
+                if (targetType === "timeline") {
+                    buildFilteredItems(Workspace.currentTimeline.getAvailableObjects(), false);
+                } else if (targetType === "clip") {
+                    if (Workspace.currentTimeline.isAudioClip(targetClipId)) {
+                        var categories = Workspace.currentTimeline.getPluginCategories();
+                        for (var c = 0; c < categories.length; c++) {
+                            var plugins = Workspace.currentTimeline.getPluginsByCategory(categories[c]);
+                            for (var p = 0; p < plugins.length; p++) {
+                                var plug = plugins[p];
+                                if (plug.name.toLowerCase().indexOf(searchText.toLowerCase()) !== -1)
+                                    (function(id) {
+                                    var it = menuItemComp.createObject(timelineViewRoot, {
+                                        "text": plug.name,
+                                        "iconName": "music_line"
+                                    });
+                                    it.triggered.connect(() => {
+                                        Workspace.currentTimeline.addAudioPlugin(targetClipId, id);
+                                    });
+                                    contextMenu.addItem(it);
+                                })(plug.id);
+
+                            }
+                        }
+                    } else {
+                        buildFilteredItems(Workspace.currentTimeline.getAvailableEffects(), true);
+                    }
+                }
+                return ;
             }
             if (targetType === "timeline") {
                 var objectMenu = subMenuComp.createObject(contextMenu, {
@@ -851,6 +912,29 @@ Item {
                 });
                 contextMenu.addMenu(addEffSub);
             }
+        }
+
+        TextField {
+            id: searchField
+
+            placeholderText: qsTr("エフェクト/オブジェクトを検索...")
+            width: parent.width
+            visible: contextMenu.targetType !== ""
+            onTextChanged: {
+                contextMenu.searchText = text;
+                contextMenu.rebuildMenu();
+            }
+
+            // メニューが閉じられないようにクリックイベントを制御
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.AllButtons
+                onPressed: (mouse) => {
+                    mouse.accepted = false;
+                    searchField.forceActiveFocus();
+                }
+            }
+
         }
 
         Component {
