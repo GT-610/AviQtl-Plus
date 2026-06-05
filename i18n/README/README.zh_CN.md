@@ -15,9 +15,9 @@
 </p>
 
 > [!IMPORTANT]
-> 本仓库是 [taisho-guy/AviQtl](https://codeberg.org/taisho-guy/AviQtl) 的 fork。原项目已于 2026 年 5 月底停止开发。我（[GT610](https://github.com/GT-610)）作为 AviQtl 的早期核心贡献者，将在此以 **AviQtl-Plus** 的名义继续开发。
+> 本仓库是 [taisho-guy/AviQtl](https://codeberg.org/taisho-guy/AviQtl) 的 fork。原项目已于 2026 年 5 月底暂停开发。我（[GT610](https://github.com/GT-610)）作为 AviQtl 的早期核心贡献者，将在此以 **AviQtl-Plus** 的名义继续开发。
 
-### 原项目停止开发的原因
+### 原项目暂停开发的原因
 
 原作者发现了以下 Qt Quick 的根本性问题：
 
@@ -34,6 +34,14 @@
 3. **实时性能提升**：消除预览渲染瓶颈，提供流畅的编辑体验
 
 愿景不变：**打造一款继承并超越 AviUtl 的视频编辑软件**。
+
+### 原作者的后续计划
+
+原作者并未放弃这一构想，目前正在学习 **Qt Widgets** 和 **bgfx**，计划以不同的架构重建为 *AviQtl 0.1.x*。但由于正值备考阶段，预计至少 2026 学年之后才能恢复活跃开发。
+
+### 对原项目的承诺
+
+如果原项目未来恢复开发，我计划将对上游有用的贡献提交回原始仓库，以表达对原作者贡献的尊重。
 
 ## 什么是 [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)？
 

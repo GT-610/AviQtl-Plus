@@ -15,9 +15,9 @@
 </p>
 
 > [!IMPORTANT]
-> This repository is a fork of [taisho-guy/AviQtl](https://codeberg.org/taisho-guy/AviQtl), which ceased development at the end of May 2026. I ([GT610](https://github.com/GT-610)), an early core contributor to AviQtl, will continue development here as **AviQtl-Plus**.
+> This repository is a fork of [taisho-guy/AviQtl](https://codeberg.org/taisho-guy/AviQtl), which suspended development at the end of May 2026. I ([GT610](https://github.com/GT-610)), an early core contributor to AviQtl, will continue development here as **AviQtl-Plus**.
 
-### Why the original project stopped
+### Why the original project paused
 
 The original author identified these fundamental issues with Qt Quick:
 
@@ -34,6 +34,14 @@ Building on the insights gained from the original project, AviQtl-Plus tackles t
 3. **Real-time performance**: Eliminating preview rendering bottlenecks to deliver a smooth editing experience
 
 The vision remains unchanged: **a video editor that inherits and surpasses AviUtl**.
+
+### Original author's future plans
+
+The original author has not given up on the concept and is currently learning **Qt Widgets** and **bgfx** to rebuild the project as *AviQtl 0.1.x* using a different architecture. However, as they are preparing for university entrance exams, active development is not expected to resume at least until after the 2026 academic year.
+
+### Our commitment to the original project
+
+If the original project resumes development in the future, I plan to submit my upstream-relevant contributions back to the original repository as a sign of respect for the original author's work.
 
 ## What is [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)?
 
