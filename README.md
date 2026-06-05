@@ -197,6 +197,53 @@ The icon is a design combining the Qt and AviUtl logos.
 No. The mechanisms differ, so there is no compatibility. There are no plans to implement a compatibility layer either.
 </details>
 
+### AviQtl-Plus Q&A
+
+> [!NOTE]
+> The following Q&A reflects the perspective of AviQtl-Plus maintainer ([GT610](https://github.com/GT-610)).
+
+<details>
+<summary>Why continue AviQtl development?</summary>
+
+The original project was suspended due to genuine technical difficulties with Qt Quick — but it also proved that **Qt + FFmpeg can rapidly produce a high-quality video editor prototype**. The architecture is well-designed, the foundation is solid, and I believe the Qt Quick route is still worth pursuing, especially now that QRhi provides a viable compute shader path that wasn't fully explored.
+
+As an early core contributor, I've seen the project's potential firsthand. I'm picking up where the original author left off, not just to keep the code alive, but to see the original vision through — a video editor that inherits AviUtl's operability while surpassing its performance.
+</details>
+
+<details>
+<summary>What is the roadmap for AviQtl-Plus?</summary>
+
+**Near-term (0.1.x):**
+- Implement the core service layer (TimelineService, ProjectService, media managers) to enable basic video editing workflow
+- Polish existing UI components and fix edge cases
+- Establish a stable build and release pipeline
+
+**Mid-term (0.2–0.3.x):**
+- Complete effect and object plugin ecosystem
+- Audio editing and mixing refinement
+- Performance optimization and GPU compute shader improvements
+- Initial public alpha releases
+
+**Long-term:**
+- Full-featured video editor suitable as an AviUtl replacement
+- Potential rebranding (name and logo) to reflect the independent direction of the project
+- If the original author resumes development and their new architecture proves superior, evaluate migration or collaboration
+
+The project is entirely driven by personal motivation — there are no deadlines or commercial pressures. Progress will be steady but paced.
+</details>
+
+<details>
+<summary>How is AviQtl-Plus different from the original project?</summary>
+
+The technical direction remains largely the same (Qt Quick + QRhi + ECS), but AviQtl-Plus places greater emphasis on:
+
+- **Incremental deliverability**: getting a basic but usable editing workflow out the door, rather than pursuing architectural perfection upfront
+- **Pragmatic problem-solving**: working within Qt Quick's constraints rather than treating them as blockers
+- **Community transparency**: clear documentation of the fork relationship, plans, and long-term intentions
+
+Once the project reaches a usable state, a rename and rebranding are likely to clearly distinguish it from the original project.
+</details>
+
 ## Related Links
 
 AviQtl-Plus stands on the shoulders of many wonderful projects.
@@ -204,6 +251,7 @@ AviQtl-Plus stands on the shoulders of many wonderful projects.
 | Project | License | Role |
 | :--- | :--- | :--- |
 | AviUtl | Non-free | Respected origin |
+| AviQtl | AGPLv3 | Fork source |
 | Carla | GPLv2+ | Audio effect host (VST3/LV2 etc.) |
 | FFmpeg | GPLv2+ | Video/audio decoding & encoding |
 | LuaJIT | MIT | High-performance script engine |
