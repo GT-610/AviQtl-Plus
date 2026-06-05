@@ -455,9 +455,10 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
             if (eff->id() != "scene") {
                 continue;
             }
-            targetSceneId = eff->params().value(QStringLiteral("targetSceneId"), 0).toInt();
-            speed = eff->params().value(QStringLiteral("speed"), 1.0).toDouble();
-            offset = eff->params().value(QStringLiteral("offset"), 0).toInt();
+            const auto &p = eff->params();
+            targetSceneId = p.value(QStringLiteral("targetSceneId"), 0).toInt();
+            speed = p.value(QStringLiteral("speed"), 1.0).toDouble();
+            offset = p.value(QStringLiteral("offset"), 0).toInt();
             break;
         }
 

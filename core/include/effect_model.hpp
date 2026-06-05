@@ -248,8 +248,6 @@ class EffectModel : public QObject {
             return fallback;
         auto getFrame = [](const QVariant &v) { return v.toMap().value(QStringLiteral("frame")).toInt(); };
         auto getValue = [](const QVariant &v) { return v.toMap().value(QStringLiteral("value")); };
-        auto getInterp = [](const QVariant &v) { return v.toMap().value(QStringLiteral("interp")).toString(); };
-        auto getModeParams = [](const QVariant &v) { return v.toMap().value(QStringLiteral("modeParams")).toMap(); };
 
         if (frame <= getFrame(track.front()))
             return getValue(track.front());

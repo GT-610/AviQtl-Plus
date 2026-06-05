@@ -66,7 +66,13 @@ AudioMixer::~AudioMixer() {
     }
 }
 
-void AudioMixer::registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder) { m_decoders[clipId] = decoder; }
+void AudioMixer::registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder) {
+    if (!decoder) {
+        qWarning() << "[AudioMixer] Attempted to register null decoder for clip" << clipId;
+        return;
+    }
+    m_decoders[clipId] = decoder;
+}
 
 void AudioMixer::unregisterDecoder(int clipId) { m_decoders.erase(clipId); }
 

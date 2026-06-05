@@ -1228,109 +1228,109 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="111"/>
         <source>Idle</source>
-        <translation type="unfinished"></translation>
+        <translation>待機中</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="211"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
-        <translation type="unfinished"></translation>
+        <translation>キャッシュからパッケージをロードしました（同期を押して更新を確認）</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="243"/>
         <source>Syncing repository...</source>
-        <translation type="unfinished"></translation>
+        <translation>リポジトリを同期中...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="331"/>
         <location filename="../core/src/package_manager.cpp" line="359"/>
         <source>Sync complete</source>
-        <translation type="unfinished"></translation>
+        <translation>同期完了</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="411"/>
         <location filename="../core/src/package_manager.cpp" line="540"/>
         <source>Package not found: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージが見つかりません: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="429"/>
         <source>Could not determine repository URL for the package.</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージのリポジトリURLを特定できません。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="434"/>
         <source>Searching for available files...</source>
-        <translation type="unfinished"></translation>
+        <translation>利用可能なファイルを検索中...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="446"/>
         <source>Repository URL is not in a valid format.</source>
-        <translation type="unfinished"></translation>
+        <translation>リポジトリURLの形式が正しくありません。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="461"/>
         <source>Unsupported repository host.</source>
-        <translation type="unfinished"></translation>
+        <translation>サポートされていないリポジトリホストです。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="471"/>
         <source>Failed to fetch release info (%1): %2</source>
-        <translation type="unfinished"></translation>
+        <translation>リリース情報の取得に失敗しました (%1): %2</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="520"/>
         <source>No downloadable files found.</source>
-        <translation type="unfinished"></translation>
+        <translation>ダウンロード可能なファイルが見つかりませんでした。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="545"/>
         <source>Download URL not specified. Please fetch asset information.</source>
-        <translation type="unfinished"></translation>
+        <translation>ダウンロードURLが指定されていません。アセット情報を取得してください。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="553"/>
         <source>Installing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージのインストール中: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="558"/>
         <source>Installation complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>インストール完了: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="569"/>
         <source>AviQtl update available. Restart to apply.</source>
-        <translation type="unfinished"></translation>
+        <translation>AviQtlのアップデートが利用可能です。再起動して適用してください。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="606"/>
         <source>Removing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージを削除中: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Removal complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>削除完了: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="678"/>
         <source>No packages to upgrade.</source>
-        <translation type="unfinished"></translation>
+        <translation>アップグレード可能なパッケージはありません。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="683"/>
         <source>Upgrading all packages...</source>
-        <translation type="unfinished"></translation>
+        <translation>すべてのパッケージをアップグレード中...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="690"/>
         <source>All upgrades complete.</source>
-        <translation type="unfinished"></translation>
+        <translation>すべてのアップグレードが完了しました</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="696"/>
         <source>Upgrading package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージをアップグレード中: %1</translation>
     </message>
 </context>
 <context>

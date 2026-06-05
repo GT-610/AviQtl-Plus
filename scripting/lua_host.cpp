@@ -46,6 +46,16 @@ static void setupLuaState(lua_State *L) {
     lua_getglobal(L, "math");
     lua_setglobal(L, "m");
 
+    // Remove dangerous base library functions that bypass the "return <expr>" sandbox
+    lua_pushnil(L);
+    lua_setglobal(L, "loadstring");
+    lua_pushnil(L);
+    lua_setglobal(L, "load");
+    lua_pushnil(L);
+    lua_setglobal(L, "dofile");
+    lua_pushnil(L);
+    lua_setglobal(L, "loadfile");
+
     const char *math_shortcuts = "sin = math.sin; cos = math.cos; tan = math.tan; "
                                  "abs = math.abs; max = math.max; min = math.min; "
                                  "floor = math.floor; ceil = math.ceil; pi = math.pi; "

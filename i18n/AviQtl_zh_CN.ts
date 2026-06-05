@@ -1228,109 +1228,109 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="111"/>
         <source>Idle</source>
-        <translation type="unfinished"></translation>
+        <translation>空闲</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="211"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
-        <translation type="unfinished"></translation>
+        <translation>已从缓存加载软件包（按「同步」检查更新）</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="243"/>
         <source>Syncing repository...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在同步仓库...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="331"/>
         <location filename="../core/src/package_manager.cpp" line="359"/>
         <source>Sync complete</source>
-        <translation type="unfinished"></translation>
+        <translation>同步完成</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="411"/>
         <location filename="../core/src/package_manager.cpp" line="540"/>
         <source>Package not found: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>未找到软件包：%1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="429"/>
         <source>Could not determine repository URL for the package.</source>
-        <translation type="unfinished"></translation>
+        <translation>无法识别软件包的仓库 URL。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="434"/>
         <source>Searching for available files...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在搜索可用文件...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="446"/>
         <source>Repository URL is not in a valid format.</source>
-        <translation type="unfinished"></translation>
+        <translation>仓库 URL 格式不正确。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="461"/>
         <source>Unsupported repository host.</source>
-        <translation type="unfinished"></translation>
+        <translation>不受支持的仓库主机。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="471"/>
         <source>Failed to fetch release info (%1): %2</source>
-        <translation type="unfinished"></translation>
+        <translation>发布信息获取失败 (%1): %2</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="520"/>
         <source>No downloadable files found.</source>
-        <translation type="unfinished"></translation>
+        <translation>未找到可下载的文件。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="545"/>
         <source>Download URL not specified. Please fetch asset information.</source>
-        <translation type="unfinished"></translation>
+        <translation>未指定下载 URL。请先获取资产信息。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="553"/>
         <source>Installing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>正在安装软件包：%1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="558"/>
         <source>Installation complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>安装完成：%1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="569"/>
         <source>AviQtl update available. Restart to apply.</source>
-        <translation type="unfinished"></translation>
+        <translation>AviQtl 有可用更新。请重启以应用。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="606"/>
         <source>Removing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>正在删除软件包：%1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Removal complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>删除完成：%1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="678"/>
         <source>No packages to upgrade.</source>
-        <translation type="unfinished"></translation>
+        <translation>没有可升级的软件包。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="683"/>
         <source>Upgrading all packages...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在升级所有软件包...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="690"/>
         <source>All upgrades complete.</source>
-        <translation type="unfinished"></translation>
+        <translation>所有升级已完成</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="696"/>
         <source>Upgrading package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>正在升级软件包：%1</translation>
     </message>
 </context>
 <context>
@@ -1383,17 +1383,17 @@
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="41"/>
         <source>Encoder initialization failed</source>
-        <translation type="unfinished"></translation>
+        <translation>编码器初始化失败</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="69"/>
         <source>Cancelled</source>
-        <translation type="unfinished"></translation>
+        <translation>已取消</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="101"/>
         <source>Export complete</source>
-        <translation type="unfinished"></translation>
+        <translation>导出完成</translation>
     </message>
 </context>
 <context>
