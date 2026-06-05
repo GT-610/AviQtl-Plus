@@ -28,20 +28,19 @@ LuaHost::~LuaHost() {
 
 static void setupLuaState(lua_State *L) {
     // Only open safe libraries — never expose io, os, debug, ffi, package
-    lua_pushcfunction(L, luaopen_base);
-    lua_call(L, 0, 0);
-    lua_pushcfunction(L, luaopen_math);
-    lua_call(L, 0, 0);
-    lua_pop(L, 1);
-    lua_pushcfunction(L, luaopen_string);
-    lua_call(L, 0, 0);
-    lua_pop(L, 1);
-    lua_pushcfunction(L, luaopen_table);
-    lua_call(L, 0, 0);
-    lua_pop(L, 1);
-    lua_pushcfunction(L, luaopen_bit);
-    lua_call(L, 0, 0);
-    lua_pop(L, 1);
+    static constexpr struct { const char *name; lua_CFunction func; } safeLibs[] = {
+        {"",         luaopen_base},
+        {"math",     luaopen_math},
+        {"string",   luaopen_string},
+        {"table",    luaopen_table},
+        {"bit",      luaopen_bit},
+    };
+    for (const auto &lib : safeLibs) {
+        lua_pushcfunction(L, lib.func);
+        lua_pushstring(L, lib.name);
+        lua_call(L, 1, 1);
+        lua_pop(L, 1);
+    }
 
     // math library shortcut
     lua_getglobal(L, "math");
