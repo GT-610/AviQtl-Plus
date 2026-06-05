@@ -51,11 +51,13 @@ void TimelineController::setupConnections() {
     connect(
         m_timeline, &TimelineService::clipsChanged, this,
         [this]() -> void {
-            AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
             emit clipsChanged();
             m_mediaManager->updateMediaDecoders();
             m_mediaManager->onCurrentFrameChanged();
             updateActiveClipsList();
+            // Bake after sync — syncTimelineToDocumentModel() (from updateActiveClipsList)
+            // emits DocumentModel::structureChanged, which triggers BakeController::triggerRebake.
+            AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
             invalidateTimelineDuration();
             m_transport->setTotalFrames(timelineDuration());
         },

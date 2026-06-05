@@ -278,6 +278,9 @@ class EffectModel : public QObject {
                             QVariantList lst = it.value().toList();
                             for (const auto &val : std::as_const(lst))
                                 params.push_back(val.toDouble());
+                        } else {
+                            // fallback: use legacy point fields if "points" key is absent
+                            params = {m_i.value(QStringLiteral("bzx1"), 0.33).toDouble(), m_i.value(QStringLiteral("bzy1"), 0.0).toDouble(), m_i.value(QStringLiteral("bzx2"), 0.66).toDouble(), m_i.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
                         }
                     }
                     const auto &funcs = easingFunctions();
@@ -311,6 +314,8 @@ class EffectModel : public QObject {
                     QVariantList lst = it.value().toList();
                     for (const auto &val : std::as_const(lst))
                         params.push_back(val.toDouble());
+                } else {
+                    params = {m_i.value(QStringLiteral("bzx1"), 0.33).toDouble(), m_i.value(QStringLiteral("bzy1"), 0.0).toDouble(), m_i.value(QStringLiteral("bzx2"), 0.66).toDouble(), m_i.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
                 }
             }
             const auto &funcs = easingFunctions();

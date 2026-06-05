@@ -180,7 +180,7 @@ void PackageManager::loadCachedPackages() {
                 if (id != QStringLiteral("org.aviqtl.app")) {
                     const QString feedUrl = p.value(QStringLiteral("release_feed")).toString();
                     if (!feedUrl.isEmpty()) {
-                                    const QString feedFileName = QStringLiteral("feed_") + QString::fromLatin1(QCryptographicHash::hash(feedUrl.toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".xml");
+                    const QString feedFileName = QStringLiteral("feed_") + QString::fromLatin1(QCryptographicHash::hash(feedUrl.toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".xml");
                         QFile feedFile(repoPath + QStringLiteral("/") + feedFileName);
                         if (feedFile.open(QIODevice::ReadOnly)) {
                             p[QStringLiteral("latest_version")] = parseLatestVersionFromXml(feedFile.readAll());
