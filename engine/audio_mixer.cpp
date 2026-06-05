@@ -26,10 +26,7 @@ AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
         }
     }
 
-    for (const auto &[clipId, decoder] : m_decoders) {
-        registerDecoder(clipId, decoder);
-    }
-
+    // m_decoders is always empty at construction; registration happens externally
     QAudioDevice device = QMediaDevices::defaultAudioOutput();
     if (!device.isFormatSupported(m_format)) {
         qWarning() << "Default audio format not supported, using preferred format.";
@@ -69,7 +66,13 @@ AudioMixer::~AudioMixer() {
     }
 }
 
-void AudioMixer::registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder) { m_decoders[clipId] = decoder; }
+void AudioMixer::registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder) {
+    if (!decoder) {
+        qWarning() << "[AudioMixer] Attempted to register null decoder for clip" << clipId;
+        return;
+    }
+    m_decoders[clipId] = decoder;
+}
 
 void AudioMixer::unregisterDecoder(int clipId) { m_decoders.erase(clipId); }
 

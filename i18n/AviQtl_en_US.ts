@@ -1142,111 +1142,195 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="106"/>
         <source>待機中</source>
-        <translation>Waiting</translation>
+        <translation type="vanished">Waiting</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="206"/>
         <source>キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</source>
-        <translation>Loaded packages from cache (press &quot;Sync&quot; to check for updates)</translation>
+        <translation type="vanished">Loaded packages from cache (press &quot;Sync&quot; to check for updates)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="238"/>
         <source>リポジトリを同期中...</source>
-        <translation>Synchronizing repository...</translation>
+        <translation type="vanished">Synchronizing repository...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="326"/>
-        <location filename="../core/src/package_manager.cpp" line="354"/>
         <source>同期完了</source>
-        <translation>Synchronization complete</translation>
+        <translation type="vanished">Synchronization complete</translation>
+    </message>
+    <message>
+        <source>利用可能なファイルを検索中...</source>
+        <translation type="vanished">Searching for available files...</translation>
+    </message>
+    <message>
+        <source>リポジトリURLの形式が正しくありません。</source>
+        <translation type="vanished">The repository URL format is incorrect.</translation>
+    </message>
+    <message>
+        <source>サポートされていないリポジトリホストです。</source>
+        <translation type="vanished">Unsupported repository host.</translation>
+    </message>
+    <message>
+        <source>ダウンロード可能なファイルが見つかりませんでした。</source>
+        <translation type="vanished">No downloadable files were found.</translation>
+    </message>
+    <message>
+        <source>パッケージのインストール中: %1</source>
+        <translation type="vanished">Installing package: %1</translation>
+    </message>
+    <message>
+        <source>アップグレード可能なパッケージはありません。</source>
+        <translation type="vanished">There are no packages that can be upgraded.</translation>
+    </message>
+    <message>
+        <source>すべてのパッケージをアップグレード中...</source>
+        <translation type="vanished">Upgrading all packages...</translation>
+    </message>
+    <message>
+        <source>すべてのアップグレードが完了しました</source>
+        <translation type="vanished">All upgrades are complete</translation>
+    </message>
+    <message>
+        <source>パッケージをアップグレード中: %1</source>
+        <translation type="vanished">Upgrading package: %1</translation>
+    </message>
+    <message>
+        <source>パッケージが見つかりません: %1</source>
+        <translation type="vanished">Package not found: %1</translation>
+    </message>
+    <message>
+        <source>パッケージのリポジトリURLを特定できません。</source>
+        <translation type="vanished">Unable to identify the repository URL for the package.</translation>
+    </message>
+    <message>
+        <source>リリース情報の取得に失敗しました (%1): %2</source>
+        <translation type="vanished">Failed to retrieve release information (%1): %2</translation>
+    </message>
+    <message>
+        <source>ダウンロードURLが指定されていません。アセット情報を取得してください。</source>
+        <translation type="vanished">Download URL is not specified. Please retrieve the asset information first.</translation>
+    </message>
+    <message>
+        <source>インストール完了: %1</source>
+        <translation type="vanished">Installation complete: %1</translation>
+    </message>
+    <message>
+        <source>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</source>
+        <translation type="vanished">An AviQtl update is available. Please restart to apply.</translation>
+    </message>
+    <message>
+        <source>パッケージを削除中: %1</source>
+        <translation type="vanished">Removing package: %1</translation>
+    </message>
+    <message>
+        <source>削除完了: %1</source>
+        <translation type="vanished">Removal complete: %1</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="111"/>
+        <source>Idle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="211"/>
+        <source>Packages loaded from cache (Press Sync to check for updates)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="243"/>
+        <source>Syncing repository...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="331"/>
+        <location filename="../core/src/package_manager.cpp" line="359"/>
+        <source>Sync complete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="411"/>
+        <location filename="../core/src/package_manager.cpp" line="540"/>
+        <source>Package not found: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="429"/>
-        <source>利用可能なファイルを検索中...</source>
-        <translation>Searching for available files...</translation>
+        <source>Could not determine repository URL for the package.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="441"/>
-        <source>リポジトリURLの形式が正しくありません。</source>
-        <translation>The repository URL format is incorrect.</translation>
+        <location filename="../core/src/package_manager.cpp" line="434"/>
+        <source>Searching for available files...</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="456"/>
-        <source>サポートされていないリポジトリホストです。</source>
-        <translation>Unsupported repository host.</translation>
+        <location filename="../core/src/package_manager.cpp" line="446"/>
+        <source>Repository URL is not in a valid format.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="515"/>
-        <source>ダウンロード可能なファイルが見つかりませんでした。</source>
-        <translation>No downloadable files were found.</translation>
+        <location filename="../core/src/package_manager.cpp" line="461"/>
+        <source>Unsupported repository host.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="548"/>
-        <source>パッケージのインストール中: %1</source>
-        <translation>Installing package: %1</translation>
+        <location filename="../core/src/package_manager.cpp" line="471"/>
+        <source>Failed to fetch release info (%1): %2</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="673"/>
-        <source>アップグレード可能なパッケージはありません。</source>
-        <translation>There are no packages that can be upgraded.</translation>
+        <location filename="../core/src/package_manager.cpp" line="520"/>
+        <source>No downloadable files found.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="678"/>
-        <source>すべてのパッケージをアップグレード中...</source>
-        <translation>Upgrading all packages...</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="685"/>
-        <source>すべてのアップグレードが完了しました</source>
-        <translation>All upgrades are complete</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="691"/>
-        <source>パッケージをアップグレード中: %1</source>
-        <translation>Upgrading package: %1</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="406"/>
-        <location filename="../core/src/package_manager.cpp" line="535"/>
-        <source>パッケージが見つかりません: %1</source>
-        <translation>Package not found: %1</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="424"/>
-        <source>パッケージのリポジトリURLを特定できません。</source>
-        <translation>Unable to identify the repository URL for the package.</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="466"/>
-        <source>リリース情報の取得に失敗しました (%1): %2</source>
-        <translation>Failed to retrieve release information (%1): %2</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="540"/>
-        <source>ダウンロードURLが指定されていません。アセット情報を取得してください。</source>
-        <translation>Download URL is not specified. Please retrieve the asset information first.</translation>
+        <location filename="../core/src/package_manager.cpp" line="545"/>
+        <source>Download URL not specified. Please fetch asset information.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="553"/>
-        <source>インストール完了: %1</source>
-        <translation>Installation complete: %1</translation>
+        <source>Installing package: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="564"/>
-        <source>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</source>
-        <translation>An AviQtl update is available. Please restart to apply.</translation>
+        <location filename="../core/src/package_manager.cpp" line="558"/>
+        <source>Installation complete: %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="601"/>
-        <source>パッケージを削除中: %1</source>
-        <translation>Removing package: %1</translation>
+        <location filename="../core/src/package_manager.cpp" line="569"/>
+        <source>AviQtl update available. Restart to apply.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="625"/>
-        <source>削除完了: %1</source>
-        <translation>Removal complete: %1</translation>
+        <location filename="../core/src/package_manager.cpp" line="606"/>
+        <source>Removing package: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="630"/>
+        <source>Removal complete: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="678"/>
+        <source>No packages to upgrade.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="683"/>
+        <source>Upgrading all packages...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="690"/>
+        <source>All upgrades complete.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="696"/>
+        <source>Upgrading package: %1</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1285,19 +1369,31 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="41"/>
         <source>エンコーダーの初期化に失敗しました</source>
-        <translation>Failed to initialize encoder</translation>
+        <translation type="vanished">Failed to initialize encoder</translation>
+    </message>
+    <message>
+        <source>キャンセルされました</source>
+        <translation type="vanished">Canceled</translation>
+    </message>
+    <message>
+        <source>書き出し完了</source>
+        <translation type="vanished">Export complete</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="41"/>
+        <source>Encoder initialization failed</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="69"/>
-        <source>キャンセルされました</source>
-        <translation>Canceled</translation>
+        <source>Cancelled</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="101"/>
-        <source>書き出し完了</source>
-        <translation>Export complete</translation>
+        <source>Export complete</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

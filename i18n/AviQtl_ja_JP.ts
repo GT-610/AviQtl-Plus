@@ -1142,111 +1142,195 @@
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="106"/>
         <source>待機中</source>
+        <translation type="vanished">待機中</translation>
+    </message>
+    <message>
+        <source>キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</source>
+        <translation type="vanished">キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</translation>
+    </message>
+    <message>
+        <source>リポジトリを同期中...</source>
+        <translation type="vanished">リポジトリを同期中...</translation>
+    </message>
+    <message>
+        <source>同期完了</source>
+        <translation type="vanished">同期完了</translation>
+    </message>
+    <message>
+        <source>利用可能なファイルを検索中...</source>
+        <translation type="vanished">利用可能なファイルを検索中...</translation>
+    </message>
+    <message>
+        <source>リポジトリURLの形式が正しくありません。</source>
+        <translation type="vanished">リポジトリURLの形式が正しくありません。</translation>
+    </message>
+    <message>
+        <source>サポートされていないリポジトリホストです。</source>
+        <translation type="vanished">サポートされていないリポジトリホストです。</translation>
+    </message>
+    <message>
+        <source>ダウンロード可能なファイルが見つかりませんでした。</source>
+        <translation type="vanished">ダウンロード可能なファイルが見つかりませんでした。</translation>
+    </message>
+    <message>
+        <source>パッケージのインストール中: %1</source>
+        <translation type="vanished">パッケージのインストール中: %1</translation>
+    </message>
+    <message>
+        <source>アップグレード可能なパッケージはありません。</source>
+        <translation type="vanished">アップグレード可能なパッケージはありません。</translation>
+    </message>
+    <message>
+        <source>すべてのパッケージをアップグレード中...</source>
+        <translation type="vanished">すべてのパッケージをアップグレード中...</translation>
+    </message>
+    <message>
+        <source>すべてのアップグレードが完了しました</source>
+        <translation type="vanished">すべてのアップグレードが完了しました</translation>
+    </message>
+    <message>
+        <source>パッケージをアップグレード中: %1</source>
+        <translation type="vanished">パッケージをアップグレード中: %1</translation>
+    </message>
+    <message>
+        <source>パッケージが見つかりません: %1</source>
+        <translation type="vanished">パッケージが見つかりません: %1</translation>
+    </message>
+    <message>
+        <source>パッケージのリポジトリURLを特定できません。</source>
+        <translation type="vanished">パッケージのリポジトリURLを特定できません。</translation>
+    </message>
+    <message>
+        <source>リリース情報の取得に失敗しました (%1): %2</source>
+        <translation type="vanished">リリース情報の取得に失敗しました (%1): %2</translation>
+    </message>
+    <message>
+        <source>ダウンロードURLが指定されていません。アセット情報を取得してください。</source>
+        <translation type="vanished">ダウンロードURLが指定されていません。アセット情報を取得してください。</translation>
+    </message>
+    <message>
+        <source>インストール完了: %1</source>
+        <translation type="vanished">インストール完了: %1</translation>
+    </message>
+    <message>
+        <source>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</source>
+        <translation type="vanished">AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</translation>
+    </message>
+    <message>
+        <source>パッケージを削除中: %1</source>
+        <translation type="vanished">パッケージを削除中: %1</translation>
+    </message>
+    <message>
+        <source>削除完了: %1</source>
+        <translation type="vanished">削除完了: %1</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="111"/>
+        <source>Idle</source>
         <translation>待機中</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="206"/>
-        <source>キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</source>
-        <translation>キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</translation>
+        <location filename="../core/src/package_manager.cpp" line="211"/>
+        <source>Packages loaded from cache (Press Sync to check for updates)</source>
+        <translation>キャッシュからパッケージをロードしました（同期を押して更新を確認）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="238"/>
-        <source>リポジトリを同期中...</source>
+        <location filename="../core/src/package_manager.cpp" line="243"/>
+        <source>Syncing repository...</source>
         <translation>リポジトリを同期中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="326"/>
-        <location filename="../core/src/package_manager.cpp" line="354"/>
-        <source>同期完了</source>
+        <location filename="../core/src/package_manager.cpp" line="331"/>
+        <location filename="../core/src/package_manager.cpp" line="359"/>
+        <source>Sync complete</source>
         <translation>同期完了</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="429"/>
-        <source>利用可能なファイルを検索中...</source>
-        <translation>利用可能なファイルを検索中...</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="441"/>
-        <source>リポジトリURLの形式が正しくありません。</source>
-        <translation>リポジトリURLの形式が正しくありません。</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="456"/>
-        <source>サポートされていないリポジトリホストです。</source>
-        <translation>サポートされていないリポジトリホストです。</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="515"/>
-        <source>ダウンロード可能なファイルが見つかりませんでした。</source>
-        <translation>ダウンロード可能なファイルが見つかりませんでした。</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="548"/>
-        <source>パッケージのインストール中: %1</source>
-        <translation>パッケージのインストール中: %1</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="673"/>
-        <source>アップグレード可能なパッケージはありません。</source>
-        <translation>アップグレード可能なパッケージはありません。</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="678"/>
-        <source>すべてのパッケージをアップグレード中...</source>
-        <translation>すべてのパッケージをアップグレード中...</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="685"/>
-        <source>すべてのアップグレードが完了しました</source>
-        <translation>すべてのアップグレードが完了しました</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="691"/>
-        <source>パッケージをアップグレード中: %1</source>
-        <translation>パッケージをアップグレード中: %1</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="406"/>
-        <location filename="../core/src/package_manager.cpp" line="535"/>
-        <source>パッケージが見つかりません: %1</source>
+        <location filename="../core/src/package_manager.cpp" line="411"/>
+        <location filename="../core/src/package_manager.cpp" line="540"/>
+        <source>Package not found: %1</source>
         <translation>パッケージが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="424"/>
-        <source>パッケージのリポジトリURLを特定できません。</source>
+        <location filename="../core/src/package_manager.cpp" line="429"/>
+        <source>Could not determine repository URL for the package.</source>
         <translation>パッケージのリポジトリURLを特定できません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="466"/>
-        <source>リリース情報の取得に失敗しました (%1): %2</source>
+        <location filename="../core/src/package_manager.cpp" line="434"/>
+        <source>Searching for available files...</source>
+        <translation>利用可能なファイルを検索中...</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="446"/>
+        <source>Repository URL is not in a valid format.</source>
+        <translation>リポジトリURLの形式が正しくありません。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="461"/>
+        <source>Unsupported repository host.</source>
+        <translation>サポートされていないリポジトリホストです。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="471"/>
+        <source>Failed to fetch release info (%1): %2</source>
         <translation>リリース情報の取得に失敗しました (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="540"/>
-        <source>ダウンロードURLが指定されていません。アセット情報を取得してください。</source>
+        <location filename="../core/src/package_manager.cpp" line="520"/>
+        <source>No downloadable files found.</source>
+        <translation>ダウンロード可能なファイルが見つかりませんでした。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="545"/>
+        <source>Download URL not specified. Please fetch asset information.</source>
         <translation>ダウンロードURLが指定されていません。アセット情報を取得してください。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="553"/>
-        <source>インストール完了: %1</source>
+        <source>Installing package: %1</source>
+        <translation>パッケージのインストール中: %1</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="558"/>
+        <source>Installation complete: %1</source>
         <translation>インストール完了: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="564"/>
-        <source>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</source>
-        <translation>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</translation>
+        <location filename="../core/src/package_manager.cpp" line="569"/>
+        <source>AviQtl update available. Restart to apply.</source>
+        <translation>AviQtlのアップデートが利用可能です。再起動して適用してください。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="601"/>
-        <source>パッケージを削除中: %1</source>
+        <location filename="../core/src/package_manager.cpp" line="606"/>
+        <source>Removing package: %1</source>
         <translation>パッケージを削除中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="625"/>
-        <source>削除完了: %1</source>
+        <location filename="../core/src/package_manager.cpp" line="630"/>
+        <source>Removal complete: %1</source>
         <translation>削除完了: %1</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="678"/>
+        <source>No packages to upgrade.</source>
+        <translation>アップグレード可能なパッケージはありません。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="683"/>
+        <source>Upgrading all packages...</source>
+        <translation>すべてのパッケージをアップグレード中...</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="690"/>
+        <source>All upgrades complete.</source>
+        <translation>すべてのアップグレードが完了しました</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="696"/>
+        <source>Upgrading package: %1</source>
+        <translation>パッケージをアップグレード中: %1</translation>
     </message>
 </context>
 <context>
@@ -1285,19 +1369,31 @@
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="41"/>
         <source>エンコーダーの初期化に失敗しました</source>
-        <translation>エンコーダーの初期化に失敗しました</translation>
+        <translation type="vanished">エンコーダーの初期化に失敗しました</translation>
+    </message>
+    <message>
+        <source>キャンセルされました</source>
+        <translation type="vanished">キャンセルされました</translation>
+    </message>
+    <message>
+        <source>書き出し完了</source>
+        <translation type="vanished">書き出し完了</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="41"/>
+        <source>Encoder initialization failed</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="69"/>
-        <source>キャンセルされました</source>
-        <translation>キャンセルされました</translation>
+        <source>Cancelled</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="101"/>
-        <source>書き出し完了</source>
-        <translation>書き出し完了</translation>
+        <source>Export complete</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

@@ -10,7 +10,7 @@ class MediaDecoder : public QObject {
     Q_OBJECT
   public:
     explicit MediaDecoder(int clipId, QUrl source, QObject *parent = nullptr);
-    virtual ~MediaDecoder() = default;
+    ~MediaDecoder() override = default;
 
     // 共通 API
     void scheduleStart();

@@ -19,7 +19,7 @@ class AudioMixer : public QObject {
     Q_OBJECT
   public:
     explicit AudioMixer(QObject *parent = nullptr);
-    ~AudioMixer();
+    ~AudioMixer() override;
 
     void registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder);
     void unregisterDecoder(int clipId);

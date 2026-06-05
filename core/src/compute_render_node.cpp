@@ -20,7 +20,7 @@ static constexpr int kInputBinding = 1;
 static constexpr int kParamsBinding = 2;
 static constexpr int kParamsBlockSize = 32;
 
-static const float kQuadData[] = {
+static constexpr float kQuadData[] = {
     0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 } // namespace
@@ -391,7 +391,7 @@ void ComputeRenderNode::prepare() {
         if (paramBlock) {
             QByteArray upload(paramBlock->size, 0);
             for (const auto &member : paramBlock->members) {
-                QVariant val = m_params.value(member.name);
+                const QVariant &val = m_params.value(member.name);
                 if (!val.isValid()) {
                     continue;
                 }

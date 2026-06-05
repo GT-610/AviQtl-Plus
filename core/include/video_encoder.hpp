@@ -44,7 +44,7 @@ class VideoEncoder : public QObject {
     };
 
     explicit VideoEncoder(QObject *parent = nullptr);
-    ~VideoEncoder();
+    ~VideoEncoder() override;
 
     bool open(const Config &config);
     bool pushFrame(const QImage &img, int64_t pts); // CPU -> HW Upload

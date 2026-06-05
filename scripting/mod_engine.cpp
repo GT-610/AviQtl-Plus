@@ -352,11 +352,35 @@ void ModEngine::initialize(void *ecsPtr) {
         return;
     }
     L = luaL_newstate();
-    luaL_openlibs(L); // 全標準ライブラリ（io, os, debug, ffi等）を解放
+    // Only open safe libraries — never expose io, os, debug, ffi, package
+    static constexpr struct { const char *name; lua_CFunction func; } safeLibs[] = {
+        {"",         luaopen_base},
+        {"math",     luaopen_math},
+        {"string",   luaopen_string},
+        {"table",    luaopen_table},
+        {"bit",      luaopen_bit},
+    };
+    for (const auto &lib : safeLibs) {
+        lua_pushcfunction(L, lib.func);
+        lua_pushstring(L, lib.name);
+        lua_call(L, 1, 1);
+        lua_pop(L, 1);
+    }
 
-    // 名前を "AVIQTL_CORE_PTR" に統一して登録
+    // Register core pointer as global
     lua_pushlightuserdata(L, ecsPtr);
     lua_setglobal(L, "AVIQTL_CORE_PTR");
+
+    // Remove dangerous base library functions
+    lua_pushnil(L);
+    lua_setglobal(L, "loadstring");
+    lua_pushnil(L);
+    lua_setglobal(L, "load");
+    lua_pushnil(L);
+    lua_setglobal(L, "dofile");
+    lua_pushnil(L);
+    lua_setglobal(L, "loadfile");
+
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
 }
 

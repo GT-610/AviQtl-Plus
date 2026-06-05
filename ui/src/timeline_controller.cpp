@@ -51,11 +51,13 @@ void TimelineController::setupConnections() {
     connect(
         m_timeline, &TimelineService::clipsChanged, this,
         [this]() -> void {
-            AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
             emit clipsChanged();
             m_mediaManager->updateMediaDecoders();
             m_mediaManager->onCurrentFrameChanged();
             updateActiveClipsList();
+            // Bake after sync — syncTimelineToDocumentModel() (from updateActiveClipsList)
+            // emits DocumentModel::structureChanged, which triggers BakeController::triggerRebake.
+            AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
             invalidateTimelineDuration();
             m_transport->setTotalFrames(timelineDuration());
         },
@@ -74,6 +76,7 @@ void TimelineController::setupConnections() {
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
         invalidateTimelineDuration();
+        AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
         emit scenesChanged();
     });
     connect(m_timeline, &TimelineService::currentSceneIdChanged, this, [this]() {
@@ -118,7 +121,8 @@ void TimelineController::onPlayingChanged() { m_mediaManager->onPlayingChanged()
 
 void TimelineController::onCurrentFrameChanged() {
     m_mediaManager->onCurrentFrameChanged();
-    updateActiveClipsList();
+    // syncTimelineToDocumentModel() is only needed on structural changes
+    // and is called from the respective signal handlers - not every frame.
 }
 
 void TimelineController::setVideoFrameStore(AviQtl::Core::VideoFrameStore *store) {
@@ -145,7 +149,8 @@ void TimelineController::setTimelineScale(double scale) {
 
 void TimelineController::updateActiveClipsList() {
     syncTimelineToDocumentModel();
-    AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+    // Bake is not called here — it is already triggered by the clipsChanged signal
+    // handler which also calls updateActiveClipsList.
 }
 
 void TimelineController::invalidateTimelineDuration() {

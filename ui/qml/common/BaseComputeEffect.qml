@@ -4,7 +4,7 @@ import QtQuick
 BaseEffect {
     id: root
 
-    property alias computeShader: compEffect.computeShader
+    property alias computeShader: compEffect.shaderPath
     property alias autoWorkGroup: compEffect.autoWorkGroup
     property alias workGroupSizeX: compEffect.workGroupSizeX
     property alias workGroupSizeY: compEffect.workGroupSizeY

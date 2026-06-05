@@ -27,11 +27,34 @@ LuaHost::~LuaHost() {
 }
 
 static void setupLuaState(lua_State *L) {
-    luaL_openlibs(L);
+    // Only open safe libraries — never expose io, os, debug, ffi, package
+    static constexpr struct { const char *name; lua_CFunction func; } safeLibs[] = {
+        {"",         luaopen_base},
+        {"math",     luaopen_math},
+        {"string",   luaopen_string},
+        {"table",    luaopen_table},
+        {"bit",      luaopen_bit},
+    };
+    for (const auto &lib : safeLibs) {
+        lua_pushcfunction(L, lib.func);
+        lua_pushstring(L, lib.name);
+        lua_call(L, 1, 1);
+        lua_pop(L, 1);
+    }
 
-    // mathライブラリへのショートカット
+    // math library shortcut
     lua_getglobal(L, "math");
     lua_setglobal(L, "m");
+
+    // Remove dangerous base library functions that bypass the "return <expr>" sandbox
+    lua_pushnil(L);
+    lua_setglobal(L, "loadstring");
+    lua_pushnil(L);
+    lua_setglobal(L, "load");
+    lua_pushnil(L);
+    lua_setglobal(L, "dofile");
+    lua_pushnil(L);
+    lua_setglobal(L, "loadfile");
 
     const char *math_shortcuts = "sin = math.sin; cos = math.cos; tan = math.tan; "
                                  "abs = math.abs; max = math.max; min = math.min; "
