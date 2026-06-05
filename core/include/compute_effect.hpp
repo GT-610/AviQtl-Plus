@@ -21,7 +21,6 @@ class ComputeEffect : public QQuickItem {
     Q_PROPERTY(QVariantMap params READ params WRITE setParams NOTIFY paramsChanged)
     Q_PROPERTY(bool shaderEnabled READ shaderEnabled WRITE setShaderEnabled NOTIFY shaderEnabledChanged)
     Q_PROPERTY(QUrl shaderPath READ shaderPath WRITE setShaderPath NOTIFY shaderPathChanged)
-    Q_PROPERTY(QUrl computeShader READ shaderPath WRITE setShaderPath NOTIFY shaderPathChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(int workGroupSizeX READ workGroupSizeX WRITE setWorkGroupSizeX NOTIFY workGroupSizeXChanged)
     Q_PROPERTY(int workGroupSizeY READ workGroupSizeY WRITE setWorkGroupSizeY NOTIFY workGroupSizeYChanged)

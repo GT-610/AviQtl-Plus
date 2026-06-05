@@ -74,6 +74,7 @@ void TimelineController::setupConnections() {
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
         invalidateTimelineDuration();
+        AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
         emit scenesChanged();
     });
     connect(m_timeline, &TimelineService::currentSceneIdChanged, this, [this]() {
@@ -145,7 +146,8 @@ void TimelineController::setTimelineScale(double scale) {
 
 void TimelineController::updateActiveClipsList() {
     syncTimelineToDocumentModel();
-    AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+    // Bake is not called here — it is already triggered by the clipsChanged signal
+    // handler which also calls updateActiveClipsList.
 }
 
 void TimelineController::invalidateTimelineDuration() {

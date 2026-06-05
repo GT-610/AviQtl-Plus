@@ -26,10 +26,7 @@ AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
         }
     }
 
-    for (const auto &[clipId, decoder] : m_decoders) {
-        registerDecoder(clipId, decoder);
-    }
-
+    // m_decoders is always empty at construction; registration happens externally
     QAudioDevice device = QMediaDevices::defaultAudioOutput();
     if (!device.isFormatSupported(m_format)) {
         qWarning() << "Default audio format not supported, using preferred format.";

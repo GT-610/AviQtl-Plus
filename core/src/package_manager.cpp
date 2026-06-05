@@ -15,6 +15,11 @@
 namespace AviQtl::Core {
 
 namespace {
+const QString &appVersionString() {
+    static const QString cached = QString::fromUtf8(AviQtl::VERSION_STRING);
+    return cached;
+}
+
 QString getInstalledPackagesPath() {
     const QString path = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
     QDir().mkpath(path);
@@ -164,8 +169,8 @@ void PackageManager::loadCachedPackages() {
 
                 // インストール済み情報の付加
                 if (id == QStringLiteral("org.aviqtl.app")) {
-                    p[QStringLiteral("installed_version")] = QString::fromUtf8(AviQtl::VERSION_STRING);
-                    p[QStringLiteral("latest_version")] = QString::fromUtf8(AviQtl::VERSION_STRING);
+                    p[QStringLiteral("installed_version")] = appVersionString();
+                    p[QStringLiteral("latest_version")] = appVersionString();
                 } else if (installed.contains(id)) {
                     p[QStringLiteral("installed_version")] = installed.value(id).toMap().value(QStringLiteral("version"));
                 }
@@ -175,7 +180,7 @@ void PackageManager::loadCachedPackages() {
                 if (id != QStringLiteral("org.aviqtl.app")) {
                     const QString feedUrl = p.value(QStringLiteral("release_feed")).toString();
                     if (!feedUrl.isEmpty()) {
-                        const QString feedFileName = QStringLiteral("feed_") + QString::fromLatin1(QCryptographicHash::hash(feedUrl.toUtf8(), QCryptographicHash::Sha1).toHex()) + QStringLiteral(".xml");
+                                    const QString feedFileName = QStringLiteral("feed_") + QString::fromLatin1(QCryptographicHash::hash(feedUrl.toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".xml");
                         QFile feedFile(repoPath + QStringLiteral("/") + feedFileName);
                         if (feedFile.open(QIODevice::ReadOnly)) {
                             p[QStringLiteral("latest_version")] = parseLatestVersionFromXml(feedFile.readAll());
@@ -233,7 +238,7 @@ void PackageManager::refreshRepositories() {
     emit packageListChanged();
 
     QVariantMap installed = loadInstalledPackagesFromFile();
-    installed.insert(QStringLiteral("org.aviqtl.app"), QVariantMap{{QStringLiteral("version"), QString::fromUtf8(AviQtl::VERSION_STRING)}});
+    installed.insert(QStringLiteral("org.aviqtl.app"), QVariantMap{{QStringLiteral("version"), appVersionString()}});
 
     setStatus(tr("Syncing repository..."));
     setProgress(0.0);
@@ -258,7 +263,7 @@ void PackageManager::refreshRepositories() {
                 const QString repoPath = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
                 QDir().mkpath(repoPath);
 
-                const QString fileName = QString::fromLatin1(QCryptographicHash::hash(url.toUtf8(), QCryptographicHash::Sha1).toHex()) + QStringLiteral(".json");
+                const QString fileName = QString::fromLatin1(QCryptographicHash::hash(url.toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".json");
                 QFile file(repoPath + QStringLiteral("/") + fileName);
                 if (file.open(QIODevice::WriteOnly)) {
                     file.write(data);
@@ -275,7 +280,7 @@ void PackageManager::refreshRepositories() {
                         // ローカルのインストール済み情報をチェック
                         if (id == QStringLiteral("org.aviqtl.app")) {
                             // AviQtl本体の場合、常に現在の実行バージョンをインストール済みとする
-                            p["installed_version"] = QString::fromUtf8(AviQtl::VERSION_STRING);
+                            p["installed_version"] = appVersionString();
                         } else if (installed.contains(id)) {
                             // その他のパッケージの場合
                             p["installed_version"] = installed.value(id).toMap().value("version");
@@ -284,8 +289,8 @@ void PackageManager::refreshRepositories() {
                         // JSON側のバージョンを初期の最新バージョンとしてセット
                         if (p.contains(QStringLiteral("version"))) {
                             QString jsonVer = p.value(QStringLiteral("version")).toString();
-                            if (id == QStringLiteral("org.aviqtl.app") && compareVersions(jsonVer, QString::fromUtf8(AviQtl::VERSION_STRING)) <= 0) {
-                                p[QStringLiteral("latest_version")] = QString::fromUtf8(AviQtl::VERSION_STRING);
+                            if (id == QStringLiteral("org.aviqtl.app") && compareVersions(jsonVer, appVersionString()) <= 0) {
+                                p[QStringLiteral("latest_version")] = appVersionString();
                             } else {
                                 p[QStringLiteral("latest_version")] = jsonVer;
                             }
@@ -306,7 +311,7 @@ void PackageManager::refreshRepositories() {
                                     const QByteArray rssData = rssReply->readAll();
                                     // フィードをキャッシュ保存
                                     const QString repoPath = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
-                                    const QString feedFileName = QStringLiteral("feed_") + QString::fromLatin1(QCryptographicHash::hash(feedUrl.toUtf8(), QCryptographicHash::Sha1).toHex()) + QStringLiteral(".xml");
+                        const QString feedFileName = QStringLiteral("feed_") + QString::fromLatin1(QCryptographicHash::hash(feedUrl.toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".xml");
                                     QFile feedFile(repoPath + QStringLiteral("/") + feedFileName);
                                     if (feedFile.open(QIODevice::WriteOnly)) {
                                         feedFile.write(rssData);
@@ -375,8 +380,8 @@ void PackageManager::updatePackageLatestVersion(const QString &id, const QString
                 latest.remove(0, 1);
 
             // AviQtl本体の場合、自分自身のバージョン情報と比較して、新しい場合のみ更新する
-            if (id == QStringLiteral("org.aviqtl.app") && compareVersions(latest, QString::fromUtf8(AviQtl::VERSION_STRING)) <= 0) {
-                latest = QString::fromUtf8(AviQtl::VERSION_STRING);
+            if (id == QStringLiteral("org.aviqtl.app") && compareVersions(latest, appVersionString()) <= 0) {
+                latest = appVersionString();
             }
 
             if (item.value(QStringLiteral("latest_version")).toString() != latest || latest.isEmpty()) {
@@ -644,7 +649,7 @@ QVariantList PackageManager::getInstalledPackages() const {
     QVariantList list;
     QVariantMap installed = loadInstalledPackagesFromFile();
 
-    installed.insert(QStringLiteral("org.aviqtl.app"), QVariantMap{{QStringLiteral("version"), QString::fromUtf8(AviQtl::VERSION_STRING)}});
+    installed.insert(QStringLiteral("org.aviqtl.app"), QVariantMap{{QStringLiteral("version"), appVersionString()}});
 
     for (auto it = installed.begin(); it != installed.end(); ++it) {
         QVariantMap pkg;
