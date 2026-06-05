@@ -391,7 +391,7 @@ void ComputeRenderNode::prepare() {
         if (paramBlock) {
             QByteArray upload(paramBlock->size, 0);
             for (const auto &member : paramBlock->members) {
-                QVariant val = m_params.value(member.name);
+                const QVariant &val = m_params.value(member.name);
                 if (!val.isValid()) {
                     continue;
                 }

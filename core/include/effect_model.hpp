@@ -250,18 +250,6 @@ class EffectModel : public QObject {
         auto getValue = [](const QVariant &v) { return v.toMap().value(QStringLiteral("value")); };
         auto getInterp = [](const QVariant &v) { return v.toMap().value(QStringLiteral("interp")).toString(); };
         auto getModeParams = [](const QVariant &v) { return v.toMap().value(QStringLiteral("modeParams")).toMap(); };
-        auto getBezierParams = [](const QVariant &v) -> std::vector<double> {
-            const auto map = v.toMap();
-            auto it = map.find(QStringLiteral("points"));
-            if (it != map.end()) {
-                QVariantList lst = it.value().toList();
-                std::vector<double> pts;
-                for (const auto &val : std::as_const(lst))
-                    pts.push_back(val.toDouble());
-                return pts;
-            }
-            return {map.value(QStringLiteral("bzx1"), 0.33).toDouble(), map.value(QStringLiteral("bzy1"), 0.0).toDouble(), map.value(QStringLiteral("bzx2"), 0.66).toDouble(), map.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
-        };
 
         if (frame <= getFrame(track.front()))
             return getValue(track.front());
@@ -270,13 +258,15 @@ class EffectModel : public QObject {
 
         const bool numeric = fallback.canConvert<double>();
         for (int i = 0; i < track.size() - 1; ++i) {
-            const int f0 = getFrame(track[i]), f1 = getFrame(track[i + 1]);
+            const QVariantMap m_i = track[i].toMap();
+            const QVariantMap m_i1 = track[i + 1].toMap();
+            const int f0 = m_i.value(QStringLiteral("frame")).toInt(), f1 = m_i1.value(QStringLiteral("frame")).toInt();
             if (frame < f0 || frame > f1)
                 continue;
-            const QVariant v0 = getValue(track[i]), v1 = getValue(track[i + 1]);
+            const QVariant v0 = m_i.value(QStringLiteral("value")), v1 = m_i1.value(QStringLiteral("value"));
             const double tRaw = (frame - f0) / double(f1 - f0);
-            QString type = getInterp(track[i]);
-            const QVariantMap modeParams = getModeParams(track[i]);
+            QString type = m_i.value(QStringLiteral("interp")).toString();
+            const QVariantMap modeParams = m_i.value(QStringLiteral("modeParams")).toMap();
 
             if (type == QStringLiteral("none"))
                 return (frame < f1) ? v0 : v1;
@@ -284,8 +274,14 @@ class EffectModel : public QObject {
                 QColor c0(v0.toString()), c1(v1.typeId() == QMetaType::QString ? v1.toString() : v0.toString());
                 if (c0.isValid() && c1.isValid()) {
                     std::vector<double> params;
-                    if (type == QStringLiteral("custom"))
-                        params = getBezierParams(track[i]);
+                    if (type == QStringLiteral("custom")) {
+                        auto it = m_i.find(QStringLiteral("points"));
+                        if (it != m_i.end()) {
+                            QVariantList lst = it.value().toList();
+                            for (const auto &val : std::as_const(lst))
+                                params.push_back(val.toDouble());
+                        }
+                    }
                     const auto &funcs = easingFunctions();
                     auto efIt = funcs.find(type);
                     if (efIt == funcs.end()) {
@@ -311,8 +307,14 @@ class EffectModel : public QObject {
                 return ((frame - f0) / stepFrames % 2 == 0) ? a : b;
             }
             std::vector<double> params;
-            if (type == QStringLiteral("custom"))
-                params = getBezierParams(track[i]);
+            if (type == QStringLiteral("custom")) {
+                auto it = m_i.find(QStringLiteral("points"));
+                if (it != m_i.end()) {
+                    QVariantList lst = it.value().toList();
+                    for (const auto &val : std::as_const(lst))
+                        params.push_back(val.toDouble());
+                }
+            }
             const auto &funcs = easingFunctions();
             auto efIt = funcs.find(type);
             if (efIt == funcs.end()) {

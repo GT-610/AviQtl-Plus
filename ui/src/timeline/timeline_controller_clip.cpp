@@ -378,13 +378,14 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
                 if (eff->id() != "video") {
                     continue;
                 }
-                const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始フレーム＋再生速度").toString();
+                const auto &p = eff->params();
+                const QString playMode = p.value(QStringLiteral("playMode"), "開始フレーム＋再生速度").toString();
                 if (playMode == QStringLiteral("フレーム直接指定")) {
                     isDirectMode = true;
                     break;
                 }
-                startVideoFrame = eff->params().value(QStringLiteral("startFrame"), 0).toInt();
-                speed = eff->params().value(QStringLiteral("speed"), 100.0).toDouble();
+                startVideoFrame = p.value(QStringLiteral("startFrame"), 0).toInt();
+                speed = p.value(QStringLiteral("speed"), 100.0).toDouble();
                 break;
             }
 
@@ -419,13 +420,14 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
                 if (eff->id() != "audio") {
                     continue;
                 }
-                const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始時間＋再生速度").toString();
+                const auto &p = eff->params();
+                const QString playMode = p.value(QStringLiteral("playMode"), "開始時間＋再生速度").toString();
                 if (playMode == QStringLiteral("時間直接指定")) {
                     isDirectMode = true;
                     break;
                 }
-                startTime = eff->params().value(QStringLiteral("startTime"), 0.0).toDouble();
-                speed = eff->params().value(QStringLiteral("speed"), 100.0).toDouble();
+                startTime = p.value(QStringLiteral("startTime"), 0.0).toDouble();
+                speed = p.value(QStringLiteral("speed"), 100.0).toDouble();
                 break;
             }
 

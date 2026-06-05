@@ -119,7 +119,8 @@ void TimelineController::onPlayingChanged() { m_mediaManager->onPlayingChanged()
 
 void TimelineController::onCurrentFrameChanged() {
     m_mediaManager->onCurrentFrameChanged();
-    updateActiveClipsList();
+    // syncTimelineToDocumentModel() is only needed on structural changes
+    // and is called from the respective signal handlers - not every frame.
 }
 
 void TimelineController::setVideoFrameStore(AviQtl::Core::VideoFrameStore *store) {
