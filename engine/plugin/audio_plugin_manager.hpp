@@ -28,7 +28,7 @@ class AudioPluginManager : public QObject {
     Q_DISABLE_COPY(AudioPluginManager)
   public:
     static AudioPluginManager &instance();
-    ~AudioPluginManager();
+    ~AudioPluginManager() override;
 
     void initialize();
     void scanPlugins();

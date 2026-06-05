@@ -4,7 +4,6 @@
 #include <QSet>
 #include <QString>
 #include <QVariant>
-#include <bitset>
 
 namespace AviQtl::UI {
 

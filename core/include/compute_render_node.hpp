@@ -1,8 +1,5 @@
 #pragma once
-#include <QByteArray>
-#include <QList>
 #include <QLoggingCategory>
-#include <QMatrix4x4>
 #include <QSGRenderNode>
 #include <QSGTexture>
 #include <QString>

@@ -1,7 +1,4 @@
 #pragma once
-#include <QByteArray>
-#include <QList>
-#include <QMatrix4x4>
 #include <QObject>
 #include <QQuickItem>
 #include <QSGNode>

@@ -8,7 +8,6 @@
 #include <QSGNode>
 #include <QSGTexture>
 #include <QSGTextureProvider>
-#include <QUrl>
 #include <algorithm>
 #include <cmath>
 #include <cstring>

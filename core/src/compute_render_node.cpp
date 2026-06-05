@@ -20,7 +20,7 @@ static constexpr int kInputBinding = 1;
 static constexpr int kParamsBinding = 2;
 static constexpr int kParamsBlockSize = 32;
 
-static const float kQuadData[] = {
+static constexpr float kQuadData[] = {
     0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 } // namespace
