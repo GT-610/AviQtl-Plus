@@ -45,7 +45,7 @@ void AudioDecoder::startDecoding() {
 
         m_streamIdx = av_find_best_stream(m_fmtCtx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
         if (m_streamIdx < 0) {
-            qWarning() << "[AudioDecoder] 音声ストリームが見つかりません:" << path;
+            qWarning() << "[AudioDecoder] Audio stream not found:" << path;
             m_isReady = true;
             emit ready();
             return;
@@ -54,7 +54,7 @@ void AudioDecoder::startDecoding() {
 
         const AVCodec *codec = avcodec_find_decoder(m_stream->codecpar->codec_id);
         if (!codec) {
-            qWarning() << "[AudioDecoder] 対応コーデックが見つかりません";
+            qWarning() << "[AudioDecoder] No supported codec found";
             m_isReady = true;
             emit ready();
             return;

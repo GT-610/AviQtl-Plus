@@ -39,7 +39,7 @@ static void setupLuaState(lua_State *L) {
                                  "random = math.random;";
 
     if (luaL_dostring(L, math_shortcuts) != LUA_OK) {
-        qWarning() << "[LuaHost] スレッドローカルLuaステートの初期化に失敗:" << lua_tostring(L, -1);
+        qWarning() << "[LuaHost] Thread-local Lua state init failed:" << lua_tostring(L, -1);
         lua_pop(L, 1);
     }
 }
@@ -50,7 +50,7 @@ void LuaHost::initialize() {
     }
     L = luaL_newstate();
     setupLuaState(L);
-    qDebug() << "[LuaHost] LuaJITエンジンを初期化しました (Main Thread)";
+    qDebug() << "[LuaHost] LuaJIT engine initialized (Main Thread)";
 }
 
 struct ThreadLocalLua {
@@ -112,7 +112,7 @@ auto LuaHost::evaluate(const std::string &expression, double time, int index, do
     if (it == t_lua.compiledRegistry.end()) {
         std::string code = "return " + expression;
         if (luaL_loadstring(threadL, code.c_str()) != LUA_OK) {
-            qWarning() << "[LuaHost] パースエラー:" << QString::fromStdString(expression) << "->" << lua_tostring(threadL, -1);
+            qWarning() << "[LuaHost] Parse error:" << QString::fromStdString(expression) << "->" << lua_tostring(threadL, -1);
             lua_pop(threadL, 1);
             return currentValue;
         }
@@ -127,7 +127,7 @@ auto LuaHost::evaluate(const std::string &expression, double time, int index, do
 
     if (ret != LUA_OK) {
         const char *errMsg = lua_tostring(threadL, -1);
-        qWarning() << "[LuaHost] 式の評価エラー:" << QString::fromStdString(expression) << "->" << errMsg;
+        qWarning() << "[LuaHost] Expression eval error:" << QString::fromStdString(expression) << "->" << errMsg;
         lua_pop(threadL, 1);
         return currentValue;
     }

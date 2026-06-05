@@ -45,19 +45,19 @@ if(WIN32)
     else()
         file(TO_CMAKE_PATH "${CARLA_SDK_DIR}" CARLA_SDK_DIR)
     endif()
-    # インクルードパスはライブラリ検出と独立して設定
-    # CarlaBackend.h は source/backend/ 由来、CarlaNativePlugin.h は source/includes/ 由来
+    # Include path is configured independently of library detection
+    # CarlaBackend.h comes from source/backend/, CarlaNativePlugin.h comes from source/includes/
     if(EXISTS "${CARLA_SDK_DIR}/include/CarlaNativePlugin.h")
         set(CARLA_INCLUDE_DIRS "${CARLA_SDK_DIR}/include")
     endif()
-    # MSYS2/MinGW では .dll を直接リンクする (.lib/.dll.a が不在のため)
+    # MSYS2/MinGW links .dll directly (no .lib/.dll.a available)
     set(_carla_dll_dir "${CARLA_SDK_DIR}/lib")
     foreach(_carla_name
             libcarla_standalone2
             libcarla_native-plugin
             libcarla_host-plugin
             libcarla_utils)
-        # MSVC では .lib import library を優先、他環境では .dll にフォールバック
+        # MSVC prefers .lib import library; other environments fall back to .dll
         if(EXISTS "${_carla_dll_dir}/${_carla_name}.lib")
             list(APPEND CARLA_LIBRARIES "${_carla_dll_dir}/${_carla_name}.lib")
         elseif(EXISTS "${_carla_dll_dir}/${_carla_name}.dll")
@@ -78,10 +78,10 @@ file(GLOB CORE_HEADERS "core/include/*.hpp")
 set(EFFECT_METADATA_I18N_SOURCE "${CMAKE_SOURCE_DIR}/core/src/effect_metadata_i18n.cpp")
 list(REMOVE_ITEM CORE_SOURCES "${EFFECT_METADATA_I18N_SOURCE}")
 list(APPEND CORE_SOURCES "${EFFECT_METADATA_I18N_SOURCE}")
-# main.cpp は後で executable に追加するため除外
+    # Exclude main.cpp – it is added to the executable later
 list(REMOVE_ITEM CORE_SOURCES "${CMAKE_SOURCE_DIR}/core/src/main.cpp")
 
-# UI依存ファイルを除外 (Platform Separation)
+    # Exclude UI-dependent files (Platform Separation)
 set(UI_DEPENDENT_SOURCES
     "core/src/compute_render_node.cpp"
     "core/src/video_frame_provider.cpp"
@@ -104,7 +104,7 @@ endforeach()
 foreach(F ${UI_DEPENDENT_HEADERS})
     list(REMOVE_ITEM CORE_HEADERS "${CMAKE_SOURCE_DIR}/${F}")
 endforeach()
-# QMLモジュール側で処理されるファイルを個別に除外
+    # Exclude files handled by the QML module separately
 list(REMOVE_ITEM CORE_SOURCES "${CMAKE_SOURCE_DIR}/core/src/compute_effect.cpp")
 list(REMOVE_ITEM CORE_HEADERS "${CMAKE_SOURCE_DIR}/core/include/compute_effect.hpp")
 
@@ -159,7 +159,7 @@ target_link_libraries(AviQtl_Scripting PUBLIC AviQtl_Core Qt6::Qml Qt6::Quick Pk
 # --- Module: UI (Bridge & Controllers) ---
 file(GLOB_RECURSE UI_SOURCES "ui/src/*.cpp")
 file(GLOB_RECURSE UI_HEADERS "ui/include/*.hpp")
-# Core から移設した UI 依存ファイルを統合
+    # Integrate UI-dependent files relocated from Core
 list(APPEND UI_SOURCES ${UI_DEPENDENT_SOURCES})
 list(APPEND UI_HEADERS ${UI_DEPENDENT_HEADERS})
 
@@ -168,14 +168,14 @@ target_include_directories(AviQtl_UI PUBLIC ui/include)
 target_link_libraries(AviQtl_UI PUBLIC AviQtl_Engine AviQtl_Scripting Qt6::Quick Qt6::QuickControls2 Qt6::Quick3D Qt6::Multimedia Qt6::Svg Qt6::Core5Compat Qt6::GuiPrivate Vulkan::Vulkan)
 
 # --- QML Resources & Module ---
-# effects と objects は外部モジュールとして実行時に読み込むため、QMLモジュール（バイナリ埋め込み）から除外
+    # Exclude effects and objects from QML module (binary embedding) – they are loaded at runtime as external modules
 file(GLOB_RECURSE QML_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} 
     "ui/qml/*.qml" 
     "ui/qml/*.js"
 )
 list(FILTER QML_FILES EXCLUDE REGEX "ui/qml/(effects|objects)/.*")
 
-# 共通シェーダーのビルド
+    # Build common shaders
 file(GLOB_RECURSE COMMON_SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/common/shaders/*.glsl")
 
 # --- QML Module (Attached to UI Module) ---
@@ -191,8 +191,8 @@ qt_add_qml_module(AviQtl_UI
 )
 
 # --- External Assets: Shaders Compilation ---
-# effects と objects のシェーダーは .qsb にコンパイルして BUILD.py が拾えるようにする
-# バイナリに埋め込まず、ファイルとして出力する
+    # Shaders for effects and objects are compiled to .qsb so BUILD.py can pick them up
+    # Output as files, not embedded in the binary
 set(EXTERNAL_QSB_FILES "")
 foreach(DIR "effects" "objects" "common/shaders")
     file(GLOB_RECURSE SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/${DIR}/*.frag" "ui/qml/${DIR}/*.vert" "ui/qml/${DIR}/*.comp")
@@ -218,7 +218,7 @@ foreach(DIR "effects" "objects" "common/shaders")
     endforeach()
 endforeach()
 
-# シェーダー生成をビルドプロセスに含めるためのダミーターゲット
+    # Dummy target to include shader generation in the build process
 add_custom_target(AviQtl_ExternalShaders ALL DEPENDS ${EXTERNAL_QSB_FILES})
 
 # --- Executable ---
@@ -245,7 +245,7 @@ if(APPLE)
     )
 endif()
 
-# 外部シェーダー生成の依存関係を登録
+    # Register external shader generation dependency
 add_dependencies(AviQtl AviQtl_ExternalShaders)
 
 target_link_libraries(AviQtl PRIVATE AviQtl_UI)

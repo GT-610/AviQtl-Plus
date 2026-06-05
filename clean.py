@@ -4,33 +4,33 @@ import re
 import sys
 import argparse
 
-# コメント判定正規表現パターン
+# Comment detection regex patterns
 DEFAULT_PATTERNS = [
-    # パターン1: 過剰な飾り線・セクション区切り
+    # Pattern 1: Excessive decorative lines / section separators
     r'^\s*(//|#)\s*[─━═\-_~*=\s🚀✨📝]{2,}.*[─━═\-_~*=\s]{2,}\s*$',
     r'^\s*(//|#)\s*[─━═\-_~*=\s🚀✨📝]{3,}.*$',
     
-    # パターン2: ナンバリングや箇条書き
-    r'^\s*(//|#)\s*\d+[\.\)、]\s*.*$',
+    # Pattern 2: Numbering and bullet lists
+    r'^\s*(//|#)\s*\d+[\.\),]\s*.*$',
     
-    # パターン3: AI特有の過剰な防衛・定型句
-    r'^\s*(//|#)\s*.*(行えばよい|許容する|受け取る|保証|防止|担保|完了しているため|～系：|🚀|ダミーの不可視).*$',
+    # Pattern 3: AI-specific excessive defensive / boilerplate phrases
+    r'^\s*(//|#)\s*.*(just do|tolerate|receive|guarantee|prevent|ensure|already completed|~type:|🚀|invisible dummy).*$',
     
-    # パターン4: ソースコードの挙動の逐一実況
-    r'^\s*(//|#)\s*.*(目的とする|のための措置|の意図で|整合性を保つ|担当|制御|管理|伝播|解放|マージ|クランプ|適用|判定|移行|等幅フォント).*$',
+    # Pattern 4: Play-by-play commentary of source code behavior
+    r'^\s*(//|#)\s*.*(aim to|measures for|intent of|maintain consistency|responsible for|control|management|propagation|release|merge|clamp|apply|determination|migration|monospace font).*$',
     
-    # パターン5: ハイフンによる区切り線
+    # Pattern 5: Hyphen separator lines
     r'^\s*(//|#)\s*---\s*.*[^-\s]+.*\s*---$',
     
-    # パターン6: 説明調の長文（語尾の判定）
-    r'^\s*(//|#)\s*.*(ため、|必要がある|要がある|留まる必要がある|由来|構成となっている|を待つ）|を防止する。)。?$',
+    # Pattern 6: Explanatory long sentences (judging by ending)
+    r'^\s*(//|#)\s*.*(therefore,|need to|must|must stay|originates from|is configured as|wait for\)|prevent\.\)).?$',
 ]
 
-# ホワイトリスト（誤検知保護キーワード）
+# Whitelist (false positive protection keywords)
 PROTECTION_KEYWORDS = [
     "FIX-", "TODO", "FIXME", "BUG", "Issue", "O(1)", "av_frame_ref", 
-    "SIGSEGV", "アンダーフロー", "NaN/Inf", "KDE", "nullアクセスの防止", 
-    "nullアクセスを防ぐ", "nullポインタ参照を起こす"
+    "SIGSEGV", "underflow", "NaN/Inf", "KDE", "null access prevention", 
+    "prevent null access", "null pointer dereference"
 ]
 
 def clean_file(file_path, patterns, dry_run=True, exclude_keywords=None):

@@ -89,35 +89,35 @@ class PlatformBuilder:
 
     def build(self):
         self.check_cancelled()
-        self.logger.progress(10, f"{self.config.build_type} ビルド開始")
-        self.logger.section("依存関係の確認")
+        self.logger.progress(10, f"{self.config.build_type} build started")
+        self.logger.section("Checking dependencies")
         self.install_dependencies()
         self.check_cancelled()
-        self.logger.section("CMake 設定")
+        self.logger.section("Configuring CMake")
         self.configure()
         self.check_cancelled()
-        self.logger.section("翻訳ファイル更新")
+        self.logger.section("Updating translations")
         self.update_translations()
         self.check_cancelled()
-        self.logger.section("コンパイル")
+        self.logger.section("Compiling")
         self.compile()
         self.check_cancelled()
-        self.logger.section("パッケージング")
+        self.logger.section("Packaging")
         self.package()
         self.check_cancelled()
-        self.logger.section("アーカイブ作成")
+        self.logger.section("Creating archive")
         self.archive()
-        self.logger.progress(100, "完了")
+        self.logger.progress(100, "Complete")
 
     def check_cancelled(self):
         if self.cancelled:
-            raise RuntimeError("ビルドをキャンセルしました")
+            raise RuntimeError("Build cancelled")
 
     def cancel(self):
         self.cancelled = True
         proc = self.current_proc
         if proc and proc.poll() is None:
-            self.logger.log("実行中のコマンドを停止しています...")
+            self.logger.log("Stopping running command...")
             try:
                 if os.name != "nt":
                     os.killpg(proc.pid, signal.SIGTERM)
@@ -142,7 +142,7 @@ class PlatformBuilder:
 
     def compile(self):
         j = multiprocessing.cpu_count()
-        self.logger.log(f"並列ジョブ数: {j}")
+        self.logger.log(f"Parallel jobs: {j}")
         self.run_cmd([self.get_cmake_cmd(), "--build", str(self.config.work_dir), "-j", str(j)])
 
     def package(self):
@@ -157,7 +157,7 @@ class PlatformBuilder:
         self.config.dist_dir.mkdir(parents=True, exist_ok=True)
         archive_name = self.get_archive_name()
         self.create_zip(archive_name)
-        self.logger.log(f"アーカイブ: {self.config.dist_dir / (archive_name + '.zip')}")
+        self.logger.log(f"Archive: {self.config.dist_dir / (archive_name + '.zip')}")
 
     def run_cmd(self, cmd: List[str], shell: bool = False, force_host: bool = False):
         self.check_cancelled()
@@ -245,22 +245,22 @@ class PlatformBuilder:
         inc_dir = sdk_dir / "include"
         lib_dir = sdk_dir / "lib"
 
-        # CarlaNativePlugin.h が依存する CarlaHost.h が含まれているかを判定する
+        # Determine whether CarlaHost.h (dependency of CarlaNativePlugin.h) is included
         carla_host_header = inc_dir / "CarlaHost.h"
         if not carla_host_header.exists():
             if self.config.is_offline:
-                self.logger.log("Carla SDK が見つかりませんが、オフラインモードのため取得をスキップします")
+                self.logger.log("Carla SDK not found; skipping fetch in offline mode")
                 return
-            self.logger.log("Carla ヘッダーを取得中...")
+            self.logger.log("Fetching Carla headers...")
             temp_clone = self.config.source_dir / ".carla_tmp"
             if temp_clone.exists():
                 self.remove_tree(temp_clone)
             self.run_cmd(["git", "clone", "--depth", "1", "https://github.com/falkTX/Carla.git", str(temp_clone)], force_host=True)
             inc_dir.mkdir(parents=True, exist_ok=True)
-            # source/includes は既に存在していた場合も merge する
+            # Merge source/includes if it already exists
             shutil.copytree(temp_clone / "source/includes", inc_dir, dirs_exist_ok=True)
-            # CarlaNativePlugin.h が依存する CarlaHost.h / CarlaUtils.h / CarlaBackend.h は
-            # source/backend/ に存在するため、フラットに include/ へ追加コピーする
+            # CarlaHost.h / CarlaUtils.h / CarlaBackend.h (dependencies of CarlaNativePlugin.h)
+            # reside in source/backend/, so flat-copy them into include/
             backend_src = temp_clone / "source" / "backend"
             if backend_src.exists():
                 for _hdr in list(backend_src.glob("*.h")) + list(backend_src.glob("*.hpp")):
@@ -277,8 +277,8 @@ class PlatformBuilder:
         has_runtime = runtime_dir.exists() and all((runtime_dir / d).exists() for d in windows_dlls)
         if is_windows and not has_runtime:
             if self.config.is_offline:
-                raise RuntimeError("Carla Windowsランタイムが不完全です。オフラインモードでは自動取得できません: " + str(runtime_dir))
-            self.logger.log("Carla Windows バイナリをダウンロード中...")
+                raise RuntimeError("Carla Windows runtime is incomplete; cannot auto-fetch in offline mode: " + str(runtime_dir))
+            self.logger.log("Downloading Carla Windows binaries...")
             version = "2.5.10"
             url = f"https://github.com/falkTX/Carla/releases/download/v{version}/Carla-{version}-win64.zip"
             tmp_extract = sdk_dir / "_carla_extract_tmp"
@@ -287,31 +287,31 @@ class PlatformBuilder:
             tmp_extract.mkdir(parents=True, exist_ok=True)
             self.download_and_extract(url, tmp_extract)
 
-            # ZIP内のトップレベルディレクトリを探す (Carla-2.5.10-win64/)
+            # Find top-level directory inside ZIP (Carla-2.5.10-win64/)
             top_dirs = [d for d in tmp_extract.iterdir() if d.is_dir()]
             if not top_dirs:
-                raise RuntimeError("Carla ZIPの展開結果にディレクトリが見つかりません")
+                raise RuntimeError("No directory found in extracted Carla ZIP")
             extracted_root = top_dirs[0]
 
-            # Carla/サブディレクトリを runtime/ に保存
+            # Save Carla/ subdirectory to runtime/
             carla_subdir = extracted_root / "Carla"
             if not carla_subdir.exists():
-                raise RuntimeError(f"Carla ZIP内に Carla/ サブディレクトリが見つかりません: {extracted_root}")
+                raise RuntimeError(f"Carla/ subdirectory not found in Carla ZIP: {extracted_root}")
             if runtime_dir.exists():
                 self.remove_tree(runtime_dir)
             shutil.copytree(str(carla_subdir), str(runtime_dir))
 
-            # lib/ にDLLをコピー (CMake find_library およびリンク用)
+            # Copy DLLs to lib/ (for CMake find_library and linking)
             lib_dir.mkdir(parents=True, exist_ok=True)
             for dll_name in windows_dlls:
                 src = runtime_dir / dll_name
                 if src.exists():
                     shutil.copy2(str(src), str(lib_dir / dll_name))
                 else:
-                    self.logger.log(f"  警告: {dll_name} が runtime/ に見つかりません")
+                    self.logger.log(f"  Warning: {dll_name} not found in runtime/")
 
             self.remove_tree(tmp_extract)
-            self.logger.log(f"Carla ランタイム セットアップ完了: {runtime_dir}")
+            self.logger.log(f"Carla runtime setup complete: {runtime_dir}")
 
 
     def download_and_extract(self, url: str, dest_dir: Path):
@@ -332,8 +332,8 @@ class PlatformBuilder:
                         out.write(chunk)
             self.logger.log(f"  Extracting to {dest_dir}...")
 
-            # .tgz (tar.gz) の場合は shutil.unpack_archive が自動判別するが、
-            # 環境によって .tgz を認識しない場合があるためフォーマットを明示
+            # shutil.unpack_archive auto-detects .tgz (tar.gz), but
+            # some environments may not recognize .tgz, so specify format explicitly
             fmt = None
             if url.endswith(".tgz") or url.endswith(".tar.gz"):
                 fmt = "gztar"
@@ -370,40 +370,40 @@ class PlatformBuilder:
 class LinuxBuilderBase(PlatformBuilder):
     def __init__(self, config: BuildConfig, logger: Logger):
         super().__init__(config, logger)
-        # コンテナが使えない環境（CI内など）でも実行できるように、チェックを緩和
+        # Relax checks so it runs even in environments without containers (e.g. CI)
         self.use_container = config.use_container
         self.image_name = ""
 
     def warmup_container(self):
-        self.logger.log(f"コンテナ初期化を待機中 (distrobox init)...")
+        self.logger.log(f"Waiting for container init (distrobox init)...")
         self.run_cmd(["true"])
-        self.logger.log("コンテナ初期化完了")
+        self.logger.log("Container init complete")
 
     def create_container(self):
         if not (shutil.which("distrobox") and shutil.which("podman")):
-            raise RuntimeError("distrobox または podman が見つかりません")
-        self.logger.log(f"コンテナ '{self.container_name}' を準備中...")
+            raise RuntimeError("distrobox or podman not found")
+        self.logger.log(f"Preparing container '{self.container_name}'...")
         try:
             self.run_cmd(
                 ["distrobox", "create", "--name", self.container_name, "--image", self.image_name, "--yes"],
                 force_host=True,
             )
         except subprocess.CalledProcessError:
-            self.logger.log("コンテナは既に存在します。そのまま使用します。")
+            self.logger.log("Container already exists. Using as-is.")
         self.warmup_container()
 
     def install_dependencies(self):
         if not self.use_container:
             return
         if self.config.is_offline:
-            self.logger.log("依存関係インストールをスキップします (--offline)")
+            self.logger.log("Skipping dependency installation (--offline)")
             self.warmup_container()
             return
         self.create_container()
 
     def get_cmake_config_cmd(self) -> List[str]:
         cmd = super().get_cmake_config_cmd()
-        cmd.extend(["-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++"]) # clang/clang++ は ArchBuilder のみ
+        cmd.extend(["-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++"]) # clang/clang++ for ArchBuilder only
         if not self.config.is_debug:
             cmd.extend([
                 "-DCMAKE_CXX_FLAGS=-O3 -flto -fno-semantic-interposition -funsafe-math-optimizations",
@@ -416,15 +416,15 @@ class LinuxBuilderBase(PlatformBuilder):
     def package(self):
         self.prepare_output_dir()
         dest_bin = self.config.output_dir / "AviQtl"
-        # CMAKE_RUNTIME_OUTPUT_DIRECTORY = bin/ のため bin/ 下に生成される
+        # CMAKE_RUNTIME_OUTPUT_DIRECTORY = bin/, so binary is generated under bin/
         src_bin = self.config.work_dir / "bin" / "AviQtl"
         if dest_bin.exists():
             dest_bin.unlink()
         if not src_bin.exists():
-            raise FileNotFoundError(f"実行ファイルが見つかりません: {src_bin}")
+            raise FileNotFoundError(f"Executable not found: {src_bin}")
         shutil.copy2(src_bin, dest_bin)
         self.copy_assets(self.config.output_dir)
-        self.logger.log(f"実行ファイル: {dest_bin}")
+        self.logger.log(f"Executable: {dest_bin}")
 
 
 class ArchBuilder(LinuxBuilderBase):
@@ -435,18 +435,18 @@ class ArchBuilder(LinuxBuilderBase):
 
     def install_dependencies(self):
         if not self.use_container:
-            self.logger.log("No Container モード: システムパッケージのインストールをスキップ")
+            self.logger.log("No Container mode: skipping system package installation")
             return
-            
+
         super().install_dependencies()
         if self.config.is_offline:
             return
-        self.logger.log("pacman ロックファイルを確認中...")
+        self.logger.log("Checking pacman lock file...")
         try:
             self.run_cmd(["sudo", "rm", "-f", "/var/lib/pacman/db.lck"])
         except Exception:
             pass
-        self.logger.log("pacman -Syu --needed を実行中...")
+        self.logger.log("Running pacman -Syu --needed...")
         deps = [
             "base-devel", "git", "cmake", "ninja", "clang", "mold", "zip",
             "mesa", "vulkan-devel", "spirv-tools", "libxkbcommon", "wayland", "wayland-protocols",
@@ -458,7 +458,7 @@ class ArchBuilder(LinuxBuilderBase):
             "fluidsynth",
         ]
         self.run_cmd(["sudo", "pacman", "-Syu", "--needed", "--noconfirm"] + deps)
-        self.logger.log("Arch Linux 依存関係インストール完了")
+        self.logger.log("Arch Linux dependency installation complete")
 
     def get_archive_name(self) -> str:
         return "AviQtl-Arch-Linux-x86_64"
@@ -486,16 +486,16 @@ class Msys2Builder(PlatformBuilder):
 
     def install_dependencies(self):
         if self.config.is_offline:
-            self.logger.log("依存関係インストールをスキップします (--offline)")
+            self.logger.log("Skipping dependency installation (--offline)")
             self.setup_carla_sdk(is_windows=True)
             return
         if "MSYSTEM" not in os.environ:
-            self.logger.log("警告: MSYS2 環境外です。依存関係インストールをスキップします。")
+            self.logger.log("Warning: Outside MSYS2 environment. Skipping dependency installation.")
             self.setup_carla_sdk(is_windows=True)
             return
         if os.environ["MSYSTEM"] != "UCRT64":
-            self.logger.log("警告: UCRT64 以外の環境が検出されました。UCRT64 を推奨します。")
-        self.logger.log("pacman -Syu --needed を実行中...")
+            self.logger.log("Warning: Non-UCRT64 environment detected. UCRT64 is recommended.")
+        self.logger.log("Running pacman -Syu --needed...")
         deps = [
             "mingw-w64-ucrt-x86_64-toolchain", "mingw-w64-ucrt-x86_64-cmake",
             "mingw-w64-ucrt-x86_64-ninja", "git",
@@ -508,7 +508,7 @@ class Msys2Builder(PlatformBuilder):
             "zip", "mingw-w64-ucrt-x86_64-clang-tools-extra",
         ]
         self.run_cmd(["pacman", "-Syu", "--needed", "--noconfirm"] + deps)
-        self.logger.log("MSYS2 依存関係インストール完了")
+        self.logger.log("MSYS2 dependency installation complete")
         self.setup_carla_sdk(is_windows=True)
 
     def get_cmake_config_cmd(self) -> List[str]:
@@ -525,14 +525,14 @@ class Msys2Builder(PlatformBuilder):
         if dest_bin.exists():
             dest_bin.unlink()
         if not src_bin.exists():
-            raise FileNotFoundError(f"実行ファイルが見つかりません: {src_bin}")
+            raise FileNotFoundError(f"Executable not found: {src_bin}")
         shutil.copy2(src_bin, dest_bin)
         self.copy_assets(self.config.output_dir)
         self.copy_carla_runtime()
         self.copy_carla_link_dlls()
         self.copy_msys2_runtime_dlls()
-        
-        
+
+
         deploy_tool = "windeployqt6" if shutil.which("windeployqt6") else "windeployqt"
 
         deploy_exe = shutil.which(deploy_tool)
@@ -547,9 +547,9 @@ class Msys2Builder(PlatformBuilder):
                 extra_dirs.append(qt_share_bin_dir)
             if extra_dirs:
                 self.env["PATH"] = os.pathsep.join(extra_dirs + [current_path])
-                self.logger.log(f"Qt bin を PATH に追加: {', '.join(extra_dirs)}")
+                self.logger.log(f"Added Qt bin to PATH: {', '.join(extra_dirs)}")
 
-        self.logger.log(f"{deploy_tool} を実行中...")
+        self.logger.log(f"Running {deploy_tool}...")
         self.run_cmd([
             deploy_tool,
             "--qmldir", str(self.config.source_dir / "ui" / "qml"),
@@ -561,19 +561,19 @@ class Msys2Builder(PlatformBuilder):
         self.copy_msys2_dependency_dlls()
         with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
             f.write("[Paths]\nPlugins = .\n")
-        self.logger.log(f"実行ファイル: {dest_bin}")
+        self.logger.log(f"Executable: {dest_bin}")
 
     def copy_carla_runtime(self):
-        """Carlaランタイム一式 (runtime/ディレクトリ) をパッケージに同梱する"""
+        """Bundle the Carla runtime (runtime/ directory) into the package"""
         carla_runtime = self.config.source_dir / "vendor" / "carla" / "runtime"
         if not carla_runtime.exists():
-            self.logger.log("Carla runtime/ が見つかりません。Carla を同梱しません")
+            self.logger.log("Carla runtime/ not found. Not bundling Carla")
             return
         dest = self.config.output_dir / "Carla"
         if dest.exists():
             self.remove_tree(dest)
         shutil.copytree(str(carla_runtime), str(dest))
-        self.logger.log(f"Carla ランタイムを同梱: {dest}")
+        self.logger.log(f"Bundled Carla runtime: {dest}")
 
     def get_msys2_bin_dirs(self) -> List[Path]:
         dirs: List[Path] = []
@@ -716,18 +716,18 @@ class Msys2Builder(PlatformBuilder):
                 missing.append(dll_name)
                 continue
             shutil.copy2(src, self.config.output_dir / dll_name)
-            self.logger.log(f"MSYS2 ランタイムを同梱: {dll_name}")
+            self.logger.log(f"Bundled MSYS2 runtime: {dll_name}")
         if missing:
             raise FileNotFoundError(
-                "MSYS2 ランタイム DLL が見つかりません: "
+                "MSYS2 runtime DLLs were not found: "
                 + ", ".join(missing)
-                + "。MSYS2 UCRT64 環境で実行しているか確認してください。"
+                + ". Check that you are running in the MSYS2 UCRT64 environment."
             )
 
     def copy_carla_link_dlls(self):
         carla_lib = self.config.source_dir / "vendor" / "carla" / "lib"
         if not carla_lib.exists():
-            self.logger.log("Carla lib/ が見つかりません。Carla リンク DLL を同梱しません")
+            self.logger.log("Carla lib/ not found. Not bundling Carla link DLLs")
             return
         copied = set()
         for pattern in self.CARLA_DLL_PATTERNS:
@@ -736,15 +736,15 @@ class Msys2Builder(PlatformBuilder):
                     continue
                 shutil.copy2(dll, self.config.output_dir / dll.name)
                 copied.add(dll.name)
-                self.logger.log(f"Carla リンク DLL を同梱: {dll.name}")
+                self.logger.log(f"Bundled Carla link DLL: {dll.name}")
                 if dll.name in self.CARLA_DLL_ALIASES:
                     alias = self.CARLA_DLL_ALIASES[dll.name]
                     shutil.copy2(dll, self.config.output_dir / alias)
                     copied.add(alias)
-                    self.logger.log(f"Carla リンク DLL alias を同梱: {alias}")
+                    self.logger.log(f"Bundled Carla link DLL alias: {alias}")
 
     def find_carla_discovery_tool(self) -> Path | None:
-        # runtime/ 内の carla-discovery-native.exe を探す
+        # Look for carla-discovery-native.exe in runtime/
         carla_runtime = self.config.source_dir / "vendor" / "carla" / "runtime"
         candidate = carla_runtime / "carla-discovery-native.exe"
         if candidate.exists():
@@ -771,7 +771,7 @@ class MsvcBuilder(PlatformBuilder):
     def __init__(self, config: BuildConfig, logger: Logger):
         super().__init__(config, logger)
         if os.name != "nt":
-            raise RuntimeError("MSVC ビルドは Windows でのみ実行できます")
+            raise RuntimeError("MSVC build can only run on Windows")
         self.vcpkg_root: Path | None = None
         default_triplet = "x64-windows" if self.config.is_debug else "x64-windows-release"
         self.vcpkg_triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", default_triplet)
@@ -789,8 +789,8 @@ class MsvcBuilder(PlatformBuilder):
         self.qt_prefix = self.find_qt_prefix()
         if not self.qt_prefix:
             raise RuntimeError(
-                "Qt MSVC が見つかりません。公式 Qt をインストールし、--qt-dir で Qt ルート/kit を指定するか、"
-                "QT_MSVC_DIR, QT_DIR, QTDIR のいずれかを設定してください。"
+                "Qt MSVC not found. Install official Qt and specify --qt-dir with the Qt root/kit, "
+                "or set one of QT_MSVC_DIR, QT_DIR, QTDIR."
             )
         self.logger.log(f"Qt: {self.qt_prefix}")
         self.write_external_qt_manifest()
@@ -800,11 +800,11 @@ class MsvcBuilder(PlatformBuilder):
         self.cmake_path = self.find_msvc_tool("cmake")
         self.ninja_path = self.find_msvc_tool("ninja")
         if not self.cmake_path:
-            raise RuntimeError("cmake が見つかりません。CMake を PATH に追加してください")
+            raise RuntimeError("cmake not found. Add CMake to PATH")
         if not self.ninja_path:
-            raise RuntimeError("ninja が見つかりません。Ninja を PATH に追加してください")
+            raise RuntimeError("ninja not found. Add Ninja to PATH")
         if not shutil.which("cl", path=self.env.get("PATH")):
-            raise RuntimeError("cl.exe が見つかりません。vcvarsall.bat の読み込みに失敗した可能性があります")
+            raise RuntimeError("cl.exe not found. vcvarsall.bat may not have loaded properly")
         self.setup_carla_sdk(is_windows=True)
         self.generate_carla_import_libs()
 
@@ -813,33 +813,33 @@ class MsvcBuilder(PlatformBuilder):
         if vcpkg_root_env:
             env_root = Path(vcpkg_root_env)
             if not (env_root / "scripts").is_dir():
-                raise RuntimeError(f"VCPKG_ROOT が不正です。vcpkg の scripts ディレクトリが見つかりません: {env_root}")
+                raise RuntimeError(f"VCPKG_ROOT is invalid. vcpkg scripts directory not found: {env_root}")
             if not (env_root / "vcpkg.exe").exists() and not (env_root / "bootstrap-vcpkg.bat").exists():
-                raise RuntimeError(f"VCPKG_ROOT が不完全です。vcpkg.exe または bootstrap-vcpkg.bat が見つかりません: {env_root}")
+                raise RuntimeError(f"VCPKG_ROOT is incomplete. vcpkg.exe or bootstrap-vcpkg.bat not found: {env_root}")
 
         self.vcpkg_root = self.find_vcpkg_root(need_executable=True)
         if self.vcpkg_root:
-            self.logger.log(f"vcpkg 発見: {self.vcpkg_root}")
+            self.logger.log(f"vcpkg found: {self.vcpkg_root}")
             self.env["VCPKG_ROOT"] = str(self.vcpkg_root)
             return
 
         incomplete = self.find_vcpkg_root(need_executable=False)
         if incomplete and (incomplete / "bootstrap-vcpkg.bat").exists():
             self.vcpkg_root = incomplete
-            self.logger.log(f"vcpkg ディレクトリを検出 (vcpkg.exe なし)。ブートストラップを試みます: {self.vcpkg_root}")
+            self.logger.log(f"vcpkg directory detected (no vcpkg.exe). Attempting bootstrap: {self.vcpkg_root}")
             self._bootstrap_vcpkg()
             self.env["VCPKG_ROOT"] = str(self.vcpkg_root)
             return
 
         self.vcpkg_root = self.config.source_dir / "vcpkg"
         if self.config.is_offline:
-            raise RuntimeError("vcpkg が見つかりません。オフラインモードでは自動取得できないため、VCPKG_ROOT を設定してください。")
+            raise RuntimeError("vcpkg not found. Cannot auto-fetch in offline mode; set VCPKG_ROOT.")
         if not shutil.which("git", path=self.env.get("PATH")):
-            raise RuntimeError("git が見つかりません。vcpkg の自動取得には Git が必要です。Git をインストールするか VCPKG_ROOT を設定してください。")
+            raise RuntimeError("git not found. Git is required for automatic vcpkg fetch. Install Git or set VCPKG_ROOT.")
         if self.vcpkg_root.exists() and not (self.vcpkg_root / "scripts").is_dir():
-            self.logger.log(f"不完全な vcpkg ディレクトリを削除します: {self.vcpkg_root}")
+            self.logger.log(f"Removing incomplete vcpkg directory: {self.vcpkg_root}")
             self.remove_tree(self.vcpkg_root)
-        self.logger.log(f"vcpkg が見つかりません。{self.vcpkg_root} にクローン中...")
+        self.logger.log(f"vcpkg not found. Cloning to {self.vcpkg_root}...")
         self.run_cmd(["git", "clone", "--depth", "1", "https://github.com/microsoft/vcpkg.git", str(self.vcpkg_root)], force_host=True)
         self._bootstrap_vcpkg()
         self.env["VCPKG_ROOT"] = str(self.vcpkg_root)
@@ -847,12 +847,12 @@ class MsvcBuilder(PlatformBuilder):
     def _bootstrap_vcpkg(self):
         bootstrap = self.vcpkg_root / "bootstrap-vcpkg.bat"
         if not bootstrap.exists():
-            raise RuntimeError(f"vcpkg のブートストラップスクリプトが見つかりません: {bootstrap}")
-        self.logger.log("vcpkg をブートストラップ中...")
+            raise RuntimeError(f"vcpkg bootstrap script not found: {bootstrap}")
+        self.logger.log("Bootstrapping vcpkg...")
         self.run_cmd([str(bootstrap)], force_host=True)
         if not (self.vcpkg_root / "vcpkg.exe").exists():
-            raise RuntimeError("vcpkg のブートストラップに失敗しました。vcpkg.exe が生成されていません。ネットワーク接続を確認してください。")
-        self.logger.log("vcpkg の準備完了")
+            raise RuntimeError("vcpkg bootstrap failed. vcpkg.exe was not generated. Check network connection.")
+        self.logger.log("vcpkg ready")
 
     def prepare_vcpkg_installed_tree(self):
         installed_root = self.config.work_dir / "vcpkg_installed"
@@ -874,7 +874,7 @@ class MsvcBuilder(PlatformBuilder):
             return
 
         if installed_root.exists():
-            self.logger.log("古い、または不完全な vcpkg_installed を削除します")
+            self.logger.log("Removing old or incomplete vcpkg_installed")
             self.remove_tree(installed_root)
         self.config.work_dir.mkdir(parents=True, exist_ok=True)
         marker.write_text(expected, encoding="utf-8")
@@ -886,7 +886,7 @@ class MsvcBuilder(PlatformBuilder):
         if manifest_in.exists():
             data = json.loads(manifest_in.read_text(encoding="utf-8"))
         else:
-            self.logger.log(f"警告: {manifest_in} が見つかりません。フォールバック設定を使用します。")
+            self.logger.log(f"Warning: {manifest_in} not found. Using fallback configuration.")
             data = {
                 "name": "aviqtl",
                 "dependencies": ["ffmpeg", "luajit", "vulkan", "ecm", "pkgconf"],
@@ -909,13 +909,13 @@ class MsvcBuilder(PlatformBuilder):
             if not path.exists():
                 triplets_dir.mkdir(parents=True, exist_ok=True)
                 path.write_text(triplets_content, encoding="utf-8")
-                self.logger.log(f"vcpkg triplet を生成: {path}")
+                self.logger.log(f"Generated vcpkg triplet: {path}")
 
     def get_cmake_cmd(self) -> str:
         return self.cmake_path or "cmake"
 
     def generate_carla_import_libs(self):
-        """MSVCではMinGWビルドのCarla DLLを直接リンクできないため、\n        dumpbin /exports と lib.exe /DEF でimport lib (.lib + .def) を生成する。"""
+        """MSVC cannot directly link MinGW-built Carla DLLs, so generate import libs (.lib + .def) via dumpbin /exports and lib.exe /DEF."""
         carla_lib_dir = self.config.source_dir / "vendor" / "carla" / "lib"
         carla_def_dir = self.config.source_dir / "vendor" / "carla" / "def"
         if not carla_lib_dir.exists():
@@ -923,7 +923,7 @@ class MsvcBuilder(PlatformBuilder):
         dumpbin_exe = shutil.which("dumpbin", path=self.env.get("PATH"))
         lib_exe = shutil.which("lib", path=self.env.get("PATH"))
         if not dumpbin_exe or not lib_exe:
-            self.logger.log("dumpbin.exe または lib.exe が見つからないため、Carla import lib を生成しません")
+            self.logger.log("dumpbin.exe or lib.exe not found; skipping Carla import lib generation")
             self.logger.log(f"  dumpbin={dumpbin_exe}, lib={lib_exe}")
             return
         generated = 0
@@ -940,7 +940,7 @@ class MsvcBuilder(PlatformBuilder):
             def_name = dll_name.replace(".dll", ".def")
             lib_path = carla_lib_dir / lib_name
             def_path = carla_def_dir / def_name
-            # .lib がすでに存在し、DLLより新しければスキップ
+            # Skip if .lib already exists and is newer than DLL
             if lib_path.exists() and lib_path.stat().st_mtime >= dll_path.stat().st_mtime:
                 continue
             self.logger.log(f"  Generating import lib for {dll_name}")
@@ -977,7 +977,7 @@ class MsvcBuilder(PlatformBuilder):
                 continue
             generated += 1
         if generated:
-            self.logger.log(f"Carla import lib 生成完了: {generated} file(s)")
+            self.logger.log(f"Carla import lib generation complete: {generated} file(s)")
 
     def find_vcvarsall(self) -> Path | None:
         candidates = []
@@ -1026,7 +1026,7 @@ class MsvcBuilder(PlatformBuilder):
     def setup_msvc_environment(self):
         vcvarsall = self.find_vcvarsall()
         if not vcvarsall:
-            raise RuntimeError("vcvarsall.bat が見つかりません。Visual Studio Build Tools の C++ ツールセットをインストールしてください")
+            raise RuntimeError("vcvarsall.bat not found. Install the Visual Studio Build Tools with the C++ toolset")
         self.logger.log(f"vcvarsall: {vcvarsall}")
         self.vs_install_dir = vcvarsall.parents[3]
         wrapper_path = None
@@ -1045,7 +1045,7 @@ class MsvcBuilder(PlatformBuilder):
                 errors="replace",
             )
             if proc.returncode != 0:
-                raise RuntimeError(f"vcvarsall.bat の実行に失敗しました:\n{proc.stdout}\n{proc.stderr}")
+                raise RuntimeError(f"vcvarsall.bat execution failed:\n{proc.stdout}\n{proc.stderr}")
             for line in proc.stdout.splitlines():
                 if "=" not in line:
                     continue
@@ -1107,7 +1107,7 @@ class MsvcBuilder(PlatformBuilder):
         if found and not self.is_msys_path(found):
             return found
         if found:
-            self.logger.log(f"警告: MSYS2/MinGW の {exe} を検出したため MSVC ビルドでは使用しません: {found}")
+            self.logger.log(f"Warning: Detected MSYS2/MinGW {exe}, not using it for MSVC build: {found}")
         return None
 
     def find_vcpkg_root(self, *, need_executable: bool = True) -> Path | None:
@@ -1170,7 +1170,7 @@ class MsvcBuilder(PlatformBuilder):
             qt_prefix = self.resolve_qt_prefix(self.config.qt_dir)
             if qt_prefix:
                 return qt_prefix
-            raise RuntimeError(f"指定された Qt ディレクトリから MSVC 版 Qt を検出できません: {self.config.qt_dir}")
+            raise RuntimeError(f"Could not detect MSVC Qt from the specified Qt directory: {self.config.qt_dir}")
 
         for name in self.QT_ENV_VARS:
             value = self.env.get(name) or os.environ.get(name)
@@ -1182,7 +1182,7 @@ class MsvcBuilder(PlatformBuilder):
         if deployqt and not self.is_msys_path(deployqt):
             return Path(deployqt).parent.parent
         if deployqt:
-            self.logger.log(f"警告: MSYS2/MinGW の windeployqt を検出したため MSVC ビルドでは使用しません: {deployqt}")
+            self.logger.log(f"Warning: Detected MSYS2/MinGW windeployqt, not using it for MSVC build: {deployqt}")
         for qt_root in (Path(r"C:\Qt"),):
             if qt_root.exists():
                 qt_prefix = self.resolve_qt_prefix(qt_root)
@@ -1221,7 +1221,7 @@ class MsvcBuilder(PlatformBuilder):
         if deployqt and not self.is_msys_path(deployqt):
             return deployqt
         if deployqt:
-            self.logger.log(f"警告: MSYS2/MinGW の windeployqt を検出したため MSVC ビルドでは使用しません: {deployqt}")
+            self.logger.log(f"Warning: Detected MSYS2/MinGW windeployqt, not using it for MSVC build: {deployqt}")
         return None
 
     def package(self):
@@ -1231,15 +1231,15 @@ class MsvcBuilder(PlatformBuilder):
         if dest_bin.exists():
             dest_bin.unlink()
         if not src_bin.exists():
-            raise FileNotFoundError(f"実行ファイルが見つかりません: {src_bin}")
+            raise FileNotFoundError(f"Executable not found: {src_bin}")
         shutil.copy2(src_bin, dest_bin)
         self.copy_assets(self.config.output_dir)
         self.copy_carla_runtime()
 
         deployqt = self.find_windeployqt()
         if not deployqt:
-            raise RuntimeError("windeployqt が見つかりません。Qt MSVC の bin ディレクトリを PATH に追加するか QT_MSVC_DIR を設定してください")
-        self.logger.log("windeployqt を実行中...")
+            raise RuntimeError("windeployqt not found. Add the Qt MSVC bin directory to PATH or set QT_MSVC_DIR")
+        self.logger.log("Running windeployqt...")
         self.run_cmd([
             deployqt,
             "--qmldir", str(self.config.source_dir / "ui/qml"),
@@ -1250,7 +1250,7 @@ class MsvcBuilder(PlatformBuilder):
         ])
         with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
             f.write("[Paths]\nPlugins = .\n")
-        self.logger.log(f"実行ファイル: {dest_bin}")
+        self.logger.log(f"Executable: {dest_bin}")
 
     def get_archive_name(self) -> str:
         return "AviQtl-MSVC-x86_64"
@@ -1275,7 +1275,7 @@ class MsvcBuilder(PlatformBuilder):
             shutil.copy2(discovery, self.config.output_dir / "carla-discovery-native.exe")
             copied.add("carla-discovery-native.exe")
         if copied:
-            self.logger.log(f"Carla ランタイムを同梱: {len(copied)} files")
+            self.logger.log(f"Bundled Carla runtime: {len(copied)} files")
 
     def find_carla_discovery_tool(self) -> Path | None:
         carla_root = self.config.source_dir / "vendor" / "carla"
@@ -1294,20 +1294,20 @@ class MsvcBuilder(PlatformBuilder):
 class XcodeBuilder(PlatformBuilder):
     def install_dependencies(self):
         if self.config.is_offline:
-            self.logger.log("依存関係インストールをスキップします (--offline)")
+            self.logger.log("Skipping dependency installation (--offline)")
             return
         if not shutil.which("brew"):
-            raise RuntimeError("Homebrew が見つかりません") # Homebrew is essential for macOS
-        self.logger.log("brew install を実行中...")
+            raise RuntimeError("Homebrew not found")
+        self.logger.log("Running brew install...")
         deps = [
             "cmake", "ninja", "qt6", "ffmpeg", "luajit",
             "vulkan-headers", "vulkan-loader", "spirv-tools", "pkg-config",
             "lilv", "extra-cmake-modules", "carla",
         ]
         self.run_cmd(["brew", "install"] + deps)
-        self.logger.log("macOS 依存関係インストール完了")
-        
-        # macOS は Universal バイナリを使用
+        self.logger.log("macOS dependency installation complete")
+
+        # macOS uses Universal binaries
 
     def get_cmake_config_cmd(self) -> List[str]:
         cmd = super().get_cmake_config_cmd()
@@ -1326,10 +1326,10 @@ class XcodeBuilder(PlatformBuilder):
         if dest_app.exists():
             self.remove_tree(dest_app)
         if not src_app.exists():
-            raise FileNotFoundError(f"App バンドルが見つかりません: {src_app}")
+            raise FileNotFoundError(f"App bundle not found: {src_app}")
         shutil.copytree(src_app, dest_app)
         self.copy_assets(dest_app / "Contents/Resources")
-        self.logger.log("macdeployqt を実行中...")
+        self.logger.log("Running macdeployqt...")
         qt_prefix = subprocess.check_output(["brew", "--prefix", "qt6"], text=True).strip()
         self.run_cmd([
             f"{qt_prefix}/bin/macdeployqt", str(dest_app),
@@ -1338,7 +1338,7 @@ class XcodeBuilder(PlatformBuilder):
             "-no-codesign",
         ])
 
-        self.logger.log("RPATH を修正中...")
+        self.logger.log("Fixing RPATH...")
         binary = dest_app / "Contents/MacOS/AviQtl"
         rpaths_to_remove = [
             "/opt/homebrew/lib",
@@ -1346,11 +1346,11 @@ class XcodeBuilder(PlatformBuilder):
         for rp in rpaths_to_remove:
             try:
                 self.run_cmd(["install_name_tool", "-delete_rpath", rp, str(binary)])
-                self.logger.log(f"  削除: {rp}")
+                self.logger.log(f"  Removing: {rp}")
             except subprocess.CalledProcessError:
-                self.logger.log(f"  スキップ: {rp}")
+                self.logger.log(f"  Skipping: {rp}")
 
-        self.logger.log("QMLモジュールの重複コピーをクリーンアップ中...")
+        self.logger.log("Cleaning up duplicate QML module copies...")
         duplicate_qml_dirs = [
             dest_app / "Contents/Resources/qml/AviQtl",
             dest_app / "Contents/PlugIns/qml/AviQtl",
@@ -1358,27 +1358,27 @@ class XcodeBuilder(PlatformBuilder):
         for d in duplicate_qml_dirs:
             if d.exists():
                 self.remove_tree(d)
-                self.logger.log(f"  削除: {d}")
+                self.logger.log(f"  Removing: {d}")
 
-        # carla-discovery-native をバイナリ同梱
-        self.logger.log("carla-discovery-native を同梱中...")
+        # Bundle carla-discovery-native binary
+        self.logger.log("Bundling carla-discovery-native...")
         try:
             carla_prefix = subprocess.check_output(["brew", "--prefix", "carla"], text=True).strip()
-            # Homebrew の構造に合わせてパスを探索
+            # Search paths matching Homebrew structure
             carla_bin_src = Path(carla_prefix) / "lib/carla/carla-discovery-native"
             if not carla_bin_src.exists():
                  carla_bin_src = next(Path(carla_prefix).glob("**/carla-discovery-native"), None)
-            
+
             carla_bin_dst = dest_app / "Contents/MacOS/carla-discovery-native"
             if carla_bin_src and carla_bin_src.exists():
                 shutil.copy2(carla_bin_src, carla_bin_dst)
-                self.logger.log(f"  同梱完了: {carla_bin_src}")
+                self.logger.log(f"  Bundled: {carla_bin_src}")
         except Exception as e:
-            self.logger.log(f"  警告: carla-discovery-native の特定に失敗しました: {e}")
+            self.logger.log(f"  Warning: could not locate carla-discovery-native: {e}")
 
-        self.logger.log("codesign を実行中...")
+        self.logger.log("Running codesign...")
         self.run_cmd(["codesign", "--deep", "--force", "--sign", "-", str(dest_app)])
-        self.logger.log(f"App バンドル: {dest_app}")
+        self.logger.log(f"App bundle: {dest_app}")
 
     def get_archive_name(self) -> str:
         return "AviQtl-macOS-Xcode-Universal"
@@ -1416,7 +1416,7 @@ class BuildWorker(QtCore.QThread):
             if self.cancel_requested:
                 self.builder.cancel()
             self.builder.build()
-            self.finished_signal.emit(True, "ビルド成功")
+            self.finished_signal.emit(True, "Build succeeded")
         except Exception as e:
             self.finished_signal.emit(False, str(e))
 
@@ -1430,57 +1430,57 @@ class BuildWorker(QtCore.QThread):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="BUILD.py",
-        description="AviQtl ビルドスクリプト",
+        description="AviQtl build script",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=(
-            "使用例:\n"
+            "Examples:\n"
             "  python BUILD.py --arch\n"
             "  python BUILD.py --msys2 --debug\n"
             "  python BUILD.py --msvc --qt-dir C:\\Qt\n"
-            "  python BUILD.py  # Windows では既定で MSYS2\n"
+            "  python BUILD.py  # Windows defaults to MSYS2\n"
             "  python BUILD.py --xcode --offline\n"
         ),
     )
     target_group = parser.add_mutually_exclusive_group(required=False)
     target_group.add_argument(
         "--arch", action="store_true",
-        help="Linux (Arch) 向けビルド",
+        help="Build for Linux (Arch)",
     )
     target_group.add_argument(
         "--msys2", action="store_true",
-        help="Windows (MSYS2) 向けビルド",
+        help="Build for Windows (MSYS2)",
     )
     target_group.add_argument(
         "--msvc", action="store_true",
-        help="Windows (MSVC x64) 向けビルド。vcvarsall.bat を自動検出して MSVC 環境を読み込みます。",
+        help="Build for Windows (MSVC x64). Auto-detects vcvarsall.bat to load the MSVC environment.",
     )
     target_group.add_argument(
         "--xcode", action="store_true",
-        help="macOS (Xcode) 向けビルド",
+        help="Build for macOS (Xcode)",
     )
     parser.add_argument(
         "--offline", action="store_true",
-        help="依存関係のダウンロード・インストールをスキップします。既に環境が整っている場合に使用してください。",
+        help="Skip downloading/installing dependencies. Use when the environment is already set up.",
     )
     parser.add_argument(
         "--debug", action="store_true",
-        help="Debug ビルドを実行します。デフォルトは Release です。",
+        help="Perform a Debug build. Default is Release.",
     )
     parser.add_argument(
         "--no-container", action="store_true",
-        help="Linux ターゲットでコンテナを使わずホスト環境でビルドします (非推奨)。",
+        help="Build for Linux target on the host without a container (not recommended).",
     )
     parser.add_argument(
         "--qt-dir", type=Path,
-        help="MSVC ビルドで使用する公式 Qt のディレクトリ。--msvc 指定時のみ使用します。未指定時は QT_MSVC_DIR, QT_DIR, QTDIR, PATH を確認します。",
+        help="Official Qt directory for MSVC build. Only used with --msvc. When unspecified, checks QT_MSVC_DIR, QT_DIR, QTDIR, PATH.",
     )
     parser.add_argument(
         "--version", type=str, default="0.0.0",
-        help="アプリケーションのバージョンを指定 (例: 0.1.0 または 0.1.0-Anon)。"
+        help="Specify the application version (e.g. 0.1.0 or 0.1.0-Anon)."
     )
     parser.add_argument(
         "--codename", type=str, default="Unstable",
-        help="コードネームを指定 (例: Unstable)。"
+        help="Specify the codename (e.g. Unstable)."
     )
     return parser.parse_args()
 
@@ -1510,11 +1510,11 @@ def main():
 
     args = parse_args()
 
-    # ターゲットの決定
+    # Determine target
     target = determine_target(args)
 
     if not target:
-        print("エラー: ビルドターゲットを特定できません。--arch, --msys2, --msvc, --xcode のいずれかを指定してください。")
+        print("Error: Could not determine build target. Specify one of --arch, --msys2, --msvc, --xcode.")
         sys.exit(1)
 
     source_dir = Path.cwd()
@@ -1524,7 +1524,7 @@ def main():
         output_dir=source_dir / "build",
         target=target,
         is_debug=args.debug,
-        # コンテナ利用は Linux かつ --no-container が指定されていない場合のみ
+        # Only use container on Linux when --no-container is not set
         use_container=(target == "arch" and not args.no_container),
         is_offline=args.offline,
         qt_dir=args.qt_dir,
@@ -1550,32 +1550,32 @@ def main():
     def cancel_build():
         nonlocal cancelled
         if cancelled:
-            print("\n強制終了します。")
+            print("\nForce quitting.")
             os._exit(130)
         cancelled = True
-        print("\nビルドをキャンセルしています...")
+        print("\nCancelling build...")
         worker.cancel()
 
     signal.signal(signal.SIGINT, lambda _signum, _frame: cancel_build())
 
-    # Qt のイベントループ中でも Python が SIGINT を処理できるようにする。
+    # Ensure Python can handle SIGINT even inside the Qt event loop.
     sigint_timer = QtCore.QTimer()
     sigint_timer.timeout.connect(lambda: None)
     sigint_timer.start(200)
 
     def on_finished(success: bool, msg: str):
         if cancelled:
-            print("\nビルドをキャンセルしました。")
+            print("\nBuild cancelled.")
             app.exit(130)
             return
         if success:
             app.quit()
         else:
-            print(f"\nビルド失敗: {msg}")
+            print(f"\nBuild failed: {msg}")
             app.exit(1)
 
     worker.finished_signal.connect(on_finished)
-    print(f"ビルド開始 | ターゲット={target} | {config.build_type} | {mode} | オフライン={config.is_offline}")
+    print(f"Build started | target={target} | {config.build_type} | {mode} | offline={config.is_offline}")
     worker.start()
     try:
         exit_code = app.exec()

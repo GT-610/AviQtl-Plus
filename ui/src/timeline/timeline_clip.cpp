@@ -28,7 +28,7 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
     layer = std::max(layer, 0);
 
     if (isLayerLocked(layer)) {
-        qWarning() << "createClipInternal: レイヤー" << layer << "はロックされています。";
+        qWarning() << "createClipInternal: layer" << layer << " is locked.";
         return;
     }
 
@@ -418,7 +418,7 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
 
     // 移動元または移動先がロックされている場合は拒否
     if (isLayerLocked(layer) || isLayerLocked(existingClip->layer)) {
-        qWarning() << "updateClipInternal: ロックされたレイヤーへの/からの操作を拒否しました。";
+        qWarning() << "updateClipInternal: Rejected operation on/to a locked layer.";
         return;
     }
 
@@ -801,7 +801,7 @@ int TimelineService::pasteClip(int frame, int layer) {
         newClip.layer = std::max(0, layer + (src.layer - baseLayer));
         for (const auto &c : std::as_const(pending)) {
             if (c.layer == newClip.layer && overlaps(newClip.startFrame, newClip.durationFrames, c.startFrame, c.durationFrames)) {
-                qWarning() << "クリップ貼り付けを拒否: 貼り付け対象同士が衝突";
+                qWarning() << "Clip paste rejected: target clips overlap";
                 return safeFrame;
             }
         }

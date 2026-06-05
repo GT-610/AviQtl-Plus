@@ -76,7 +76,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
     }
 
     int loadedCount = 0;
-    qDebug().noquote() << "[EffectRegistry] スキャン中:" << path;
+    qDebug().noquote() << "[EffectRegistry] Scanning:" << path;
 
     // *.json ファイルをサブディレクトリを含めて検索
     QDirIterator it(path, {QStringLiteral("*.json")}, QDir::Files, QDirIterator::Subdirectories);
@@ -104,20 +104,20 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         QVariantMap uiDef = obj.value(QStringLiteral("ui")).toObject().toVariantMap();
 
         if (!uiDef.contains(QStringLiteral("controls"))) {
-            qWarning().noquote() << QStringLiteral("不正な定義のためスキップ (ui.controls なし):") << file.fileName();
+            qWarning().noquote() << QStringLiteral("Skipping invalid definition (ui.controls missing):") << file.fileName();
             continue;
         }
 
         QString version = obj.value(QStringLiteral("version")).toString();
         QRegularExpression versionRegex(QStringLiteral("^\\d+\\.\\d+\\.\\d+$"));
         if (!versionRegex.match(version).hasMatch()) {
-            qWarning().noquote() << QStringLiteral("versionの形式が不正または存在しません (x.x.x必須):") << file.fileName();
+            qWarning().noquote() << QStringLiteral("Version format is invalid or missing (x.x.x required):") << file.fileName();
             continue;
         }
 
         QString kind = obj.value(QStringLiteral("kind")).toString();
         if (kind != QStringLiteral("effect") && kind != QStringLiteral("object")) {
-            qWarning().noquote() << QStringLiteral("kindが不正です ('effect'または'object'必須):") << file.fileName();
+            qWarning().noquote() << QStringLiteral("Invalid kind ('effect' or 'object' required):") << file.fileName();
             continue;
         }
 
@@ -129,12 +129,12 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
             }
         }
         if (categories.isEmpty()) {
-            qWarning().noquote() << QStringLiteral("categoriesが空または存在しません (1つ以上のカテゴリ必須):") << file.fileName();
+            qWarning().noquote() << QStringLiteral("Categories is empty or missing (at least one category required):") << file.fileName();
             continue;
         }
 
         if (id.isEmpty() || name.isEmpty() || qmlFileName.isEmpty()) {
-            qWarning().noquote() << QStringLiteral("不完全な定義のためスキップ:") << file.fileName();
+            qWarning().noquote() << QStringLiteral("Skipping incomplete definition:") << file.fileName();
             continue;
         }
 
@@ -166,7 +166,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         if (QFile::exists(absoluteQmlPath)) {
             meta.qmlSource = QUrl::fromLocalFile(absoluteQmlPath).toString();
         } else {
-            qWarning().noquote() << "[EffectRegistry] 参照されているQMLファイルが見つかりません。エフェクト:" << id << "パス:" << absoluteQmlPath;
+            qWarning().noquote() << "[EffectRegistry] Referenced QML file not found. Effect:" << id << "Path:" << absoluteQmlPath;
             continue;
         }
 
@@ -174,7 +174,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         loadedCount++;
     }
 
-    qDebug().noquote() << "[EffectRegistry]" << dir.dirName() << "→" << loadedCount << "個";
+    qDebug().noquote() << "[EffectRegistry]" << dir.dirName() << "→" << loadedCount << " loaded";
 }
 
 } // namespace AviQtl::Core

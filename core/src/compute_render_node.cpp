@@ -336,7 +336,7 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
 
     m_shaderDirty = false;
     m_renderTargetDirty = false;
-    qCDebug(lcComputeRenderNode) << (graphicsOk ? (computeOk ? "Compute/Graphics" : "Graphics Only") : "Compute Only") << "パイプライン構築完了:" << m_shaderPath;
+    qCDebug(lcComputeRenderNode) << (graphicsOk ? (computeOk ? "Compute/Graphics" : "Graphics Only") : "Compute Only") << "Pipeline build complete:" << m_shaderPath;
     return graphicsOk;
 }
 

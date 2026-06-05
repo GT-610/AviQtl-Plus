@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-check.py - プロジェクト全体の cppcheck を一括実行するスクリプト
-使用法:
-    python check.py [オプション]
+check.py - Script to run cppcheck across the entire project
+Usage:
+    python check.py [options]
 
-オプション:
-    --jobs N        並列実行数 (デフォルト: CPU コア数)
-    --level LEVEL   チェックレベル: normal / all (デフォルト: normal)
-    --xml           結果を XML 形式で出力 (check_result.xml に保存)
-    --fix           対応可能な警告を自動修正 (実験的)
-    --suppress FILE 抑制リストファイルを指定 (デフォルト: .cppcheck_suppress)
-    --build-dir DIR compile_commands.json のあるビルドディレクトリを指定
-    --full          究極の解析モード (全ツール最高レベル + 自動修正)
-    --clazy-level L Clazy のチェックレベル (1-3, デフォルト: 1)
-    --import-path P QML のインポートパスを指定 (複数可)
-    --skip-qml      QML のチェックをスキップ
-    --skip-cppcheck Cppcheck をスキップ
-    --skip-clazy    Clazy をスキップ
-    --skip-tidy     Clang-Tidy をスキップ
-    --skip-format   コード整形をスキップ
+Options:
+    --jobs N        Number of parallel jobs (default: CPU cores)
+    --level LEVEL   Check level: normal / all (default: normal)
+    --xml           Output results in XML format (saved to check_result.xml)
+    --fix           Auto-fix fixable warnings (experimental)
+    --suppress FILE Specify suppress list file (default: .cppcheck_suppress)
+    --build-dir DIR Build directory containing compile_commands.json
+    --full          Ultimate analysis mode (max level for all tools + auto-fix)
+    --clazy-level L Clazy check level (1-3, default: 1)
+    --import-path P QML import path (can be specified multiple times)
+    --skip-qml      Skip QML checks
+    --skip-cppcheck Skip Cppcheck
+    --skip-clazy    Skip Clazy
+    --skip-tidy     Skip Clang-Tidy
+    --skip-format   Skip code formatting
 """
 
 import argparse
@@ -43,7 +43,7 @@ def find_cpp_files(root: Path) -> list[Path]:
     for path in root.rglob("*.cpp"):
         if any(p in exclude_dirs for p in path.parts):
             continue
-        # Qt 自動生成ファイルを除外
+        # Exclude Qt auto-generated files
         if path.name.startswith("moc_") or path.name.startswith("qrc_"):
             continue
         result.append(path)
@@ -92,21 +92,21 @@ def run_formatting(root: Path) -> None:
             cpp_hpp_files.append(path)
     
     if cpp_hpp_files and shutil.which("clang-format"):
-        print(f"  C++/HPP ({len(cpp_hpp_files)} 件) を整形中...")
+        print(f"  Formatting C++/HPP ({len(cpp_hpp_files)} files)...")
         subprocess.run(["clang-format", "-i"] + [str(f) for f in cpp_hpp_files], cwd=root, stderr=subprocess.STDOUT)
     elif not shutil.which("clang-format"):
-        print(f"{RED}警告: clang-format が見つかりません。{RESET}")
+        print(f"{RED}Warning: clang-format not found.{RESET}")
 
     # QML files
     qml_files = find_qml_files(root)
     if qml_files and shutil.which("qmlformat"):
-        print(f"  QML ({len(qml_files)} 件) を整形中...")
-        # 一括で渡して実行
+        print(f"  Formatting QML ({len(qml_files)} files)...")
+        # Pass all at once and execute
         subprocess.run(["qmlformat", "-i"] + [str(f) for f in qml_files], cwd=root, stderr=subprocess.STDOUT)
     elif not shutil.which("qmlformat"):
-        print(f"{RED}警告: qmlformat が見つかりません。{RESET}")
+        print(f"{RED}Warning: qmlformat not found.{RESET}")
     
-    print(f"{GREEN}  整形完了{RESET}\n")
+    print(f"{GREEN}  Formatting complete{RESET}\n")
 
 def run_cppcheck(
     files: list[Path],
@@ -117,10 +117,10 @@ def run_cppcheck(
 ) -> list[str]:
     cmd = ["cppcheck"]
 
-    # 並列数
+    # Number of parallel jobs
     cmd += [f"-j{args.jobs}"]
 
-    # C++ 標準
+    # C++ standard
     cmd += ["--std=c++23"]
 
     if args.level == "all":
@@ -128,11 +128,11 @@ def run_cppcheck(
     else:
         cmd += ["--enable=warning,performance,portability,information,style"]
 
-    # インクルードディレクトリ
+    # Include directories
     for d in include_dirs:
         cmd += [f"-I{d}"]
 
-    # Qt / FFmpeg / LuaJIT の最低限の定義 (誤検知抑制)
+    # Minimal defines for Qt / FFmpeg / LuaJIT (suppress false positives)
     defines = [
         "Q_OBJECT=", "Q_INVOKABLE=", "Q_PROPERTY(...)=", "Q_SIGNALS=protected",
         "Q_SLOTS=", "Q_EMIT=", "slots=", "signals=protected:",
@@ -140,33 +140,33 @@ def run_cppcheck(
     for d in defines:
         cmd += [f"-D{d}"]
 
-    # 抑制
+    # Suppressions
     for s in suppress_list:
         cmd += [f"--suppress={s}"]
-    # Qt 生成コードに起因する誤検知を共通抑制
+    # Common suppression for false positives from Qt generated code
     cmd += [
         "--suppress=missingIncludeSystem",
         "--suppress=unmatchedSuppression",
         "--suppress=unknownMacro",
     ]
 
-    # compile_commands.json があれば使う
+    # Use compile_commands.json if available
     if args.build_dir:
         bd = Path(args.build_dir)
         cc = bd / "compile_commands.json"
         if cc.exists():
             cmd += [f"--project={cc}"]
         else:
-            print(f"{YELLOW}警告: {cc} が見つかりません。ファイルリストで実行します。{RESET}")
+            print(f"{YELLOW}Warning: {cc} not found. Running with file list.{RESET}")
             cmd += [str(f) for f in files]
     else:
         cmd += [str(f) for f in files]
 
-    # XML 出力
+    # XML output
     if args.xml:
         cmd += ["--xml", "--xml-version=2"]
 
-    # テンプレート (通常テキスト出力時)
+    # Template (for normal text output)
     if not args.xml:
         cmd += ["--template={file}:{line}: [{severity}] {id}: {message}"]
 
@@ -179,12 +179,12 @@ def run_qmllint(files: list[Path], args: argparse.Namespace, root: Path) -> int:
         return 0
     print(f"{BOLD}{YELLOW}--- qmllint (including QQmlSA) ---{RESET}")
     if not shutil.which("qmllint"):
-        print(f"{RED}警告: qmllint が見つかりません。スキップします。{RESET}")
+        print(f"{RED}Warning: qmllint not found. Skipping.{RESET}")
         return 0
     
     cmd = ["qmllint"]
     
-    # インポートパスの設定
+    # Set import paths
     if args.import_path:
         for p in args.import_path:
             cmd += ["-I", p]
@@ -203,16 +203,16 @@ def run_clazy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
     print(f"{BOLD}{YELLOW}--- Clazy (Qt Anti-Patterns) ---{RESET}")
     executable = shutil.which("clazy-standalone") or shutil.which("clazy")
     if not executable:
-        print(f"{RED}警告: clazy が見つかりません。スキップします。{RESET}")
+        print(f"{RED}Warning: clazy not found. Skipping.{RESET}")
         return 0
 
     if not args.build_dir:
-        print(f"{RED}エラー: Clazy の実行には --build-dir が必要です。{RESET}")
+        print(f"{RED}Error: --build-dir is required to run Clazy.{RESET}")
         return 1
 
     cc_json = Path(args.build_dir) / "compile_commands.json"
     if not cc_json.exists():
-        print(f"{RED}エラー: {cc_json} が見つかりません。{RESET}")
+        print(f"{RED}Error: {cc_json} not found.{RESET}")
         return 1
 
     if args.full:
@@ -220,19 +220,19 @@ def run_clazy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
     else:
         clazy_checks = [f"level{i}" for i in range(1, min(args.clazy_level, 2) + 1)]
 
-    # 非対応チェック名を除去
+    # Remove unsupported check names
     checks_str = ",".join(clazy_checks + ["qstring-allocations"])
     cmd = [executable, f"-p={args.build_dir}", f"-checks={checks_str}"] + [str(f) for f in files]
     
-    # 非常に重いため、並列実行は OS のスケジューラに任せるか、必要に応じて分割が必要
+    # Very heavy; let OS scheduler handle parallel execution or split as needed
     result = subprocess.run(cmd, cwd=root, stderr=subprocess.STDOUT)
     return result.returncode
 
 def _invoke_tidy(file_path: str, build_dir: str, checks: str, fix: bool) -> int:
-    """個別ファイルに対して clang-tidy を実行 (並列処理用)"""
+    """Run clang-tidy on an individual file (for parallel processing)"""
     cmd = ["clang-tidy", f"-p={build_dir}", f"--checks={checks}", "--quiet"]
     if fix:
-        cmd.append("--fix-errors") # --full 時はより強力な修正を試みる
+        cmd.append("--fix-errors") # Attempt more aggressive fixes during --full
     cmd.append(file_path)
     
     res = subprocess.run(cmd, capture_output=True, text=True)
@@ -245,20 +245,20 @@ def _invoke_tidy(file_path: str, build_dir: str, checks: str, fix: bool) -> int:
 def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
     print(f"{BOLD}{YELLOW}--- Clang-Tidy (General & Static Analyzer) ---{RESET}")
     if not shutil.which("clang-tidy"):
-        print(f"{RED}警告: clang-tidy が見つかりません。スキップします。{RESET}")
+        print(f"{RED}Warning: clang-tidy not found. Skipping.{RESET}")
         return 0
 
     if not args.build_dir:
-        print(f"{RED}エラー: Clang-Tidy の実行には --build-dir が必要です。{RESET}")
+        print(f"{RED}Error: --build-dir is required to run Clang-Tidy.{RESET}")
         return 1
 
-    # Qt 向けのチェックも含める
+    # Include Qt-specific checks
     if args.full:
         checks = "bugprone-*,performance-*,portability-*,modernize-*,clang-analyzer-*,qt-*,readability-*,cppcoreguidelines-*,cert-*"
     else:
         checks = "bugprone-*,performance-*,portability-*,modernize-*,clang-analyzer-*,qt-*"
     
-    print(f"  {args.jobs} スレッドで並列実行中...")
+    print(f"  Running in parallel with {args.jobs} threads...")
     errors = 0
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
@@ -271,7 +271,7 @@ def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> i
                     errors += 1
         return 0 if errors == 0 else 1
     except Exception as e:
-        print(f"{RED}Clang-Tidy 実行中にエラーが発生しました: {e}{RESET}")
+        print(f"{RED}Error occurred during Clang-Tidy execution: {e}{RESET}")
         return 1
 
 
@@ -279,106 +279,106 @@ def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> i
 def print_summary(returncode: int, xml_path: Path | None) -> None:
     print()
     if returncode == 0:
-        print(f"{BOLD}{GREEN}✔  cppcheck 完了: 問題なし{RESET}")
+        print(f"{BOLD}{GREEN}✔  cppcheck complete: No issues{RESET}")
     else:
-        print(f"{BOLD}{RED}✘  cppcheck 完了: 警告・エラーあり (終了コード {returncode}){RESET}")
+        print(f"{BOLD}{RED}✘  cppcheck complete: Warnings/errors found (exit code {returncode}){RESET}")
     if xml_path and xml_path.exists():
-        print(f"{CYAN}   XML レポート: {xml_path}{RESET}")
+        print(f"{CYAN}   XML Report: {xml_path}{RESET}")
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="AviQtl プロジェクト cppcheck 一括実行"
+        description="Run cppcheck across AviQtl project"
     )
     parser.add_argument(
         "--jobs", type=int,
         default=multiprocessing.cpu_count(),
-        help="並列実行数 (デフォルト: CPU コア数)"
+        help="Number of parallel jobs (default: CPU cores)"
     )
     parser.add_argument(
         "--level", choices=["normal", "all"], default="normal",
-        help="チェックレベル"
+        help="Check level"
     )
     parser.add_argument(
         "--xml", action="store_true",
-        help="XML 形式で出力"
+        help="Output in XML format"
     )
     parser.add_argument(
         "--suppress", default=".cppcheck_suppress",
         metavar="FILE",
-        help="抑制リストファイル (デフォルト: .cppcheck_suppress)"
+        help="Suppress list file (default: .cppcheck_suppress)"
     )
     parser.add_argument(
         "--build-dir", default=None,
         metavar="DIR",
-        help="compile_commands.json があるビルドディレクトリ"
+        help="Build directory containing compile_commands.json"
     )
     parser.add_argument(
-        "--full", action="store_true", help="究極の解析モード (全ツール最高レベル + 自動修正)"
+        "--full", action="store_true", help="Ultimate analysis mode (max level for all tools + auto-fix)"
     )
     parser.add_argument(
         "--clazy-level", type=int, choices=[1, 2], default=1,
-        help="Clazy のチェックレベル (1-2)"
+        help="Clazy check level (1-2)"
     )
     parser.add_argument(
         "--import-path", action="append",
         metavar="PATH",
-        help="QML のインポートパス (複数指定可)"
+        help="QML import path (can be specified multiple times)"
     )
     parser.add_argument(
-        "--skip-qml", action="store_true", help="QML のチェックをスキップ"
+        "--skip-qml", action="store_true", help="Skip QML checks"
     )
     parser.add_argument(
-        "--skip-cppcheck", action="store_true", help="Cppcheck をスキップ"
+        "--skip-cppcheck", action="store_true", help="Skip Cppcheck"
     )
     parser.add_argument(
-        "--skip-clazy", action="store_true", help="Clazy をスキップ"
+        "--skip-clazy", action="store_true", help="Skip Clazy"
     )
     parser.add_argument(
-        "--skip-tidy", action="store_true", help="Clang-Tidy をスキップ"
+        "--skip-tidy", action="store_true", help="Skip Clang-Tidy"
     )
     parser.add_argument(
-        "--skip-format", action="store_true", help="コード整形をスキップ"
+        "--skip-format", action="store_true", help="Skip code formatting"
     )
     parser.add_argument(
-        "--fix", action="store_true", help="対応可能な警告を自動修正"
+        "--fix", action="store_true", help="Auto-fix fixable warnings"
     )
 
     args = parser.parse_args()
 
-    # --full モード時のオーバーライド
+    # Overrides when --full mode is active
     if args.full:
         args.level = "all"
         args.clazy_level = 2
         args.fix = True
 
-    # cppcheck の存在確認
+    # Check if cppcheck is available
     if not shutil.which("cppcheck"):
-        print(f"{RED}エラー: cppcheck が見つかりません。{RESET}")
+        print(f"{RED}Error: cppcheck not found.{RESET}")
         print("  CachyOS: sudo pacman -S cppcheck")
         return 1
 
     root = Path(__file__).parent.resolve()
 
     print(f"{BOLD}{CYAN}=== AviQtl cppcheck ==={RESET}")
-    print(f"  ルート      : {root}")
-    print(f"  並列数      : {args.jobs}")
-    print(f"  レベル      : {args.level}")
+    print(f"  Root        : {root}")
+    print(f"  Jobs        : {args.jobs}")
+    print(f"  Level       : {args.level}")
 
-    # 0. Formatting (統合されたプロセス)
+    # 0. Formatting (unified process)
     if not args.skip_format:
         run_formatting(root)
 
-    # ファイル収集
+    # Collect files
     cpp_files    = find_cpp_files(root)
     qml_files    = find_qml_files(root)
     include_dirs = find_include_dirs(root)
     suppress     = load_suppress_file(root / args.suppress)
 
-    print(f"  .cpp ファイル: {len(cpp_files)} 件")
-    print(f"  .qml ファイル: {len(qml_files)} 件")
-    print(f"  インクルード : {len(include_dirs)} ディレクトリ")
+    print(f"  .cpp files   : {len(cpp_files)}")
+    print(f"  .qml files   : {len(qml_files)}")
+    print(f"  Includes     : {len(include_dirs)} dirs")
     if suppress:
-        print(f"  抑制ルール  : {len(suppress)} 件")
+        print(f"  Suppressions : {len(suppress)}")
     print()
 
     total_errors = 0
@@ -397,9 +397,9 @@ def main() -> int:
 
     # Cppcheck
     if not args.skip_cppcheck:
-        # 古い実装との互換性：XML出力は Cppcheck のみ対応
+        # Backward compatibility: XML output is Cppcheck-only
         if args.xml:
-            print(f"{CYAN}Cppcheck を XML モードで実行します...{RESET}")
+            print(f"{CYAN}Running Cppcheck in XML mode...{RESET}")
         total_errors += run_cppcheck(cpp_files, include_dirs, suppress, args, root)
 
     print_summary(total_errors, root / "check_result.xml" if args.xml else None)

@@ -75,7 +75,7 @@ void WindowManager::showLauncher(QQmlEngine *engine) {
     }
 
     if (m_engine == nullptr) {
-        qWarning() << "showLauncher: QMLエンジンが未初期化です";
+        qWarning() << "showLauncher: QML engine not initialized";
         return;
     }
 
@@ -90,7 +90,7 @@ void WindowManager::showLauncher(QQmlEngine *engine) {
 
     QQmlComponent component(m_engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/ProjectLauncherWindow.qml")));
     if (component.status() != QQmlComponent::Ready) {
-        qWarning() << "ProjectLauncherWindow コンポーネントエラー:" << component.errorString();
+        qWarning() << "ProjectLauncherWindow component error:" << component.errorString();
         return;
     }
     QObject *obj = component.create();
@@ -100,23 +100,23 @@ void WindowManager::showLauncher(QQmlEngine *engine) {
         launcher->show();
     } else {
         if (obj) {
-            qWarning() << "ProjectLauncherWindow は QQuickWindow ではありません。実際の型:" << obj->metaObject()->className();
+            qWarning() << "ProjectLauncherWindow is not a QQuickWindow. Actual type:" << obj->metaObject()->className();
             delete obj;
         } else {
-            qWarning() << "ProjectLauncherWindow の生成に失敗しました";
+            qWarning() << "ProjectLauncherWindow creation failed";
         }
     }
 }
 
 void WindowManager::spawnWindow(QQmlEngine *engine, const QString &id, const QString &urlStr, const QString &title, int w, int h, int x, int y, bool visible, bool maximized) { // NOLINT(bugprone-easily-swappable-parameters)
     if (engine == nullptr) {
-        qWarning() << "WindowManager: QMLエンジンがnullです！";
+        qWarning() << "WindowManager: QML engine is null!";
         return;
     }
 
     QQmlComponent comp(engine, QUrl(urlStr));
     if (comp.status() != QQmlComponent::Ready) {
-        qWarning() << "QMLエラー (" << title << "):" << comp.errorString();
+        qWarning() << "QML error (" << title << "):" << comp.errorString();
         return;
     }
 

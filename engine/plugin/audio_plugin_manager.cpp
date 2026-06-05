@@ -110,7 +110,7 @@ class CarlaHostedPlugin final : public IAudioPlugin {
 
         CarlaBackend::PluginType ptype = CarlaBackend::PLUGIN_NONE;
         if (!mapFormatToCarlaType(m_info.format, ptype)) {
-            qWarning() << "[CarlaHostedPlugin] 未対応フォーマット:" << m_info.format;
+            qWarning() << "[CarlaHostedPlugin] Unsupported format:" << m_info.format;
             return false;
         }
 
@@ -143,20 +143,20 @@ class CarlaHostedPlugin final : public IAudioPlugin {
 
         m_descriptor = carla_get_native_rack_plugin();
         if (m_descriptor == nullptr) {
-            qWarning() << "[CarlaHostedPlugin] carla_get_native_rack_plugin が nullptr:" << m_info.name;
+            qWarning() << "[CarlaHostedPlugin] carla_get_native_rack_plugin is nullptr:" << m_info.name;
             return false;
         }
 
         m_nativeHandle = m_descriptor->instantiate(&m_hostDesc);
         if (m_nativeHandle == nullptr) {
-            qWarning() << "[CarlaHostedPlugin] instantiate() が nullptr:" << m_info.name;
+            qWarning() << "[CarlaHostedPlugin] instantiate() is nullptr:" << m_info.name;
             m_descriptor = nullptr;
             return false;
         }
 
         m_hostHandle = carla_create_native_plugin_host_handle(m_descriptor, m_nativeHandle);
         if (m_hostHandle == nullptr) {
-            qWarning() << "[CarlaHostedPlugin] carla_create_native_plugin_host_handle が nullptr:" << m_info.name;
+            qWarning() << "[CarlaHostedPlugin] carla_create_native_plugin_host_handle is nullptr:" << m_info.name;
             m_descriptor->cleanup(m_nativeHandle);
             m_nativeHandle = nullptr;
             m_descriptor = nullptr;
@@ -194,7 +194,7 @@ class CarlaHostedPlugin final : public IAudioPlugin {
         carla_set_active(m_hostHandle, m_pluginId, true);
         m_descriptor->activate(m_nativeHandle);
         ensureBuffers(m_maxBlockSize);
-        qDebug() << "[CarlaHostedPlugin] NativePlugin ロード完了:" << m_info.name;
+        qDebug() << "[CarlaHostedPlugin] NativePlugin load complete:" << m_info.name;
         return true;
     }
 
@@ -524,7 +524,7 @@ auto runDiscovery(const QString &tool, const QString &type, const QString &forma
     proc.start(tool, {type, target});
 
     if (!proc.waitForStarted(waitStartedMs)) {
-        qWarning() << "[Discovery] 起動失敗:" << target;
+        qWarning() << "[Discovery] Launch failed:" << target;
         return {};
     }
 
@@ -539,7 +539,7 @@ auto runDiscovery(const QString &tool, const QString &type, const QString &forma
             break;
         }
         if (timer.elapsed() > timeoutMs) {
-            qWarning() << "[Discovery] タイムアウト:" << target;
+            qWarning() << "[Discovery] Timeout:" << target;
             proc.kill();
             proc.waitForFinished(waitFinishedMs);
             break;
@@ -551,7 +551,7 @@ auto runDiscovery(const QString &tool, const QString &type, const QString &forma
     if (output.isEmpty() && errOutput.contains("carla-discovery::")) {
         output = errOutput;
     } else if (!errOutput.isEmpty() && output.isEmpty()) {
-        qDebug() << "[Discovery] エラー出力:" << target << errOutput.left(200).trimmed();
+        qDebug() << "[Discovery] Error output:" << target << errOutput.left(200).trimmed();
     }
     return parseDiscoveryOutput(QString::fromUtf8(output), format, target);
 }
@@ -569,7 +569,7 @@ auto isDiscoveryTypeSupported(const QString &tool, const QString &type) -> bool 
 
 auto discoverFormat(const QString &tool, const FormatConfig &cfg, std::atomic<bool> &stopFlag) -> QList<PluginInfo> {
     if (!isDiscoveryTypeSupported(tool, cfg.type)) {
-        qWarning() << "[AudioPluginManager]" << cfg.format << "はインストール済みCarlaバージョンで未対応のためスキップ";
+        qWarning() << "[AudioPluginManager]" << cfg.format << " skipped \u2014 not supported by installed Carla version";
         return {};
     }
 
@@ -620,9 +620,9 @@ auto discoverFormat(const QString &tool, const FormatConfig &cfg, std::atomic<bo
     }
 
     if (cfg.type == QStringLiteral("lv2")) {
-        qDebug() << "[AudioPluginManager]" << cfg.format << "バンドル" << targets.size() << "個を検出";
+        qDebug() << "[AudioPluginManager]" << cfg.format << "bundles" << targets.size() << " detected";
     } else {
-        qDebug() << "[AudioPluginManager]" << cfg.format << "ファイル" << targets.size() << "個を検出";
+        qDebug() << "[AudioPluginManager]" << cfg.format << "files" << targets.size() << " detected";
     }
 
     QList<PluginInfo> all;
@@ -675,7 +675,7 @@ void AudioPluginManager::initialize() {
 void AudioPluginManager::scanPlugins() {
     bool expected = false;
     if (!m_scanning.compare_exchange_strong(expected, true)) {
-        qDebug() << "[AudioPluginManager] スキャンは既に実行中";
+        qDebug() << "[AudioPluginManager] Scan already in progress";
         return;
     }
     m_stopRequested = false;
@@ -691,12 +691,12 @@ void AudioPluginManager::scanPlugins() {
         tool = QStandardPaths::findExecutable(QStringLiteral("carla-discovery-native"));
     }
     if (tool.isEmpty()) {
-        qWarning() << "[AudioPluginManager] carla-discovery-native が見つかりません";
-        qWarning() << "[AudioPluginManager] 検索パス:" << discoverySearchPaths();
+        qWarning() << "[AudioPluginManager] carla-discovery-native not found";
+        qWarning() << "[AudioPluginManager] Search paths:" << discoverySearchPaths();
         m_scanning = false;
         return;
     }
-    qDebug() << "[AudioPluginManager] ディスカバリツール:" << tool;
+    qDebug() << "[AudioPluginManager] Discovery tool:" << tool;
 
     QList<PluginInfo> newPlugins;
     QHash<QString, PluginInfo> newMap;
@@ -711,9 +711,9 @@ void AudioPluginManager::scanPlugins() {
             continue;
         }
 
-        qDebug() << "[AudioPluginManager] スキャン中:" << cfg.format;
+        qDebug() << "[AudioPluginManager] Scanning:" << cfg.format;
         const QList<PluginInfo> found = discoverFormat(tool, cfg, m_stopRequested);
-        qDebug() << "[AudioPluginManager]" << cfg.format << "→" << found.size() << "個";
+        qDebug() << "[AudioPluginManager]" << cfg.format << "→" << found.size() << " found";
         for (const PluginInfo &p : std::as_const(found)) {
             if (!newMap.contains(p.id)) {
                 newPlugins.append(p);
@@ -727,7 +727,7 @@ void AudioPluginManager::scanPlugins() {
         m_plugins = std::move(newPlugins);
         m_pluginMap = std::move(newMap);
     }
-    qDebug() << "[AudioPluginManager] 検出プラグイン数:" << m_plugins.size();
+    qDebug() << "[AudioPluginManager] Plugins detected:" << m_plugins.size();
     m_scanning = false;
 }
 

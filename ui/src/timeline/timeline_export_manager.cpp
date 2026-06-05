@@ -38,7 +38,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     AviQtl::Core::VideoEncoder encoder;
     if (!encoder.open(config)) {
-        emit exportFinished(false, tr("エンコーダーの初期化に失敗しました"));
+        emit exportFinished(false, tr("Encoder initialization failed"));
         m_exporting = false;
         return;
     }
@@ -66,7 +66,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
-            emit exportFinished(false, tr("キャンセルされました"));
+            emit exportFinished(false, tr("Cancelled"));
             goto cleanup;
         }
 
@@ -98,7 +98,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     }
 
     encoder.close();
-    emit exportFinished(true, tr("書き出し完了"));
+    emit exportFinished(true, tr("Export complete"));
 
 cleanup:
     if (view != nullptr) {

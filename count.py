@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
-"""AviQtl プロジェクト ソースコード行数カウンター"""
+"""AviQtl project source code line counter"""
 
 import sys
 from pathlib import Path
 from collections import defaultdict
 
-# カウント対象の拡張子とその表示名
+# Target file extensions and their display names
 TARGET_EXTENSIONS: dict[str, str] = {
-    ".cpp":  "C++  ソース",
-    ".hpp":  "C++  ヘッダ",
+    ".cpp":  "C++  Source",
+    ".hpp":  "C++  Header",
     ".qml":  "QML",
     ".js":   "JavaScript",
     ".py":   "Python",
-    ".glsl": "GLSL シェーダ",
-    ".frag": "GLSL フラグメント",
-    ".vert": "GLSL 頂点",
+    ".glsl": "GLSL Shader",
+    ".frag": "GLSL Fragment",
+    ".vert": "GLSL Vertex",
 }
 
-# CMakeLists.txt も個別に対象とする
+# Also include CMakeLists.txt as an individual target
 CMAKE_FILENAME = "CMakeLists.txt"
 
-# スキャン除外ディレクトリ
+# Directories excluded from scanning
 EXCLUDE_DIRS: frozenset[str] = frozenset({
     ".git", ".build_tmp", "build", "dist",
     ".cache", "__pycache__",
@@ -28,14 +28,14 @@ EXCLUDE_DIRS: frozenset[str] = frozenset({
 
 
 def is_excluded(path: Path) -> bool:
-    """パスの各部分に除外ディレクトリが含まれるか判定する"""
+    """Check if any part of the path is in the exclude directories"""
     return any(part in EXCLUDE_DIRS for part in path.parts)
 
 
 def count_lines(path: Path) -> tuple[int, int, int]:
     """
-    ファイルの行数を返す。
-    戻り値: (総行数, コード行数, 空行数)
+    Return line counts for a file.
+    Returns: (total lines, code lines, blank lines)
     """
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -49,7 +49,7 @@ def count_lines(path: Path) -> tuple[int, int, int]:
 
 
 def collect_files(root: Path) -> list[Path]:
-    """ルート以下から対象ファイルを再帰収集する"""
+    """Recursively collect target files from root directory"""
     result: list[Path] = []
     for path in root.rglob("*"):
         if path.is_dir():
@@ -65,20 +65,20 @@ def collect_files(root: Path) -> list[Path]:
 
 
 def format_table_row(label: str, files: int, total: int, code: int, blank: int) -> str:
-    return f"  {label:<22} {files:>5}ファイル  {total:>7}行  {code:>7}行  {blank:>7}行"
+    return f"  {label:<22} {files:>5} files  {total:>7} lines  {code:>7} lines  {blank:>7} lines"
 
 
 def main() -> None:
     root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).parent.resolve()
 
     print(f"\n{'=' * 70}")
-    print(f"  AviQtl プロジェクト ソースコード行数レポート")
-    print(f"  スキャン対象: {root}")
+    print(f"  AviQtl Project Source Code Line Count Report")
+    print(f"  Scan target: {root}")
     print(f"{'=' * 70}")
 
     files = collect_files(root)
 
-    # 拡張子ごとに集計
+    # Aggregate by extension
     stats: dict[str, dict] = defaultdict(lambda: {"files": 0, "total": 0, "code": 0, "blank": 0})
 
     for path in files:
@@ -89,10 +89,10 @@ def main() -> None:
         stats[key]["code"]  += code
         stats[key]["blank"] += blank
 
-    # 表示順序
+    # Display order
     display_order = list(TARGET_EXTENSIONS.keys()) + [CMAKE_FILENAME]
 
-    print(f"\n  {'種別':<22} {'ファイル数':>10}  {'総行数':>10}  {'コード行':>10}  {'空行':>10}")
+    print(f"\n  {'Type':<22} {'Files':>10}  {'Total':>10}  {'Code':>10}  {'Blank':>10}")
     print(f"  {'-' * 66}")
 
     grand_files = grand_total = grand_code = grand_blank = 0
@@ -109,21 +109,21 @@ def main() -> None:
         grand_blank += s["blank"]
 
     print(f"  {'-' * 66}")
-    print(format_table_row("合計", grand_files, grand_total, grand_code, grand_blank))
+    print(format_table_row("Total", grand_files, grand_total, grand_code, grand_blank))
     print(f"{'=' * 70}\n")
 
-    # コード行が多い上位10ファイルを表示
+    # Display top 10 files by code line count
     file_ranks: list[tuple[int, int, Path]] = []
     for path in files:
         total, code, blank = count_lines(path)
         file_ranks.append((code, total, path))
 
     file_ranks.sort(reverse=True)
-    print("  コード行数 上位10ファイル:")
+    print("  Top 10 files by code lines:")
     print(f"  {'-' * 66}")
     for i, (code, total, path) in enumerate(file_ranks[:10], 1):
         rel = path.relative_to(root)
-        print(f"  {i:>2}. {str(rel):<50} {code:>6}行")
+        print(f"  {i:>2}. {str(rel):<50} {code:>6} lines")
     print()
 
 

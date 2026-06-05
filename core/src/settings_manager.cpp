@@ -172,7 +172,7 @@ auto SettingsManager::getSettingsFilePath() -> QString {
     QFile file(portablePath);
     if (file.exists()) {
         if (!file.permissions().testFlag(QFile::WriteUser)) {
-            qWarning() << "ポータブル設定ファイルが見つかりましたが、書き込み不可です。フォールバックします。";
+            qWarning() << "Portable settings file found but not writable. Falling back.";
         } else {
             return portablePath;
         }
@@ -201,7 +201,7 @@ void SettingsManager::load() {
     QString path = getSettingsFilePath();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "設定ファイルが見つかりません:" << path << "。デフォルト値を使用します。";
+        qDebug() << "Settings file not found:" << path << ". Using default values.";
         return;
     }
 
@@ -221,7 +221,7 @@ void SettingsManager::load() {
             m_settings.insert(it.key(), it.value());
         }
         emit settingsChanged();
-        qDebug() << "設定をロードしました:" << path;
+        qDebug() << "Settings loaded:" << path;
     }
 }
 
@@ -229,14 +229,14 @@ void SettingsManager::save() {
     QString path = getSettingsFilePath();
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "設定の保存に失敗しました:" << path;
+        qWarning() << "Failed to save settings:" << path;
         return;
     }
 
     QJsonObject obj = QJsonObject::fromVariantMap(m_settings);
     QJsonDocument doc(obj);
     file.write(doc.toJson());
-    qDebug() << "設定を保存しました:" << path;
+    qDebug() << "Settings saved:" << path;
 }
 
 void SettingsManager::setValue(const QString &key, const QVariant &value) {

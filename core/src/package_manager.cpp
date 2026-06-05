@@ -103,7 +103,7 @@ PackageManager &PackageManager::instance() {
 }
 
 PackageManager::PackageManager(QObject *parent) : QObject(parent) {
-    m_statusText = tr("待機中");
+    m_statusText = tr("Idle");
     m_networkManager = new QNetworkAccessManager(this);
     QTimer::singleShot(0, this, [this]() { loadCachedPackages(); });
 }
@@ -203,7 +203,7 @@ void PackageManager::loadCachedPackages() {
     }
     setHasUpdatesAvailable(anyUpdates);
 
-    setStatus(tr("キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）"));
+    setStatus(tr("Packages loaded from cache (Press Sync to check for updates)"));
 }
 
 QStringList PackageManager::repositories() const { return SettingsManager::instance().value(QStringLiteral("packageRepositoryUrls")).toStringList(); }
@@ -235,7 +235,7 @@ void PackageManager::refreshRepositories() {
     QVariantMap installed = loadInstalledPackagesFromFile();
     installed.insert(QStringLiteral("org.aviqtl.app"), QVariantMap{{QStringLiteral("version"), QString::fromUtf8(AviQtl::VERSION_STRING)}});
 
-    setStatus(tr("リポジトリを同期中..."));
+    setStatus(tr("Syncing repository..."));
     setProgress(0.0);
 
     QStringList urls = repositories();
@@ -323,7 +323,7 @@ void PackageManager::refreshRepositories() {
                                     // すべてのRSSリクエストが完了したら、最終的な状態を更新
                                     setBusy(false);
                                     setProgress(1.0);
-                                    setStatus(tr("同期完了"));
+                                    setStatus(tr("Sync complete"));
                                     emit repositoryRefreshed();
                                     emit packageListChanged();
 
@@ -351,7 +351,7 @@ void PackageManager::refreshRepositories() {
 
             if (m_pendingRequests <= 0) {
                 setProgress(1.0);
-                setStatus(tr("同期完了"));
+                setStatus(tr("Sync complete"));
                 setBusy(false);
                 emit repositoryRefreshed();
                 emit packageListChanged();
@@ -403,7 +403,7 @@ void PackageManager::fetchAssets(const QString &packageId) {
     }
 
     if (pkg.isEmpty()) {
-        emit errorOccurred(tr("パッケージが見つかりません: %1").arg(packageId));
+        emit errorOccurred(tr("Package not found: %1").arg(packageId));
         return;
     }
 
@@ -421,12 +421,12 @@ void PackageManager::fetchAssets(const QString &packageId) {
     }
 
     if (repoUrl.isEmpty()) {
-        emit errorOccurred(tr("パッケージのリポジトリURLを特定できません。"));
+        emit errorOccurred(tr("Could not determine repository URL for the package."));
         return;
     }
 
     setBusy(true);
-    setStatus(tr("利用可能なファイルを検索中..."));
+    setStatus(tr("Searching for available files..."));
 
     QUrl apiUrl;
     bool isGitHub = repoUrl.contains(QStringLiteral("github.com"));
@@ -438,7 +438,7 @@ void PackageManager::fetchAssets(const QString &packageId) {
     QStringList parts = path.split('/');
     if (parts.size() < 2) {
         setBusy(false);
-        emit errorOccurred(tr("リポジトリURLの形式が正しくありません。"));
+        emit errorOccurred(tr("Repository URL is not in a valid format."));
         return;
     }
     QString owner = parts[0];
@@ -453,7 +453,7 @@ void PackageManager::fetchAssets(const QString &packageId) {
         apiUrl = QStringLiteral("https://codeberg.org/api/v1/repos/%1/%2/releases?limit=1").arg(owner, repo);
     } else {
         setBusy(false);
-        emit errorOccurred(tr("サポートされていないリポジトリホストです。"));
+        emit errorOccurred(tr("Unsupported repository host."));
         return;
     }
 
@@ -463,7 +463,7 @@ void PackageManager::fetchAssets(const QString &packageId) {
         setBusy(false);
 
         if (reply->error() != QNetworkReply::NoError) {
-            emit errorOccurred(tr("リリース情報の取得に失敗しました (%1): %2").arg(packageId, reply->errorString()));
+            emit errorOccurred(tr("Failed to fetch release info (%1): %2").arg(packageId, reply->errorString()));
             return;
         }
 
@@ -512,7 +512,7 @@ void PackageManager::fetchAssets(const QString &packageId) {
         }
 
         if (assetsList.isEmpty()) {
-            emit errorOccurred(tr("ダウンロード可能なファイルが見つかりませんでした。"));
+            emit errorOccurred(tr("No downloadable files found."));
         } else {
             emit assetsReady(packageId, assetsList);
         }
@@ -532,12 +532,12 @@ void PackageManager::installPackage(const QString &packageId, const QString &ass
     }
 
     if (pkg.isEmpty()) {
-        emit errorOccurred(tr("パッケージが見つかりません: %1").arg(packageId));
+        emit errorOccurred(tr("Package not found: %1").arg(packageId));
         return;
     }
 
     if (assetUrl.isEmpty()) {
-        emit errorOccurred(tr("ダウンロードURLが指定されていません。アセット情報を取得してください。"));
+        emit errorOccurred(tr("Download URL not specified. Please fetch asset information."));
         return;
     }
 
@@ -545,12 +545,12 @@ void PackageManager::installPackage(const QString &packageId, const QString &ass
     const QString downloadUrl = assetUrl;
 
     setBusy(true);
-    setStatus(tr("パッケージのインストール中: %1").arg(packageId));
+    setStatus(tr("Installing package: %1").arg(packageId));
     setProgress(0.0);
 
     QTimer::singleShot(1500, this, [this, packageId, versionToInstall, downloadUrl]() {
         setProgress(1.0);
-        setStatus(tr("インストール完了: %1").arg(packageId));
+        setStatus(tr("Installation complete: %1").arg(packageId));
         setBusy(false);
 
         // インストール済み情報の保存
@@ -561,7 +561,7 @@ void PackageManager::installPackage(const QString &packageId, const QString &ass
 
         if (packageId == QStringLiteral("org.aviqtl.app")) {
             emit selfUpdateAvailable(versionToInstall, downloadUrl);
-            setStatus(tr("AviQtlのアップデートがダウンロード可能です。再起動して適用してください。"));
+            setStatus(tr("AviQtl update available. Restart to apply."));
             return;
         }
 
@@ -598,7 +598,7 @@ void PackageManager::removePackage(const QString &packageId) {
         return;
 
     setBusy(true);
-    setStatus(tr("パッケージを削除中: %1").arg(packageId));
+    setStatus(tr("Removing package: %1").arg(packageId));
 
     QTimer::singleShot(500, this, [this, packageId]() {
         QVariantMap installed = loadInstalledPackagesFromFile();
@@ -622,7 +622,7 @@ void PackageManager::removePackage(const QString &packageId) {
         }
 
         setBusy(false);
-        setStatus(tr("削除完了: %1").arg(packageId));
+        setStatus(tr("Removal complete: %1").arg(packageId));
         emit packageRemoved(packageId);
     });
 }
@@ -670,25 +670,25 @@ void PackageManager::upgradeAllPackages() {
     }
 
     if (m_upgradeQueue.isEmpty()) {
-        setStatus(tr("アップグレード可能なパッケージはありません。"));
+        setStatus(tr("No packages to upgrade."));
         return;
     }
 
     setBusy(true);
-    setStatus(tr("すべてのパッケージをアップグレード中..."));
+    setStatus(tr("Upgrading all packages..."));
     processUpgradeQueue();
 }
 
 void PackageManager::processUpgradeQueue() {
     if (m_upgradeQueue.isEmpty()) {
         setBusy(false);
-        setStatus(tr("すべてのアップグレードが完了しました"));
+        setStatus(tr("All upgrades complete."));
         setHasUpdatesAvailable(false); // すべてアップグレードされたので、利用可能なアップデートはない
         return;
     }
 
     QString nextPackageId = m_upgradeQueue.dequeue();
-    setStatus(tr("パッケージをアップグレード中: %1").arg(nextPackageId));
+    setStatus(tr("Upgrading package: %1").arg(nextPackageId));
     // installPackage が完了すると、その中で processUpgradeQueue() が再度呼ばれる
     installPackage(nextPackageId);
 }
