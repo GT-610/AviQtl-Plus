@@ -1383,24 +1383,29 @@
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="43"/>
         <source>Encoder initialization failed</source>
-        <translation type="unfinished"></translation>
+        <translation>エンコーダーの初期化に失敗しました</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="145"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="159"/>
         <source>Cancelled</source>
-        <translation type="unfinished"></translation>
+        <translation>キャンセルされました</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="103"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="179"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="199"/>
         <source>Export complete</source>
-        <translation type="unfinished"></translation>
+        <translation>書き出し完了</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="118"/>
         <source>Cannot create output directory</source>
-        <translation type="unfinished"></translation>
+        <translation>出力ディレクトリを作成できません</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <source>Failed to save frame %1</source>
+        <translation>フレーム %1 の保存に失敗しました</translation>
     </message>
 </context>
 <context>
@@ -1845,17 +1850,17 @@
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="132"/>
         <source>形式:</source>
-        <translation type="unfinished"></translation>
+        <translation>形式:</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="137"/>
         <source>動画ファイル</source>
-        <translation type="unfinished"></translation>
+        <translation>動画ファイル</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="137"/>
-        <source>画像シーケンス (PNG)</source>
-        <translation type="unfinished"></translation>
+        <source>画像シーケンス</source>
+        <translation>画像シーケンス</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="152"/>
@@ -1865,7 +1870,7 @@
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="152"/>
         <source>保存先フォルダ...</source>
-        <translation type="unfinished"></translation>
+        <translation>保存先フォルダ...</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="156"/>
@@ -1975,14 +1980,14 @@
         <translation>書き出し開始</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="559"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="561"/>
         <source>保存先を指定</source>
         <translation>保存先を指定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="571"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="573"/>
         <source>保存先フォルダを指定</source>
-        <translation type="unfinished"></translation>
+        <translation>保存先フォルダを指定</translation>
     </message>
 </context>
 <context>

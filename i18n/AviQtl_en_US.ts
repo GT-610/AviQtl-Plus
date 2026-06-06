@@ -1383,24 +1383,29 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="43"/>
         <source>Encoder initialization failed</source>
-        <translation type="unfinished"></translation>
+        <translation>Encoder initialization failed</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="145"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="159"/>
         <source>Cancelled</source>
-        <translation type="unfinished"></translation>
+        <translation>Cancelled</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="103"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="179"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="199"/>
         <source>Export complete</source>
-        <translation type="unfinished"></translation>
+        <translation>Export complete</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="118"/>
         <source>Cannot create output directory</source>
-        <translation type="unfinished"></translation>
+        <translation>Cannot create output directory</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <source>Failed to save frame %1</source>
+        <translation>Failed to save frame %1</translation>
     </message>
 </context>
 <context>
@@ -1845,17 +1850,17 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="132"/>
         <source>形式:</source>
-        <translation type="unfinished"></translation>
+        <translation>Format:</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="137"/>
         <source>動画ファイル</source>
-        <translation type="unfinished"></translation>
+        <translation>Video File</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="137"/>
-        <source>画像シーケンス (PNG)</source>
-        <translation type="unfinished"></translation>
+        <source>画像シーケンス</source>
+        <translation>Image Sequence</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="152"/>
@@ -1865,7 +1870,7 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="152"/>
         <source>保存先フォルダ...</source>
-        <translation type="unfinished"></translation>
+        <translation>Destination folder...</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="156"/>
@@ -1975,14 +1980,14 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Start Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="559"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="561"/>
         <source>保存先を指定</source>
         <translation>Specify Destination</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="571"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="573"/>
         <source>保存先フォルダを指定</source>
-        <translation type="unfinished"></translation>
+        <translation>Specify Destination Folder</translation>
     </message>
 </context>
 <context>

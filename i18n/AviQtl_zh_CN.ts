@@ -1387,20 +1387,25 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="145"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="159"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="103"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="179"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="199"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="118"/>
         <source>Cannot create output directory</source>
-        <translation type="unfinished"></translation>
+        <translation>无法创建输出目录</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <source>Failed to save frame %1</source>
+        <translation>保存帧 %1 失败</translation>
     </message>
 </context>
 <context>
@@ -1845,17 +1850,17 @@
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="132"/>
         <source>形式:</source>
-        <translation type="unfinished"></translation>
+        <translation>格式：</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="137"/>
         <source>動画ファイル</source>
-        <translation type="unfinished"></translation>
+        <translation>视频文件</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="137"/>
-        <source>画像シーケンス (PNG)</source>
-        <translation type="unfinished"></translation>
+        <source>画像シーケンス</source>
+        <translation>图片序列</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="152"/>
@@ -1865,7 +1870,7 @@
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="152"/>
         <source>保存先フォルダ...</source>
-        <translation type="unfinished"></translation>
+        <translation>保存目标文件夹...</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="156"/>
@@ -1975,14 +1980,14 @@
         <translation>开始导出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="559"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="561"/>
         <source>保存先を指定</source>
         <translation>指定保存目标</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="571"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="573"/>
         <source>保存先フォルダを指定</source>
-        <translation type="unfinished"></translation>
+        <translation>指定保存目标文件夹</translation>
     </message>
 </context>
 <context>

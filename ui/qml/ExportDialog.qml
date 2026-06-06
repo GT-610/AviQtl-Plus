@@ -134,7 +134,7 @@ Common.AviQtlWindow {
 
             ComboBox {
                 id: formatCombo
-                model: [qsTr("動画ファイル"), qsTr("画像シーケンス (PNG)")]
+                model: [qsTr("動画ファイル"), qsTr("画像シーケンス")]
                 currentIndex: 0
             }
 
@@ -527,7 +527,9 @@ Common.AviQtlWindow {
                 highlighted: true
                 onClicked: {
                     if (root.isImageSequence) {
-                        Workspace.currentTimeline.exportImageSequence(filePathField.text, 100, root.imageFormat);
+                        var sf = fullRangeCheck.checked ? 0 : startFrameSpin.value;
+                        var ef = fullRangeCheck.checked ? -1 : endFrameSpin.value;
+                        Workspace.currentTimeline.exportImageSequence(filePathField.text, 100, root.imageFormat, sf, ef);
                     } else {
                         var codec = codecCombo.model[codecCombo.currentIndex].value;
                         var audioCodec = audioCodecCombo.model[audioCodecCombo.currentIndex].value;
@@ -565,14 +567,12 @@ Common.AviQtlWindow {
         }
     }
 
-    Dialogs.FileDialog {
+    Dialogs.FolderDialog {
         id: folderDialog
 
         title: qsTr("保存先フォルダを指定")
-        fileMode: Dialogs.FileDialog.SaveFile
-        nameFilters: ["Folder"]
         onAccepted: {
-            var path = selectedFile.toString();
+            var path = folder.toString();
             filePathField.text = Qt.platform.os === "windows" ? path.replace(/^file:\/{3}/, "") : path.replace(/^file:\/\//, "");
         }
     }

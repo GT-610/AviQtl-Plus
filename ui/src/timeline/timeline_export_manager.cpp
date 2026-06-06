@@ -109,7 +109,7 @@ cleanup:
     m_exporting = false;
 }
 
-bool TimelineExportManager::exportImageSequence(const QString &dir, int quality, const QString &format) {
+bool TimelineExportManager::exportImageSequence(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
     if (m_exporting.load())
         return false;
 
@@ -119,11 +119,24 @@ bool TimelineExportManager::exportImageSequence(const QString &dir, int quality,
         return false;
     }
 
+    if (endFrame < 0)
+        endFrame = m_controller->timelineDuration();
+    if (startFrame < 0)
+        startFrame = 0;
+    if (startFrame >= endFrame)
+        return false;
+
     m_exporting = true;
     m_cancelRequested = false;
 
-    const int startFrame = 0;
-    const int endFrame = m_controller->timelineDuration();
+    m_exportThread = QThread::create([this, dir, quality, format, startFrame, endFrame]() -> void { runImageSequenceExport(dir, quality, format, startFrame, endFrame); });
+    connect(m_exportThread, &QThread::finished, m_exportThread, &QObject::deleteLater);
+    m_exportThread->start();
+    return true;
+}
+
+void TimelineExportManager::runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
+    QDir outputDir(dir);
     const int totalFrames = endFrame - startFrame;
     const int padDigits = QString::number(endFrame).length();
 
@@ -140,9 +153,11 @@ bool TimelineExportManager::exportImageSequence(const QString &dir, int quality,
     const int grabTimeout = exportSettings.value(QStringLiteral("exportFrameGrabTimeoutMs"), 2000).toInt();
     const int progInterval = exportSettings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
 
+    bool success = true;
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
             emit exportFinished(false, tr("Cancelled"));
+            success = false;
             goto cleanupSeq;
         }
 
@@ -167,7 +182,12 @@ bool TimelineExportManager::exportImageSequence(const QString &dir, int quality,
             const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : quality;
             const QString filename = QStringLiteral("frame_") + QString::number(frame).rightJustified(padDigits, QChar::fromLatin1('0')) + ext;
             const QString filePath = outputDir.filePath(filename);
-            img.save(filePath, fmt, saveQuality);
+            if (!img.save(filePath, fmt, saveQuality)) {
+                qWarning() << "Failed to save frame" << frame << "to" << filePath;
+                emit exportFinished(false, tr("Failed to save frame %1").arg(frame));
+                success = false;
+                goto cleanupSeq;
+            }
         }
 
         const int done = frame - startFrame + 1;
@@ -183,7 +203,6 @@ cleanupSeq:
         QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
     }
     m_exporting = false;
-    return true;
 }
 
 } // namespace AviQtl::UI
