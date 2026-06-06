@@ -42,6 +42,8 @@ static void convertMediaPaths(QVariantMap &params, const QString &baseDir, bool 
             continue;
         QVariantMap media = it->toMap();
         auto pathIt = media.find(QStringLiteral("path"));
+        if (pathIt == media.end())
+            pathIt = media.find(QStringLiteral("source"));
         if (pathIt != media.end()) {
             QString p = pathIt->toString();
             if (!p.isEmpty()) {
