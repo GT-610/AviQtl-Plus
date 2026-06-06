@@ -140,6 +140,34 @@ const QHash<QString, EasingFunction> &easingFunctions() {
         {QStringLiteral("ease_in_out_bounce"), [](double t, const auto &, const auto &) {
             return t < 0.5 ? (1.0 - easeOutBounce(1.0 - 2.0 * t)) / 2.0 : (1.0 + easeOutBounce(2.0 * t - 1.0)) / 2.0;
         }},
+        {QStringLiteral("ease_out_in_sine"), [](double t, const auto &, const auto &) { return t < 0.5 ? std::sin(t * M_PI) / 2.0 : (1.0 - std::cos((t * 2.0 - 1.0) * M_PI / 2.0)) / 2.0 + 0.5; }},
+        {QStringLiteral("ease_out_in_quad"), [](double t, const auto &, const auto &) { return t < 0.5 ? (1.0 - (1.0 - 2.0 * t) * (1.0 - 2.0 * t)) / 2.0 : (2.0 * t - 1.0) * (2.0 * t - 1.0) / 2.0 + 0.5; }},
+        {QStringLiteral("ease_out_in_cubic"), [](double t, const auto &, const auto &) { return t < 0.5 ? (1.0 - std::pow(1.0 - 2.0 * t, 3.0)) / 2.0 : std::pow(2.0 * t - 1.0, 3.0) / 2.0 + 0.5; }},
+        {QStringLiteral("ease_out_in_quart"), [](double t, const auto &, const auto &) { return t < 0.5 ? (1.0 - std::pow(1.0 - 2.0 * t, 4.0)) / 2.0 : std::pow(2.0 * t - 1.0, 4.0) / 2.0 + 0.5; }},
+        {QStringLiteral("ease_out_in_quint"), [](double t, const auto &, const auto &) { return t < 0.5 ? (1.0 - std::pow(1.0 - 2.0 * t, 5.0)) / 2.0 : std::pow(2.0 * t - 1.0, 5.0) / 2.0 + 0.5; }},
+        {QStringLiteral("ease_out_in_expo"), [](double t, const auto &, const auto &) {
+            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            return t < 0.5 ? (1.0 - std::pow(2.0, -20.0 * t)) / 2.0 : std::pow(2.0, 20.0 * t - 20.0) / 2.0 + 0.5;
+        }},
+        {QStringLiteral("ease_out_in_circ"), [](double t, const auto &, const auto &) { return t < 0.5 ? std::sqrt(1.0 - (2.0 * t - 1.0) * (2.0 * t - 1.0)) / 2.0 : (1.0 - std::sqrt(1.0 - (2.0 * t - 1.0) * (2.0 * t - 1.0))) / 2.0 + 0.5; }},
+        {QStringLiteral("ease_out_in_back"), [](double t, const auto &, const auto &) {
+            constexpr double c1 = 1.70158, c3 = c1 + 1.0;
+            auto eout = [&](double u) { return 1.0 + c3 * (u - 1.0) * (u - 1.0) * (u - 1.0) + c1 * (u - 1.0) * (u - 1.0); };
+            auto ein = [&](double u) { return c3 * u * u * u - c1 * u * u; };
+            return t < 0.5 ? eout(2.0 * t) / 2.0 : ein(2.0 * t - 1.0) / 2.0 + 0.5;
+        }},
+        {QStringLiteral("ease_out_in_elastic"), [](double t, const auto &, const auto &p) {
+            double a = p.value("amplitude", 1.0).toDouble();
+            double period = p.value("period", 0.3).toDouble();
+            double c4 = (2.0 * M_PI) / period;
+            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            auto eout = [&](double u) { return a * std::pow(2.0, -10.0 * u) * std::sin((u - period / 4.0) * c4) + 1.0; };
+            auto ein = [&](double u) { return -a * std::pow(2.0, 10.0 * u - 10.0) * std::sin((u - 1.0 - period / 4.0) * c4); };
+            return t < 0.5 ? eout(2.0 * t) / 2.0 : ein(2.0 * t - 1.0) / 2.0 + 0.5;
+        }},
+        {QStringLiteral("ease_out_in_bounce"), [](double t, const auto &, const auto &) {
+            return t < 0.5 ? easeOutBounce(2.0 * t) / 2.0 : (1.0 - easeOutBounce(1.0 - 2.0 * (t - 0.5))) / 2.0 + 0.5;
+        }},
         {QStringLiteral("custom"), [](double x, const auto &p, const auto &) {
             double prevX = 0, prevY = 0;
             for (size_t i = 0; i < p.size(); i += 6) {

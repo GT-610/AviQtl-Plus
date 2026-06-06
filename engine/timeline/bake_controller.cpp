@@ -6,6 +6,7 @@
 #include "keyframe_evaluator.hpp"
 #include <algorithm>
 #include <bitset>
+#include <QSet>
 
 namespace AviQtl::Engine::Timeline {
 
@@ -81,10 +82,18 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
 
         QVariantMap tracks;
         int trackDuration = clip.durationFrames;
-        for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it) {
-            const QVariant fallback = effect.params.value(it->first);
-            tracks[it->first] = keyframesToTrack(it->second, fallback);
-            trackDuration = std::max(trackDuration, inferredDurationForTrack(tracks[it->first]));
+        QSet<QString> allKeys;
+        for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it)
+            allKeys.insert(it.key());
+        for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it)
+            allKeys.insert(it->first);
+        for (const auto &key : std::as_const(allKeys)) {
+            const QVariant fallback = effect.params.value(key);
+            auto kfIt = effect.keyframes.find(key);
+            if (kfIt != effect.keyframes.end()) {
+                tracks[key] = keyframesToTrack(kfIt->second, fallback);
+                trackDuration = std::max(trackDuration, inferredDurationForTrack(tracks[key]));
+            }
         }
 
         if (effect.id == QStringLiteral("transform")) {
@@ -101,17 +110,17 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             render.opacity = evalFloat(effect.params, tracks, QStringLiteral("opacity"), relFrame, fps, trackDuration);
         }
 
-        for (auto pit = effect.params.constBegin(); pit != effect.params.constEnd(); ++pit) {
+        for (const auto &key : std::as_const(allKeys)) {
             EffectParamEntry entry;
             entry.clipId = static_cast<uint32_t>(clip.id);
             entry.effectIndex = effectIdx;
 
-            const QByteArray nameBytes = pit.key().toUtf8();
+            const QByteArray nameBytes = key.toUtf8();
             const auto copyLen = static_cast<std::size_t>(std::min<qsizetype>(nameBytes.size(), 19));
             std::memcpy(entry.paramName, nameBytes.constData(), copyLen);
             entry.paramName[copyLen] = '\0';
 
-            QVariant evaluated = evaluateParam(effect.params, tracks, pit.key(), relFrame, fps, trackDuration);
+            QVariant evaluated = evaluateParam(effect.params, tracks, key, relFrame, fps, trackDuration);
 
             if (evaluated.canConvert<QColor>()) {
                 QColor c(evaluated.toString());
