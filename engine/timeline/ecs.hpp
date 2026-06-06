@@ -13,9 +13,6 @@
 
 namespace AviQtl::ECS {
 
-struct TransformComponent {
-    float x = 0, y = 0, z = 0, scaleX = 1, scaleY = 1, rotX = 0, rotY = 0, rotZ = 0, opacity = 1;
-};
 struct KeyframeRefComponent {
     uint32_t clipId = 0;
 };
@@ -136,16 +133,10 @@ struct AudioComponent {
     bool mute = false;
 };
 
-struct TransformComponent {
-    int layer = 0;
-    double timePosition = 0.0;
-    int startFrame = 0;
-    int durationFrames = 0;
-};
-
 struct RenderComponent {
     int clipId = -1;
     int layer = 0;
+    double timePosition = 0.0;
     int startFrame = 0;
     int durationFrames = 0;
 
@@ -182,12 +173,10 @@ struct EffectParamBuffer {
 
 struct ECSState {
     bool renderGraphDirty = false;
-    DenseComponentMap<TransformComponent> transforms;
     DenseComponentMap<RenderComponent> renderStates;
     DenseComponentMap<AudioComponent> audioStates;
 
     DenseComponentMap<AviQtl::ECS::KeyframeRefComponent> keyframeRefs;
-    DenseComponentMap<AviQtl::ECS::TransformComponent> ecsTransforms;
     DenseComponentMap<AviQtl::ECS::GlobalMatrixComponent> globalMatrices;
 
     EffectParamBuffer effectParams;

@@ -58,12 +58,12 @@ class TestBakeController : public QObject {
         BakeController::instance().bake(1, 60);
 
         auto &state = ECS::instance().editState();
-        QVERIFY(state.transforms.contains(10));
-        QVERIFY(state.transforms.contains(20));
-        QVERIFY(!state.transforms.contains(99));
+        QVERIFY(state.renderStates.contains(10));
+        QVERIFY(state.renderStates.contains(20));
+        QVERIFY(!state.renderStates.contains(99));
 
-        // Verify transform fields
-        auto *t = state.transforms.find(10);
+        // Verify render state fields
+        auto *t = state.renderStates.find(10);
         QCOMPARE(t->layer, 2);
         QCOMPARE(t->startFrame, 0);
         QCOMPARE(t->durationFrames, 100);
@@ -96,7 +96,7 @@ class TestBakeController : public QObject {
         BakeController::instance().bake(2, 50);
 
         auto &state = ECS::instance().editState();
-        QVERIFY(state.transforms.contains(5));
+        QVERIFY(state.renderStates.contains(5));
     }
 
     void onDemandExcludesOutOfRange() {
@@ -120,7 +120,7 @@ class TestBakeController : public QObject {
         BakeController::instance().bake(3, 50);
 
         auto &state = ECS::instance().editState();
-        QVERIFY(!state.transforms.contains(6));
+        QVERIFY(!state.renderStates.contains(6));
     }
 
     void clipIdOutOfRangeIgnored() {
@@ -140,7 +140,7 @@ class TestBakeController : public QObject {
         BakeController::instance().bake(4, 0);
 
         auto &state = ECS::instance().editState();
-        QVERIFY(!state.transforms.contains(MAX_CLIP_ID + 10));
+        QVERIFY(!state.renderStates.contains(MAX_CLIP_ID + 10));
     }
 
     void removesDeadClips() {
@@ -160,7 +160,7 @@ class TestBakeController : public QObject {
 
         {
             auto &state = ECS::instance().editState();
-            QVERIFY(state.transforms.contains(30));
+            QVERIFY(state.renderStates.contains(30));
         }
 
         // Now remove the clip and rebake
@@ -169,7 +169,7 @@ class TestBakeController : public QObject {
 
         {
             auto &state = ECS::instance().editState();
-            QVERIFY(!state.transforms.contains(30));
+            QVERIFY(!state.renderStates.contains(30));
         }
     }
 
@@ -193,7 +193,7 @@ class TestBakeController : public QObject {
 
         {
             auto &state = ECS::instance().editState();
-            QVERIFY(state.transforms.contains(40));
+            QVERIFY(state.renderStates.contains(40));
         }
 
         // Add another clip → structureChanged → triggerRebake
@@ -209,8 +209,8 @@ class TestBakeController : public QObject {
 
         // Ensure rebake happened by checking ECS now has both clips
         auto &state = ECS::instance().editState();
-        QVERIFY(state.transforms.contains(40));
-        QVERIFY(state.transforms.contains(41));
+        QVERIFY(state.renderStates.contains(40));
+        QVERIFY(state.renderStates.contains(41));
     }
 
     void relTimeComputation() {
@@ -229,7 +229,7 @@ class TestBakeController : public QObject {
         BakeController::instance().bake(7, 40); // 2 frames past start
 
         auto &state = ECS::instance().editState();
-        auto *t = state.transforms.find(50);
+        auto *t = state.renderStates.find(50);
         QVERIFY(t != nullptr);
         QCOMPARE(t->timePosition, 20.0); // 40 - 20 = 20
     }
