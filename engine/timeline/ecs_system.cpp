@@ -40,12 +40,10 @@ auto ECS::instance() -> ECS & {
 void ECS::syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
     auto &editState = m_buffers[m_editIndex];
     bool changed = false;
-    changed |= editState.transforms.syncAlive(aliveFlags);
     changed |= editState.renderStates.syncAlive(aliveFlags);
     changed |= editState.audioStates.syncAlive(aliveFlags);
 
     changed |= editState.keyframeRefs.syncAlive(aliveFlags);
-    changed |= editState.ecsTransforms.syncAlive(aliveFlags);
     changed |= editState.globalMatrices.syncAlive(aliveFlags);
 
     if (changed) {
@@ -57,19 +55,19 @@ void ECS::syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
 void ECS::updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = m_buffers[m_editIndex];
-    auto *ptr = editState.transforms.find(clipId);
+    auto *ptr = editState.renderStates.find(clipId);
     if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
-        ptr = &editState.transforms[clipId];
+        ptr = &editState.renderStates[clipId];
     }
-    auto &transform = *ptr;
-    bool changed = (transform.layer != layer) || (std::abs(transform.timePosition - time) > 0.001) || (transform.startFrame != startFrame) || (transform.durationFrames != durationFrames);
+    auto &render = *ptr;
+    bool changed = (render.layer != layer) || (std::abs(render.timePosition - time) > 0.001) || (render.startFrame != startFrame) || (render.durationFrames != durationFrames);
     if (changed) {
-        transform.layer = layer;
-        transform.timePosition = time;
-        transform.startFrame = startFrame;
-        transform.durationFrames = durationFrames;
+        render.layer = layer;
+        render.timePosition = time;
+        render.startFrame = startFrame;
+        render.durationFrames = durationFrames;
         editState.renderGraphDirty = true;
     }
 
@@ -165,8 +163,6 @@ void ECS::commit() {
         dst.renderGraphDirty = src.renderGraphDirty;
 
         for (int id : df.dirtyIds) {
-            if (const auto *s = src.transforms.find(id))
-                dst.transforms[id] = *s;
             if (const auto *s = src.renderStates.find(id))
                 dst.renderStates[id] = *s;
             if (const auto *s = src.audioStates.find(id))
@@ -174,8 +170,6 @@ void ECS::commit() {
 
             if (const auto *s = src.keyframeRefs.find(id))
                 dst.keyframeRefs[id] = *s;
-            if (const auto *s = src.ecsTransforms.find(id))
-                dst.ecsTransforms[id] = *s;
             if (const auto *s = src.globalMatrices.find(id))
                 dst.globalMatrices[id] = *s;
         }

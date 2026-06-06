@@ -8,8 +8,8 @@ class TestDenseComponentMap : public QObject {
 
   private slots:
     void operatorBracketCreatesElement() {
-        DenseComponentMap<TransformComponent> map;
-        TransformComponent &t = map[5];
+        DenseComponentMap<RenderComponent> map;
+        RenderComponent &t = map[5];
         QCOMPARE(t.layer, 0);
         QCOMPARE(t.timePosition, 0.0);
 
@@ -19,22 +19,22 @@ class TestDenseComponentMap : public QObject {
     }
 
     void findMissingReturnsNull() {
-        DenseComponentMap<TransformComponent> map;
+        DenseComponentMap<RenderComponent> map;
         QVERIFY(map.find(0) == nullptr);
         QVERIFY(map.find(1000) == nullptr);
     }
 
     void contains() {
-        DenseComponentMap<TransformComponent> map;
+        DenseComponentMap<RenderComponent> map;
         QVERIFY(!map.contains(3));
-        map[3] = TransformComponent{};
+        map[3] = RenderComponent{};
         QVERIFY(map.contains(3));
     }
 
     void eraseRemovesElement() {
-        DenseComponentMap<TransformComponent> map;
-        map[1] = TransformComponent{};
-        map[2] = TransformComponent{};
+        DenseComponentMap<RenderComponent> map;
+        map[1] = RenderComponent{};
+        map[2] = RenderComponent{};
         QVERIFY(map.contains(1));
         QVERIFY(map.contains(2));
 
@@ -44,16 +44,16 @@ class TestDenseComponentMap : public QObject {
     }
 
     void eraseNonExistentIsNoOp() {
-        DenseComponentMap<TransformComponent> map;
+        DenseComponentMap<RenderComponent> map;
         map.erase(999); // should not crash
         QVERIFY(!map.contains(999));
     }
 
     void iteration() {
-        DenseComponentMap<TransformComponent> map;
-        map[10] = TransformComponent{};
+        DenseComponentMap<RenderComponent> map;
+        map[10] = RenderComponent{};
         map[10].layer = 10;
-        map[20] = TransformComponent{};
+        map[20] = RenderComponent{};
         map[20].layer = 20;
 
         int count = 0;
@@ -64,25 +64,25 @@ class TestDenseComponentMap : public QObject {
     }
 
     void forEach() {
-        DenseComponentMap<TransformComponent> map;
-        map[5] = TransformComponent{};
+        DenseComponentMap<RenderComponent> map;
+        map[5] = RenderComponent{};
         map[5].layer = 50;
-        map[7] = TransformComponent{};
+        map[7] = RenderComponent{};
         map[7].layer = 70;
 
         int sum = 0;
-        map.forEach([&sum](int /*id*/, const TransformComponent &tc) { sum += tc.layer; });
+        map.forEach([&sum](int /*id*/, const RenderComponent &rc) { sum += rc.layer; });
         QCOMPARE(sum, 120);
     }
 
     void syncAliveRemovesDead() {
-        DenseComponentMap<TransformComponent> map;
+        DenseComponentMap<RenderComponent> map;
         std::bitset<MAX_CLIP_ID> alive;
 
         // Create 3 elements with IDs 1, 2, 3
-        map[1] = TransformComponent{};
-        map[2] = TransformComponent{};
-        map[3] = TransformComponent{};
+        map[1] = RenderComponent{};
+        map[2] = RenderComponent{};
+        map[3] = RenderComponent{};
         QVERIFY(map.contains(1));
         QVERIFY(map.contains(2));
         QVERIFY(map.contains(3));
@@ -99,10 +99,10 @@ class TestDenseComponentMap : public QObject {
     }
 
     void syncAliveNoChange() {
-        DenseComponentMap<TransformComponent> map;
+        DenseComponentMap<RenderComponent> map;
         std::bitset<MAX_CLIP_ID> alive;
 
-        map[10] = TransformComponent{};
+        map[10] = RenderComponent{};
         alive.set(10);
 
         bool changed = map.syncAlive(alive);
@@ -111,25 +111,25 @@ class TestDenseComponentMap : public QObject {
     }
 
     void multipleTypes() {
-        DenseComponentMap<TransformComponent> tmap;
+        DenseComponentMap<RenderComponent> rmap;
         DenseComponentMap<AudioComponent> amap;
 
-        tmap[1] = TransformComponent{};
-        tmap[1].layer = 5;
+        rmap[1] = RenderComponent{};
+        rmap[1].layer = 5;
         amap[1] = AudioComponent{};
         amap[1].volume = 0.5f;
 
-        QCOMPARE(tmap.find(1)->layer, 5);
+        QCOMPARE(rmap.find(1)->layer, 5);
         QCOMPARE(amap.find(1)->volume, 0.5f);
     }
 
     void denseStorageCompaction() {
-        DenseComponentMap<TransformComponent> map;
-        map[0] = TransformComponent{};
+        DenseComponentMap<RenderComponent> map;
+        map[0] = RenderComponent{};
         map[0].layer = 100;
-        map[1] = TransformComponent{};
+        map[1] = RenderComponent{};
         map[1].layer = 200;
-        map[2] = TransformComponent{};
+        map[2] = RenderComponent{};
         map[2].layer = 300;
 
         // Erase middle element
