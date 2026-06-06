@@ -5,7 +5,9 @@
 #include "effect_registry.hpp"
 #include "settings_manager.hpp"
 #include <QDebug>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -14,13 +16,53 @@
 
 namespace AviQtl::Core {
 
+inline constexpr int PROJECT_VERSION = 2;
+
+static QString toRelativePath(const QString &absolutePath, const QString &baseDir) {
+    if (absolutePath.isEmpty())
+        return absolutePath;
+    QDir base(baseDir);
+    QString rel = base.relativeFilePath(absolutePath);
+    return rel.isEmpty() ? absolutePath : rel;
+}
+
+static QString toAbsolutePath(const QString &path, const QString &baseDir) {
+    if (path.isEmpty())
+        return path;
+    if (QDir::isAbsolutePath(path))
+        return path;
+    return QDir::cleanPath(QDir(baseDir).absoluteFilePath(path));
+}
+
+static void convertMediaPaths(QVariantMap &params, const QString &baseDir, bool toRelative) {
+    const QStringList mediaKeys = {QStringLiteral("video"), QStringLiteral("image"), QStringLiteral("audio")};
+    for (const auto &key : mediaKeys) {
+        auto it = params.find(key);
+        if (it == params.end() || !it->canConvert<QVariantMap>())
+            continue;
+        QVariantMap media = it->toMap();
+        auto pathIt = media.find(QStringLiteral("path"));
+        if (pathIt != media.end()) {
+            QString p = pathIt->toString();
+            if (!p.isEmpty()) {
+                *pathIt = toRelative ? toRelativePath(p, baseDir) : toAbsolutePath(p, baseDir);
+            }
+        }
+        params[key] = media;
+    }
+}
+
 auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *timeline, const UI::ProjectService *project, QString *errorMessage) -> bool {
     QString path = QUrl(fileUrl).toLocalFile();
     if (path.isEmpty()) {
         path = fileUrl;
     }
 
+    const QString projectDir = QFileInfo(path).absolutePath();
+
     QJsonObject root;
+    root.insert(QStringLiteral("version"), PROJECT_VERSION);
+
     QJsonObject settings;
     settings.insert(QStringLiteral("width"), project->width());
     settings.insert(QStringLiteral("height"), project->height());
@@ -53,7 +95,10 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
             clipObj.insert(QStringLiteral("duration"), clip.durationFrames);
             clipObj.insert(QStringLiteral("layer"), clip.layer);
             clipObj.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
-            clipObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(clip.params));
+
+            QVariantMap paramsCopy = clip.params;
+            convertMediaPaths(paramsCopy, projectDir, true);
+            clipObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(paramsCopy));
 
             QJsonArray audioPluginsArray;
             for (const auto &plugin : std::as_const(clip.audioPlugins)) {
@@ -103,8 +148,12 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         return false;
     }
 
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    auto jsonData = file.readAll();
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData);
     QJsonObject root = doc.object();
+
+    const int version = root.value(QStringLiteral("version")).toInt(1);
+    const QString projectDir = QFileInfo(path).absolutePath();
 
     QJsonObject s = root.value(QStringLiteral("settings")).toObject();
     project->setWidth(s.value(QStringLiteral("width")).toInt(1920));
@@ -146,6 +195,10 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         clip.layer = c.value(QStringLiteral("layer")).toInt();
         clip.clipByUpperObject = c.value(QStringLiteral("clipByUpperObject")).toBool(false);
         clip.params = c.value(QStringLiteral("params")).toObject().toVariantMap();
+
+        if (version >= 2) {
+            convertMediaPaths(clip.params, projectDir, false);
+        }
 
         QJsonArray audioPluginsArray = c.value(QStringLiteral("audioPlugins")).toArray();
         for (const auto &pv : std::as_const(audioPluginsArray)) {
