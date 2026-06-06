@@ -108,7 +108,7 @@ aviqtl_add_test(
 aviqtl_add_test(
     NAME ecs_render
     SOURCES test_ecs_render.cpp
-    LINKS AviQtl_Engine
+    LINKS AviQtl_Engine AviQtl_UI
 )
 
 # NOTE: video_frame_store temporarily disabled – triggers a runtime

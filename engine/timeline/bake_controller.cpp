@@ -62,7 +62,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     render.layer = clip.layer;
     render.startFrame = clip.startFrame;
     render.durationFrames = clip.durationFrames;
-    render.clipByUpperObject = clip.clipByUpperObject;
+    render.clipByUpperObject = false; // Not available in DocumentModel::Clip
 
     bool hasTransform = false;
     uint16_t effectIdx = 0;
@@ -107,7 +107,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             entry.effectIndex = effectIdx;
 
             const QByteArray nameBytes = pit.key().toUtf8();
-            const std::size_t copyLen = static_cast<std::size_t>(std::min(nameBytes.size(), 19));
+            const auto copyLen = static_cast<std::size_t>(std::min<qsizetype>(nameBytes.size(), 19));
             std::memcpy(entry.paramName, nameBytes.constData(), copyLen);
             entry.paramName[copyLen] = '\0';
 
