@@ -16,6 +16,8 @@ Common.AviQtlWindow {
     property int defaultCrf: SettingsManager ? SettingsManager.value("exportDefaultCrf", 20) : 20
     property string defaultAudioCodec: SettingsManager ? SettingsManager.value("exportDefaultAudioCodec", "aac") : "aac"
     property int defaultAudioKbps: SettingsManager ? SettingsManager.value("exportDefaultAudioBitrateKbps", 192) : 192
+    property bool isImageSequence: formatCombo.currentIndex === 1
+    property string imageFormat: imageFormatCombo.currentIndex === 0 ? "PNG" : "JPEG"
 
     function show() {
         visible = true;
@@ -126,16 +128,33 @@ Common.AviQtlWindow {
         RowLayout {
             Layout.fillWidth: true
 
+            Label {
+                text: qsTr("形式:")
+            }
+
+            ComboBox {
+                id: formatCombo
+                model: [qsTr("動画ファイル"), qsTr("画像シーケンス (PNG)")]
+                currentIndex: 0
+            }
+
+            ComboBox {
+                id: imageFormatCombo
+                visible: root.isImageSequence
+                model: ["PNG", "JPEG"]
+                currentIndex: 0
+            }
+
             TextField {
                 id: filePathField
 
                 Layout.fillWidth: true
-                placeholderText: qsTr("保存先ファイルパス...")
+                placeholderText: root.isImageSequence ? qsTr("保存先フォルダ...") : qsTr("保存先ファイルパス...")
             }
 
             Button {
                 text: qsTr("参照...")
-                onClicked: fileDialog.open()
+                onClicked: root.isImageSequence ? folderDialog.open() : fileDialog.open()
             }
 
         }
@@ -144,6 +163,7 @@ Common.AviQtlWindow {
         GroupBox {
             title: qsTr("映像")
             Layout.fillWidth: true
+            visible: !root.isImageSequence
 
             GridLayout {
                 columns: 4
@@ -334,6 +354,7 @@ Common.AviQtlWindow {
         GroupBox {
             title: qsTr("音声")
             Layout.fillWidth: true
+            visible: !root.isImageSequence
 
             GridLayout {
                 columns: 4
@@ -505,22 +526,26 @@ Common.AviQtlWindow {
                 enabled: filePathField.text !== ""
                 highlighted: true
                 onClicked: {
-                    var codec = codecCombo.model[codecCombo.currentIndex].value;
-                    var audioCodec = audioCodecCombo.model[audioCodecCombo.currentIndex].value;
-                    Workspace.currentTimeline.exportVideoAsync({
-                        "width": (project ? project.width : 1920),
-                        "height": (project ? project.height : 1080),
-                        "fps_num": Math.round(pFps * 1000),
-                        "fps_den": 1000,
-                        "bitrate": bitrateSpin.value * 1e+06,
-                        "crf": crfRadio.checked ? crfSlider.value : -1,
-                        "codecName": codec,
-                        "audioCodecName": audioCodec,
-                        "audioBitrate": audioBitrateCombo.bitrate,
-                        "outputUrl": filePathField.text,
-                        "startFrame": fullRangeCheck.checked ? 0 : startFrameSpin.value,
-                        "endFrame": fullRangeCheck.checked ? -1 : endFrameSpin.value
-                    });
+                    if (root.isImageSequence) {
+                        Workspace.currentTimeline.exportImageSequence(filePathField.text, 100, root.imageFormat);
+                    } else {
+                        var codec = codecCombo.model[codecCombo.currentIndex].value;
+                        var audioCodec = audioCodecCombo.model[audioCodecCombo.currentIndex].value;
+                        Workspace.currentTimeline.exportVideoAsync({
+                            "width": (project ? project.width : 1920),
+                            "height": (project ? project.height : 1080),
+                            "fps_num": Math.round(pFps * 1000),
+                            "fps_den": 1000,
+                            "bitrate": bitrateSpin.value * 1e+06,
+                            "crf": crfRadio.checked ? crfSlider.value : -1,
+                            "codecName": codec,
+                            "audioCodecName": audioCodec,
+                            "audioBitrate": audioBitrateCombo.bitrate,
+                            "outputUrl": filePathField.text,
+                            "startFrame": fullRangeCheck.checked ? 0 : startFrameSpin.value,
+                            "endFrame": fullRangeCheck.checked ? -1 : endFrameSpin.value
+                        });
+                    }
                 }
             }
 
@@ -534,6 +559,18 @@ Common.AviQtlWindow {
         title: qsTr("保存先を指定")
         fileMode: Dialogs.FileDialog.SaveFile
         nameFilters: ["MP4 Video (*.mp4)", "MKV Video (*.mkv)", "All files (*)"]
+        onAccepted: {
+            var path = selectedFile.toString();
+            filePathField.text = Qt.platform.os === "windows" ? path.replace(/^file:\/{3}/, "") : path.replace(/^file:\/\//, "");
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: folderDialog
+
+        title: qsTr("保存先フォルダを指定")
+        fileMode: Dialogs.FileDialog.SaveFile
+        nameFilters: ["Folder"]
         onAccepted: {
             var path = selectedFile.toString();
             filePathField.text = Qt.platform.os === "windows" ? path.replace(/^file:\/{3}/, "") : path.replace(/^file:\/\//, "");

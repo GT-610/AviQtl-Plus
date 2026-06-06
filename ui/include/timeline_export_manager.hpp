@@ -21,7 +21,7 @@ class TimelineExportManager : public QObject {
     ~TimelineExportManager() override;
 
     void exportVideoAsync(const AviQtl::Core::VideoEncoder::Config &config);
-    bool exportImageSequence(const QString &dir, int quality = 100);
+    bool exportImageSequence(const QString &dir, int quality = 100, const QString &format = QStringLiteral("PNG"));
     void cancelExport();
     bool isExporting() const { return m_exporting.load(); }
 

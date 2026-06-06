@@ -77,15 +77,6 @@ aviqtl_add_test(
     LINKS AviQtl_UI
 )
 
-# NOTE: effect_interpolation is temporarily disabled from CTest
-#       because it triggers a module/compilation crash at runtime
-#       under Qt C++20 modules (-fmodules-ts) which needs deeper investigation.
-# aviqtl_add_test(
-#     NAME effect_interpolation
-#     SOURCES test_effect_interpolation.cpp
-#     LINKS AviQtl_UI
-# )
-
 # --- Engine Tests ---
 aviqtl_add_test(
     NAME dense_component_map
@@ -110,14 +101,6 @@ aviqtl_add_test(
     SOURCES test_ecs_render.cpp
     LINKS AviQtl_Engine AviQtl_UI
 )
-
-# NOTE: video_frame_store temporarily disabled – triggers a runtime
-#       crash under Qt C++20 modules that needs deeper investigation.
-# aviqtl_add_test(
-#     NAME video_frame_store
-#     SOURCES test_video_frame_store.cpp
-#     LINKS AviQtl_UI
-# )
 
 # --- Scripting Tests ---
 aviqtl_add_test(
