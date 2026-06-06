@@ -105,6 +105,12 @@ aviqtl_add_test(
     LINKS AviQtl_Engine AviQtl_UI
 )
 
+aviqtl_add_test(
+    NAME ecs_render
+    SOURCES test_ecs_render.cpp
+    LINKS AviQtl_Engine
+)
+
 # NOTE: video_frame_store temporarily disabled – triggers a runtime
 #       crash under Qt C++20 modules that needs deeper investigation.
 # aviqtl_add_test(
