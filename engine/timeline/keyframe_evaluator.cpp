@@ -178,6 +178,8 @@ QVariant evaluateTrack(const QVariantList &track, int frame, const QVariant &fal
         if (frame < f0 || frame > f1)
             continue;
         const QVariant v0 = m_i.value(QStringLiteral("value")), v1 = m_i1.value(QStringLiteral("value"));
+        if (f0 == f1)
+            return v0;
         const double tRaw = (frame - f0) / double(f1 - f0);
         QString type = m_i.value(QStringLiteral("interp")).toString();
         const QVariantMap modeParams = m_i.value(QStringLiteral("modeParams")).toMap();
