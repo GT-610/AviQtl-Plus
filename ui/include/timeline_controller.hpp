@@ -168,6 +168,7 @@ class TimelineController : public QObject {
     Q_INVOKABLE bool loadProject(const QString &fileUrl);
     // 新非同期インターフェース
     Q_INVOKABLE void exportVideoAsync(const QVariantMap &config);
+    Q_INVOKABLE void exportImageSequence(const QString &dir, int quality = 100);
     Q_INVOKABLE void cancelExport();
     Q_PROPERTY(bool isExporting READ isExporting NOTIFY exportFinished)
     bool isExporting() const;

@@ -4,7 +4,9 @@
 #include "timeline_controller.hpp"
 #include "video_encoder.hpp"
 #include <QCoreApplication>
+#include <QDir>
 #include <QEventLoop>
+#include <QImage>
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
 #include <QTimer>
@@ -105,6 +107,80 @@ cleanup:
         QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
     }
     m_exporting = false;
+}
+
+bool TimelineExportManager::exportImageSequence(const QString &dir, int quality) {
+    if (m_exporting.load())
+        return false;
+
+    QDir outputDir(dir);
+    if (!outputDir.exists() && !outputDir.mkpath(QStringLiteral("."))) {
+        emit exportFinished(false, tr("Cannot create output directory"));
+        return false;
+    }
+
+    m_exporting = true;
+    m_cancelRequested = false;
+
+    const int startFrame = 0;
+    const int endFrame = m_controller->timelineDuration();
+    const int totalFrames = endFrame - startFrame;
+    const int padDigits = QString::number(endFrame).length();
+
+    emit exportStarted(totalFrames);
+
+    QQuickItem *view = m_controller->compositeView();
+    QQuickItem *targetItem = (view != nullptr) ? ((view->property("view3D").value<QQuickItem *>() != nullptr) ? view->property("view3D").value<QQuickItem *>() : view) : nullptr;
+
+    if (view != nullptr) {
+        QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
+    }
+
+    auto &exportSettings = AviQtl::Core::SettingsManager::instance();
+    const int grabTimeout = exportSettings.value(QStringLiteral("exportFrameGrabTimeoutMs"), 2000).toInt();
+    const int progInterval = exportSettings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
+
+    for (int frame = startFrame; frame < endFrame; ++frame) {
+        if (m_cancelRequested.load()) {
+            emit exportFinished(false, tr("Cancelled"));
+            goto cleanupSeq;
+        }
+
+        QMetaObject::invokeMethod(m_controller->transport(), [this, frame] -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
+
+        QImage img;
+        if (targetItem != nullptr) {
+            QSharedPointer<QQuickItemGrabResult> grab;
+            QMetaObject::invokeMethod(targetItem, [&] -> void { grab = targetItem->grabToImage(); }, Qt::BlockingQueuedConnection);
+            if (grab) {
+                QEventLoop loop;
+                connect(grab.get(), &QQuickItemGrabResult::ready, &loop, &QEventLoop::quit);
+                QTimer::singleShot(grabTimeout, &loop, &QEventLoop::quit);
+                loop.exec();
+                img = grab->image();
+            }
+        }
+
+        if (!img.isNull()) {
+            const QString filename = QStringLiteral("frame_") + QString::number(frame).rightJustified(padDigits, QChar::fromLatin1('0')) + QStringLiteral(".png");
+            const QString filePath = outputDir.filePath(filename);
+            img.save(filePath, "PNG", quality);
+        }
+
+        const int done = frame - startFrame + 1;
+        if (done % progInterval == 0 || done == totalFrames) {
+            emit exportProgressChanged(done * 100 / totalFrames, done, totalFrames);
+        }
+    }
+
+    emit exportFinished(true, tr("Export complete"));
+
+cleanupSeq:
+    if (view != nullptr) {
+        QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
+    }
+    m_exporting = false;
+    return true;
 }
 
 } // namespace AviQtl::UI

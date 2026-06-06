@@ -21,6 +21,10 @@ void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     m_exportManager->exportVideoAsync(c);
 }
 
+void TimelineController::exportImageSequence(const QString &dir, int quality) {
+    m_exportManager->exportImageSequence(dir, quality);
+}
+
 void TimelineController::cancelExport() { m_exportManager->cancelExport(); }
 auto TimelineController::isExporting() const -> bool { return m_exportManager->isExporting(); }
 
