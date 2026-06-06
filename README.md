@@ -214,9 +214,13 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 <summary>What is the roadmap for AviQtl-Plus?</summary>
 
 **Near-term (0.1.x):**
-- Implement the core service layer (TimelineService, ProjectService, media managers) to enable basic video editing workflow
-- Polish existing UI components and fix edge cases
-- Establish a stable build and release pipeline
+- [x] Implement the core service layer (TimelineService, ProjectService, media managers) to enable basic video editing workflow
+- [x] ECS render pipeline: RenderComponent, EffectParamBuffer, ECSRenderBridge, QML integration
+- [x] TransportService: loop playback, frame stepping, auto-pause at end
+- [x] ProjectSerializer: version field, relative media paths for cross-device portability
+- [x] Export: image sequence export (PNG per-frame)
+- [ ] Polish existing UI components and fix edge cases
+- [ ] Establish a stable build and release pipeline
 
 **Mid-term (0.2–0.3.x):**
 - Complete effect and object plugin ecosystem

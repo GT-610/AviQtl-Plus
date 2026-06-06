@@ -214,9 +214,13 @@ AviQtl-Plus 从根本上解决结构性弱点：
 <summary>AviQtl-Plus 的路线图是什么？</summary>
 
 **短期（0.1.x）：**
-- 实现核心服务层（TimelineService、ProjectService、媒体管理器），让基本编辑流程跑通
-- 打磨现有 UI 组件，修复边界情况
-- 建立稳定的构建和发布管道
+- [x] 实现核心服务层（TimelineService、ProjectService、媒体管理器），让基本编辑流程跑通
+- [x] ECS 渲染管线：RenderComponent、EffectParamBuffer、ECSRenderBridge、QML 集成
+- [x] TransportService：循环播放、逐帧步进、结束自动暂停
+- [x] ProjectSerializer：版本字段、相对媒体路径以支持跨设备移植
+- [x] 导出：逐帧图片序列导出（PNG）
+- [ ] 打磨现有 UI 组件，修复边界情况
+- [ ] 建立稳定的构建和发布管道
 
 **中期（0.2–0.3.x）：**
 - 完善特效和对象插件生态
