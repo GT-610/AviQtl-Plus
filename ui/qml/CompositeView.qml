@@ -22,6 +22,7 @@ Item {
     property alias view3D: view
     property var groupControls: []
     property var cameraControls: []
+    property var ecsRenderData: ({})
     // [FIX-12] activeCameraControl の評価で破棄済みオブジェクトを触らないよう
     // isCameraControl フラグを確認してから clipLayer にアクセスする。
     // QML オブジェクトが破棄されると各プロパティへのアクセスは undefined を返すが、
@@ -221,12 +222,22 @@ Item {
                 property var clipEffectModelsRole: _clipData.effectModels || []
                 property Item fbRendererOutput: null
                 property int _tmRev: 0
-                property bool clipByUpperObjectRole: Boolean(_clipData.clipByUpperObject)
+                property bool clipByUpperObjectRole: {
+                    var ecsState = root.ecsRenderData[clipIdRole];
+                    if (ecsState)
+                        return ecsState.clipByUpperObject;
+                    return Boolean(_clipData.clipByUpperObject);
+                }
                 property Item rawFbRendererOutput: null
                 readonly property bool clipByUpperActive: clipByUpperObjectRole && clipMaskItem && rawFbRendererOutput
                 readonly property Item clippedRendererOutput: clipByUpperLoader.item ? clipByUpperLoader.item.output : null
                 property Item clipMaskItem: null
                 readonly property var evaluatedParams: {
+                    var ecsState = root.ecsRenderData[clipIdRole];
+                    if (ecsState) {
+                        return ECSRenderBridge.getEffectParams(clipIdRole);
+                    }
+
                     var _trig = clipNode._tmRev;
                     if (!Workspace.currentTimeline)
                         return {
@@ -235,6 +246,20 @@ Item {
                     return Workspace.currentTimeline.evaluateClipParams(clipIdRole, root.currentFrame - clipStartFrameRole);
                 }
                 readonly property var tParams: {
+                    var ecsState = root.ecsRenderData[clipIdRole];
+                    if (ecsState) {
+                        return {
+                            "x": ecsState.x,
+                            "y": ecsState.y,
+                            "z": ecsState.z,
+                            "rotationX": ecsState.rotX,
+                            "rotationY": ecsState.rotY,
+                            "rotationZ": ecsState.rotZ,
+                            "scale": ecsState.scaleX * 100,
+                            "opacity": ecsState.opacity
+                        };
+                    }
+
                     var _ = clipNode._tmRev;
                     var tModel = null;
                     for (var i = 0; i < clipEffectModelsRole.length; i++) {

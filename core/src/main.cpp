@@ -22,6 +22,7 @@
 
 // UI Headers
 #include "../../ui/include/bridge/core_bridge.hpp"
+#include "../../ui/include/bridge/ecs_render_bridge.hpp"
 #include "../../ui/include/timeline_controller.hpp"
 #include "../../ui/include/window_manager.hpp"
 #include "../../ui/include/workspace.hpp"
@@ -55,6 +56,7 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
     qmlRegisterType<UI::Effects::ComputeEffect>("AviQtl", 1, 0, "ComputeEffect");
     qmlRegisterUncreatableType<UI::TimelineController>("AviQtl.UI", 1, 0, "TimelineController", "Managed by C++");
     qmlRegisterSingletonInstance<UI::CoreBridge>("AviQtl.UI", 1, 0, "CoreBridge", &UI::CoreBridge::instance());
+    qmlRegisterSingletonInstance<UI::ECSRenderBridge>("AviQtl.UI", 1, 0, "ECSRenderBridge", &UI::ECSRenderBridge::instance());
 
     auto *ctx = engine.rootContext();
     ctx->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());

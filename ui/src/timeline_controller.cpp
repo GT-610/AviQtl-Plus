@@ -1,5 +1,6 @@
 #include "timeline_controller.hpp"
 #include "audio_decoder.hpp"
+#include "bridge/ecs_render_bridge.hpp"
 #include "commands.hpp"
 #include "core/include/document_model.hpp"
 #include "effect_registry.hpp"
@@ -32,6 +33,7 @@ TimelineController::TimelineController(QObject *parent) : QObject(parent) {
     m_selection->select(-1, QVariantMap());
     syncTimelineToDocumentModel();
     AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+    ECSRenderBridge::instance().notifyFrameReady();
     updateClipActiveState();
     invalidateTimelineDuration();
     m_transport->setTotalFrames(timelineDuration());
@@ -58,6 +60,7 @@ void TimelineController::setupConnections() {
             // Bake after sync — syncTimelineToDocumentModel() (from updateActiveClipsList)
             // emits DocumentModel::structureChanged, which triggers BakeController::triggerRebake.
             AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+            ECSRenderBridge::instance().notifyFrameReady();
             invalidateTimelineDuration();
             m_transport->setTotalFrames(timelineDuration());
         },
@@ -77,6 +80,7 @@ void TimelineController::setupConnections() {
         updateActiveClipsList();
         invalidateTimelineDuration();
         AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+        ECSRenderBridge::instance().notifyFrameReady();
         emit scenesChanged();
     });
     connect(m_timeline, &TimelineService::currentSceneIdChanged, this, [this]() {
@@ -121,8 +125,8 @@ void TimelineController::onPlayingChanged() { m_mediaManager->onPlayingChanged()
 
 void TimelineController::onCurrentFrameChanged() {
     m_mediaManager->onCurrentFrameChanged();
-    // syncTimelineToDocumentModel() is only needed on structural changes
-    // and is called from the respective signal handlers - not every frame.
+    AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+    ECSRenderBridge::instance().notifyFrameReady();
 }
 
 void TimelineController::setVideoFrameStore(AviQtl::Core::VideoFrameStore *store) {

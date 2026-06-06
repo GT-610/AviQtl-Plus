@@ -1,4 +1,5 @@
 import QtQuick
+import AviQtl.UI 1.0
 import "common" as Common
 
 Item {
@@ -10,7 +11,8 @@ Item {
     property var sceneStack: sceneId >= 0 ? [sceneId] : []
     property int sceneWidth: 1920
     property int sceneHeight: 1080
-    // シーン情報を取得
+    property var ecsRenderData: ({})
+
     property var sceneInfo: {
         if (!timelineBridge || sceneId < 0)
             return null;
@@ -33,11 +35,29 @@ Item {
     width: sceneWidth
     height: sceneHeight
 
+    function updateEcsData() {
+        var states = ECSRenderBridge.renderStates;
+        var map = {};
+        for (var i = 0; i < states.length; i++) {
+            var s = states[i];
+            map[s.clipId] = s;
+        }
+        root.ecsRenderData = map;
+    }
+
+    Connections {
+        target: ECSRenderBridge
+        function onRenderStatesChanged() {
+            root.updateEcsData();
+        }
+    }
+
+    Component.onCompleted: root.updateEcsData()
+
     CompositeView {
         id: compositeView
 
         anchors.fill: parent
-        // 外部から注入されたデータを使用
         clipModel: {
             if (root.timelineBridge && root.sceneId >= 0)
                 return root.timelineBridge.getSceneClips(root.sceneId);
@@ -49,6 +69,7 @@ Item {
         projectWidth: root.sceneWidth
         projectHeight: root.sceneHeight
         currentFrame: root.currentFrame
+        ecsRenderData: root.ecsRenderData
         layerStates: {
             var tlWin = WindowManager.getWindow("timeline");
             return tlWin ? tlWin.globalLayerStates : ({

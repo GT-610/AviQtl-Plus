@@ -2,6 +2,7 @@
 #include "commands.hpp"
 #include "effect_registry.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
+#include "engine/timeline/ecs.hpp"
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
@@ -715,8 +716,6 @@ void TimelineController::splitSelectedClips(int frame) {
         m_timeline->splitSelectedClips(frame);
     }
 }
-
-#include "engine/timeline/ecs.hpp"
 
 auto TimelineController::evaluateClipParams(int clipId, int relFrame) const -> QVariantMap {
     QVariantMap out;
