@@ -81,21 +81,6 @@ ApplicationWindow {
         syncCompositeView();
     }
 
-    // 末尾到達時に一時停止するだけのシンプルなロジック
-    Connections {
-        function onCurrentFrameChanged() {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport) {
-                // totalFrames を排除し、動的に計算されるクリップの末尾（seekSlider.to）のみを基準にする。
-                var limit = Math.floor(seekSlider.to) - 1;
-                if (limit > 0 && Workspace.currentTimeline.transport.currentFrame >= limit)
-                    Workspace.currentTimeline.transport.pause();
-
-            }
-        }
-
-        target: Workspace.currentTimeline ? Workspace.currentTimeline.transport : null
-    }
-
     FontLoader {
         source: "qrc:/resources/remixicon.ttf"
     }
@@ -444,8 +429,7 @@ ApplicationWindow {
         text: qsTr("1フレーム進む")
         onTriggered: {
             if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
-                Workspace.currentTimeline.transport.currentFrame = Math.min(Workspace.currentTimeline.transport.currentFrame + 1, Workspace.currentTimeline.transport.totalFrames);
-
+                Workspace.currentTimeline.transport.stepForward();
         }
     }
 
@@ -457,8 +441,7 @@ ApplicationWindow {
         text: qsTr("1フレーム戻る")
         onTriggered: {
             if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
-                Workspace.currentTimeline.transport.currentFrame = Math.max(Workspace.currentTimeline.transport.currentFrame - 1, 0);
-
+                Workspace.currentTimeline.transport.stepBackward();
         }
     }
 

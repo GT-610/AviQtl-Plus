@@ -76,11 +76,15 @@ void TransportService::onTick() {
 }
 
 void TransportService::stepForward() {
+    if (m_isPlaying)
+        return;
     if (m_currentFrame < m_totalFrames)
         setCurrentFrame_seek(m_currentFrame + 1);
 }
 
 void TransportService::stepBackward() {
+    if (m_isPlaying)
+        return;
     if (m_currentFrame > 0)
         setCurrentFrame_seek(m_currentFrame - 1);
 }
