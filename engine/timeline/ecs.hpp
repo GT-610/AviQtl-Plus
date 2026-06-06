@@ -1,6 +1,15 @@
 #pragma once
 #include "ecs_profiler.hpp"
+#include <array>
+#include <atomic>
+#include <bitset>
+#include <cassert>
 #include <cstdint>
+#include <cstddef>
+#include <iterator>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace AviQtl::ECS {
 
@@ -15,14 +24,6 @@ struct GlobalMatrixComponent {
 };
 
 } // namespace AviQtl::ECS
-#include <array>
-#include <atomic>
-#include <bitset>
-#include <cassert>
-#include <cstddef>
-#include <iterator>
-#include <utility>
-#include <vector>
 
 namespace AviQtl::UI {
 class CoreBridge;
@@ -33,8 +34,8 @@ namespace AviQtl::Engine::Timeline {
 inline constexpr int MAX_CLIP_ID = 4096;
 
 struct DirtyFlags {
-    std::bitset<MAX_CLIP_ID> dirty;
-    std::vector<int> dirtyIds; // 最適化: 変更された ID を直接保持
+    ::std::bitset<MAX_CLIP_ID> dirty;
+    ::std::vector<int> dirtyIds;
     bool fullSync = false;
 };
 
@@ -42,10 +43,10 @@ template <typename T> class DenseComponentMap {
   public:
     T &operator[](int clipId) {
         ensureSparseSize(clipId);
-        int &denseIndex = m_sparse[static_cast<std::size_t>(clipId)];
+        int &denseIndex = m_sparse[static_cast<::std::size_t>(clipId)];
         if (denseIndex >= 0) {
             ECS_PROF_INC(denseMapHit);
-            return m_data[static_cast<std::size_t>(denseIndex)];
+            return m_data[static_cast<::std::size_t>(denseIndex)];
         }
         ECS_PROF_INC(denseMapMiss);
         denseIndex = static_cast<int>(m_data.size());
@@ -57,36 +58,36 @@ template <typename T> class DenseComponentMap {
     T *find(int clipId) {
         if (clipId < 0 || clipId >= static_cast<int>(m_sparse.size()))
             return nullptr;
-        const int denseIndex = m_sparse[static_cast<std::size_t>(clipId)];
+        const int denseIndex = m_sparse[static_cast<::std::size_t>(clipId)];
         if (denseIndex < 0)
             return nullptr;
-        return &m_data[static_cast<std::size_t>(denseIndex)];
+        return &m_data[static_cast<::std::size_t>(denseIndex)];
     }
     const T *find(int clipId) const { return const_cast<DenseComponentMap *>(this)->find(clipId); }
 
     void erase(int clipId) {
         if (clipId < 0 || clipId >= static_cast<int>(m_sparse.size()))
             return;
-        int denseIndex = m_sparse[static_cast<std::size_t>(clipId)];
+        int denseIndex = m_sparse[static_cast<::std::size_t>(clipId)];
         if (denseIndex < 0)
             return;
         int lastIndex = static_cast<int>(m_data.size()) - 1;
         if (denseIndex != lastIndex) {
-            m_data[static_cast<std::size_t>(denseIndex)] = std::move(m_data[static_cast<std::size_t>(lastIndex)]);
-            int movedClipId = m_entities[static_cast<std::size_t>(lastIndex)];
-            m_entities[static_cast<std::size_t>(denseIndex)] = movedClipId;
-            m_sparse[static_cast<std::size_t>(movedClipId)] = denseIndex;
+            m_data[static_cast<::std::size_t>(denseIndex)] = ::std::move(m_data[static_cast<::std::size_t>(lastIndex)]);
+            int movedClipId = m_entities[static_cast<::std::size_t>(lastIndex)];
+            m_entities[static_cast<::std::size_t>(denseIndex)] = movedClipId;
+            m_sparse[static_cast<::std::size_t>(movedClipId)] = denseIndex;
         }
         m_data.pop_back();
         m_entities.pop_back();
-        m_sparse[static_cast<std::size_t>(clipId)] = -1;
+        m_sparse[static_cast<::std::size_t>(clipId)] = -1;
     }
 
-    bool syncAlive(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
+    bool syncAlive(const ::std::bitset<MAX_CLIP_ID> &aliveFlags) {
         bool changed = false;
         for (int i = static_cast<int>(m_entities.size()) - 1; i >= 0; --i) {
-            int id = m_entities[static_cast<std::size_t>(i)];
-            if (id >= MAX_CLIP_ID || !aliveFlags.test(static_cast<std::size_t>(id))) {
+            int id = m_entities[static_cast<::std::size_t>(i)];
+            if (id >= MAX_CLIP_ID || !aliveFlags.test(static_cast<::std::size_t>(id))) {
                 erase(id);
                 changed = true;
                 ECS_PROF_INC(syncAliveRemoved);
@@ -105,11 +106,11 @@ template <typename T> class DenseComponentMap {
     bool contains(int clipId) const {
         if (clipId < 0 || clipId >= static_cast<int>(m_sparse.size()))
             return false;
-        return m_sparse[static_cast<std::size_t>(clipId)] != -1;
+        return m_sparse[static_cast<::std::size_t>(clipId)] != -1;
     }
 
     template <typename Fn> void forEach(Fn &&fn) const {
-        for (std::size_t i = 0; i < m_data.size(); ++i)
+        for (::std::size_t i = 0; i < m_data.size(); ++i)
             fn(m_entities[i], m_data[i]);
     }
 
@@ -117,13 +118,13 @@ template <typename T> class DenseComponentMap {
     void ensureSparseSize(int clipId) {
         if (clipId < 0)
             return;
-        const std::size_t needed = static_cast<std::size_t>(clipId) + 1;
+        const ::std::size_t needed = static_cast<::std::size_t>(clipId) + 1;
         if (m_sparse.size() < needed)
             m_sparse.resize(needed, -1);
     }
-    std::vector<int> m_entities;
-    std::vector<T> m_data;
-    std::vector<int> m_sparse;
+    ::std::vector<int> m_entities;
+    ::std::vector<T> m_data;
+    ::std::vector<int> m_sparse;
 };
 
 struct AudioComponent {
@@ -162,7 +163,7 @@ struct RenderComponent {
 
     int videoFrameKey = -1;
 };
-static_assert(std::is_trivially_copyable_v<RenderComponent>);
+static_assert(::std::is_trivially_copyable_v<RenderComponent>);
 
 enum class ParamType : uint8_t { Float = 0, Vec2, Vec3, Vec4, Color };
 
@@ -175,7 +176,7 @@ struct EffectParamEntry {
 };
 
 struct EffectParamBuffer {
-    std::vector<EffectParamEntry> entries;
+    ::std::vector<EffectParamEntry> entries;
     void clear() { entries.clear(); }
 };
 
@@ -201,7 +202,7 @@ class ECS {
     int currentFrame() const { return m_currentFrame; }
     bool isPlaying() const { return m_isPlaying; }
 
-    void syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags);
+    void syncClipIds(const ::std::bitset<MAX_CLIP_ID> &aliveFlags);
     void updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames);
     void updateAudioClipState(int clipId, int startFrame, int durationFrames, float volume, float pan, bool mute);
     void updateRenderState(int clipId, const RenderComponent &render);
@@ -220,12 +221,12 @@ class ECS {
   private:
     ECS();
 
-    std::array<ECSState, 3> m_buffers;
+    ::std::array<ECSState, 3> m_buffers;
     int m_editIndex = 0;
-    mutable std::atomic<int> m_activeIndex{0};
-    mutable std::atomic<int> m_pendingIndex{-1};
+    mutable ::std::atomic<int> m_activeIndex{0};
+    mutable ::std::atomic<int> m_pendingIndex{-1};
 
-    std::array<DirtyFlags, 3> m_dirtyFlags;
+    ::std::array<DirtyFlags, 3> m_dirtyFlags;
 
     int m_currentFrame = 0;
     bool m_isPlaying = false;

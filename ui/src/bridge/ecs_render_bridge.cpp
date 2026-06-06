@@ -1,5 +1,6 @@
 #include "bridge/ecs_render_bridge.hpp"
 #include "engine/timeline/ecs.hpp"
+#include <QColor>
 
 namespace AviQtl::UI {
 
