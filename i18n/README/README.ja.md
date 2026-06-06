@@ -213,9 +213,13 @@ AviQtl-Plusは構造的な弱点を根本的に解決します：
 <summary>AviQtl-Plusのロードマップは？</summary>
 
 **短期（0.1.x）：**
-- コアサービス層（TimelineService、ProjectService、メディアマネージャー）を実装し、基本的な動画編集ワークフローを確立
-- 既存UIコンポーネントの洗練とエッジケースの修正
-- 安定したビルド・リリースパイプラインの確立
+- [x] コアサービス層（TimelineService、ProjectService、メディアマネージャー）を実装し、基本的な動画編集ワークフローを確立
+- [x] ECSレンダリングパイプライン：RenderComponent、EffectParamBuffer、ECSRenderBridge、QML統合
+- [x] TransportService：ループ再生、フレームステッピング、終了時自動一時停止
+- [x] ProjectSerializer：バージョンフィールド、相対メディアパスによるクロスデバイス移植性
+- [x] 書き出し：フレームごとの画像シーケンス書き出し（PNG）
+- [ ] 既存UIコンポーネントの洗練とエッジケースの修正
+- [ ] 安定したビルド・リリースパイプラインの確立
 
 **中期（0.2～0.3.x）：**
 - エフェクト・オブジェクトプラグインエコシステムの完成
