@@ -143,9 +143,41 @@ struct TransformComponent {
 };
 
 struct RenderComponent {
-    // Placeholder: fields will be defined when RenderSystem reads renderStates
+    int clipId = -1;
+    int layer = 0;
+    int startFrame = 0;
+    int durationFrames = 0;
+
+    float x = 0, y = 0, z = 0;
+    float rotX = 0, rotY = 0, rotZ = 0;
+    float scaleX = 1, scaleY = 1;
+    float opacity = 1;
+
+    bool visible = true;
+    bool clipByUpperObject = false;
+
+    uint16_t typeIndex = 0;
+    uint16_t effectCount = 0;
+    uint32_t effectStartIndex = 0;
+
+    int videoFrameKey = -1;
 };
 static_assert(std::is_trivially_copyable_v<RenderComponent>);
+
+enum class ParamType : uint8_t { Float = 0, Vec2, Vec3, Vec4, Color };
+
+struct EffectParamEntry {
+    uint32_t clipId = 0;
+    uint8_t effectIndex = 0;
+    ParamType paramType = ParamType::Float;
+    char paramName[20] = {};
+    float value[4] = {0, 0, 0, 0};
+};
+
+struct EffectParamBuffer {
+    std::vector<EffectParamEntry> entries;
+    void clear() { entries.clear(); }
+};
 
 struct ECSState {
     bool renderGraphDirty = false;
@@ -156,6 +188,8 @@ struct ECSState {
     DenseComponentMap<AviQtl::ECS::KeyframeRefComponent> keyframeRefs;
     DenseComponentMap<AviQtl::ECS::TransformComponent> ecsTransforms;
     DenseComponentMap<AviQtl::ECS::GlobalMatrixComponent> globalMatrices;
+
+    EffectParamBuffer effectParams;
 };
 
 class ECS {
@@ -170,6 +204,9 @@ class ECS {
     void syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags);
     void updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames);
     void updateAudioClipState(int clipId, int startFrame, int durationFrames, float volume, float pan, bool mute);
+    void updateRenderState(int clipId, const RenderComponent &render);
+    void clearEffectParams();
+    void addEffectParam(const EffectParamEntry &entry);
 
     void commit();
 

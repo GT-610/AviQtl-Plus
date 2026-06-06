@@ -110,6 +110,28 @@ void ECS::updateAudioClipState(int clipId, int startFrame, int durationFrames, f
     ECS_PROF_INC(dirtyBitSetCount);
 }
 
+void ECS::updateRenderState(int clipId, const RenderComponent &render) {
+    assert(clipId >= 0 && clipId < MAX_CLIP_ID);
+    auto &editState = m_buffers[m_editIndex];
+    editState.renderStates[clipId] = render;
+
+    for (int i = 1; i <= 2; ++i) {
+        auto &df = m_dirtyFlags[(m_editIndex + i) % 3];
+        if (!df.dirty.test(static_cast<std::size_t>(clipId))) {
+            df.dirty.set(static_cast<std::size_t>(clipId));
+            df.dirtyIds.push_back(clipId);
+        }
+    }
+}
+
+void ECS::clearEffectParams() {
+    m_buffers[m_editIndex].effectParams.clear();
+}
+
+void ECS::addEffectParam(const EffectParamEntry &entry) {
+    m_buffers[m_editIndex].effectParams.entries.push_back(entry);
+}
+
 void ECS::commit() {
     ECS_PROF_INC(commitCount);
 
@@ -142,7 +164,6 @@ void ECS::commit() {
         auto &dst = m_buffers[m_editIndex];
         dst.renderGraphDirty = src.renderGraphDirty;
 
-        // dirtyIds を使ってピンポイントで同期
         for (int id : df.dirtyIds) {
             if (const auto *s = src.transforms.find(id))
                 dst.transforms[id] = *s;
@@ -161,6 +182,8 @@ void ECS::commit() {
         df.dirty.reset();
         df.dirtyIds.clear();
     }
+
+    m_buffers[m_editIndex].effectParams = m_buffers[justWritten].effectParams;
 
     m_pendingIndex.store(justWritten, std::memory_order_release);
 }
