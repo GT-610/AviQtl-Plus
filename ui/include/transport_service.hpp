@@ -13,6 +13,7 @@ class TransportService : public QObject {
     Q_PROPERTY(double playbackSpeed READ playbackSpeed WRITE setPlaybackSpeed NOTIFY playbackSpeedChanged)
     Q_PROPERTY(double fps READ fps WRITE setFps NOTIFY fpsChanged)
     Q_PROPERTY(int totalFrames READ totalFrames WRITE setTotalFrames NOTIFY totalFramesChanged)
+    Q_PROPERTY(bool loopEnabled READ loopEnabled WRITE setLoopEnabled NOTIFY loopEnabledChanged)
 
   public:
     explicit TransportService(QObject *parent = nullptr);
@@ -22,10 +23,13 @@ class TransportService : public QObject {
     double playbackSpeed() const { return m_playbackSpeed; }
     double fps() const { return m_fps; }
     int totalFrames() const { return m_totalFrames; }
+    bool loopEnabled() const { return m_loopEnabled; }
 
     void setCurrentFrame(int f);
     Q_INVOKABLE void setCurrentFrame_seek(int f); // シーク専用（起点リセット付き）
     Q_INVOKABLE void togglePlay();
+    Q_INVOKABLE void stepForward();
+    Q_INVOKABLE void stepBackward();
     Q_INVOKABLE void play() {
         if (!m_isPlaying)
             togglePlay();
@@ -80,12 +84,20 @@ class TransportService : public QObject {
         emit totalFramesChanged();
     }
 
+    void setLoopEnabled(bool enabled) {
+        if (m_loopEnabled == enabled)
+            return;
+        m_loopEnabled = enabled;
+        emit loopEnabledChanged();
+    }
+
   signals:
     void currentFrameChanged();
     void isPlayingChanged();
     void playbackSpeedChanged();
     void fpsChanged();
     void totalFramesChanged();
+    void loopEnabledChanged();
 
   private slots:
     void onTick();
@@ -96,6 +108,7 @@ class TransportService : public QObject {
     double m_playbackSpeed = 1.0;
     double m_fps = 60.0;
     int m_totalFrames = 0;
+    bool m_loopEnabled = false;
 
     // 再生クロック
     QElapsedTimer m_clock;      // 起動時からの単調増加クロック

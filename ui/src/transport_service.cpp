@@ -57,10 +57,32 @@ void TransportService::onTick() {
 
     int targetFrame = m_playStartFrame + static_cast<int>(elapsedSec * m_fps * m_playbackSpeed);
 
-    // フレームが変化した場合のみシグナルを発火（無駄な再描画を抑制）
+    if (m_totalFrames > 0 && targetFrame >= m_totalFrames) {
+        if (m_loopEnabled) {
+            targetFrame = targetFrame % m_totalFrames;
+            m_playStartFrame = targetFrame;
+            m_playStartTime = m_clock.nsecsElapsed();
+        } else {
+            targetFrame = m_totalFrames;
+            setCurrentFrame(targetFrame);
+            pause();
+            return;
+        }
+    }
+
     if (targetFrame != m_currentFrame) {
         setCurrentFrame(targetFrame);
     }
+}
+
+void TransportService::stepForward() {
+    if (m_currentFrame < m_totalFrames)
+        setCurrentFrame_seek(m_currentFrame + 1);
+}
+
+void TransportService::stepBackward() {
+    if (m_currentFrame > 0)
+        setCurrentFrame_seek(m_currentFrame - 1);
 }
 
 void TransportService::updateTimerInterval(double fps) { setFps(fps); }
