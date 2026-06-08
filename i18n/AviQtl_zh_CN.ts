@@ -1356,7 +1356,7 @@
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="352"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="353"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1386,24 +1386,29 @@
         <translation>编码器初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="73"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="113"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="213"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="115"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="228"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="128"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="130"/>
         <source>Cannot create output directory</source>
         <translation>无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="201"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="202"/>
+        <source>Failed to capture frame %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
         <source>Failed to save frame %1</source>
         <translation>保存帧 %1 失败</translation>
     </message>
@@ -3002,7 +3007,7 @@
         <translation>场景设置更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_scene.cpp" line="70"/>
+        <location filename="../ui/src/timeline/timeline_scene.cpp" line="76"/>
         <location filename="../ui/src/timeline_service.cpp" line="17"/>
         <source>ルート</source>
         <translation>根</translation>
