@@ -38,6 +38,7 @@ auto TimelineService::currentScene() const -> const SceneData * {
 
 auto TimelineService::scenes() const -> QVariantList {
     QVariantList list;
+    list.reserve(m_scenes.size());
     for (const auto &scene : std::as_const(m_scenes)) {
         QVariantMap map;
         map.insert(QStringLiteral("id"), scene.id);
