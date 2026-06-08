@@ -25,7 +25,7 @@ jobs:
             qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
             qt6-svg qt6-5compat qt6-tools qt6-wayland \
             ffmpeg luajit carla extra-cmake-modules \
-            pyside6 sudo ccache vulkan-headers vulkan-loader
+            pyside6 sudo ccache vulkan-headers vulkan-icd-loader
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
