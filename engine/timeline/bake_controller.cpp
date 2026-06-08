@@ -57,6 +57,7 @@ float evalFloat(const QVariantMap &params, const QVariantMap &tracks,
 void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fps,
                      RenderComponent &render, EffectParamBuffer &paramBuf) {
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
+    const double relTime = static_cast<double>(relFrame);
     auto &registry = AviQtl::Core::EffectRegistry::instance();
 
     render.clipId = clip.id;
@@ -64,6 +65,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     render.startFrame = clip.startFrame;
     render.durationFrames = clip.durationFrames;
     render.clipByUpperObject = clip.clipByUpperObject;
+    render.timePosition = relTime;
 
     bool hasTransform = false;
     uint16_t effectIdx = 0;
