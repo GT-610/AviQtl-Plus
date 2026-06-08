@@ -6,6 +6,8 @@ import argparse
 import re
 import multiprocessing
 import shlex
+import threading
+import queue
 import urllib.request
 import platform
 import locale
@@ -16,7 +18,6 @@ import stat
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Type
-from PySide6 import QtCore
 
 
 @dataclass
@@ -1398,31 +1399,41 @@ BUILDERS: dict[str, Type[PlatformBuilder]] = {
 }
 
 
-class BuildWorker(QtCore.QThread):
-    progress_signal = QtCore.Signal(int, str)
-    log_signal = QtCore.Signal(str)
-    finished_signal = QtCore.Signal(bool, str)
-
+class BuildWorker(threading.Thread):
     def __init__(self, config: BuildConfig):
-        super().__init__()
+        super().__init__(daemon=True)
         self.config = config
         self.builder: Optional[PlatformBuilder] = None
         self.cancel_requested = False
+        self.log_queue: queue.Queue = queue.Queue()
+        self.finished_event = threading.Event()
+        self.success = False
+        self.error_msg = ""
 
     def run(self):
         try:
-            logger = Logger(self.log_signal.emit, self.progress_signal.emit)
+            logger = Logger(self._enqueue_log, self._enqueue_progress)
             self.builder = BUILDERS[self.config.target](self.config, logger)
             if self.cancel_requested:
                 self.builder.cancel()
             self.builder.build()
-            self.finished_signal.emit(True, "Build succeeded")
+            self.success = True
+            self.error_msg = "Build succeeded"
         except Exception as e:
-            self.finished_signal.emit(False, str(e))
+            self.success = False
+            self.error_msg = str(e)
+        finally:
+            self.log_queue.put(None)  # sentinel
+            self.finished_event.set()
+
+    def _enqueue_log(self, msg: str):
+        self.log_queue.put(("log", msg))
+
+    def _enqueue_progress(self, val: int, msg: str):
+        self.log_queue.put(("progress", val, msg))
 
     def cancel(self):
         self.cancel_requested = True
-        self.requestInterruption()
         if self.builder:
             self.builder.cancel()
 
@@ -1540,11 +1551,7 @@ def main():
         config.version_minor = int(match.group(2))
         config.version_patch = int(match.group(3))
 
-    app = QtCore.QCoreApplication(sys.argv)
     worker = BuildWorker(config)
-    worker.log_signal.connect(print)
-    worker.progress_signal.connect(lambda val, msg: print(f"[{val}%] {msg}"))
-    mode = "Container" if config.use_container else "No Container"
     cancelled = False
 
     def cancel_build():
@@ -1558,34 +1565,46 @@ def main():
 
     signal.signal(signal.SIGINT, lambda _signum, _frame: cancel_build())
 
-    # Ensure Python can handle SIGINT even inside the Qt event loop.
-    sigint_timer = QtCore.QTimer()
-    sigint_timer.timeout.connect(lambda: None)
-    sigint_timer.start(200)
-
-    def on_finished(success: bool, msg: str):
-        if cancelled:
-            print("\nBuild cancelled.")
-            app.exit(130)
-            return
-        if success:
-            app.quit()
-        else:
-            print(f"\nBuild failed: {msg}")
-            app.exit(1)
-
-    worker.finished_signal.connect(on_finished)
+    mode = "Container" if config.use_container else "No Container"
     print(f"Build started | target={target} | {config.build_type} | {mode} | offline={config.is_offline}")
     worker.start()
-    try:
-        exit_code = app.exec()
-    except KeyboardInterrupt:
-        cancel_build()
-        worker.wait()
-        exit_code = 130
-    if worker.isRunning():
-        worker.wait(3000)
-    sys.exit(exit_code)
+
+    # Drain the log queue until the worker finishes
+    while not worker.finished_event.is_set():
+        try:
+            msg = worker.log_queue.get(timeout=0.2)
+            if msg is None:
+                break
+            if msg[0] == "log":
+                print(msg[1])
+            elif msg[0] == "progress":
+                print(f"[{msg[1]}%] {msg[2]}")
+        except queue.Empty:
+            continue
+
+    # Drain remaining messages
+    while True:
+        try:
+            msg = worker.log_queue.get_nowait()
+            if msg is None:
+                break
+            if msg[0] == "log":
+                print(msg[1])
+            elif msg[0] == "progress":
+                print(f"[{msg[1]}%] {msg[2]}")
+        except queue.Empty:
+            break
+
+    worker.join(timeout=3)
+
+    if cancelled:
+        print("\nBuild cancelled.")
+        sys.exit(130)
+    if worker.success:
+        sys.exit(0)
+    else:
+        print(f"\nBuild failed: {worker.error_msg}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
