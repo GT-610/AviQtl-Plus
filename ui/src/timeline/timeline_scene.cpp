@@ -7,8 +7,12 @@
 namespace AviQtl::UI {
 
 auto TimelineService::currentScene() -> SceneData * {
+    if (m_currentSceneCache) {
+        return m_currentSceneCache;
+    }
     for (auto &scene : m_scenes) {
         if (scene.id == m_currentSceneId) {
+            m_currentSceneCache = &scene;
             return &scene;
         }
     }
@@ -66,6 +70,7 @@ void TimelineService::setScenes(const QList<SceneData> &scenes) {
     }
 
     m_scenes = scenes;
+    invalidateCurrentSceneCache();
     if (m_scenes.isEmpty()) {
         createScene(QObject::tr("ルート"));
     }
@@ -116,6 +121,7 @@ void TimelineService::switchScene(int sceneId) {
     }
 
     m_currentSceneId = sceneId;
+    invalidateCurrentSceneCache();
     emit currentSceneIdChanged();
     emit clipsChanged();
 
@@ -179,12 +185,14 @@ void TimelineService::removeSceneInternal(int sceneId) {
             switchScene(0);
         }
         m_scenes.erase(it);
+        invalidateCurrentSceneCache();
         emit scenesChanged();
     }
 }
 
 void TimelineService::restoreSceneInternal(const SceneData &scene) {
     m_scenes.append(scene);
+    invalidateCurrentSceneCache();
     emit scenesChanged();
 }
 
