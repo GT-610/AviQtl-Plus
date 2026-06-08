@@ -6,8 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/GT-610/AviQtl-Plus">GitHub</a>
-  / <a href="https://codeberg.org/taisho-guy/AviQtl/releases">发行版</a>
-  / <a href="https://codeberg.org/taisho-guy/AviQtl/wiki/Home">Wiki</a>
+  / <a href="https://github.com/GT-610/AviQtl-Plus/releases">发行版</a>
 </p>
 
 <p align="center">
@@ -15,7 +14,12 @@
 </p>
 
 > [!IMPORTANT]
-> 本仓库是 [taisho-guy/AviQtl](https://codeberg.org/taisho-guy/AviQtl) 的 fork。原项目已于 2026 年 5 月底暂停开发。我（[GT610](https://github.com/GT-610)）作为 AviQtl 的早期核心贡献者，将在此以 **AviQtl-Plus** 的名义继续开发。
+> 本仓库是 [taisho-guy/AviQtl](https://codeberg.org/taisho-guy/AviQtl) 的 fork。2026 年 5 月底，原作者决定**重置开发**——现在的 `main` 分支已更换为基于 **Qt Widgets + SDL3 + bgfx** 的新 AviQtl，而原 Qt Quick 版本已移至 `legacy` 分支（称为 **AviQtl Legacy**）。我（[GT610](https://github.com/GT-610)）作为原项目的早期核心贡献者，将继续 Qt Quick 路线，以 **AviQtl-Plus** 的名义继续开发。
+>
+> 因此，目前有三个 AviQtl 相关项目并行存在：
+> - **[AviQtl](https://codeberg.org/taisho-guy/AviQtl)** — 使用新技术栈重建的原项目
+> - **[AviQtl Legacy](https://codeberg.org/taisho-guy/AviQtl/src/branch/legacy)** — 原 Qt Quick 版本，不再更新
+> - **AviQtl-Plus（本项目）** — 继续发展 Qt Quick + QRhi + ECS 路线的 fork
 
 ### 原项目暂停开发的原因
 
@@ -33,15 +37,17 @@
 2. **ECS 架构优化**：最大化数据驱动设计的优势，同时消除与 Qt Quick 的摩擦
 3. **实时性能提升**：消除预览渲染瓶颈，提供流畅的编辑体验
 
-愿景不变：**打造一款继承并超越 AviUtl 的视频编辑软件**。
+愿景不变：**打造一款继承并超越 AviUtl 的视频编辑软件**。我们相信 Qt Quick + QRhi + ECS 是一条可行且有价值的路线——我们将致力于将其打磨为实用、日常可用的编辑工具。
 
-### 原作者的后续计划
+### 原作者的新方向
 
-原作者并未放弃这一构想，目前正在学习 **Qt Widgets** 和 **bgfx**，计划以不同的架构重建为 *AviQtl 0.1.x*。但由于正值备考阶段，预计至少 2026 学年之后才能恢复活跃开发。
+原作者已经将计划付诸实践——新的 `main` 分支正在以 **Qt Widgets + SDL3 + bgfx** 为基础从零重建，这反映了他们坚信 Qt Quick 不适合他们未来以 Compute Shader 为核心的技术愿景。他们已经声明在核心实现阶段不接受 PR。
 
-### 对原项目的承诺
+旧的 Qt Quick 源代码仍在 [`legacy` 分支](https://codeberg.org/taisho-guy/AviQtl/src/branch/legacy) 可用，原作者也[明确推荐](https://codeberg.org/taisho-guy/AviQtl)喜欢 Qt Quick 路线的用户使用 AviQtl-Plus。
 
-如果原项目未来恢复开发，我计划将对上游有用的贡献提交回原始仓库，以表达对原作者贡献的尊重。
+### 与新版 AviQtl 的关系
+
+原作者和我保持着友好关系。如果 AviQtl-Plus 的某些贡献对新的 AviQtl 适用，我会很乐意向上游提交。同样，我希望两个项目的成果能随着时间的推移相互滋养——最终造福所有寻求现代化、强大且直观的 AviUtl 替代品的用户。
 
 ## 什么是 [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)？
 
@@ -60,7 +66,7 @@
 
 1. 在 Linux 上，安装以下依赖：
    - Qt6 全套、LuaJIT、Vulkan 实现（如 Mesa）、FFmpeg、Carla、libc++
-2. 从[发行版页面](https://codeberg.org/taisho-guy/AviQtl/releases)下载适合您系统的构建版本。
+2. 从[发行版页面](https://github.com/GT-610/AviQtl-Plus/releases)下载适合您系统的构建版本。
 3. 解压文件，为 `AviQtl` 添加执行权限后运行。
 
 > [!NOTE]
@@ -231,7 +237,7 @@ AviQtl-Plus 从根本上解决结构性弱点：
 **长期：**
 - 成为足以替代 AviUtl 的全功能视频编辑器
 - 考虑更名和品牌重塑（名称和 Logo），以反映项目独立的发展方向
-- 如果原作者恢复开发且其新架构更优，评估迁移或合作的可能性
+- 持续关注新版 AviQtl 的进展，探索项目间相互借鉴的机会
 
 本项目完全由个人动力驱动，没有截止日期或商业压力。进展会保持稳定但节奏适中。
 </details>
@@ -255,7 +261,9 @@ AviQtl-Plus 站在众多优秀项目的肩膀上。
 | 项目 | 许可证 | 角色 |
 | :--- | :--- | :--- |
 | AviUtl | 非自由 | 致敬的原型 |
-| AviQtl | AGPLv3 | Fork 来源 |
+| AviQtl (Legacy) | AGPLv3 | 原 Qt Quick 版本；上游的 `legacy` 分支 |
+| AviQtl | AGPLv3 | 原作者的新 Qt Widgets + bgfx 版本 |
+| AviQtl-Plus | AGPLv3 | 本项目 — 继续 Qt Quick + QRhi + ECS 开发 |
 | Carla | GPLv2+ | 音频特效宿主（VST3/LV2等） |
 | FFmpeg | GPLv2+ | 视频/音频编解码 |
 | LuaJIT | MIT | 高性能脚本引擎 |
