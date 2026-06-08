@@ -1387,23 +1387,23 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="159"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="103"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="199"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="113"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="213"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="118"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="128"/>
         <source>Cannot create output directory</source>
         <translation>Cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="201"/>
         <source>Failed to save frame %1</source>
         <translation>Failed to save frame %1</translation>
     </message>

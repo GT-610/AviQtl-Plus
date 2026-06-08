@@ -74,6 +74,10 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame] -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
+        // Allow QML property bindings (incl. Qt.callLater) to settle, then wait for the scene graph to render
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [] -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
+        QThread::msleep(32);
+
         QImage img;
         if (targetItem != nullptr) {
             QSharedPointer<QQuickItemGrabResult> grab;
@@ -87,9 +91,15 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
             }
         }
 
+        if (img.isNull()) {
+            qWarning() << "Frame grab returned null image for frame" << frame << "- pushing black frame";
+            img = QImage(config.width, config.height, QImage::Format_RGBA8888);
+            img.fill(Qt::black);
+        }
+
         encoder.pushFrame(img, frame - startFrame);
 
-        const int samplesNeeded = static_cast<int>(48000 / fps);
+        const int samplesNeeded = static_cast<int>(sr / fps);
         auto audio = m_controller->mediaManager()->audioMixer()->mix(frame, fps, samplesNeeded);
         encoder.pushAudio(audio.data(), samplesNeeded);
 
@@ -162,6 +172,10 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         }
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame] -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
+
+        // Allow QML property bindings (incl. Qt.callLater) to settle, then wait for the scene graph to render
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [] -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
+        QThread::msleep(32);
 
         QImage img;
         if (targetItem != nullptr) {

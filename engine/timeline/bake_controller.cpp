@@ -63,7 +63,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     render.layer = clip.layer;
     render.startFrame = clip.startFrame;
     render.durationFrames = clip.durationFrames;
-    render.clipByUpperObject = false; // Not available in DocumentModel::Clip
+    render.clipByUpperObject = clip.clipByUpperObject;
 
     bool hasTransform = false;
     uint16_t effectIdx = 0;

@@ -1387,23 +1387,23 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="159"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="103"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="199"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="113"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="213"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="118"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="128"/>
         <source>Cannot create output directory</source>
         <translation>无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="201"/>
         <source>Failed to save frame %1</source>
         <translation>保存帧 %1 失败</translation>
     </message>
