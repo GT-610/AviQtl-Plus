@@ -74,19 +74,11 @@ A project to develop a video editor that inherits the operability of **AviUtl 1.
 
 ## Building
 
-`BUILD.py` automatically detects the build target from the current OS. Normally `python BUILD.py` alone suffices, but manual specification is also available.
-
-As a common prerequisite, clone the repository and create a virtual environment if needed.
+`BUILD.py` automatically detects the build target from the current OS and installs all dependencies. Normally `python3 BUILD.py` alone suffices.
 
 ```bash
 git clone https://github.com/GT-610/AviQtl-Plus.git
 cd AviQtl-Plus
-
-# If preparing PySide6 via pip (recommended)
-python3 -m venv .venv
-# Linux/macOS/MSYS2: source .venv/bin/activate
-# Windows/PowerShell: .venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip PySide6
 ```
 
 <details>
@@ -95,11 +87,11 @@ python -m pip install --upgrade pip PySide6
 On Linux, the build environment is isolated using a distrobox/podman container by default.
 
 1. **Install dependencies**
-   - Pacman: `sudo pacman -S --needed distrobox podman python pyside6 git`
-   - APT: `sudo apt install distrobox podman python3 python3-pyside6 git`
-   - DNF: `sudo dnf install distrobox podman python3 python3-pyside6 git`
+   - Pacman: `sudo pacman -S --needed distrobox podman python git`
+   - APT: `sudo apt install distrobox podman python3 git`
+   - DNF: `sudo dnf install distrobox podman python3 git`
 2. **Build**
-   - `python BUILD.py --arch`
+   - `python3 BUILD.py --arch`
 3. **Run**
    - `./build/AviQtl`
 </details>
@@ -110,9 +102,9 @@ On Linux, the build environment is isolated using a distrobox/podman container b
 On macOS, `BUILD.py` checks and installs dependencies via Homebrew (CMake, Ninja, Qt6, etc.), then runs `macdeployqt` and `codesign` to create a `.app` bundle.
 
 1. **Install dependencies**
-   - `brew install python pyside git`
+   - `brew install python git`
 2. **Build**
-   - `python BUILD.py --xcode`
+   - `python3 BUILD.py --xcode`
 3. **Run**
    - `open ./build/AviQtl.app`
 </details>
@@ -121,9 +113,9 @@ On macOS, `BUILD.py` checks and installs dependencies via Homebrew (CMake, Ninja
 <summary>Windows (MSYS2)</summary>
 
 1. **Install dependencies**
-   - `pacman -S git mingw-w64-ucrt-x86_64-pyside6`
+   - `pacman -S git mingw-w64-ucrt-x86_64-python`
 2. **Build**
-   - `python BUILD.py --msys2`
+   - `python3 BUILD.py --msys2`
 3. **Run**
    - `./build/AviQtl.exe`
 </details>
@@ -138,7 +130,7 @@ MSVC builds are not recommended due to the complexity of environment setup.
    - Official Qt MSVC x64 build (e.g. `msvc2022_64`)
    - vcpkg (can be specified via `VCPKG_ROOT` env var; `BUILD.py` will attempt to fetch it if not found)
 2. **Build**
-   - `python BUILD.py --msvc --qt-dir <Qt installation directory>`
+   - `python3 BUILD.py --msvc --qt-dir <Qt installation directory>`
    - If `--qt-dir` is omitted, automatic detection from `QT_MSVC_DIR` etc. is attempted.
 3. **Run**
    - `.\build\AviQtl.exe`

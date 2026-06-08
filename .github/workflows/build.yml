@@ -1,0 +1,199 @@
+name: Build & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 0.1.0)'
+        required: false
+        type: string
+        default: '0.0.0'
+      codename:
+        description: 'Codename (e.g. Alpha)'
+        required: false
+        type: string
+        default: 'Unstable'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: AviQtl
+  BUILD_TAG: test-build-${{ github.run_number }}-${{ github.sha }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -S --needed --noconfirm \
+            base-devel git cmake ninja clang mold \
+            qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
+            qt6-svg qt6-5compat qt6-tools qt6-wayland \
+            ffmpeg luajit carla extra-cmake-modules \
+            pyside6 sudo ccache vulkan-headers vulkan-icd-loader
+
+      - name: Run Tests
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --target AviQtl_Test_effect_registry \
+                                AviQtl_Test_document_model \
+                                AviQtl_Test_settings_manager \
+                                AviQtl_Test_theme_controller \
+                                AviQtl_Test_media_decoder \
+                                AviQtl_Test_effect_model \
+                                AviQtl_Test_dense_component_map \
+                                AviQtl_Test_audio_plugin_chain \
+                                AviQtl_Test_bake_controller \
+                                AviQtl_Test_ecs_render \
+                                AviQtl_Test_lua_host \
+                                AviQtl_Test_selection_service \
+                                AviQtl_Test_project_service \
+                                AviQtl_Test_transport_service \
+                                AviQtl_Test_clip_by_upper_object
+          cd build && ctest --output-on-failure
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runs_on: ubuntu-latest
+            container: archlinux:latest
+            artifact_name: AviQtl-Arch-Linux-x86_64
+            artifact_path: dist/AviQtl-Arch-Linux-x86_64.zip
+          - platform: macos
+            runs_on: macos-14
+            artifact_name: AviQtl-macOS-Universal
+            artifact_path: dist/AviQtl-macOS-Universal.dmg
+          - platform: windows
+            runs_on: windows-latest
+            artifact_name: AviQtl-Windows-x86_64
+            artifact_path: dist/AviQtl-MSYS2-UCRT64-x86_64.zip
+    runs-on: ${{ matrix.runs_on }}
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -S --needed --noconfirm \
+            base-devel git cmake ninja clang mold zip mesa vulkan-devel \
+            libxkbcommon wayland wayland-protocols libffi ffmpeg luajit fftw \
+            qt6-base qt6-wayland qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
+            qt6-svg qt6-5compat qt6-tools lilv ladspa carla openmp \
+            extra-cmake-modules libc++ fluidsynth spirv-tools \
+            pyside6 sudo ccache
+
+      - name: Install Dependencies (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          pip3 install PySide6 --break-system-packages
+
+      - name: Setup MSYS2 (Windows)
+        if: matrix.platform == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-pyside6
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          max-size: 500M
+          key: ${{ matrix.platform }}-ccache
+
+      - name: Determine Version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+            VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
+            CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
+            if [ -z "$CODENAME" ]; then
+              CODENAME="Unstable"
+            fi
+          else
+            VERSION="${{ inputs.version || '0.0.0' }}"
+            CODENAME="${{ inputs.codename || 'Unstable' }}"
+          fi
+          if echo "$TAG_NAME" | grep -q '-'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          elif echo "$CODENAME" | grep -qiE '^(alpha|beta|rc|unstable)$'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
+          echo "release_name=$VERSION $CODENAME" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION, Codename: $CODENAME"
+
+      - name: Build (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          python3 BUILD.py --no-container \
+            --version "${{ steps.version.outputs.version }}" \
+            --codename "${{ steps.version.outputs.codename }}"
+
+      - name: Build (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          python3 BUILD.py --xcode \
+            --version "${{ steps.version.outputs.version }}" \
+            --codename "${{ steps.version.outputs.codename }}"
+
+      - name: Build (Windows)
+        if: matrix.platform == 'windows'
+        shell: msys2 {0}
+        run: |
+          python BUILD.py --msys2 \
+            --version "${{ steps.version.outputs.version }}" \
+            --codename "${{ steps.version.outputs.codename }}"
+        env:
+          GIT_TERMINAL_PROMPT: 0
+
+      - name: Upload Artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-${{ env.BUILD_TAG }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.version.outputs.release_name }}
+          prerelease: ${{ steps.version.outputs.is_prerelease }}
+          files: ${{ matrix.artifact_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
