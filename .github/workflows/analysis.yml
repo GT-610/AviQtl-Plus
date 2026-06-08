@@ -1,0 +1,62 @@
+name: Analysis
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Test & Analyze
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -S --needed --noconfirm \
+            base-devel git cmake ninja clang mold \
+            qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
+            qt6-svg qt6-5compat qt6-tools qt6-wayland \
+            ffmpeg luajit carla extra-cmake-modules \
+            pyside6 sudo ccache vulkan-headers vulkan-loader
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build Tests
+        run: |
+          cmake --build build --target AviQtl_Test_effect_registry \
+                                AviQtl_Test_document_model \
+                                AviQtl_Test_settings_manager \
+                                AviQtl_Test_theme_controller \
+                                AviQtl_Test_media_decoder \
+                                AviQtl_Test_effect_model \
+                                AviQtl_Test_dense_component_map \
+                                AviQtl_Test_audio_plugin_chain \
+                                AviQtl_Test_bake_controller \
+                                AviQtl_Test_ecs_render \
+                                AviQtl_Test_lua_host \
+                                AviQtl_Test_selection_service \
+                                AviQtl_Test_project_service \
+                                AviQtl_Test_transport_service \
+                                AviQtl_Test_clip_by_upper_object
+
+      - name: Run Tests
+        run: cd build && ctest --output-on-failure
+
+      - name: Run clang-tidy
+        run: |
+          run-clang-tidy -p build -quiet \
+            core/src/*.cpp \
+            engine/**/*.cpp \
+            scripting/*.cpp \
+            ui/src/*.cpp \
+            ui/src/**/*.cpp
+        continue-on-error: true
