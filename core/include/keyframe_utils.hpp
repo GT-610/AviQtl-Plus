@@ -179,7 +179,7 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
         }},
         {QStringLiteral("custom"), [](double x, const auto &p, const auto &) {
             double prevX = 0, prevY = 0;
-            for (size_t i = 0; i < p.size(); i += 6) {
+            for (size_t i = 0; i + 5 < p.size(); i += 6) {
                 double cp1x = p[i], cp1y = p[i + 1], cp2x = p[i + 2], cp2y = p[i + 3], endX = p[i + 4], endY = p[i + 5];
                 if (x <= endX || i + 6 >= p.size()) {
                     double range = endX - prevX;
@@ -303,7 +303,15 @@ inline QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVa
     QVariantMap start;
     start[QStringLiteral("frame")] = 0;
     start[QStringLiteral("value")] = legacy.isEmpty() ? fallback : evaluateTrack(legacy, 0, fallback);
-    start[QStringLiteral("interp")] = QStringLiteral("linear");
+    // Preserve interp from existing frame-0 key if present, otherwise default to linear
+    QString startInterp = QStringLiteral("linear");
+    for (const auto &v : std::as_const(legacy)) {
+        if (v.toMap().value(QStringLiteral("frame")).toInt() == 0) {
+            startInterp = v.toMap().value(QStringLiteral("interp"), QStringLiteral("linear")).toString();
+            break;
+        }
+    }
+    start[QStringLiteral("interp")] = startInterp;
     for (const auto &v : std::as_const(legacy)) {
         const int f = v.toMap().value(QStringLiteral("frame")).toInt();
         if (f > 0 && f < durationFrames)

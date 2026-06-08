@@ -27,6 +27,7 @@ LuaHost::~LuaHost() {
 }
 
 void LuaHost::setupSafeLuaState(lua_State *L) {
+    if (L == nullptr) return;
     // Only open safe libraries — never expose io, os, debug, ffi, package
     static constexpr struct { const char *name; lua_CFunction func; } safeLibs[] = {
         {"",         luaopen_base},

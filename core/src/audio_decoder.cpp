@@ -373,6 +373,7 @@ auto AudioDecoder::totalDurationSec() const -> double {
 }
 
 void AudioDecoder::setPlaying(bool playing) {
+    // Intentional no-op: audio decoding is stateless and driven by getSamples()
     Q_UNUSED(playing);
 }
 

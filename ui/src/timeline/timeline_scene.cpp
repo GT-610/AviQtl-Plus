@@ -167,6 +167,7 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), 1080).toInt();
     newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), 60.0).toDouble();
     m_scenes.append(newScene);
+    invalidateCurrentSceneCache();
     emit scenesChanged();
     switchScene(newScene.id);
 }

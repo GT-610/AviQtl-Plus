@@ -173,7 +173,7 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     }
 
     if (computeSupported && m_srb) {
-        // RGBA8 から RGBA16F (16bit float) へ変更
+        // Change from RGBA8 to RGBA16F (16-bit float) for HDR compute output
         m_outputTexture = rhi->newTexture(QRhiTexture::RGBA16F, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
         if (!m_outputTexture->create()) {
             delete m_outputTexture;
@@ -189,12 +189,21 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(kQuadData));
     if (!m_vbuf->create()) {
         m_error = QStringLiteral("Compute blit vertex buffer creation failed.");
+        delete m_vbuf; m_vbuf = nullptr;
+        delete m_sampler; m_sampler = nullptr;
+        delete m_outputTexture; m_outputTexture = nullptr;
+        delete m_srb; m_srb = nullptr;
         return false;
     }
 
     m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64);
     if (!m_ubuf->create()) {
         m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
+        delete m_ubuf; m_ubuf = nullptr;
+        delete m_vbuf; m_vbuf = nullptr;
+        delete m_sampler; m_sampler = nullptr;
+        delete m_outputTexture; m_outputTexture = nullptr;
+        delete m_srb; m_srb = nullptr;
         return false;
     }
 

@@ -1405,7 +1405,7 @@
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="202"/>
         <source>Failed to capture frame %1</source>
-        <translation type="unfinished"></translation>
+        <translation>フレーム %1 の取得に失敗しました</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
