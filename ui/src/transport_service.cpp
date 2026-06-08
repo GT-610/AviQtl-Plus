@@ -31,7 +31,6 @@ void TransportService::togglePlay() {
         m_isPlaying = false;
     } else {
         // 再生開始: 現在フレームを起点に時刻を記録
-        m_prePlayFrame = m_currentFrame;
         m_playStartFrame = m_currentFrame;
         m_playStartTime = m_clock.nsecsElapsed();
         m_isPlaying = true;

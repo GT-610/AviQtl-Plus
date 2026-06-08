@@ -32,15 +32,10 @@ class WindowManager : public QObject {
     Q_INVOKABLE void toggleVisible(const QString &id);
     Q_INVOKABLE void raiseWindow(const QString &id);
     Q_INVOKABLE void requestQuit();
-    // moved to Q_INVOKABLE: Q_INVOKABLE QObject *getWindow(const QString &id) const;
 
-    // moved to Q_INVOKABLE: bool timelineVisible() const;
     void setTimelineVisible(bool v);
-    // moved to Q_INVOKABLE: bool projectSettingsVisible() const;
     void setProjectSettingsVisible(bool v);
-    // moved to Q_INVOKABLE: bool objectSettingsVisible() const;
     void setObjectSettingsVisible(bool v);
-    // moved to Q_INVOKABLE: bool systemSettingsVisible() const;
     void setSystemSettingsVisible(bool v);
 
   signals:

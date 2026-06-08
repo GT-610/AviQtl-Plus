@@ -114,7 +114,6 @@ class TransportService : public QObject {
     QElapsedTimer m_clock;      // 起動時からの単調増加クロック
     qint64 m_playStartTime = 0; // 再生開始時の m_clock.nsecsElapsed()
     int m_playStartFrame = 0;
-    int m_prePlayFrame = 0; // 再生開始時のフレーム番号
 
     bool m_wasPlayingBeforeScrub = false;
     int m_lastScrubFrame = -1;

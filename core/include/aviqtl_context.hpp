@@ -8,7 +8,6 @@ class Context {
         static Context inst;
         return inst;
     }
-    // DI (Dependency Injection) コンテナはここに配置する
   private:
     Context() = default;
 };

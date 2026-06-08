@@ -58,7 +58,6 @@ class AudioDecoder : public MediaDecoder {
     std::vector<PeakLevel> m_peakPyramid;
     QFuture<void> m_decodeFuture;
     std::atomic<bool> m_closing{false};
-    std::atomic<bool> m_isPlaying{false}; // インターリーブされたPCMデータ (L, R, L, R...)
 };
 
 } // namespace AviQtl::Core

@@ -163,45 +163,43 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         m_srb = rhi->newShaderResourceBindings();
     QList<QRhiShaderResourceBinding> bindings;
 
-    if (true) {
-        if (!m_sampler) {
-            m_sampler = rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None, QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
-            m_sampler->create();
-        }
+    if (!m_sampler) {
+        m_sampler = rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None, QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
+        m_sampler->create();
+    }
 
-        if (computeSupported && m_srb && m_inputRhiTexture) {
-            bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
-        }
+    if (computeSupported && m_srb && m_inputRhiTexture) {
+        bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
+    }
 
-        if (computeSupported && m_srb) {
-            // RGBA8 から RGBA16F (16bit float) へ変更
-            m_outputTexture = rhi->newTexture(QRhiTexture::RGBA16F, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
-            if (!m_outputTexture->create()) {
-                delete m_outputTexture;
-                m_outputTexture = nullptr;
-                delete m_srb;
-                m_srb = nullptr;
-                m_error = QStringLiteral("Compute output texture creation failed.");
-            } else {
-                bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
-            }
+    if (computeSupported && m_srb) {
+        // RGBA8 から RGBA16F (16bit float) へ変更
+        m_outputTexture = rhi->newTexture(QRhiTexture::RGBA16F, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+        if (!m_outputTexture->create()) {
+            delete m_outputTexture;
+            m_outputTexture = nullptr;
+            delete m_srb;
+            m_srb = nullptr;
+            m_error = QStringLiteral("Compute output texture creation failed.");
+        } else {
+            bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
         }
+    }
 
-        m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(kQuadData));
-        if (!m_vbuf->create()) {
-            m_error = QStringLiteral("Compute blit vertex buffer creation failed.");
-            return false;
-        }
+    m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(kQuadData));
+    if (!m_vbuf->create()) {
+        m_error = QStringLiteral("Compute blit vertex buffer creation failed.");
+        return false;
+    }
 
-        m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64);
-        if (!m_ubuf->create()) {
-            m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
-            return false;
-        }
+    m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64);
+    if (!m_ubuf->create()) {
+        m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
+        return false;
+    }
 
-        if (m_inputTexture && !m_inputRhiTexture) {
-            m_bufferLayoutDirty = true;
-        }
+    if (m_inputTexture && !m_inputRhiTexture) {
+        m_bufferLayoutDirty = true;
     }
 
     if (computeSupported && m_srb) {
