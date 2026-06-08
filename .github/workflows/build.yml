@@ -9,10 +9,9 @@ on:
         type: string
         default: '0.0.0'
       codename:
-        description: 'Codename (e.g. Alpha)'
+        description: 'Codename (optional, e.g. Alpha)'
         required: false
         type: string
-        default: 'Unstable'
   push:
     tags:
       - 'v*'
@@ -82,7 +81,7 @@ jobs:
           - platform: macos
             runs_on: macos-14
             artifact_name: AviQtl-macOS-Universal
-            artifact_path: dist/AviQtl-macOS-Universal.dmg
+            artifact_path: dist/AviQtl-macOS-Xcode-Universal.zip
           - platform: windows
             runs_on: windows-latest
             artifact_name: AviQtl-Windows-x86_64
@@ -135,23 +134,17 @@ jobs:
             TAG_NAME="${{ github.ref_name }}"
             VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
             CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
-            if [ -z "$CODENAME" ]; then
-              CODENAME="Unstable"
-            fi
           else
             VERSION="${{ inputs.version || '0.0.0' }}"
-            CODENAME="${{ inputs.codename || 'Unstable' }}"
-          fi
-          if echo "$TAG_NAME" | grep -q '-'; then
-            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-          elif echo "$CODENAME" | grep -qiE '^(alpha|beta|rc|unstable)$'; then
-            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            CODENAME="${{ inputs.codename }}"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
-          echo "release_name=$VERSION $CODENAME" >> "$GITHUB_OUTPUT"
+          if [ -n "$CODENAME" ]; then
+            echo "release_name=$VERSION $CODENAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
           echo "Version: $VERSION, Codename: $CODENAME"
 
       - name: Build (Linux)
@@ -193,7 +186,6 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.version.outputs.release_name }}
-          prerelease: ${{ steps.version.outputs.is_prerelease }}
           files: ${{ matrix.artifact_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
