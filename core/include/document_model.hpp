@@ -39,6 +39,7 @@ struct Clip {
     int layer = 0;
     int startFrame = 0;
     int durationFrames = 0;
+    bool clipByUpperObject = false;
 
     QVariantMap params; // 各クリップ固有の静的パラメータ（ファイルパスなど）
     std::vector<Effect> effects;

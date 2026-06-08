@@ -44,8 +44,10 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         m_exporting = false;
         return;
     }
-    const int sr = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultProjectSampleRate"), 48000).toInt();
-    const int ch = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("audioChannels"), 2).toInt();
+    const int rawSr = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultProjectSampleRate"), 48000).toInt();
+    const int rawCh = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("audioChannels"), 2).toInt();
+    const int sr = (rawSr > 0) ? rawSr : (qWarning() << "Invalid sample rate" << rawSr << ", falling back to 48000", 48000);
+    const int ch = (rawCh > 0) ? rawCh : (qWarning() << "Invalid audio channels" << rawCh << ", falling back to 2", 2);
     encoder.addAudioStream(sr, ch);
 
     const double fps = m_controller->project()->fps();
@@ -74,6 +76,10 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame] -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
+        // Allow QML property bindings (incl. Qt.callLater) to settle, then wait for the scene graph to render
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [] -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
+        QThread::msleep(32);
+
         QImage img;
         if (targetItem != nullptr) {
             QSharedPointer<QQuickItemGrabResult> grab;
@@ -87,9 +93,15 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
             }
         }
 
+        if (img.isNull()) {
+            qWarning() << "Frame grab returned null image for frame" << frame << "- substituting black frame";
+            img = QImage(config.width, config.height, QImage::Format_RGBA8888);
+            img.fill(Qt::black);
+        }
+
         encoder.pushFrame(img, frame - startFrame);
 
-        const int samplesNeeded = static_cast<int>(48000 / fps);
+        const int samplesNeeded = static_cast<int>(sr / fps);
         auto audio = m_controller->mediaManager()->audioMixer()->mix(frame, fps, samplesNeeded);
         encoder.pushAudio(audio.data(), samplesNeeded);
 
@@ -163,6 +175,10 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame] -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
+        // Allow QML property bindings (incl. Qt.callLater) to settle, then wait for the scene graph to render
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [] -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
+        QThread::msleep(32);
+
         QImage img;
         if (targetItem != nullptr) {
             QSharedPointer<QQuickItemGrabResult> grab;
@@ -176,7 +192,20 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             }
         }
 
-        if (!img.isNull()) {
+        if (img.isNull()) {
+            if (targetItem) {
+                qWarning() << "Frame grab returned null image for frame" << frame << "- substituting black frame";
+                img = QImage(static_cast<int>(targetItem->width()), static_cast<int>(targetItem->height()), QImage::Format_RGBA8888);
+                img.fill(Qt::black);
+            } else {
+                qWarning() << "Frame grab returned null image for frame" << frame << "and no target item available";
+                emit exportFinished(false, tr("Failed to capture frame %1").arg(frame));
+                success = false;
+                goto cleanupSeq;
+            }
+        }
+
+        {
             const QString ext = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
             const QByteArray fmt = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
             const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : quality;

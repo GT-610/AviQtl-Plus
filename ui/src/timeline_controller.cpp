@@ -274,6 +274,7 @@ void TimelineController::syncTimelineToDocumentModel() {
             clip.layer = uiClip.layer;
             clip.startFrame = uiClip.startFrame;
             clip.durationFrames = uiClip.durationFrames;
+            clip.clipByUpperObject = uiClip.clipByUpperObject;
             clip.params = uiClip.params;
 
             // エフェクト
