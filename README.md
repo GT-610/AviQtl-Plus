@@ -74,7 +74,7 @@ A project to develop a video editor that inherits the operability of **AviUtl 1.
 
 ## Building
 
-`BUILD.py` automatically detects the build target from the current OS and installs all dependencies. Normally `python BUILD.py` alone suffices.
+`BUILD.py` automatically detects the build target from the current OS and installs all dependencies. Normally `python3 BUILD.py` alone suffices.
 
 ```bash
 git clone https://github.com/GT-610/AviQtl-Plus.git
@@ -91,7 +91,7 @@ On Linux, the build environment is isolated using a distrobox/podman container b
    - APT: `sudo apt install distrobox podman python3 git`
    - DNF: `sudo dnf install distrobox podman python3 git`
 2. **Build**
-   - `python BUILD.py --arch`
+   - `python3 BUILD.py --arch`
 3. **Run**
    - `./build/AviQtl`
 </details>
@@ -104,7 +104,7 @@ On macOS, `BUILD.py` checks and installs dependencies via Homebrew (CMake, Ninja
 1. **Install dependencies**
    - `brew install python git`
 2. **Build**
-   - `python BUILD.py --xcode`
+   - `python3 BUILD.py --xcode`
 3. **Run**
    - `open ./build/AviQtl.app`
 </details>
@@ -115,7 +115,7 @@ On macOS, `BUILD.py` checks and installs dependencies via Homebrew (CMake, Ninja
 1. **Install dependencies**
    - `pacman -S git mingw-w64-ucrt-x86_64-python`
 2. **Build**
-   - `python BUILD.py --msys2`
+   - `python3 BUILD.py --msys2`
 3. **Run**
    - `./build/AviQtl.exe`
 </details>
@@ -130,7 +130,7 @@ MSVC builds are not recommended due to the complexity of environment setup.
    - Official Qt MSVC x64 build (e.g. `msvc2022_64`)
    - vcpkg (can be specified via `VCPKG_ROOT` env var; `BUILD.py` will attempt to fetch it if not found)
 2. **Build**
-   - `python BUILD.py --msvc --qt-dir <Qt installation directory>`
+   - `python3 BUILD.py --msvc --qt-dir <Qt installation directory>`
    - If `--qt-dir` is omitted, automatic detection from `QT_MSVC_DIR` etc. is attempted.
 3. **Run**
    - `.\build\AviQtl.exe`
