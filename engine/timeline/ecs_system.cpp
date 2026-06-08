@@ -8,6 +8,17 @@
 
 namespace AviQtl::Engine::Timeline {
 
+void ECS::markDirty(int clipId) {
+    for (int i = 1; i <= 2; ++i) {
+        auto &df = m_dirtyFlags[(m_editIndex + i) % 3];
+        if (!df.dirty.test(static_cast<std::size_t>(clipId))) {
+            df.dirty.set(static_cast<std::size_t>(clipId));
+            df.dirtyIds.push_back(clipId);
+        }
+    }
+    ECS_PROF_INC(dirtyBitSetCount);
+}
+
 void ECS::runCommandSystem(AviQtl::UI::CoreBridge &bridge) {
     AviQtl::UI::CoreBridge::Command cmd;
     while (bridge.dequeueCommand(cmd)) {
@@ -71,14 +82,7 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
         editState.renderGraphDirty = true;
     }
 
-    for (int i = 1; i <= 2; ++i) {
-        auto &df = m_dirtyFlags[(m_editIndex + i) % 3];
-        if (!df.dirty.test(static_cast<std::size_t>(clipId))) {
-            df.dirty.set(static_cast<std::size_t>(clipId));
-            df.dirtyIds.push_back(clipId);
-        }
-    }
-    ECS_PROF_INC(dirtyBitSetCount);
+    markDirty(clipId);
 }
 
 void ECS::updateAudioClipState(int clipId, int startFrame, int durationFrames, float volume, float pan, bool mute) {
@@ -98,14 +102,7 @@ void ECS::updateAudioClipState(int clipId, int startFrame, int durationFrames, f
     audio.pan = pan;
     audio.mute = mute;
 
-    for (int i = 1; i <= 2; ++i) {
-        auto &df = m_dirtyFlags[(m_editIndex + i) % 3];
-        if (!df.dirty.test(static_cast<std::size_t>(clipId))) {
-            df.dirty.set(static_cast<std::size_t>(clipId));
-            df.dirtyIds.push_back(clipId);
-        }
-    }
-    ECS_PROF_INC(dirtyBitSetCount);
+    markDirty(clipId);
 }
 
 void ECS::updateRenderState(int clipId, const RenderComponent &render) {
@@ -113,13 +110,7 @@ void ECS::updateRenderState(int clipId, const RenderComponent &render) {
     auto &editState = m_buffers[m_editIndex];
     editState.renderStates[clipId] = render;
 
-    for (int i = 1; i <= 2; ++i) {
-        auto &df = m_dirtyFlags[(m_editIndex + i) % 3];
-        if (!df.dirty.test(static_cast<std::size_t>(clipId))) {
-            df.dirty.set(static_cast<std::size_t>(clipId));
-            df.dirtyIds.push_back(clipId);
-        }
-    }
+    markDirty(clipId);
 }
 
 void ECS::clearEffectParams() {

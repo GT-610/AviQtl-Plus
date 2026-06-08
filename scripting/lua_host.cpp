@@ -26,7 +26,8 @@ LuaHost::~LuaHost() {
     }
 }
 
-static void setupLuaState(lua_State *L) {
+void LuaHost::setupSafeLuaState(lua_State *L) {
+    if (L == nullptr) return;
     // Only open safe libraries — never expose io, os, debug, ffi, package
     static constexpr struct { const char *name; lua_CFunction func; } safeLibs[] = {
         {"",         luaopen_base},
@@ -72,7 +73,7 @@ void LuaHost::initialize() {
         lua_close(L);
     }
     L = luaL_newstate();
-    setupLuaState(L);
+    setupSafeLuaState(L);
     qDebug() << "[LuaHost] LuaJIT engine initialized (Main Thread)";
 }
 
@@ -86,7 +87,7 @@ struct ThreadLocalLua {
     ThreadLocalLua() : state(luaL_newstate()) {
 
         if (state != nullptr) {
-            setupLuaState(state);
+            LuaHost::setupSafeLuaState(state);
         }
     }
 

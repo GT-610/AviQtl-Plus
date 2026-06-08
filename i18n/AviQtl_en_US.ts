@@ -1356,7 +1356,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="352"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="353"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1386,24 +1386,29 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Encoder initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="73"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="113"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="213"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="115"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="228"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="128"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="130"/>
         <source>Cannot create output directory</source>
         <translation>Cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="201"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="202"/>
+        <source>Failed to capture frame %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
         <source>Failed to save frame %1</source>
         <translation>Failed to save frame %1</translation>
     </message>
@@ -3002,7 +3007,7 @@ Please restart the application to apply.</translation>
         <translation>Scene settings change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_scene.cpp" line="70"/>
+        <location filename="../ui/src/timeline/timeline_scene.cpp" line="76"/>
         <location filename="../ui/src/timeline_service.cpp" line="17"/>
         <source>ルート</source>
         <translation>Root</translation>

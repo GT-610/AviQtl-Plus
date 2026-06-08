@@ -12,6 +12,9 @@ class LuaHost {
 
     static double evaluate(const std::string &expression, double time, int index, double currentValue);
 
+    // Shared Lua state setup: safe libraries + dangerous function removal
+    static void setupSafeLuaState(lua_State *L);
+
   private:
     LuaHost();
     void initialize();

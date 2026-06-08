@@ -1,4 +1,5 @@
 #include "mod_engine.hpp"
+#include "lua_host.hpp"
 #include "../ui/include/timeline_controller.hpp"
 #include <QCoreApplication>
 #include <QDebug>
@@ -352,34 +353,11 @@ void ModEngine::initialize(void *ecsPtr) {
         return;
     }
     L = luaL_newstate();
-    // Only open safe libraries — never expose io, os, debug, ffi, package
-    static constexpr struct { const char *name; lua_CFunction func; } safeLibs[] = {
-        {"",         luaopen_base},
-        {"math",     luaopen_math},
-        {"string",   luaopen_string},
-        {"table",    luaopen_table},
-        {"bit",      luaopen_bit},
-    };
-    for (const auto &lib : safeLibs) {
-        lua_pushcfunction(L, lib.func);
-        lua_pushstring(L, lib.name);
-        lua_call(L, 1, 1);
-        lua_pop(L, 1);
-    }
+    AviQtl::Scripting::LuaHost::setupSafeLuaState(L);
 
     // Register core pointer as global
     lua_pushlightuserdata(L, ecsPtr);
     lua_setglobal(L, "AVIQTL_CORE_PTR");
-
-    // Remove dangerous base library functions
-    lua_pushnil(L);
-    lua_setglobal(L, "loadstring");
-    lua_pushnil(L);
-    lua_setglobal(L, "load");
-    lua_pushnil(L);
-    lua_setglobal(L, "dofile");
-    lua_pushnil(L);
-    lua_setglobal(L, "loadfile");
 
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
 }

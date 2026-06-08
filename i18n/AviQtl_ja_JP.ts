@@ -1356,7 +1356,7 @@
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="352"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="353"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1386,24 +1386,29 @@
         <translation>エンコーダーの初期化に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="71"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="73"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
         <source>Cancelled</source>
         <translation>キャンセルされました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="113"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="213"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="115"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="228"/>
         <source>Export complete</source>
         <translation>書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="128"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="130"/>
         <source>Cannot create output directory</source>
         <translation>出力ディレクトリを作成できません</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="201"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="202"/>
+        <source>Failed to capture frame %1</source>
+        <translation>フレーム %1 の取得に失敗しました</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
         <source>Failed to save frame %1</source>
         <translation>フレーム %1 の保存に失敗しました</translation>
     </message>
@@ -2970,7 +2975,7 @@
         <translation>キーフレーム削除: %1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_scene.cpp" line="70"/>
+        <location filename="../ui/src/timeline/timeline_scene.cpp" line="76"/>
         <location filename="../ui/src/timeline_service.cpp" line="17"/>
         <source>ルート</source>
         <translation>ルート</translation>

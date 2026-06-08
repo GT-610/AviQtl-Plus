@@ -7,8 +7,12 @@
 namespace AviQtl::UI {
 
 auto TimelineService::currentScene() -> SceneData * {
+    if (m_currentSceneCache) {
+        return m_currentSceneCache;
+    }
     for (auto &scene : m_scenes) {
         if (scene.id == m_currentSceneId) {
+            m_currentSceneCache = &scene;
             return &scene;
         }
     }
@@ -34,6 +38,7 @@ auto TimelineService::currentScene() const -> const SceneData * {
 
 auto TimelineService::scenes() const -> QVariantList {
     QVariantList list;
+    list.reserve(m_scenes.size());
     for (const auto &scene : std::as_const(m_scenes)) {
         QVariantMap map;
         map.insert(QStringLiteral("id"), scene.id);
@@ -66,6 +71,7 @@ void TimelineService::setScenes(const QList<SceneData> &scenes) {
     }
 
     m_scenes = scenes;
+    invalidateCurrentSceneCache();
     if (m_scenes.isEmpty()) {
         createScene(QObject::tr("ルート"));
     }
@@ -116,6 +122,7 @@ void TimelineService::switchScene(int sceneId) {
     }
 
     m_currentSceneId = sceneId;
+    invalidateCurrentSceneCache();
     emit currentSceneIdChanged();
     emit clipsChanged();
 
@@ -160,6 +167,7 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), 1080).toInt();
     newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), 60.0).toDouble();
     m_scenes.append(newScene);
+    invalidateCurrentSceneCache();
     emit scenesChanged();
     switchScene(newScene.id);
 }
@@ -179,12 +187,14 @@ void TimelineService::removeSceneInternal(int sceneId) {
             switchScene(0);
         }
         m_scenes.erase(it);
+        invalidateCurrentSceneCache();
         emit scenesChanged();
     }
 }
 
 void TimelineService::restoreSceneInternal(const SceneData &scene) {
     m_scenes.append(scene);
+    invalidateCurrentSceneCache();
     emit scenesChanged();
 }
 

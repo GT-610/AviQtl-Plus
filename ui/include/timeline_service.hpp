@@ -139,9 +139,11 @@ class TimelineService : public QObject {
   private:
     QList<SceneData> m_scenes;
     int m_currentSceneId = 0;
+    mutable SceneData *m_currentSceneCache = nullptr;
 
     SceneData *currentScene();
     const SceneData *currentScene() const;
+    void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
 
     int m_nextClipId = 1;
     int m_nextSceneId = 1;

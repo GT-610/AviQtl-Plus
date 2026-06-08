@@ -249,6 +249,7 @@ void TimelineController::updateClipEffectParam(int clipId, int effectIndex, cons
 
 auto TimelineController::clips() const -> QVariantList {
     QVariantList list;
+    list.reserve(m_timeline->clips().size());
     for (const auto &clip : m_timeline->clips()) {
         QVariantMap map;
         map.insert(QStringLiteral("id"), clip.id);

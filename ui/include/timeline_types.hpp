@@ -30,9 +30,6 @@ struct ClipData {
     int layer;
     bool clipByUpperObject = false;
 
-    mutable bool isSceneObject = false;
-    mutable bool isSceneIdCached = false;
-
     // ハイブリッド設計: EffectModelは振る舞いを持つためポインタで保持する
     QList<EffectModel *> effects;
     QList<AudioPluginState> audioPlugins;

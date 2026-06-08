@@ -209,6 +209,7 @@ class ECS {
 
   private:
     ECS();
+    void markDirty(int clipId);
 
     ::std::array<ECSState, 3> m_buffers;
     int m_editIndex = 0;
