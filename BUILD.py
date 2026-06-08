@@ -1569,16 +1569,21 @@ def main():
     print(f"Build started | target={target} | {config.build_type} | {mode} | offline={config.is_offline}")
     worker.start()
 
+    def handle_worker_msg(msg):
+        if msg is None:
+            return False
+        if msg[0] == "log":
+            print(msg[1])
+        elif msg[0] == "progress":
+            print(f"[{msg[1]}%] {msg[2]}")
+        return True
+
     # Drain the log queue until the worker finishes
     while not worker.finished_event.is_set():
         try:
             msg = worker.log_queue.get(timeout=0.2)
-            if msg is None:
+            if not handle_worker_msg(msg):
                 break
-            if msg[0] == "log":
-                print(msg[1])
-            elif msg[0] == "progress":
-                print(f"[{msg[1]}%] {msg[2]}")
         except queue.Empty:
             continue
 
@@ -1586,12 +1591,8 @@ def main():
     while True:
         try:
             msg = worker.log_queue.get_nowait()
-            if msg is None:
+            if not handle_worker_msg(msg):
                 break
-            if msg[0] == "log":
-                print(msg[1])
-            elif msg[0] == "progress":
-                print(f"[{msg[1]}%] {msg[2]}")
         except queue.Empty:
             break
 
