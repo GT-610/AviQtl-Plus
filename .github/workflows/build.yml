@@ -64,6 +64,8 @@ jobs:
                                 AviQtl_Test_transport_service \
                                 AviQtl_Test_clip_by_upper_object
           cd build && ctest --output-on-failure
+        env:
+          QT_QPA_PLATFORM: offscreen
 
   build:
     name: Build ${{ matrix.platform }}
