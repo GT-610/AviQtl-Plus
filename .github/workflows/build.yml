@@ -179,12 +179,49 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Generate Changelog
+        if: github.ref_type == 'tag' && matrix.platform == 'linux'
+        id: changelog
+        shell: bash
+        run: |
+          # Fetch tags for comparison
+          git fetch --tags --force 2>/dev/null || true
+
+          # Find previous tag
+          CURRENT_TAG="${{ github.ref_name }}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${CURRENT_TAG}$" | tail -1)
+
+          echo "## What's Changed" > /tmp/changelog.md
+          echo "" >> /tmp/changelog.md
+
+          if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$CURRENT_TAG" ]; then
+            echo "Commits since ${PREV_TAG}:" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+            git log "${PREV_TAG}..${CURRENT_TAG}" --pretty=format:"- %s (%h)" --no-merges >> /tmp/changelog.md
+          else
+            echo "Initial release or no previous tag found." >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+            echo "Recent commits:" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+            git log --pretty=format:"- %s (%h)" -20 --no-merges >> /tmp/changelog.md
+          fi
+
+          echo "" >> /tmp/changelog.md
+          echo "---" >> /tmp/changelog.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}" >> /tmp/changelog.md
+
+          # Use delimiter for multiline output
+          echo "body<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/changelog.md >> "$GITHUB_OUTPUT"
+          echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.version.outputs.release_name }}
+          body: ${{ steps.changelog.outputs.body || '' }}
           files: ${{ matrix.artifact_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
