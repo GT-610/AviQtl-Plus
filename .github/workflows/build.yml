@@ -182,14 +182,21 @@ jobs:
       - name: Generate Changelog
         if: github.ref_type == 'tag' && matrix.platform == 'linux'
         id: changelog
+        env:
+          CURRENT_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
           # Fetch tags for comparison
           git fetch --tags --force 2>/dev/null || true
 
-          # Find previous tag
-          CURRENT_TAG="${{ github.ref_name }}"
-          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${CURRENT_TAG}$" | tail -1)
+          # Validate tag format (vX.Y.Z or vX.Y.Z-suffix)
+          if ! echo "$CURRENT_TAG" | grep -qxE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?'; then
+            echo "error: Invalid tag format: $CURRENT_TAG" >&2
+            exit 1
+          fi
+
+          # Find previous tag via fixed-string match
+          PREV_TAG=$(git tag --sort=-v:refname | grep -xA1 "$CURRENT_TAG" | tail -1)
 
           echo "## What's Changed" > /tmp/changelog.md
           echo "" >> /tmp/changelog.md
@@ -198,6 +205,9 @@ jobs:
             echo "Commits since ${PREV_TAG}:" >> /tmp/changelog.md
             echo "" >> /tmp/changelog.md
             git log "${PREV_TAG}..${CURRENT_TAG}" --pretty=format:"- %s (%h)" --no-merges >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+            echo "---" >> /tmp/changelog.md
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}" >> /tmp/changelog.md
           else
             echo "Initial release or no previous tag found." >> /tmp/changelog.md
             echo "" >> /tmp/changelog.md
@@ -205,10 +215,6 @@ jobs:
             echo "" >> /tmp/changelog.md
             git log --pretty=format:"- %s (%h)" -20 --no-merges >> /tmp/changelog.md
           fi
-
-          echo "" >> /tmp/changelog.md
-          echo "---" >> /tmp/changelog.md
-          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}" >> /tmp/changelog.md
 
           # Use delimiter for multiline output
           echo "body<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"

@@ -1997,13 +1997,14 @@
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="596"/>
         <source>書き出しキャンセル</source>
-        <translation type="unfinished"></translation>
+        <translation>書き出しキャンセル</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="601"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
-        <translation type="unfinished"></translation>
+        <translation>書き出しをキャンセルしますか？
+進捗は失われます。</translation>
     </message>
 </context>
 <context>

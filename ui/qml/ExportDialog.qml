@@ -32,10 +32,25 @@ Common.AviQtlWindow {
         if (!path || path.trim() === "")
             return false;
 
-        // Check for invalid characters (platform-aware)
-        var invalidChars = Qt.platform.os === "windows" ? /[<>"|?*]/ : /[\0]/;
-        if (invalidChars.test(path))
-            return false;
+        if (Qt.platform.os === "windows") {
+            // Reject illegal Windows characters
+            if (/[<>"|?*]/.test(path))
+                return false;
+            // Reject stray colons: only allow drive-letter prefix like C:\ or C:/
+            var colonIdx = path.indexOf(":");
+            if (colonIdx >= 0) {
+                if (colonIdx !== 1 || !/^[A-Za-z]$/.test(path[0]))
+                    return false;
+                if (path.length < 3 || (path[2] !== "\\" && path[2] !== "/"))
+                    return false;
+                // Reject any additional colons
+                if (path.indexOf(":", colonIdx + 1) >= 0)
+                    return false;
+            }
+        } else {
+            if (/[\0]/.test(path))
+                return false;
+        }
 
         return true;
     }
@@ -268,7 +283,7 @@ Common.AviQtlWindow {
                         if (idx >= 0)
                             currentIndex = idx;
                         else
-                            currentIndex = 4;
+                            currentIndex = 0; // Fallback to libx264 (software, works everywhere)
                     }
                 }
 

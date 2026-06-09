@@ -215,6 +215,7 @@ Common.AviQtlWindow {
         if (ui && ui.controls && typeof ui.controls.length === 'number')
             return ui.controls;
 
+        console.error("Invalid effect uiDefinition: ui.controls is missing for", effectModel ? effectModel.name : "unknown");
         Logger.log("Invalid effect uiDefinition: ui.controls is missing for " + (effectModel ? effectModel.name : "unknown"));
         return [];
     }
