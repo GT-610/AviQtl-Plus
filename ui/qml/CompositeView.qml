@@ -23,6 +23,12 @@ Item {
     property var groupControls: []
     property var cameraControls: []
     property var ecsRenderData: ({})
+    readonly property bool _isInputFocused: {
+        var item = Qt.application.focusItem;
+        if (!item)
+            return false;
+        return item.hasOwnProperty("echoMode") || (item.hasOwnProperty("selectionStart") && item.readOnly === false);
+    }
     // [FIX-12] activeCameraControl の評価で破棄済みオブジェクトを触らないよう
     // isCameraControl フラグを確認してから clipLayer にアクセスする。
     // QML オブジェクトが破棄されると各プロパティへのアクセスは undefined を返すが、
@@ -154,9 +160,8 @@ Item {
         anchors.centerIn: parent
         focus: true
         Keys.onSpacePressed: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+            if (!_isInputFocused && Workspace.currentTimeline && Workspace.currentTimeline.transport)
                 Workspace.currentTimeline.transport.togglePlay();
-
         }
 
         Rectangle {

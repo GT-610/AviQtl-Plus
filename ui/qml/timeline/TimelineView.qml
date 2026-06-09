@@ -239,13 +239,6 @@ Item {
         }
 
         Connections {
-            function onTimelineScaleChanged() {
-            }
-
-            target: Workspace.currentTimeline ?? null
-        }
-
-        Connections {
             function onIsPlayingChanged() {
                 if (Workspace.currentTimeline.transport.isPlaying)
                     timelineViewRoot.autoScrollSuspended = false;
