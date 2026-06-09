@@ -1,5 +1,4 @@
 #include "transport_service.hpp"
-#include <QElapsedTimer>
 
 namespace AviQtl::UI {
 
