@@ -9,6 +9,9 @@
 #include "timeline_service.hpp"
 #include "transport_service.hpp"
 #include "video_decoder.hpp"
+#include <QFileInfo>
+#include <QSet>
+#include <QUrl>
 #include <QtGlobal>
 #include <algorithm>
 
@@ -208,6 +211,102 @@ void TimelineController::createObject(const QString &type, int startFrame, int l
         int actualFrame = m_timeline->createClip(type, startFrame, layer);
         int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
         setCursorFrame(actualFrame + duration);
+    }
+}
+
+void TimelineController::importMediaFile(const QString &fileUrl, int startFrame, int layer) {
+    if (m_timeline == nullptr) {
+        return;
+    }
+
+    QUrl url(fileUrl);
+    QString filePath = url.toLocalFile();
+    if (filePath.isEmpty()) {
+        filePath = fileUrl;
+    }
+
+    QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists()) {
+        emit errorOccurred(tr("ファイルが見つかりません: %1").arg(filePath));
+        return;
+    }
+
+    QString suffix = fileInfo.suffix().toLower();
+
+    static const QSet<QString> videoExts = {QStringLiteral("mp4"), QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("wmv")};
+    static const QSet<QString> audioExts = {QStringLiteral("wav"), QStringLiteral("mp3"), QStringLiteral("aac"), QStringLiteral("m4a"), QStringLiteral("flac"), QStringLiteral("ogg")};
+    static const QSet<QString> imageExts = {QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("bmp"), QStringLiteral("gif"), QStringLiteral("webp"), QStringLiteral("svg")};
+
+    if (videoExts.contains(suffix)) {
+        m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
+
+        int videoClipId = m_timeline->nextClipId();
+        m_timeline->setNextClipId(videoClipId + 1);
+        m_timeline->createClipInternal(videoClipId, QStringLiteral("video"), startFrame, layer, false);
+
+        auto *videoClip = m_timeline->findClipById(videoClipId);
+        if (videoClip != nullptr) {
+            for (auto *eff : videoClip->effects) {
+                if (eff->id() == QLatin1String("video")) {
+                    eff->setParam(QStringLiteral("path"), filePath);
+                    break;
+                }
+            }
+        }
+
+        int audioClipId = m_timeline->nextClipId();
+        m_timeline->setNextClipId(audioClipId + 1);
+        m_timeline->createClipInternal(audioClipId, QStringLiteral("audio"), startFrame, layer + 1, false);
+
+        auto *audioClip = m_timeline->findClipById(audioClipId);
+        if (audioClip != nullptr) {
+            for (auto *eff : audioClip->effects) {
+                if (eff->id() == QLatin1String("audio")) {
+                    eff->setParam(QStringLiteral("source"), filePath);
+                    break;
+                }
+            }
+        }
+
+        m_timeline->undoStack()->endMacro();
+        emit m_timeline->clipsChanged();
+        setCursorFrame(startFrame + 100);
+    } else if (audioExts.contains(suffix)) {
+        int clipId = m_timeline->nextClipId();
+        m_timeline->setNextClipId(clipId + 1);
+        m_timeline->createClipInternal(clipId, QStringLiteral("audio"), startFrame, layer, false);
+
+        auto *clip = m_timeline->findClipById(clipId);
+        if (clip != nullptr) {
+            for (auto *eff : clip->effects) {
+                if (eff->id() == QLatin1String("audio")) {
+                    eff->setParam(QStringLiteral("source"), filePath);
+                    break;
+                }
+            }
+        }
+
+        emit m_timeline->clipsChanged();
+        setCursorFrame(startFrame + 100);
+    } else if (imageExts.contains(suffix)) {
+        int clipId = m_timeline->nextClipId();
+        m_timeline->setNextClipId(clipId + 1);
+        m_timeline->createClipInternal(clipId, QStringLiteral("image"), startFrame, layer, false);
+
+        auto *clip = m_timeline->findClipById(clipId);
+        if (clip != nullptr) {
+            for (auto *eff : clip->effects) {
+                if (eff->id() == QLatin1String("image")) {
+                    eff->setParam(QStringLiteral("path"), filePath);
+                    break;
+                }
+            }
+        }
+
+        emit m_timeline->clipsChanged();
+        setCursorFrame(startFrame + 100);
+    } else {
+        emit errorOccurred(tr("サポートされていないファイル形式です: %1").arg(suffix));
     }
 }
 

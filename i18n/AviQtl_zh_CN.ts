@@ -1336,27 +1336,27 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="91"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="94"/>
         <source>プロパティ変更: %1</source>
         <translation>属性更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="133"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="136"/>
         <source>開始フレーム変更</source>
         <translation>起始帧更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="150"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="153"/>
         <source>長さ変更</source>
         <translation>长度更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="167"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="170"/>
         <source>レイヤー変更</source>
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="353"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="452"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1364,6 +1364,21 @@
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="64"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>保存目标文件路径未知</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="241"/>
+        <source>動画をインポート</source>
+        <translation>导入视频</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="230"/>
+        <source>ファイルが見つかりません: %1</source>
+        <translation>找不到文件：%1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="309"/>
+        <source>サポートされていないファイル形式です: %1</source>
+        <translation>不支持的文件格式：%1</translation>
     </message>
 </context>
 <context>
@@ -1817,190 +1832,190 @@
 <context>
     <name>ExportDialog</name>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="43"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="58"/>
         <source>メディアの書き出し</source>
         <translation>导出媒体</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="66"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="81"/>
         <source>書き出し中...</source>
         <translation>正在导出...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="85"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="100"/>
         <source>0 / 0 フレーム</source>
         <translation>0 / 0 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="92"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="533"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="107"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="548"/>
         <source>キャンセル</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="104"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="119"/>
         <source>%1 / %2 フレーム</source>
         <translation>%1 / %2 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="123"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="138"/>
         <source>完了</source>
         <translation>完成</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="123"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="138"/>
         <source>エラー</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="145"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="160"/>
         <source>形式:</source>
         <translation>格式：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="150"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
         <source>動画ファイル</source>
         <translation>视频文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="150"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
         <source>画像シーケンス</source>
         <translation>图片序列</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="180"/>
         <source>保存先ファイルパス...</source>
         <translation>保存目标文件路径...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="180"/>
         <source>保存先フォルダ...</source>
         <translation>保存目标文件夹...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="169"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="184"/>
         <source>参照...</source>
         <translation>浏览...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="177"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="192"/>
         <source>映像</source>
         <translation>视频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="188"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="203"/>
         <source>解像度:</source>
         <translation>分辨率：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="198"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="213"/>
         <source>FPS:</source>
         <translation>FPS：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="208"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="379"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="223"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="394"/>
         <source>コーデック:</source>
         <translation>编解码器：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="276"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="291"/>
         <source>品質モード:</source>
         <translation>质量模式：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="286"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="301"/>
         <source>CRF</source>
         <translation>CRF</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="292"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="307"/>
         <source>ビットレート</source>
         <translation>比特率</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="302"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="317"/>
         <source>CRF:</source>
         <translation>CRF：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="327"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
         <source>高品質</source>
         <translation>高质量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="327"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
         <source>標準</source>
         <translation>标准</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="327"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
         <source>低品質</source>
         <translation>低质量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="336"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="420"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="351"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="435"/>
         <source>ビットレート:</source>
         <translation>比特率：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="353"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="368"/>
         <source>%1 Mbps</source>
         <translation>%1 Mbps</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="368"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="383"/>
         <source>音声</source>
         <translation>音频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="447"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="462"/>
         <source>範囲</source>
         <translation>范围</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="457"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="472"/>
         <source>タイムライン全体</source>
         <translation>整个时间线</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="462"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="477"/>
         <source>開始:</source>
         <translation>开始：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="476"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="491"/>
         <source>終了:</source>
         <translation>结束：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="510"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="525"/>
         <source>(%1 フレーム / %2 秒)</source>
         <translation>（%1 帧 / %2 秒）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="538"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="553"/>
         <source>書き出し開始</source>
         <translation>开始导出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="574"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="589"/>
         <source>保存先を指定</source>
         <translation>指定保存目标</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="586"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="601"/>
         <source>保存先フォルダを指定</source>
         <translation>指定保存目标文件夹</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="596"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="611"/>
         <source>書き出しキャンセル</source>
         <translation>取消导出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="601"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="616"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
         <translation>确定要取消导出吗？
@@ -3210,52 +3225,52 @@
 <context>
     <name>SettingDialog</name>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="224"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="225"/>
         <source>設定ダイアログ</source>
         <translation>设置对话框</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="527"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="528"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="527"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="528"/>
         <source>選択した %1 件を削除</source>
         <translation>删除选中的 %1 项</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="934"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="935"/>
         <source> (直線)</source>
         <translation>（直线）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="935"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="936"/>
         <source> (加速)</source>
         <translation>（加速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="936"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="937"/>
         <source> (減速)</source>
         <translation>（减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="937"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="938"/>
         <source> (加減速)</source>
         <translation>（加减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="938"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="939"/>
         <source> (ベジェ)</source>
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1480"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1481"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1491"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1492"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>
@@ -3676,79 +3691,84 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="848"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="903"/>
         <source>オブジェクトを追加</source>
         <translation>添加对象</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="861"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="916"/>
         <source>元に戻す</source>
         <translation>撤销</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="862"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="917"/>
         <source>やり直す</source>
         <translation>重做</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="863"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="918"/>
         <source>貼り付け</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="865"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="920"/>
         <source>シーン設定...</source>
         <translation>场景设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="866"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="921"/>
         <source>プロジェクト設定...</source>
         <translation>项目设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="867"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="922"/>
         <source>環境設定...</source>
         <translation>首选项...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="869"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="924"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="870"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="925"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="871"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="926"/>
         <source>複製</source>
         <translation>复制副本</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="873"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="928"/>
         <source>切り取り</source>
         <translation>剪切</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="874"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="929"/>
         <source>コピー</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="878"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="933"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>用上方对象裁剪</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="890"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="945"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="914"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="969"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>搜索效果/对象...</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="531"/>
+        <source>ここにドロップ</source>
+        <translation>拖放到此处</translation>
     </message>
 </context>
 <context>

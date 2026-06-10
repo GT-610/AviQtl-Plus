@@ -481,6 +481,61 @@ Item {
             z: 100
         }
 
+        DropArea {
+            id: fileDropArea
+
+            anchors.fill: parent
+            z: 200
+            enabled: Workspace.currentTimeline !== null
+
+            onEntered: (drag) => {
+                if (!drag.hasUrls) {
+                    drag.accepted = false;
+                    return;
+                }
+                dropIndicator.visible = true;
+            }
+
+            onExited: {
+                dropIndicator.visible = false;
+            }
+
+            onDropped: (drop) => {
+                dropIndicator.visible = false;
+                if (!drop.hasUrls || !Workspace.currentTimeline)
+                    return;
+
+                var scale = Workspace.currentTimeline.timelineScale;
+                var frame = Math.max(0, Math.floor(drop.x / scale));
+                var targetLayer = Math.max(0, Math.floor(drop.y / timelineViewRoot.layerHeight));
+
+                frame = timelineViewRoot.snapFrame(frame, !(drop.modifiers & Qt.ShiftModifier));
+
+                for (var i = 0; i < drop.urls.length; i++) {
+                    Workspace.currentTimeline.importMediaFile(drop.urls[i], frame, targetLayer);
+                }
+                drop.acceptProposedAction();
+            }
+
+            Rectangle {
+                id: dropIndicator
+
+                anchors.fill: parent
+                visible: false
+                color: palette.highlight
+                opacity: 0.15
+                z: 199
+
+                Text {
+                    anchors.centerIn: parent
+                    text: qsTr("ここにドロップ")
+                    color: palette.highlightedText
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+            }
+        }
+
     }
 
     // Qt6推奨: WheelHandlerでスクロール/ズームを明示的に制御

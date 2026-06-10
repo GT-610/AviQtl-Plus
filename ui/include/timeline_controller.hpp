@@ -84,6 +84,7 @@ class TimelineController : public QObject {
     bool isClipActive() const;
 
     Q_INVOKABLE void createObject(const QString &type, int startFrame, int layer);
+    Q_INVOKABLE void importMediaFile(const QString &fileUrl, int startFrame, int layer);
     QString activeObjectType() const;
 
     Q_INVOKABLE static void log(const QString &msg);
