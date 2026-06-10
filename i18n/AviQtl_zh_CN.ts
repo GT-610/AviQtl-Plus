@@ -3766,7 +3766,7 @@
         <translation>搜索效果/对象...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="531"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="533"/>
         <source>ここにドロップ</source>
         <translation>拖放到此处</translation>
     </message>

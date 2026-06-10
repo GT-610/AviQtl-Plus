@@ -3706,7 +3706,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="531"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="533"/>
         <source>ここにドロップ</source>
         <translation>ここにドロップ</translation>
     </message>
