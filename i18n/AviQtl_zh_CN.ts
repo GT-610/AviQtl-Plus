@@ -1356,7 +1356,7 @@
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="452"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="454"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1376,7 +1376,7 @@
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="309"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="311"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>
@@ -2658,11 +2658,19 @@
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
         <source>インストール</source>
-        <translation>安装</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>（後で実装: パッケージリスト）</source>
-        <translation type="vanished">（稍后实现：软件包列表）</translation>
+        <source>エフェクト/オブジェクトを検索...</source>
+        <translation type="vanished">搜索效果/对象...</translation>
+    </message>
+    <message>
+        <source>ここにドロップ</source>
+        <translation type="vanished">拖放到此处</translation>
+    </message>
+    <message>
+        <source>联结视频文件</source>
+        <translation type="vanished">联结视频文件</translation>
     </message>
 </context>
 <context>
@@ -3240,37 +3248,37 @@
         <translation>删除选中的 %1 项</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="935"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="957"/>
         <source> (直線)</source>
         <translation>（直线）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="936"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="958"/>
         <source> (加速)</source>
         <translation>（加速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="937"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="959"/>
         <source> (減速)</source>
         <translation>（减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="938"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="960"/>
         <source> (加減速)</source>
         <translation>（加减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="939"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="961"/>
         <source> (ベジェ)</source>
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1481"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1503"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1492"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1514"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>

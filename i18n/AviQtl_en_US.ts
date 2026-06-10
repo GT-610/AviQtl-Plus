@@ -1356,7 +1356,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="452"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="454"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1376,7 +1376,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="309"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="311"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -2658,11 +2658,15 @@ Please restart the application to apply.</translation>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
         <source>インストール</source>
-        <translation>Install</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>（後で実装: パッケージリスト）</source>
-        <translation type="vanished">(To be implemented later: package list)</translation>
+        <source>ここにドロップ</source>
+        <translation type="vanished">Drop here</translation>
+    </message>
+    <message>
+        <source>联结视频文件</source>
+        <translation type="vanished">Link to video file</translation>
     </message>
 </context>
 <context>
@@ -3240,37 +3244,37 @@ Please restart the application to apply.</translation>
         <translation>Delete %1 selected items</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="935"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="957"/>
         <source> (直線)</source>
         <translation> (Linear)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="936"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="958"/>
         <source> (加速)</source>
         <translation> (Ease In)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="937"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="959"/>
         <source> (減速)</source>
         <translation> (Ease Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="938"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="960"/>
         <source> (加減速)</source>
         <translation> (Ease In/Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="939"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="961"/>
         <source> (ベジェ)</source>
         <translation> (Bezier)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1481"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1503"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1492"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1514"/>
         <source>検索...</source>
         <translation type="unfinished">Search...</translation>
     </message>

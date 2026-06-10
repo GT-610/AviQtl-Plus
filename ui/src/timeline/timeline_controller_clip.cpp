@@ -263,6 +263,8 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
             for (auto *eff : audioClip->effects) {
                 if (eff->id() == QLatin1String("audio")) {
                     eff->setParam(QStringLiteral("source"), filePath);
+                    eff->setParam(QStringLiteral("linkedVideo"), true);
+                    eff->setParam(QStringLiteral("speed"), 100.0);
                     break;
                 }
             }

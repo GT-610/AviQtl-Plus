@@ -904,6 +904,11 @@ Common.AviQtlWindow {
 
                                     if (!hasKeyframes) {
                                         Workspace.currentTimeline.updateClipEffectParam(targetClipId, effIdx, key, val);
+                                        var source = String(effectModel.params["source"] || "").toLowerCase();
+                                        var sourceIsVideo = /\.(mp4|mov|avi|mkv|webm|wmv)$/.test(source);
+                                        if (key === "linkedVideo" && val === true && sourceIsVideo)
+                                            Workspace.currentTimeline.updateClipEffectParam(targetClipId, effIdx, "speed", 100.0);
+
                                         return ;
                                     }
                                     let type = "linear";
@@ -922,12 +927,29 @@ Common.AviQtlWindow {
                                 Layout.fillWidth: true
                                 spacing: 0
 
+                                readonly property bool isControlDisabled: {
+                                    var _ = effectRoot._effectRev;
+                                    if (!def || !effectModel)
+                                        return false;
+                                    if (def.disabledByVideoLink === true) {
+                                        var source = String(effectModel.params["source"] || "").toLowerCase();
+                                        var sourceIsVideo = /\.(mp4|mov|avi|mkv|webm|wmv)$/.test(source);
+                                        return sourceIsVideo && effectModel.params["linkedVideo"] === true;
+                                    }
+                                    if (def.disabledBy) {
+                                        var refParam = effectModel.params[def.disabledBy];
+                                        return refParam === true;
+                                    }
+                                    return false;
+                                }
+
                                 // 数値
                                 Common.ParamControl {
                                     Layout.fillWidth: true
                                     Layout.margins: 4
                                     visible: isNumber
-                                    enabled: isNumber
+                                    enabled: isNumber && !paramDelegate.isControlDisabled
+                                    opacity: paramDelegate.isControlDisabled ? 0.45 : 1
                                     isRangeMode: isMoving && hasKeyframeAt(endFrame)
                                     interpolationType: interpType
                                     paramName: {
@@ -989,7 +1011,7 @@ Common.AviQtlWindow {
                                     Layout.fillWidth: true
                                     Layout.margins: 4
                                     visible: !isNumber
-                                    enabled: true
+                                    enabled: !paramDelegate.isControlDisabled
                                     definition: def
                                     value: effVal
                                     effectRootRef: effectRoot

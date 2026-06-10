@@ -68,7 +68,11 @@ void TimelineMediaManager::onCurrentFrameChanged() {
                     audioTime = eff->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
                 } else {
                     const double startTime = eff->params().value(QStringLiteral("startTime"), 0.0).toDouble();
-                    const double speed = eff->params().value(QStringLiteral("speed"), 100.0).toDouble();
+                    const QString source = eff->params().value(QStringLiteral("source")).toString().toLower();
+                    const bool sourceIsVideo = source.endsWith(QStringLiteral(".mp4")) || source.endsWith(QStringLiteral(".mov")) || source.endsWith(QStringLiteral(".avi")) || source.endsWith(QStringLiteral(".mkv")) || source.endsWith(QStringLiteral(".webm")) ||
+                                               source.endsWith(QStringLiteral(".wmv"));
+                    const bool linkedVideo = sourceIsVideo && eff->params().value(QStringLiteral("linkedVideo"), false).toBool();
+                    const double speed = linkedVideo ? 100.0 : eff->params().value(QStringLiteral("speed"), 100.0).toDouble();
                     audioTime = (relTime * (speed / 100.0)) + startTime;
                 }
                 break;

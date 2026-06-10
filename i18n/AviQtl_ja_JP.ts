@@ -1356,7 +1356,7 @@
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="452"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="454"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1376,7 +1376,7 @@
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="309"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="311"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
@@ -3180,37 +3180,37 @@
         <translation>選択した %1 件を削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="935"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="957"/>
         <source> (直線)</source>
         <translation> (直線)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="936"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="958"/>
         <source> (加速)</source>
         <translation> (加速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="937"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="959"/>
         <source> (減速)</source>
         <translation> (減速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="938"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="960"/>
         <source> (加減速)</source>
         <translation> (加減速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="939"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="961"/>
         <source> (ベジェ)</source>
         <translation> (ベジェ)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1481"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1503"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1492"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1514"/>
         <source>検索...</source>
         <translation type="unfinished">検索...</translation>
     </message>
@@ -3709,6 +3709,10 @@
         <location filename="../ui/qml/timeline/TimelineView.qml" line="533"/>
         <source>ここにドロップ</source>
         <translation>ここにドロップ</translation>
+    </message>
+    <message>
+        <source>联结视频文件</source>
+        <translation type="vanished">動画ファイルに結び付ける</translation>
     </message>
 </context>
 <context>
