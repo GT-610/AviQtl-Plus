@@ -200,6 +200,10 @@ Item {
                 function onClipsChanged() {
                     waveformCanvas._schedulePaint();
                 }
+                function onClipEffectsChanged(clipId) {
+                    if (clipId === modelData.id)
+                        waveformCanvas._schedulePaint();
+                }
 
                 target: Workspace.currentTimeline
             }
