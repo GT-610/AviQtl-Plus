@@ -97,6 +97,9 @@ void TimelineController::setupConnections() {
     // 再生位置が変わったらプレビュー更新
     connect(m_transport, &TransportService::currentFrameChanged, this, &TimelineController::onCurrentFrameChanged);
 
+    // 再生速度が変わったらAudioMixerに反映
+    connect(m_transport, &TransportService::playbackSpeedChanged, this, [this]() { m_mediaManager->syncPlaybackSpeed(); });
+
     // QML(VideoObject)からのフレーム要求をMediaManagerへ中継
     connect(this, &TimelineController::videoFrameRequested, m_mediaManager, &TimelineMediaManager::requestVideoFrame);
     connect(this, &TimelineController::imageLoadRequested, m_mediaManager, &TimelineMediaManager::requestImageLoad);
