@@ -5,6 +5,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 import "common" as Common
+import "common/Logger.js" as Logger
 
 Common.AviQtlWindow {
     id: root
@@ -214,7 +215,8 @@ Common.AviQtlWindow {
         if (ui && ui.controls && typeof ui.controls.length === 'number')
             return ui.controls;
 
-        console.warn("Invalid effect uiDefinition: ui.controls is missing for", effectModel ? effectModel.name : "unknown");
+        console.error("Invalid effect uiDefinition: ui.controls is missing for", effectModel ? effectModel.name : "unknown");
+        Logger.log("Invalid effect uiDefinition: ui.controls is missing for " + (effectModel ? effectModel.name : "unknown"));
         return [];
     }
 
@@ -540,7 +542,6 @@ Common.AviQtlWindow {
                             if (idx >= 0 && idx < m.length)
                                 if (isAudio || (m[idx] && m[idx].kind === "effect"))
                                 return true;
-;
 
                         }
                         return false;

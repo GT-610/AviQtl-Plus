@@ -11,7 +11,8 @@ Common.AviQtlWindow {
     property var project: Workspace.currentTimeline ? Workspace.currentTimeline.project : null
     property var ownerWindow: null
     readonly property double pFps: project ? project.fps : 60
-    property string defaultCodec: SettingsManager ? SettingsManager.value("exportDefaultCodec", "h264_vaapi") : "h264_vaapi"
+    readonly property string _platformDefaultCodec: Qt.platform.os === "windows" ? "h264_nvenc" : (Qt.platform.os === "osx" ? "h264_videotoolbox" : "h264_vaapi")
+    property string defaultCodec: SettingsManager ? SettingsManager.value("exportDefaultCodec", _platformDefaultCodec) : _platformDefaultCodec
     property int defaultBitrateMbps: SettingsManager ? SettingsManager.value("exportDefaultBitrateMbps", 15) : 15
     property int defaultCrf: SettingsManager ? SettingsManager.value("exportDefaultCrf", 20) : 20
     property string defaultAudioCodec: SettingsManager ? SettingsManager.value("exportDefaultAudioCodec", "aac") : "aac"
@@ -25,6 +26,33 @@ Common.AviQtlWindow {
 
     function open() {
         visible = true;
+    }
+
+    function isValidExportPath(path) {
+        if (!path || path.trim() === "")
+            return false;
+
+        if (Qt.platform.os === "windows") {
+            // Reject illegal Windows characters
+            if (/[<>"|?*]/.test(path))
+                return false;
+            // Reject stray colons: only allow drive-letter prefix like C:\ or C:/
+            var colonIdx = path.indexOf(":");
+            if (colonIdx >= 0) {
+                if (colonIdx !== 1 || !/^[A-Za-z]$/.test(path[0]))
+                    return false;
+                if (path.length < 3 || (path[2] !== "\\" && path[2] !== "/"))
+                    return false;
+                // Reject any additional colons
+                if (path.indexOf(":", colonIdx + 1) >= 0)
+                    return false;
+            }
+        } else {
+            if (/[\0]/.test(path))
+                return false;
+        }
+
+        return true;
     }
 
     title: qsTr("メディアの書き出し")
@@ -77,7 +105,7 @@ Common.AviQtlWindow {
             Button {
                 Layout.alignment: Qt.AlignHCenter
                 text: qsTr("キャンセル")
-                onClicked: Workspace.currentTimeline.cancelExport()
+                onClicked: cancelConfirmDialog.open()
             }
 
         }
@@ -255,7 +283,7 @@ Common.AviQtlWindow {
                         if (idx >= 0)
                             currentIndex = idx;
                         else
-                            currentIndex = 4;
+                            currentIndex = 0; // Fallback to libx264 (software, works everywhere)
                     }
                 }
 
@@ -468,7 +496,7 @@ Common.AviQtlWindow {
 
                     enabled: !fullRangeCheck.checked
                     from: startFrameSpin.value + 1
-                    to: 99999
+                    to: 999999
                     value: 300
                     editable: true
                     Component.onCompleted: {
@@ -523,7 +551,7 @@ Common.AviQtlWindow {
 
             Button {
                 text: qsTr("書き出し開始")
-                enabled: filePathField.text !== ""
+                enabled: isValidExportPath(filePathField.text)
                 highlighted: true
                 onClicked: {
                     if (root.isImageSequence) {
@@ -536,8 +564,8 @@ Common.AviQtlWindow {
                         Workspace.currentTimeline.exportVideoAsync({
                             "width": (project ? project.width : 1920),
                             "height": (project ? project.height : 1080),
-                            "fps_num": Math.round(pFps * 1000),
-                            "fps_den": 1000,
+                            "fps_num": pFps === Math.floor(pFps) ? pFps * 1000 : Math.round(pFps * 1001),
+                            "fps_den": pFps === Math.floor(pFps) ? 1000 : 1001,
                             "bitrate": bitrateSpin.value * 1e+06,
                             "crf": crfRadio.checked ? crfSlider.value : -1,
                             "codecName": codec,
@@ -574,6 +602,24 @@ Common.AviQtlWindow {
         onAccepted: {
             var path = folder.toString();
             filePathField.text = Qt.platform.os === "windows" ? path.replace(/^file:\/{3}/, "") : path.replace(/^file:\/\//, "");
+        }
+    }
+
+    Dialog {
+        id: cancelConfirmDialog
+
+        title: qsTr("書き出しキャンセル")
+        modal: true
+        anchors.centerIn: parent
+        standardButtons: Dialog.Yes | Dialog.No
+        contentItem: Label {
+            text: qsTr("書き出しをキャンセルしますか？\n進捗は失われます。")
+            wrapMode: Text.WordWrap
+            padding: 12
+        }
+        onAccepted: {
+            if (Workspace.currentTimeline)
+                Workspace.currentTimeline.cancelExport();
         }
     }
 

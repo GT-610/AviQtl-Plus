@@ -330,6 +330,9 @@ ApplicationWindow {
         onTriggered: {
             if (Workspace.currentTimeline) {
                 var l = Workspace.currentTimeline.selectedLayer;
+                if (l < 0)
+                    return ;
+
                 var isLocked = Workspace.currentTimeline.isLayerLocked(l);
                 Workspace.currentTimeline.setLayerState(l, !isLocked, 0); // 0: Lock
             }
@@ -345,6 +348,9 @@ ApplicationWindow {
         onTriggered: {
             if (Workspace.currentTimeline) {
                 var l = Workspace.currentTimeline.selectedLayer;
+                if (l < 0)
+                    return ;
+
                 var isHidden = Workspace.currentTimeline.isLayerHidden(l);
                 Workspace.currentTimeline.setLayerState(l, !isHidden, 1); // 1: Hidden
             }
@@ -1013,9 +1019,9 @@ ApplicationWindow {
                     }
 
                     SpinBox {
-                        from: SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10
-                        to: SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400
-                        stepSize: SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10
+                        from: 10
+                        to: 400
+                        stepSize: 10
                         editable: true
                         Layout.preferredWidth: 80
                         Layout.preferredHeight: 28

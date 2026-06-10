@@ -1,27 +1,10 @@
 #include "timeline_controller.hpp"
-#include "audio_decoder.hpp"
 #include "bridge/ecs_render_bridge.hpp"
 #include "commands.hpp"
 #include "core/include/document_model.hpp"
-#include "effect_registry.hpp"
-#include "engine/plugin/audio_plugin_manager.hpp"
 #include "engine/timeline/bake_controller.hpp"
-#include "project_serializer.hpp"
-#include "project_service.hpp"
-#include "scripting/lua_host.hpp"
-#include "selection_service.hpp"
-#include "settings_manager.hpp"
-#include "timeline_service.hpp"
-#include "transport_service.hpp"
-#include "video_decoder.hpp"
-#include "video_frame_store.hpp"
-#include <QFile>
 #include <QSet>
 #include <QSignalBlocker>
-#include <QUndoStack>
-#include <QUrl>
-#include <QtGlobal>
-#include <algorithm>
 
 namespace AviQtl::UI {
 

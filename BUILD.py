@@ -744,14 +744,6 @@ class Msys2Builder(PlatformBuilder):
                     copied.add(alias)
                     self.logger.log(f"Bundled Carla link DLL alias: {alias}")
 
-    def find_carla_discovery_tool(self) -> Path | None:
-        # Look for carla-discovery-native.exe in runtime/
-        carla_runtime = self.config.source_dir / "vendor" / "carla" / "runtime"
-        candidate = carla_runtime / "carla-discovery-native.exe"
-        if candidate.exists():
-            return candidate
-        return None
-
     def get_archive_name(self) -> str:
         return "AviQtl-MSYS2-UCRT64-x86_64"
 

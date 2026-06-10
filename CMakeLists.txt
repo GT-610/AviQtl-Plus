@@ -76,8 +76,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 file(GLOB CORE_SOURCES "core/src/*.cpp")
 file(GLOB CORE_HEADERS "core/include/*.hpp")
 set(EFFECT_METADATA_I18N_SOURCE "${CMAKE_SOURCE_DIR}/core/src/effect_metadata_i18n.cpp")
-list(REMOVE_ITEM CORE_SOURCES "${EFFECT_METADATA_I18N_SOURCE}")
-list(APPEND CORE_SOURCES "${EFFECT_METADATA_I18N_SOURCE}")
     # Exclude main.cpp – it is added to the executable later
 list(REMOVE_ITEM CORE_SOURCES "${CMAKE_SOURCE_DIR}/core/src/main.cpp")
 
@@ -174,9 +172,6 @@ file(GLOB_RECURSE QML_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     "ui/qml/*.js"
 )
 list(FILTER QML_FILES EXCLUDE REGEX "ui/qml/(effects|objects)/.*")
-
-    # Build common shaders
-file(GLOB_RECURSE COMMON_SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/common/shaders/*.glsl")
 
 # --- QML Module (Attached to UI Module) ---
 qt_add_qml_module(AviQtl_UI
