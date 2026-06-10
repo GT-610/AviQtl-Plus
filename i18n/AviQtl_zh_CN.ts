@@ -1428,12 +1428,12 @@
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて下へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>批量下移图层</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて上へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>批量上移图层</translation>
     </message>
 </context>
 <context>
@@ -2151,7 +2151,7 @@
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="207"/>
         <source>複数レイヤーを挿入</source>
-        <translation type="unfinished"></translation>
+        <translation>插入多个图层</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="220"/>
@@ -2176,67 +2176,67 @@
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="270"/>
         <source>このレイヤー以降をまとめて移動</source>
-        <translation type="unfinished"></translation>
+        <translation>批量移动此图层及以下</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="284"/>
         <source>対象レイヤーの範囲:</source>
-        <translation type="unfinished"></translation>
+        <translation>目标图层范围：</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="320"/>
         <source>移動量 (行数):</source>
-        <translation type="unfinished"></translation>
+        <translation>移动行数：</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="333"/>
         <source>方向:</source>
-        <translation type="unfinished"></translation>
+        <translation>方向：</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="338"/>
         <source>上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>向上</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="348"/>
         <source>下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>向下</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="393"/>
         <source>複数レイヤーを挿入...</source>
-        <translation type="unfinished"></translation>
+        <translation>插入多个图层...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを非表示にする</source>
-        <translation type="unfinished"></translation>
+        <translation>隐藏此图层</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを表示する</source>
-        <translation type="unfinished"></translation>
+        <translation>显示此图层</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーのロックを解除</source>
-        <translation type="unfinished"></translation>
+        <translation>解锁此图层</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーをロックする</source>
-        <translation type="unfinished"></translation>
+        <translation>锁定此图层</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="458"/>
         <source>すべてのレイヤーを表示</source>
-        <translation type="unfinished"></translation>
+        <translation>显示所有图层</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="468"/>
         <source>すべてのレイヤーを非表示</source>
-        <translation type="unfinished"></translation>
+        <translation>隐藏所有图层</translation>
     </message>
     <message>
         <source>表示/非表示を切り替え</source>
@@ -2263,17 +2263,17 @@
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="403"/>
         <source>このレイヤーの内容を1行下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>将此图层内容下移一行</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="413"/>
         <source>このレイヤーの内容を1行上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>将此图层内容上移一行</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="423"/>
         <source>範囲を指定してレイヤー移動...</source>
-        <translation type="unfinished"></translation>
+        <translation>指定范围移动图层...</translation>
     </message>
     <message>
         <source>ロックを解除</source>
@@ -3257,7 +3257,7 @@
     <message>
         <location filename="../ui/qml/SettingDialog.qml" line="1491"/>
         <source>検索...</source>
-        <translation type="unfinished">搜索...</translation>
+        <translation>搜索...</translation>
     </message>
 </context>
 <context>
@@ -3723,7 +3723,7 @@
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="871"/>
         <source>複製</source>
-        <translation type="unfinished">复制副本</translation>
+        <translation>复制副本</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="873"/>
@@ -3743,12 +3743,12 @@
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="890"/>
         <source>エフェクトを追加</source>
-        <translation type="unfinished">添加效果</translation>
+        <translation>添加效果</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="914"/>
         <source>エフェクト/オブジェクトを検索...</source>
-        <translation type="unfinished"></translation>
+        <translation>搜索效果/对象...</translation>
     </message>
 </context>
 <context>
