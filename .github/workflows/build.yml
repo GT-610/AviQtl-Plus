@@ -2,16 +2,6 @@ name: Build & Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version (e.g. 0.1.0)'
-        required: false
-        type: string
-        default: '0.0.0'
-      codename:
-        description: 'Codename (optional, e.g. Alpha)'
-        required: false
-        type: string
   push:
     tags:
       - 'v*'
@@ -21,7 +11,6 @@ permissions:
 
 env:
   APP_NAME: AviQtl
-  BUILD_TAG: test-build-${{ github.run_number }}-${{ github.sha }}
 
 jobs:
   test:
@@ -90,6 +79,8 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Dependencies (Linux)
         if: matrix.platform == 'linux'
@@ -134,8 +125,8 @@ jobs:
             VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
             CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
           else
-            VERSION="${{ inputs.version || '0.0.0' }}"
-            CODENAME="${{ inputs.codename }}"
+            VERSION="0.0.0"
+            CODENAME=""
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
@@ -174,7 +165,7 @@ jobs:
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}-${{ env.BUILD_TAG }}
+          name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
           retention-days: 14
@@ -182,41 +173,30 @@ jobs:
       - name: Generate Changelog
         if: github.ref_type == 'tag' && matrix.platform == 'linux'
         id: changelog
-        env:
-          CURRENT_TAG: ${{ github.ref_name }}
-        shell: bash
         run: |
-          # Fetch tags for comparison
-          git fetch --tags --force 2>/dev/null || true
-
-          # Validate tag format (vX.Y.Z or vX.Y.Z-suffix)
-          if ! echo "$CURRENT_TAG" | grep -qxE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?'; then
-            echo "error: Invalid tag format: $CURRENT_TAG" >&2
-            exit 1
-          fi
-
-          # Find previous tag via fixed-string match
+          CURRENT_TAG="${{ github.ref_name }}"
           PREV_TAG=$(git tag --sort=-v:refname | grep -xA1 "$CURRENT_TAG" | tail -1)
 
-          echo "## What's Changed" > /tmp/changelog.md
-          echo "" >> /tmp/changelog.md
+          {
+            echo "## What's Changed"
+            echo ""
+            if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$CURRENT_TAG" ]; then
+              echo "Commits since ${PREV_TAG}:"
+              echo ""
+              git log "${PREV_TAG}..${CURRENT_TAG}" --pretty=format:"- %s (%h)" --no-merges
+              echo ""
+              echo ""
+              echo "---"
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}"
+            else
+              echo "Initial release or no previous tag found."
+              echo ""
+              echo "Recent commits:"
+              echo ""
+              git log --pretty=format:"- %s (%h)" -20 --no-merges
+            fi
+          } > /tmp/changelog.md
 
-          if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$CURRENT_TAG" ]; then
-            echo "Commits since ${PREV_TAG}:" >> /tmp/changelog.md
-            echo "" >> /tmp/changelog.md
-            git log "${PREV_TAG}..${CURRENT_TAG}" --pretty=format:"- %s (%h)" --no-merges >> /tmp/changelog.md
-            echo "" >> /tmp/changelog.md
-            echo "---" >> /tmp/changelog.md
-            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}" >> /tmp/changelog.md
-          else
-            echo "Initial release or no previous tag found." >> /tmp/changelog.md
-            echo "" >> /tmp/changelog.md
-            echo "Recent commits:" >> /tmp/changelog.md
-            echo "" >> /tmp/changelog.md
-            git log --pretty=format:"- %s (%h)" -20 --no-merges >> /tmp/changelog.md
-          fi
-
-          # Use delimiter for multiline output
           echo "body<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
           cat /tmp/changelog.md >> "$GITHUB_OUTPUT"
           echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
