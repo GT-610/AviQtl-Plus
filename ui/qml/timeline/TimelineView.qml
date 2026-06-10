@@ -506,8 +506,9 @@ Item {
                     return;
 
                 var scale = Workspace.currentTimeline.timelineScale;
-                var frame = Math.max(0, Math.floor(drop.x / scale));
-                var targetLayer = Math.max(0, Math.floor(drop.y / timelineViewRoot.layerHeight));
+                var contentPos = mapToItem(timelineFlickable.contentItem, Qt.point(drop.x, drop.y));
+                var frame = Math.max(0, Math.floor(contentPos.x / scale));
+                var targetLayer = Math.max(0, Math.floor(contentPos.y / timelineViewRoot.layerHeight));
 
                 frame = timelineViewRoot.snapFrame(frame, !(drop.modifiers & Qt.ShiftModifier));
 
