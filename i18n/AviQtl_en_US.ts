@@ -1336,27 +1336,27 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="94"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="159"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="136"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="201"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="153"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="218"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="170"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="235"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="454"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="547"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1366,17 +1366,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="241"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="306"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="230"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="295"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="311"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="404"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>

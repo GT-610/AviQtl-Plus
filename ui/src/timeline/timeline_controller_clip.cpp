@@ -14,6 +14,12 @@
 #include <QUrl>
 #include <QtGlobal>
 #include <algorithm>
+#include <cmath>
+
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+}
 
 namespace AviQtl::UI {
 
@@ -33,6 +39,65 @@ static int getControlLayerCount(const ClipData &clip) {
         }
     }
     return 0;
+}
+
+static double streamDurationSeconds(const AVFormatContext *formatContext, const AVStream *stream) {
+    if (stream != nullptr && stream->duration != AV_NOPTS_VALUE) {
+        const double streamSeconds = static_cast<double>(stream->duration) * av_q2d(stream->time_base);
+        if (streamSeconds > 0.0) {
+            return streamSeconds;
+        }
+    }
+
+    if (formatContext != nullptr && formatContext->duration != AV_NOPTS_VALUE) {
+        const double formatSeconds = static_cast<double>(formatContext->duration) / static_cast<double>(AV_TIME_BASE);
+        if (formatSeconds > 0.0) {
+            return formatSeconds;
+        }
+    }
+
+    return 0.0;
+}
+
+static int mediaDurationFrames(const QString &path, AVMediaType mediaType, double projectFps) {
+    if (path.isEmpty() || projectFps <= 0.0) {
+        return 0;
+    }
+
+    AVFormatContext *formatContext = nullptr;
+    if (avformat_open_input(&formatContext, path.toUtf8().constData(), nullptr, nullptr) != 0) {
+        return 0;
+    }
+
+    int durationFrames = 0;
+    if (avformat_find_stream_info(formatContext, nullptr) >= 0) {
+        const int streamIndex = av_find_best_stream(formatContext, mediaType, -1, -1, nullptr, 0);
+        const AVStream *stream = streamIndex >= 0 ? formatContext->streams[streamIndex] : nullptr;
+        const double seconds = streamDurationSeconds(formatContext, stream);
+        if (seconds > 0.0) {
+            durationFrames = std::max(1, static_cast<int>(std::ceil(seconds * projectFps)));
+        }
+    }
+
+    avformat_close_input(&formatContext);
+    return durationFrames;
+}
+
+static int findVacantFrameForLinkedMedia(const TimelineService *timeline, int videoLayer, int startFrame, int duration) {
+    if (timeline == nullptr) {
+        return std::max(0, startFrame);
+    }
+
+    int candidate = std::max(0, startFrame);
+    for (int i = 0; i < 100; ++i) {
+        const int videoStart = timeline->findVacantFrame(videoLayer, candidate, duration, -1);
+        const int audioStart = timeline->findVacantFrame(videoLayer + 1, videoStart, duration, -1);
+        if (audioStart == videoStart) {
+            return videoStart;
+        }
+        candidate = audioStart;
+    }
+    return candidate;
 }
 
 void TimelineController::handleClipClick(int clipId, int modifiers) { // NOLINT(bugprone-easily-swappable-parameters)
@@ -240,12 +305,23 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     if (videoExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
 
+        const double projectFps = m_project != nullptr && m_project->fps() > 0.0 ? m_project->fps() : 60.0;
+        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_VIDEO, projectFps);
+        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+        startFrame = findVacantFrameForLinkedMedia(m_timeline, layer, startFrame, importDuration);
+
         int videoClipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(videoClipId + 1);
         m_timeline->createClipInternal(videoClipId, QStringLiteral("video"), startFrame, layer, false);
 
         auto *videoClip = m_timeline->findClipById(videoClipId);
         if (videoClip != nullptr) {
+            videoClip->durationFrames = importDuration;
+            for (auto *eff : std::as_const(videoClip->effects)) {
+                if (eff != nullptr) {
+                    eff->syncTrackEndpoints(importDuration);
+                }
+            }
             for (auto *eff : videoClip->effects) {
                 if (eff->id() == QLatin1String("video")) {
                     eff->setParam(QStringLiteral("path"), filePath);
@@ -260,6 +336,12 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         auto *audioClip = m_timeline->findClipById(audioClipId);
         if (audioClip != nullptr) {
+            audioClip->durationFrames = importDuration;
+            for (auto *eff : std::as_const(audioClip->effects)) {
+                if (eff != nullptr) {
+                    eff->syncTrackEndpoints(importDuration);
+                }
+            }
             for (auto *eff : audioClip->effects) {
                 if (eff->id() == QLatin1String("audio")) {
                     eff->setParam(QStringLiteral("source"), filePath);
@@ -272,14 +354,25 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + 100);
+        setCursorFrame(startFrame + importDuration);
     } else if (audioExts.contains(suffix)) {
+        const double projectFps = m_project != nullptr && m_project->fps() > 0.0 ? m_project->fps() : 60.0;
+        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_AUDIO, projectFps);
+        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+        startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
+
         int clipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(clipId + 1);
         m_timeline->createClipInternal(clipId, QStringLiteral("audio"), startFrame, layer, false);
 
         auto *clip = m_timeline->findClipById(clipId);
         if (clip != nullptr) {
+            clip->durationFrames = importDuration;
+            for (auto *eff : std::as_const(clip->effects)) {
+                if (eff != nullptr) {
+                    eff->syncTrackEndpoints(importDuration);
+                }
+            }
             for (auto *eff : clip->effects) {
                 if (eff->id() == QLatin1String("audio")) {
                     eff->setParam(QStringLiteral("source"), filePath);
@@ -289,7 +382,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         }
 
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + 100);
+        setCursorFrame(startFrame + importDuration);
     } else if (imageExts.contains(suffix)) {
         int clipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(clipId + 1);

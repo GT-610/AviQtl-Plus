@@ -1336,27 +1336,27 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="94"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="159"/>
         <source>プロパティ変更: %1</source>
         <translation>プロパティ変更: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="136"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="201"/>
         <source>開始フレーム変更</source>
         <translation>開始フレーム変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="153"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="218"/>
         <source>長さ変更</source>
         <translation>長さ変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="170"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="235"/>
         <source>レイヤー変更</source>
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="454"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="547"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1366,17 +1366,17 @@
         <translation>保存先のファイルパスが不明です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="241"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="306"/>
         <source>動画をインポート</source>
         <translation>動画をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="230"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="295"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="311"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="404"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
