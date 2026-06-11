@@ -803,17 +803,81 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
 
     auto *decoder = qobject_cast<AviQtl::Core::AudioDecoder *>((m_mediaManager != nullptr) ? m_mediaManager->decoderForClip(clipId) : nullptr);
     if ((decoder == nullptr) || !decoder->isReady()) {
-        return QVariantList(pixelWidth, 0.0);
+        return QVariantList(pixelWidth * 2, 0.0);
     }
 
     int fps = static_cast<int>(m_project->fps());
     if (fps <= 0) {
         fps = 60;
     }
-    // 渡された displayDurationFrames で秒数を計算 (ドラフト値が来たらそれを使う)
-    double displaySec = static_cast<double>(displayDurationFrames) / fps;
 
-    std::vector<float> rawPeaks = decoder->getPeaks(0.0, displaySec, pixelWidth);
+    const EffectModel *audioEffect = nullptr;
+    for (const auto *effect : clip->effects) {
+        if (effect != nullptr && effect->id() == QLatin1String("audio")) {
+            audioEffect = effect;
+            break;
+        }
+    }
+
+    const double frameStepSec = 1.0 / static_cast<double>(fps);
+    const double clipDurationSec = static_cast<double>(displayDurationFrames) / static_cast<double>(fps);
+    const QVariantMap params = audioEffect != nullptr ? audioEffect->params() : QVariantMap();
+    const QString source = params.value(QStringLiteral("source")).toString().toLower();
+    const bool sourceIsVideo = source.endsWith(QStringLiteral(".mp4")) || source.endsWith(QStringLiteral(".mov")) || source.endsWith(QStringLiteral(".avi")) || source.endsWith(QStringLiteral(".mkv")) || source.endsWith(QStringLiteral(".webm")) ||
+                               source.endsWith(QStringLiteral(".wmv"));
+    const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
+    const QString playMode = params.value(QStringLiteral("playMode")).toString();
+    const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
+
+    std::vector<float> rawPeaks;
+    rawPeaks.reserve(static_cast<std::size_t>(pixelWidth) * 2);
+    for (int i = 0; i < pixelWidth; ++i) {
+        const int relFrame = std::clamp(static_cast<int>(std::floor(static_cast<double>(displayDurationFrames) * static_cast<double>(i) / static_cast<double>(pixelWidth))), 0, std::max(0, displayDurationFrames - 1));
+        const int nextRelFrame = std::clamp(static_cast<int>(std::ceil(static_cast<double>(displayDurationFrames) * static_cast<double>(i + 1) / static_cast<double>(pixelWidth))), relFrame + 1, displayDurationFrames);
+        const double relSec = static_cast<double>(relFrame) / static_cast<double>(fps);
+        const double nextRelSec = static_cast<double>(nextRelFrame) / static_cast<double>(fps);
+
+        double sourceStartSec = 0.0;
+        double sourceDurationSec = frameStepSec;
+        double volume = 1.0;
+        double pan = 0.0;
+        bool mute = false;
+
+        if (audioEffect != nullptr) {
+            volume = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("volume"), relFrame, fps).toDouble());
+            pan = std::clamp(audioEffect->evaluatedParam(QStringLiteral("pan"), relFrame, fps).toDouble(), -1.0, 1.0);
+            mute = audioEffect->evaluatedParam(QStringLiteral("mute"), relFrame, fps).toBool();
+
+            if (directMode) {
+                const double directTime = audioEffect->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
+                const double nextDirectTime = audioEffect->evaluatedParam(QStringLiteral("directTime"), nextRelFrame, fps).toDouble();
+                sourceStartSec = std::min(directTime, nextDirectTime);
+                sourceDurationSec = std::max(std::abs(nextDirectTime - directTime), frameStepSec);
+            } else {
+                const double startTime = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble());
+                const double speed = linkedVideo ? 100.0 : audioEffect->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
+                const double sourceRate = std::max(0.0, speed / 100.0);
+                sourceStartSec = startTime + (relSec * sourceRate);
+                sourceDurationSec = std::max((nextRelSec - relSec) * sourceRate, frameStepSec);
+            }
+        } else {
+            sourceStartSec = relSec;
+            sourceDurationSec = std::max(clipDurationSec / static_cast<double>(pixelWidth), frameStepSec);
+        }
+
+        const auto pixelPeaks = decoder->getPeaks(sourceStartSec, sourceDurationSec, 1);
+        const double leftVol = mute ? 0.0 : volume * (pan <= 0.0 ? 1.0 : 1.0 - pan);
+        const double rightVol = mute ? 0.0 : volume * (pan >= 0.0 ? 1.0 : 1.0 + pan);
+        const float displayGain = static_cast<float>(std::clamp((leftVol + rightVol) * 0.5, 0.0, 2.0));
+        if (pixelPeaks.size() >= 2) {
+            rawPeaks.push_back(pixelPeaks[0] * displayGain);
+            rawPeaks.push_back(pixelPeaks[1] * displayGain);
+        } else {
+            rawPeaks.push_back(0.0F);
+            rawPeaks.push_back(0.0F);
+        }
+    }
+
     QVariantList result;
     result.reserve(static_cast<qsizetype>(rawPeaks.size()));
     for (float p : rawPeaks) {

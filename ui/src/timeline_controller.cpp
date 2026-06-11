@@ -80,6 +80,8 @@ void TimelineController::setupConnections() {
     connect(m_timeline, &TimelineService::effectParamChanged, this, [this]() {
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
+        AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+        ECSRenderBridge::instance().notifyFrameReady();
     });
 
     // 画像や動画の準備ができたらUI側に再描画を促す

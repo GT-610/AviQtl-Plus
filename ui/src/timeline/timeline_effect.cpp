@@ -65,30 +65,36 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
         QStringLiteral("startTime"),
         QStringLiteral("speed"),
         QStringLiteral("playMode"),
+        QStringLiteral("linkedVideo"),
     };
     if (!durationKeys.contains(paramName)) {
         return false;
     }
 
     const QVariantMap params = effect->params();
-    if (AviQtl::Core::MediaUtils::isDirectAudioMode(params.value(QStringLiteral("playMode")).toString())) {
-        return false;
-    }
-
     const QString source = params.value(QStringLiteral("source")).toString();
     const double totalSec = audioDurationSeconds(source);
     if (totalSec <= 0.0) {
         return false;
     }
 
-    const double startTime = std::max(0.0, params.value(QStringLiteral("startTime"), 0.0).toDouble());
-    const double speed = params.value(QStringLiteral("speed"), 100.0).toDouble();
-    if (speed <= 0.0 || startTime >= totalSec) {
-        return false;
-    }
-
     const double fps = sceneFpsForClip(timeline, clip);
-    const int newDuration = std::max(1, static_cast<int>(std::ceil((totalSec - startTime) / (speed / 100.0) * fps)));
+    int newDuration = 0;
+    if (AviQtl::Core::MediaUtils::isDirectAudioMode(params.value(QStringLiteral("playMode")).toString())) {
+        newDuration = std::max(1, static_cast<int>(std::ceil(totalSec * fps)));
+    } else {
+        const double startTime = std::max(0.0, params.value(QStringLiteral("startTime"), 0.0).toDouble());
+        const QString sourceLower = source.toLower();
+        const bool sourceIsVideo = sourceLower.endsWith(QStringLiteral(".mp4")) || sourceLower.endsWith(QStringLiteral(".mov")) || sourceLower.endsWith(QStringLiteral(".avi")) || sourceLower.endsWith(QStringLiteral(".mkv")) ||
+                                   sourceLower.endsWith(QStringLiteral(".webm")) || sourceLower.endsWith(QStringLiteral(".wmv"));
+        const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
+        const double speed = linkedVideo ? 100.0 : params.value(QStringLiteral("speed"), 100.0).toDouble();
+        if (speed <= 0.0 || startTime >= totalSec) {
+            return false;
+        }
+
+        newDuration = std::max(1, static_cast<int>(std::ceil((totalSec - startTime) / (speed / 100.0) * fps)));
+    }
     if (newDuration == clip.durationFrames) {
         return false;
     }
@@ -100,6 +106,25 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
         }
     }
     return true;
+}
+
+bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const QString &paramName) {
+    if (effect == nullptr || clip.type != QLatin1String("audio") || effect->id() != QLatin1String("audio")) {
+        return false;
+    }
+
+    static const QSet<QString> waveformKeys = {
+        QStringLiteral("source"),
+        QStringLiteral("linkedVideo"),
+        QStringLiteral("playMode"),
+        QStringLiteral("startTime"),
+        QStringLiteral("speed"),
+        QStringLiteral("directTime"),
+        QStringLiteral("volume"),
+        QStringLiteral("pan"),
+        QStringLiteral("mute"),
+    };
+    return waveformKeys.contains(paramName);
 }
 
 } // namespace
@@ -469,6 +494,7 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
             auto *effect = clip->effects.value(effectIndex);
             effect->setParam(paramName, value);
             const bool durationChanged = autoAdjustAudioClipDuration(this, *clip, effect, paramName);
+            const bool waveformChanged = affectsAudioWaveform(*clip, effect, paramName);
 
             emit effectParamChanged(clipId, effectIndex, paramName, value);
 
@@ -487,6 +513,9 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
             // 引き続き clipsChanged() を発行する。
             if (durationChanged || paramName == QLatin1String("path") || paramName == QLatin1String("source") || paramName == QStringLiteral("targetSceneId")) {
                 emit clipsChanged();
+            }
+            if (durationChanged || waveformChanged) {
+                emit clipEffectsChanged(clipId);
             }
 
             if (m_selection->selectedClipId() == clipId) {
