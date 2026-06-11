@@ -37,13 +37,7 @@ class AudioMixer : public QObject {
     Plugin::AudioPluginChain &getChain(int clipId);
     void clearChain(int clipId);
 
-    void setPlaybackSpeed(double speed) {
-        if (std::abs(m_playbackSpeed - speed) > 0.001) {
-            m_playbackSpeed = speed;
-            m_clipPhase.clear();
-            m_clipLastFrame.clear();
-        }
-    }
+    void setPlaybackSpeed(double speed);
     void setSampleRate(int sampleRate);
 
   private:

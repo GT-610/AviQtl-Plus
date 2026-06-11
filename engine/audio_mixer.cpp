@@ -43,6 +43,15 @@ AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
     }
 }
 
+void AudioMixer::setPlaybackSpeed(double speed) {
+    if (std::abs(m_playbackSpeed - speed) > 0.001) {
+        m_playbackSpeed = speed;
+        m_clipPhase.clear();
+        m_clipLastFrame.clear();
+        reset();
+    }
+}
+
 void AudioMixer::setSampleRate(int sampleRate) {
     if (m_format.sampleRate() == sampleRate) {
         return;
