@@ -1336,27 +1336,37 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="159"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="160"/>
         <source>プロパティ変更: %1</source>
         <translation>プロパティ変更: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="201"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="202"/>
         <source>開始フレーム変更</source>
         <translation>開始フレーム変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="218"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="219"/>
         <source>長さ変更</source>
         <translation>長さ変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="235"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="236"/>
         <source>レイヤー変更</source>
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="547"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="359"/>
+        <source>音声をインポート</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="390"/>
+        <source>画像をインポート</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="562"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1371,12 +1381,12 @@
         <translation>動画をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="295"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="296"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="404"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="419"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
@@ -3043,12 +3053,12 @@
         <translation>複数クリップ貼り付け: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="204"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>エフェクト削除 (%1件)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="358"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="355"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>エフェクト順序変更 (%1件)</translation>
     </message>
@@ -3711,8 +3721,8 @@
         <translation>ここにドロップ</translation>
     </message>
     <message>
-        <source>联结视频文件</source>
-        <translation type="vanished">動画ファイルに結び付ける</translation>
+        <source>ビデオにリンク</source>
+        <translation type="vanished">ビデオにリンク</translation>
     </message>
 </context>
 <context>

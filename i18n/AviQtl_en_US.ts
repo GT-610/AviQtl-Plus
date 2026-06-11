@@ -1336,27 +1336,37 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="159"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="160"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="201"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="202"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="218"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="219"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="235"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="236"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="547"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="359"/>
+        <source>音声をインポート</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="390"/>
+        <source>画像をインポート</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="562"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1371,12 +1381,12 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="295"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="296"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="404"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="419"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -2665,7 +2675,7 @@ Please restart the application to apply.</translation>
         <translation type="vanished">Drop here</translation>
     </message>
     <message>
-        <source>联结视频文件</source>
+        <source>ビデオにリンク</source>
         <translation type="vanished">Link to video file</translation>
     </message>
 </context>
@@ -3079,12 +3089,12 @@ Please restart the application to apply.</translation>
         <translation>Paste multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="204"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>Delete effects (%1 items)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="358"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="355"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>Change effect order (%1 items)</translation>
     </message>

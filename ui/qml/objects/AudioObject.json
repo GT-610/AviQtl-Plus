@@ -26,7 +26,7 @@
             {
                 "type": "bool",
                 "param": "linkedVideo",
-                "label": "联结视频文件"
+                "label": "ビデオにリンク"
             },
             {
                 "type": "enum",

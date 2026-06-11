@@ -1,4 +1,5 @@
 #include "commands.hpp"
+#include "core/include/media_utils.hpp"
 #include "effect_registry.hpp"
 #include "selection_service.hpp"
 #include "timeline_service.hpp"
@@ -15,10 +16,6 @@ extern "C" {
 namespace AviQtl::UI {
 
 namespace {
-
-bool isDirectAudioMode(const QString &playMode) {
-    return playMode.contains(QStringLiteral("直接")) || playMode.contains(QStringLiteral("鐩存帴"));
-}
 
 double audioDurationSeconds(const QString &path) {
     if (path.isEmpty()) {
@@ -74,7 +71,7 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
     }
 
     const QVariantMap params = effect->params();
-    if (isDirectAudioMode(params.value(QStringLiteral("playMode")).toString())) {
+    if (AviQtl::Core::MediaUtils::isDirectAudioMode(params.value(QStringLiteral("playMode")).toString())) {
         return false;
     }
 

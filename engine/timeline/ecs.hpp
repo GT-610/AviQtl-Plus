@@ -197,7 +197,7 @@ class ECS {
 
     void syncClipIds(const ::std::bitset<MAX_CLIP_ID> &aliveFlags);
     void updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames);
-    void updateAudioClipState(int clipId, int startFrame, int durationFrames, float sourceStartTime, float playbackSpeed, float directTime, float volume, float pan, bool mute, bool directMode);
+    void updateAudioClipState(int clipId, const AudioComponent &audio);
     void updateRenderState(int clipId, const RenderComponent &render);
     void clearEffectParams();
     void addEffectParam(const EffectParamEntry &entry);

@@ -1,5 +1,6 @@
 #include "audio_decoder.hpp"
 #include "commands.hpp"
+#include "core/include/media_utils.hpp"
 #include "effect_registry.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
 #include "engine/timeline/ecs.hpp"
@@ -298,11 +299,10 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
     QString suffix = fileInfo.suffix().toLower();
 
-    static const QSet<QString> videoExts = {QStringLiteral("mp4"), QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("wmv")};
     static const QSet<QString> audioExts = {QStringLiteral("wav"), QStringLiteral("mp3"), QStringLiteral("aac"), QStringLiteral("m4a"), QStringLiteral("flac"), QStringLiteral("ogg")};
     static const QSet<QString> imageExts = {QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("bmp"), QStringLiteral("gif"), QStringLiteral("webp"), QStringLiteral("svg")};
 
-    if (videoExts.contains(suffix)) {
+    if (AviQtl::Core::MediaUtils::isVideoFile(filePath)) {
         m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
 
         const double projectFps = m_project != nullptr && m_project->fps() > 0.0 ? m_project->fps() : 60.0;
@@ -356,6 +356,8 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         emit m_timeline->clipsChanged();
         setCursorFrame(startFrame + importDuration);
     } else if (audioExts.contains(suffix)) {
+        m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
+
         const double projectFps = m_project != nullptr && m_project->fps() > 0.0 ? m_project->fps() : 60.0;
         const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_AUDIO, projectFps);
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
@@ -381,15 +383,27 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
             }
         }
 
+        m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
         setCursorFrame(startFrame + importDuration);
     } else if (imageExts.contains(suffix)) {
+        m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
+
+        const int importDuration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+        startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
+
         int clipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(clipId + 1);
         m_timeline->createClipInternal(clipId, QStringLiteral("image"), startFrame, layer, false);
 
         auto *clip = m_timeline->findClipById(clipId);
         if (clip != nullptr) {
+            clip->durationFrames = importDuration;
+            for (auto *eff : std::as_const(clip->effects)) {
+                if (eff != nullptr) {
+                    eff->syncTrackEndpoints(importDuration);
+                }
+            }
             for (auto *eff : clip->effects) {
                 if (eff->id() == QLatin1String("image")) {
                     eff->setParam(QStringLiteral("path"), filePath);
@@ -398,8 +412,9 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
             }
         }
 
+        m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + 100);
+        setCursorFrame(startFrame + importDuration);
     } else {
         emit errorOccurred(tr("サポートされていないファイル形式です: %1").arg(suffix));
     }

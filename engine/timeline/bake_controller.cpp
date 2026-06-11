@@ -1,6 +1,7 @@
 #include "bake_controller.hpp"
 #include "core/include/document_model.hpp"
 #include "core/include/effect_registry.hpp"
+#include "core/include/media_utils.hpp"
 #include "core/include/settings_manager.hpp"
 #include "ecs.hpp"
 #include "keyframe_evaluator.hpp"
@@ -166,10 +167,6 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     }
 }
 
-bool isDirectAudioMode(const QString &playMode) {
-    return playMode.contains(QStringLiteral("直接")) || playMode.contains(QStringLiteral("鐩存帴"));
-}
-
 AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, double fps) {
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
 
@@ -202,7 +199,7 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         }
 
         const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
-        audio.directMode = isDirectAudioMode(playMode);
+        audio.directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
         audio.sourceStartTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("startTime"), 0.0f, relFrame, fps, trackDuration));
         audio.playbackSpeed = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("speed"), 100.0f, relFrame, fps, trackDuration) / 100.0f);
         audio.directTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("directTime"), 0.0f, relFrame, fps, trackDuration));
@@ -265,7 +262,7 @@ void BakeController::bake(int sceneId, int currentFrame) {
 
             if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("video")) {
                 const AudioComponent audio = bakeAudioState(clip, currentFrame, fps);
-                ecs.updateAudioClipState(clip.id, clip.startFrame, clip.durationFrames, audio.sourceStartTime, audio.playbackSpeed, audio.directTime, audio.volume, audio.pan, audio.mute, audio.directMode);
+                ecs.updateAudioClipState(clip.id, audio);
             }
 
             RenderComponent render;
