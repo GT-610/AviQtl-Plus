@@ -9,6 +9,7 @@
 #include <QtConcurrent>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <utility>
 
 extern "C" {
@@ -23,37 +24,99 @@ extern "C" {
 
 namespace AviQtl::Core {
 
-static QtVideo::Rotation rotationFromDisplayMatrix(const AVStream *stream) {
+static int displayRotationCcwFromDisplayMatrix(const AVStream *stream) {
     if (stream == nullptr) {
-        return QtVideo::Rotation::None;
+        return 0;
     }
 
     const AVPacketSideData *sideData = stream->codecpar != nullptr ? av_packet_side_data_get(stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX) : nullptr;
     if (sideData == nullptr || sideData->size < 9 * static_cast<int>(sizeof(int32_t))) {
-        return QtVideo::Rotation::None;
+        return 0;
     }
 
     const double ccwDegrees = av_display_rotation_get(reinterpret_cast<const int32_t *>(sideData->data));
     if (!std::isfinite(ccwDegrees)) {
-        return QtVideo::Rotation::None;
+        return 0;
     }
 
-    int clockwise = static_cast<int>(std::llround(-ccwDegrees));
-    clockwise %= 360;
-    if (clockwise < 0) {
-        clockwise += 360;
+    int ccw = static_cast<int>(std::llround(ccwDegrees));
+    ccw %= 360;
+    if (ccw < 0) {
+        ccw += 360;
     }
 
-    switch (clockwise) {
+    switch (ccw) {
     case 90:
-        return QtVideo::Rotation::Clockwise90;
     case 180:
-        return QtVideo::Rotation::Clockwise180;
     case 270:
-        return QtVideo::Rotation::Clockwise270;
+        return ccw;
     default:
-        return QtVideo::Rotation::None;
+        return 0;
     }
+}
+
+static AVFrame *rotatePackedRgbaFrame(const AVFrame *srcFrame, int ccwDegrees) {
+    if (srcFrame == nullptr || (srcFrame->format != AV_PIX_FMT_RGBA && srcFrame->format != AV_PIX_FMT_RGBA64LE)) {
+        return nullptr;
+    }
+
+    ccwDegrees %= 360;
+    if (ccwDegrees < 0) {
+        ccwDegrees += 360;
+    }
+    if (ccwDegrees != 90 && ccwDegrees != 180 && ccwDegrees != 270) {
+        return nullptr;
+    }
+
+    const int srcWidth = srcFrame->width;
+    const int srcHeight = srcFrame->height;
+    const int bytesPerPixel = srcFrame->format == AV_PIX_FMT_RGBA64LE ? 8 : 4;
+    const int dstWidth = ccwDegrees == 180 ? srcWidth : srcHeight;
+    const int dstHeight = ccwDegrees == 180 ? srcHeight : srcWidth;
+
+    AVFrame *dstFrame = av_frame_alloc();
+    if (dstFrame == nullptr) {
+        return nullptr;
+    }
+
+    dstFrame->format = srcFrame->format;
+    dstFrame->width = dstWidth;
+    dstFrame->height = dstHeight;
+    if (av_frame_get_buffer(dstFrame, 32) < 0) {
+        av_frame_free(&dstFrame);
+        return nullptr;
+    }
+
+    for (int y = 0; y < srcHeight; ++y) {
+        const uint8_t *src = srcFrame->data[0] + y * srcFrame->linesize[0];
+        for (int x = 0; x < srcWidth; ++x) {
+            int dstX = 0;
+            int dstY = 0;
+            switch (ccwDegrees) {
+            case 90:
+                dstX = y;
+                dstY = srcWidth - 1 - x;
+                break;
+            case 180:
+                dstX = srcWidth - 1 - x;
+                dstY = srcHeight - 1 - y;
+                break;
+            case 270:
+                dstX = srcHeight - 1 - y;
+                dstY = x;
+                break;
+            default:
+                break;
+            }
+            memcpy(dstFrame->data[0] + dstY * dstFrame->linesize[0] + dstX * bytesPerPixel, src + x * bytesPerPixel, bytesPerPixel);
+        }
+    }
+
+    dstFrame->pts = srcFrame->pts;
+    dstFrame->best_effort_timestamp = srcFrame->best_effort_timestamp;
+    dstFrame->duration = srcFrame->duration;
+    dstFrame->time_base = srcFrame->time_base;
+    return dstFrame;
 }
 
 auto VideoDecoder::gethwformat(AVCodecContext *ctx, const enum AVPixelFormat *pixfmts) -> enum AVPixelFormat {
@@ -135,7 +198,7 @@ auto VideoDecoder::open(const QString &path) -> bool {
 
     mstream = mfmtCtx->streams[mstreamIndex];
     mtimeBase = mstream->time_base;
-    m_rotation = rotationFromDisplayMatrix(mstream);
+    m_displayRotationCcw = displayRotationCcwFromDisplayMatrix(mstream);
     double fps = av_q2d(mstream->avg_frame_rate);
     if (fps <= 0.0) {
         fps = av_q2d(mstream->r_frame_rate);
@@ -196,6 +259,7 @@ hwinitdone:
         close();
         return false;
     }
+    qInfo() << "[VideoDecoder][rotation]" << path << "coded" << mdecCtx->width << "x" << mdecCtx->height << "displayRotationCcw" << m_displayRotationCcw;
     if (!buildIndex()) {
         close();
         return false;
@@ -320,6 +384,7 @@ void VideoDecoder::close() {
     }
     mhwDeviceCtx = nullptr;
     m_lastGoodFrame = QVideoFrame();
+    m_displayRotationCcw = 0;
 }
 
 void VideoDecoder::seek(qint64 ms) { emit seekRequested(ms); }
@@ -541,9 +606,11 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                     if (useHBD)
                         isSupported |= (pixFmt == AV_PIX_FMT_RGBA64LE || pixFmt == AV_PIX_FMT_P010LE);
 
-                    if (!isSupported) {
+                    const bool needsPixelRotation = m_displayRotationCcw != 0;
+                    const bool needsRgbaForRotation = needsPixelRotation && pixFmt != AV_PIX_FMT_RGBA && pixFmt != AV_PIX_FMT_RGBA64LE;
+                    if (!isSupported || needsRgbaForRotation) {
                         // プロジェクト設定に応じてターゲットフォーマットを選択
-                        AVPixelFormat targetFmt = useHBD ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGBA;
+                        AVPixelFormat targetFmt = needsPixelRotation ? AV_PIX_FMT_RGBA : (useHBD ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGBA);
                         mswsCtx = sws_getCachedContext(mswsCtx, srcFrame->width, srcFrame->height, static_cast<AVPixelFormat>(srcFrame->format), srcFrame->width, srcFrame->height, targetFmt, SWS_BILINEAR, nullptr, nullptr, nullptr);
                         if (mswsCtx != nullptr) {
                             convertedFrame = av_frame_alloc();
@@ -562,6 +629,16 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                         }
                     }
 
+                    AVFrame *rotatedFrame = nullptr;
+                    if (needsPixelRotation) {
+                        rotatedFrame = rotatePackedRgbaFrame(srcFrame, m_displayRotationCcw);
+                        if (rotatedFrame != nullptr) {
+                            srcFrame = rotatedFrame;
+                        } else {
+                            qWarning() << "[VideoDecoder][rotation] failed to rotate frame, using unrotated pixels:" << m_source;
+                        }
+                    }
+
                     QVideoFrameFormat::PixelFormat qtFmt = QVideoFrameFormat::Format_Invalid;
                     switch (srcFrame->format) {
                     case AV_PIX_FMT_YUV420P:
@@ -574,6 +651,9 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                     case AV_PIX_FMT_P010LE:
                         qtFmt = QVideoFrameFormat::Format_P010;
                         break;
+                    case AV_PIX_FMT_RGBA:
+                        qtFmt = QVideoFrameFormat::Format_RGBA8888;
+                        break;
                     case AV_PIX_FMT_RGBA64LE:
                         qtFmt = QVideoFrameFormat::Format_RGBA8888; // メタデータ上は8bitとして扱う
                         break;
@@ -582,6 +662,8 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                         break;
                     }
 
+                    const QSize outputSize(srcFrame->width, srcFrame->height);
+                    const AVPixelFormat outputPixFmt = static_cast<AVPixelFormat>(srcFrame->format);
                     AVFrame *ownedFrame = av_frame_alloc();
                     av_frame_ref(ownedFrame, srcFrame);
                     if (swFrame != nullptr) {
@@ -590,14 +672,15 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                     if (convertedFrame != nullptr) {
                         av_frame_free(&convertedFrame);
                     }
+                    if (rotatedFrame != nullptr) {
+                        av_frame_free(&rotatedFrame);
+                    }
 
-                    QVideoFrameFormat format(QSize(mdecCtx->width, mdecCtx->height), qtFmt);
-                    format.setRotation(m_rotation);
+                    QVideoFrameFormat format(outputSize, qtFmt);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
                     QVideoFrame videoFrame(new FFmpegVideoBuffer(ownedFrame, format), format);
 #pragma clang diagnostic pop
-                    videoFrame.setRotation(m_rotation);
                     av_frame_free(&ownedFrame);
 
                     videoFrame.setStartTime(-1);
@@ -605,7 +688,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 
                     if (videoFrame.isValid()) {
                         // メタデータが8bitでも、実際のメモリ消費(RGBA64)に合わせてコスト計算を行う
-                        int bpp = (srcFrame->format == AV_PIX_FMT_RGBA64LE) ? 8 : (qtFmt == QVideoFrameFormat::Format_RGBA8888 ? 4 : 2);
+                        int bpp = (outputPixFmt == AV_PIX_FMT_RGBA64LE) ? 8 : (qtFmt == QVideoFrameFormat::Format_RGBA8888 ? 4 : 2);
                         int64_t cost = static_cast<int64_t>(videoFrame.width()) * videoFrame.height() * bpp;
                         auto *cachedFrame = new QVideoFrame(videoFrame);
 
