@@ -54,6 +54,14 @@ float evalFloat(const QVariantMap &params, const QVariantMap &tracks,
     return static_cast<float>(v.toDouble());
 }
 
+float evalFloatOr(const QVariantMap &params, const QVariantMap &tracks,
+                  const QString &key, float fallback, int frame, double fps, int duration) {
+    if (!params.contains(key) && !tracks.contains(key)) {
+        return fallback;
+    }
+    return evalFloat(params, tracks, key, frame, fps, duration);
+}
+
 void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fps,
                      RenderComponent &render, EffectParamBuffer &paramBuf) {
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
@@ -158,6 +166,55 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     }
 }
 
+bool isDirectAudioMode(const QString &playMode) {
+    return playMode.contains(QStringLiteral("直接")) || playMode.contains(QStringLiteral("鐩存帴"));
+}
+
+AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, double fps) {
+    const int relFrame = std::max(0, currentFrame - clip.startFrame);
+
+    AudioComponent audio;
+    audio.clipId = clip.id;
+    audio.startFrame = clip.startFrame;
+    audio.durationFrames = clip.durationFrames;
+
+    for (const auto &effect : clip.effects) {
+        if (!effect.enabled || effect.id != QStringLiteral("audio")) {
+            continue;
+        }
+
+        QVariantMap tracks;
+        int trackDuration = clip.durationFrames;
+        QSet<QString> allKeys;
+        for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it) {
+            allKeys.insert(it.key());
+        }
+        for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it) {
+            allKeys.insert(it->first);
+        }
+        for (const auto &key : std::as_const(allKeys)) {
+            const QVariant fallback = effect.params.value(key);
+            auto kfIt = effect.keyframes.find(key);
+            if (kfIt != effect.keyframes.end()) {
+                tracks[key] = keyframesToTrack(kfIt->second, fallback);
+                trackDuration = std::max(trackDuration, inferredDurationForTrack(tracks[key]));
+            }
+        }
+
+        const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
+        audio.directMode = isDirectAudioMode(playMode);
+        audio.sourceStartTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("startTime"), 0.0f, relFrame, fps, trackDuration));
+        audio.playbackSpeed = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("speed"), 100.0f, relFrame, fps, trackDuration) / 100.0f);
+        audio.directTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("directTime"), 0.0f, relFrame, fps, trackDuration));
+        audio.volume = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("volume"), 1.0f, relFrame, fps, trackDuration));
+        audio.pan = std::clamp(evalFloatOr(effect.params, tracks, QStringLiteral("pan"), 0.0f, relFrame, fps, trackDuration), -1.0f, 1.0f);
+        audio.mute = effect.params.value(QStringLiteral("mute"), false).toBool();
+        break;
+    }
+
+    return audio;
+}
+
 } // namespace
 
 BakeController::BakeController() { connect(&AviQtl::Core::DocumentModel::instance(), &AviQtl::Core::DocumentModel::structureChanged, this, &BakeController::onStructureChanged); }
@@ -207,7 +264,8 @@ void BakeController::bake(int sceneId, int currentFrame) {
             ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
 
             if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("video")) {
-                ecs.updateAudioClipState(clip.id, clip.startFrame, clip.durationFrames, 1.0f, 0.0f, false);
+                const AudioComponent audio = bakeAudioState(clip, currentFrame, fps);
+                ecs.updateAudioClipState(clip.id, clip.startFrame, clip.durationFrames, audio.sourceStartTime, audio.playbackSpeed, audio.directTime, audio.volume, audio.pan, audio.mute, audio.directMode);
             }
 
             RenderComponent render;

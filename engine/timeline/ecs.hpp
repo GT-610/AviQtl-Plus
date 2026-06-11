@@ -128,9 +128,13 @@ struct AudioComponent {
     int clipId = -1;
     int startFrame = 0;
     int durationFrames = 0;
+    float sourceStartTime = 0.0f;
+    float playbackSpeed = 1.0f;
+    float directTime = 0.0f;
     float volume = 1.0f;
     float pan = 0.0f;
     bool mute = false;
+    bool directMode = false;
 };
 
 struct RenderComponent {
@@ -193,7 +197,7 @@ class ECS {
 
     void syncClipIds(const ::std::bitset<MAX_CLIP_ID> &aliveFlags);
     void updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames);
-    void updateAudioClipState(int clipId, int startFrame, int durationFrames, float volume, float pan, bool mute);
+    void updateAudioClipState(int clipId, int startFrame, int durationFrames, float sourceStartTime, float playbackSpeed, float directTime, float volume, float pan, bool mute, bool directMode);
     void updateRenderState(int clipId, const RenderComponent &render);
     void clearEffectParams();
     void addEffectParam(const EffectParamEntry &entry);

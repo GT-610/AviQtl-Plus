@@ -3,9 +3,109 @@
 #include "selection_service.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
+#include <QSet>
 #include <algorithm>
+#include <cmath>
+
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+}
 
 namespace AviQtl::UI {
+
+namespace {
+
+bool isDirectAudioMode(const QString &playMode) {
+    return playMode.contains(QStringLiteral("直接")) || playMode.contains(QStringLiteral("鐩存帴"));
+}
+
+double audioDurationSeconds(const QString &path) {
+    if (path.isEmpty()) {
+        return 0.0;
+    }
+
+    AVFormatContext *formatContext = nullptr;
+    if (avformat_open_input(&formatContext, path.toUtf8().constData(), nullptr, nullptr) != 0) {
+        return 0.0;
+    }
+
+    double seconds = 0.0;
+    if (avformat_find_stream_info(formatContext, nullptr) >= 0) {
+        const int streamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+        const AVStream *stream = streamIndex >= 0 ? formatContext->streams[streamIndex] : nullptr;
+        if (stream != nullptr && stream->duration != AV_NOPTS_VALUE) {
+            seconds = static_cast<double>(stream->duration) * av_q2d(stream->time_base);
+        }
+        if (seconds <= 0.0 && formatContext->duration != AV_NOPTS_VALUE) {
+            seconds = static_cast<double>(formatContext->duration) / static_cast<double>(AV_TIME_BASE);
+        }
+    }
+
+    avformat_close_input(&formatContext);
+    return std::max(0.0, seconds);
+}
+
+double sceneFpsForClip(const TimelineService *timeline, const ClipData &clip) {
+    if (timeline == nullptr) {
+        return 60.0;
+    }
+    for (const auto &scene : timeline->getAllScenes()) {
+        if (scene.id == clip.sceneId) {
+            return scene.fps > 0.0 ? scene.fps : 60.0;
+        }
+    }
+    return 60.0;
+}
+
+bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, EffectModel *effect, const QString &paramName) {
+    if (timeline == nullptr || effect == nullptr || clip.type != QLatin1String("audio") || effect->id() != QLatin1String("audio")) {
+        return false;
+    }
+
+    static const QSet<QString> durationKeys = {
+        QStringLiteral("source"),
+        QStringLiteral("startTime"),
+        QStringLiteral("speed"),
+        QStringLiteral("playMode"),
+    };
+    if (!durationKeys.contains(paramName)) {
+        return false;
+    }
+
+    const QVariantMap params = effect->params();
+    if (isDirectAudioMode(params.value(QStringLiteral("playMode")).toString())) {
+        return false;
+    }
+
+    const QString source = params.value(QStringLiteral("source")).toString();
+    const double totalSec = audioDurationSeconds(source);
+    if (totalSec <= 0.0) {
+        return false;
+    }
+
+    const double startTime = std::max(0.0, params.value(QStringLiteral("startTime"), 0.0).toDouble());
+    const double speed = params.value(QStringLiteral("speed"), 100.0).toDouble();
+    if (speed <= 0.0 || startTime >= totalSec) {
+        return false;
+    }
+
+    const double fps = sceneFpsForClip(timeline, clip);
+    const int newDuration = std::max(1, static_cast<int>(std::ceil((totalSec - startTime) / (speed / 100.0) * fps)));
+    if (newDuration == clip.durationFrames) {
+        return false;
+    }
+
+    clip.durationFrames = newDuration;
+    for (auto *clipEffect : std::as_const(clip.effects)) {
+        if (clipEffect != nullptr) {
+            clipEffect->syncTrackEndpoints(newDuration);
+        }
+    }
+    return true;
+}
+
+} // namespace
 
 void TimelineService::addEffect(int clipId, const QString &effectId) {
     auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(effectId);
@@ -369,7 +469,9 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
     auto *clip = findClipById(clipId);
     if (clip != nullptr) {
         if (effectIndex >= 0 && effectIndex < static_cast<int>(clip->effects.size())) {
-            clip->effects.value(effectIndex)->setParam(paramName, value);
+            auto *effect = clip->effects.value(effectIndex);
+            effect->setParam(paramName, value);
+            const bool durationChanged = autoAdjustAudioClipDuration(this, *clip, effect, paramName);
 
             emit effectParamChanged(clipId, effectIndex, paramName, value);
 
@@ -386,13 +488,16 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
             //
             // path / source / targetSceneId は実際にメディアや構造の変更を伴うため
             // 引き続き clipsChanged() を発行する。
-            if (paramName == QLatin1String("path") || paramName == QLatin1String("source") || paramName == QStringLiteral("targetSceneId")) {
+            if (durationChanged || paramName == QLatin1String("path") || paramName == QLatin1String("source") || paramName == QStringLiteral("targetSceneId")) {
                 emit clipsChanged();
             }
 
             if (m_selection->selectedClipId() == clipId) {
                 QVariantMap data = m_selection->selectedClipData();
                 data.insert(paramName, value);
+                if (durationChanged) {
+                    data.insert(QStringLiteral("durationFrames"), clip->durationFrames);
+                }
                 m_selection->refreshSelectionData(clipId, data);
             }
         }
