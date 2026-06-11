@@ -302,11 +302,20 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     static const QSet<QString> audioExts = {QStringLiteral("wav"), QStringLiteral("mp3"), QStringLiteral("aac"), QStringLiteral("m4a"), QStringLiteral("flac"), QStringLiteral("ogg")};
     static const QSet<QString> imageExts = {QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("bmp"), QStringLiteral("gif"), QStringLiteral("webp"), QStringLiteral("svg")};
 
+    auto getSceneFps = [this]() -> double {
+        const int sceneId = m_timeline->currentSceneId();
+        for (const auto &scene : m_timeline->getAllScenes()) {
+            if (scene.id == sceneId)
+                return scene.fps > 0.0 ? scene.fps : 60.0;
+        }
+        return 60.0;
+    };
+
     if (AviQtl::Core::MediaUtils::isVideoFile(filePath)) {
         m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
 
-        const double projectFps = m_project != nullptr && m_project->fps() > 0.0 ? m_project->fps() : 60.0;
-        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_VIDEO, projectFps);
+        const double sceneFps = getSceneFps();
+        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_VIDEO, sceneFps);
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
         startFrame = findVacantFrameForLinkedMedia(m_timeline, layer, startFrame, importDuration);
 
@@ -358,8 +367,8 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     } else if (audioExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
 
-        const double projectFps = m_project != nullptr && m_project->fps() > 0.0 ? m_project->fps() : 60.0;
-        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_AUDIO, projectFps);
+        const double sceneFps = getSceneFps();
+        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_AUDIO, sceneFps);
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 

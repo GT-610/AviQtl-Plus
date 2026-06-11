@@ -610,7 +610,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                     const bool needsRgbaForRotation = needsPixelRotation && pixFmt != AV_PIX_FMT_RGBA && pixFmt != AV_PIX_FMT_RGBA64LE;
                     if (!isSupported || needsRgbaForRotation) {
                         // プロジェクト設定に応じてターゲットフォーマットを選択
-                        AVPixelFormat targetFmt = needsPixelRotation ? AV_PIX_FMT_RGBA : (useHBD ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGBA);
+                        AVPixelFormat targetFmt = useHBD ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGBA;
                         mswsCtx = sws_getCachedContext(mswsCtx, srcFrame->width, srcFrame->height, static_cast<AVPixelFormat>(srcFrame->format), srcFrame->width, srcFrame->height, targetFmt, SWS_BILINEAR, nullptr, nullptr, nullptr);
                         if (mswsCtx != nullptr) {
                             convertedFrame = av_frame_alloc();

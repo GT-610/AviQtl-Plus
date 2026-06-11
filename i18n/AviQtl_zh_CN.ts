@@ -1361,17 +1361,17 @@
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="359"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
         <source>音声をインポート</source>
-        <translation type="unfinished"></translation>
+        <translation>导入音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="390"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
         <source>画像をインポート</source>
-        <translation type="unfinished"></translation>
+        <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="562"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="571"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1381,7 +1381,7 @@
         <translation>保存目标文件路径未知</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="306"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="315"/>
         <source>動画をインポート</source>
         <translation>导入视频</translation>
     </message>
@@ -1391,7 +1391,7 @@
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="419"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="428"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>
@@ -2673,7 +2673,7 @@
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
         <source>インストール</source>
-        <translation type="unfinished"></translation>
+        <translation>安装</translation>
     </message>
     <message>
         <source>エフェクト/オブジェクトを検索...</source>

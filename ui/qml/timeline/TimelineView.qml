@@ -509,9 +509,9 @@ Item {
 
             var scale = Workspace.currentTimeline.timelineScale;
             var frame = Math.max(0, Math.floor((drop.x + timelineFlickable.contentX) / scale));
-            var targetLayer = Math.max(0, Math.floor((drop.y + timelineFlickable.contentY) / timelineViewRoot.layerHeight));
+            var targetLayer = Math.min(timelineViewRoot.layerCount - 1, Math.max(0, Math.floor((drop.y + timelineFlickable.contentY) / timelineViewRoot.layerHeight)));
 
-            frame = timelineViewRoot.snapFrame(frame, !(drop.modifiers & Qt.ShiftModifier));
+            frame = timelineViewRoot.snapFrame(frame, drop.modifiers & Qt.ShiftModifier);
 
             for (var i = 0; i < drop.urls.length; i++) {
                 Workspace.currentTimeline.importMediaFile(drop.urls[i], frame, targetLayer);

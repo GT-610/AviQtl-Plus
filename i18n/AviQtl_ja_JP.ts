@@ -316,7 +316,7 @@
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="63"/>
         <source>ビデオにリンク</source>
-        <translation type="unfinished">ビデオにリンク</translation>
+        <translation>ビデオにリンク</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="64"/>
@@ -1361,17 +1361,17 @@
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="359"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
         <source>音声をインポート</source>
-        <translation type="unfinished"></translation>
+        <translation>音声をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="390"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
         <source>画像をインポート</source>
-        <translation type="unfinished"></translation>
+        <translation>画像をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="562"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="571"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1381,7 +1381,7 @@
         <translation>保存先のファイルパスが不明です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="306"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="315"/>
         <source>動画をインポート</source>
         <translation>動画をインポート</translation>
     </message>
@@ -1391,7 +1391,7 @@
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="419"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="428"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>

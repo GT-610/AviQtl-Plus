@@ -316,7 +316,7 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="63"/>
         <source>ビデオにリンク</source>
-        <translation type="unfinished">Link to video file</translation>
+        <translation>Link to video file</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="64"/>
@@ -1361,17 +1361,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="359"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
         <source>音声をインポート</source>
-        <translation type="unfinished"></translation>
+        <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="390"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
         <source>画像をインポート</source>
-        <translation type="unfinished"></translation>
+        <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="562"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="571"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1381,7 +1381,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="306"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="315"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
@@ -1391,7 +1391,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="419"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="428"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
