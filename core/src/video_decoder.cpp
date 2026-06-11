@@ -14,6 +14,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/display.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h>
@@ -21,6 +22,39 @@ extern "C" {
 }
 
 namespace AviQtl::Core {
+
+static QtVideo::Rotation rotationFromDisplayMatrix(const AVStream *stream) {
+    if (stream == nullptr) {
+        return QtVideo::Rotation::None;
+    }
+
+    const AVPacketSideData *sideData = stream->codecpar != nullptr ? av_packet_side_data_get(stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX) : nullptr;
+    if (sideData == nullptr || sideData->size < 9 * static_cast<int>(sizeof(int32_t))) {
+        return QtVideo::Rotation::None;
+    }
+
+    const double ccwDegrees = av_display_rotation_get(reinterpret_cast<const int32_t *>(sideData->data));
+    if (!std::isfinite(ccwDegrees)) {
+        return QtVideo::Rotation::None;
+    }
+
+    int clockwise = static_cast<int>(std::llround(-ccwDegrees));
+    clockwise %= 360;
+    if (clockwise < 0) {
+        clockwise += 360;
+    }
+
+    switch (clockwise) {
+    case 90:
+        return QtVideo::Rotation::Clockwise90;
+    case 180:
+        return QtVideo::Rotation::Clockwise180;
+    case 270:
+        return QtVideo::Rotation::Clockwise270;
+    default:
+        return QtVideo::Rotation::None;
+    }
+}
 
 auto VideoDecoder::gethwformat(AVCodecContext *ctx, const enum AVPixelFormat *pixfmts) -> enum AVPixelFormat {
     const enum AVPixelFormat *p = nullptr;
@@ -101,6 +135,7 @@ auto VideoDecoder::open(const QString &path) -> bool {
 
     mstream = mfmtCtx->streams[mstreamIndex];
     mtimeBase = mstream->time_base;
+    m_rotation = rotationFromDisplayMatrix(mstream);
     double fps = av_q2d(mstream->avg_frame_rate);
     if (fps <= 0.0) {
         fps = av_q2d(mstream->r_frame_rate);
@@ -557,10 +592,12 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                     }
 
                     QVideoFrameFormat format(QSize(mdecCtx->width, mdecCtx->height), qtFmt);
+                    format.setRotation(m_rotation);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
                     QVideoFrame videoFrame(new FFmpegVideoBuffer(ownedFrame, format), format);
 #pragma clang diagnostic pop
+                    videoFrame.setRotation(m_rotation);
                     av_frame_free(&ownedFrame);
 
                     videoFrame.setStartTime(-1);
