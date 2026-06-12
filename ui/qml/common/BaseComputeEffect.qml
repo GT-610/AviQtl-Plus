@@ -61,10 +61,10 @@ BaseEffect {
 
     Label {
         anchors.centerIn: parent
-        text: "Compute Error:\n" + root.computeError
+        text: qsTr("Compute Error:\n") + (root.computeError || "")
         color: "red"
         font.bold: true
-        visible: root.computeError !== undefined && root.computeError !== ""
+        visible: root.computeError !== undefined && root.computeError !== null && root.computeError !== ""
         horizontalAlignment: Text.AlignHCenter
 
         background: Rectangle {
