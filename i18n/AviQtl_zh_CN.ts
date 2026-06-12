@@ -316,7 +316,7 @@
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="63"/>
         <source>ビデオにリンク</source>
-        <translation>联结视频文件</translation>
+        <translation>链接到视频</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="64"/>
@@ -2685,7 +2685,7 @@
     </message>
     <message>
         <source>ビデオにリンク</source>
-        <translation type="vanished">联结视频文件</translation>
+        <translation type="vanished">链接到视频</translation>
     </message>
 </context>
 <context>
