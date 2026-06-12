@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QMediaDevices>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace AviQtl::Engine {
@@ -39,6 +40,15 @@ AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
     m_audioOutput = m_audioSink->start();
     if (m_audioOutput == nullptr) {
         qWarning() << "[AudioMixer] Failed to start audio output! Device:" << device.description();
+    }
+}
+
+void AudioMixer::setPlaybackSpeed(double speed) {
+    if (std::abs(m_playbackSpeed - speed) > 0.001) {
+        m_playbackSpeed = speed;
+        m_clipPhase.clear();
+        m_clipLastFrame.clear();
+        reset();
     }
 }
 
@@ -114,9 +124,11 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             continue;
         }
 
-        double startTime = static_cast<double>(currentFrame - audio.startFrame) / fps;
+        const double relTime = static_cast<double>(currentFrame - audio.startFrame) / fps;
+        double startTime = audio.directMode ? static_cast<double>(audio.directTime) : static_cast<double>(audio.sourceStartTime) + (relTime * static_cast<double>(audio.playbackSpeed));
+        const double sourceRate = std::max(0.0, m_playbackSpeed * (audio.directMode ? 1.0 : static_cast<double>(audio.playbackSpeed)));
         auto lastFrameIt = m_clipLastFrame.find(clipId);
-        if (lastFrameIt != m_clipLastFrame.end() && currentFrame == lastFrameIt.value() + 1) {
+        if (!audio.directMode && lastFrameIt != m_clipLastFrame.end() && currentFrame == lastFrameIt.value() + 1) {
             auto phaseIt = m_clipPhase.find(clipId);
             if (phaseIt != m_clipPhase.end()) {
                 startTime = phaseIt.value();
@@ -129,10 +141,10 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
 
         auto *decoder = decIt->second;
 
-        if (std::abs(m_playbackSpeed - 1.0) > 0.01) {
+        if (std::abs(sourceRate - 1.0) > 0.01) {
             // リサンプリングが必要な場合
             // 必要ソースサンプル数を計算（補間用に2サンプル余分に要求）
-            int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * m_playbackSpeed)) + 2;
+            int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * sourceRate)) + 2;
             std::vector<float> rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
 
             if (!rawSamples.empty()) {
@@ -140,7 +152,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
                 int availableSrcSamples = static_cast<int>(rawSamples.size() / 2);
 
                 for (int i = 0; i < samplesPerFrame; ++i) {
-                    double srcIdx = i * m_playbackSpeed;
+                    double srcIdx = i * sourceRate;
                     int idx0 = static_cast<int>(srcIdx);
                     int idx1 = idx0 + 1;
 
@@ -161,9 +173,11 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
                     // R ch
                     m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((rawSamples.at((static_cast<std::size_t>(idx0) * 2) + 1) * (1.0 - t)) + (rawSamples.at((static_cast<std::size_t>(idx1) * 2) + 1) * t));
                 }
+            } else {
+                m_clipSamples.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
             }
             // 次のフレームのための開始位置を進める（m_playbackSpeed 分の秒数）
-            m_clipPhase[clipId] = startTime + ((static_cast<double>(samplesPerFrame) / m_format.sampleRate()) * m_playbackSpeed);
+            m_clipPhase[clipId] = startTime + ((static_cast<double>(samplesPerFrame) / m_format.sampleRate()) * sourceRate);
         } else {
             // 1倍速の場合はそのまま取得
             int neededSamples = samplesPerFrame;

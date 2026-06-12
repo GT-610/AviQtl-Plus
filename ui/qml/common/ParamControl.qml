@@ -114,7 +114,21 @@ RowLayout {
         }
         onMoved: {
             var val = decimals === 0 ? Math.round(value) : value;
-            root.pushLeftValue(val);
+            var text = root.formatValue(val);
+            if (leftValueField.text !== text)
+                leftValueField.text = text;
+
+            if (root.rightLinked)
+                root.syncRightDisplay(val);
+
+        }
+        onPressedChanged: {
+            if (!pressed) {
+                var val = parseFloat(leftValueField.text);
+                if (!isNaN(val))
+                    root.pushLeftValue(val);
+
+            }
         }
     }
 
@@ -206,7 +220,14 @@ RowLayout {
             // スライダー操作時はボックスを更新
             var val = decimals === 0 ? Math.round(value) : value;
             rightValueField.text = root.formatValue(val);
-            root.endValueModified(val);
+        }
+        onPressedChanged: {
+            if (!pressed) {
+                var val = parseFloat(rightValueField.text);
+                if (!isNaN(val))
+                    root.endValueModified(val);
+
+            }
         }
     }
 

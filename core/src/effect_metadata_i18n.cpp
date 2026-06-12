@@ -60,6 +60,7 @@ namespace {
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "テキスト"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ドロップシャドウ"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ハードライト"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ビデオにリンク"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "パン"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ファイル"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ファイルパス"),

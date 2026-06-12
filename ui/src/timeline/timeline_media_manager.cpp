@@ -1,5 +1,6 @@
 #include "timeline_media_manager.hpp"
 #include "audio_decoder.hpp"
+#include "core/include/media_utils.hpp"
 #include "effect_registry.hpp"
 #include "engine/audio_mixer.hpp"
 #include "image_decoder.hpp"
@@ -67,8 +68,11 @@ void TimelineMediaManager::onCurrentFrameChanged() {
                 if (playMode == QStringLiteral("時間直接指定")) {
                     audioTime = eff->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
                 } else {
-                    const double startTime = eff->params().value(QStringLiteral("startTime"), 0.0).toDouble();
-                    const double speed = eff->params().value(QStringLiteral("speed"), 100.0).toDouble();
+                    const double startTime = eff->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble();
+                    const QString source = eff->params().value(QStringLiteral("source")).toString();
+                    const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
+                    const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
+                    const double speed = linkedVideo ? 100.0 : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
                     audioTime = (relTime * (speed / 100.0)) + startTime;
                 }
                 break;

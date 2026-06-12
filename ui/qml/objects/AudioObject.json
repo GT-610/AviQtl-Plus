@@ -5,6 +5,7 @@
     "color": "#d03030",
     "params": {
         "source": "",
+        "linkedVideo": false,
         "playMode": "開始時間＋再生速度",
         "startTime": 0,
         "speed": 100.0,
@@ -19,7 +20,13 @@
                 "type": "path",
                 "param": "source",
                 "label": "ファイル",
-                "filter": "Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)"
+                "filter": "Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)",
+                "disabledByVideoLink": true
+            },
+            {
+                "type": "bool",
+                "param": "linkedVideo",
+                "label": "ビデオにリンク"
             },
             {
                 "type": "enum",
@@ -48,7 +55,8 @@
                 "min": 1,
                 "max": 400,
                 "default": 100,
-                "unit": "%"
+                "unit": "%",
+                "disabledByVideoLink": true
             },
             {
                 "type": "header",

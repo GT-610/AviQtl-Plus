@@ -80,6 +80,8 @@ void TimelineController::setupConnections() {
     connect(m_timeline, &TimelineService::effectParamChanged, this, [this]() {
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
+        AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
+        ECSRenderBridge::instance().notifyFrameReady();
     });
 
     // 画像や動画の準備ができたらUI側に再描画を促す
@@ -96,6 +98,9 @@ void TimelineController::setupConnections() {
 
     // 再生位置が変わったらプレビュー更新
     connect(m_transport, &TransportService::currentFrameChanged, this, &TimelineController::onCurrentFrameChanged);
+
+    // 再生速度が変わったらAudioMixerに反映
+    connect(m_transport, &TransportService::playbackSpeedChanged, this, [this]() { m_mediaManager->syncPlaybackSpeed(); });
 
     // QML(VideoObject)からのフレーム要求をMediaManagerへ中継
     connect(this, &TimelineController::videoFrameRequested, m_mediaManager, &TimelineMediaManager::requestVideoFrame);

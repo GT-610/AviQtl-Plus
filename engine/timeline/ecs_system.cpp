@@ -85,7 +85,7 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
     markDirty(clipId);
 }
 
-void ECS::updateAudioClipState(int clipId, int startFrame, int durationFrames, float volume, float pan, bool mute) {
+void ECS::updateAudioClipState(int clipId, const AudioComponent &audio) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = m_buffers[m_editIndex];
     auto *ptr = editState.audioStates.find(clipId);
@@ -94,13 +94,8 @@ void ECS::updateAudioClipState(int clipId, int startFrame, int durationFrames, f
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
         ptr = &editState.audioStates[clipId];
     }
-    auto &audio = *ptr;
-    audio.clipId = clipId;
-    audio.startFrame = startFrame;
-    audio.durationFrames = durationFrames;
-    audio.volume = volume;
-    audio.pan = pan;
-    audio.mute = mute;
+    *ptr = audio;
+    ptr->clipId = clipId;
 
     markDirty(clipId);
 }

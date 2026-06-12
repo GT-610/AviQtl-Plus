@@ -133,7 +133,6 @@ Item {
 
             readonly property bool isAudio: modelData.type === "audio"
             property int waveRev: 0
-            property bool _paintPending: false
             readonly property int displayDuration: {
                 if (clipDelegate.resizeDraftDuration >= 0)
                     return clipDelegate.resizeDraftDuration;
@@ -145,14 +144,7 @@ Item {
                 if (!isAudio)
                     return ;
 
-                if (_paintPending)
-                    return ;
-
-                _paintPending = true;
-                Qt.callLater(function() {
-                    _paintPending = false;
-                    waveformCanvas.requestPaint();
-                });
+                waveformPaintTimer.restart();
             }
 
             anchors.fill: parent
@@ -161,6 +153,15 @@ Item {
             onWidthChanged: _schedulePaint()
             onDisplayDurationChanged: _schedulePaint()
             onWaveRevChanged: _schedulePaint()
+
+            Timer {
+                id: waveformPaintTimer
+
+                interval: 120
+                repeat: false
+                onTriggered: waveformCanvas.requestPaint()
+            }
+
             onPaint: {
                 var ctx = getContext("2d");
                 ctx.clearRect(0, 0, width, height);
@@ -199,6 +200,10 @@ Item {
             Connections {
                 function onClipsChanged() {
                     waveformCanvas._schedulePaint();
+                }
+                function onClipEffectsChanged(clipId) {
+                    if (clipId === modelData.id)
+                        waveformCanvas._schedulePaint();
                 }
 
                 target: Workspace.currentTimeline

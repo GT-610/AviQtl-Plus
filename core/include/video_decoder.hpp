@@ -99,6 +99,7 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     QFuture<void> mdecodeFuture;
     double msourceFps = 0.0;
     AVRational mtimeBase{0, 1};
+    int m_displayRotationCcw = 0;
 
     AVPacket *m_pkt = nullptr;
 

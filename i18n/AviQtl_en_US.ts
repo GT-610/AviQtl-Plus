@@ -315,826 +315,831 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="63"/>
+        <source>ビデオにリンク</source>
+        <translation>Link to video file</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="64"/>
         <source>パン</source>
         <translation>Pan</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="64"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="65"/>
         <source>ファイル</source>
         <translation>File</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="65"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="66"/>
         <source>ファイルパス</source>
         <translation>File Path</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="66"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="67"/>
         <source>フォント</source>
         <translation>Font</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="67"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="68"/>
         <source>フレームバッファ</source>
         <translation>Frame Buffer</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="68"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="69"/>
         <source>フレーム直接指定</source>
         <translation>Direct Frame</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="69"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="70"/>
         <source>フレーム番号</source>
         <translation>Frame Number</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="70"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="71"/>
         <source>フレーム</source>
         <translation>Frame</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="71"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="72"/>
         <source>フレア</source>
         <translation>Flare</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="72"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="73"/>
         <source>ぼかし</source>
         <translation>Blur</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="73"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="74"/>
         <source>ミュート</source>
         <translation>Mute</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="74"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="75"/>
         <source>メディア</source>
         <translation>Media</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="75"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="76"/>
         <source>メディア/音声</source>
         <translation>Media/Audio</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="76"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="77"/>
         <source>モーションブラー</source>
         <translation>Motion Blur</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="77"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="78"/>
         <source>モザイク</source>
         <translation>Mosaic</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="78"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="79"/>
         <source>ライティング</source>
         <translation>Lighting</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="79"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="80"/>
         <source>ランダムシード</source>
         <translation>Random Seed</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="80"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="81"/>
         <source>レンズブラー</source>
         <translation>Lens Blur</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="81"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="82"/>
         <source>レンズフレア</source>
         <translation>Lens Flare</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="82"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="83"/>
         <source>ロール</source>
         <translation>Roll</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="83"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="84"/>
         <source>右</source>
         <translation>Right</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="84"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="85"/>
         <source>影X</source>
         <translation>Shadow X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="85"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="86"/>
         <source>影Y</source>
         <translation>Shadow Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="86"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="87"/>
         <source>影の不透明度</source>
         <translation>Shadow Opacity</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="87"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="88"/>
         <source>影色</source>
         <translation>Shadow Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="88"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="89"/>
         <source>影有効</source>
         <translation>Enable Shadow</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="89"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="90"/>
         <source>縁の色</source>
         <translation>Border Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="90"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="91"/>
         <source>縁取り色</source>
         <translation>Outline Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="91"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="92"/>
         <source>縁取り幅</source>
         <translation>Outline Width</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="92"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="93"/>
         <source>縁取り有効</source>
         <translation>Enable Outline</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="93"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="94"/>
         <source>縁幅</source>
         <translation>Border Width</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="94"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="95"/>
         <source>横回数</source>
         <translation>Horizontal Count</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="95"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="96"/>
         <source>横間隔</source>
         <translation>Horizontal Spacing</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="96"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="97"/>
         <source>音声</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="97"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="98"/>
         <source>音量</source>
         <translation>Volume</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="98"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="99"/>
         <source>下</source>
         <translation>Bottom</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="99"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="100"/>
         <source>下位レイヤーをクリア</source>
         <translation>Clear Lower Layers</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="100"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="101"/>
         <source>加算</source>
         <translation>Add</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="101"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="102"/>
         <source>画像</source>
         <translation>Image</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="102"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="103"/>
         <source>画像ファイル (*.png *.jpg *.jpeg *.bmp *.gif *.tiff *.webp)</source>
         <translation>Image Files (*.png *.jpg *.jpeg *.bmp *.gif *.tiff *.webp)</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="103"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="104"/>
         <source>画像ループ</source>
         <translation>Image Loop</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="104"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="105"/>
         <source>回転X</source>
         <translation>Rotation X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="105"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="106"/>
         <source>回転Y</source>
         <translation>Rotation Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="106"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="107"/>
         <source>回転Z</source>
         <translation>Rotation Z</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="107"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="108"/>
         <source>回転速度</source>
         <translation>Rotation Speed</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="108"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="109"/>
         <source>開始フレーム</source>
         <translation>Start Frame</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="109"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="110"/>
         <source>開始フレーム＋再生速度</source>
         <translation>Start Frame + Playback Speed</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="110"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="111"/>
         <source>開始時間</source>
         <translation>Start Time</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="111"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="112"/>
         <source>開始時間＋再生速度</source>
         <translation>Start Time + Playback Speed</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="112"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="113"/>
         <source>開始X</source>
         <translation>Start X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="113"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="114"/>
         <source>開始Y</source>
         <translation>Start Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="114"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="115"/>
         <source>開始値</source>
         <translation>Start Value</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="115"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="116"/>
         <source>拡散</source>
         <translation>Diffusion</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="116"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="117"/>
         <source>拡散光</source>
         <translation>Diffuse Light</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="117"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="118"/>
         <source>拡大率</source>
         <translation>Scale</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="118"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="119"/>
         <source>角丸</source>
         <translation>Corner Radius</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="119"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="120"/>
         <source>角度</source>
         <translation>Angle</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="120"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="121"/>
         <source>基本</source>
         <translation>Basic</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="121"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="122"/>
         <source>基本エフェクト</source>
         <translation>Basic Effects</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="122"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="123"/>
         <source>輝度</source>
         <translation>Luminance</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="123"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="124"/>
         <source>境界ぼかし</source>
         <translation>Border Blur</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="124"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="125"/>
         <source>強さ</source>
         <translation>Strength</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="125"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="126"/>
         <source>減算</source>
         <translation>Subtract</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="126"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="127"/>
         <source>光の強さ</source>
         <translation>Light Strength</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="127"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="128"/>
         <source>光斑数</source>
         <translation>Ghost Count</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="128"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="129"/>
         <source>行間隔</source>
         <translation>Line Spacing</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="129"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="130"/>
         <source>高さ</source>
         <translation>Height</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="130"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="131"/>
         <source>合成モード</source>
         <translation>Blend Mode</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="131"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="132"/>
         <source>左</source>
         <translation>Left</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="132"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="133"/>
         <source>差の絶対値</source>
         <translation>Difference</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="133"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="134"/>
         <source>再生モード</source>
         <translation>Playback Mode</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="134"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="135"/>
         <source>再生速度</source>
         <translation>Playback Speed</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="135"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="136"/>
         <source>彩度</source>
         <translation>Saturation</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="136"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="137"/>
         <source>指定時間</source>
         <translation>Specified Time</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="137"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="138"/>
         <source>視野角</source>
         <translation>Field of View</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="138"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="139"/>
         <source>時間直接指定</source>
         <translation>Direct Time</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="139"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="140"/>
         <source>斜めクリッピング</source>
         <translation>Diagonal Clipping</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="140"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="141"/>
         <source>斜体</source>
         <translation>Italic</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="141"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="142"/>
         <source>小数桁</source>
         <translation>Decimal Places</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="142"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="143"/>
         <source>種類</source>
         <translation>Type</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="143"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="144"/>
         <source>縦横比</source>
         <translation>Aspect Ratio</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="144"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="145"/>
         <source>縦回数</source>
         <translation>Vertical Count</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="145"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="146"/>
         <source>縦間隔</source>
         <translation>Vertical Spacing</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="146"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="147"/>
         <source>初期回転 (°)</source>
         <translation>Initial Rotation (deg)</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="147"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="148"/>
         <source>上</source>
         <translation>Top</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="148"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="149"/>
         <source>乗算</source>
         <translation>Multiply</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="149"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="150"/>
         <source>色</source>
         <translation>Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="150"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="151"/>
         <source>色ずれ</source>
         <translation>Chromatic Aberration</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="151"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="152"/>
         <source>色相</source>
         <translation>Hue</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="152"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="153"/>
         <source>色調補正</source>
         <translation>Color Correction</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="153"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="154"/>
         <source>色反転</source>
         <translation>Invert</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="154"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="155"/>
         <source>振動</source>
         <translation>Vibration</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="155"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="156"/>
         <source>図形</source>
         <translation>Shape</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="156"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="157"/>
         <source>制御</source>
         <translation>Control</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="157"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="158"/>
         <source>星</source>
         <translation>Stars</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="158"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="159"/>
         <source>青ずれX</source>
         <translation>Blue Offset X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="159"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="160"/>
         <source>青ずれY</source>
         <translation>Blue Offset Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="160"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="161"/>
         <source>赤ずれX</source>
         <translation>Red Offset X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="161"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="162"/>
         <source>赤ずれY</source>
         <translation>Red Offset Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="162"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="163"/>
         <source>線形</source>
         <translation>Linear</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="163"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="164"/>
         <source>接頭辞</source>
         <translation>Prefix</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="164"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="165"/>
         <source>接尾辞</source>
         <translation>Suffix</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="165"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="166"/>
         <source>雪</source>
         <translation>Snow</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="166"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="167"/>
         <source>扇型</source>
         <translation>Fan Shape</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="167"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="168"/>
         <source>速度</source>
         <translation>Speed</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="168"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="169"/>
         <source>値</source>
         <translation>Value</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="169"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="170"/>
         <source>太字</source>
         <translation>Bold</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="170"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="171"/>
         <source>対象レイヤー数</source>
         <translation>Target Layer Count</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="171"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="172"/>
         <source>中心X</source>
         <translation>Center X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="172"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="173"/>
         <source>中心Y</source>
         <translation>Center Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="173"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="174"/>
         <source>中心Z</source>
         <translation>Center Z</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="174"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="175"/>
         <source>中心の位置を変更</source>
         <translation>Move Center Position</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="175"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="176"/>
         <source>注視X</source>
         <translation>Look-at X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="176"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="177"/>
         <source>注視Y</source>
         <translation>Look-at Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="177"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="178"/>
         <source>注視Z</source>
         <translation>Look-at Z</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="178"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="179"/>
         <source>通常</source>
         <translation>Normal</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="179"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="180"/>
         <source>塗り色</source>
         <translation>Fill Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="180"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="181"/>
         <source>透明度の境界をぼかす</source>
         <translation>Blur Alpha Edge</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="181"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="182"/>
         <source>動画</source>
         <translation>Video</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="182"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="183"/>
         <source>内径 (%)</source>
         <translation>Inner Radius (%)</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="183"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="184"/>
         <source>破線:間隔</source>
         <translation>Dash Gap</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="184"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="185"/>
         <source>破線:線長</source>
         <translation>Dash Length</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="185"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="186"/>
         <source>背景角丸</source>
         <translation>Background Corner Radius</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="186"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="187"/>
         <source>背景色</source>
         <translation>Background Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="187"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="188"/>
         <source>背景有効</source>
         <translation>Enable Background</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="188"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="189"/>
         <source>背景余白X</source>
         <translation>Background Padding X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="189"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="190"/>
         <source>背景余白Y</source>
         <translation>Background Padding Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="190"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="191"/>
         <source>配置 (1:左 2:右 4:中)</source>
         <translation>Alignment (1: Left 2: Right 4: Center)</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="191"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="192"/>
         <source>反転配置</source>
         <translation>Alternating Flip</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="192"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="193"/>
         <source>半径</source>
         <translation>Radius</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="193"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="194"/>
         <source>範囲</source>
         <translation>Range</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="194"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="195"/>
         <source>比較（暗）</source>
         <translation>Darken</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="195"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="196"/>
         <source>比較（明）</source>
         <translation>Lighten</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="196"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="197"/>
         <source>標準</source>
         <translation>Standard</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="197"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="198"/>
         <source>標準描画</source>
         <translation>Standard Drawing</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="198"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="199"/>
         <source>品質(サンプル数)</source>
         <translation>Quality (Samples)</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="199"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="200"/>
         <source>不透明度</source>
         <translation>Opacity</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="200"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="201"/>
         <source>幅</source>
         <translation>Width</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="201"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="202"/>
         <source>表示形式</source>
         <translation>Display Mode</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="202"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="203"/>
         <source>秒</source>
         <translation>Seconds</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="203"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="204"/>
         <source>文字間隔</source>
         <translation>Letter Spacing</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="204"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="205"/>
         <source>文字色</source>
         <translation>Text Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="205"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="206"/>
         <source>変形/クロップ</source>
         <translation>Transform/Crop</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="206"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="207"/>
         <source>辺/頂点数</source>
         <translation>Sides/Vertices</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="207"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="208"/>
         <source>放射ブラー</source>
         <translation>Radial Blur</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="208"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="209"/>
         <source>放射状</source>
         <translation>Radial</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="209"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="210"/>
         <source>方向ブラー</source>
         <translation>Directional Blur</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="210"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="211"/>
         <source>本数</source>
         <translation>Line Count</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="211"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="212"/>
         <source>明るさ</source>
         <translation>Brightness</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="212"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="213"/>
         <source>裏面を表示</source>
         <translation>Show Back Face</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="213"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="214"/>
         <source>緑ずれX</source>
         <translation>Green Offset X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="214"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="215"/>
         <source>緑ずれY</source>
         <translation>Green Offset Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="215"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="216"/>
         <source>ライン(移動軌跡)</source>
         <translation>Line (Motion Trail)</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="216"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="217"/>
         <source>ランダム</source>
         <translation>Random</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="217"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="218"/>
         <source>雨</source>
         <translation>Rain</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="218"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="219"/>
         <source>矢印</source>
         <translation>Arrow</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="219"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="220"/>
         <source>終了X</source>
         <translation>End X</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="220"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="221"/>
         <source>終了Y</source>
         <translation>End Y</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="221"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="222"/>
         <source>終了値</source>
         <translation>End Value</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="222"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="223"/>
         <source>個数</source>
         <translation>Count</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="223"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="224"/>
         <source>広がり</source>
         <translation>Spread</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="224"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="225"/>
         <source>桁数</source>
         <translation>Digits</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="225"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="226"/>
         <source>最小長</source>
         <translation>Minimum Length</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="226"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="227"/>
         <source>最大長</source>
         <translation>Maximum Length</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="227"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="228"/>
         <source>多角形</source>
         <translation>Polygon</translation>
     </message>
@@ -1228,135 +1233,145 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../core/src/package_manager.cpp" line="111"/>
         <source>Idle</source>
-        <translation type="unfinished"></translation>
+        <translation>Idle</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="211"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
-        <translation type="unfinished"></translation>
+        <translation>Packages loaded from cache (Press Sync to check for updates)</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="243"/>
         <source>Syncing repository...</source>
-        <translation type="unfinished"></translation>
+        <translation>Syncing repository...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="331"/>
         <location filename="../core/src/package_manager.cpp" line="359"/>
         <source>Sync complete</source>
-        <translation type="unfinished"></translation>
+        <translation>Sync complete</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="411"/>
         <location filename="../core/src/package_manager.cpp" line="540"/>
         <source>Package not found: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Package not found: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="429"/>
         <source>Could not determine repository URL for the package.</source>
-        <translation type="unfinished"></translation>
+        <translation>Could not determine repository URL for the package.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="434"/>
         <source>Searching for available files...</source>
-        <translation type="unfinished"></translation>
+        <translation>Searching for available files...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="446"/>
         <source>Repository URL is not in a valid format.</source>
-        <translation type="unfinished"></translation>
+        <translation>Repository URL is not in a valid format.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="461"/>
         <source>Unsupported repository host.</source>
-        <translation type="unfinished"></translation>
+        <translation>Unsupported repository host.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="471"/>
         <source>Failed to fetch release info (%1): %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to fetch release info (%1): %2</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="520"/>
         <source>No downloadable files found.</source>
-        <translation type="unfinished"></translation>
+        <translation>No downloadable files found.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="545"/>
         <source>Download URL not specified. Please fetch asset information.</source>
-        <translation type="unfinished"></translation>
+        <translation>Download URL not specified. Please fetch asset information.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="553"/>
         <source>Installing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Installing package: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="558"/>
         <source>Installation complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Installation complete: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="569"/>
         <source>AviQtl update available. Restart to apply.</source>
-        <translation type="unfinished"></translation>
+        <translation>AviQtl update available. Restart to apply.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="606"/>
         <source>Removing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Removing package: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Removal complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Removal complete: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="678"/>
         <source>No packages to upgrade.</source>
-        <translation type="unfinished"></translation>
+        <translation>No packages to upgrade.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="683"/>
         <source>Upgrading all packages...</source>
-        <translation type="unfinished"></translation>
+        <translation>Upgrading all packages...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="690"/>
         <source>All upgrades complete.</source>
-        <translation type="unfinished"></translation>
+        <translation>All upgrades complete.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="696"/>
         <source>Upgrading package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Upgrading package: %1</translation>
     </message>
 </context>
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="91"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="162"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="133"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="150"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="221"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="167"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="238"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="353"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="370"/>
+        <source>音声をインポート</source>
+        <translation>Import audio</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="401"/>
+        <source>画像をインポート</source>
+        <translation>Import image</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="573"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1364,6 +1379,21 @@ This software is released under the GNU Affero General Public License Version 3.
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="64"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>The destination file path is unknown</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="317"/>
+        <source>動画をインポート</source>
+        <translation>Import video</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
+        <source>ファイルが見つかりません: %1</source>
+        <translation>File not found: %1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="430"/>
+        <source>サポートされていないファイル形式です: %1</source>
+        <translation>Unsupported file format: %1</translation>
     </message>
 </context>
 <context>
@@ -1405,7 +1435,7 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="202"/>
         <source>Failed to capture frame %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to capture frame %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
@@ -1428,12 +1458,12 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて下へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layers down together</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて上へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layers up together</translation>
     </message>
 </context>
 <context>
@@ -1817,190 +1847,190 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>ExportDialog</name>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="43"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="58"/>
         <source>メディアの書き出し</source>
         <translation>Export Media</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="66"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="81"/>
         <source>書き出し中...</source>
         <translation>Exporting...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="85"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="100"/>
         <source>0 / 0 フレーム</source>
         <translation>0 / 0 frames</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="92"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="533"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="107"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="548"/>
         <source>キャンセル</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="104"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="119"/>
         <source>%1 / %2 フレーム</source>
         <translation>%1 / %2 frames</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="123"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="138"/>
         <source>完了</source>
         <translation>Complete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="123"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="138"/>
         <source>エラー</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="145"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="160"/>
         <source>形式:</source>
         <translation>Format:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="150"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
         <source>動画ファイル</source>
         <translation>Video File</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="150"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
         <source>画像シーケンス</source>
         <translation>Image Sequence</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="180"/>
         <source>保存先ファイルパス...</source>
         <translation>Destination file path...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="180"/>
         <source>保存先フォルダ...</source>
         <translation>Destination folder...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="169"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="184"/>
         <source>参照...</source>
         <translation>Browse...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="177"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="192"/>
         <source>映像</source>
         <translation>Video</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="188"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="203"/>
         <source>解像度:</source>
         <translation>Resolution:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="198"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="213"/>
         <source>FPS:</source>
         <translation>FPS:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="208"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="379"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="223"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="394"/>
         <source>コーデック:</source>
         <translation>Codec:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="276"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="291"/>
         <source>品質モード:</source>
         <translation>Quality mode:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="286"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="301"/>
         <source>CRF</source>
         <translation>CRF</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="292"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="307"/>
         <source>ビットレート</source>
         <translation>Bitrate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="302"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="317"/>
         <source>CRF:</source>
         <translation>CRF:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="327"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
         <source>高品質</source>
         <translation>High quality</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="327"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
         <source>標準</source>
         <translation>Standard</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="327"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
         <source>低品質</source>
         <translation>Low quality</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="336"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="420"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="351"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="435"/>
         <source>ビットレート:</source>
         <translation>Bitrate:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="353"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="368"/>
         <source>%1 Mbps</source>
         <translation>%1 Mbps</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="368"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="383"/>
         <source>音声</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="447"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="462"/>
         <source>範囲</source>
         <translation>Range</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="457"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="472"/>
         <source>タイムライン全体</source>
         <translation>Entire timeline</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="462"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="477"/>
         <source>開始:</source>
         <translation>Start:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="476"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="491"/>
         <source>終了:</source>
         <translation>End:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="510"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="525"/>
         <source>(%1 フレーム / %2 秒)</source>
         <translation>(%1 frames / %2 seconds)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="538"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="553"/>
         <source>書き出し開始</source>
         <translation>Start Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="574"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="589"/>
         <source>保存先を指定</source>
         <translation>Specify Destination</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="586"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="601"/>
         <source>保存先フォルダを指定</source>
         <translation>Specify Destination Folder</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="596"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="611"/>
         <source>書き出しキャンセル</source>
         <translation>Cancel Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="601"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="616"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
         <translation>Cancel the export?
@@ -2151,7 +2181,7 @@ Progress will be lost.</translation>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="207"/>
         <source>複数レイヤーを挿入</source>
-        <translation type="unfinished"></translation>
+        <translation>Insert multiple layers</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="220"/>
@@ -2176,67 +2206,67 @@ Progress will be lost.</translation>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="270"/>
         <source>このレイヤー以降をまとめて移動</source>
-        <translation type="unfinished"></translation>
+        <translation>Move this layer and below together</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="284"/>
         <source>対象レイヤーの範囲:</source>
-        <translation type="unfinished"></translation>
+        <translation>Target layer range:</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="320"/>
         <source>移動量 (行数):</source>
-        <translation type="unfinished"></translation>
+        <translation>Move amount (rows):</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="333"/>
         <source>方向:</source>
-        <translation type="unfinished"></translation>
+        <translation>Direction:</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="338"/>
         <source>上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Up</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="348"/>
         <source>下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Down</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="393"/>
         <source>複数レイヤーを挿入...</source>
-        <translation type="unfinished"></translation>
+        <translation>Insert multiple layers...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを非表示にする</source>
-        <translation type="unfinished"></translation>
+        <translation>Hide this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを表示する</source>
-        <translation type="unfinished"></translation>
+        <translation>Show this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーのロックを解除</source>
-        <translation type="unfinished"></translation>
+        <translation>Unlock this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーをロックする</source>
-        <translation type="unfinished"></translation>
+        <translation>Lock this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="458"/>
         <source>すべてのレイヤーを表示</source>
-        <translation type="unfinished"></translation>
+        <translation>Show all layers</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="468"/>
         <source>すべてのレイヤーを非表示</source>
-        <translation type="unfinished"></translation>
+        <translation>Hide all layers</translation>
     </message>
     <message>
         <source>表示/非表示を切り替え</source>
@@ -2263,17 +2293,17 @@ Progress will be lost.</translation>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="403"/>
         <source>このレイヤーの内容を1行下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layer contents down by 1</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="413"/>
         <source>このレイヤーの内容を1行上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layer contents up by 1</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="423"/>
         <source>範囲を指定してレイヤー移動...</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layers by range...</translation>
     </message>
     <message>
         <source>ロックを解除</source>
@@ -2646,8 +2676,12 @@ Please restart the application to apply.</translation>
         <translation>Install</translation>
     </message>
     <message>
-        <source>（後で実装: パッケージリスト）</source>
-        <translation type="vanished">(To be implemented later: package list)</translation>
+        <source>ここにドロップ</source>
+        <translation type="vanished">Drop here</translation>
+    </message>
+    <message>
+        <source>ビデオにリンク</source>
+        <translation type="vanished">Link to video file</translation>
     </message>
 </context>
 <context>
@@ -3060,12 +3094,12 @@ Please restart the application to apply.</translation>
         <translation>Paste multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="107"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="229"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>Delete effects (%1 items)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="258"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="380"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>Change effect order (%1 items)</translation>
     </message>
@@ -3210,54 +3244,54 @@ Please restart the application to apply.</translation>
 <context>
     <name>SettingDialog</name>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="224"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="225"/>
         <source>設定ダイアログ</source>
         <translation>Settings Dialog</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="527"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="528"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="527"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="528"/>
         <source>選択した %1 件を削除</source>
         <translation>Delete %1 selected items</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="934"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="957"/>
         <source> (直線)</source>
         <translation> (Linear)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="935"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="958"/>
         <source> (加速)</source>
         <translation> (Ease In)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="936"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="959"/>
         <source> (減速)</source>
         <translation> (Ease Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="937"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="960"/>
         <source> (加減速)</source>
         <translation> (Ease In/Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="938"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="961"/>
         <source> (ベジェ)</source>
         <translation> (Bezier)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1480"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1503"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1491"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1514"/>
         <source>検索...</source>
-        <translation type="unfinished">Search...</translation>
+        <translation>Search...</translation>
     </message>
 </context>
 <context>
@@ -3676,79 +3710,84 @@ Please restart the application to apply.</translation>
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="848"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="903"/>
         <source>オブジェクトを追加</source>
         <translation>Add Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="861"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="916"/>
         <source>元に戻す</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="862"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="917"/>
         <source>やり直す</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="863"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="918"/>
         <source>貼り付け</source>
         <translation>Paste</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="865"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="920"/>
         <source>シーン設定...</source>
         <translation>Scene Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="866"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="921"/>
         <source>プロジェクト設定...</source>
         <translation>Project Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="867"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="922"/>
         <source>環境設定...</source>
         <translation>Preferences...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="869"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="924"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="870"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="925"/>
         <source>分割</source>
         <translation>Split</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="871"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="926"/>
         <source>複製</source>
-        <translation type="unfinished">Duplicate</translation>
+        <translation>Duplicate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="873"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="928"/>
         <source>切り取り</source>
         <translation>Cut</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="874"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="929"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="878"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="933"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="890"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="945"/>
         <source>エフェクトを追加</source>
-        <translation type="unfinished">Add Effect</translation>
+        <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="914"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="969"/>
         <source>エフェクト/オブジェクトを検索...</source>
-        <translation type="unfinished"></translation>
+        <translation>Search effects/objects...</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="533"/>
+        <source>ここにドロップ</source>
+        <translation>Drop here</translation>
     </message>
 </context>
 <context>

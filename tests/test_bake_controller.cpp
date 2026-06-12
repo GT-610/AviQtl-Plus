@@ -233,6 +233,47 @@ class TestBakeController : public QObject {
         QVERIFY(t != nullptr);
         QCOMPARE(t->timePosition, 20.0); // 40 - 20 = 20
     }
+
+    void audioParamsBakedToEcs() {
+        SceneSettings scene;
+        scene.id = 8;
+        scene.fps = 60.0;
+
+        Clip c;
+        c.id = 60;
+        c.layer = 0;
+        c.startFrame = 10;
+        c.durationFrames = 120;
+        c.type = QStringLiteral("audio");
+
+        Effect audio;
+        audio.id = QStringLiteral("audio");
+        audio.params.insert(QStringLiteral("playMode"), QStringLiteral("開始時間＋再生速度"));
+        audio.params.insert(QStringLiteral("startTime"), 1.5);
+        audio.params.insert(QStringLiteral("speed"), 150.0);
+        audio.params.insert(QStringLiteral("directTime"), 3.0);
+        audio.params.insert(QStringLiteral("volume"), 0.5);
+        audio.params.insert(QStringLiteral("pan"), -0.25);
+        audio.params.insert(QStringLiteral("mute"), true);
+        c.effects.push_back(audio);
+
+        scene.clips.push_back(c);
+        DocumentModel::instance().addScene(scene);
+
+        BakeController::instance().bake(8, 20);
+
+        auto &state = ECS::instance().editState();
+        auto *a = state.audioStates.find(60);
+        QVERIFY(a != nullptr);
+        QCOMPARE(a->clipId, 60);
+        QCOMPARE(a->sourceStartTime, 1.5f);
+        QCOMPARE(a->playbackSpeed, 1.5f);
+        QCOMPARE(a->directTime, 3.0f);
+        QCOMPARE(a->volume, 0.5f);
+        QCOMPARE(a->pan, -0.25f);
+        QVERIFY(a->mute);
+        QVERIFY(!a->directMode);
+    }
 };
 
 QTEST_MAIN(TestBakeController)
