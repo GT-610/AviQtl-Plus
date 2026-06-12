@@ -60,6 +60,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME preset_manager
+    SOURCES test_preset_manager.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME theme_controller
     SOURCES test_theme_controller.cpp
     LINKS AviQtl_Core
