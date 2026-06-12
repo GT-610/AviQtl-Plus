@@ -3388,63 +3388,63 @@
         <translation>加载预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="616"/>
-        <location filename="../ui/qml/SettingDialog.qml" line="647"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="645"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="676"/>
         <source>プリセットがありません</source>
         <translation>没有可用的预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="624"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="653"/>
         <source>プリセットを削除</source>
         <translation>删除预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="663"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="692"/>
         <source>プリセットを保存</source>
         <translation>保存预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="672"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="701"/>
         <source>プリセット名:</source>
         <translation>预设名称：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="678"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="707"/>
         <source>プリセット名を入力...</source>
         <translation>请输入预设名称…</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1088"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1117"/>
         <source> (直線)</source>
         <translation>（直线）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1089"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1118"/>
         <source> (加速)</source>
         <translation>（加速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1090"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1119"/>
         <source> (減速)</source>
         <translation>（减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1091"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1120"/>
         <source> (加減速)</source>
         <translation>（加减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1092"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1121"/>
         <source> (ベジェ)</source>
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1634"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1663"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1645"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1674"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>
