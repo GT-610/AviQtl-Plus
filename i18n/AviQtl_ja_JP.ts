@@ -1557,27 +1557,27 @@
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>クリップ: </source>
-        <translation type="unfinished"></translation>
+        <translation>クリップ: </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>、レイヤー</source>
-        <translation type="unfinished"></translation>
+        <translation>、レイヤー</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>、フレーム</source>
-        <translation type="unfinished"></translation>
+        <translation>、フレーム</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>から</source>
-        <translation type="unfinished"></translation>
+        <translation>から</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>フレーム</source>
-        <translation type="unfinished">フレーム</translation>
+        <translation>フレーム</translation>
     </message>
 </context>
 <context>
@@ -2536,37 +2536,37 @@
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="904"/>
         <source>シークバー</source>
-        <translation type="unfinished"></translation>
+        <translation>シークバー</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="905"/>
         <source>タイムライン上の現在位置をドラッグして再生位置を変更します</source>
-        <translation type="unfinished"></translation>
+        <translation>タイムライン上の現在位置をドラッグして再生位置を変更します</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="962"/>
         <source>再生位置を1フレーム前に移動します</source>
-        <translation type="unfinished"></translation>
+        <translation>再生位置を1フレーム前に移動します</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="981"/>
         <source>一時停止</source>
-        <translation type="unfinished"></translation>
+        <translation>一時停止</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="981"/>
         <source>再生</source>
-        <translation type="unfinished"></translation>
+        <translation>再生</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="982"/>
         <source>再生を開始または一時停止します</source>
-        <translation type="unfinished"></translation>
+        <translation>再生を開始または一時停止します</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="1002"/>
         <source>再生位置を1フレーム後に移動します</source>
-        <translation type="unfinished"></translation>
+        <translation>再生位置を1フレーム後に移動します</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="1024"/>
@@ -2751,42 +2751,42 @@
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="111"/>
         <source> スライダー</source>
-        <translation type="unfinished"></translation>
+        <translation> スライダー</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
         <source>現在値: </source>
-        <translation type="unfinished"></translation>
+        <translation>現在値: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
         <source>、範囲: </source>
-        <translation type="unfinished"></translation>
+        <translation>、範囲: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="148"/>
         <source> 数値入力</source>
-        <translation type="unfinished"></translation>
+        <translation> 数値入力</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="149"/>
         <source>パラメータの数値を直接入力します</source>
-        <translation type="unfinished"></translation>
+        <translation>パラメータの数値を直接入力します</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
         <source>イージング設定を開きます</source>
-        <translation type="unfinished"></translation>
+        <translation>イージング設定を開きます</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="191"/>
         <source> 終了値入力</source>
-        <translation type="unfinished"></translation>
+        <translation> 終了値入力</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
-        <translation type="unfinished"></translation>
+        <translation>終了点の数値を入力します (キーフレーム使用時)</translation>
     </message>
 </context>
 <context>

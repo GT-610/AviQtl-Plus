@@ -1557,27 +1557,27 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>クリップ: </source>
-        <translation type="unfinished"></translation>
+        <translation>Clip: </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>、レイヤー</source>
-        <translation type="unfinished"></translation>
+        <translation>, Layer </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>、フレーム</source>
-        <translation type="unfinished"></translation>
+        <translation>, Frame </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>から</source>
-        <translation type="unfinished"></translation>
+        <translation> to </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>フレーム</source>
-        <translation type="unfinished">Frame</translation>
+        <translation> frames</translation>
     </message>
 </context>
 <context>
@@ -2536,37 +2536,37 @@ Save before continuing?</translation>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="904"/>
         <source>シークバー</source>
-        <translation type="unfinished"></translation>
+        <translation>Seek Bar</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="905"/>
         <source>タイムライン上の現在位置をドラッグして再生位置を変更します</source>
-        <translation type="unfinished"></translation>
+        <translation>Drag to change playback position on the timeline</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="962"/>
         <source>再生位置を1フレーム前に移動します</source>
-        <translation type="unfinished"></translation>
+        <translation>Move playback position 1 frame back</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="981"/>
         <source>一時停止</source>
-        <translation type="unfinished"></translation>
+        <translation>Pause</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="981"/>
         <source>再生</source>
-        <translation type="unfinished"></translation>
+        <translation>Play</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="982"/>
         <source>再生を開始または一時停止します</source>
-        <translation type="unfinished"></translation>
+        <translation>Start or pause playback</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="1002"/>
         <source>再生位置を1フレーム後に移動します</source>
-        <translation type="unfinished"></translation>
+        <translation>Move playback position 1 frame forward</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="1024"/>
@@ -2759,42 +2759,42 @@ Please restart the application to apply.</translation>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="111"/>
         <source> スライダー</source>
-        <translation type="unfinished"></translation>
+        <translation> Slider</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
         <source>現在値: </source>
-        <translation type="unfinished"></translation>
+        <translation>Current value: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
         <source>、範囲: </source>
-        <translation type="unfinished"></translation>
+        <translation>, range: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="148"/>
         <source> 数値入力</source>
-        <translation type="unfinished"></translation>
+        <translation> Number input</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="149"/>
         <source>パラメータの数値を直接入力します</source>
-        <translation type="unfinished"></translation>
+        <translation>Enter parameter value directly</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
         <source>イージング設定を開きます</source>
-        <translation type="unfinished"></translation>
+        <translation>Open easing settings</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="191"/>
         <source> 終了値入力</source>
-        <translation type="unfinished"></translation>
+        <translation> End value input</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
-        <translation type="unfinished"></translation>
+        <translation>Enter end value (when using keyframes)</translation>
     </message>
 </context>
 <context>

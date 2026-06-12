@@ -1557,27 +1557,27 @@
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>クリップ: </source>
-        <translation type="unfinished"></translation>
+        <translation>片段: </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>、レイヤー</source>
-        <translation type="unfinished"></translation>
+        <translation>、图层</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>、フレーム</source>
-        <translation type="unfinished"></translation>
+        <translation>、帧</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>から</source>
-        <translation type="unfinished"></translation>
+        <translation> 至 </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>フレーム</source>
-        <translation type="unfinished">帧</translation>
+        <translation>帧</translation>
     </message>
 </context>
 <context>
@@ -2536,37 +2536,37 @@
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="904"/>
         <source>シークバー</source>
-        <translation type="unfinished"></translation>
+        <translation>搜索条</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="905"/>
         <source>タイムライン上の現在位置をドラッグして再生位置を変更します</source>
-        <translation type="unfinished"></translation>
+        <translation>拖动以更改时间线上的播放位置</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="962"/>
         <source>再生位置を1フレーム前に移動します</source>
-        <translation type="unfinished"></translation>
+        <translation>将播放位置移动到前一帧</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="981"/>
         <source>一時停止</source>
-        <translation type="unfinished"></translation>
+        <translation>暂停</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="981"/>
         <source>再生</source>
-        <translation type="unfinished"></translation>
+        <translation>播放</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="982"/>
         <source>再生を開始または一時停止します</source>
-        <translation type="unfinished"></translation>
+        <translation>开始或暂停播放</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="1002"/>
         <source>再生位置を1フレーム後に移動します</source>
-        <translation type="unfinished"></translation>
+        <translation>将播放位置移动到后一帧</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="1024"/>
@@ -2763,42 +2763,42 @@
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="111"/>
         <source> スライダー</source>
-        <translation type="unfinished"></translation>
+        <translation> 滑块</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
         <source>現在値: </source>
-        <translation type="unfinished"></translation>
+        <translation>当前值: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
         <source>、範囲: </source>
-        <translation type="unfinished"></translation>
+        <translation>、范围: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="148"/>
         <source> 数値入力</source>
-        <translation type="unfinished"></translation>
+        <translation> 数值输入</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="149"/>
         <source>パラメータの数値を直接入力します</source>
-        <translation type="unfinished"></translation>
+        <translation>直接输入参数值</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
         <source>イージング設定を開きます</source>
-        <translation type="unfinished"></translation>
+        <translation>打开缓动设置</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="191"/>
         <source> 終了値入力</source>
-        <translation type="unfinished"></translation>
+        <translation> 终点值输入</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
-        <translation type="unfinished"></translation>
+        <translation>输入终点值（使用关键帧时）</translation>
     </message>
 </context>
 <context>
