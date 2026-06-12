@@ -575,6 +575,7 @@ Common.AviQtlWindow {
                 }
 
                 Menu {
+                    id: presetLoadMenu
                     title: qsTr("プリセットを読み込み")
                     enabled: effectContextMenu.effectIndex >= 0 && sidebarList.model && effectContextMenu.effectIndex < sidebarList.model.length
 
@@ -619,11 +620,7 @@ Common.AviQtlWindow {
                 }
 
                 Menu {
-                    id: presetLoadMenu
-                    title: qsTr("プリセットを読み込み")
-                }
-
-                Menu {
+                    id: presetDeleteMenu
                     title: qsTr("プリセットを削除")
                     enabled: effectContextMenu.effectIndex >= 0 && sidebarList.model && effectContextMenu.effectIndex < sidebarList.model.length
 
@@ -651,11 +648,6 @@ Common.AviQtlWindow {
                         enabled: false
                         visible: presetDeleteMenu.count === 0
                     }
-                }
-
-                Menu {
-                    id: presetDeleteMenu
-                    title: qsTr("プリセットを削除")
                 }
 
             }

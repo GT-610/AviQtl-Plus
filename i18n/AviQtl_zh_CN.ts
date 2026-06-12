@@ -1572,7 +1572,7 @@
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
         <source>から</source>
-        <translation> 至 </translation>
+        <translation> 从 </translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
@@ -2536,7 +2536,7 @@
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="904"/>
         <source>シークバー</source>
-        <translation>搜索条</translation>
+        <translation>进度条</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="905"/>
@@ -2786,17 +2786,17 @@
         <translation>直接输入参数值</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
         <source>イージング設定を開きます</source>
         <translation>打开缓动设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="191"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
         <source> 終了値入力</source>
         <translation> 终点值输入</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="193"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
         <translation>输入终点值（使用关键帧时）</translation>
     </message>
@@ -3370,73 +3370,71 @@
     <message>
         <location filename="../ui/qml/SettingDialog.qml" line="564"/>
         <source>プリセットを保存...</source>
-        <translation type="unfinished"></translation>
+        <translation>保存预设…</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="578"/>
-        <location filename="../ui/qml/SettingDialog.qml" line="623"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="579"/>
         <source>プリセットを読み込み</source>
-        <translation type="unfinished"></translation>
+        <translation>加载预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="615"/>
-        <location filename="../ui/qml/SettingDialog.qml" line="650"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="616"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="647"/>
         <source>プリセットがありません</source>
-        <translation type="unfinished"></translation>
+        <translation>没有可用的预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="627"/>
-        <location filename="../ui/qml/SettingDialog.qml" line="658"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="624"/>
         <source>プリセットを削除</source>
-        <translation type="unfinished"></translation>
+        <translation>删除预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="671"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="663"/>
         <source>プリセットを保存</source>
-        <translation type="unfinished"></translation>
+        <translation>保存预设</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="680"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="672"/>
         <source>プリセット名:</source>
-        <translation type="unfinished"></translation>
+        <translation>预设名称：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="686"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="678"/>
         <source>プリセット名を入力...</source>
-        <translation type="unfinished"></translation>
+        <translation>请输入预设名称…</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1096"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1088"/>
         <source> (直線)</source>
         <translation>（直线）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1097"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1089"/>
         <source> (加速)</source>
         <translation>（加速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1098"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1090"/>
         <source> (減速)</source>
         <translation>（减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1099"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1091"/>
         <source> (加減速)</source>
         <translation>（加减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1100"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1092"/>
         <source> (ベジェ)</source>
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1642"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1634"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1653"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1645"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>

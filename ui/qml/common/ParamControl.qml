@@ -172,6 +172,7 @@ RowLayout {
         Layout.preferredWidth: 100
         text: root.paramName
         enabled: root.enabled
+        Accessible.name: root.paramName
         Accessible.description: qsTr("イージング設定を開きます")
         onClicked: root.paramButtonClicked()
     }

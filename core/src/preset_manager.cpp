@@ -8,6 +8,13 @@
 
 namespace AviQtl::Core {
 
+namespace {
+bool isUnsafeName(const QString &s) {
+    return s.isEmpty() || s.contains(QLatin1Char('/')) || s.contains(QLatin1Char('\\'))
+        || s.contains(QLatin1String("..")) || s.startsWith(QLatin1Char('.'));
+}
+} // namespace
+
 PresetManager &PresetManager::instance() {
     static PresetManager s;
     return s;
@@ -25,11 +32,23 @@ QString PresetManager::resolveBaseDir() const {
 }
 
 QString PresetManager::presetDir(const QString &effectId) const {
-    return resolveBaseDir() + QStringLiteral("/") + effectId;
+    if (isUnsafeName(effectId))
+        return {};
+    return QDir(resolveBaseDir()).filePath(effectId);
 }
 
 QString PresetManager::presetPath(const QString &effectId, const QString &name) const {
-    return presetDir(effectId) + QStringLiteral("/") + name + QStringLiteral(".json");
+    if (isUnsafeName(effectId) || isUnsafeName(name))
+        return {};
+    const QString dir = presetDir(effectId);
+    if (dir.isEmpty())
+        return {};
+    const QString path = QDir(dir).filePath(name + QStringLiteral(".json"));
+    const QString baseCanon = QFileInfo(resolveBaseDir()).canonicalFilePath();
+    const QString fileCanon = QFileInfo(path).canonicalFilePath();
+    if (!baseCanon.isEmpty() && !fileCanon.isEmpty() && !fileCanon.startsWith(baseCanon))
+        return {};
+    return path;
 }
 
 QStringList PresetManager::presetNames(const QString &effectId) const {
@@ -45,7 +64,11 @@ QStringList PresetManager::presetNames(const QString &effectId) const {
 }
 
 QVariantMap PresetManager::loadPreset(const QString &effectId, const QString &name) const {
-    QFile f(presetPath(effectId, name));
+    const QString path = presetPath(effectId, name);
+    if (path.isEmpty())
+        return {};
+
+    QFile f(path);
     if (!f.open(QIODevice::ReadOnly))
         return {};
 
@@ -57,8 +80,11 @@ QVariantMap PresetManager::loadPreset(const QString &effectId, const QString &na
 }
 
 bool PresetManager::savePreset(const QString &effectId, const QString &name, const QVariantMap &params, const QVariantMap &keyframes, bool enabled) {
-    const QString dir = presetDir(effectId);
-    QDir().mkpath(dir);
+    const QString path = presetPath(effectId, name);
+    if (path.isEmpty())
+        return false;
+
+    QDir().mkpath(presetDir(effectId));
 
     QJsonObject obj;
     obj[QStringLiteral("version")] = 1;
@@ -68,7 +94,7 @@ bool PresetManager::savePreset(const QString &effectId, const QString &name, con
     obj[QStringLiteral("params")] = QJsonObject::fromVariantMap(params);
     obj[QStringLiteral("keyframes")] = QJsonObject::fromVariantMap(keyframes);
 
-    QFile f(presetPath(effectId, name));
+    QFile f(path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;
 
@@ -78,7 +104,11 @@ bool PresetManager::savePreset(const QString &effectId, const QString &name, con
 }
 
 bool PresetManager::deletePreset(const QString &effectId, const QString &name) {
-    QFile f(presetPath(effectId, name));
+    const QString path = presetPath(effectId, name);
+    if (path.isEmpty())
+        return false;
+
+    QFile f(path);
     if (!f.exists())
         return false;
 
@@ -89,14 +119,29 @@ bool PresetManager::deletePreset(const QString &effectId, const QString &name) {
 }
 
 bool PresetManager::renamePreset(const QString &effectId, const QString &oldName, const QString &newName) {
-    QFile f(presetPath(effectId, oldName));
+    const QString oldPath = presetPath(effectId, oldName);
+    const QString newPath = presetPath(effectId, newName);
+    if (oldPath.isEmpty() || newPath.isEmpty())
+        return false;
+
+    QFile f(oldPath);
     if (!f.exists())
         return false;
 
-    const bool ok = f.rename(presetPath(effectId, newName));
-    if (ok)
-        emit presetsChanged(effectId);
-    return ok;
+    if (!f.rename(newPath))
+        return false;
+
+    QVariantMap preset = loadPreset(effectId, newName);
+    if (!preset.isEmpty()) {
+        preset[QStringLiteral("name")] = newName;
+        QFile wf(newPath);
+        if (wf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            wf.write(QJsonDocument(QJsonObject::fromVariantMap(preset)).toJson(QJsonDocument::Compact));
+        }
+    }
+
+    emit presetsChanged(effectId);
+    return true;
 }
 
 } // namespace AviQtl::Core
