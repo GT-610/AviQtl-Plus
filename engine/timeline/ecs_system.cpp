@@ -151,8 +151,8 @@ auto ECS::getSnapshot() const -> const ECSState * {
     return &m_buffers[m_activeIndex.load(std::memory_order_acquire)];
 }
 
-auto ECS::isRenderGraphDirty() const -> bool { return m_buffers[m_editIndex].renderGraphDirty; }
+auto ECS::isRenderGraphDirty() const -> bool { return m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphDirty; }
 
-void ECS::markRenderGraphClean() { m_buffers[m_editIndex].renderGraphDirty = false; }
+void ECS::markRenderGraphClean() { m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphDirty = false; }
 
 } // namespace AviQtl::Engine::Timeline
