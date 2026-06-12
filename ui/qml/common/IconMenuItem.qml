@@ -7,6 +7,9 @@ MenuItem {
 
     property string iconName: ""
 
+    Accessible.name: control.text
+    Accessible.description: control.action ? (control.action.shortcutText || "") : ""
+
     // デフォルトのインジケーター（チェックボックス）を無効化し、
     // contentItem内で自前で描画することでアイコンとの重なりを防ぐ
     indicator: Item {

@@ -1553,6 +1553,34 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
 </context>
 <context>
+    <name>ClipItem</name>
+    <message>
+        <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
+        <source>クリップ: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
+        <source>、レイヤー</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
+        <source>、フレーム</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
+        <source>から</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/ClipItem.qml" line="47"/>
+        <source>フレーム</source>
+        <translation type="unfinished">Frame</translation>
+    </message>
+</context>
+<context>
     <name>ControlLoader</name>
     <message>
         <location filename="../ui/qml/common/ControlLoader.qml" line="26"/>
@@ -2352,7 +2380,7 @@ Progress will be lost.</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="156"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1308"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1316"/>
         <source>終了</source>
         <translation>Exit</translation>
     </message>
@@ -2433,11 +2461,13 @@ Progress will be lost.</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="435"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1001"/>
         <source>1フレーム進む</source>
         <translation>Forward 1 Frame</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="447"/>
+        <location filename="../ui/qml/MainWindow.qml" line="961"/>
         <source>1フレーム戻る</source>
         <translation>Back 1 Frame</translation>
     </message>
@@ -2504,12 +2534,47 @@ Save before continuing?</translation>
         <translation>Save As</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1016"/>
+        <location filename="../ui/qml/MainWindow.qml" line="904"/>
+        <source>シークバー</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="905"/>
+        <source>タイムライン上の現在位置をドラッグして再生位置を変更します</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="962"/>
+        <source>再生位置を1フレーム前に移動します</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="981"/>
+        <source>一時停止</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="981"/>
+        <source>再生</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="982"/>
+        <source>再生を開始または一時停止します</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="1002"/>
+        <source>再生位置を1フレーム後に移動します</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="1024"/>
         <source>速度</source>
         <translation>Speed</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1271"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1279"/>
         <source>ファイル</source>
         <translation>File</translation>
     </message>
@@ -2529,27 +2594,27 @@ Save before continuing?</translation>
         <translation>Preferences</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1364"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1372"/>
         <source>ツール</source>
         <translation>Tools</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1367"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1375"/>
         <source>パッケージマネージャー</source>
         <translation>Package Manager</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1331"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1339"/>
         <source>設定</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1316"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1324"/>
         <source>編集</source>
         <translation>Edit</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1349"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1357"/>
         <source>表示</source>
         <translation>View</translation>
     </message>
@@ -2564,7 +2629,7 @@ Save before continuing?</translation>
         <translation>Show Settings Dialog</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1386"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1394"/>
         <source>バージョン情報</source>
         <translation>About</translation>
     </message>
@@ -2690,6 +2755,46 @@ Please restart the application to apply.</translation>
         <location filename="../ui/qml/common/ParamControl.qml" line="9"/>
         <source>パラメータ</source>
         <translation>Parameters</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="111"/>
+        <source> スライダー</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
+        <source>現在値: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
+        <source>、範囲: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="148"/>
+        <source> 数値入力</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="149"/>
+        <source>パラメータの数値を直接入力します</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
+        <source>イージング設定を開きます</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="191"/>
+        <source> 終了値入力</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
+        <source>終了点の数値を入力します (キーフレーム使用時)</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

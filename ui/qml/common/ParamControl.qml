@@ -108,6 +108,8 @@ RowLayout {
         from: root.minValue
         to: root.maxValue
         enabled: root.enabled
+        Accessible.name: root.paramName + qsTr(" スライダー")
+        Accessible.description: qsTr("現在値: ") + root.formatValue(value) + qsTr("、範囲: ") + root.formatValue(root.minValue) + "～" + root.formatValue(root.maxValue)
         value: {
             var val = parseFloat(leftValueField.text);
             return isNaN(val) ? root.startValue : val;
@@ -143,6 +145,8 @@ RowLayout {
         horizontalAlignment: TextInput.AlignHCenter
         selectByMouse: true
         enabled: root.enabled
+        Accessible.name: root.paramName + qsTr(" 数値入力")
+        Accessible.description: qsTr("パラメータの数値を直接入力します")
         onEditingFinished: {
             if (root.ignoreEditingFinished(leftValueField))
                 return ;
@@ -168,6 +172,7 @@ RowLayout {
         Layout.preferredWidth: 100
         text: root.paramName
         enabled: root.enabled
+        Accessible.description: qsTr("イージング設定を開きます")
         onClicked: root.paramButtonClicked()
     }
 
@@ -183,6 +188,8 @@ RowLayout {
         selectByMouse: true
         enabled: root.rightInteractive
         opacity: root.rightInteractive ? 1 : 0.45
+        Accessible.name: root.paramName + qsTr(" 終了値入力")
+        Accessible.description: qsTr("終了点の数値を入力します (キーフレーム使用時)")
         onEditingFinished: {
             if (root.ignoreEditingFinished(rightValueField))
                 return ;

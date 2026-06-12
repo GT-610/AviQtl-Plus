@@ -43,6 +43,10 @@ Item {
     property int dragDeltaStart: (isSelected && timelineViewRoot.isDraggingMulti) ? timelineViewRoot.activeDragDeltaFrame : 0
     property int dragDeltaLayer: (isSelected && timelineViewRoot.isDraggingMulti) ? timelineViewRoot.activeDragDeltaLayer : 0
 
+    Accessible.name: clipDisplayName
+    Accessible.description: qsTr("クリップ: ") + clipDisplayName + qsTr("、レイヤー") + modelData.layer + qsTr("、フレーム") + modelData.startFrame + qsTr("から") + modelData.durationFrames + qsTr("フレーム")
+    Accessible.role: Accessible.Grouping
+
     signal clipMoved(int clipId, int deltaLayer, int deltaStartFrame, int duration)
     signal clipResized(int clipId, int deltaStartFrame, int deltaDuration, int unused)
     signal clipDoubleClicked(int clipId)
