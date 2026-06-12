@@ -1233,109 +1233,109 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../core/src/package_manager.cpp" line="111"/>
         <source>Idle</source>
-        <translation type="unfinished"></translation>
+        <translation>Idle</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="211"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
-        <translation type="unfinished"></translation>
+        <translation>Packages loaded from cache (Press Sync to check for updates)</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="243"/>
         <source>Syncing repository...</source>
-        <translation type="unfinished"></translation>
+        <translation>Syncing repository...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="331"/>
         <location filename="../core/src/package_manager.cpp" line="359"/>
         <source>Sync complete</source>
-        <translation type="unfinished"></translation>
+        <translation>Sync complete</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="411"/>
         <location filename="../core/src/package_manager.cpp" line="540"/>
         <source>Package not found: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Package not found: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="429"/>
         <source>Could not determine repository URL for the package.</source>
-        <translation type="unfinished"></translation>
+        <translation>Could not determine repository URL for the package.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="434"/>
         <source>Searching for available files...</source>
-        <translation type="unfinished"></translation>
+        <translation>Searching for available files...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="446"/>
         <source>Repository URL is not in a valid format.</source>
-        <translation type="unfinished"></translation>
+        <translation>Repository URL is not in a valid format.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="461"/>
         <source>Unsupported repository host.</source>
-        <translation type="unfinished"></translation>
+        <translation>Unsupported repository host.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="471"/>
         <source>Failed to fetch release info (%1): %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to fetch release info (%1): %2</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="520"/>
         <source>No downloadable files found.</source>
-        <translation type="unfinished"></translation>
+        <translation>No downloadable files found.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="545"/>
         <source>Download URL not specified. Please fetch asset information.</source>
-        <translation type="unfinished"></translation>
+        <translation>Download URL not specified. Please fetch asset information.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="553"/>
         <source>Installing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Installing package: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="558"/>
         <source>Installation complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Installation complete: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="569"/>
         <source>AviQtl update available. Restart to apply.</source>
-        <translation type="unfinished"></translation>
+        <translation>AviQtl update available. Restart to apply.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="606"/>
         <source>Removing package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Removing package: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Removal complete: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Removal complete: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="678"/>
         <source>No packages to upgrade.</source>
-        <translation type="unfinished"></translation>
+        <translation>No packages to upgrade.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="683"/>
         <source>Upgrading all packages...</source>
-        <translation type="unfinished"></translation>
+        <translation>Upgrading all packages...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="690"/>
         <source>All upgrades complete.</source>
-        <translation type="unfinished"></translation>
+        <translation>All upgrades complete.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="696"/>
         <source>Upgrading package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Upgrading package: %1</translation>
     </message>
 </context>
 <context>
@@ -1435,7 +1435,7 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="202"/>
         <source>Failed to capture frame %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to capture frame %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
@@ -1458,12 +1458,12 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて下へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layers down together</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて上へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layers up together</translation>
     </message>
 </context>
 <context>
@@ -2181,7 +2181,7 @@ Progress will be lost.</translation>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="207"/>
         <source>複数レイヤーを挿入</source>
-        <translation type="unfinished"></translation>
+        <translation>Insert multiple layers</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="220"/>
@@ -2206,67 +2206,67 @@ Progress will be lost.</translation>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="270"/>
         <source>このレイヤー以降をまとめて移動</source>
-        <translation type="unfinished"></translation>
+        <translation>Move this layer and below together</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="284"/>
         <source>対象レイヤーの範囲:</source>
-        <translation type="unfinished"></translation>
+        <translation>Target layer range:</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="320"/>
         <source>移動量 (行数):</source>
-        <translation type="unfinished"></translation>
+        <translation>Move amount (rows):</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="333"/>
         <source>方向:</source>
-        <translation type="unfinished"></translation>
+        <translation>Direction:</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="338"/>
         <source>上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Up</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="348"/>
         <source>下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Down</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="393"/>
         <source>複数レイヤーを挿入...</source>
-        <translation type="unfinished"></translation>
+        <translation>Insert multiple layers...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを非表示にする</source>
-        <translation type="unfinished"></translation>
+        <translation>Hide this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを表示する</source>
-        <translation type="unfinished"></translation>
+        <translation>Show this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーのロックを解除</source>
-        <translation type="unfinished"></translation>
+        <translation>Unlock this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーをロックする</source>
-        <translation type="unfinished"></translation>
+        <translation>Lock this layer</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="458"/>
         <source>すべてのレイヤーを表示</source>
-        <translation type="unfinished"></translation>
+        <translation>Show all layers</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="468"/>
         <source>すべてのレイヤーを非表示</source>
-        <translation type="unfinished"></translation>
+        <translation>Hide all layers</translation>
     </message>
     <message>
         <source>表示/非表示を切り替え</source>
@@ -2293,17 +2293,17 @@ Progress will be lost.</translation>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="403"/>
         <source>このレイヤーの内容を1行下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layer contents down by 1</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="413"/>
         <source>このレイヤーの内容を1行上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layer contents up by 1</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="423"/>
         <source>範囲を指定してレイヤー移動...</source>
-        <translation type="unfinished"></translation>
+        <translation>Move layers by range...</translation>
     </message>
     <message>
         <source>ロックを解除</source>

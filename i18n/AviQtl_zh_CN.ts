@@ -1341,37 +1341,37 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="160"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="162"/>
         <source>プロパティ変更: %1</source>
         <translation>属性更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="202"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
         <source>開始フレーム変更</source>
         <translation>起始帧更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="219"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="221"/>
         <source>長さ変更</source>
         <translation>长度更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="236"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="238"/>
         <source>レイヤー変更</source>
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="370"/>
         <source>音声をインポート</source>
         <translation>导入音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="401"/>
         <source>画像をインポート</source>
         <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="571"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="573"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1381,17 +1381,17 @@
         <translation>保存目标文件路径未知</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="315"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="317"/>
         <source>動画をインポート</source>
         <translation>导入视频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="296"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="428"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="430"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>

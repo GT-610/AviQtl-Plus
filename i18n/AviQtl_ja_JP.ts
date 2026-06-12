@@ -1341,37 +1341,37 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="160"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="162"/>
         <source>プロパティ変更: %1</source>
         <translation>プロパティ変更: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="202"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
         <source>開始フレーム変更</source>
         <translation>開始フレーム変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="219"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="221"/>
         <source>長さ変更</source>
         <translation>長さ変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="236"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="238"/>
         <source>レイヤー変更</source>
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="370"/>
         <source>音声をインポート</source>
         <translation>音声をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="401"/>
         <source>画像をインポート</source>
         <translation>画像をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="571"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="573"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1381,17 +1381,17 @@
         <translation>保存先のファイルパスが不明です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="315"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="317"/>
         <source>動画をインポート</source>
         <translation>動画をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="296"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="428"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="430"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
@@ -1458,12 +1458,12 @@
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて下へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>レイヤーをまとめて下へ移動</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_clip.cpp" line="126"/>
         <source>レイヤーをまとめて上へ移動</source>
-        <translation type="unfinished"></translation>
+        <translation>レイヤーをまとめて上へ移動</translation>
     </message>
 </context>
 <context>
@@ -2181,7 +2181,7 @@
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="207"/>
         <source>複数レイヤーを挿入</source>
-        <translation type="unfinished"></translation>
+        <translation>複数レイヤーを挿入</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="220"/>
@@ -2206,67 +2206,67 @@
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="270"/>
         <source>このレイヤー以降をまとめて移動</source>
-        <translation type="unfinished"></translation>
+        <translation>このレイヤー以降をまとめて移動</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="284"/>
         <source>対象レイヤーの範囲:</source>
-        <translation type="unfinished"></translation>
+        <translation>対象レイヤーの範囲:</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="320"/>
         <source>移動量 (行数):</source>
-        <translation type="unfinished"></translation>
+        <translation>移動量 (行数):</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="333"/>
         <source>方向:</source>
-        <translation type="unfinished"></translation>
+        <translation>方向:</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="338"/>
         <source>上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>上へ</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="348"/>
         <source>下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>下へ</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="393"/>
         <source>複数レイヤーを挿入...</source>
-        <translation type="unfinished"></translation>
+        <translation>複数レイヤーを挿入...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを非表示にする</source>
-        <translation type="unfinished"></translation>
+        <translation>このレイヤーを非表示にする</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
         <source>このレイヤーを表示する</source>
-        <translation type="unfinished"></translation>
+        <translation>このレイヤーを表示する</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーのロックを解除</source>
-        <translation type="unfinished"></translation>
+        <translation>このレイヤーのロックを解除</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
         <source>このレイヤーをロックする</source>
-        <translation type="unfinished"></translation>
+        <translation>このレイヤーをロックする</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="458"/>
         <source>すべてのレイヤーを表示</source>
-        <translation type="unfinished"></translation>
+        <translation>すべてのレイヤーを表示</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="468"/>
         <source>すべてのレイヤーを非表示</source>
-        <translation type="unfinished"></translation>
+        <translation>すべてのレイヤーを非表示</translation>
     </message>
     <message>
         <source>表示/非表示を切り替え</source>
@@ -2293,17 +2293,17 @@
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="403"/>
         <source>このレイヤーの内容を1行下へ</source>
-        <translation type="unfinished"></translation>
+        <translation>このレイヤーの内容を1行下へ</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="413"/>
         <source>このレイヤーの内容を1行上へ</source>
-        <translation type="unfinished"></translation>
+        <translation>このレイヤーの内容を1行上へ</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="423"/>
         <source>範囲を指定してレイヤー移動...</source>
-        <translation type="unfinished"></translation>
+        <translation>範囲を指定してレイヤー移動...</translation>
     </message>
     <message>
         <source>ロックを解除</source>
@@ -3227,7 +3227,7 @@
     <message>
         <location filename="../ui/qml/SettingDialog.qml" line="1514"/>
         <source>検索...</source>
-        <translation type="unfinished">検索...</translation>
+        <translation>検索...</translation>
     </message>
 </context>
 <context>
@@ -3693,7 +3693,7 @@
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="926"/>
         <source>複製</source>
-        <translation type="unfinished">複製</translation>
+        <translation>複製</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="928"/>
@@ -3713,12 +3713,12 @@
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="945"/>
         <source>エフェクトを追加</source>
-        <translation type="unfinished">エフェクトを追加</translation>
+        <translation>エフェクトを追加</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="969"/>
         <source>エフェクト/オブジェクトを検索...</source>
-        <translation type="unfinished"></translation>
+        <translation>エフェクト/オブジェクトを検索...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="533"/>
