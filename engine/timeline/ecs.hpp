@@ -11,21 +11,6 @@
 #include <utility>
 #include <vector>
 
-namespace AviQtl::ECS {
-
-struct KeyframeRefComponent {
-    uint32_t clipId = 0;
-};
-struct GlobalMatrixComponent {
-    float m[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-};
-
-} // namespace AviQtl::ECS
-
-namespace AviQtl::UI {
-class CoreBridge;
-}
-
 namespace AviQtl::Engine::Timeline {
 
 inline constexpr int MAX_CLIP_ID = 4096;
@@ -180,17 +165,12 @@ struct ECSState {
     DenseComponentMap<RenderComponent> renderStates;
     DenseComponentMap<AudioComponent> audioStates;
 
-    DenseComponentMap<AviQtl::ECS::KeyframeRefComponent> keyframeRefs;
-    DenseComponentMap<AviQtl::ECS::GlobalMatrixComponent> globalMatrices;
-
     EffectParamBuffer effectParams;
 };
 
 class ECS {
   public:
     static ECS &instance();
-
-    void runCommandSystem(AviQtl::UI::CoreBridge &bridge);
 
     int currentFrame() const { return m_currentFrame; }
     bool isPlaying() const { return m_isPlaying; }

@@ -1,7 +1,6 @@
 #include "ecs.hpp"
 #include "ecs_profiler.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
-#include "ui/include/bridge/core_bridge.hpp"
 #include <QDebug>
 #include <cassert>
 #include <cmath>
@@ -17,24 +16,6 @@ void ECS::markDirty(int clipId) {
         }
     }
     ECS_PROF_INC(dirtyBitSetCount);
-}
-
-void ECS::runCommandSystem(AviQtl::UI::CoreBridge &bridge) {
-    AviQtl::UI::CoreBridge::Command cmd;
-    while (bridge.dequeueCommand(cmd)) {
-        switch (cmd.type) {
-        case AviQtl::UI::CoreBridge::CommandType::Seek:
-            m_currentFrame = cmd.value;
-            bridge.notifyFrameAdvanced(m_currentFrame);
-            break;
-        case AviQtl::UI::CoreBridge::CommandType::Play:
-            m_isPlaying = true;
-            break;
-        case AviQtl::UI::CoreBridge::CommandType::Pause:
-            m_isPlaying = false;
-            break;
-        }
-    }
 }
 
 ECS::ECS() : m_editIndex(1) {
@@ -53,9 +34,6 @@ void ECS::syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
     bool changed = false;
     changed |= editState.renderStates.syncAlive(aliveFlags);
     changed |= editState.audioStates.syncAlive(aliveFlags);
-
-    changed |= editState.keyframeRefs.syncAlive(aliveFlags);
-    changed |= editState.globalMatrices.syncAlive(aliveFlags);
 
     if (changed) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
@@ -153,11 +131,6 @@ void ECS::commit() {
                 dst.renderStates[id] = *s;
             if (const auto *s = src.audioStates.find(id))
                 dst.audioStates[id] = *s;
-
-            if (const auto *s = src.keyframeRefs.find(id))
-                dst.keyframeRefs[id] = *s;
-            if (const auto *s = src.globalMatrices.find(id))
-                dst.globalMatrices[id] = *s;
         }
         df.dirty.reset();
         df.dirtyIds.clear();
