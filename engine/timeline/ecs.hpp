@@ -134,14 +134,10 @@ struct RenderComponent {
     float scaleX = 1, scaleY = 1;
     float opacity = 1;
 
-    bool visible = true;
     bool clipByUpperObject = false;
 
-    uint16_t typeIndex = 0;
     uint16_t effectCount = 0;
     uint32_t effectStartIndex = 0;
-
-    int videoFrameKey = -1;
 };
 static_assert(::std::is_trivially_copyable_v<RenderComponent>);
 

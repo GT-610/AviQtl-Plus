@@ -33,11 +33,9 @@ QVariantList ECSRenderBridge::renderStates() const {
         m[QStringLiteral("scaleX")] = rc.scaleX;
         m[QStringLiteral("scaleY")] = rc.scaleY;
         m[QStringLiteral("opacity")] = rc.opacity;
-        m[QStringLiteral("visible")] = rc.visible;
         m[QStringLiteral("clipByUpperObject")] = rc.clipByUpperObject;
-        m[QStringLiteral("typeIndex")] = rc.typeIndex;
         m[QStringLiteral("effectCount")] = rc.effectCount;
-        m[QStringLiteral("videoFrameKey")] = rc.videoFrameKey;
+        m[QStringLiteral("effectStartIndex")] = rc.effectStartIndex;
         states.append(m);
     });
 
