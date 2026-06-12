@@ -3300,37 +3300,75 @@
         <translation>選択した %1 件を削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="957"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="564"/>
+        <source>プリセットを保存...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="578"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="623"/>
+        <source>プリセットを読み込み</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="615"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="650"/>
+        <source>プリセットがありません</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="627"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="658"/>
+        <source>プリセットを削除</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="671"/>
+        <source>プリセットを保存</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="680"/>
+        <source>プリセット名:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="686"/>
+        <source>プリセット名を入力...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1096"/>
         <source> (直線)</source>
         <translation> (直線)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="958"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1097"/>
         <source> (加速)</source>
         <translation> (加速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="959"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1098"/>
         <source> (減速)</source>
         <translation> (減速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="960"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1099"/>
         <source> (加減速)</source>
         <translation> (加減速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="961"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1100"/>
         <source> (ベジェ)</source>
         <translation> (ベジェ)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1503"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1642"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1514"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1653"/>
         <source>検索...</source>
         <translation>検索...</translation>
     </message>

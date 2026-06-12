@@ -558,8 +558,147 @@ Common.AviQtlWindow {
                     }
                 }
 
+                MenuSeparator {}
+
+                MenuItem {
+                    text: qsTr("プリセットを保存...")
+                    enabled: effectContextMenu.effectIndex >= 0 && sidebarList.model && effectContextMenu.effectIndex < sidebarList.model.length
+                    onTriggered: {
+                        var em = sidebarList.model[effectContextMenu.effectIndex];
+                        if (!em)
+                            return;
+
+                        presetSaveDialog.effectId = em.id;
+                        presetSaveDialog.effectIndex = effectContextMenu.effectIndex;
+                        presetSaveDialog.open();
+                    }
+                }
+
+                Menu {
+                    title: qsTr("プリセットを読み込み")
+                    enabled: effectContextMenu.effectIndex >= 0 && sidebarList.model && effectContextMenu.effectIndex < sidebarList.model.length
+
+                    Instantiator {
+                        model: {
+                            var em = sidebarList.model[effectContextMenu.effectIndex];
+                            return em ? PresetManager.presetNames(em.id) : [];
+                        }
+                        MenuItem {
+                            text: modelData
+                            onTriggered: {
+                                var em = sidebarList.model[effectContextMenu.effectIndex];
+                                if (!em)
+                                    return;
+
+                                var preset = PresetManager.loadPreset(em.id, modelData);
+                                if (!preset || !preset.params)
+                                    return;
+
+                                var params = preset.params;
+                                var keys = Object.keys(params);
+                                for (var i = 0; i < keys.length; i++) {
+                                    var key = keys[i];
+                                    if (key === "version" || key === "effectId" || key === "name" || key === "enabled")
+                                        continue;
+
+                                    Workspace.currentTimeline.updateClipEffectParam(targetClipId, effectContextMenu.effectIndex, key, params[key]);
+                                }
+                                if (preset.enabled !== undefined)
+                                    Workspace.currentTimeline.setEffectEnabled(targetClipId, effectContextMenu.effectIndex, preset.enabled);
+                            }
+                        }
+                        onObjectAdded: presetLoadMenu.insertItem(index, object)
+                        onObjectRemoved: presetLoadMenu.removeItem(object)
+                    }
+
+                    MenuItem {
+                        text: qsTr("プリセットがありません")
+                        enabled: false
+                        visible: presetLoadMenu.count === 0
+                    }
+                }
+
+                Menu {
+                    id: presetLoadMenu
+                    title: qsTr("プリセットを読み込み")
+                }
+
+                Menu {
+                    title: qsTr("プリセットを削除")
+                    enabled: effectContextMenu.effectIndex >= 0 && sidebarList.model && effectContextMenu.effectIndex < sidebarList.model.length
+
+                    Instantiator {
+                        model: {
+                            var em = sidebarList.model[effectContextMenu.effectIndex];
+                            return em ? PresetManager.presetNames(em.id) : [];
+                        }
+                        MenuItem {
+                            text: modelData
+                            onTriggered: {
+                                var em = sidebarList.model[effectContextMenu.effectIndex];
+                                if (!em)
+                                    return;
+
+                                PresetManager.deletePreset(em.id, modelData);
+                            }
+                        }
+                        onObjectAdded: presetDeleteMenu.insertItem(index, object)
+                        onObjectRemoved: presetDeleteMenu.removeItem(object)
+                    }
+
+                    MenuItem {
+                        text: qsTr("プリセットがありません")
+                        enabled: false
+                        visible: presetDeleteMenu.count === 0
+                    }
+                }
+
+                Menu {
+                    id: presetDeleteMenu
+                    title: qsTr("プリセットを削除")
+                }
+
             }
 
+        }
+
+        Dialog {
+            id: presetSaveDialog
+
+            property string effectId: ""
+            property int effectIndex: -1
+
+            title: qsTr("プリセットを保存")
+            modal: true
+            anchors.centerIn: parent
+            standardButtons: Dialog.Ok | Dialog.Cancel
+
+            ColumnLayout {
+                spacing: 8
+
+                Label {
+                    text: qsTr("プリセット名:")
+                }
+
+                TextField {
+                    id: presetNameField
+                    Layout.preferredWidth: 250
+                    placeholderText: qsTr("プリセット名を入力...")
+                    selectByMouse: true
+                }
+            }
+
+            onOpened: presetNameField.text = ""
+            onAccepted: {
+                if (presetNameField.text.length === 0)
+                    return;
+
+                var em = sidebarList.model[effectIndex];
+                if (!em)
+                    return;
+
+                PresetManager.savePreset(effectId, presetNameField.text, em.params, em.keyframeTracks, em.enabled);
+            }
         }
 
         // 詳細設定スクロールビュー
