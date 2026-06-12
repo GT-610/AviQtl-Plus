@@ -604,6 +604,35 @@ Common.AviQtlWindow {
 
                                     Workspace.currentTimeline.updateClipEffectParam(targetClipId, effectContextMenu.effectIndex, key, params[key]);
                                 }
+                                if (preset.keyframes) {
+                                    var tracks = preset.keyframes;
+                                    var trackKeys = Object.keys(tracks);
+                                    for (var ti = 0; ti < trackKeys.length; ti++) {
+                                        var paramName = trackKeys[ti];
+                                        var track = tracks[paramName];
+                                        if (!track)
+                                            continue;
+
+                                        if (track.start) {
+                                            var opts = {};
+                                            if (track.start.interp !== undefined)
+                                                opts.interp = track.start.interp;
+                                            Workspace.currentTimeline.setKeyframe(targetClipId, effectContextMenu.effectIndex, paramName, track.start.frame || 0, track.start.value, opts);
+                                        }
+                                        var points = track.points || [];
+                                        for (var pi = 0; pi < points.length; pi++) {
+                                            var pt = points[pi];
+                                            var ptOpts = {};
+                                            if (pt.interp !== undefined)
+                                                ptOpts.interp = pt.interp;
+                                            if (pt.points !== undefined)
+                                                ptOpts.points = pt.points;
+                                            if (pt.modeParams !== undefined)
+                                                ptOpts.modeParams = pt.modeParams;
+                                            Workspace.currentTimeline.setKeyframe(targetClipId, effectContextMenu.effectIndex, paramName, pt.frame, pt.value, ptOpts);
+                                        }
+                                    }
+                                }
                                 if (preset.enabled !== undefined)
                                     Workspace.currentTimeline.setEffectEnabled(targetClipId, effectContextMenu.effectIndex, preset.enabled);
                             }
