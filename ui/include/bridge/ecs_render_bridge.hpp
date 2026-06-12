@@ -1,7 +1,9 @@
 #pragma once
+#include "engine/timeline/ecs.hpp"
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
+#include <unordered_map>
 
 namespace AviQtl::UI {
 
@@ -25,8 +27,14 @@ class ECSRenderBridge : public QObject {
   private:
     ECSRenderBridge() = default;
 
+    struct ClipParamIndex {
+        uint32_t start = 0;
+        uint32_t count = 0;
+    };
+
     mutable QVariantList m_cachedStates;
-    mutable QVariantMap m_cachedEffectParams;
+    mutable std::vector<AviQtl::Engine::Timeline::EffectParamEntry> m_cachedEntries;
+    mutable std::unordered_map<int, ClipParamIndex> m_clipParamIndex;
     mutable bool m_dirty = true;
 };
 
