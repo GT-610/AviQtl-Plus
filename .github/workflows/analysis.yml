@@ -35,6 +35,7 @@ jobs:
           cmake --build build --target AviQtl_Test_effect_registry \
                                 AviQtl_Test_document_model \
                                 AviQtl_Test_settings_manager \
+                                AviQtl_Test_preset_manager \
                                 AviQtl_Test_theme_controller \
                                 AviQtl_Test_media_decoder \
                                 AviQtl_Test_effect_model \

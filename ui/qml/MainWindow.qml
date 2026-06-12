@@ -901,6 +901,8 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     from: 0
                     to: (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0) ? Workspace.currentTimeline.timelineDuration : 1
+                    Accessible.name: qsTr("シークバー")
+                    Accessible.description: qsTr("タイムライン上の現在位置をドラッグして再生位置を変更します")
                     onPressedChanged: {
                         if (Workspace.currentTimeline && Workspace.currentTimeline.transport) {
                             Workspace.currentTimeline.transport.isScrubbing = pressed;
@@ -956,6 +958,8 @@ ApplicationWindow {
                         Layout.preferredHeight: 32
                         flat: true
                         hoverEnabled: true
+                        Accessible.name: qsTr("1フレーム戻る")
+                        Accessible.description: qsTr("再生位置を1フレーム前に移動します")
                         onClicked: {
                             if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
                                 Workspace.currentTimeline.transport.setCurrentFrame_seek(Math.max(0, Workspace.currentTimeline.transport.currentFrame - 1));
@@ -974,6 +978,8 @@ ApplicationWindow {
                         Layout.preferredWidth: 32
                         Layout.preferredHeight: 32
                         flat: true
+                        Accessible.name: (Workspace.currentTimeline && Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.isPlaying) ? qsTr("一時停止") : qsTr("再生")
+                        Accessible.description: qsTr("再生を開始または一時停止します")
                         onClicked: {
                             if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
                                 Workspace.currentTimeline.transport.togglePlay();
@@ -992,6 +998,8 @@ ApplicationWindow {
                         Layout.preferredWidth: 32
                         Layout.preferredHeight: 32
                         flat: true
+                        Accessible.name: qsTr("1フレーム進む")
+                        Accessible.description: qsTr("再生位置を1フレーム後に移動します")
                         onClicked: {
                             if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
                                 Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.transport.currentFrame + 1);

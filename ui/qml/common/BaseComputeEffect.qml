@@ -1,5 +1,6 @@
 import AviQtl
 import QtQuick
+import QtQuick.Controls
 
 BaseEffect {
     id: root
@@ -13,6 +14,16 @@ BaseEffect {
     // 例: { "mix": "mixAmount" }
     property var uniformMapping: ({
     })
+
+    source: {
+        var p = parent;
+        while (p) {
+            if (p.fbCaptureItem !== undefined && p.fbCaptureItem !== null && p.fbCaptureItem !== root && p.fbCaptureItem.hasOwnProperty("recursive"))
+                return p.fbCaptureItem;
+            p = p.parent;
+        }
+        return null;
+    }
 
     // params からキーフレーム評価済みの Uniform オブジェクトを自動構築する
     function buildUniforms() {
@@ -34,6 +45,8 @@ BaseEffect {
             var uniformName = root.uniformMapping[key] || key;
             result[uniformName] = val;
         }
+        // time は現在のフレーム番号を自動注入
+        result["time"] = root.frame;
         return result;
     }
 
@@ -46,4 +59,18 @@ BaseEffect {
         autoWorkGroup: true
     }
 
+    Label {
+        anchors.centerIn: parent
+        text: qsTr("Compute Error:\n") + (root.computeError || "")
+        color: "red"
+        font.bold: true
+        visible: root.computeError !== undefined && root.computeError !== null && root.computeError !== ""
+        horizontalAlignment: Text.AlignHCenter
+
+        background: Rectangle {
+            color: "black"
+            opacity: 0.7
+            radius: 4
+        }
+    }
 }
