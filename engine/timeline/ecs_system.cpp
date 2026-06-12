@@ -51,8 +51,9 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
         ptr = &editState.renderStates[clipId];
     }
     auto &render = *ptr;
-    bool changed = (render.layer != layer) || (std::abs(render.timePosition - time) > 0.001) || (render.startFrame != startFrame) || (render.durationFrames != durationFrames);
+    bool changed = (render.clipId != clipId) || (render.layer != layer) || (std::abs(render.timePosition - time) > 0.001) || (render.startFrame != startFrame) || (render.durationFrames != durationFrames);
     if (changed) {
+        render.clipId = clipId;
         render.layer = layer;
         render.timePosition = time;
         render.startFrame = startFrame;
