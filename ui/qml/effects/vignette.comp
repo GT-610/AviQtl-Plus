@@ -1,0 +1,27 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(std140, binding = 2) uniform Params {
+    float radius;
+    float softness;
+    float amount;
+};
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y) return;
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+    vec4 col = texture(inTex, uv);
+
+    vec2 center = uv - 0.5;
+    float dist = length(center) / (length(vec2(0.5)) * radius);
+    float vig = smoothstep(1.0, 1.0 - softness, dist);
+    vig = mix(1.0, vig, amount);
+
+    imageStore(outImage, gid, vec4(col.rgb * vig, col.a));
+}

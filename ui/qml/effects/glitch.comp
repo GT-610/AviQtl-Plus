@@ -1,0 +1,45 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(std140, binding = 2) uniform Params {
+    float scanlineIntensity;
+    float colorShift;
+    float noiseAmount;
+    float speed;
+    float time;
+};
+
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y) return;
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+
+    float t = time * speed;
+
+    float shift = colorShift * 0.01;
+    vec2 dir = vec2(shift, 0.0);
+
+    float r = texture(inTex, uv + dir).r;
+    float g = texture(inTex, uv).g;
+    float b = texture(inTex, uv - dir).b;
+    vec3 col = vec3(r, g, b);
+
+    float scanline = sin(uv.y * sz.y * 3.14159 + t * 10.0) * 0.5 + 0.5;
+    scanline = mix(1.0, scanline, scanlineIntensity);
+    col *= scanline;
+
+    float n = hash(vec2(gid) + vec2(t * 100.0));
+    col = mix(col, vec3(n), noiseAmount);
+
+    float a = texture(inTex, uv).a;
+    imageStore(outImage, gid, vec4(col, a));
+}

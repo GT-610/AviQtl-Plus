@@ -92,14 +92,16 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
         }
 
         QVariantMap tracks;
+        QVariantMap effectParams = effect.params;
+        effectParams[QStringLiteral("time")] = relFrame;
         int trackDuration = clip.durationFrames;
         QSet<QString> allKeys;
-        for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it)
+        for (auto it = effectParams.constBegin(); it != effectParams.constEnd(); ++it)
             allKeys.insert(it.key());
         for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it)
             allKeys.insert(it->first);
         for (const auto &key : std::as_const(allKeys)) {
-            const QVariant fallback = effect.params.value(key);
+            const QVariant fallback = effectParams.value(key);
             auto kfIt = effect.keyframes.find(key);
             if (kfIt != effect.keyframes.end()) {
                 tracks[key] = keyframesToTrack(kfIt->second, fallback);
@@ -109,16 +111,16 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
 
         if (effect.id == QStringLiteral("transform")) {
             hasTransform = true;
-            render.x = evalFloat(effect.params, tracks, QStringLiteral("x"), relFrame, fps, trackDuration);
-            render.y = evalFloat(effect.params, tracks, QStringLiteral("y"), relFrame, fps, trackDuration);
-            render.z = evalFloat(effect.params, tracks, QStringLiteral("z"), relFrame, fps, trackDuration);
-            render.rotX = evalFloat(effect.params, tracks, QStringLiteral("rotationX"), relFrame, fps, trackDuration);
-            render.rotY = evalFloat(effect.params, tracks, QStringLiteral("rotationY"), relFrame, fps, trackDuration);
-            render.rotZ = evalFloat(effect.params, tracks, QStringLiteral("rotationZ"), relFrame, fps, trackDuration);
-            const float scale = evalFloat(effect.params, tracks, QStringLiteral("scale"), relFrame, fps, trackDuration);
+            render.x = evalFloat(effectParams, tracks, QStringLiteral("x"), relFrame, fps, trackDuration);
+            render.y = evalFloat(effectParams, tracks, QStringLiteral("y"), relFrame, fps, trackDuration);
+            render.z = evalFloat(effectParams, tracks, QStringLiteral("z"), relFrame, fps, trackDuration);
+            render.rotX = evalFloat(effectParams, tracks, QStringLiteral("rotationX"), relFrame, fps, trackDuration);
+            render.rotY = evalFloat(effectParams, tracks, QStringLiteral("rotationY"), relFrame, fps, trackDuration);
+            render.rotZ = evalFloat(effectParams, tracks, QStringLiteral("rotationZ"), relFrame, fps, trackDuration);
+            const float scale = evalFloat(effectParams, tracks, QStringLiteral("scale"), relFrame, fps, trackDuration);
             render.scaleX = scale * 0.01f;
             render.scaleY = scale * 0.01f;
-            render.opacity = evalFloat(effect.params, tracks, QStringLiteral("opacity"), relFrame, fps, trackDuration);
+            render.opacity = evalFloat(effectParams, tracks, QStringLiteral("opacity"), relFrame, fps, trackDuration);
         }
 
         for (const auto &key : std::as_const(allKeys)) {
@@ -131,7 +133,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             std::memcpy(entry.paramName, nameBytes.constData(), copyLen);
             entry.paramName[copyLen] = '\0';
 
-            QVariant evaluated = evaluateParam(effect.params, tracks, key, relFrame, fps, trackDuration);
+            QVariant evaluated = evaluateParam(effectParams, tracks, key, relFrame, fps, trackDuration);
 
             if (evaluated.canConvert<QColor>()) {
                 QColor c(evaluated.toString());

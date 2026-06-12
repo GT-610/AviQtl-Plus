@@ -34,6 +34,8 @@ BaseEffect {
             var uniformName = root.uniformMapping[key] || key;
             result[uniformName] = val;
         }
+        // time は現在のフレーム番号を自動注入
+        result["time"] = root.frame;
         return result;
     }
 

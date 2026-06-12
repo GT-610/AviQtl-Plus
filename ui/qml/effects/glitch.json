@@ -1,0 +1,50 @@
+{
+  "id": "glitch",
+  "name": "グリッチ",
+  "qml": "Glitch.qml",
+  "params": {
+    "scanlineIntensity": 0.3,
+    "colorShift": 2.0,
+    "noiseAmount": 0.1,
+    "speed": 1.0
+  },
+  "ui": {
+    "controls": [
+      {
+        "type": "slider",
+        "param": "scanlineIntensity",
+        "label": "走査線",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      },
+      {
+        "type": "slider",
+        "param": "colorShift",
+        "label": "色ずれ",
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.1
+      },
+      {
+        "type": "slider",
+        "param": "noiseAmount",
+        "label": "ノイズ",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      },
+      {
+        "type": "slider",
+        "param": "speed",
+        "label": "速度",
+        "min": 0.0,
+        "max": 10.0,
+        "step": 0.1
+      }
+    ]
+  },
+  "version": "1.0.0",
+  "kind": "effect",
+  "categories": ["スタイライズ", "グリッチ"]
+}
