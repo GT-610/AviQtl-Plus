@@ -1520,6 +1520,16 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
 </context>
 <context>
+    <name>BaseComputeEffect</name>
+    <message>
+        <location filename="../ui/qml/common/BaseComputeEffect.qml" line="64"/>
+        <source>Compute Error:
+</source>
+        <translation>Compute Error:
+</translation>
+    </message>
+</context>
+<context>
     <name>BaseObject</name>
     <message>
         <location filename="../ui/qml/common/BaseObject.qml" line="42"/>

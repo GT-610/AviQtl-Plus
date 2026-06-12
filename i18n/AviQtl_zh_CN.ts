@@ -1520,6 +1520,16 @@
     </message>
 </context>
 <context>
+    <name>BaseComputeEffect</name>
+    <message>
+        <location filename="../ui/qml/common/BaseComputeEffect.qml" line="64"/>
+        <source>Compute Error:
+</source>
+        <translation>计算错误：
+</translation>
+    </message>
+</context>
+<context>
     <name>BaseObject</name>
     <message>
         <location filename="../ui/qml/common/BaseObject.qml" line="42"/>
