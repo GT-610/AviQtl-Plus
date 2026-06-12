@@ -1341,37 +1341,37 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="160"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="162"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="202"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="219"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="221"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="236"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="238"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="370"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="401"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="571"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="573"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1381,17 +1381,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="315"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="317"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="296"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="428"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="430"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -2673,7 +2673,7 @@ Please restart the application to apply.</translation>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
         <source>インストール</source>
-        <translation type="unfinished"></translation>
+        <translation>Install</translation>
     </message>
     <message>
         <source>ここにドロップ</source>
@@ -3291,7 +3291,7 @@ Please restart the application to apply.</translation>
     <message>
         <location filename="../ui/qml/SettingDialog.qml" line="1514"/>
         <source>検索...</source>
-        <translation type="unfinished">Search...</translation>
+        <translation>Search...</translation>
     </message>
 </context>
 <context>
@@ -3757,7 +3757,7 @@ Please restart the application to apply.</translation>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="926"/>
         <source>複製</source>
-        <translation type="unfinished">Duplicate</translation>
+        <translation>Duplicate</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="928"/>
@@ -3777,12 +3777,12 @@ Please restart the application to apply.</translation>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="945"/>
         <source>エフェクトを追加</source>
-        <translation type="unfinished">Add Effect</translation>
+        <translation>Add Effect</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="969"/>
         <source>エフェクト/オブジェクトを検索...</source>
-        <translation type="unfinished"></translation>
+        <translation>Search effects/objects...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="533"/>

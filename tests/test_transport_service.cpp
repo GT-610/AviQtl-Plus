@@ -109,12 +109,12 @@ class TestTransportService : public QObject {
         QCOMPARE(svc.playbackSpeed(), 2.0);
         QCOMPARE(spy.count(), 1);
 
-        // Changing while playing should NOT emit (guard in code)
+        // Changing while playing should emit speed change (Issue #10 fix)
         svc.togglePlay();
         QVERIFY(svc.isPlaying());
         QSignalSpy spyPlaying(&svc, &TransportService::playbackSpeedChanged);
         svc.setPlaybackSpeed(0.5);
-        QCOMPARE(spyPlaying.count(), 0);
+        QCOMPARE(spyPlaying.count(), 1);
     }
 
     void setFps() {

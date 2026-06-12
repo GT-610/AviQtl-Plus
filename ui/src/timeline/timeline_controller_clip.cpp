@@ -98,7 +98,9 @@ static int findVacantFrameForLinkedMedia(const TimelineService *timeline, int vi
         }
         candidate = audioStart;
     }
-    return candidate;
+    const int videoStart = timeline->findVacantFrame(videoLayer, candidate, duration, -1);
+    const int audioStart = timeline->findVacantFrame(videoLayer + 1, videoStart, duration, -1);
+    return (audioStart == videoStart) ? videoStart : candidate;
 }
 
 void TimelineController::handleClipClick(int clipId, int modifiers) { // NOLINT(bugprone-easily-swappable-parameters)
@@ -815,9 +817,9 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
         return QVariantList(pixelWidth * 2, 0.0);
     }
 
-    int fps = static_cast<int>(m_project->fps());
-    if (fps <= 0) {
-        fps = 60;
+    double fps = m_project->fps();
+    if (fps <= 0.0) {
+        fps = 60.0;
     }
 
     const EffectModel *audioEffect = nullptr;
@@ -828,12 +830,11 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
         }
     }
 
-    const double frameStepSec = 1.0 / static_cast<double>(fps);
-    const double clipDurationSec = static_cast<double>(displayDurationFrames) / static_cast<double>(fps);
+    const double frameStepSec = 1.0 / fps;
+    const double clipDurationSec = static_cast<double>(displayDurationFrames) / fps;
     const QVariantMap params = audioEffect != nullptr ? audioEffect->params() : QVariantMap();
-    const QString source = params.value(QStringLiteral("source")).toString().toLower();
-    const bool sourceIsVideo = source.endsWith(QStringLiteral(".mp4")) || source.endsWith(QStringLiteral(".mov")) || source.endsWith(QStringLiteral(".avi")) || source.endsWith(QStringLiteral(".mkv")) || source.endsWith(QStringLiteral(".webm")) ||
-                               source.endsWith(QStringLiteral(".wmv"));
+    const QString source = params.value(QStringLiteral("source")).toString();
+    const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
     const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
     const QString playMode = params.value(QStringLiteral("playMode")).toString();
     const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
@@ -843,8 +844,8 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
     for (int i = 0; i < pixelWidth; ++i) {
         const int relFrame = std::clamp(static_cast<int>(std::floor(static_cast<double>(displayDurationFrames) * static_cast<double>(i) / static_cast<double>(pixelWidth))), 0, std::max(0, displayDurationFrames - 1));
         const int nextRelFrame = std::clamp(static_cast<int>(std::ceil(static_cast<double>(displayDurationFrames) * static_cast<double>(i + 1) / static_cast<double>(pixelWidth))), relFrame + 1, displayDurationFrames);
-        const double relSec = static_cast<double>(relFrame) / static_cast<double>(fps);
-        const double nextRelSec = static_cast<double>(nextRelFrame) / static_cast<double>(fps);
+        const double relSec = static_cast<double>(relFrame) / fps;
+        const double nextRelSec = static_cast<double>(nextRelFrame) / fps;
 
         double sourceStartSec = 0.0;
         double sourceDurationSec = frameStepSec;
