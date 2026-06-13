@@ -7,6 +7,7 @@
 #include <QQuickWindow>
 #include <QSGRendererInterface>
 #include <cstring>
+#include <mutex>
 #include <rhi/qrhi.h>
 #include <rhi/qshaderdescription.h>
 
@@ -26,11 +27,9 @@ static constexpr float kQuadData[] = {
 
 static QShader s_cachedBlitVert;
 static QShader s_cachedBlitFrag;
+static std::once_flag s_blitInitFlag;
 
-static bool ensureBlitShaders() {
-    if (s_cachedBlitVert.isValid() && s_cachedBlitFrag.isValid())
-        return true;
-
+static void loadBlitShaders() {
     QString baseDir = QCoreApplication::applicationDirPath();
     if (baseDir.endsWith("/bin"))
         baseDir.chop(4);
@@ -43,7 +42,10 @@ static bool ensureBlitShaders() {
     QFile ffile(shaderDir + "blit.frag.qsb");
     if (ffile.open(QIODevice::ReadOnly))
         s_cachedBlitFrag = QShader::fromSerialized(ffile.readAll());
+}
 
+static bool ensureBlitShaders() {
+    std::call_once(s_blitInitFlag, loadBlitShaders);
     return s_cachedBlitVert.isValid() && s_cachedBlitFrag.isValid();
 }
 } // namespace

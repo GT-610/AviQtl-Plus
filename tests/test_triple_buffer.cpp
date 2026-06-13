@@ -8,6 +8,10 @@ class TestTripleBuffer : public QObject {
     Q_OBJECT
 
 private slots:
+    void init() {
+        ECS::instance().cleanup();
+    }
+
     void commitAndGetSnapshot_basic() {
         auto &e = ECS::instance();
         e.clearEffectParams();

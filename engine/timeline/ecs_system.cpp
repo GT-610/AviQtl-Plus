@@ -59,6 +59,7 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
         render.startFrame = startFrame;
         render.durationFrames = durationFrames;
         editState.renderGraphDirty = true;
+        editState.renderGraphGeneration++;
     }
 
     markDirty(clipId);
@@ -152,8 +153,33 @@ auto ECS::getSnapshot() const -> const ECSState * {
     return &m_buffers[m_activeIndex.load(std::memory_order_acquire)];
 }
 
-auto ECS::isRenderGraphDirty() const -> bool { return m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphDirty; }
+auto ECS::isRenderGraphDirty() const -> bool {
+    return m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphGeneration > m_lastAckedGeneration;
+}
 
-void ECS::markRenderGraphClean() { m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphDirty = false; }
+void ECS::markRenderGraphClean() {
+    m_lastAckedGeneration = m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphGeneration;
+}
+
+void ECS::cleanup() {
+    for (auto &buf : m_buffers) {
+        buf.renderGraphDirty = false;
+        buf.renderGraphGeneration = 0;
+        buf.renderStates = {};
+        buf.audioStates = {};
+        buf.effectParams.clear();
+    }
+    for (auto &df : m_dirtyFlags) {
+        df.dirty.reset();
+        df.dirtyIds.clear();
+        df.fullSync = true;
+    }
+    m_editIndex = 1;
+    m_activeIndex.store(0, std::memory_order_relaxed);
+    m_pendingIndex.store(-1, std::memory_order_relaxed);
+    m_lastAckedGeneration = 0;
+    m_currentFrame = 0;
+    m_isPlaying = false;
+}
 
 } // namespace AviQtl::Engine::Timeline

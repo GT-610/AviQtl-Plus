@@ -280,7 +280,9 @@ void BakeController::bake(int sceneId, int currentFrame) {
     std::sort(entries.begin(), entries.end(), [](const EffectParamEntry &a, const EffectParamEntry &b) {
         if (a.clipId != b.clipId)
             return a.clipId < b.clipId;
-        return a.effectIndex < b.effectIndex;
+        if (a.effectIndex != b.effectIndex)
+            return a.effectIndex < b.effectIndex;
+        return std::strncmp(a.paramName, b.paramName, sizeof(a.paramName)) < 0;
     });
 
     // Build per-clip start index

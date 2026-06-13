@@ -158,6 +158,7 @@ struct EffectParamBuffer {
 
 struct ECSState {
     bool renderGraphDirty = false;
+    uint64_t renderGraphGeneration = 0;
     DenseComponentMap<RenderComponent> renderStates;
     DenseComponentMap<AudioComponent> audioStates;
 
@@ -180,6 +181,8 @@ class ECS {
 
     void commit();
 
+    void cleanup();
+
     ECSState &editState() { return m_buffers[m_editIndex]; }
 
     const ECSState *getSnapshot() const;
@@ -197,6 +200,8 @@ class ECS {
     mutable ::std::atomic<int> m_pendingIndex{-1};
 
     ::std::array<DirtyFlags, 3> m_dirtyFlags;
+
+    uint64_t m_lastAckedGeneration = 0;
 
     int m_currentFrame = 0;
     bool m_isPlaying = false;
