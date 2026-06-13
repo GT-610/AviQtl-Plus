@@ -10,6 +10,7 @@
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
 #include <QTimer>
+#include <algorithm>
 
 namespace AviQtl::UI {
 
@@ -208,7 +209,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         {
             const QString ext = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
             const QByteArray fmt = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
-            const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : quality;
+            const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : std::clamp(quality / 11, 0, 9);
             const QString filename = QStringLiteral("frame_") + QString::number(frame).rightJustified(padDigits, QChar::fromLatin1('0')) + ext;
             const QString filePath = outputDir.filePath(filename);
             if (!img.save(filePath, fmt, saveQuality)) {

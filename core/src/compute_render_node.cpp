@@ -301,8 +301,6 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
     m_renderTexture = wantedRenderTexture;
     m_error.clear();
 
-    auto *ri = m_window->rendererInterface();
-
     bool computeOk = false;
     if (!rhi->isFeatureSupported(QRhi::Compute)) {
         m_error = QStringLiteral("Compute shaders are not supported on this hardware/backend.");
@@ -388,10 +386,8 @@ void ComputeRenderNode::prepare() {
         m_verticesUploaded = true;
     }
 
-    static bool firstDispatch = true;
-    if (firstDispatch || m_shaderDirty) {
+    if (m_shaderDirty) {
         qCDebug(lcComputeRenderNode) << "ComputeRenderNode: Dispatching compute shader" << m_workGroupX << "x" << m_workGroupY;
-        firstDispatch = false;
     }
 
     if (m_ubuf) {

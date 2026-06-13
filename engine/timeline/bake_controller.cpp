@@ -154,7 +154,6 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     }
 
     render.effectCount = effectIdx;
-    render.effectStartIndex = 0;
 
     if (!hasTransform) {
         render.x = 0;

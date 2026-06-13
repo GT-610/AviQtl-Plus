@@ -44,7 +44,6 @@ class TimelineMediaManager : public QObject {
   private:
     static QUrl getClipSourceUrl(const ClipData &clip);
     void updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid, const ClipData *clip, int relFrame);
-    int sceneIdForClip(int clipId) const;
 
     TimelineController *m_controller;
     QPointer<AviQtl::Engine::AudioMixer> m_audioMixer;
