@@ -43,6 +43,8 @@ jobs:
                                 AviQtl_Test_audio_plugin_chain \
                                 AviQtl_Test_bake_controller \
                                 AviQtl_Test_ecs_render \
+                                AviQtl_Test_keyframe_evaluator \
+                                AviQtl_Test_triple_buffer \
                                 AviQtl_Test_lua_host \
                                 AviQtl_Test_selection_service \
                                 AviQtl_Test_project_service \

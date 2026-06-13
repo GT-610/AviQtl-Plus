@@ -7,6 +7,7 @@
 #include <QQuickWindow>
 #include <QSGRendererInterface>
 #include <cstring>
+#include <mutex>
 #include <rhi/qrhi.h>
 #include <rhi/qshaderdescription.h>
 
@@ -23,6 +24,30 @@ static constexpr int kParamsBlockSize = 32;
 static constexpr float kQuadData[] = {
     0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
+
+static QShader s_cachedBlitVert;
+static QShader s_cachedBlitFrag;
+static std::once_flag s_blitInitFlag;
+
+static void loadBlitShaders() {
+    QString baseDir = QCoreApplication::applicationDirPath();
+    if (baseDir.endsWith("/bin"))
+        baseDir.chop(4);
+    const QString shaderDir = baseDir + "/common/shaders/";
+
+    QFile vfile(shaderDir + "blit.vert.qsb");
+    if (vfile.open(QIODevice::ReadOnly))
+        s_cachedBlitVert = QShader::fromSerialized(vfile.readAll());
+
+    QFile ffile(shaderDir + "blit.frag.qsb");
+    if (ffile.open(QIODevice::ReadOnly))
+        s_cachedBlitFrag = QShader::fromSerialized(ffile.readAll());
+}
+
+static bool ensureBlitShaders() {
+    std::call_once(s_blitInitFlag, loadBlitShaders);
+    return s_cachedBlitVert.isValid() && s_cachedBlitFrag.isValid();
+}
 } // namespace
 
 ComputeRenderNode::ComputeRenderNode(QQuickWindow *window) : m_window(window) {}
@@ -34,7 +59,6 @@ void ComputeRenderNode::syncParams(const QVariantMap &params) {
         return;
     m_params = params;
     m_paramsDirty = true;
-    m_bufferLayoutDirty = true;
 }
 
 void ComputeRenderNode::syncShaderPath(const QString &path) {
@@ -51,7 +75,6 @@ void ComputeRenderNode::syncSize(float w, float h) {
     qCDebug(lcComputeRenderNode) << "ComputeRenderNode: Size changed to" << w << "x" << h;
     m_width = w;
     m_height = h;
-    m_bufferLayoutDirty = true;
 }
 
 void ComputeRenderNode::syncInputTexture(QSGTexture *tex) {
@@ -242,6 +265,8 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
                 if (m_error.isEmpty())
                     m_error = QStringLiteral("Compute shader resource bindings creation failed.");
                 qCWarning(lcComputeRenderNode) << m_error;
+            } else {
+                m_paramsDirty = true; // Force initial UBO upload after rebuild
             }
         }
     }
@@ -323,13 +348,8 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
         inputLayout.setAttributes({{0, 0, QRhiVertexInputAttribute::Float2, 0}, {0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float)}});
         m_renderPipeline->setVertexInputLayout(inputLayout);
 
-        QString baseDir = QCoreApplication::applicationDirPath();
-        if (baseDir.endsWith("/bin"))
-            baseDir.chop(4);
-        QString shaderDir = baseDir + "/common/shaders/";
-        QFile vfile(shaderDir + "blit.vert.qsb"), ffile(shaderDir + "blit.frag.qsb");
-        if (vfile.open(QIODevice::ReadOnly) && ffile.open(QIODevice::ReadOnly)) {
-            m_renderPipeline->setShaderStages({{QRhiShaderStage::Vertex, QShader::fromSerialized(vfile.readAll())}, {QRhiShaderStage::Fragment, QShader::fromSerialized(ffile.readAll())}});
+        if (ensureBlitShaders()) {
+            m_renderPipeline->setShaderStages({{QRhiShaderStage::Vertex, s_cachedBlitVert}, {QRhiShaderStage::Fragment, s_cachedBlitFrag}});
             auto *rt = renderTarget() ? renderTarget()->renderPassDescriptor() : nullptr;
             m_renderPipeline->setTargetBlends({{}});
             m_renderPipeline->setRenderPassDescriptor(rt);
@@ -384,7 +404,7 @@ void ComputeRenderNode::prepare() {
         batch->updateDynamicBuffer(m_ubuf, 0, 64, mvp.constData());
     }
 
-    if (m_paramUbuf && m_shader.isValid()) {
+    if (m_paramUbuf && m_shader.isValid() && m_paramsDirty) {
         const QShaderDescription desc = m_shader.description();
         const QList<QShaderDescription::UniformBlock> blocks = desc.uniformBlocks();
         const QShaderDescription::UniformBlock *paramBlock = nullptr;

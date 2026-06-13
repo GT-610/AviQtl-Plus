@@ -33,37 +33,26 @@ QVariantList ECSRenderBridge::renderStates() const {
         m[QStringLiteral("scaleX")] = rc.scaleX;
         m[QStringLiteral("scaleY")] = rc.scaleY;
         m[QStringLiteral("opacity")] = rc.opacity;
-        m[QStringLiteral("visible")] = rc.visible;
         m[QStringLiteral("clipByUpperObject")] = rc.clipByUpperObject;
-        m[QStringLiteral("typeIndex")] = rc.typeIndex;
         m[QStringLiteral("effectCount")] = rc.effectCount;
-        m[QStringLiteral("videoFrameKey")] = rc.videoFrameKey;
+        m[QStringLiteral("effectStartIndex")] = rc.effectStartIndex;
         states.append(m);
     });
 
     m_cachedStates = states;
 
-    QVariantMap epMap;
-    const auto &entries = snapshot->effectParams.entries;
-    for (const auto &entry : entries) {
-        const QString key = QString::number(entry.clipId) + QStringLiteral(":") + QString::number(entry.effectIndex);
-        QVariantMap params = epMap.value(key).toMap();
-
-        const QString paramName = QString::fromUtf8(entry.paramName);
-        if (entry.paramType == AviQtl::Engine::Timeline::ParamType::Color) {
-            QColor c;
-            c.setRedF(static_cast<double>(entry.value[0]));
-            c.setGreenF(static_cast<double>(entry.value[1]));
-            c.setBlueF(static_cast<double>(entry.value[2]));
-            c.setAlphaF(static_cast<double>(entry.value[3]));
-            params[paramName] = c.name(QColor::HexArgb);
+    // Cache sorted entries and build per-clip param index
+    m_cachedEntries = snapshot->effectParams.entries;
+    m_clipParamIndex.clear();
+    for (std::size_t i = 0; i < m_cachedEntries.size(); ++i) {
+        const uint32_t cid = m_cachedEntries[i].clipId;
+        auto it = m_clipParamIndex.find(static_cast<int>(cid));
+        if (it == m_clipParamIndex.end()) {
+            m_clipParamIndex[static_cast<int>(cid)] = {static_cast<uint32_t>(i), 1};
         } else {
-            params[paramName] = static_cast<double>(entry.value[0]);
+            it->second.count++;
         }
-
-        epMap[key] = params;
     }
-    m_cachedEffectParams = epMap;
 
     m_dirty = false;
     return m_cachedStates;
@@ -74,15 +63,32 @@ QVariantMap ECSRenderBridge::getEffectParams(int clipId) const {
         renderStates();
 
     QVariantMap result;
-    const QString prefix = QString::number(clipId) + QStringLiteral(":");
-    for (auto it = m_cachedEffectParams.constBegin(); it != m_cachedEffectParams.constEnd(); ++it) {
-        if (it.key().startsWith(prefix)) {
-            const QVariantMap params = it.value().toMap();
-            for (auto pit = params.constBegin(); pit != params.constEnd(); ++pit) {
-                result[pit.key()] = pit.value();
-            }
+
+    auto idxIt = m_clipParamIndex.find(clipId);
+    if (idxIt == m_clipParamIndex.end())
+        return result;
+
+    const uint32_t start = idxIt->second.start;
+    const uint32_t end = start + idxIt->second.count;
+
+    for (uint32_t i = start; i < end && i < m_cachedEntries.size(); ++i) {
+        const auto &entry = m_cachedEntries[i];
+        if (entry.clipId != static_cast<uint32_t>(clipId))
+            break;
+
+        const QString paramName = QString::fromUtf8(entry.paramName);
+        if (entry.paramType == AviQtl::Engine::Timeline::ParamType::Color) {
+            QColor c;
+            c.setRedF(static_cast<double>(entry.value[0]));
+            c.setGreenF(static_cast<double>(entry.value[1]));
+            c.setBlueF(static_cast<double>(entry.value[2]));
+            c.setAlphaF(static_cast<double>(entry.value[3]));
+            result[paramName] = c.name(QColor::HexArgb);
+        } else {
+            result[paramName] = static_cast<double>(entry.value[0]);
         }
     }
+
     return result;
 }
 

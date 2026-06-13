@@ -11,21 +11,6 @@
 #include <utility>
 #include <vector>
 
-namespace AviQtl::ECS {
-
-struct KeyframeRefComponent {
-    uint32_t clipId = 0;
-};
-struct GlobalMatrixComponent {
-    float m[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-};
-
-} // namespace AviQtl::ECS
-
-namespace AviQtl::UI {
-class CoreBridge;
-}
-
 namespace AviQtl::Engine::Timeline {
 
 inline constexpr int MAX_CLIP_ID = 4096;
@@ -149,14 +134,10 @@ struct RenderComponent {
     float scaleX = 1, scaleY = 1;
     float opacity = 1;
 
-    bool visible = true;
     bool clipByUpperObject = false;
 
-    uint16_t typeIndex = 0;
     uint16_t effectCount = 0;
     uint32_t effectStartIndex = 0;
-
-    int videoFrameKey = -1;
 };
 static_assert(::std::is_trivially_copyable_v<RenderComponent>);
 
@@ -176,12 +157,9 @@ struct EffectParamBuffer {
 };
 
 struct ECSState {
-    bool renderGraphDirty = false;
+    uint64_t renderGraphGeneration = 0;
     DenseComponentMap<RenderComponent> renderStates;
     DenseComponentMap<AudioComponent> audioStates;
-
-    DenseComponentMap<AviQtl::ECS::KeyframeRefComponent> keyframeRefs;
-    DenseComponentMap<AviQtl::ECS::GlobalMatrixComponent> globalMatrices;
 
     EffectParamBuffer effectParams;
 };
@@ -189,11 +167,6 @@ struct ECSState {
 class ECS {
   public:
     static ECS &instance();
-
-    void runCommandSystem(AviQtl::UI::CoreBridge &bridge);
-
-    int currentFrame() const { return m_currentFrame; }
-    bool isPlaying() const { return m_isPlaying; }
 
     void syncClipIds(const ::std::bitset<MAX_CLIP_ID> &aliveFlags);
     void updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames);
@@ -203,6 +176,8 @@ class ECS {
     void addEffectParam(const EffectParamEntry &entry);
 
     void commit();
+
+    void cleanup();
 
     ECSState &editState() { return m_buffers[m_editIndex]; }
 
@@ -222,8 +197,7 @@ class ECS {
 
     ::std::array<DirtyFlags, 3> m_dirtyFlags;
 
-    int m_currentFrame = 0;
-    bool m_isPlaying = false;
+    uint64_t m_lastAckedGeneration = 0;
 };
 
 } // namespace AviQtl::Engine::Timeline

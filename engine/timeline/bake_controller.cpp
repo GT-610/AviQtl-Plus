@@ -274,6 +274,30 @@ void BakeController::bake(int sceneId, int currentFrame) {
     }
 
     ecs.syncClipIds(aliveFlags);
+
+    // Index effect params by clipId for O(1) lookup in bridge
+    auto &entries = ecs.editState().effectParams.entries;
+    std::sort(entries.begin(), entries.end(), [](const EffectParamEntry &a, const EffectParamEntry &b) {
+        if (a.clipId != b.clipId)
+            return a.clipId < b.clipId;
+        if (a.effectIndex != b.effectIndex)
+            return a.effectIndex < b.effectIndex;
+        return std::strncmp(a.paramName, b.paramName, sizeof(a.paramName)) < 0;
+    });
+
+    // Build per-clip start index
+    uint32_t lastClipId = UINT32_MAX;
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        const auto &e = entries[i];
+        if (e.clipId != lastClipId) {
+            lastClipId = e.clipId;
+            auto *rc = ecs.editState().renderStates.find(static_cast<int>(e.clipId));
+            if (rc) {
+                rc->effectStartIndex = static_cast<uint32_t>(i);
+            }
+        }
+    }
+
     ecs.commit();
 
     m_lastSceneId = sceneId;

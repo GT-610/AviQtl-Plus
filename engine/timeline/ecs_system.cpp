@@ -1,7 +1,6 @@
 #include "ecs.hpp"
 #include "ecs_profiler.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
-#include "ui/include/bridge/core_bridge.hpp"
 #include <QDebug>
 #include <cassert>
 #include <cmath>
@@ -17,24 +16,6 @@ void ECS::markDirty(int clipId) {
         }
     }
     ECS_PROF_INC(dirtyBitSetCount);
-}
-
-void ECS::runCommandSystem(AviQtl::UI::CoreBridge &bridge) {
-    AviQtl::UI::CoreBridge::Command cmd;
-    while (bridge.dequeueCommand(cmd)) {
-        switch (cmd.type) {
-        case AviQtl::UI::CoreBridge::CommandType::Seek:
-            m_currentFrame = cmd.value;
-            bridge.notifyFrameAdvanced(m_currentFrame);
-            break;
-        case AviQtl::UI::CoreBridge::CommandType::Play:
-            m_isPlaying = true;
-            break;
-        case AviQtl::UI::CoreBridge::CommandType::Pause:
-            m_isPlaying = false;
-            break;
-        }
-    }
 }
 
 ECS::ECS() : m_editIndex(1) {
@@ -54,9 +35,6 @@ void ECS::syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
     changed |= editState.renderStates.syncAlive(aliveFlags);
     changed |= editState.audioStates.syncAlive(aliveFlags);
 
-    changed |= editState.keyframeRefs.syncAlive(aliveFlags);
-    changed |= editState.globalMatrices.syncAlive(aliveFlags);
-
     if (changed) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
@@ -73,13 +51,14 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
         ptr = &editState.renderStates[clipId];
     }
     auto &render = *ptr;
-    bool changed = (render.layer != layer) || (std::abs(render.timePosition - time) > 0.001) || (render.startFrame != startFrame) || (render.durationFrames != durationFrames);
+    bool changed = (render.clipId != clipId) || (render.layer != layer) || (std::abs(render.timePosition - time) > 0.001) || (render.startFrame != startFrame) || (render.durationFrames != durationFrames);
     if (changed) {
+        render.clipId = clipId;
         render.layer = layer;
         render.timePosition = time;
         render.startFrame = startFrame;
         render.durationFrames = durationFrames;
-        editState.renderGraphDirty = true;
+        editState.renderGraphGeneration++;
     }
 
     markDirty(clipId);
@@ -146,18 +125,13 @@ void ECS::commit() {
     } else {
         const auto &src = m_buffers[justWritten];
         auto &dst = m_buffers[m_editIndex];
-        dst.renderGraphDirty = src.renderGraphDirty;
+        dst.renderGraphGeneration = src.renderGraphGeneration;
 
         for (int id : df.dirtyIds) {
             if (const auto *s = src.renderStates.find(id))
                 dst.renderStates[id] = *s;
             if (const auto *s = src.audioStates.find(id))
                 dst.audioStates[id] = *s;
-
-            if (const auto *s = src.keyframeRefs.find(id))
-                dst.keyframeRefs[id] = *s;
-            if (const auto *s = src.globalMatrices.find(id))
-                dst.globalMatrices[id] = *s;
         }
         df.dirty.reset();
         df.dirtyIds.clear();
@@ -178,8 +152,30 @@ auto ECS::getSnapshot() const -> const ECSState * {
     return &m_buffers[m_activeIndex.load(std::memory_order_acquire)];
 }
 
-auto ECS::isRenderGraphDirty() const -> bool { return m_buffers[m_editIndex].renderGraphDirty; }
+auto ECS::isRenderGraphDirty() const -> bool {
+    return m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphGeneration > m_lastAckedGeneration;
+}
 
-void ECS::markRenderGraphClean() { m_buffers[m_editIndex].renderGraphDirty = false; }
+void ECS::markRenderGraphClean() {
+    m_lastAckedGeneration = m_buffers[m_activeIndex.load(std::memory_order_acquire)].renderGraphGeneration;
+}
+
+void ECS::cleanup() {
+    for (auto &buf : m_buffers) {
+        buf.renderGraphGeneration = 0;
+        buf.renderStates = {};
+        buf.audioStates = {};
+        buf.effectParams.clear();
+    }
+    for (auto &df : m_dirtyFlags) {
+        df.dirty.reset();
+        df.dirtyIds.clear();
+        df.fullSync = true;
+    }
+    m_editIndex = 1;
+    m_activeIndex.store(0, std::memory_order_relaxed);
+    m_pendingIndex.store(-1, std::memory_order_relaxed);
+    m_lastAckedGeneration = 0;
+}
 
 } // namespace AviQtl::Engine::Timeline
