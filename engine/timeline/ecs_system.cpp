@@ -58,7 +58,6 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
         render.timePosition = time;
         render.startFrame = startFrame;
         render.durationFrames = durationFrames;
-        editState.renderGraphDirty = true;
         editState.renderGraphGeneration++;
     }
 
@@ -126,7 +125,7 @@ void ECS::commit() {
     } else {
         const auto &src = m_buffers[justWritten];
         auto &dst = m_buffers[m_editIndex];
-        dst.renderGraphDirty = src.renderGraphDirty;
+        dst.renderGraphGeneration = src.renderGraphGeneration;
 
         for (int id : df.dirtyIds) {
             if (const auto *s = src.renderStates.find(id))
@@ -163,7 +162,6 @@ void ECS::markRenderGraphClean() {
 
 void ECS::cleanup() {
     for (auto &buf : m_buffers) {
-        buf.renderGraphDirty = false;
         buf.renderGraphGeneration = 0;
         buf.renderStates = {};
         buf.audioStates = {};
@@ -178,8 +176,6 @@ void ECS::cleanup() {
     m_activeIndex.store(0, std::memory_order_relaxed);
     m_pendingIndex.store(-1, std::memory_order_relaxed);
     m_lastAckedGeneration = 0;
-    m_currentFrame = 0;
-    m_isPlaying = false;
 }
 
 } // namespace AviQtl::Engine::Timeline

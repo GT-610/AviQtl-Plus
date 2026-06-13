@@ -157,7 +157,6 @@ struct EffectParamBuffer {
 };
 
 struct ECSState {
-    bool renderGraphDirty = false;
     uint64_t renderGraphGeneration = 0;
     DenseComponentMap<RenderComponent> renderStates;
     DenseComponentMap<AudioComponent> audioStates;
@@ -168,9 +167,6 @@ struct ECSState {
 class ECS {
   public:
     static ECS &instance();
-
-    int currentFrame() const { return m_currentFrame; }
-    bool isPlaying() const { return m_isPlaying; }
 
     void syncClipIds(const ::std::bitset<MAX_CLIP_ID> &aliveFlags);
     void updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames);
@@ -202,9 +198,6 @@ class ECS {
     ::std::array<DirtyFlags, 3> m_dirtyFlags;
 
     uint64_t m_lastAckedGeneration = 0;
-
-    int m_currentFrame = 0;
-    bool m_isPlaying = false;
 };
 
 } // namespace AviQtl::Engine::Timeline
