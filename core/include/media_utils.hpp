@@ -15,4 +15,6 @@ inline bool isVideoFile(QStringView path) {
            lower.endsWith(QStringLiteral(".webm")) || lower.endsWith(QStringLiteral(".wmv"));
 }
 
+double mediaDurationSeconds(const QString &path, int mediaType);
+
 } // namespace AviQtl::Core::MediaUtils

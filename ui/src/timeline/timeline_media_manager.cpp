@@ -132,7 +132,7 @@ void TimelineMediaManager::updateMediaDecoders() {
 
     for (const auto &scene : std::as_const(scenes)) {
         for (const auto &clip : std::as_const(scene.clips)) {
-            if (clip.type != "video" && clip.type != "audio" && clip.type != QStringLiteral("image")) {
+            if (clip.type != QStringLiteral("video") && clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("image")) {
                 continue;
             }
 
@@ -249,13 +249,23 @@ void TimelineMediaManager::updateMediaDecoders() {
                 m_audioMixer->unregisterDecoder(it.key());
             }
             if (m_videoFrameStore != nullptr) {
-                // キー形式を ImageDecoder 等と統一 (clipId のみを使用)
                 m_videoFrameStore->invalidateFrame(QString::number(it.key()));
             }
             if (it.value()) {
                 it.value()->deleteLater();
             }
             it = m_decoders.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    for (auto it = m_imageDecoders.begin(); it != m_imageDecoders.end();) {
+        if (!currentClipIds.contains(it.key())) {
+            if (it.value()) {
+                it.value()->deleteLater();
+            }
+            it = m_imageDecoders.erase(it);
         } else {
             ++it;
         }
@@ -299,17 +309,6 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
         }
         return;
     }
-}
-
-auto TimelineMediaManager::sceneIdForClip(int clipId) const -> int {
-    for (const auto &scene : m_controller->timeline()->getAllScenes()) {
-        for (const auto &clip : std::as_const(scene.clips)) {
-            if (clip.id == clipId) {
-                return scene.id;
-            }
-        }
-    }
-    return -1;
 }
 
 void TimelineMediaManager::requestVideoFrame(int clipId, int relFrame) { // NOLINT(bugprone-easily-swappable-parameters)
