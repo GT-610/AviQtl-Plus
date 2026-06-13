@@ -597,7 +597,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
             bool isDirectMode = false;
 
             for (const auto *eff : clip->effects) {
-                if (eff->id() != "video") {
+                if (eff->id() != QLatin1String("video")) {
                     continue;
                 }
                 const auto &p = eff->params();
@@ -639,7 +639,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
             bool isDirectMode = false;
 
             for (const auto *eff : clip->effects) {
-                if (eff->id() != "audio") {
+                if (eff->id() != QLatin1String("audio")) {
                     continue;
                 }
                 const auto &p = eff->params();
@@ -674,7 +674,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
         int offset = 0;
 
         for (const auto *eff : clip->effects) {
-            if (eff->id() != "scene") {
+            if (eff->id() != QLatin1String("scene")) {
                 continue;
             }
             const auto &p = eff->params();

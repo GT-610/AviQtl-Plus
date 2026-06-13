@@ -176,6 +176,10 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
     audio.startFrame = clip.startFrame;
     audio.durationFrames = clip.durationFrames;
 
+    if (fps <= 0.0) {
+        return audio;
+    }
+
     for (const auto &effect : clip.effects) {
         if (!effect.enabled || effect.id != QStringLiteral("audio")) {
             continue;

@@ -132,7 +132,7 @@ void TimelineMediaManager::updateMediaDecoders() {
 
     for (const auto &scene : std::as_const(scenes)) {
         for (const auto &clip : std::as_const(scene.clips)) {
-            if (clip.type != "video" && clip.type != "audio" && clip.type != QStringLiteral("image")) {
+            if (clip.type != QStringLiteral("video") && clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("image")) {
                 continue;
             }
 
