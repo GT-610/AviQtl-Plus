@@ -1341,37 +1341,37 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="162"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
         <source>プロパティ変更: %1</source>
         <translation>属性更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="161"/>
         <source>開始フレーム変更</source>
         <translation>起始帧更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="221"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="178"/>
         <source>長さ変更</source>
         <translation>长度更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="238"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="195"/>
         <source>レイヤー変更</source>
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="370"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="328"/>
         <source>音声をインポート</source>
         <translation>导入音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="401"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="360"/>
         <source>画像をインポート</source>
         <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="573"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="532"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1381,17 +1381,17 @@
         <translation>保存目标文件路径未知</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="317"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="274"/>
         <source>動画をインポート</source>
         <translation>导入视频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="255"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="430"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="389"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>
@@ -1411,19 +1411,19 @@
         <translation type="vanished">导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="44"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="53"/>
         <source>Encoder initialization failed</source>
         <translation>编码器初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="74"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="172"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="178"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="116"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="229"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="122"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="231"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
@@ -1433,12 +1433,12 @@
         <translation>无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="203"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
         <source>Failed to capture frame %1</source>
         <translation>捕获帧 %1 失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="217"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="220"/>
         <source>Failed to save frame %1</source>
         <translation>保存帧 %1 失败</translation>
     </message>
@@ -3213,12 +3213,12 @@
         <translation>粘贴多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="229"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="202"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>删除效果（%1 项）</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="380"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="353"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>更改效果顺序（%1 项）</translation>
     </message>

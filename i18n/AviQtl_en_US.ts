@@ -1341,37 +1341,37 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="162"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="161"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="221"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="178"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="238"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="195"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="370"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="328"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="401"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="360"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="573"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="532"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1381,17 +1381,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="317"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="274"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="255"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="430"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="389"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -1411,19 +1411,19 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation type="vanished">Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="44"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="53"/>
         <source>Encoder initialization failed</source>
         <translation>Encoder initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="74"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="172"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="178"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="116"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="229"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="122"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="231"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
@@ -1433,12 +1433,12 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="203"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
         <source>Failed to capture frame %1</source>
         <translation>Failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="217"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="220"/>
         <source>Failed to save frame %1</source>
         <translation>Failed to save frame %1</translation>
     </message>
@@ -3209,12 +3209,12 @@ Please restart the application to apply.</translation>
         <translation>Paste multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="229"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="202"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>Delete effects (%1 items)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="380"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="353"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>Change effect order (%1 items)</translation>
     </message>
