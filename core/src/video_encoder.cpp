@@ -347,6 +347,10 @@ auto VideoEncoder::pushFrame(const QImage &img, int64_t pts) -> bool {
     if (m_errorOccurred) {
         return false;
     }
+    if (!m_fmtCtx || !m_encCtx) {
+        qWarning() << "VideoEncoder::pushFrame called before open().";
+        return false;
+    }
 
     std::unique_lock<std::mutex> lock(m_queueMutex);
     // バックプレッシャー: キューがいっぱいなら消費されるのを待つ

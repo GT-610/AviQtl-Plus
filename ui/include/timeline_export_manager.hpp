@@ -1,7 +1,9 @@
 #pragma once
 #include "../../core/include/video_encoder.hpp"
+#include <QImage>
 #include <QObject>
 #include <QPointer>
+#include <QQuickItem>
 #include <QString>
 #include <QThread>
 #include <atomic>
@@ -33,6 +35,7 @@ class TimelineExportManager : public QObject {
   private:
     void runExport(const AviQtl::Core::VideoEncoder::Config &config);
     void runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame);
+    QImage grabFrame(QPointer<QQuickItem> targetItem, const QSize &size, int timeoutMs);
     TimelineController *m_controller;
     QPointer<QThread> m_exportThread;
     std::atomic<bool> m_exporting{false};

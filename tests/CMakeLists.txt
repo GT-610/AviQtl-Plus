@@ -78,6 +78,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME video_encoder
+    SOURCES test_video_encoder.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI
