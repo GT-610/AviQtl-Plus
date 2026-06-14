@@ -36,25 +36,7 @@ jobs:
       - name: Run Tests
         run: |
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target AviQtl_Test_effect_registry \
-                                AviQtl_Test_document_model \
-                                AviQtl_Test_settings_manager \
-                                AviQtl_Test_preset_manager \
-                                AviQtl_Test_theme_controller \
-                                AviQtl_Test_media_decoder \
-                                AviQtl_Test_video_encoder \
-                                AviQtl_Test_effect_model \
-                                AviQtl_Test_dense_component_map \
-                                AviQtl_Test_audio_plugin_chain \
-                                AviQtl_Test_bake_controller \
-                                AviQtl_Test_ecs_render \
-                                AviQtl_Test_keyframe_evaluator \
-                                AviQtl_Test_triple_buffer \
-                                AviQtl_Test_lua_host \
-                                AviQtl_Test_selection_service \
-                                AviQtl_Test_project_service \
-                                AviQtl_Test_transport_service \
-                                AviQtl_Test_clip_by_upper_object
+          cmake --build build
           cd build && ctest --output-on-failure
         env:
           QT_QPA_PLATFORM: offscreen
