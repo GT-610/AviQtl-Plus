@@ -1408,14 +1408,14 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="23"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="36"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="39"/>
         <source>Invalid export configuration</source>
-        <translation type="unfinished"></translation>
+        <translation>エクスポート設定が無効です</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="27"/>
         <source>Export end frame must be after start frame</source>
-        <translation type="unfinished"></translation>
+        <translation>エクスポート終了フレームは開始フレームより後にする必要があります</translation>
     </message>
 </context>
 <context>

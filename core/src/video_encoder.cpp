@@ -518,7 +518,14 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
             }
             av_packet_rescale_ts(pkt.get(), m_encCtx->time_base, m_stream->time_base);
             pkt->stream_index = m_stream->index;
-            av_interleaved_write_frame(m_fmtCtx, pkt.get());
+            int writeRet = av_interleaved_write_frame(m_fmtCtx, pkt.get());
+            if (writeRet < 0) {
+                char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+                av_strerror(writeRet, errbuf, sizeof(errbuf));
+                qWarning() << "av_interleaved_write_frame failed:" << errbuf;
+                m_errorOccurred = true;
+                return false;
+            }
             packetRead = true;
         }
         if (!packetRead) {
@@ -533,6 +540,7 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
 
     if (ret < 0) {
         qWarning() << "Error sending frame to codec:" << ret;
+        m_errorOccurred = true;
         return false;
     }
 
@@ -547,6 +555,7 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
         }
         if (ret < 0) {
             qWarning() << "Error during encoding.";
+            m_errorOccurred = true;
             return false;
         }
 
@@ -558,7 +567,14 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
         av_packet_rescale_ts(pkt.get(), m_encCtx->time_base, m_stream->time_base);
         pkt->stream_index = m_stream->index;
 
-        av_interleaved_write_frame(m_fmtCtx, pkt.get());
+        int writeRet = av_interleaved_write_frame(m_fmtCtx, pkt.get());
+        if (writeRet < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+            av_strerror(writeRet, errbuf, sizeof(errbuf));
+            qWarning() << "av_interleaved_write_frame failed:" << errbuf;
+            m_errorOccurred = true;
+            return false;
+        }
     }
 
     return true;
@@ -665,7 +681,14 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
 
                 av_packet_rescale_ts(pkt.get(), m_audioEncCtx->time_base, m_audioStream->time_base);
                 pkt->stream_index = m_audioStream->index;
-                av_interleaved_write_frame(m_fmtCtx, pkt.get());
+                int writeRet = av_interleaved_write_frame(m_fmtCtx, pkt.get());
+                if (writeRet < 0) {
+                    char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+                    av_strerror(writeRet, errbuf, sizeof(errbuf));
+                    qWarning() << "[VideoEncoder] av_interleaved_write_frame failed:" << errbuf;
+                    m_errorOccurred = true;
+                    return false;
+                }
                 packetRead = true;
             }
             if (!packetRead) {
@@ -676,6 +699,7 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
 
         if (ret < 0) {
             qWarning() << "Error sending audio frame to codec:" << ret;
+            m_errorOccurred = true;
             return false;
         }
 
@@ -689,12 +713,20 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
                 break;
             }
             if (rxRet < 0) {
+                m_errorOccurred = true;
                 return false;
             }
 
             av_packet_rescale_ts(pkt.get(), m_audioEncCtx->time_base, m_audioStream->time_base);
             pkt->stream_index = m_audioStream->index;
-            av_interleaved_write_frame(m_fmtCtx, pkt.get());
+            int writeRet = av_interleaved_write_frame(m_fmtCtx, pkt.get());
+            if (writeRet < 0) {
+                char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+                av_strerror(writeRet, errbuf, sizeof(errbuf));
+                qWarning() << "[VideoEncoder] av_interleaved_write_frame failed:" << errbuf;
+                m_errorOccurred = true;
+                return false;
+            }
         }
     }
     return true;
@@ -767,11 +799,41 @@ void VideoEncoder::close() {
         }
         av_packet_rescale_ts(pkt.get(), m_encCtx->time_base, m_stream->time_base);
         pkt->stream_index = m_stream->index;
-        av_interleaved_write_frame(m_fmtCtx, pkt.get());
+        int writeRet = av_interleaved_write_frame(m_fmtCtx, pkt.get());
+        if (writeRet < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+            av_strerror(writeRet, errbuf, sizeof(errbuf));
+            qWarning() << "av_interleaved_write_frame failed during video flush:" << errbuf;
+            m_errorOccurred = true;
+            break;
+        }
     }
 
     // Flush audio encoder.
     if (m_audioEncCtx != nullptr) {
+        // Drain any remaining samples that did not fill a full encoder frame.
+        if (m_audioFifo != nullptr && av_audio_fifo_size(m_audioFifo) > 0) {
+            const int remaining = av_audio_fifo_size(m_audioFifo);
+            if (av_frame_make_writable(m_audioFrame) >= 0) {
+                if (av_audio_fifo_read(m_audioFifo, reinterpret_cast<void **>(m_audioFrame->data), remaining) >= 0) {
+                    // Pad with silence up to the encoder frame size if the encoder requires it.
+                    if (remaining < m_audioEncCtx->frame_size) {
+                        av_samples_set_silence(m_audioFrame->data, remaining,
+                                              m_audioEncCtx->frame_size - remaining,
+                                              m_audioEncCtx->ch_layout.nb_channels,
+                                              m_audioEncCtx->sample_fmt);
+                        m_audioFrame->nb_samples = m_audioEncCtx->frame_size;
+                    }
+                    m_audioFrame->pts = m_audioPts;
+                    m_audioPts += m_audioFrame->nb_samples;
+                    int sendRet = avcodec_send_frame(m_audioEncCtx, m_audioFrame);
+                    if (sendRet < 0) {
+                        qWarning() << "Error sending final audio frame:" << sendRet;
+                    }
+                }
+            }
+        }
+
         ret = avcodec_send_frame(m_audioEncCtx, nullptr);
         while (ret >= 0 || ret == AVERROR(EAGAIN)) {
             AvPacketPtr pkt(av_packet_alloc());
@@ -788,7 +850,14 @@ void VideoEncoder::close() {
             }
             av_packet_rescale_ts(pkt.get(), m_audioEncCtx->time_base, m_audioStream->time_base);
             pkt->stream_index = m_audioStream->index;
-            av_interleaved_write_frame(m_fmtCtx, pkt.get());
+            int writeRet = av_interleaved_write_frame(m_fmtCtx, pkt.get());
+            if (writeRet < 0) {
+                char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+                av_strerror(writeRet, errbuf, sizeof(errbuf));
+                qWarning() << "av_interleaved_write_frame failed during audio flush:" << errbuf;
+                m_errorOccurred = true;
+                break;
+            }
         }
     }
 

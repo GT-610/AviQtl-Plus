@@ -4,6 +4,11 @@
 #include <QImage>
 #include <QTemporaryDir>
 #include <QTest>
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+}
 
 using namespace AviQtl::Core;
 
@@ -59,6 +64,34 @@ class TestVideoEncoder : public QObject {
         encoder.close();
         QVERIFY(QFile::exists(outputPath));
         QVERIFY(QFile(outputPath).size() > 0);
+
+        // Verify the container contains the expected number of video frames.
+        AVFormatContext *fmtCtx = nullptr;
+        const int openRet = avformat_open_input(&fmtCtx, outputPath.toUtf8().constData(), nullptr, nullptr);
+        QVERIFY(openRet >= 0);
+        if (openRet >= 0) {
+            QVERIFY(avformat_find_stream_info(fmtCtx, nullptr) >= 0);
+            int videoStreamIndex = -1;
+            for (unsigned int i = 0; i < fmtCtx->nb_streams; ++i) {
+                if (fmtCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+                    videoStreamIndex = static_cast<int>(i);
+                    break;
+                }
+            }
+            QVERIFY(videoStreamIndex >= 0);
+
+            int frameCount = 0;
+            AVPacket *pkt = av_packet_alloc();
+            while (av_read_frame(fmtCtx, pkt) >= 0) {
+                if (pkt->stream_index == videoStreamIndex) {
+                    ++frameCount;
+                }
+                av_packet_unref(pkt);
+            }
+            av_packet_free(&pkt);
+            avformat_close_input(&fmtCtx);
+            QCOMPARE(frameCount, 5);
+        }
     }
 
     void pushFrameReturnsFalseAfterError() {

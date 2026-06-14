@@ -1408,14 +1408,14 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="23"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="36"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="39"/>
         <source>Invalid export configuration</source>
-        <translation type="unfinished"></translation>
+        <translation>导出配置无效</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="27"/>
         <source>Export end frame must be after start frame</source>
-        <translation type="unfinished"></translation>
+        <translation>导出结束帧必须晚于起始帧</translation>
     </message>
 </context>
 <context>

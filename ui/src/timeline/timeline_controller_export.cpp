@@ -36,7 +36,9 @@ void TimelineController::exportImageSequence(const QString &dir, int quality, co
         emit exportFinished(false, tr("Invalid export configuration"));
         return;
     }
-    m_exportManager->exportImageSequence(dir, quality, format, startFrame, endFrame);
+    if (!m_exportManager->exportImageSequence(dir, quality, format, startFrame, endFrame)) {
+        emit exportFinished(false, tr("Failed to start image sequence export"));
+    }
 }
 
 void TimelineController::cancelExport() { m_exportManager->cancelExport(); }

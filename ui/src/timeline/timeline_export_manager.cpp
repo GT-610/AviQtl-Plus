@@ -109,12 +109,11 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     }
 
     const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = settings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
+    const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
 
     // Accumulate audio sample time with integer numerators to avoid drift.
     int64_t audioSampleAccumulator = 0;
     const int64_t audioSampleNum = sr;
-    const int64_t audioSampleDen = qRound(fps);
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
@@ -137,7 +136,9 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         encoder.pushFrame(img, frame - startFrame);
 
         // Calculate audio samples for this frame using fractional accumulation to prevent A/V drift.
-        const int64_t nextAudioSample = ((frame - startFrame + 1LL) * audioSampleNum) / audioSampleDen;
+        // Keep the denominator as a scaled integer to preserve fractional frame rates.
+        const int64_t scaledFpsDen = static_cast<int64_t>(fps * 1000.0);
+        const int64_t nextAudioSample = ((frame - startFrame + 1LL) * audioSampleNum * 1000LL) / scaledFpsDen;
         const int samplesNeeded = static_cast<int>(nextAudioSample - audioSampleAccumulator);
         audioSampleAccumulator = nextAudioSample;
 
@@ -215,6 +216,9 @@ QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const Q
 }
 
 void TimelineExportManager::runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
+    m_exporting = true;
+    auto exportingGuard = qScopeGuard([this]() -> void { m_exporting = false; });
+
     QDir outputDir(dir);
     const int totalFrames = endFrame - startFrame;
     const int padDigits = static_cast<int>(QString::number(endFrame).length());
@@ -243,7 +247,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
     const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = settings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
+    const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
