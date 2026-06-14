@@ -165,7 +165,6 @@ jobs:
           GIT_TERMINAL_PROMPT: 0
 
       - name: Upload Artifact
-        if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
@@ -173,13 +172,40 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  release:
+    name: Create Release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine Version
+        id: version
+        shell: bash
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
+          CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
+          if [ -n "$CODENAME" ]; then
+            echo "release_name=$VERSION $CODENAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: AviQtl-*
+          merge-multiple: true
+
       - name: Create GitHub Release
-        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.version.outputs.release_name }}
           generate_release_notes: true
-          files: ${{ matrix.artifact_path }}
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
