@@ -612,10 +612,13 @@ Common.AviQtlWindow {
         modal: true
         anchors.centerIn: parent
         standardButtons: Dialog.Yes | Dialog.No
-        contentItem: Label {
-            text: qsTr("書き出しをキャンセルしますか？\n進捗は失われます。")
-            wrapMode: Text.WordWrap
-            padding: 12
+        contentItem: ColumnLayout {
+            Label {
+                text: qsTr("書き出しをキャンセルしますか？\n進捗は失われます。")
+                wrapMode: Text.WordWrap
+                padding: 12
+                Layout.fillWidth: true
+            }
         }
         onAccepted: {
             if (Workspace.currentTimeline)
