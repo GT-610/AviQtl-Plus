@@ -42,6 +42,7 @@ jobs:
                                 AviQtl_Test_preset_manager \
                                 AviQtl_Test_theme_controller \
                                 AviQtl_Test_media_decoder \
+                                AviQtl_Test_video_encoder \
                                 AviQtl_Test_effect_model \
                                 AviQtl_Test_dense_component_map \
                                 AviQtl_Test_audio_plugin_chain \
