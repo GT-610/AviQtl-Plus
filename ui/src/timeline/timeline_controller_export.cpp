@@ -1,6 +1,7 @@
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
+#include <cmath>
 
 namespace AviQtl::UI {
 
@@ -25,6 +26,12 @@ void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     }
     if (c.endFrame >= 0 && c.endFrame <= c.startFrame) {
         emit exportFinished(false, tr("Export end frame must be after start frame"));
+        return;
+    }
+
+    const double projectFps = project()->fps();
+    if (projectFps <= 0.0 || std::abs((c.fps_num / static_cast<double>(c.fps_den)) - projectFps) > 0.001) {
+        emit exportFinished(false, tr("Export FPS does not match project FPS"));
         return;
     }
 

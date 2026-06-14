@@ -1407,15 +1407,25 @@
         <translation>不支持的文件格式：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="23"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="39"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="43"/>
         <source>Invalid export configuration</source>
         <translation>导出配置无效</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="27"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="28"/>
         <source>Export end frame must be after start frame</source>
         <translation>导出结束帧必须晚于起始帧</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="47"/>
+        <source>Failed to start image sequence export</source>
+        <translation>无法开始图像序列导出</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="34"/>
+        <source>Export FPS does not match project FPS</source>
+        <translation>导出帧率与项目帧率不匹配</translation>
     </message>
 </context>
 <context>
@@ -1438,30 +1448,30 @@
         <translation>编码器初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="250"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="120"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="254"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="156"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="286"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="157"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="290"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="166"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
         <source>Cannot create output directory</source>
         <translation>无法创建输出目录</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="239"/>
         <source>Failed to capture frame %1</source>
         <translation>捕获帧 %1 失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="279"/>
         <source>Failed to save frame %1</source>
         <translation>保存帧 %1 失败</translation>
     </message>

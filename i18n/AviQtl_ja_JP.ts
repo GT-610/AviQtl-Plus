@@ -1407,15 +1407,25 @@
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="23"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="39"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="43"/>
         <source>Invalid export configuration</source>
         <translation>エクスポート設定が無効です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="27"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="28"/>
         <source>Export end frame must be after start frame</source>
         <translation>エクスポート終了フレームは開始フレームより後にする必要があります</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="47"/>
+        <source>Failed to start image sequence export</source>
+        <translation>画像シーケンスのエクスポートを開始できませんでした</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="34"/>
+        <source>Export FPS does not match project FPS</source>
+        <translation>エクスポートFPSがプロジェクトFPSと一致しません</translation>
     </message>
 </context>
 <context>
@@ -1438,30 +1448,30 @@
         <translation>エンコーダーの初期化に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="250"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="120"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="254"/>
         <source>Cancelled</source>
         <translation>キャンセルされました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="156"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="286"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="157"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="290"/>
         <source>Export complete</source>
         <translation>書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="166"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
         <source>Cannot create output directory</source>
         <translation>出力ディレクトリを作成できません</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="239"/>
         <source>Failed to capture frame %1</source>
         <translation>フレーム %1 の取得に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="279"/>
         <source>Failed to save frame %1</source>
         <translation>フレーム %1 の保存に失敗しました</translation>
     </message>
