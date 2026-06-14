@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QEventLoop>
 #include <QImage>
+#include <QPointer>
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
 #include <QScopeGuard>
@@ -40,10 +41,10 @@ void TimelineExportManager::cancelExport() { m_cancelRequested = true; }
 void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &config) {
     m_exporting = true;
 
-    QQuickItem *view = m_controller->compositeView();
+    QPointer<QQuickItem> view = m_controller->compositeView();
     auto guard = qScopeGuard([this, view]() -> void {
-        if (view != nullptr) {
-            QMetaObject::invokeMethod(view, [view]() -> void { view->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
+        if (view) {
+            QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
         }
         m_exporting = false;
     });
@@ -66,10 +67,14 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     emit exportStarted(totalFrames);
 
-    QQuickItem *targetItem = (view != nullptr) ? ((view->property("view3D").value<QQuickItem *>() != nullptr) ? view->property("view3D").value<QQuickItem *>() : view) : nullptr;
+    QPointer<QQuickItem> targetItem;
+    if (view) {
+        auto *v3d = view->property("view3D").value<QQuickItem *>();
+        targetItem = v3d ? v3d : view.data();
+    }
 
-    if (view != nullptr) {
-        QMetaObject::invokeMethod(view, [view]() -> void { view->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
+    if (view) {
+        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
     }
 
     auto &exportSettings = AviQtl::Core::SettingsManager::instance();
@@ -88,9 +93,9 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         QThread::msleep(32);
 
         QImage img;
-        if (targetItem != nullptr) {
+        if (targetItem) {
             QSharedPointer<QQuickItemGrabResult> grab;
-            QMetaObject::invokeMethod(targetItem, [&]() -> void { grab = targetItem->grabToImage(QSize(config.width, config.height)); }, Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(targetItem.data(), [&]() -> void { grab = targetItem->grabToImage(QSize(config.width, config.height)); }, Qt::BlockingQueuedConnection);
             if (grab) {
                 QEventLoop loop;
                 connect(grab.get(), &QQuickItemGrabResult::ready, &loop, &QEventLoop::quit);
@@ -155,18 +160,22 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
     emit exportStarted(totalFrames);
 
-    QQuickItem *view = m_controller->compositeView();
-    QQuickItem *targetItem = (view != nullptr) ? ((view->property("view3D").value<QQuickItem *>() != nullptr) ? view->property("view3D").value<QQuickItem *>() : view) : nullptr;
+    QPointer<QQuickItem> view = m_controller->compositeView();
+    QPointer<QQuickItem> targetItem;
+    if (view) {
+        auto *v3d = view->property("view3D").value<QQuickItem *>();
+        targetItem = v3d ? v3d : view.data();
+    }
 
     auto guard = qScopeGuard([this, view]() -> void {
-        if (view != nullptr) {
-            QMetaObject::invokeMethod(view, [view]() -> void { view->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
+        if (view) {
+            QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
         }
         m_exporting = false;
     });
 
-    if (view != nullptr) {
-        QMetaObject::invokeMethod(view, [view]() -> void { view->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
+    if (view) {
+        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
     }
 
     auto &exportSettings = AviQtl::Core::SettingsManager::instance();
@@ -185,9 +194,9 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         QThread::msleep(32);
 
         QImage img;
-        if (targetItem != nullptr) {
+        if (targetItem) {
             QSharedPointer<QQuickItemGrabResult> grab;
-            QMetaObject::invokeMethod(targetItem, [&]() -> void { grab = targetItem->grabToImage(); }, Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(targetItem.data(), [&]() -> void { grab = targetItem->grabToImage(); }, Qt::BlockingQueuedConnection);
             if (grab) {
                 QEventLoop loop;
                 connect(grab.get(), &QQuickItemGrabResult::ready, &loop, &QEventLoop::quit);

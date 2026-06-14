@@ -1411,34 +1411,34 @@
         <translation type="vanished">导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="53"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="54"/>
         <source>Encoder initialization failed</source>
         <translation>编码器初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="178"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="86"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="122"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="231"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="127"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="240"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="131"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="136"/>
         <source>Cannot create output directory</source>
         <translation>无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
         <source>Failed to capture frame %1</source>
         <translation>捕获帧 %1 失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="220"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="229"/>
         <source>Failed to save frame %1</source>
         <translation>保存帧 %1 失败</translation>
     </message>

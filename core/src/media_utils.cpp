@@ -40,8 +40,9 @@ double mediaDurationSeconds(const QString &path, int mediaType) {
     double seconds = 0.0;
     if (avformat_find_stream_info(formatContext, nullptr) >= 0) {
         const int streamIndex = av_find_best_stream(formatContext, static_cast<AVMediaType>(mediaType), -1, -1, nullptr, 0);
-        const AVStream *stream = streamIndex >= 0 ? formatContext->streams[streamIndex] : nullptr;
-        seconds = streamDurationSeconds(formatContext, stream);
+        if (streamIndex >= 0) {
+            seconds = streamDurationSeconds(formatContext, formatContext->streams[streamIndex]);
+        }
     }
 
     avformat_close_input(&formatContext);

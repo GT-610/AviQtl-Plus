@@ -73,10 +73,12 @@ EffectTracks buildEffectTracks(const AviQtl::Core::Effect &effect, int clipDurat
     EffectTracks result;
     result.trackDuration = clipDuration;
 
-    for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it)
+    for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it) {
         result.allKeys.insert(it.key());
-    for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it)
+    }
+    for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it) {
         result.allKeys.insert(it->first);
+    }
 
     for (const auto &key : std::as_const(result.allKeys)) {
         const QVariant fallback = effect.params.value(key);
@@ -182,16 +184,16 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
 }
 
 AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, double fps) {
+    if (fps <= 0.0) {
+        return {};
+    }
+
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
 
     AudioComponent audio;
     audio.clipId = clip.id;
     audio.startFrame = clip.startFrame;
     audio.durationFrames = clip.durationFrames;
-
-    if (fps <= 0.0) {
-        return audio;
-    }
 
     for (const auto &effect : clip.effects) {
         if (!effect.enabled || effect.id != QStringLiteral("audio")) {
