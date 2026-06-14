@@ -7,9 +7,12 @@
 #include <QDir>
 #include <QEventLoop>
 #include <QImage>
+#include <QPointer>
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
+#include <QScopeGuard>
 #include <QTimer>
+#include <algorithm>
 
 namespace AviQtl::UI {
 
@@ -38,10 +41,17 @@ void TimelineExportManager::cancelExport() { m_cancelRequested = true; }
 void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &config) {
     m_exporting = true;
 
+    QPointer<QQuickItem> view = m_controller->compositeView();
+    auto guard = qScopeGuard([this, view]() -> void {
+        if (view) {
+            QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
+        }
+        m_exporting = false;
+    });
+
     AviQtl::Core::VideoEncoder encoder;
     if (!encoder.open(config)) {
         emit exportFinished(false, tr("Encoder initialization failed"));
-        m_exporting = false;
         return;
     }
     const int rawSr = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultProjectSampleRate"), 48000).toInt();
@@ -57,11 +67,14 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     emit exportStarted(totalFrames);
 
-    QQuickItem *view = m_controller->compositeView();
-    QQuickItem *targetItem = (view != nullptr) ? ((view->property("view3D").value<QQuickItem *>() != nullptr) ? view->property("view3D").value<QQuickItem *>() : view) : nullptr;
+    QPointer<QQuickItem> targetItem;
+    if (view) {
+        auto *v3d = view->property("view3D").value<QQuickItem *>();
+        targetItem = v3d ? v3d : view.data();
+    }
 
-    if (view != nullptr) {
-        QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
+    if (view) {
+        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
     }
 
     auto &exportSettings = AviQtl::Core::SettingsManager::instance();
@@ -71,19 +84,18 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
             emit exportFinished(false, tr("Cancelled"));
-            goto cleanup;
+            return;
         }
 
-        QMetaObject::invokeMethod(m_controller->transport(), [this, frame] -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(m_controller->transport(), [this, frame]() -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
-        // Allow QML property bindings (incl. Qt.callLater) to settle, then wait for the scene graph to render
-        QMetaObject::invokeMethod(QCoreApplication::instance(), [] -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(QCoreApplication::instance(), []() -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
         QThread::msleep(32);
 
         QImage img;
-        if (targetItem != nullptr) {
+        if (targetItem) {
             QSharedPointer<QQuickItemGrabResult> grab;
-            QMetaObject::invokeMethod(targetItem, [&] -> void { grab = targetItem->grabToImage(QSize(config.width, config.height)); }, Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(targetItem.data(), [&]() -> void { grab = targetItem->grabToImage(QSize(config.width, config.height)); }, Qt::BlockingQueuedConnection);
             if (grab) {
                 QEventLoop loop;
                 connect(grab.get(), &QQuickItemGrabResult::ready, &loop, &QEventLoop::quit);
@@ -113,12 +125,6 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     encoder.close();
     emit exportFinished(true, tr("Export complete"));
-
-cleanup:
-    if (view != nullptr) {
-        QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
-    }
-    m_exporting = false;
 }
 
 bool TimelineExportManager::exportImageSequence(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
@@ -154,35 +160,43 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
     emit exportStarted(totalFrames);
 
-    QQuickItem *view = m_controller->compositeView();
-    QQuickItem *targetItem = (view != nullptr) ? ((view->property("view3D").value<QQuickItem *>() != nullptr) ? view->property("view3D").value<QQuickItem *>() : view) : nullptr;
+    QPointer<QQuickItem> view = m_controller->compositeView();
+    QPointer<QQuickItem> targetItem;
+    if (view) {
+        auto *v3d = view->property("view3D").value<QQuickItem *>();
+        targetItem = v3d ? v3d : view.data();
+    }
 
-    if (view != nullptr) {
-        QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
+    auto guard = qScopeGuard([this, view]() -> void {
+        if (view) {
+            QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
+        }
+        m_exporting = false;
+    });
+
+    if (view) {
+        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
     }
 
     auto &exportSettings = AviQtl::Core::SettingsManager::instance();
     const int grabTimeout = exportSettings.value(QStringLiteral("exportFrameGrabTimeoutMs"), 2000).toInt();
     const int progInterval = exportSettings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
 
-    bool success = true;
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
             emit exportFinished(false, tr("Cancelled"));
-            success = false;
-            goto cleanupSeq;
+            return;
         }
 
-        QMetaObject::invokeMethod(m_controller->transport(), [this, frame] -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(m_controller->transport(), [this, frame]() -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
-        // Allow QML property bindings (incl. Qt.callLater) to settle, then wait for the scene graph to render
-        QMetaObject::invokeMethod(QCoreApplication::instance(), [] -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(QCoreApplication::instance(), []() -> void { QCoreApplication::processEvents(); }, Qt::BlockingQueuedConnection);
         QThread::msleep(32);
 
         QImage img;
-        if (targetItem != nullptr) {
+        if (targetItem) {
             QSharedPointer<QQuickItemGrabResult> grab;
-            QMetaObject::invokeMethod(targetItem, [&] -> void { grab = targetItem->grabToImage(); }, Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(targetItem.data(), [&]() -> void { grab = targetItem->grabToImage(); }, Qt::BlockingQueuedConnection);
             if (grab) {
                 QEventLoop loop;
                 connect(grab.get(), &QQuickItemGrabResult::ready, &loop, &QEventLoop::quit);
@@ -200,22 +214,20 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             } else {
                 qWarning() << "Frame grab returned null image for frame" << frame << "and no target item available";
                 emit exportFinished(false, tr("Failed to capture frame %1").arg(frame));
-                success = false;
-                goto cleanupSeq;
+                return;
             }
         }
 
         {
             const QString ext = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
             const QByteArray fmt = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
-            const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : quality;
+            const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : std::clamp(quality / 11, 0, 9);
             const QString filename = QStringLiteral("frame_") + QString::number(frame).rightJustified(padDigits, QChar::fromLatin1('0')) + ext;
             const QString filePath = outputDir.filePath(filename);
             if (!img.save(filePath, fmt, saveQuality)) {
                 qWarning() << "Failed to save frame" << frame << "to" << filePath;
                 emit exportFinished(false, tr("Failed to save frame %1").arg(frame));
-                success = false;
-                goto cleanupSeq;
+                return;
             }
         }
 
@@ -226,12 +238,6 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
     }
 
     emit exportFinished(true, tr("Export complete"));
-
-cleanupSeq:
-    if (view != nullptr) {
-        QMetaObject::invokeMethod(view, [view] -> void { view->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
-    }
-    m_exporting = false;
 }
 
 } // namespace AviQtl::UI

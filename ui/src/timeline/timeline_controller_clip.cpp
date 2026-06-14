@@ -18,7 +18,6 @@
 #include <cmath>
 
 extern "C" {
-#include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 }
 
@@ -40,48 +39,6 @@ static int getControlLayerCount(const ClipData &clip) {
         }
     }
     return 0;
-}
-
-static double streamDurationSeconds(const AVFormatContext *formatContext, const AVStream *stream) {
-    if (stream != nullptr && stream->duration != AV_NOPTS_VALUE) {
-        const double streamSeconds = static_cast<double>(stream->duration) * av_q2d(stream->time_base);
-        if (streamSeconds > 0.0) {
-            return streamSeconds;
-        }
-    }
-
-    if (formatContext != nullptr && formatContext->duration != AV_NOPTS_VALUE) {
-        const double formatSeconds = static_cast<double>(formatContext->duration) / static_cast<double>(AV_TIME_BASE);
-        if (formatSeconds > 0.0) {
-            return formatSeconds;
-        }
-    }
-
-    return 0.0;
-}
-
-static int mediaDurationFrames(const QString &path, AVMediaType mediaType, double projectFps) {
-    if (path.isEmpty() || projectFps <= 0.0) {
-        return 0;
-    }
-
-    AVFormatContext *formatContext = nullptr;
-    if (avformat_open_input(&formatContext, path.toUtf8().constData(), nullptr, nullptr) != 0) {
-        return 0;
-    }
-
-    int durationFrames = 0;
-    if (avformat_find_stream_info(formatContext, nullptr) >= 0) {
-        const int streamIndex = av_find_best_stream(formatContext, mediaType, -1, -1, nullptr, 0);
-        const AVStream *stream = streamIndex >= 0 ? formatContext->streams[streamIndex] : nullptr;
-        const double seconds = streamDurationSeconds(formatContext, stream);
-        if (seconds > 0.0) {
-            durationFrames = std::max(1, static_cast<int>(std::ceil(seconds * projectFps)));
-        }
-    }
-
-    avformat_close_input(&formatContext);
-    return durationFrames;
 }
 
 static int findVacantFrameForLinkedMedia(const TimelineService *timeline, int videoLayer, int startFrame, int duration) {
@@ -317,7 +274,8 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
 
         const double sceneFps = getSceneFps();
-        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_VIDEO, sceneFps);
+        const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_VIDEO);
+        const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
         startFrame = findVacantFrameForLinkedMedia(m_timeline, layer, startFrame, importDuration);
 
@@ -370,7 +328,8 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
 
         const double sceneFps = getSceneFps();
-        const int probedDuration = mediaDurationFrames(filePath, AVMEDIA_TYPE_AUDIO, sceneFps);
+        const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_AUDIO);
+        const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
@@ -597,7 +556,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
             bool isDirectMode = false;
 
             for (const auto *eff : clip->effects) {
-                if (eff->id() != "video") {
+                if (eff->id() != QLatin1String("video")) {
                     continue;
                 }
                 const auto &p = eff->params();
@@ -639,7 +598,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
             bool isDirectMode = false;
 
             for (const auto *eff : clip->effects) {
-                if (eff->id() != "audio") {
+                if (eff->id() != QLatin1String("audio")) {
                     continue;
                 }
                 const auto &p = eff->params();
@@ -674,7 +633,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
         int offset = 0;
 
         for (const auto *eff : clip->effects) {
-            if (eff->id() != "scene") {
+            if (eff->id() != QLatin1String("scene")) {
                 continue;
             }
             const auto &p = eff->params();

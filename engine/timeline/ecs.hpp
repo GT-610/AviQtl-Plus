@@ -6,7 +6,6 @@
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
-#include <iterator>
 #include <type_traits>
 #include <utility>
 #include <vector>

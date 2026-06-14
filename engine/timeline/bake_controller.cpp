@@ -63,6 +63,35 @@ float evalFloatOr(const QVariantMap &params, const QVariantMap &tracks,
     return evalFloat(params, tracks, key, frame, fps, duration);
 }
 
+struct EffectTracks {
+    QVariantMap tracks;
+    QSet<QString> allKeys;
+    int trackDuration;
+};
+
+EffectTracks buildEffectTracks(const AviQtl::Core::Effect &effect, int clipDuration) {
+    EffectTracks result;
+    result.trackDuration = clipDuration;
+
+    for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it) {
+        result.allKeys.insert(it.key());
+    }
+    for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it) {
+        result.allKeys.insert(it->first);
+    }
+
+    for (const auto &key : std::as_const(result.allKeys)) {
+        const QVariant fallback = effect.params.value(key);
+        auto kfIt = effect.keyframes.find(key);
+        if (kfIt != effect.keyframes.end()) {
+            result.tracks[key] = keyframesToTrack(kfIt->second, fallback);
+            result.trackDuration = std::max(result.trackDuration, inferredDurationForTrack(result.tracks[key]));
+        }
+    }
+
+    return result;
+}
+
 void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fps,
                      RenderComponent &render, EffectParamBuffer &paramBuf) {
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
@@ -91,23 +120,9 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             continue;
         }
 
-        QVariantMap tracks;
         QVariantMap effectParams = effect.params;
         effectParams[QStringLiteral("time")] = relFrame;
-        int trackDuration = clip.durationFrames;
-        QSet<QString> allKeys;
-        for (auto it = effectParams.constBegin(); it != effectParams.constEnd(); ++it)
-            allKeys.insert(it.key());
-        for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it)
-            allKeys.insert(it->first);
-        for (const auto &key : std::as_const(allKeys)) {
-            const QVariant fallback = effectParams.value(key);
-            auto kfIt = effect.keyframes.find(key);
-            if (kfIt != effect.keyframes.end()) {
-                tracks[key] = keyframesToTrack(kfIt->second, fallback);
-                trackDuration = std::max(trackDuration, inferredDurationForTrack(tracks[key]));
-            }
-        }
+        auto [tracks, allKeys, trackDuration] = buildEffectTracks(effect, clip.durationFrames);
 
         if (effect.id == QStringLiteral("transform")) {
             hasTransform = true;
@@ -154,7 +169,6 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     }
 
     render.effectCount = effectIdx;
-    render.effectStartIndex = 0;
 
     if (!hasTransform) {
         render.x = 0;
@@ -170,6 +184,10 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
 }
 
 AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, double fps) {
+    if (fps <= 0.0) {
+        return {};
+    }
+
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
 
     AudioComponent audio;
@@ -182,23 +200,7 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
             continue;
         }
 
-        QVariantMap tracks;
-        int trackDuration = clip.durationFrames;
-        QSet<QString> allKeys;
-        for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it) {
-            allKeys.insert(it.key());
-        }
-        for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it) {
-            allKeys.insert(it->first);
-        }
-        for (const auto &key : std::as_const(allKeys)) {
-            const QVariant fallback = effect.params.value(key);
-            auto kfIt = effect.keyframes.find(key);
-            if (kfIt != effect.keyframes.end()) {
-                tracks[key] = keyframesToTrack(kfIt->second, fallback);
-                trackDuration = std::max(trackDuration, inferredDurationForTrack(tracks[key]));
-            }
-        }
+        auto [tracks, allKeys, trackDuration] = buildEffectTracks(effect, clip.durationFrames);
 
         const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
         audio.directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);

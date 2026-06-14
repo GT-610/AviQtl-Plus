@@ -9,39 +9,12 @@
 #include <cmath>
 
 extern "C" {
-#include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 }
 
 namespace AviQtl::UI {
 
 namespace {
-
-double audioDurationSeconds(const QString &path) {
-    if (path.isEmpty()) {
-        return 0.0;
-    }
-
-    AVFormatContext *formatContext = nullptr;
-    if (avformat_open_input(&formatContext, path.toUtf8().constData(), nullptr, nullptr) != 0) {
-        return 0.0;
-    }
-
-    double seconds = 0.0;
-    if (avformat_find_stream_info(formatContext, nullptr) >= 0) {
-        const int streamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
-        const AVStream *stream = streamIndex >= 0 ? formatContext->streams[streamIndex] : nullptr;
-        if (stream != nullptr && stream->duration != AV_NOPTS_VALUE) {
-            seconds = static_cast<double>(stream->duration) * av_q2d(stream->time_base);
-        }
-        if (seconds <= 0.0 && formatContext->duration != AV_NOPTS_VALUE) {
-            seconds = static_cast<double>(formatContext->duration) / static_cast<double>(AV_TIME_BASE);
-        }
-    }
-
-    avformat_close_input(&formatContext);
-    return std::max(0.0, seconds);
-}
 
 double sceneFpsForClip(const TimelineService *timeline, const ClipData &clip) {
     if (timeline == nullptr) {
@@ -73,7 +46,7 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
 
     const QVariantMap params = effect->params();
     const QString source = params.value(QStringLiteral("source")).toString();
-    const double totalSec = audioDurationSeconds(source);
+    const double totalSec = AviQtl::Core::MediaUtils::mediaDurationSeconds(source, AVMEDIA_TYPE_AUDIO);
     if (totalSec <= 0.0) {
         return false;
     }

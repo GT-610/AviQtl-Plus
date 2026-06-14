@@ -171,7 +171,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
                     // L ch
                     m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
                     // R ch
-                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((rawSamples.at((static_cast<std::size_t>(idx0) * 2) + 1) * (1.0 - t)) + (rawSamples.at((static_cast<std::size_t>(idx1) * 2) + 1) * t));
+                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
                 }
             } else {
                 m_clipSamples.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
