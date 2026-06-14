@@ -1339,6 +1339,17 @@
     </message>
 </context>
 <context>
+    <name>AviQtl::UI</name>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">キャンセルされました</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">書き出し完了</translation>
+    </message>
+</context>
+<context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
@@ -1422,34 +1433,35 @@
         <translation type="vanished">書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="80"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
         <source>Encoder initialization failed</source>
         <translation>エンコーダーの初期化に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="114"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="233"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="250"/>
         <source>Cancelled</source>
         <translation>キャンセルされました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="149"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="156"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="286"/>
         <source>Export complete</source>
         <translation>書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="158"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="166"/>
         <source>Cannot create output directory</source>
         <translation>出力ディレクトリを作成できません</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="251"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
         <source>Failed to capture frame %1</source>
         <translation>フレーム %1 の取得に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="264"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
         <source>Failed to save frame %1</source>
         <translation>フレーム %1 の保存に失敗しました</translation>
     </message>
@@ -3710,6 +3722,29 @@
         <location filename="../ui/qml/SystemSettingsWindow.qml" line="398"/>
         <source>閉じる</source>
         <translation>閉じる</translation>
+    </message>
+</context>
+<context>
+    <name>TimelineExportManager</name>
+    <message>
+        <source>Cannot create output directory</source>
+        <translation type="obsolete">出力ディレクトリを作成できません</translation>
+    </message>
+    <message>
+        <source>Failed to capture frame %1</source>
+        <translation type="obsolete">フレーム %1 の取得に失敗しました</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">キャンセルされました</translation>
+    </message>
+    <message>
+        <source>Failed to save frame %1</source>
+        <translation type="obsolete">フレーム %1 の保存に失敗しました</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">書き出し完了</translation>
     </message>
 </context>
 <context>

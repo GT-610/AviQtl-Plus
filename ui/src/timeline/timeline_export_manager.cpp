@@ -22,17 +22,18 @@ constexpr int kFrameSettleWaitMs = 8;
 class ExportModeGuard {
 public:
     explicit ExportModeGuard(QPointer<QQuickItem> view)
-        : m_view(view) {
-        if (m_view) {
-            QMetaObject::invokeMethod(m_view.data(), []() -> void { }, Qt::BlockingQueuedConnection);
-        }
-    }
+        : m_view(view) {}
 
     ~ExportModeGuard() {
         if (m_view) {
             QMetaObject::invokeMethod(m_view.data(), [v = m_view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
         }
     }
+
+    ExportModeGuard(const ExportModeGuard &) = delete;
+    ExportModeGuard &operator=(const ExportModeGuard &) = delete;
+    ExportModeGuard(ExportModeGuard &&) = default;
+    ExportModeGuard &operator=(ExportModeGuard &&) = default;
 
 private:
     QPointer<QQuickItem> m_view;
@@ -81,10 +82,9 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         return;
     }
 
-    const int rawSr = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultProjectSampleRate"), 48000).toInt();
-    const int rawCh = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("audioChannels"), 2).toInt();
-    const int sr = (rawSr > 0) ? rawSr : 48000;
-    const int ch = (rawCh > 0) ? rawCh : 2;
+    const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
+    const int sr = std::max(1, settings.value(QStringLiteral("defaultProjectSampleRate"), 48000).toInt());
+    const int ch = std::max(1, settings.value(QStringLiteral("audioChannels"), 2).toInt());
     encoder.addAudioStream(sr, ch);
 
     const double fps = m_controller->project()->fps();
@@ -96,13 +96,20 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     QPointer<QQuickItem> targetItem;
     if (view) {
-        auto *v3d = view->property("view3D").value<QQuickItem *>();
-        targetItem = v3d ? v3d : view.data();
+        if (auto *v3d = view->property("view3D").value<QQuickItem *>()) {
+            targetItem = v3d;
+        } else {
+            targetItem = view.data();
+        }
     }
 
-    auto &exportSettings = AviQtl::Core::SettingsManager::instance();
-    const int grabTimeout = exportSettings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = exportSettings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
+    if (!targetItem) {
+        emit exportFinished(false, tr("Failed to capture frame %1").arg(startFrame));
+        return;
+    }
+
+    const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
+    const int progInterval = settings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
 
     // Accumulate audio sample time with integer numerators to avoid drift.
     int64_t audioSampleAccumulator = 0;
@@ -150,8 +157,9 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 }
 
 bool TimelineExportManager::exportImageSequence(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
-    if (m_exporting.load())
+    if (m_exporting.load()) {
         return false;
+    }
 
     QDir outputDir(dir);
     if (!outputDir.exists() && !outputDir.mkpath(QStringLiteral("."))) {
@@ -159,12 +167,13 @@ bool TimelineExportManager::exportImageSequence(const QString &dir, int quality,
         return false;
     }
 
-    if (endFrame < 0)
+    if (endFrame < 0) {
         endFrame = m_controller->timelineDuration();
-    if (startFrame < 0)
-        startFrame = 0;
-    if (startFrame >= endFrame)
+    }
+    startFrame = std::max(0, startFrame);
+    if (startFrame >= endFrame) {
         return false;
+    }
 
     m_exporting = true;
     m_cancelRequested = false;
@@ -175,7 +184,7 @@ bool TimelineExportManager::exportImageSequence(const QString &dir, int quality,
     return true;
 }
 
-QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const QSize &size, int timeoutMs) {
+QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const QSize &size, int timeoutMs) const {
     QImage img;
     if (!targetItem) {
         return img;
@@ -208,15 +217,23 @@ QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const Q
 void TimelineExportManager::runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
     QDir outputDir(dir);
     const int totalFrames = endFrame - startFrame;
-    const int padDigits = QString::number(endFrame).length();
+    const int padDigits = static_cast<int>(QString::number(endFrame).length());
 
     emit exportStarted(totalFrames);
 
     QPointer<QQuickItem> view = m_controller->compositeView();
     QPointer<QQuickItem> targetItem;
     if (view) {
-        auto *v3d = view->property("view3D").value<QQuickItem *>();
-        targetItem = v3d ? v3d : view.data();
+        if (auto *v3d = view->property("view3D").value<QQuickItem *>()) {
+            targetItem = v3d;
+        } else {
+            targetItem = view.data();
+        }
+    }
+
+    if (!targetItem) {
+        emit exportFinished(false, tr("Failed to capture frame %1").arg(startFrame));
+        return;
     }
 
     if (view) {
@@ -224,9 +241,9 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
     }
     ExportModeGuard exportModeGuard(view);
 
-    auto &exportSettings = AviQtl::Core::SettingsManager::instance();
-    const int grabTimeout = exportSettings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = exportSettings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
+    const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
+    const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
+    const int progInterval = settings.value(QStringLiteral("exportProgressInterval"), 5).toInt();
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
@@ -242,15 +259,9 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         QImage img = grabFrame(targetItem, QSize(), grabTimeout);
 
         if (img.isNull()) {
-            if (targetItem) {
-                qWarning() << "Frame grab returned null image for frame" << frame << "- substituting black frame";
-                img = QImage(static_cast<int>(targetItem->width()), static_cast<int>(targetItem->height()), QImage::Format_RGBA8888);
-                img.fill(Qt::black);
-            } else {
-                qWarning() << "Frame grab returned null image for frame" << frame << "and no target item available";
-                emit exportFinished(false, tr("Failed to capture frame %1").arg(frame));
-                return;
-            }
+            qWarning() << "Frame grab returned null image for frame" << frame << "- substituting black frame";
+            img = QImage(static_cast<int>(targetItem->width()), static_cast<int>(targetItem->height()), QImage::Format_RGBA8888);
+            img.fill(Qt::black);
         }
 
         {

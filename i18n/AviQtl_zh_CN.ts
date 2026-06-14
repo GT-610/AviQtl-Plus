@@ -1339,6 +1339,17 @@
     </message>
 </context>
 <context>
+    <name>AviQtl::UI</name>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">已取消</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">导出完成</translation>
+    </message>
+</context>
+<context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
@@ -1422,34 +1433,35 @@
         <translation type="vanished">导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="80"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
         <source>Encoder initialization failed</source>
         <translation>编码器初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="114"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="233"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="250"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="149"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="156"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="286"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="158"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="166"/>
         <source>Cannot create output directory</source>
         <translation>无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="251"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
         <source>Failed to capture frame %1</source>
         <translation>捕获帧 %1 失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="264"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
         <source>Failed to save frame %1</source>
         <translation>保存帧 %1 失败</translation>
     </message>
@@ -3778,6 +3790,29 @@
         <location filename="../ui/qml/SystemSettingsWindow.qml" line="398"/>
         <source>閉じる</source>
         <translation>关闭</translation>
+    </message>
+</context>
+<context>
+    <name>TimelineExportManager</name>
+    <message>
+        <source>Cannot create output directory</source>
+        <translation type="obsolete">无法创建输出目录</translation>
+    </message>
+    <message>
+        <source>Failed to capture frame %1</source>
+        <translation type="obsolete">捕获帧 %1 失败</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">已取消</translation>
+    </message>
+    <message>
+        <source>Failed to save frame %1</source>
+        <translation type="obsolete">保存帧 %1 失败</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">导出完成</translation>
     </message>
 </context>
 <context>

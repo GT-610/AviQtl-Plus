@@ -1,11 +1,14 @@
 #include "video_encoder.hpp"
 #include "settings_manager.hpp"
 #include <QDebug>
+#include <math.h>
+#include <algorithm>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
+#include <libavutil/channel_layout.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
@@ -17,6 +20,53 @@ extern "C" {
 namespace AviQtl::Core {
 
 constexpr size_t MAX_QUEUE_SIZE = 16;
+
+namespace {
+
+// Minimal scoped helpers to remove repeated nullptr checks in cleanup.
+template <typename T, void (*Deleter)(T **)>
+class AvPointer {
+public:
+    AvPointer() = default;
+    explicit AvPointer(T *ptr) : m_ptr(ptr) {}
+    ~AvPointer() { reset(); }
+
+    AvPointer(const AvPointer &) = delete;
+    AvPointer &operator=(const AvPointer &) = delete;
+    AvPointer(AvPointer &&other) noexcept : m_ptr(other.release()) {}
+    AvPointer &operator=(AvPointer &&other) noexcept {
+        if (this != &other) {
+            reset();
+            m_ptr = other.release();
+        }
+        return *this;
+    }
+
+    T *get() const { return m_ptr; }
+    T **ptr() { return &m_ptr; }
+    T *operator->() const { return m_ptr; }
+    T &operator*() const { return *m_ptr; }
+    void reset(T *ptr = nullptr) {
+        if (m_ptr) {
+            Deleter(&m_ptr);
+        }
+        m_ptr = ptr;
+    }
+    T *release() {
+        T *tmp = m_ptr;
+        m_ptr = nullptr;
+        return tmp;
+    }
+    explicit operator bool() const { return m_ptr != nullptr; }
+
+private:
+    T *m_ptr = nullptr;
+};
+
+using AvPacketPtr = AvPointer<AVPacket, av_packet_free>;
+using AvFramePtr = AvPointer<AVFrame, av_frame_free>;
+
+} // namespace
 
 VideoEncoder::VideoEncoder(QObject *parent) : QObject(parent) {}
 
@@ -32,22 +82,14 @@ void VideoEncoder::cleanup() {
         swr_free(&m_swrCtx);
         m_swrCtx = nullptr;
     }
-    if (m_hwFrame != nullptr) {
-        av_frame_free(&m_hwFrame);
-    }
-    if (m_swFrame != nullptr) {
-        av_frame_free(&m_swFrame);
-    }
-    if (m_audioFrame != nullptr) {
-        av_frame_free(&m_audioFrame);
-    }
+    av_frame_free(&m_hwFrame);
+    av_frame_free(&m_swFrame);
+    av_frame_free(&m_audioFrame);
     if (m_audioFifo != nullptr) {
         av_audio_fifo_free(m_audioFifo);
         m_audioFifo = nullptr;
     }
-    if (m_encCtx != nullptr) {
-        avcodec_free_context(&m_encCtx);
-    }
+    avcodec_free_context(&m_encCtx);
     if (m_fmtCtx != nullptr) {
         if ((m_fmtCtx->oformat->flags & AVFMT_NOFILE) == 0) {
             avio_closep(&m_fmtCtx->pb);
@@ -55,12 +97,8 @@ void VideoEncoder::cleanup() {
         avformat_free_context(m_fmtCtx);
         m_fmtCtx = nullptr;
     }
-    if (m_hwDeviceCtx != nullptr) {
-        av_buffer_unref(&m_hwDeviceCtx);
-    }
-    if (m_audioEncCtx != nullptr) {
-        avcodec_free_context(&m_audioEncCtx);
-    }
+    av_buffer_unref(&m_hwDeviceCtx);
+    avcodec_free_context(&m_audioEncCtx);
 }
 
 auto VideoEncoder::initHardware(const QString &codecName) -> bool {
@@ -138,13 +176,13 @@ auto VideoEncoder::open(const Config &config) -> bool {
         }
         auto *frames_ctx = reinterpret_cast<AVHWFramesContext *>(hw_frames_ref->data);
 
-        // コーデックに応じたピクセルフォーマット設定
+        // Pixel format setup per codec.
         if (config.codecName.contains(QLatin1String("vaapi"))) {
             frames_ctx->format = AV_PIX_FMT_VAAPI;
             frames_ctx->sw_format = AV_PIX_FMT_NV12;
         } else if (config.codecName.contains(QLatin1String("nvenc"))) {
             frames_ctx->format = AV_PIX_FMT_CUDA;
-            frames_ctx->sw_format = AV_PIX_FMT_NV12; // or YUV420P
+            frames_ctx->sw_format = AV_PIX_FMT_NV12;
         } else if (config.codecName.contains(QLatin1String("qsv"))) {
             frames_ctx->format = AV_PIX_FMT_QSV;
             frames_ctx->sw_format = AV_PIX_FMT_NV12;
@@ -168,7 +206,7 @@ auto VideoEncoder::open(const Config &config) -> bool {
 
     // ピクセルフォーマットの自動選択
     if (m_encCtx->hw_frames_ctx != nullptr) {
-        m_encCtx->pix_fmt = (reinterpret_cast<AVHWFramesContext *>(m_encCtx->hw_frames_ctx->data))->format;
+        m_encCtx->pix_fmt = reinterpret_cast<AVHWFramesContext *>(m_encCtx->hw_frames_ctx->data)->format;
     } else {
         // SWエンコードのデフォルト: 可能な限り10bit以上の高精度フォーマットを優先選択
         m_encCtx->pix_fmt = AV_PIX_FMT_YUV420P;
@@ -222,7 +260,7 @@ auto VideoEncoder::open(const Config &config) -> bool {
 
     m_swFrame = av_frame_alloc();
     if (m_encCtx->hw_frames_ctx != nullptr) {
-        m_swFrame->format = (reinterpret_cast<AVHWFramesContext *>(m_encCtx->hw_frames_ctx->data))->sw_format;
+        m_swFrame->format = reinterpret_cast<AVHWFramesContext *>(m_encCtx->hw_frames_ctx->data)->sw_format;
     } else {
         m_swFrame->format = m_encCtx->pix_fmt;
     }
@@ -235,11 +273,6 @@ auto VideoEncoder::open(const Config &config) -> bool {
     }
 
     m_hwFrame = av_frame_alloc(); // For HW upload
-    if (m_hwFrame == nullptr) {
-        qWarning() << "Failed to allocate hardware frame";
-        cleanup();
-        return false;
-    }
 
     qDebug() << "VideoEncoder opened using codec:" << config.codecName;
 
@@ -321,7 +354,10 @@ auto VideoEncoder::addAudioStream(int sampleRate, int channels) -> bool {
     }
 
     // Input (Float Interleaved) -> Output (Encoder Format, likely FLTP)
-    swr_alloc_set_opts2(&m_swrCtx, &m_audioEncCtx->ch_layout, m_audioEncCtx->sample_fmt, m_audioEncCtx->sample_rate, &m_audioEncCtx->ch_layout, AV_SAMPLE_FMT_FLT, sampleRate, 0, nullptr);
+    if (swr_alloc_set_opts2(&m_swrCtx, &m_audioEncCtx->ch_layout, m_audioEncCtx->sample_fmt, m_audioEncCtx->sample_rate, &m_audioEncCtx->ch_layout, AV_SAMPLE_FMT_FLT, sampleRate, 0, nullptr) < 0) {
+        qWarning() << "Failed to allocate audio resampler.";
+        return false;
+    }
     if (swr_init(m_swrCtx) < 0) {
         qWarning() << "Failed to initialize audio resampler.";
         return false;
@@ -461,32 +497,32 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
 
     int ret = avcodec_send_frame(m_encCtx, encodeFrame);
 
-    // EAGAINハンドリング: 入力バッファがいっぱいの場合、出力を読み出して空ける
+    // Drain output when the encoder signals EAGAIN.
     while (ret == AVERROR(EAGAIN)) {
         bool packetRead = false;
         while (true) {
-            AVPacket *pkt = av_packet_alloc();
-            int rxRet = avcodec_receive_packet(m_encCtx, pkt);
+            AvPacketPtr pkt(av_packet_alloc());
+            if (!pkt) {
+                return false;
+            }
+            int rxRet = avcodec_receive_packet(m_encCtx, pkt.get());
             if (rxRet == AVERROR(EAGAIN) || rxRet == AVERROR_EOF) {
-                av_packet_free(&pkt);
                 break;
             }
             if (rxRet < 0) {
-                av_packet_free(&pkt);
                 return false;
             }
 
             if (pkt->duration == 0) {
                 pkt->duration = 1;
             }
-            av_packet_rescale_ts(pkt, m_encCtx->time_base, m_stream->time_base);
+            av_packet_rescale_ts(pkt.get(), m_encCtx->time_base, m_stream->time_base);
             pkt->stream_index = m_stream->index;
-            av_interleaved_write_frame(m_fmtCtx, pkt);
-            av_packet_free(&pkt);
+            av_interleaved_write_frame(m_fmtCtx, pkt.get());
             packetRead = true;
         }
         if (!packetRead) {
-            break; // 進展がない場合は抜ける
+            break; // No progress; avoid busy-looping.
         }
         ret = avcodec_send_frame(m_encCtx, encodeFrame);
     }
@@ -500,29 +536,29 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
         return false;
     }
 
-    while (ret >= 0) {
-        AVPacket *pkt = av_packet_alloc();
-        ret = avcodec_receive_packet(m_encCtx, pkt);
+    while (true) {
+        AvPacketPtr pkt(av_packet_alloc());
+        if (!pkt) {
+            return false;
+        }
+        ret = avcodec_receive_packet(m_encCtx, pkt.get());
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            av_packet_free(&pkt);
             break;
         }
         if (ret < 0) {
             qWarning() << "Error during encoding.";
-            av_packet_free(&pkt);
             return false;
         }
 
-        // durationが設定されていない場合のフォールバック (固定フレームレート)
+        // Fallback for missing packet duration (constant frame rate).
         if (pkt->duration == 0) {
             pkt->duration = 1;
         }
 
-        av_packet_rescale_ts(pkt, m_encCtx->time_base, m_stream->time_base);
+        av_packet_rescale_ts(pkt.get(), m_encCtx->time_base, m_stream->time_base);
         pkt->stream_index = m_stream->index;
 
-        av_interleaved_write_frame(m_fmtCtx, pkt);
-        av_packet_free(&pkt); // パケット構造体とデータの解放
+        av_interleaved_write_frame(m_fmtCtx, pkt.get());
     }
 
     return true;
@@ -550,53 +586,50 @@ auto VideoEncoder::pushAudio(const float *samples, int sampleCount) -> bool {
 }
 
 auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
-    // 内部スレッドで実行される実際の音声エンコード処理
     std::scoped_lock lock(m_mutex);
     if ((m_audioEncCtx == nullptr) || (m_audioFifo == nullptr)) {
         return false;
     }
 
-    // 不正な浮動小数点数 (NaN/Inf) がエンコーダに渡されるのを防ぐためのサニタイズ処理
-    std::vector<float> cleanSamples = samples;
-    for (float &sample : cleanSamples) {
-        if (std::isnan(sample) || std::isinf(sample)) {
-            sample = 0.0F;
+    // Sanitize floats only when needed to avoid an extra copy in the common case.
+    const std::vector<float> *inputSamples = &samples;
+    std::vector<float> sanitized;
+    if (!std::all_of(samples.begin(), samples.end(), [](float v) { return std::isfinite(v); })) {
+        sanitized.reserve(samples.size());
+        for (float sample : samples) {
+            sanitized.push_back(std::isfinite(sample) ? sample : 0.0F);
         }
+        inputSamples = &sanitized;
     }
 
-    // 一時バッファに変換
+    // Convert interleaved float input to the encoder sample format.
     uint8_t **convertedData = nullptr;
     int linesize = 0;
-    // 入力はインターリーブされたステレオFloatなので、サンプル数は全要素数をチャンネル数で割った値
-    const int sampleCount = static_cast<int>(cleanSamples.size() / m_audioEncCtx->ch_layout.nb_channels);
+    const auto convertedDataGuard = qScopeGuard([&convertedData, &linesize]() {
+        if (convertedData != nullptr) {
+            av_freep(&convertedData[0]);
+            av_freep(&convertedData);
+        }
+    });
+
+    const int sampleCount = static_cast<int>(inputSamples->size() / m_audioEncCtx->ch_layout.nb_channels);
     if (sampleCount <= 0) {
         return true;
     }
-    av_samples_alloc_array_and_samples(&convertedData, &linesize, m_audioEncCtx->ch_layout.nb_channels, sampleCount, m_audioEncCtx->sample_fmt, 0);
+    if (av_samples_alloc_array_and_samples(&convertedData, &linesize, m_audioEncCtx->ch_layout.nb_channels, sampleCount, m_audioEncCtx->sample_fmt, 0) < 0) {
+        return false;
+    }
 
-    const uint8_t *inputData[1] = {reinterpret_cast<const uint8_t *>(cleanSamples.data())};
+    const uint8_t *inputData[1] = {reinterpret_cast<const uint8_t *>(inputSamples->data())};
     int converted = swr_convert(m_swrCtx, convertedData, sampleCount, inputData, sampleCount);
     if (converted < 0) {
         qWarning() << "[VideoEncoder] swr_convert failed";
-        if (convertedData != nullptr) {
-            av_freep(static_cast<void *>(&convertedData[0]));
-            av_freep(static_cast<void *>(&convertedData));
-        }
         return false;
     }
 
-    if (av_audio_fifo_write(m_audioFifo, reinterpret_cast<void **>(convertedData), converted) < 0) {
+    if (av_audio_fifo_write(m_audioFifo, const_cast<void **>(reinterpret_cast<void **>(convertedData)), converted) < 0) {
         qWarning() << "[VideoEncoder] av_audio_fifo_write failed";
-        if (convertedData != nullptr) {
-            av_freep(static_cast<void *>(&convertedData[0]));
-            av_freep(static_cast<void *>(&convertedData));
-        }
         return false;
-    }
-
-    if (convertedData != nullptr) {
-        av_freep(static_cast<void *>(&convertedData[0])); // sample buffer
-        av_freep(static_cast<void *>(&convertedData));    // pointer array (av_malloc'd, not C free)
     }
 
     while (av_audio_fifo_size(m_audioFifo) >= m_audioEncCtx->frame_size) {
@@ -604,7 +637,6 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
             break;
         }
 
-        // FIFOから読み出し
         if (av_audio_fifo_read(m_audioFifo, reinterpret_cast<void **>(m_audioFrame->data), m_audioEncCtx->frame_size) < 0) {
             qWarning() << "[VideoEncoder] av_audio_fifo_read failed";
             break;
@@ -613,28 +645,27 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
         m_audioFrame->pts = m_audioPts;
         m_audioPts += m_audioFrame->nb_samples;
 
-        // エンコード
         int ret = avcodec_send_frame(m_audioEncCtx, m_audioFrame);
 
-        // EAGAINハンドリング
+        // Drain output when the encoder signals EAGAIN.
         while (ret == AVERROR(EAGAIN)) {
             bool packetRead = false;
             while (true) {
-                AVPacket *pkt = av_packet_alloc();
-                int rxRet = avcodec_receive_packet(m_audioEncCtx, pkt);
+                AvPacketPtr pkt(av_packet_alloc());
+                if (!pkt) {
+                    return false;
+                }
+                int rxRet = avcodec_receive_packet(m_audioEncCtx, pkt.get());
                 if (rxRet == AVERROR(EAGAIN) || rxRet == AVERROR_EOF) {
-                    av_packet_free(&pkt);
                     break;
                 }
                 if (rxRet < 0) {
-                    av_packet_free(&pkt);
                     return false;
                 }
 
-                av_packet_rescale_ts(pkt, m_audioEncCtx->time_base, m_audioStream->time_base);
+                av_packet_rescale_ts(pkt.get(), m_audioEncCtx->time_base, m_audioStream->time_base);
                 pkt->stream_index = m_audioStream->index;
-                av_interleaved_write_frame(m_fmtCtx, pkt);
-                av_packet_free(&pkt);
+                av_interleaved_write_frame(m_fmtCtx, pkt.get());
                 packetRead = true;
             }
             if (!packetRead) {
@@ -648,22 +679,22 @@ auto VideoEncoder::processAudio(const std::vector<float> &samples) -> bool {
             return false;
         }
 
-        while (ret >= 0) {
-            AVPacket *pkt = av_packet_alloc();
-            ret = avcodec_receive_packet(m_audioEncCtx, pkt);
-            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                av_packet_free(&pkt);
+        while (true) {
+            AvPacketPtr pkt(av_packet_alloc());
+            if (!pkt) {
+                return false;
+            }
+            int rxRet = avcodec_receive_packet(m_audioEncCtx, pkt.get());
+            if (rxRet == AVERROR(EAGAIN) || rxRet == AVERROR_EOF) {
                 break;
             }
-            if (ret < 0) {
-                av_packet_free(&pkt);
+            if (rxRet < 0) {
                 return false;
             }
 
-            av_packet_rescale_ts(pkt, m_audioEncCtx->time_base, m_audioStream->time_base);
+            av_packet_rescale_ts(pkt.get(), m_audioEncCtx->time_base, m_audioStream->time_base);
             pkt->stream_index = m_audioStream->index;
-            av_interleaved_write_frame(m_fmtCtx, pkt);
-            av_packet_free(&pkt);
+            av_interleaved_write_frame(m_fmtCtx, pkt.get());
         }
     }
     return true;
@@ -719,45 +750,45 @@ void VideoEncoder::close() {
 
     writeHeaderIfNeeded(); // 何も書き込まれずにcloseされた場合の安全策
 
-    // フラッシュ処理
+    // Flush video encoder.
     int ret = avcodec_send_frame(m_encCtx, nullptr);
-    while (ret >= 0) {
-        AVPacket *pkt = av_packet_alloc();
-        ret = avcodec_receive_packet(m_encCtx, pkt);
+    while (ret >= 0 || ret == AVERROR(EAGAIN)) {
+        AvPacketPtr pkt(av_packet_alloc());
+        if (!pkt) {
+            break;
+        }
+        ret = avcodec_receive_packet(m_encCtx, pkt.get());
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            av_packet_free(&pkt);
             break;
         }
         if (ret < 0) {
-            av_packet_free(&pkt);
             qWarning() << "Error flushing video encoder:" << ret;
             break;
         }
-        av_packet_rescale_ts(pkt, m_encCtx->time_base, m_stream->time_base);
+        av_packet_rescale_ts(pkt.get(), m_encCtx->time_base, m_stream->time_base);
         pkt->stream_index = m_stream->index;
-        av_interleaved_write_frame(m_fmtCtx, pkt);
-        av_packet_free(&pkt);
+        av_interleaved_write_frame(m_fmtCtx, pkt.get());
     }
 
-    // 音声フラッシュ
+    // Flush audio encoder.
     if (m_audioEncCtx != nullptr) {
         ret = avcodec_send_frame(m_audioEncCtx, nullptr);
-        while (ret >= 0) {
-            AVPacket *pkt = av_packet_alloc();
-            ret = avcodec_receive_packet(m_audioEncCtx, pkt);
+        while (ret >= 0 || ret == AVERROR(EAGAIN)) {
+            AvPacketPtr pkt(av_packet_alloc());
+            if (!pkt) {
+                break;
+            }
+            ret = avcodec_receive_packet(m_audioEncCtx, pkt.get());
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                av_packet_free(&pkt);
                 break;
             }
             if (ret < 0) {
-                av_packet_free(&pkt);
                 qWarning() << "Error flushing audio encoder:" << ret;
                 break;
             }
-            av_packet_rescale_ts(pkt, m_audioEncCtx->time_base, m_audioStream->time_base);
+            av_packet_rescale_ts(pkt.get(), m_audioEncCtx->time_base, m_audioStream->time_base);
             pkt->stream_index = m_audioStream->index;
-            av_interleaved_write_frame(m_fmtCtx, pkt);
-            av_packet_free(&pkt);
+            av_interleaved_write_frame(m_fmtCtx, pkt.get());
         }
     }
 
