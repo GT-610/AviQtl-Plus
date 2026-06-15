@@ -19,6 +19,40 @@ Common.AviQtlWindow {
     property bool enableSnap: SettingsManager && SettingsManager.settings ? SettingsManager.settings.enableSnap : true
     property bool sidebarOnRight: (SettingsManager && SettingsManager.settings && SettingsManager.settings.settingDialogSidebarRight !== undefined) ? SettingsManager.settings.settingDialogSidebarRight : false
     readonly property real _projectFps: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60
+    readonly property bool isMixerClip: Workspace.currentTimeline && Workspace.currentTimeline.activeObjectType === "mixer"
+    property real mixerPeakLeft: 0
+    property real mixerPeakRight: 0
+    property real mixerRmsLeft: 0
+    property real mixerRmsRight: 0
+
+    function mixerEffectModel() {
+        for (var i = 0; i < effectsModel.length; i++) {
+            if (effectsModel[i] && effectsModel[i].id === "mixer")
+                return effectsModel[i];
+        }
+        return null;
+    }
+
+    function mixerEffectIndex() {
+        for (var i = 0; i < effectsModel.length; i++) {
+            if (effectsModel[i] && effectsModel[i].id === "mixer")
+                return i;
+        }
+        return -1;
+    }
+
+    function mixerParamValue(paramName, fallback) {
+        var model = mixerEffectModel();
+        if (!model || !model.params || model.params[paramName] === undefined)
+            return fallback;
+        return model.params[paramName];
+    }
+
+    function setMixerParam(paramName, value) {
+        var idx = mixerEffectIndex();
+        if (idx >= 0 && Workspace.currentTimeline)
+            Workspace.currentTimeline.updateClipEffectParam(targetClipId, idx, paramName, value);
+    }
 
     function currentSceneData() {
         if (!Workspace.currentTimeline || !Workspace.currentTimeline.scenes)
@@ -220,8 +254,8 @@ Common.AviQtlWindow {
         return [];
     }
 
-    width: 350
-    height: 500
+    width: isMixerClip ? 820 : 350
+    height: isMixerClip ? 620 : 500
     title: qsTr("設定ダイアログ")
     color: palette.window
     visible: true
@@ -252,6 +286,16 @@ Common.AviQtlWindow {
             if (clipId === targetClipId && !root.isDeleting)
                 reload();
 
+        }
+
+        function onMixerMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight) {
+            if (clipId !== targetClipId)
+                return;
+
+            mixerPeakLeft = peakLeft;
+            mixerPeakRight = peakRight;
+            mixerRmsLeft = rmsLeft;
+            mixerRmsRight = rmsRight;
         }
 
         target: Workspace.currentTimeline
@@ -735,10 +779,271 @@ Common.AviQtlWindow {
                 spacing: 1
                 layoutDirection: Qt.LeftToRight
 
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    visible: root.isMixerClip
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        Layout.preferredHeight: 82
+                        radius: 8
+                        color: palette.midlight
+                        border.width: 1
+                        border.color: palette.mid
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 14
+
+                            Rectangle {
+                                Layout.preferredWidth: 44
+                                Layout.preferredHeight: 44
+                                radius: 10
+                                color: palette.highlight
+
+                                Common.AviQtlIcon {
+                                    anchors.centerIn: parent
+                                    iconName: "sound_module_line"
+                                    size: 26
+                                    color: palette.highlightedText
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Label {
+                                    text: qsTr("ミキサーワークスペース")
+                                    color: palette.text
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                }
+
+                                Label {
+                                    text: qsTr("独立した音声ソース、Carlaプラグインチェーン、メーターをこのオブジェクト内で管理します。")
+                                    color: palette.text
+                                    opacity: 0.72
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("プラグイン追加")
+                                onClicked: filterMenu.popup()
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        Layout.preferredHeight: 130
+                        radius: 8
+                        color: palette.base
+                        border.width: 1
+                        border.color: palette.mid
+
+                        Canvas {
+                            id: mixerWaveformCanvas
+
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            opacity: 0.9
+                            onWidthChanged: requestPaint()
+                            onPaint: {
+                                var ctx = getContext("2d");
+                                ctx.clearRect(0, 0, width, height);
+                                ctx.fillStyle = palette.base;
+                                ctx.fillRect(0, 0, width, height);
+
+                                if (!Workspace.currentTimeline || targetClipId < 0 || width <= 0 || height <= 0)
+                                    return;
+
+                                var pw = Math.max(1, Math.floor(width));
+                                var durationFrames = Math.max(1, Workspace.currentTimeline.clipDurationFrames || 1);
+                                var peaks = Workspace.currentTimeline.getWaveformPeaks(targetClipId, pw, durationFrames);
+                                var cy = height / 2;
+                                ctx.strokeStyle = palette.highlight;
+                                ctx.lineWidth = 1;
+                                if (!peaks || peaks.length === 0) {
+                                    ctx.globalAlpha = 0.35;
+                                    ctx.beginPath();
+                                    ctx.moveTo(0, cy);
+                                    ctx.lineTo(width, cy);
+                                    ctx.stroke();
+                                    ctx.globalAlpha = 1;
+                                    return;
+                                }
+
+                                var maxH = Math.max(1, cy - 4);
+                                for (var i = 0; i < peaks.length / 2; i++) {
+                                    var pMin = peaks[i * 2];
+                                    var pMax = peaks[i * 2 + 1];
+                                    var yTop = cy - (pMax * maxH);
+                                    var yBottom = cy - (pMin * maxH);
+                                    if (yBottom - yTop < 1)
+                                        yBottom = yTop + 1;
+                                    ctx.beginPath();
+                                    ctx.moveTo(i + 0.5, yTop);
+                                    ctx.lineTo(i + 0.5, yBottom);
+                                    ctx.stroke();
+                                }
+                            }
+
+                            Connections {
+                                function onClipEffectsChanged(clipId) {
+                                    if (clipId === targetClipId)
+                                        mixerWaveformCanvas.requestPaint();
+                                }
+
+                                function onClipDurationFramesChanged() {
+                                    mixerWaveformCanvas.requestPaint();
+                                }
+
+                                target: Workspace.currentTimeline
+                            }
+                        }
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        columns: 2
+                        columnSpacing: 12
+                        rowSpacing: 8
+
+                        Repeater {
+                            model: [
+                                { "type": "path", "param": "source", "label": qsTr("音声ソース"), "filter": "Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)" },
+                                { "type": "enum", "param": "playMode", "label": qsTr("再生モード"), "options": ["開始時間＋再生速度", "時間直接指定"] },
+                                { "type": "float", "param": "startTime", "label": qsTr("開始時間"), "min": 0, "unit": "s" },
+                                { "type": "float", "param": "speed", "label": qsTr("再生速度"), "min": 1, "max": 400, "unit": "%" },
+                                { "type": "float", "param": "directTime", "label": qsTr("指定時間"), "min": 0, "unit": "s" },
+                                { "type": "slider", "param": "volume", "label": qsTr("音量"), "min": 0, "max": 2, "step": 0.01 },
+                                { "type": "slider", "param": "masterVolume", "label": qsTr("マスター音量"), "min": 0, "max": 2, "step": 0.01 },
+                                { "type": "slider", "param": "pan", "label": qsTr("パン"), "min": -1, "max": 1, "step": 0.1 },
+                                { "type": "float", "param": "fadeIn", "label": qsTr("フェードイン"), "min": 0, "unit": "s" },
+                                { "type": "float", "param": "fadeOut", "label": qsTr("フェードアウト"), "min": 0, "unit": "s" },
+                                { "type": "bool", "param": "mute", "label": qsTr("ミュート") },
+                                { "type": "bool", "param": "solo", "label": qsTr("ソロ") },
+                                { "type": "bool", "param": "limiter", "label": qsTr("リミッター") }
+                            ]
+
+                            delegate: Common.ControlLoader {
+                                Layout.fillWidth: true
+                                definition: modelData
+                                value: root.mixerParamValue(modelData.param, modelData.type === "bool" ? false : 0)
+                                onValueModified: (newValue) => root.setMixerParam(modelData.param, newValue)
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        Layout.preferredHeight: 94
+                        radius: 8
+                        color: palette.midlight
+                        border.width: 1
+                        border.color: palette.mid
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            Label {
+                                text: qsTr("メーター")
+                                color: palette.text
+                                font.bold: true
+                            }
+
+                            Repeater {
+                                model: [
+                                    { "name": "L", "peak": root.mixerPeakLeft, "rms": root.mixerRmsLeft },
+                                    { "name": "R", "peak": root.mixerPeakRight, "rms": root.mixerRmsRight }
+                                ]
+
+                                delegate: RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Label {
+                                        text: modelData.name
+                                        Layout.preferredWidth: 14
+                                        color: palette.text
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 12
+                                        radius: 6
+                                        color: palette.base
+                                        border.width: 1
+                                        border.color: palette.mid
+
+                                        Rectangle {
+                                            anchors.left: parent.left
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            height: parent.height - 2
+                                            width: Math.min(parent.width, parent.width * Math.max(0, Math.min(1, modelData.rms)))
+                                            radius: 5
+                                            color: palette.highlight
+                                            opacity: 0.55
+                                        }
+
+                                        Rectangle {
+                                            anchors.left: parent.left
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            height: parent.height - 2
+                                            width: Math.min(parent.width, parent.width * Math.max(0, Math.min(1, modelData.peak)))
+                                            radius: 5
+                                            color: modelData.peak > 0.95 ? "#d94f4f" : "#4fd97b"
+                                        }
+                                    }
+
+                                    Label {
+                                        text: (Math.max(modelData.peak, 0) * 100).toFixed(0) + "%"
+                                        Layout.preferredWidth: 42
+                                        horizontalAlignment: Text.AlignRight
+                                        color: palette.text
+                                        opacity: 0.75
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 10
+                        text: qsTr("Carlaプラグインチェーン")
+                        color: palette.text
+                        font.pixelSize: 15
+                        font.bold: true
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 10
+                        text: audioEffectsModel.length > 0 ? qsTr("左側のリストでプラグインを選択・並べ替えできます。") : qsTr("上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。")
+                        color: palette.text
+                        opacity: 0.7
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
                 Repeater {
                     id: videoEffectsRepeater
 
-                    model: effectsModel
+                    model: root.isMixerClip ? [] : effectsModel
 
                     delegate: ColumnLayout {
                         id: effectRoot
