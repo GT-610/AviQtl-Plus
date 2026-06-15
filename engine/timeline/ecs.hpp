@@ -123,6 +123,7 @@ struct AudioComponent {
     bool mute = false;
     bool solo = false;
     bool limiter = false;
+    bool isMixer = false;
     bool directMode = false;
 };
 

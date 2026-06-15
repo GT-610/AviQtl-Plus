@@ -194,6 +194,7 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
     audio.clipId = clip.id;
     audio.startFrame = clip.startFrame;
     audio.durationFrames = clip.durationFrames;
+    audio.isMixer = clip.type == QStringLiteral("mixer");
 
     for (const auto &effect : clip.effects) {
         if (!effect.enabled || (effect.id != QStringLiteral("audio") && effect.id != QStringLiteral("mixer"))) {

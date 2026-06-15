@@ -235,6 +235,7 @@ class TimelineController : public QObject {
     void exportProgressChanged(int progress, int currentFrame, int totalFrames);
     void exportFinished(bool success, const QString &message);
     void timelineDurationChanged();
+    void mixerMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);
 
   private:
     // Initialization Helpers

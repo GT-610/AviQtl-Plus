@@ -40,6 +40,9 @@ class AudioMixer : public QObject {
     void setPlaybackSpeed(double speed);
     void setSampleRate(int sampleRate);
 
+  signals:
+    void mixerMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);
+
   private:
     std::unique_ptr<QAudioSink> m_audioSink;
     QIODevice *m_audioOutput = nullptr;

@@ -218,11 +218,21 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
         const float outputVolume = audio.volume * audio.masterVolume * fadeGain;
         float leftVol = outputVolume * (audio.pan <= 0 ? 1.0F : 1.0F - audio.pan);
         float rightVol = outputVolume * (audio.pan >= 0 ? 1.0F : 1.0F + audio.pan);
+        float peakLeft = 0.0F;
+        float peakRight = 0.0F;
+        double squareLeft = 0.0;
+        double squareRight = 0.0;
+        int meterFrames = 0;
 
         for (size_t i = 0; i < m_clipSamples.size() && i < masterBuffer.size(); i += 2) {
             float left = m_clipSamples[i] * leftVol;
             if (audio.limiter) {
                 left = std::clamp(left, -1.0F, 1.0F);
+            }
+            if (audio.isMixer) {
+                const float absLeft = std::abs(left);
+                peakLeft = std::max(peakLeft, absLeft);
+                squareLeft += static_cast<double>(left) * static_cast<double>(left);
             }
             masterBuffer[i] += left;
             if (i + 1 < m_clipSamples.size()) {
@@ -230,8 +240,20 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
                 if (audio.limiter) {
                     right = std::clamp(right, -1.0F, 1.0F);
                 }
+                if (audio.isMixer) {
+                    const float absRight = std::abs(right);
+                    peakRight = std::max(peakRight, absRight);
+                    squareRight += static_cast<double>(right) * static_cast<double>(right);
+                    ++meterFrames;
+                }
                 masterBuffer[i + 1] += right;
             }
+        }
+
+        if (audio.isMixer && meterFrames > 0) {
+            const float rmsLeft = static_cast<float>(std::sqrt(squareLeft / static_cast<double>(meterFrames)));
+            const float rmsRight = static_cast<float>(std::sqrt(squareRight / static_cast<double>(meterFrames)));
+            emit mixerMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight);
         }
     }
     return masterBuffer;
