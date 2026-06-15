@@ -1339,6 +1339,17 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
 </context>
 <context>
+    <name>AviQtl::UI</name>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">Cancelled</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">Export complete</translation>
+    </message>
+</context>
+<context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
@@ -1395,6 +1406,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="23"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="36"/>
+        <source>Invalid export configuration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="27"/>
+        <source>Export end frame must be after start frame</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
@@ -1411,34 +1433,35 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation type="vanished">Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="54"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
         <source>Encoder initialization failed</source>
         <translation>Encoder initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="86"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="250"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="127"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="240"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="156"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="286"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="136"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="166"/>
         <source>Cannot create output directory</source>
         <translation>Cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
         <source>Failed to capture frame %1</source>
         <translation>Failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="229"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
         <source>Failed to save frame %1</source>
         <translation>Failed to save frame %1</translation>
     </message>
@@ -2068,7 +2091,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Cancel Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="616"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="617"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
         <translation>Cancel the export?
@@ -3763,6 +3786,29 @@ Please restart the application to apply.</translation>
         <location filename="../ui/qml/SystemSettingsWindow.qml" line="398"/>
         <source>閉じる</source>
         <translation>Close</translation>
+    </message>
+</context>
+<context>
+    <name>TimelineExportManager</name>
+    <message>
+        <source>Cannot create output directory</source>
+        <translation type="obsolete">Cannot create output directory</translation>
+    </message>
+    <message>
+        <source>Failed to capture frame %1</source>
+        <translation type="obsolete">Failed to capture frame %1</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">Cancelled</translation>
+    </message>
+    <message>
+        <source>Failed to save frame %1</source>
+        <translation type="obsolete">Failed to save frame %1</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">Export complete</translation>
     </message>
 </context>
 <context>

@@ -34,8 +34,8 @@ class VideoEncoder : public QObject {
         int fps_num;
         int fps_den;
         int64_t bitrate = 15'000'000;
-        int crf = -1;                                     // -1 = bitrateモード, 0〜51 = CRFモード
-        QString codecName = QStringLiteral("h264_vaapi"); // AMD Radeon 780M on Linux
+        int crf = -1;                                     // -1 = bitrate mode, 0~51 = CRF mode
+        QString codecName = QStringLiteral("libx264");    // software fallback, works on all platforms
         QString audioCodecName = QStringLiteral("aac");
         int64_t audioBitrate = 192'000;
         QString outputUrl;

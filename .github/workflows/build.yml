@@ -19,7 +19,7 @@ jobs:
     container:
       image: archlinux:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install Dependencies
         run: |
@@ -36,24 +36,7 @@ jobs:
       - name: Run Tests
         run: |
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target AviQtl_Test_effect_registry \
-                                AviQtl_Test_document_model \
-                                AviQtl_Test_settings_manager \
-                                AviQtl_Test_preset_manager \
-                                AviQtl_Test_theme_controller \
-                                AviQtl_Test_media_decoder \
-                                AviQtl_Test_effect_model \
-                                AviQtl_Test_dense_component_map \
-                                AviQtl_Test_audio_plugin_chain \
-                                AviQtl_Test_bake_controller \
-                                AviQtl_Test_ecs_render \
-                                AviQtl_Test_keyframe_evaluator \
-                                AviQtl_Test_triple_buffer \
-                                AviQtl_Test_lua_host \
-                                AviQtl_Test_selection_service \
-                                AviQtl_Test_project_service \
-                                AviQtl_Test_transport_service \
-                                AviQtl_Test_clip_by_upper_object
+          cmake --build build
           cd build && ctest --output-on-failure
         env:
           QT_QPA_PLATFORM: offscreen
@@ -81,7 +64,7 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
     container: ${{ matrix.container }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
@@ -106,7 +89,7 @@ jobs:
 
       - name: Setup MSYS2 (Windows)
         if: matrix.platform == 'windows'
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@5d0de63f600b6dd7b5d089d4ecbec1d2448dcd96 # v2.26.0
         with:
           msystem: UCRT64
           update: true
@@ -114,7 +97,7 @@ jobs:
             mingw-w64-ucrt-x86_64-python
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@a0d15060b6b80297e58676625e400da3f16e6f23 # v1.2.17
         with:
           max-size: 500M
           key: ${{ matrix.platform }}-ccache
@@ -122,9 +105,12 @@ jobs:
       - name: Determine Version
         id: version
         shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            TAG_NAME="${{ github.ref_name }}"
+          if [ "$REF_TYPE" = "tag" ]; then
+            TAG_NAME="$REF_NAME"
             VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
             CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
           else
@@ -165,21 +151,49 @@ jobs:
           GIT_TERMINAL_PROMPT: 0
 
       - name: Upload Artifact
-        if: github.ref_type != 'tag'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
           retention-days: 14
 
+  release:
+    name: Create Release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine Version
+        id: version
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          TAG_NAME="$REF_NAME"
+          VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
+          CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
+          if [ -n "$CODENAME" ]; then
+            echo "release_name=$VERSION $CODENAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@95815c38cf2ff2164869cb28879a6f65d89866cb # v4.2.1
+        with:
+          path: dist
+          pattern: AviQtl-*
+          merge-multiple: true
+
       - name: Create GitHub Release
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@c7b3abd10451be99feeaa2e59268fb85e7b521d2 # v2.2.2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.version.outputs.release_name }}
           generate_release_notes: true
-          files: ${{ matrix.artifact_path }}
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

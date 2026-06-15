@@ -11,7 +11,7 @@ Common.AviQtlWindow {
     property var project: Workspace.currentTimeline ? Workspace.currentTimeline.project : null
     property var ownerWindow: null
     readonly property double pFps: project ? project.fps : 60
-    readonly property string _platformDefaultCodec: Qt.platform.os === "windows" ? "h264_nvenc" : (Qt.platform.os === "osx" ? "h264_videotoolbox" : "h264_vaapi")
+    readonly property string _platformDefaultCodec: "libx264"
     property string defaultCodec: SettingsManager ? SettingsManager.value("exportDefaultCodec", _platformDefaultCodec) : _platformDefaultCodec
     property int defaultBitrateMbps: SettingsManager ? SettingsManager.value("exportDefaultBitrateMbps", 15) : 15
     property int defaultCrf: SettingsManager ? SettingsManager.value("exportDefaultCrf", 20) : 20

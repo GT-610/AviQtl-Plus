@@ -1339,6 +1339,17 @@
     </message>
 </context>
 <context>
+    <name>AviQtl::UI</name>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">キャンセルされました</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">書き出し完了</translation>
+    </message>
+</context>
+<context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
@@ -1395,6 +1406,27 @@
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="43"/>
+        <source>Invalid export configuration</source>
+        <translation>エクスポート設定が無効です</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="28"/>
+        <source>Export end frame must be after start frame</source>
+        <translation>エクスポート終了フレームは開始フレームより後にする必要があります</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="47"/>
+        <source>Failed to start image sequence export</source>
+        <translation>画像シーケンスのエクスポートを開始できませんでした</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="34"/>
+        <source>Export FPS does not match project FPS</source>
+        <translation>エクスポートFPSがプロジェクトFPSと一致しません</translation>
+    </message>
 </context>
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
@@ -1411,34 +1443,35 @@
         <translation type="vanished">書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="54"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
         <source>Encoder initialization failed</source>
         <translation>エンコーダーの初期化に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="86"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="120"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="254"/>
         <source>Cancelled</source>
         <translation>キャンセルされました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="127"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="240"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="157"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="290"/>
         <source>Export complete</source>
         <translation>書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="136"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
         <source>Cannot create output directory</source>
         <translation>出力ディレクトリを作成できません</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="216"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="239"/>
         <source>Failed to capture frame %1</source>
         <translation>フレーム %1 の取得に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="229"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="279"/>
         <source>Failed to save frame %1</source>
         <translation>フレーム %1 の保存に失敗しました</translation>
     </message>
@@ -2068,7 +2101,7 @@
         <translation>書き出しキャンセル</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="616"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="617"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
         <translation>書き出しをキャンセルしますか？
@@ -3699,6 +3732,29 @@
         <location filename="../ui/qml/SystemSettingsWindow.qml" line="398"/>
         <source>閉じる</source>
         <translation>閉じる</translation>
+    </message>
+</context>
+<context>
+    <name>TimelineExportManager</name>
+    <message>
+        <source>Cannot create output directory</source>
+        <translation type="obsolete">出力ディレクトリを作成できません</translation>
+    </message>
+    <message>
+        <source>Failed to capture frame %1</source>
+        <translation type="obsolete">フレーム %1 の取得に失敗しました</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation type="obsolete">キャンセルされました</translation>
+    </message>
+    <message>
+        <source>Failed to save frame %1</source>
+        <translation type="obsolete">フレーム %1 の保存に失敗しました</translation>
+    </message>
+    <message>
+        <source>Export complete</source>
+        <translation type="obsolete">書き出し完了</translation>
     </message>
 </context>
 <context>
