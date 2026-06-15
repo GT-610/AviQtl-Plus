@@ -1407,14 +1407,24 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Unsupported file format: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="23"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="36"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="43"/>
         <source>Invalid export configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="27"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="28"/>
         <source>Export end frame must be after start frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="34"/>
+        <source>Export FPS does not match project FPS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="47"/>
+        <source>Failed to start image sequence export</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1438,30 +1448,30 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Encoder initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="250"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="120"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="254"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="156"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="286"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="157"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="290"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="166"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
         <source>Cannot create output directory</source>
         <translation>Cannot create output directory</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="239"/>
         <source>Failed to capture frame %1</source>
         <translation>Failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="275"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="279"/>
         <source>Failed to save frame %1</source>
         <translation>Failed to save frame %1</translation>
     </message>
