@@ -3362,188 +3362,236 @@
 <context>
     <name>SettingDialog</name>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="259"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="260"/>
         <source>設定ダイアログ</source>
         <translation>設定ダイアログ</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="572"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="573"/>
         <source>削除</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="572"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="573"/>
         <source>選択した %1 件を削除</source>
         <translation>選択した %1 件を削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="608"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="609"/>
         <source>プリセットを保存...</source>
         <translation>プリセットを保存...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="623"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="624"/>
         <source>プリセットを読み込み</source>
         <translation>プリセットを読み込み</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="689"/>
-        <location filename="../ui/qml/SettingDialog.qml" line="720"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="690"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="721"/>
         <source>プリセットがありません</source>
         <translation>プリセットがありません</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="697"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="698"/>
         <source>プリセットを削除</source>
         <translation>プリセットを削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="736"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="737"/>
         <source>プリセットを保存</source>
         <translation>プリセットを保存</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="745"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="746"/>
         <source>プリセット名:</source>
         <translation>プリセット名:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="751"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="752"/>
         <source>プリセット名を入力...</source>
         <translation>プリセット名を入力...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="820"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="821"/>
         <source>ミキサーワークスペース</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="827"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="828"/>
         <source>独立した音声ソース、Carlaプラグインチェーン、メーターをこのオブジェクト内で管理します。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="836"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="837"/>
         <source>プラグイン追加</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="922"/>
-        <source>音声ソース</source>
+        <location filename="../ui/qml/SettingDialog.qml" line="917"/>
+        <source>音声ソースを選択</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="923"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="946"/>
+        <source>Source Deck</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="959"/>
+        <source>音声ファイルを選択...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="965"/>
+        <source>参照</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="975"/>
+        <source>Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="995"/>
+        <source>Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1017"/>
+        <source>Speed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1039"/>
+        <source>Direct</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1080"/>
+        <source>Channel Strip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1088"/>
+        <source>Limit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1100"/>
+        <source>VOL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1103"/>
+        <source>MASTER</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1106"/>
+        <source>PAN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1109"/>
+        <source>FADE IN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1112"/>
+        <source>FADE OUT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1122"/>
+        <source>MUTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="1130"/>
+        <source>SOLO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>再生モード</source>
-        <translation type="unfinished">再生モード</translation>
+        <translation type="obsolete">再生モード</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="924"/>
         <source>開始時間</source>
-        <translation type="unfinished">開始時間</translation>
+        <translation type="obsolete">開始時間</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="925"/>
         <source>再生速度</source>
-        <translation type="unfinished">再生速度</translation>
+        <translation type="obsolete">再生速度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="926"/>
         <source>指定時間</source>
-        <translation type="unfinished">指定時間</translation>
+        <translation type="obsolete">指定時間</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="927"/>
         <source>音量</source>
-        <translation type="unfinished">音量</translation>
+        <translation type="obsolete">音量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="928"/>
-        <source>マスター音量</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="929"/>
         <source>パン</source>
-        <translation type="unfinished">パン</translation>
+        <translation type="obsolete">パン</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="930"/>
-        <source>フェードイン</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="931"/>
-        <source>フェードアウト</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="932"/>
         <source>ミュート</source>
-        <translation type="unfinished">ミュート</translation>
+        <translation type="obsolete">ミュート</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="933"/>
-        <source>ソロ</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="934"/>
-        <source>リミッター</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="961"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1155"/>
         <source>メーター</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1026"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1220"/>
         <source>Carlaプラグインチェーン</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1036"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1230"/>
         <source>左側のリストでプラグインを選択・並べ替えできます。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1036"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1230"/>
         <source>上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1422"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1616"/>
         <source> (直線)</source>
         <translation> (直線)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1423"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1617"/>
         <source> (加速)</source>
         <translation> (加速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1424"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1618"/>
         <source> (減速)</source>
         <translation> (減速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1425"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1619"/>
         <source> (加減速)</source>
         <translation> (加減速)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1426"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1620"/>
         <source> (ベジェ)</source>
         <translation> (ベジェ)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1968"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2162"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1979"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2173"/>
         <source>検索...</source>
         <translation>検索...</translation>
     </message>

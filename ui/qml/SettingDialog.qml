@@ -2,6 +2,7 @@ import Qt.labs.qmlmodels
 import QtQml
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick.Window
 import "common" as Common
@@ -910,35 +911,228 @@ Common.AviQtlWindow {
                         }
                     }
 
-                    GridLayout {
+                    FileDialog {
+                        id: mixerSourceDialog
+
+                        title: qsTr("音声ソースを選択")
+                        nameFilters: ["Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)", "All Files (*)"]
+                        onAccepted: {
+                            var path = selectedFile.toString();
+                            if (path.indexOf("file://") === 0)
+                                path = decodeURIComponent(path.replace(/^file:\/\//, ""));
+                            root.setMixerParam("source", path);
+                        }
+                    }
+
+                    RowLayout {
                         Layout.fillWidth: true
                         Layout.margins: 10
-                        columns: 2
-                        columnSpacing: 12
-                        rowSpacing: 8
+                        spacing: 10
 
-                        Repeater {
-                            model: [
-                                { "type": "path", "param": "source", "label": qsTr("音声ソース"), "filter": "Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)" },
-                                { "type": "enum", "param": "playMode", "label": qsTr("再生モード"), "options": ["開始時間＋再生速度", "時間直接指定"] },
-                                { "type": "float", "param": "startTime", "label": qsTr("開始時間"), "min": 0, "unit": "s" },
-                                { "type": "float", "param": "speed", "label": qsTr("再生速度"), "min": 1, "max": 400, "unit": "%" },
-                                { "type": "float", "param": "directTime", "label": qsTr("指定時間"), "min": 0, "unit": "s" },
-                                { "type": "slider", "param": "volume", "label": qsTr("音量"), "min": 0, "max": 2, "step": 0.01 },
-                                { "type": "slider", "param": "masterVolume", "label": qsTr("マスター音量"), "min": 0, "max": 2, "step": 0.01 },
-                                { "type": "slider", "param": "pan", "label": qsTr("パン"), "min": -1, "max": 1, "step": 0.1 },
-                                { "type": "float", "param": "fadeIn", "label": qsTr("フェードイン"), "min": 0, "unit": "s" },
-                                { "type": "float", "param": "fadeOut", "label": qsTr("フェードアウト"), "min": 0, "unit": "s" },
-                                { "type": "bool", "param": "mute", "label": qsTr("ミュート") },
-                                { "type": "bool", "param": "solo", "label": qsTr("ソロ") },
-                                { "type": "bool", "param": "limiter", "label": qsTr("リミッター") }
-                            ]
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 260
+                            radius: 8
+                            color: palette.midlight
+                            border.width: 1
+                            border.color: palette.mid
 
-                            delegate: Common.ControlLoader {
-                                Layout.fillWidth: true
-                                definition: modelData
-                                value: root.mixerParamValue(modelData.param, modelData.type === "bool" ? false : 0)
-                                onValueModified: (newValue) => root.setMixerParam(modelData.param, newValue)
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 10
+
+                                Label {
+                                    text: qsTr("Source Deck")
+                                    color: palette.text
+                                    font.pixelSize: 15
+                                    font.bold: true
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    TextField {
+                                        Layout.fillWidth: true
+                                        text: String(root.mixerParamValue("source", ""))
+                                        placeholderText: qsTr("音声ファイルを選択...")
+                                        selectByMouse: true
+                                        onEditingFinished: root.setMixerParam("source", text)
+                                    }
+
+                                    Button {
+                                        text: qsTr("参照")
+                                        onClicked: mixerSourceDialog.open()
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Label {
+                                        text: qsTr("Mode")
+                                        color: palette.text
+                                        Layout.preferredWidth: 72
+                                    }
+
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["開始時間＋再生速度", "時間直接指定"]
+                                        currentIndex: model.indexOf(String(root.mixerParamValue("playMode", "開始時間＋再生速度")))
+                                        onActivated: root.setMixerParam("playMode", model[currentIndex])
+                                    }
+                                }
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 2
+                                    columnSpacing: 10
+                                    rowSpacing: 8
+
+                                    Label {
+                                        text: qsTr("Start")
+                                        color: palette.text
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Slider {
+                                            Layout.fillWidth: true
+                                            from: 0
+                                            to: 60
+                                            value: Number(root.mixerParamValue("startTime", 0))
+                                            onMoved: root.setMixerParam("startTime", value)
+                                        }
+                                        TextField {
+                                            Layout.preferredWidth: 64
+                                            text: Number(root.mixerParamValue("startTime", 0)).toFixed(2)
+                                            horizontalAlignment: Text.AlignRight
+                                            onEditingFinished: root.setMixerParam("startTime", Number(text))
+                                        }
+                                    }
+
+                                    Label {
+                                        text: qsTr("Speed")
+                                        color: palette.text
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Slider {
+                                            Layout.fillWidth: true
+                                            from: 1
+                                            to: 400
+                                            value: Number(root.mixerParamValue("speed", 100))
+                                            onMoved: root.setMixerParam("speed", value)
+                                        }
+                                        TextField {
+                                            Layout.preferredWidth: 64
+                                            text: Number(root.mixerParamValue("speed", 100)).toFixed(0) + "%"
+                                            horizontalAlignment: Text.AlignRight
+                                            onEditingFinished: root.setMixerParam("speed", Number(text.replace("%", "")))
+                                        }
+                                    }
+
+                                    Label {
+                                        text: qsTr("Direct")
+                                        color: palette.text
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Slider {
+                                            Layout.fillWidth: true
+                                            from: 0
+                                            to: 60
+                                            value: Number(root.mixerParamValue("directTime", 0))
+                                            onMoved: root.setMixerParam("directTime", value)
+                                        }
+                                        TextField {
+                                            Layout.preferredWidth: 64
+                                            text: Number(root.mixerParamValue("directTime", 0)).toFixed(2)
+                                            horizontalAlignment: Text.AlignRight
+                                            onEditingFinished: root.setMixerParam("directTime", Number(text))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: 260
+                            Layout.preferredHeight: 260
+                            radius: 8
+                            color: palette.midlight
+                            border.width: 1
+                            border.color: palette.mid
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+
+                                    Label {
+                                        text: qsTr("Channel Strip")
+                                        color: palette.text
+                                        font.pixelSize: 15
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+
+                                    CheckBox {
+                                        text: qsTr("Limit")
+                                        checked: Boolean(root.mixerParamValue("limiter", true))
+                                        onToggled: root.setMixerParam("limiter", checked)
+                                    }
+                                }
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 2
+                                    rowSpacing: 6
+                                    columnSpacing: 8
+
+                                    Label { text: qsTr("VOL"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.mixerParamValue("volume", 1)); onMoved: root.setMixerParam("volume", value) }
+
+                                    Label { text: qsTr("MASTER"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.mixerParamValue("masterVolume", 1)); onMoved: root.setMixerParam("masterVolume", value) }
+
+                                    Label { text: qsTr("PAN"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: -1; to: 1; value: Number(root.mixerParamValue("pan", 0)); onMoved: root.setMixerParam("pan", value) }
+
+                                    Label { text: qsTr("FADE IN"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.mixerParamValue("fadeIn", 0)); onMoved: root.setMixerParam("fadeIn", value) }
+
+                                    Label { text: qsTr("FADE OUT"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.mixerParamValue("fadeOut", 0)); onMoved: root.setMixerParam("fadeOut", value) }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        text: qsTr("MUTE")
+                                        checkable: true
+                                        checked: Boolean(root.mixerParamValue("mute", false))
+                                        onToggled: root.setMixerParam("mute", checked)
+                                    }
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        text: qsTr("SOLO")
+                                        checkable: true
+                                        checked: Boolean(root.mixerParamValue("solo", false))
+                                        onToggled: root.setMixerParam("solo", checked)
+                                    }
+                                }
                             }
                         }
                     }
