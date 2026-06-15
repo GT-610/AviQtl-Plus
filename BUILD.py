@@ -36,7 +36,6 @@ class BuildConfig:
     version_minor: int = 0
     version_patch: int = 0
     version_string: str = "0.0.0"
-    version_codename: str = "Unstable"
 
     @property
     def build_type(self) -> str:
@@ -228,7 +227,6 @@ class PlatformBuilder:
             f"-DAVIQTL_VERSION_MINOR={self.config.version_minor}",
             f"-DAVIQTL_VERSION_PATCH={self.config.version_patch}",
             f"-DAVIQTL_VERSION_STRING={self.config.version_string}",
-            f"-DAVIQTL_VERSION_CODENAME={self.config.version_codename}",
         ]
         return cmd
 
@@ -1481,10 +1479,6 @@ def parse_args() -> argparse.Namespace:
         "--version", type=str, default="0.0.0",
         help="Specify the application version (e.g. 0.1.0 or 0.1.0-Anon)."
     )
-    parser.add_argument(
-        "--codename", type=str, default="Unstable",
-        help="Specify the codename (e.g. Unstable)."
-    )
     return parser.parse_args()
 
 
@@ -1533,7 +1527,6 @@ def main():
         qt_dir=args.qt_dir,
         # Assign version info from args to config
         version_string=args.version,
-        version_codename=args.codename,
     )
 
     # Parse major, minor, patch from version_string

@@ -112,41 +112,31 @@ jobs:
           if [ "$REF_TYPE" = "tag" ]; then
             TAG_NAME="$REF_NAME"
             VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
-            CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
           else
             VERSION="0.0.0"
-            CODENAME=""
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
-          if [ -n "$CODENAME" ]; then
-            echo "release_name=$VERSION $CODENAME" >> "$GITHUB_OUTPUT"
-          else
-            echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
-          fi
-          echo "Version: $VERSION, Codename: $CODENAME"
+          echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
 
       - name: Build (Linux)
         if: matrix.platform == 'linux'
         run: |
           python3 BUILD.py --no-container \
-            --version "${{ steps.version.outputs.version }}" \
-            --codename "${{ steps.version.outputs.codename }}"
+            --version "${{ steps.version.outputs.version }}"
 
       - name: Build (macOS)
         if: matrix.platform == 'macos'
         run: |
           python3 BUILD.py --xcode \
-            --version "${{ steps.version.outputs.version }}" \
-            --codename "${{ steps.version.outputs.codename }}"
+            --version "${{ steps.version.outputs.version }}"
 
       - name: Build (Windows)
         if: matrix.platform == 'windows'
         shell: msys2 {0}
         run: |
           python BUILD.py --msys2 \
-            --version "${{ steps.version.outputs.version }}" \
-            --codename "${{ steps.version.outputs.codename }}"
+            --version "${{ steps.version.outputs.version }}"
         env:
           GIT_TERMINAL_PROMPT: 0
 
@@ -172,14 +162,8 @@ jobs:
         run: |
           TAG_NAME="$REF_NAME"
           VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
-          CODENAME=$(echo "$TAG_NAME" | sed -E 's/^v?[^-]+-?//')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
-          if [ -n "$CODENAME" ]; then
-            echo "release_name=$VERSION $CODENAME" >> "$GITHUB_OUTPUT"
-          else
-            echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
-          fi
+          echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Download Artifacts
         uses: actions/download-artifact@95815c38cf2ff2164869cb28879a6f65d89866cb # v4.2.1
