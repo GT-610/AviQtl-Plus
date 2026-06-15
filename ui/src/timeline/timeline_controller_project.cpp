@@ -205,7 +205,7 @@ auto TimelineController::getAvailableObjects() -> QVariantList {
 
     QSet<QString> handledIds;
 
-    appendCategory(translatedCategory("メディア"), {QStringLiteral("video"), QStringLiteral("image"), QStringLiteral("audio")}, handledIds);
+    appendCategory(translatedCategory("メディア"), {QStringLiteral("video"), QStringLiteral("image"), QStringLiteral("audio"), QStringLiteral("mixer")}, handledIds);
     appendItem(list, QStringLiteral("text"), handledIds);
     appendItem(list, QStringLiteral("rect"), handledIds);
     appendItem(list, QStringLiteral("frame_buffer"), handledIds);
