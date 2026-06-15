@@ -4,16 +4,28 @@
 <context>
     <name>AboutWindow</name>
     <message>
-        <location filename="../ui/qml/AboutWindow.qml" line="9"/>
         <source>AviQtlについて</source>
-        <translation>About AviQtl</translation>
+        <translation type="vanished">About AviQtl</translation>
     </message>
     <message>
-        <location filename="../ui/qml/AboutWindow.qml" line="67"/>
         <source>AviQtl は AviUtl ではありません。
 
 このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
-        <translation>AviQtl is not AviUtl.
+        <translation type="vanished">AviQtl is not AviUtl.
+
+This software is released under the GNU Affero General Public License Version 3.</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/AboutWindow.qml" line="9"/>
+        <source>AviQtl Plusについて</source>
+        <translation>About AviQtl Plus</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/AboutWindow.qml" line="67"/>
+        <source>AviQtl Plus は AviUtl ではありません。
+
+このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
+        <translation>AviQtl Plus is not AviUtl.
 
 This software is released under the GNU Affero General Public License Version 3.</translation>
     </message>
@@ -2396,9 +2408,8 @@ Progress will be lost.</translation>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="69"/>
         <source>AviQtl - プレビュー</source>
-        <translation>AviQtl - Preview</translation>
+        <translation type="vanished">AviQtl - Preview</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="94"/>
@@ -2637,6 +2648,11 @@ Save before continuing?</translation>
         <translation>Preferences</translation>
     </message>
     <message>
+        <location filename="../ui/qml/MainWindow.qml" line="69"/>
+        <source>AviQtl Plus - プレビュー</source>
+        <translation>AviQtl Plus - Preview</translation>
+    </message>
+    <message>
         <location filename="../ui/qml/MainWindow.qml" line="1372"/>
         <source>ツール</source>
         <translation>Tools</translation>
@@ -2693,20 +2709,34 @@ Save before continuing?</translation>
         <translation>Package Manager</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
         <source>AviQtl アップデート</source>
-        <translation>AviQtl Update</translation>
+        <translation type="vanished">AviQtl Update</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="26"/>
         <source>新しいバージョンのAviQtl (%1) が利用可能です。
 ダウンロードURL: %2
 
 アプリケーションを再起動して適用してください。</source>
-        <translation>A new version of AviQtl (%1) is available.
+        <translation type="vanished">A new version of AviQtl (%1) is available.
 Download URL: %2
 
 Please restart the application to apply.</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
+        <source>AviQtl Plus アップデート</source>
+        <translation>AviQtl Plus Update</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="26"/>
+        <source>新しいバージョンのAviQtl Plus (%1) が利用可能です。
+ダウンロードURL: %2
+
+アプリケーションを再起動して適用してください。</source>
+        <translation>A new version of AviQtl Plus (%1) is available.
+Download URL: %2
+
+Please restart the application to apply the update.</translation>
     </message>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="34"/>
@@ -2904,9 +2934,8 @@ Please restart the application to apply.</translation>
 <context>
     <name>ProjectLauncherWindow</name>
     <message>
-        <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
         <source>AviQtl - プロジェクトランチャー</source>
-        <translation>AviQtl - Project Launcher</translation>
+        <translation type="vanished">AviQtl - Project Launcher</translation>
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="50"/>
@@ -2941,6 +2970,11 @@ Please restart the application to apply.</translation>
     <message>
         <source>カスタム</source>
         <translation type="vanished">Custom</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
+        <source>AviQtl Plus - プロジェクトランチャー</source>
+        <translation>AviQtl Plus - Project Launcher</translation>
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="66"/>

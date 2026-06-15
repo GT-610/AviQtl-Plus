@@ -4,16 +4,28 @@
 <context>
     <name>AboutWindow</name>
     <message>
-        <location filename="../ui/qml/AboutWindow.qml" line="9"/>
         <source>AviQtlについて</source>
-        <translation>关于 AviQtl</translation>
+        <translation type="vanished">关于 AviQtl</translation>
     </message>
     <message>
-        <location filename="../ui/qml/AboutWindow.qml" line="67"/>
         <source>AviQtl は AviUtl ではありません。
 
 このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
-        <translation>AviQtl 不是 AviUtl。
+        <translation type="vanished">AviQtl 不是 AviUtl。
+
+本软件基于 GNU Affero General Public License Version 3 发布。</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/AboutWindow.qml" line="9"/>
+        <source>AviQtl Plusについて</source>
+        <translation>关于 AviQtl Plus</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/AboutWindow.qml" line="67"/>
+        <source>AviQtl Plus は AviUtl ではありません。
+
+このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
+        <translation>AviQtl Plus 不是 AviUtl。
 
 本软件基于 GNU Affero General Public License Version 3 发布。</translation>
     </message>
@@ -2396,9 +2408,8 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="69"/>
         <source>AviQtl - プレビュー</source>
-        <translation>AviQtl - 预览</translation>
+        <translation type="vanished">AviQtl - 预览</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="94"/>
@@ -2637,6 +2648,11 @@
         <translation>首选项</translation>
     </message>
     <message>
+        <location filename="../ui/qml/MainWindow.qml" line="69"/>
+        <source>AviQtl Plus - プレビュー</source>
+        <translation>AviQtl Plus - 预览</translation>
+    </message>
+    <message>
         <location filename="../ui/qml/MainWindow.qml" line="1372"/>
         <source>ツール</source>
         <translation>工具</translation>
@@ -2693,20 +2709,34 @@
         <translation>软件包管理器</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
         <source>AviQtl アップデート</source>
-        <translation>AviQtl 更新</translation>
+        <translation type="vanished">AviQtl 更新</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="26"/>
         <source>新しいバージョンのAviQtl (%1) が利用可能です。
 ダウンロードURL: %2
 
 アプリケーションを再起動して適用してください。</source>
-        <translation>AviQtl (%1) 有新版本可用。
+        <translation type="vanished">AviQtl (%1) 有新版本可用。
 下载 URL: %2
 
 请重启应用程序以应用。</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
+        <source>AviQtl Plus アップデート</source>
+        <translation>AviQtl Plus 更新</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="26"/>
+        <source>新しいバージョンのAviQtl Plus (%1) が利用可能です。
+ダウンロードURL: %2
+
+アプリケーションを再起動して適用してください。</source>
+        <translation>新版本的 AviQtl Plus (%1) 已可用。
+下载地址：%2
+
+请重启应用程序以应用更新。</translation>
     </message>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="34"/>
@@ -2908,9 +2938,8 @@
 <context>
     <name>ProjectLauncherWindow</name>
     <message>
-        <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
         <source>AviQtl - プロジェクトランチャー</source>
-        <translation>AviQtl - 项目启动器</translation>
+        <translation type="vanished">AviQtl - 项目启动器</translation>
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="50"/>
@@ -2945,6 +2974,11 @@
     <message>
         <source>カスタム</source>
         <translation type="vanished">自定义</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
+        <source>AviQtl Plus - プロジェクトランチャー</source>
+        <translation>AviQtl Plus - 项目启动器</translation>
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="66"/>

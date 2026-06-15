@@ -22,8 +22,8 @@ Common.AviQtlWindow {
         property string newVersion: ""
         property string downloadUrl: ""
 
-        title: qsTr("AviQtl アップデート")
-        text: qsTr("新しいバージョンのAviQtl (%1) が利用可能です。\nダウンロードURL: %2\n\nアプリケーションを再起動して適用してください。").arg(newVersion).arg(downloadUrl)
+        title: qsTr("AviQtl Plus アップデート")
+        text: qsTr("新しいバージョンのAviQtl Plus (%1) が利用可能です。\nダウンロードURL: %2\n\nアプリケーションを再起動して適用してください。").arg(newVersion).arg(downloadUrl)
         buttons: MessageDialog.Ok
     }
 

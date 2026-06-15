@@ -9,7 +9,7 @@ Common.AviQtlWindow {
 
     width: 700
     height: 500
-    title: qsTr("AviQtl - プロジェクトランチャー")
+    title: qsTr("AviQtl Plus - プロジェクトランチャー")
     Component.onCompleted: {
         // 最近使ったプロジェクトをロード
         if (SettingsManager && SettingsManager.settings) {
@@ -265,7 +265,7 @@ Common.AviQtlWindow {
         id: fileDialog
 
         title: qsTr("プロジェクトファイルを開く")
-        nameFilters: ["AviQtl Project (*.aviqtl)", "All files (*)"]
+        nameFilters: ["AviQtl Plus Project (*.aviqtl)", "All files (*)"]
         onAccepted: {
             Workspace.loadProject(fileDialog.selectedFile);
             root.close();

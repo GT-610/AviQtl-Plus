@@ -6,7 +6,7 @@ import "common" as Common
 Common.AviQtlWindow {
     id: root
 
-    title: qsTr("AviQtlについて")
+    title: qsTr("AviQtl Plusについて")
     width: 420
     height: 260
     minimumWidth: 420
@@ -38,7 +38,7 @@ Common.AviQtlWindow {
                 Layout.fillWidth: true
 
                 Label {
-                    text: "AviQtl " + (typeof AviQtlVersion !== "undefined" ? AviQtlVersion : "")
+                    text: "AviQtl Plus " + (typeof AviQtlVersion !== "undefined" ? AviQtlVersion : "")
                     font.pixelSize: 28
                     font.bold: true
                     color: palette.text
@@ -64,7 +64,7 @@ Common.AviQtlWindow {
 
         Label {
             Layout.fillWidth: true
-            text: qsTr("AviQtl は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。")
+            text: qsTr("AviQtl Plus は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。")
             wrapMode: Text.WordWrap
             font.pixelSize: 13
             color: palette.text

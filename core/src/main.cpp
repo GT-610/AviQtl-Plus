@@ -77,7 +77,7 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
 auto main(int argc, char *argv[]) -> int {
     QApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
-    QApplication::setApplicationName(QStringLiteral("AviQtl"));
+    QApplication::setApplicationName(QStringLiteral("AviQtl Plus"));
     av_log_set_callback(aviqtl_ffmpeg_log_callback);
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/assets/icon.svg")));
 

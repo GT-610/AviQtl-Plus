@@ -4,16 +4,28 @@
 <context>
     <name>AboutWindow</name>
     <message>
-        <location filename="../ui/qml/AboutWindow.qml" line="9"/>
         <source>AviQtlについて</source>
-        <translation>AviQtlについて</translation>
+        <translation type="vanished">AviQtlについて</translation>
     </message>
     <message>
-        <location filename="../ui/qml/AboutWindow.qml" line="67"/>
         <source>AviQtl は AviUtl ではありません。
 
 このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
-        <translation>AviQtl は AviUtl ではありません。
+        <translation type="vanished">AviQtl は AviUtl ではありません。
+
+このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/AboutWindow.qml" line="9"/>
+        <source>AviQtl Plusについて</source>
+        <translation>AviQtl Plusについて</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/AboutWindow.qml" line="67"/>
+        <source>AviQtl Plus は AviUtl ではありません。
+
+このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
+        <translation>AviQtl Plus は AviUtl ではありません。
 
 このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</translation>
     </message>
@@ -2396,9 +2408,8 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="69"/>
         <source>AviQtl - プレビュー</source>
-        <translation>AviQtl - プレビュー</translation>
+        <translation type="vanished">AviQtl - プレビュー</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="94"/>
@@ -2637,6 +2648,11 @@
         <translation>環境設定</translation>
     </message>
     <message>
+        <location filename="../ui/qml/MainWindow.qml" line="69"/>
+        <source>AviQtl Plus - プレビュー</source>
+        <translation>AviQtl Plus - プレビュー</translation>
+    </message>
+    <message>
         <location filename="../ui/qml/MainWindow.qml" line="1372"/>
         <source>ツール</source>
         <translation>ツール</translation>
@@ -2693,17 +2709,31 @@
         <translation>パッケージマネージャー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
         <source>AviQtl アップデート</source>
-        <translation>AviQtl アップデート</translation>
+        <translation type="vanished">AviQtl アップデート</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="26"/>
         <source>新しいバージョンのAviQtl (%1) が利用可能です。
 ダウンロードURL: %2
 
 アプリケーションを再起動して適用してください。</source>
-        <translation>新しいバージョンのAviQtl (%1) が利用可能です。
+        <translation type="vanished">新しいバージョンのAviQtl (%1) が利用可能です。
+ダウンロードURL: %2
+
+アプリケーションを再起動して適用してください。</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
+        <source>AviQtl Plus アップデート</source>
+        <translation>AviQtl Plus アップデート</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="26"/>
+        <source>新しいバージョンのAviQtl Plus (%1) が利用可能です。
+ダウンロードURL: %2
+
+アプリケーションを再起動して適用してください。</source>
+        <translation>新しいバージョンのAviQtl Plus (%1) が利用可能です。
 ダウンロードURL: %2
 
 アプリケーションを再起動して適用してください。</translation>
@@ -2896,9 +2926,13 @@
 <context>
     <name>ProjectLauncherWindow</name>
     <message>
-        <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
         <source>AviQtl - プロジェクトランチャー</source>
-        <translation>AviQtl - プロジェクトランチャー</translation>
+        <translation type="vanished">AviQtl - プロジェクトランチャー</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
+        <source>AviQtl Plus - プロジェクトランチャー</source>
+        <translation>AviQtl Plus - プロジェクトランチャー</translation>
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="50"/>

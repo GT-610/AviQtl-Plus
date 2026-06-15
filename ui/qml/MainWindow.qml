@@ -66,7 +66,7 @@ ApplicationWindow {
     x: 100
     y: 100
     objectName: "mainWindow"
-    title: qsTr("AviQtl - プレビュー")
+    title: qsTr("AviQtl Plus - プレビュー")
     onClosing: (close) => {
         // 一旦クローズをキャンセルし、全タブの未保存確認を行ってから終了する
         close.accepted = false;
@@ -666,7 +666,7 @@ ApplicationWindow {
 
         title: qsTr("名前を付けて保存")
         fileMode: Platform.FileDialog.SaveFile
-        nameFilters: ["AviQtl Project files (*.aviqtl)", "JSON files (*.json)"]
+        nameFilters: ["AviQtl Plus Project files (*.aviqtl)", "JSON files (*.json)"]
         defaultSuffix: "aviqtl"
         onAccepted: {
             if (Workspace.currentTimeline)
@@ -686,7 +686,7 @@ ApplicationWindow {
         id: loadDialog
 
         title: qsTr("プロジェクトを開く")
-        nameFilters: ["AviQtl Project files (*.aviqtl)", "JSON files (*.json)"]
+        nameFilters: ["AviQtl Plus Project files (*.aviqtl)", "JSON files (*.json)"]
         onAccepted: {
             if (Workspace)
                 Workspace.loadProject(file);
