@@ -19,7 +19,7 @@ jobs:
     container:
       image: archlinux:latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v4
 
       - name: Install Dependencies
         run: |
@@ -64,7 +64,7 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
     container: ${{ matrix.container }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -89,7 +89,7 @@ jobs:
 
       - name: Setup MSYS2 (Windows)
         if: matrix.platform == 'windows'
-        uses: msys2/setup-msys2@5d0de63f600b6dd7b5d089d4ecbec1d2448dcd96 # v2.26.0
+        uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
@@ -97,7 +97,7 @@ jobs:
             mingw-w64-ucrt-x86_64-python
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@a0d15060b6b80297e58676625e400da3f16e6f23 # v1.2.17
+        uses: hendrikmuhs/ccache-action@v1
         with:
           max-size: 500M
           key: ${{ matrix.platform }}-ccache
@@ -141,7 +141,7 @@ jobs:
           GIT_TERMINAL_PROMPT: 0
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
@@ -166,14 +166,14 @@ jobs:
           echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Download Artifacts
-        uses: actions/download-artifact@95815c38cf2ff2164869cb28879a6f65d89866cb # v4.2.1
+        uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: AviQtl-*
           merge-multiple: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@c7b3abd10451be99feeaa2e59268fb85e7b521d2 # v2.2.2
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.version.outputs.release_name }}
