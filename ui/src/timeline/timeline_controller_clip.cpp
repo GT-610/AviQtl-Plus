@@ -768,7 +768,7 @@ void TimelineController::reorderAudioPlugins(int clipId, int oldIndex, int newIn
 
 auto TimelineController::isAudioClip(int clipId) const -> bool {
     const auto *clip = m_timeline->findClipById(clipId);
-    return (clip != nullptr) && (clip->type == QLatin1String("audio") || clip->type == QLatin1String("mixer"));
+    return (clip != nullptr) && clip->type == QLatin1String("audio");
 }
 
 auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displayDurationFrames) const -> QVariantList { // NOLINT(bugprone-easily-swappable-parameters)
@@ -777,7 +777,7 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
     }
 
     const auto *clip = m_timeline->findClipById(clipId);
-    if ((clip == nullptr) || (clip->type != QLatin1String("audio") && clip->type != QLatin1String("mixer"))) {
+    if ((clip == nullptr) || clip->type != QLatin1String("audio")) {
         return {};
     }
 
@@ -793,9 +793,9 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
 
     const EffectModel *audioEffect = nullptr;
     for (const auto *effect : clip->effects) {
-        if (effect != nullptr && effect->id() == clip->type) {
-            audioEffect = effect;
-            break;
+            if (effect != nullptr && effect->id() == QLatin1String("audio")) {
+                audioEffect = effect;
+                break;
         }
     }
 
@@ -804,7 +804,7 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
     const QVariantMap params = audioEffect != nullptr ? audioEffect->params() : QVariantMap();
     const QString source = params.value(QStringLiteral("source")).toString();
     const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
-    const bool linkedVideo = clip->type == QLatin1String("audio") && sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
+    const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
     const QString playMode = params.value(QStringLiteral("playMode")).toString();
     const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
 

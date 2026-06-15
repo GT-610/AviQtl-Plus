@@ -20,37 +20,37 @@ Common.AviQtlWindow {
     property bool enableSnap: SettingsManager && SettingsManager.settings ? SettingsManager.settings.enableSnap : true
     property bool sidebarOnRight: (SettingsManager && SettingsManager.settings && SettingsManager.settings.settingDialogSidebarRight !== undefined) ? SettingsManager.settings.settingDialogSidebarRight : false
     readonly property real _projectFps: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60
-    readonly property bool isMixerClip: Workspace.currentTimeline && Workspace.currentTimeline.activeObjectType === "mixer"
-    property real mixerPeakLeft: 0
-    property real mixerPeakRight: 0
-    property real mixerRmsLeft: 0
-    property real mixerRmsRight: 0
+    readonly property bool isAudioWorkspaceClip: Workspace.currentTimeline && Workspace.currentTimeline.activeObjectType === "audio"
+    property real audioPeakLeft: 0
+    property real audioPeakRight: 0
+    property real audioRmsLeft: 0
+    property real audioRmsRight: 0
 
-    function mixerEffectModel() {
+    function audioEffectModel() {
         for (var i = 0; i < effectsModel.length; i++) {
-            if (effectsModel[i] && effectsModel[i].id === "mixer")
+            if (effectsModel[i] && effectsModel[i].id === "audio")
                 return effectsModel[i];
         }
         return null;
     }
 
-    function mixerEffectIndex() {
+    function audioEffectIndex() {
         for (var i = 0; i < effectsModel.length; i++) {
-            if (effectsModel[i] && effectsModel[i].id === "mixer")
+            if (effectsModel[i] && effectsModel[i].id === "audio")
                 return i;
         }
         return -1;
     }
 
-    function mixerParamValue(paramName, fallback) {
-        var model = mixerEffectModel();
+    function audioParamValue(paramName, fallback) {
+        var model = audioEffectModel();
         if (!model || !model.params || model.params[paramName] === undefined)
             return fallback;
         return model.params[paramName];
     }
 
-    function setMixerParam(paramName, value) {
-        var idx = mixerEffectIndex();
+    function setAudioParam(paramName, value) {
+        var idx = audioEffectIndex();
         if (idx >= 0 && Workspace.currentTimeline)
             Workspace.currentTimeline.updateClipEffectParam(targetClipId, idx, paramName, value);
     }
@@ -255,8 +255,8 @@ Common.AviQtlWindow {
         return [];
     }
 
-    width: isMixerClip ? 820 : 350
-    height: isMixerClip ? 620 : 500
+    width: isAudioWorkspaceClip ? 820 : 350
+    height: isAudioWorkspaceClip ? 620 : 500
     title: qsTr("設定ダイアログ")
     color: palette.window
     visible: true
@@ -289,14 +289,14 @@ Common.AviQtlWindow {
 
         }
 
-        function onMixerMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight) {
+        function onAudioMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight) {
             if (clipId !== targetClipId)
                 return;
 
-            mixerPeakLeft = peakLeft;
-            mixerPeakRight = peakRight;
-            mixerRmsLeft = rmsLeft;
-            mixerRmsRight = rmsRight;
+            audioPeakLeft = peakLeft;
+            audioPeakRight = peakRight;
+            audioRmsLeft = rmsLeft;
+            audioRmsRight = rmsRight;
         }
 
         target: Workspace.currentTimeline
@@ -783,7 +783,7 @@ Common.AviQtlWindow {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 10
-                    visible: root.isMixerClip
+                    visible: root.isAudioWorkspaceClip
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -818,7 +818,7 @@ Common.AviQtlWindow {
                                 spacing: 2
 
                                 Label {
-                                    text: qsTr("ミキサーワークスペース")
+                                    text: qsTr("音声ワークスペース")
                                     color: palette.text
                                     font.pixelSize: 18
                                     font.bold: true
@@ -850,7 +850,7 @@ Common.AviQtlWindow {
                         border.color: palette.mid
 
                         Canvas {
-                            id: mixerWaveformCanvas
+                            id: audioWaveformCanvas
 
                             anchors.fill: parent
                             anchors.margins: 10
@@ -899,11 +899,11 @@ Common.AviQtlWindow {
                             Connections {
                                 function onClipEffectsChanged(clipId) {
                                     if (clipId === targetClipId)
-                                        mixerWaveformCanvas.requestPaint();
+                                        audioWaveformCanvas.requestPaint();
                                 }
 
                                 function onClipDurationFramesChanged() {
-                                    mixerWaveformCanvas.requestPaint();
+                                    audioWaveformCanvas.requestPaint();
                                 }
 
                                 target: Workspace.currentTimeline
@@ -912,7 +912,7 @@ Common.AviQtlWindow {
                     }
 
                     FileDialog {
-                        id: mixerSourceDialog
+                        id: audioSourceDialog
 
                         title: qsTr("音声ソースを選択")
                         nameFilters: ["Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)", "All Files (*)"]
@@ -920,7 +920,7 @@ Common.AviQtlWindow {
                             var path = selectedFile.toString();
                             if (path.indexOf("file://") === 0)
                                 path = decodeURIComponent(path.replace(/^file:\/\//, ""));
-                            root.setMixerParam("source", path);
+                            root.setAudioParam("source", path);
                         }
                     }
 
@@ -955,15 +955,15 @@ Common.AviQtlWindow {
 
                                     TextField {
                                         Layout.fillWidth: true
-                                        text: String(root.mixerParamValue("source", ""))
+                                        text: String(root.audioParamValue("source", ""))
                                         placeholderText: qsTr("音声ファイルを選択...")
                                         selectByMouse: true
-                                        onEditingFinished: root.setMixerParam("source", text)
+                                        onEditingFinished: root.setAudioParam("source", text)
                                     }
 
                                     Button {
                                         text: qsTr("参照")
-                                        onClicked: mixerSourceDialog.open()
+                                        onClicked: audioSourceDialog.open()
                                     }
                                 }
 
@@ -980,8 +980,8 @@ Common.AviQtlWindow {
                                     ComboBox {
                                         Layout.fillWidth: true
                                         model: ["開始時間＋再生速度", "時間直接指定"]
-                                        currentIndex: model.indexOf(String(root.mixerParamValue("playMode", "開始時間＋再生速度")))
-                                        onActivated: root.setMixerParam("playMode", model[currentIndex])
+                                        currentIndex: model.indexOf(String(root.audioParamValue("playMode", "開始時間＋再生速度")))
+                                        onActivated: root.setAudioParam("playMode", model[currentIndex])
                                     }
                                 }
 
@@ -1002,14 +1002,14 @@ Common.AviQtlWindow {
                                             Layout.fillWidth: true
                                             from: 0
                                             to: 60
-                                            value: Number(root.mixerParamValue("startTime", 0))
-                                            onMoved: root.setMixerParam("startTime", value)
+                                            value: Number(root.audioParamValue("startTime", 0))
+                                            onMoved: root.setAudioParam("startTime", value)
                                         }
                                         TextField {
                                             Layout.preferredWidth: 64
-                                            text: Number(root.mixerParamValue("startTime", 0)).toFixed(2)
+                                            text: Number(root.audioParamValue("startTime", 0)).toFixed(2)
                                             horizontalAlignment: Text.AlignRight
-                                            onEditingFinished: root.setMixerParam("startTime", Number(text))
+                                            onEditingFinished: root.setAudioParam("startTime", Number(text))
                                         }
                                     }
 
@@ -1024,14 +1024,14 @@ Common.AviQtlWindow {
                                             Layout.fillWidth: true
                                             from: 1
                                             to: 400
-                                            value: Number(root.mixerParamValue("speed", 100))
-                                            onMoved: root.setMixerParam("speed", value)
+                                            value: Number(root.audioParamValue("speed", 100))
+                                            onMoved: root.setAudioParam("speed", value)
                                         }
                                         TextField {
                                             Layout.preferredWidth: 64
-                                            text: Number(root.mixerParamValue("speed", 100)).toFixed(0) + "%"
+                                            text: Number(root.audioParamValue("speed", 100)).toFixed(0) + "%"
                                             horizontalAlignment: Text.AlignRight
-                                            onEditingFinished: root.setMixerParam("speed", Number(text.replace("%", "")))
+                                            onEditingFinished: root.setAudioParam("speed", Number(text.replace("%", "")))
                                         }
                                     }
 
@@ -1046,14 +1046,14 @@ Common.AviQtlWindow {
                                             Layout.fillWidth: true
                                             from: 0
                                             to: 60
-                                            value: Number(root.mixerParamValue("directTime", 0))
-                                            onMoved: root.setMixerParam("directTime", value)
+                                            value: Number(root.audioParamValue("directTime", 0))
+                                            onMoved: root.setAudioParam("directTime", value)
                                         }
                                         TextField {
                                             Layout.preferredWidth: 64
-                                            text: Number(root.mixerParamValue("directTime", 0)).toFixed(2)
+                                            text: Number(root.audioParamValue("directTime", 0)).toFixed(2)
                                             horizontalAlignment: Text.AlignRight
-                                            onEditingFinished: root.setMixerParam("directTime", Number(text))
+                                            onEditingFinished: root.setAudioParam("directTime", Number(text))
                                         }
                                     }
                                 }
@@ -1086,8 +1086,8 @@ Common.AviQtlWindow {
 
                                     CheckBox {
                                         text: qsTr("Limit")
-                                        checked: Boolean(root.mixerParamValue("limiter", true))
-                                        onToggled: root.setMixerParam("limiter", checked)
+                                        checked: Boolean(root.audioParamValue("limiter", true))
+                                        onToggled: root.setAudioParam("limiter", checked)
                                     }
                                 }
 
@@ -1098,19 +1098,19 @@ Common.AviQtlWindow {
                                     columnSpacing: 8
 
                                     Label { text: qsTr("VOL"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.mixerParamValue("volume", 1)); onMoved: root.setMixerParam("volume", value) }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.audioParamValue("volume", 1)); onMoved: root.setAudioParam("volume", value) }
 
                                     Label { text: qsTr("MASTER"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.mixerParamValue("masterVolume", 1)); onMoved: root.setMixerParam("masterVolume", value) }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.audioParamValue("masterVolume", 1)); onMoved: root.setAudioParam("masterVolume", value) }
 
                                     Label { text: qsTr("PAN"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: -1; to: 1; value: Number(root.mixerParamValue("pan", 0)); onMoved: root.setMixerParam("pan", value) }
+                                    Slider { Layout.fillWidth: true; from: -1; to: 1; value: Number(root.audioParamValue("pan", 0)); onMoved: root.setAudioParam("pan", value) }
 
                                     Label { text: qsTr("FADE IN"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.mixerParamValue("fadeIn", 0)); onMoved: root.setMixerParam("fadeIn", value) }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.audioParamValue("fadeIn", 0)); onMoved: root.setAudioParam("fadeIn", value) }
 
                                     Label { text: qsTr("FADE OUT"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.mixerParamValue("fadeOut", 0)); onMoved: root.setMixerParam("fadeOut", value) }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.audioParamValue("fadeOut", 0)); onMoved: root.setAudioParam("fadeOut", value) }
                                 }
 
                                 RowLayout {
@@ -1121,16 +1121,16 @@ Common.AviQtlWindow {
                                         Layout.fillWidth: true
                                         text: qsTr("MUTE")
                                         checkable: true
-                                        checked: Boolean(root.mixerParamValue("mute", false))
-                                        onToggled: root.setMixerParam("mute", checked)
+                                        checked: Boolean(root.audioParamValue("mute", false))
+                                        onToggled: root.setAudioParam("mute", checked)
                                     }
 
                                     Button {
                                         Layout.fillWidth: true
                                         text: qsTr("SOLO")
                                         checkable: true
-                                        checked: Boolean(root.mixerParamValue("solo", false))
-                                        onToggled: root.setMixerParam("solo", checked)
+                                        checked: Boolean(root.audioParamValue("solo", false))
+                                        onToggled: root.setAudioParam("solo", checked)
                                     }
                                 }
                             }
@@ -1159,8 +1159,8 @@ Common.AviQtlWindow {
 
                             Repeater {
                                 model: [
-                                    { "name": "L", "peak": root.mixerPeakLeft, "rms": root.mixerRmsLeft },
-                                    { "name": "R", "peak": root.mixerPeakRight, "rms": root.mixerRmsRight }
+                                    { "name": "L", "peak": root.audioPeakLeft, "rms": root.audioRmsLeft },
+                                    { "name": "R", "peak": root.audioPeakRight, "rms": root.audioRmsRight }
                                 ]
 
                                 delegate: RowLayout {
@@ -1237,7 +1237,7 @@ Common.AviQtlWindow {
                 Repeater {
                     id: videoEffectsRepeater
 
-                    model: root.isMixerClip ? [] : effectsModel
+                    model: root.isAudioWorkspaceClip ? [] : effectsModel
 
                     delegate: ColumnLayout {
                         id: effectRoot

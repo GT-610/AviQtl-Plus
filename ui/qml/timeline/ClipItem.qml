@@ -135,7 +135,7 @@ Item {
         Canvas {
             id: waveformCanvas
 
-            readonly property bool isAudio: modelData.type === "audio" || modelData.type === "mixer"
+            readonly property bool isAudio: modelData.type === "audio"
             property int waveRev: 0
             readonly property int displayDuration: {
                 if (clipDelegate.resizeDraftDuration >= 0)

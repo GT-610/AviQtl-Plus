@@ -41,7 +41,7 @@ class AudioMixer : public QObject {
     void setSampleRate(int sampleRate);
 
   signals:
-    void mixerMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);
+    void audioMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);
 
   private:
     std::unique_ptr<QAudioSink> m_audioSink;

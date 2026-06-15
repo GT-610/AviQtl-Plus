@@ -194,10 +194,8 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
     audio.clipId = clip.id;
     audio.startFrame = clip.startFrame;
     audio.durationFrames = clip.durationFrames;
-    audio.isMixer = clip.type == QStringLiteral("mixer");
-
     for (const auto &effect : clip.effects) {
-        if (!effect.enabled || (effect.id != QStringLiteral("audio") && effect.id != QStringLiteral("mixer"))) {
+        if (!effect.enabled || effect.id != QStringLiteral("audio")) {
             continue;
         }
 
@@ -270,7 +268,7 @@ void BakeController::bake(int sceneId, int currentFrame) {
             const double relTime = static_cast<double>(std::max(0, currentFrame - clip.startFrame));
             ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
 
-            if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("mixer") || clip.type == QStringLiteral("video")) {
+            if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("video")) {
                 const AudioComponent audio = bakeAudioState(clip, currentFrame, fps);
                 ecs.updateAudioClipState(clip.id, audio);
             }

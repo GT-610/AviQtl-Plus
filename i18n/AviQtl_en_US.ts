@@ -3276,12 +3276,12 @@ Please restart the application to apply the update.</translation>
         <translation>Paste multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="209"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="207"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>Delete effects (%1 items)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="360"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="358"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>Change effect order (%1 items)</translation>
     </message>
@@ -3478,8 +3478,8 @@ Please restart the application to apply the update.</translation>
     </message>
     <message>
         <location filename="../ui/qml/SettingDialog.qml" line="821"/>
-        <source>ミキサーワークスペース</source>
-        <translation>Mixer Workspace</translation>
+        <source>音声ワークスペース</source>
+        <translation>Audio Workspace</translation>
     </message>
     <message>
         <location filename="../ui/qml/SettingDialog.qml" line="828"/>

@@ -60,7 +60,7 @@ void TimelineMediaManager::onCurrentFrameChanged() {
             double audioTime = 0.0;
 
             for (const auto *eff : clip->effects) {
-                if (eff->id() != clip->type || (clip->type != QStringLiteral("audio") && clip->type != QStringLiteral("mixer"))) {
+                if (eff->id() != QStringLiteral("audio")) {
                     continue;
                 }
 
@@ -72,7 +72,7 @@ void TimelineMediaManager::onCurrentFrameChanged() {
                     const double startTime = eff->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble();
                     const QString source = eff->params().value(QStringLiteral("source")).toString();
                     const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
-                    const bool linkedVideo = clip->type == QStringLiteral("audio") && sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
+                    const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
                     const double speed = linkedVideo ? 100.0 : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
                     audioTime = (relTime * (speed / 100.0)) + startTime;
                 }
@@ -121,7 +121,7 @@ auto TimelineMediaManager::getClipSourceUrl(const ClipData &clip) -> QUrl {
         return {};
     }
     // 音声以外は通常 "path" パラメータにファイルパスが入っている
-    const bool audioLike = clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("mixer");
+    const bool audioLike = clip.type == QStringLiteral("audio");
     QString path = effModel->params().value(audioLike ? QLatin1String("source") : QLatin1String("path")).toString();
     return QUrl::fromLocalFile(path);
 }
@@ -134,7 +134,7 @@ void TimelineMediaManager::updateMediaDecoders() {
 
     for (const auto &scene : std::as_const(scenes)) {
         for (const auto &clip : std::as_const(scene.clips)) {
-            if (clip.type != QStringLiteral("video") && clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("mixer") && clip.type != QStringLiteral("image")) {
+            if (clip.type != QStringLiteral("video") && clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("image")) {
                 continue;
             }
 
@@ -187,7 +187,7 @@ void TimelineMediaManager::updateMediaDecoders() {
                     continue;
                 }
                 decoder = new AviQtl::Core::ImageDecoder(clip.id, sourceUrl, m_videoFrameStore, this);
-            } else if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("mixer")) {
+            } else if (clip.type == QStringLiteral("audio")) {
                 decoder = new AviQtl::Core::AudioDecoder(clip.id, sourceUrl, this);
                 if (auto *audioDecoder = qobject_cast<AviQtl::Core::AudioDecoder *>(decoder)) {
                     m_audioMixer->registerDecoder(clip.id, audioDecoder);
@@ -196,7 +196,7 @@ void TimelineMediaManager::updateMediaDecoders() {
 
             if (decoder != nullptr) {
                 m_decoders.insert(clip.id, decoder);
-                if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("mixer")) {
+                if (clip.type == QStringLiteral("audio")) {
                     syncAudioPluginChain(clip);
                 }
                 int cid = clip.id;
@@ -294,16 +294,16 @@ void TimelineMediaManager::syncAudioPluginChains() {
 }
 
 void TimelineMediaManager::syncAudioPluginChain(const ClipData &clip) {
-    if (clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("mixer")) {
+    if (clip.type != QStringLiteral("audio")) {
         return;
     }
 
-    auto *mixer = m_audioMixer.data();
-    if (mixer == nullptr) {
+    auto *audioMixer = m_audioMixer.data();
+    if (audioMixer == nullptr) {
         return;
     }
 
-    auto &chain = mixer->getChain(clip.id);
+    auto &chain = audioMixer->getChain(clip.id);
     chain.clear();
     for (const auto &pluginState : clip.audioPlugins) {
         auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginState.id);

@@ -35,7 +35,7 @@ static QString toAbsolutePath(const QString &path, const QString &baseDir) {
 }
 
 static void convertMediaPaths(QVariantMap &params, const QString &baseDir, bool toRelative) {
-    const QStringList mediaKeys = {QStringLiteral("video"), QStringLiteral("image"), QStringLiteral("audio"), QStringLiteral("mixer")};
+    const QStringList mediaKeys = {QStringLiteral("video"), QStringLiteral("image"), QStringLiteral("audio")};
     for (const auto &key : mediaKeys) {
         auto it = params.find(key);
         if (it == params.end() || !it->canConvert<QVariantMap>())

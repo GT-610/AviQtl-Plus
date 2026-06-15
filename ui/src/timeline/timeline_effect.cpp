@@ -29,8 +29,7 @@ double sceneFpsForClip(const TimelineService *timeline, const ClipData &clip) {
 }
 
 bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, EffectModel *effect, const QString &paramName) {
-    const bool audioLike = clip.type == QLatin1String("audio") || clip.type == QLatin1String("mixer");
-    if (timeline == nullptr || effect == nullptr || !audioLike || effect->id() != clip.type) {
+    if (timeline == nullptr || effect == nullptr || clip.type != QLatin1String("audio") || effect->id() != QLatin1String("audio")) {
         return false;
     }
 
@@ -61,7 +60,7 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
         const QString sourceLower = source.toLower();
         const bool sourceIsVideo = sourceLower.endsWith(QStringLiteral(".mp4")) || sourceLower.endsWith(QStringLiteral(".mov")) || sourceLower.endsWith(QStringLiteral(".avi")) || sourceLower.endsWith(QStringLiteral(".mkv")) ||
                                    sourceLower.endsWith(QStringLiteral(".webm")) || sourceLower.endsWith(QStringLiteral(".wmv"));
-        const bool linkedVideo = clip.type == QLatin1String("audio") && sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
+        const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
         const double speed = linkedVideo ? 100.0 : params.value(QStringLiteral("speed"), 100.0).toDouble();
         if (speed <= 0.0 || startTime >= totalSec) {
             return false;
@@ -83,8 +82,7 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
 }
 
 bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const QString &paramName) {
-    const bool audioLike = clip.type == QLatin1String("audio") || clip.type == QLatin1String("mixer");
-    if (effect == nullptr || !audioLike || effect->id() != clip.type) {
+    if (effect == nullptr || clip.type != QLatin1String("audio") || effect->id() != QLatin1String("audio")) {
         return false;
     }
 
