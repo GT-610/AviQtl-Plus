@@ -3280,12 +3280,12 @@
         <translation>粘贴多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="202"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="209"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>删除效果（%1 项）</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="353"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="360"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>更改效果顺序（%1 项）</translation>
     </message>

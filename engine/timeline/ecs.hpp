@@ -116,8 +116,13 @@ struct AudioComponent {
     float playbackSpeed = 1.0f;
     float directTime = 0.0f;
     float volume = 1.0f;
+    float masterVolume = 1.0f;
     float pan = 0.0f;
+    float fadeInSec = 0.0f;
+    float fadeOutSec = 0.0f;
     bool mute = false;
+    bool solo = false;
+    bool limiter = false;
     bool directMode = false;
 };
 

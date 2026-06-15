@@ -208,8 +208,13 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         audio.playbackSpeed = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("speed"), 100.0f, relFrame, fps, trackDuration) / 100.0f);
         audio.directTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("directTime"), 0.0f, relFrame, fps, trackDuration));
         audio.volume = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("volume"), 1.0f, relFrame, fps, trackDuration));
+        audio.masterVolume = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("masterVolume"), 1.0f, relFrame, fps, trackDuration));
         audio.pan = std::clamp(evalFloatOr(effect.params, tracks, QStringLiteral("pan"), 0.0f, relFrame, fps, trackDuration), -1.0f, 1.0f);
+        audio.fadeInSec = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("fadeIn"), 0.0f, relFrame, fps, trackDuration));
+        audio.fadeOutSec = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("fadeOut"), 0.0f, relFrame, fps, trackDuration));
         audio.mute = effect.params.value(QStringLiteral("mute"), false).toBool();
+        audio.solo = effect.params.value(QStringLiteral("solo"), false).toBool();
+        audio.limiter = effect.params.value(QStringLiteral("limiter"), false).toBool();
         break;
     }
 

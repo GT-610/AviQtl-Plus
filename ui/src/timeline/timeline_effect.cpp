@@ -96,8 +96,13 @@ bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const
         QStringLiteral("speed"),
         QStringLiteral("directTime"),
         QStringLiteral("volume"),
+        QStringLiteral("masterVolume"),
         QStringLiteral("pan"),
+        QStringLiteral("fadeIn"),
+        QStringLiteral("fadeOut"),
         QStringLiteral("mute"),
+        QStringLiteral("solo"),
+        QStringLiteral("limiter"),
     };
     return waveformKeys.contains(paramName);
 }

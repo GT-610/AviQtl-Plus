@@ -11,6 +11,21 @@
 
 namespace AviQtl::Engine {
 
+namespace {
+
+auto fadeGainForTime(double relTime, double duration, float fadeInSec, float fadeOutSec) -> float {
+    double gain = 1.0;
+    if (fadeInSec > 0.0F) {
+        gain = std::min(gain, std::clamp(relTime / static_cast<double>(fadeInSec), 0.0, 1.0));
+    }
+    if (fadeOutSec > 0.0F) {
+        gain = std::min(gain, std::clamp((duration - relTime) / static_cast<double>(fadeOutSec), 0.0, 1.0));
+    }
+    return static_cast<float>(gain);
+}
+
+} // namespace
+
 AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
     int sampleRate = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), 48000).toInt();
     m_format.setSampleRate(sampleRate);
@@ -110,9 +125,17 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
         return masterBuffer;
     }
     const auto &audioStates = state->audioStates;
+    bool hasSolo = false;
+    for (const auto &audio : audioStates) {
+        if (audio.solo && !audio.mute && currentFrame >= audio.startFrame && currentFrame < audio.startFrame + audio.durationFrames) {
+            hasSolo = true;
+            break;
+        }
+    }
+
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
-        if (audio.mute) {
+        if (audio.mute || (hasSolo && !audio.solo)) {
             continue;
         }
         auto decIt = m_decoders.find(clipId);
@@ -190,13 +213,24 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             chainIt.value()->process(m_clipSamples.data(), samplesPerFrame);
         }
 
-        float leftVol = audio.volume * (audio.pan <= 0 ? 1.0F : 1.0F - audio.pan);
-        float rightVol = audio.volume * (audio.pan >= 0 ? 1.0F : 1.0F + audio.pan);
+        const double clipDurationSec = fps > 0.0 ? static_cast<double>(audio.durationFrames) / fps : 0.0;
+        const float fadeGain = fadeGainForTime(relTime, clipDurationSec, audio.fadeInSec, audio.fadeOutSec);
+        const float outputVolume = audio.volume * audio.masterVolume * fadeGain;
+        float leftVol = outputVolume * (audio.pan <= 0 ? 1.0F : 1.0F - audio.pan);
+        float rightVol = outputVolume * (audio.pan >= 0 ? 1.0F : 1.0F + audio.pan);
 
         for (size_t i = 0; i < m_clipSamples.size() && i < masterBuffer.size(); i += 2) {
-            masterBuffer[i] += m_clipSamples[i] * leftVol;
+            float left = m_clipSamples[i] * leftVol;
+            if (audio.limiter) {
+                left = std::clamp(left, -1.0F, 1.0F);
+            }
+            masterBuffer[i] += left;
             if (i + 1 < m_clipSamples.size()) {
-                masterBuffer[i + 1] += m_clipSamples[i + 1] * rightVol;
+                float right = m_clipSamples[i + 1] * rightVol;
+                if (audio.limiter) {
+                    right = std::clamp(right, -1.0F, 1.0F);
+                }
+                masterBuffer[i + 1] += right;
             }
         }
     }

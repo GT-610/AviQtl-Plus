@@ -10,8 +10,13 @@
         "speed": 100.0,
         "directTime": 0,
         "volume": 1.0,
+        "masterVolume": 1.0,
         "pan": 0.0,
-        "mute": false
+        "fadeIn": 0.0,
+        "fadeOut": 0.0,
+        "mute": false,
+        "solo": false,
+        "limiter": true
     },
     "ui": {
         "controls": [
@@ -75,6 +80,14 @@
             },
             {
                 "type": "slider",
+                "param": "masterVolume",
+                "label": "マスター音量",
+                "min": 0,
+                "max": 2,
+                "step": 0.01
+            },
+            {
+                "type": "slider",
                 "param": "pan",
                 "label": "パン",
                 "min": -1,
@@ -82,9 +95,33 @@
                 "step": 0.1
             },
             {
+                "type": "float",
+                "param": "fadeIn",
+                "label": "フェードイン",
+                "min": 0,
+                "unit": "s"
+            },
+            {
+                "type": "float",
+                "param": "fadeOut",
+                "label": "フェードアウト",
+                "min": 0,
+                "unit": "s"
+            },
+            {
                 "type": "bool",
                 "param": "mute",
                 "label": "ミュート"
+            },
+            {
+                "type": "bool",
+                "param": "solo",
+                "label": "ソロ"
+            },
+            {
+                "type": "bool",
+                "param": "limiter",
+                "label": "リミッター"
             }
         ]
     },
