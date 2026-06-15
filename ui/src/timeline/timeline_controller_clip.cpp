@@ -732,7 +732,14 @@ void TimelineController::addAudioPlugin(int clipId, const QString &pluginId) {
     auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginId);
     if (plugin) {
         qInfo() << "Adding audio plugin:" << plugin->name() << "to clip" << clipId;
-        m_mediaManager->audioMixer()->getChain(clipId).add(std::move(plugin));
+        AudioPluginState state;
+        state.id = pluginId;
+        state.enabled = true;
+        for (int i = 0; i < plugin->paramCount(); ++i) {
+            state.params.insert(QString::number(i), plugin->getParam(i));
+        }
+        m_timeline->addAudioPluginStateInternal(clipId, state);
+        m_mediaManager->syncAudioPluginChain(clipId);
         emit clipEffectsChanged(clipId);
     } else {
         qWarning() << "Failed to create audio plugin:" << pluginId;
@@ -740,19 +747,22 @@ void TimelineController::addAudioPlugin(int clipId, const QString &pluginId) {
 }
 
 void TimelineController::removeAudioPlugin(int clipId, int index) {
-    m_mediaManager->audioMixer()->getChain(clipId).remove(index);
+    m_timeline->removeAudioPluginStateInternal(clipId, index);
+    m_mediaManager->syncAudioPluginChain(clipId);
     emit clipEffectsChanged(clipId);
 }
 
 void TimelineController::setAudioPluginEnabled(int clipId, int index, bool enabled) {
     if (m_timeline != nullptr) {
         m_timeline->setAudioPluginEnabled(clipId, index, enabled);
+        m_mediaManager->syncAudioPluginChain(clipId);
     }
 }
 
 void TimelineController::reorderAudioPlugins(int clipId, int oldIndex, int newIndex) {
     if (m_timeline != nullptr) {
         m_timeline->reorderAudioPlugins(clipId, oldIndex, newIndex);
+        m_mediaManager->syncAudioPluginChain(clipId);
     }
 }
 
@@ -929,6 +939,7 @@ void TimelineController::setEffectParameter(int clipId, int effectIndex, int par
     auto *plugin = chain.get(effectIndex); // NOLINT(bugprone-easily-swappable-parameters)
     if (plugin != nullptr) {
         plugin->setParam(paramIndex, value);
+        m_timeline->setAudioPluginParamInternal(clipId, effectIndex, paramIndex, value);
     }
 }
 

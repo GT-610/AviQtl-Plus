@@ -154,6 +154,23 @@ class TestAudioPluginChain : public QObject {
         QCOMPARE(raw2->lastFrameCount(), 2);
     }
 
+    void disabledPluginIsSkipped() {
+        AudioPluginChain chain;
+        auto mock = std::make_unique<MockPlugin>();
+        MockPlugin *raw = mock.get();
+        chain.add(std::move(mock), false);
+
+        std::vector<float> buf(4, 0.0f);
+        chain.process(buf.data(), static_cast<int>(buf.size()) / 2);
+
+        QCOMPARE(raw->processCalls(), 0);
+        QVERIFY(!chain.isEnabled(0));
+        chain.setEnabled(0, true);
+        QVERIFY(chain.isEnabled(0));
+        chain.process(buf.data(), static_cast<int>(buf.size()) / 2);
+        QCOMPARE(raw->processCalls(), 1);
+    }
+
     void processOnEmptyChain() {
         AudioPluginChain chain;
         std::vector<float> buf(4, 0.0f);

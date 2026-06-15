@@ -99,7 +99,10 @@ class TimelineService : public QObject {
     void removeEffectInternal(int clipId, int effectIndex);
     void removeMultipleEffectsInternal(int clipId, const QList<int> &sortedDescIndices, QList<QVariantMap> *outData);
     void restoreMultipleEffectsInternal(int clipId, const QList<QVariantMap> &ascData);
+    void addAudioPluginStateInternal(int clipId, const AudioPluginState &state);
+    void removeAudioPluginStateInternal(int clipId, int index);
     void setEffectEnabledInternal(int clipId, int effectIndex, bool enabled);
+    void setAudioPluginParamInternal(int clipId, int index, int paramIndex, float value);
     void pasteEffectInternal(int clipId, int targetIndex, EffectModel *effect);
     void setAudioPluginEnabledInternal(int clipId, int index, bool enabled);
     void reorderEffectsInternal(int clipId, int oldIndex, int newIndex);

@@ -38,6 +38,7 @@ void TimelineController::setupConnections() {
         [this]() -> void {
             emit clipsChanged();
             m_mediaManager->updateMediaDecoders();
+            m_mediaManager->syncAudioPluginChains();
             m_mediaManager->onCurrentFrameChanged();
             updateActiveClipsList();
             // Bake after sync — syncTimelineToDocumentModel() (from updateActiveClipsList)

@@ -8,6 +8,7 @@
 #include "timeline_controller.hpp"
 #include "video_decoder.hpp"
 #include "video_frame_store.hpp"
+#include "engine/plugin/audio_plugin_manager.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -195,6 +196,9 @@ void TimelineMediaManager::updateMediaDecoders() {
 
             if (decoder != nullptr) {
                 m_decoders.insert(clip.id, decoder);
+                if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("mixer")) {
+                    syncAudioPluginChain(clip);
+                }
                 int cid = clip.id;
                 // 画像や動画のデコード準備ができたらUIへ通知する
                 connect(decoder, &AviQtl::Core::MediaDecoder::ready, this, [this, cid]() -> void { emit frameUpdated(cid); });
@@ -270,6 +274,51 @@ void TimelineMediaManager::updateMediaDecoders() {
         } else {
             ++it;
         }
+    }
+}
+
+void TimelineMediaManager::syncAudioPluginChain(int clipId) {
+    const auto *clip = m_controller->timeline()->findClipById(clipId);
+    if (clip != nullptr) {
+        syncAudioPluginChain(*clip);
+    }
+}
+
+void TimelineMediaManager::syncAudioPluginChains() {
+    const auto &scenes = m_controller->timeline()->getAllScenes();
+    for (const auto &scene : std::as_const(scenes)) {
+        for (const auto &clip : std::as_const(scene.clips)) {
+            syncAudioPluginChain(clip);
+        }
+    }
+}
+
+void TimelineMediaManager::syncAudioPluginChain(const ClipData &clip) {
+    if (clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("mixer")) {
+        return;
+    }
+
+    auto *mixer = m_audioMixer.data();
+    if (mixer == nullptr) {
+        return;
+    }
+
+    auto &chain = mixer->getChain(clip.id);
+    chain.clear();
+    for (const auto &pluginState : clip.audioPlugins) {
+        auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginState.id);
+        if (!plugin) {
+            qWarning() << "Failed to restore audio plugin:" << pluginState.id << "for clip" << clip.id;
+            continue;
+        }
+        for (auto it = pluginState.params.cbegin(); it != pluginState.params.cend(); ++it) {
+            bool ok = false;
+            const int paramIndex = it.key().toInt(&ok);
+            if (ok) {
+                plugin->setParam(paramIndex, it.value().toFloat());
+            }
+        }
+        chain.add(std::move(plugin), pluginState.enabled);
     }
 }
 

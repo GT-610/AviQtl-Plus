@@ -30,6 +30,8 @@ class TimelineMediaManager : public QObject {
     void onCurrentFrameChanged();
     void syncPlaybackSpeed();
     void updateAudioSampleRate();
+    void syncAudioPluginChain(int clipId);
+    void syncAudioPluginChains();
     void requestVideoFrame(int clipId, int relFrame);
     void requestImageLoad(int clipId, const QString &path);
 
@@ -43,6 +45,7 @@ class TimelineMediaManager : public QObject {
 
   private:
     static QUrl getClipSourceUrl(const ClipData &clip);
+    void syncAudioPluginChain(const ClipData &clip);
     void updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid, const ClipData *clip, int relFrame);
 
     TimelineController *m_controller;
