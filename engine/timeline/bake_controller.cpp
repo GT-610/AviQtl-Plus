@@ -213,7 +213,7 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         audio.fadeOutSec = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("fadeOut"), 0.0f, relFrame, fps, trackDuration));
         audio.mute = effect.params.value(QStringLiteral("mute"), false).toBool();
         audio.solo = effect.params.value(QStringLiteral("solo"), false).toBool();
-        audio.limiter = effect.params.value(QStringLiteral("limiter"), false).toBool();
+        audio.limiter = effect.params.value(QStringLiteral("limiter"), true).toBool();
         break;
     }
 

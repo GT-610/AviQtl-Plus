@@ -68,7 +68,7 @@ Common.AviQtlWindow {
         return model ? model.keyframeListForUi(paramName) : [];
     }
 
-    function audioKeyframesWithEnd(rawKfs, totalDur) {
+    function audioKeyframesWithEnd(rawKfs, totalDur, paramName) {
         var out = [];
         if (rawKfs) {
             for (var i = 0; i < rawKfs.length; i++) out.push(rawKfs[i]);
@@ -80,7 +80,7 @@ Common.AviQtlWindow {
             }
             if (!hasEnd) {
                 var model = audioEffectModel();
-                var endVal = model ? model.evaluatedParam("", totalDur, root._projectFps) : 0;
+                var endVal = model ? model.evaluatedParam(paramName || "", totalDur, root._projectFps) : 0;
                 out.push({"frame": totalDur, "value": endVal, "interp": "none", "virtualEnd": true});
             }
         }
@@ -95,6 +95,14 @@ Common.AviQtlWindow {
                 return kfs[i].interp || "linear";
         }
         return "linear";
+    }
+
+    function _audioNextKfFrame(rawKfs) {
+        for (var i = 0; i < rawKfs.length; i++) {
+            if (rawKfs[i].frame > root._audioRelFrame)
+                return rawKfs[i].frame;
+        }
+        return root._audioClipDur;
     }
 
     function setAudioParam(paramName, value) {
@@ -1125,8 +1133,7 @@ Common.AviQtlWindow {
                                                 var _ = root._audioKfRev;
                                                 var rawKfs = root.audioKeyframeList("speed");
                                                 if (rawKfs.length < 2) return Number(root.audioEvaluatedParam("speed", 100)).toFixed(0);
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 var model = root.audioEffectModel();
                                                 var v = model ? model.evaluatedParam("speed", nf, root._projectFps) : 100;
                                                 return (v !== undefined && v !== null) ? Number(v).toFixed(0) : "100";
@@ -1138,8 +1145,7 @@ Common.AviQtlWindow {
                                                 var model = root.audioEffectModel(); var idx = root.audioEffectIndex();
                                                 if (!model || idx < 0) return;
                                                 var rawKfs = model.keyframeListForUi("speed");
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 Workspace.currentTimeline.setKeyframe(targetClipId, idx, "speed", nf, Number(text), {"interp": "linear"});
                                             }
                                         }
@@ -1151,8 +1157,7 @@ Common.AviQtlWindow {
                                                 var _ = root._audioKfRev;
                                                 var rawKfs = root.audioKeyframeList("speed");
                                                 if (rawKfs.length < 2) return Number(root.audioEvaluatedParam("speed", 100));
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 var model = root.audioEffectModel();
                                                 var v = model ? model.evaluatedParam("speed", nf, root._projectFps) : 100;
                                                 return (v !== undefined && v !== null) ? Number(v) : 100;
@@ -1161,8 +1166,7 @@ Common.AviQtlWindow {
                                                 var model = root.audioEffectModel(); var idx = root.audioEffectIndex();
                                                 if (!model || idx < 0 || !Workspace.currentTimeline) return;
                                                 var rawKfs = model.keyframeListForUi("speed");
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 Workspace.currentTimeline.setKeyframe(targetClipId, idx, "speed", nf, value, {"interp": "linear"});
                                             }
                                         }
@@ -1172,7 +1176,7 @@ Common.AviQtlWindow {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 12
                                         property var rawKfs: root.audioKeyframeList("speed")
-                                        property var kfs: root.audioKeyframesWithEnd(rawKfs, root._audioClipDur)
+                                        property var kfs: root.audioKeyframesWithEnd(rawKfs, root._audioClipDur, "speed")
                                         Rectangle { anchors.centerIn: parent; width: parent.width; height: 2; color: palette.mid }
                                         Repeater {
                                             model: parent.kfs
@@ -1259,8 +1263,7 @@ Common.AviQtlWindow {
                                                 var _ = root._audioKfRev;
                                                 var rawKfs = root.audioKeyframeList("directTime");
                                                 if (rawKfs.length < 2) return Number(root.audioEvaluatedParam("directTime", 0)).toFixed(2);
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 var model = root.audioEffectModel();
                                                 var v = model ? model.evaluatedParam("directTime", nf, root._projectFps) : 0;
                                                 return (v !== undefined && v !== null) ? Number(v).toFixed(2) : "0.00";
@@ -1272,8 +1275,7 @@ Common.AviQtlWindow {
                                                 var model = root.audioEffectModel(); var idx = root.audioEffectIndex();
                                                 if (!model || idx < 0) return;
                                                 var rawKfs = model.keyframeListForUi("directTime");
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 Workspace.currentTimeline.setKeyframe(targetClipId, idx, "directTime", nf, Number(text), {"interp": "linear"});
                                             }
                                         }
@@ -1285,8 +1287,7 @@ Common.AviQtlWindow {
                                                 var _ = root._audioKfRev;
                                                 var rawKfs = root.audioKeyframeList("directTime");
                                                 if (rawKfs.length < 2) return Number(root.audioEvaluatedParam("directTime", 0));
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 var model = root.audioEffectModel();
                                                 var v = model ? model.evaluatedParam("directTime", nf, root._projectFps) : 0;
                                                 return (v !== undefined && v !== null) ? Number(v) : 0;
@@ -1295,8 +1296,7 @@ Common.AviQtlWindow {
                                                 var model = root.audioEffectModel(); var idx = root.audioEffectIndex();
                                                 if (!model || idx < 0 || !Workspace.currentTimeline) return;
                                                 var rawKfs = model.keyframeListForUi("directTime");
-                                                var nf = root._audioClipDur;
-                                                for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
+                                                var nf = root._audioNextKfFrame(rawKfs);
                                                 Workspace.currentTimeline.setKeyframe(targetClipId, idx, "directTime", nf, value, {"interp": "linear"});
                                             }
                                         }
@@ -1306,7 +1306,7 @@ Common.AviQtlWindow {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 12
                                         property var rawKfs: root.audioKeyframeList("directTime")
-                                        property var kfs: root.audioKeyframesWithEnd(rawKfs, root._audioClipDur)
+                                        property var kfs: root.audioKeyframesWithEnd(rawKfs, root._audioClipDur, "directTime")
                                         Rectangle { anchors.centerIn: parent; width: parent.width; height: 2; color: palette.mid }
                                         Repeater {
                                             model: parent.kfs

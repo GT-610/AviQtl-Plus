@@ -136,6 +136,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
         if (audio.mute || (hasSolo && !audio.solo)) {
+            emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
             continue;
         }
         auto decIt = m_decoders.find(clipId);
@@ -250,6 +251,8 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             const float rmsLeft = static_cast<float>(std::sqrt(squareLeft / static_cast<double>(meterFrames)));
             const float rmsRight = static_cast<float>(std::sqrt(squareRight / static_cast<double>(meterFrames)));
             emit audioMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight);
+        } else {
+            emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
         }
     }
     return masterBuffer;
