@@ -991,8 +991,14 @@ Common.AviQtlWindow {
                         nameFilters: ["Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)", "All Files (*)"]
                         onAccepted: {
                             var path = selectedFile.toString();
-                            if (path.indexOf("file://") === 0)
-                                path = decodeURIComponent(path.replace(/^file:\/\//, ""));
+                            if (path.indexOf("file://") === 0) {
+                                // file:///Users/foo → /Users/foo (Unix)
+                                // file:///C:/foo → C:/foo (Windows)
+                                var local = path.replace(/^file:\/\//, "");
+                                if (Qt.platform.os === "windows")
+                                    local = local.replace(/^\//, "");
+                                path = decodeURIComponent(local);
+                            }
                             root.setAudioParam("source", path);
                         }
                     }
