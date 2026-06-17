@@ -28,22 +28,26 @@ Common.AviQtlWindow {
     property int _audioKfRev: 0
     readonly property int _audioClipDur: Workspace.currentTimeline ? Workspace.currentTimeline.clipDurationFrames : 100
     readonly property int _audioRelFrame: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Math.max(0, Workspace.currentTimeline.transport.currentFrame - Workspace.currentTimeline.clipStartFrame) : 0
-
-    function audioEffectModel() {
+    readonly property var _cachedAudioModel: {
+        var _ = _audioKfRev;
         for (var i = 0; i < effectsModel.length; i++) {
             if (effectsModel[i] && effectsModel[i].id === "audio")
                 return effectsModel[i];
         }
         return null;
     }
-
-    function audioEffectIndex() {
+    readonly property int _cachedAudioIdx: {
+        var _ = _audioKfRev;
         for (var i = 0; i < effectsModel.length; i++) {
             if (effectsModel[i] && effectsModel[i].id === "audio")
                 return i;
         }
         return -1;
     }
+
+    function audioEffectModel() { return _cachedAudioModel; }
+
+    function audioEffectIndex() { return _cachedAudioIdx; }
 
     function audioParamValue(paramName, fallback) {
         var model = audioEffectModel();
@@ -1034,7 +1038,7 @@ Common.AviQtlWindow {
 
                                     TextField {
                                         Layout.fillWidth: true
-                                        text: String(root.audioParamValue("source", ""))
+                                        text: root.audioParamValue("source", "")
                                         placeholderText: qsTr("音声ファイルを選択...")
                                         selectByMouse: true
                                         onEditingFinished: root.setAudioParam("source", text)
@@ -1059,7 +1063,7 @@ Common.AviQtlWindow {
                                     ComboBox {
                                         Layout.fillWidth: true
                                         model: ["開始時間＋再生速度", "時間直接指定"]
-                                        currentIndex: model.indexOf(String(root.audioParamValue("playMode", "開始時間＋再生速度")))
+                                        currentIndex: model.indexOf(root.audioParamValue("playMode", "開始時間＋再生速度"))
                                         onActivated: root.setAudioParam("playMode", model[currentIndex])
                                     }
                                 }

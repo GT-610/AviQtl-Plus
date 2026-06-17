@@ -169,11 +169,11 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
             // リサンプリングが必要な場合
             // 必要ソースサンプル数を計算（補間用に2サンプル余分に要求）
             int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * sourceRate)) + 2;
-            std::vector<float> rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
+            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
 
-            if (!rawSamples.empty()) {
+            if (!m_rawSamples.empty()) {
                 m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
-                int availableSrcSamples = static_cast<int>(rawSamples.size() / 2);
+                int availableSrcSamples = static_cast<int>(m_rawSamples.size() / 2);
 
                 for (int i = 0; i < samplesPerFrame; ++i) {
                     double srcIdx = i * sourceRate;
@@ -193,9 +193,9 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
                     double t = srcIdx - idx0;
 
                     // L ch
-                    m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
+                    m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((m_rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (m_rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
                     // R ch
-                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
+                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((m_rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (m_rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
                 }
             } else {
                 m_clipSamples.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
@@ -205,7 +205,8 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
         } else {
             // 1倍速の場合はそのまま取得
             int neededSamples = samplesPerFrame;
-            m_clipSamples = decoder->getSamples(startTime, neededSamples * 2);
+            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2);
+            m_clipSamples.swap(m_rawSamples);
             m_clipPhase[clipId] = startTime + (static_cast<double>(samplesPerFrame) / m_format.sampleRate());
         }
 

@@ -55,6 +55,7 @@ class AudioMixer : public QObject {
 
     std::vector<float> m_masterBuffer;
     std::vector<float> m_clipSamples;
+    std::vector<float> m_rawSamples;
     int m_lastSamplesPerFrame = 0;
 };
 
