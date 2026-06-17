@@ -1,0 +1,44 @@
+{
+    "id": "color_key",
+    "name": "カラーキー",
+    "qml": "ColorKey.qml",
+    "params": {
+        "keyColor": "#00ff00",
+        "similarity": 40,
+        "blend": 10,
+        "invert": false
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "color",
+                "param": "keyColor",
+                "label": "キー色"
+            },
+            {
+                "type": "float",
+                "param": "similarity",
+                "label": "類似度",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "blend",
+                "label": "ブレンド",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "bool",
+                "param": "invert",
+                "label": "反転"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "キー"
+    ]
+}

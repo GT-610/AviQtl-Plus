@@ -1,0 +1,46 @@
+{
+    "id": "glow",
+    "name": "グロー",
+    "qml": "Glow.qml",
+    "params": {
+        "intensity": 100,
+        "radius": 10,
+        "threshold": 50,
+        "color": "#ffffff"
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "intensity",
+                "label": "強度",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "radius",
+                "label": "半径",
+                "min": 0,
+                "max": 50
+            },
+            {
+                "type": "float",
+                "param": "threshold",
+                "label": "しきい値",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "color",
+                "param": "color",
+                "label": "グロー色"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "ライティング"
+    ]
+}
