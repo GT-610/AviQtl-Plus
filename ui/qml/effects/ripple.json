@@ -1,0 +1,56 @@
+{
+    "id": "ripple",
+    "name": "波紋",
+    "qml": "Ripple.qml",
+    "params": {
+        "amplitude": 10,
+        "frequency": 5,
+        "speed": 1,
+        "centerX": 50,
+        "centerY": 50
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "amplitude",
+                "label": "振幅",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "frequency",
+                "label": "周波数",
+                "min": 1,
+                "max": 50
+            },
+            {
+                "type": "float",
+                "param": "speed",
+                "label": "速度",
+                "min": -10,
+                "max": 10
+            },
+            {
+                "type": "float",
+                "param": "centerX",
+                "label": "中心X",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "centerY",
+                "label": "中心Y",
+                "min": 0,
+                "max": 100
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "変形"
+    ]
+}

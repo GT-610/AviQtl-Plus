@@ -1,0 +1,52 @@
+{
+    "id": "displacement_map",
+    "name": "ディスプレイスメントマップ",
+    "qml": "DisplacementMap.qml",
+    "params": {
+        "intensity": 10,
+        "mapType": 0,
+        "scaleX": 100,
+        "scaleY": 100
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "intensity",
+                "label": "強度",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "enum",
+                "param": "mapType",
+                "label": "マップタイプ",
+                "options": [
+                    "ノイズ",
+                    "波紋",
+                    "チェック",
+                    "グラデーション"
+                ]
+            },
+            {
+                "type": "float",
+                "param": "scaleX",
+                "label": "Xスケール",
+                "min": 10,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "scaleY",
+                "label": "Yスケール",
+                "min": 10,
+                "max": 200
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "変形"
+    ]
+}
