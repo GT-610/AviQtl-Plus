@@ -94,8 +94,13 @@ bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const
         QStringLiteral("speed"),
         QStringLiteral("directTime"),
         QStringLiteral("volume"),
+        QStringLiteral("masterVolume"),
         QStringLiteral("pan"),
+        QStringLiteral("fadeIn"),
+        QStringLiteral("fadeOut"),
         QStringLiteral("mute"),
+        QStringLiteral("solo"),
+        QStringLiteral("limiter"),
     };
     return waveformKeys.contains(paramName);
 }
@@ -408,6 +413,39 @@ void TimelineService::setAudioPluginEnabledInternal(int clipId, int index, bool 
 
     emit clipEffectsChanged(clipId);
     emit clipsChanged(); // エンジン側の同期を促す
+}
+
+void TimelineService::addAudioPluginStateInternal(int clipId, const AudioPluginState &state) {
+    auto *clip = findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+
+    clip->audioPlugins.append(state);
+    emit clipEffectsChanged(clipId);
+    emit clipsChanged();
+}
+
+void TimelineService::removeAudioPluginStateInternal(int clipId, int index) {
+    auto *clip = findClipById(clipId);
+    if ((clip == nullptr) || index < 0 || index >= static_cast<int>(clip->audioPlugins.size())) {
+        return;
+    }
+
+    clip->audioPlugins.removeAt(index);
+    emit clipEffectsChanged(clipId);
+    emit clipsChanged();
+}
+
+void TimelineService::setAudioPluginParamInternal(int clipId, int index, int paramIndex, float value) { // NOLINT(bugprone-easily-swappable-parameters)
+    auto *clip = findClipById(clipId);
+    if ((clip == nullptr) || index < 0 || index >= static_cast<int>(clip->audioPlugins.size())) {
+        return;
+    }
+
+    clip->audioPlugins[index].params.insert(QString::number(paramIndex), value);
+    emit clipEffectsChanged(clipId);
+    emit clipsChanged();
 }
 
 void TimelineService::reorderAudioPluginsInternal(int clipId, int oldIndex, int newIndex) { // NOLINT(bugprone-easily-swappable-parameters)

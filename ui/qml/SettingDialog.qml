@@ -2,6 +2,7 @@ import Qt.labs.qmlmodels
 import QtQml
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick.Window
 import "common" as Common
@@ -19,6 +20,100 @@ Common.AviQtlWindow {
     property bool enableSnap: SettingsManager && SettingsManager.settings ? SettingsManager.settings.enableSnap : true
     property bool sidebarOnRight: (SettingsManager && SettingsManager.settings && SettingsManager.settings.settingDialogSidebarRight !== undefined) ? SettingsManager.settings.settingDialogSidebarRight : false
     readonly property real _projectFps: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60
+    readonly property bool isAudioWorkspaceClip: Workspace.currentTimeline && Workspace.currentTimeline.activeObjectType === "audio"
+    property real audioPeakLeft: 0
+    property real audioPeakRight: 0
+    property real audioRmsLeft: 0
+    property real audioRmsRight: 0
+    property int _audioKfRev: 0
+    readonly property int _audioClipDur: Workspace.currentTimeline ? Workspace.currentTimeline.clipDurationFrames : 100
+    readonly property int _audioRelFrame: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Math.max(0, Workspace.currentTimeline.transport.currentFrame - Workspace.currentTimeline.clipStartFrame) : 0
+    readonly property var _cachedAudioModel: {
+        var _ = _audioKfRev;
+        for (var i = 0; i < effectsModel.length; i++) {
+            if (effectsModel[i] && effectsModel[i].id === "audio")
+                return effectsModel[i];
+        }
+        return null;
+    }
+    readonly property int _cachedAudioIdx: {
+        var _ = _audioKfRev;
+        for (var i = 0; i < effectsModel.length; i++) {
+            if (effectsModel[i] && effectsModel[i].id === "audio")
+                return i;
+        }
+        return -1;
+    }
+
+    function audioEffectModel() { return _cachedAudioModel; }
+
+    function audioEffectIndex() { return _cachedAudioIdx; }
+
+    function audioParamValue(paramName, fallback) {
+        var model = audioEffectModel();
+        if (!model || !model.params || model.params[paramName] === undefined)
+            return fallback;
+        return model.params[paramName];
+    }
+
+    function audioEvaluatedParam(paramName, fallback) {
+        var _ = root._audioKfRev;
+        var model = audioEffectModel();
+        if (!model)
+            return fallback;
+        var curFrame = (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Math.max(0, Workspace.currentTimeline.transport.currentFrame - Workspace.currentTimeline.clipStartFrame) : 0;
+        var v = model.evaluatedParam(paramName, curFrame, root._projectFps);
+        return (v !== undefined && v !== null) ? v : fallback;
+    }
+
+    function audioKeyframeList(paramName) {
+        var _ = root._audioKfRev;
+        var model = audioEffectModel();
+        return model ? model.keyframeListForUi(paramName) : [];
+    }
+
+    function audioKeyframesWithEnd(rawKfs, totalDur, paramName) {
+        var out = [];
+        if (rawKfs) {
+            for (var i = 0; i < rawKfs.length; i++) out.push(rawKfs[i]);
+        }
+        if (totalDur > 0) {
+            var hasEnd = false;
+            for (var j = 0; j < out.length; j++) {
+                if (out[j].frame === totalDur) { hasEnd = true; break; }
+            }
+            if (!hasEnd) {
+                var model = audioEffectModel();
+                var endVal = model ? model.evaluatedParam(paramName || "", totalDur, root._projectFps) : 0;
+                out.push({"frame": totalDur, "value": endVal, "interp": "none", "virtualEnd": true});
+            }
+        }
+        out.sort(function(a, b) { return a.frame - b.frame; });
+        return out;
+    }
+
+    function _audioInterpAt(paramName, frame) {
+        var kfs = audioKeyframeList(paramName);
+        for (var i = 0; i < kfs.length; i++) {
+            if (kfs[i].frame === frame)
+                return kfs[i].interp || "linear";
+        }
+        return "linear";
+    }
+
+    function _audioNextKfFrame(rawKfs) {
+        for (var i = 0; i < rawKfs.length; i++) {
+            if (rawKfs[i].frame > root._audioRelFrame)
+                return rawKfs[i].frame;
+        }
+        return root._audioClipDur;
+    }
+
+    function setAudioParam(paramName, value) {
+        var idx = audioEffectIndex();
+        if (idx >= 0 && Workspace.currentTimeline)
+            Workspace.currentTimeline.updateClipEffectParam(targetClipId, idx, paramName, value);
+    }
 
     function currentSceneData() {
         if (!Workspace.currentTimeline || !Workspace.currentTimeline.scenes)
@@ -220,8 +315,8 @@ Common.AviQtlWindow {
         return [];
     }
 
-    width: 350
-    height: 500
+    width: isAudioWorkspaceClip ? 820 : 350
+    height: isAudioWorkspaceClip ? 620 : 500
     title: qsTr("設定ダイアログ")
     color: palette.window
     visible: true
@@ -254,7 +349,34 @@ Common.AviQtlWindow {
 
         }
 
-        target: Workspace.currentTimeline
+        function onAudioMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight) {
+            if (clipId !== targetClipId)
+                return;
+
+            audioPeakLeft = peakLeft;
+            audioPeakRight = peakRight;
+            audioRmsLeft = rmsLeft;
+            audioRmsRight = rmsRight;
+        }
+
+        target: Workspace.currentTimeline ? Workspace.currentTimeline : null
+    }
+
+    Connections {
+        function onKeyframeTracksChanged() {
+            root._audioKfRev++;
+        }
+
+        function onParamsChanged() {
+            root._audioKfRev++;
+        }
+
+        function onParamChanged(key, value) {
+            root._audioKfRev++;
+        }
+
+        target: root.audioEffectModel()
+        ignoreUnknownSignals: true
     }
 
     // タブ切り替えでプロジェクトが変わった際にモデルをリセットして再ロード
@@ -735,10 +857,434 @@ Common.AviQtlWindow {
                 spacing: 1
                 layoutDirection: Qt.LeftToRight
 
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    visible: root.isAudioWorkspaceClip
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        Layout.preferredHeight: 82
+                        radius: 8
+                        color: palette.midlight
+                        border.width: 1
+                        border.color: palette.mid
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 14
+
+                            Rectangle {
+                                Layout.preferredWidth: 44
+                                Layout.preferredHeight: 44
+                                radius: 10
+                                color: palette.highlight
+
+                                Common.AviQtlIcon {
+                                    anchors.centerIn: parent
+                                    iconName: "sound_module_line"
+                                    size: 26
+                                    color: palette.highlightedText
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Label {
+                                    text: qsTr("音声ワークスペース")
+                                    color: palette.text
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                }
+
+                                Label {
+                                    text: qsTr("独立した音声ソース、Carlaプラグインチェーン、メーターをこのオブジェクト内で管理します。")
+                                    color: palette.text
+                                    opacity: 0.72
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("プラグイン追加")
+                                onClicked: filterMenu.popup()
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        Layout.preferredHeight: 130
+                        radius: 8
+                        color: palette.base
+                        border.width: 1
+                        border.color: palette.mid
+
+                        Canvas {
+                            id: audioWaveformCanvas
+
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            opacity: 0.9
+                            onWidthChanged: requestPaint()
+                            onPaint: {
+                                var ctx = getContext("2d");
+                                ctx.clearRect(0, 0, width, height);
+                                ctx.fillStyle = palette.base;
+                                ctx.fillRect(0, 0, width, height);
+
+                                if (!Workspace.currentTimeline || targetClipId < 0 || width <= 0 || height <= 0)
+                                    return;
+
+                                var pw = Math.max(1, Math.floor(width));
+                                var durationFrames = Math.max(1, Workspace.currentTimeline.clipDurationFrames || 1);
+                                var peaks = Workspace.currentTimeline.getWaveformPeaks(targetClipId, pw, durationFrames);
+                                var cy = height / 2;
+                                ctx.strokeStyle = palette.highlight;
+                                ctx.lineWidth = 1;
+                                if (!peaks || peaks.length === 0) {
+                                    ctx.globalAlpha = 0.35;
+                                    ctx.beginPath();
+                                    ctx.moveTo(0, cy);
+                                    ctx.lineTo(width, cy);
+                                    ctx.stroke();
+                                    ctx.globalAlpha = 1;
+                                    return;
+                                }
+
+                                var maxH = Math.max(1, cy - 4);
+                                for (var i = 0; i < peaks.length / 2; i++) {
+                                    var pMin = peaks[i * 2];
+                                    var pMax = peaks[i * 2 + 1];
+                                    var yTop = cy - (pMax * maxH);
+                                    var yBottom = cy - (pMin * maxH);
+                                    if (yBottom - yTop < 1)
+                                        yBottom = yTop + 1;
+                                    ctx.beginPath();
+                                    ctx.moveTo(i + 0.5, yTop);
+                                    ctx.lineTo(i + 0.5, yBottom);
+                                    ctx.stroke();
+                                }
+                            }
+
+                            Connections {
+                                function onClipEffectsChanged(clipId) {
+                                    if (clipId === targetClipId)
+                                        audioWaveformCanvas.requestPaint();
+                                }
+
+                                function onClipDurationFramesChanged() {
+                                    audioWaveformCanvas.requestPaint();
+                                }
+
+                                target: Workspace.currentTimeline
+                            }
+                        }
+                    }
+
+                    FileDialog {
+                        id: audioSourceDialog
+
+                        title: qsTr("音声ソースを選択")
+                        nameFilters: ["Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)", "All Files (*)"]
+                        onAccepted: {
+                            var path = selectedFile.toString();
+                            if (path.indexOf("file://") === 0) {
+                                // file:///Users/foo → /Users/foo (Unix)
+                                // file:///C:/foo → C:/foo (Windows)
+                                var local = path.replace(/^file:\/\//, "");
+                                if (Qt.platform.os === "windows")
+                                    local = local.replace(/^\//, "");
+                                path = decodeURIComponent(local);
+                            }
+                            root.setAudioParam("source", path);
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        spacing: 10
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 260
+                            radius: 8
+                            color: palette.midlight
+                            border.width: 1
+                            border.color: palette.mid
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 10
+
+                                Label {
+                                    text: qsTr("Source Deck")
+                                    color: palette.text
+                                    font.pixelSize: 15
+                                    font.bold: true
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    TextField {
+                                        Layout.fillWidth: true
+                                        text: root.audioParamValue("source", "")
+                                        placeholderText: qsTr("音声ファイルを選択...")
+                                        selectByMouse: true
+                                        onEditingFinished: root.setAudioParam("source", text)
+                                    }
+
+                                    Button {
+                                        text: qsTr("参照")
+                                        onClicked: audioSourceDialog.open()
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Label {
+                                        text: qsTr("Mode")
+                                        color: palette.text
+                                        Layout.preferredWidth: 72
+                                    }
+
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["開始時間＋再生速度", "時間直接指定"]
+                                        currentIndex: model.indexOf(root.audioParamValue("playMode", "開始時間＋再生速度"))
+                                        onActivated: root.setAudioParam("playMode", model[currentIndex])
+                                    }
+                                }
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 2
+                                    columnSpacing: 10
+                                    rowSpacing: 8
+
+                                    Label {
+                                        text: qsTr("Start")
+                                        color: palette.text
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Slider {
+                                            Layout.fillWidth: true
+                                            from: 0
+                                            to: 60
+                                            value: Number(root.audioParamValue("startTime", 0))
+                                            onMoved: root.setAudioParam("startTime", value)
+                                        }
+                                        TextField {
+                                            Layout.preferredWidth: 64
+                                            text: Number(root.audioParamValue("startTime", 0)).toFixed(2)
+                                            horizontalAlignment: Text.AlignRight
+                                            onEditingFinished: root.setAudioParam("startTime", Number(text))
+                                        }
+                                    }
+
+                                    Common.AudioKfParamTrack {
+                                        paramName: "speed"; defaultValue: 100; sliderFrom: 1; sliderTo: 400; decimals: 0; buttonLabel: "Speed"
+                                    }
+
+                                    Common.AudioKfParamTrack {
+                                        paramName: "directTime"; defaultValue: 0; sliderFrom: 0; sliderTo: 60; decimals: 2; buttonLabel: "Direct"
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: 260
+                            Layout.preferredHeight: 260
+                            radius: 8
+                            color: palette.midlight
+                            border.width: 1
+                            border.color: palette.mid
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+
+                                    Label {
+                                        text: qsTr("Channel Strip")
+                                        color: palette.text
+                                        font.pixelSize: 15
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+
+                                    CheckBox {
+                                        text: qsTr("Limit")
+                                        checked: Boolean(root.audioParamValue("limiter", true))
+                                        onToggled: root.setAudioParam("limiter", checked)
+                                    }
+                                }
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 2
+                                    rowSpacing: 6
+                                    columnSpacing: 8
+
+                                    Label { text: qsTr("VOL"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.audioParamValue("volume", 1)); onMoved: root.setAudioParam("volume", value) }
+
+                                    Label { text: qsTr("MASTER"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.audioParamValue("masterVolume", 1)); onMoved: root.setAudioParam("masterVolume", value) }
+
+                                    Label { text: qsTr("PAN"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: -1; to: 1; value: Number(root.audioParamValue("pan", 0)); onMoved: root.setAudioParam("pan", value) }
+
+                                    Label { text: qsTr("FADE IN"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.audioParamValue("fadeIn", 0)); onMoved: root.setAudioParam("fadeIn", value) }
+
+                                    Label { text: qsTr("FADE OUT"); color: palette.text }
+                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.audioParamValue("fadeOut", 0)); onMoved: root.setAudioParam("fadeOut", value) }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        text: qsTr("MUTE")
+                                        checkable: true
+                                        checked: Boolean(root.audioParamValue("mute", false))
+                                        onToggled: root.setAudioParam("mute", checked)
+                                    }
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        text: qsTr("SOLO")
+                                        checkable: true
+                                        checked: Boolean(root.audioParamValue("solo", false))
+                                        onToggled: root.setAudioParam("solo", checked)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.margins: 10
+                        Layout.preferredHeight: 94
+                        radius: 8
+                        color: palette.midlight
+                        border.width: 1
+                        border.color: palette.mid
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            Label {
+                                text: qsTr("メーター")
+                                color: palette.text
+                                font.bold: true
+                            }
+
+                            Repeater {
+                                model: [
+                                    { "name": "L", "peak": root.audioPeakLeft, "rms": root.audioRmsLeft },
+                                    { "name": "R", "peak": root.audioPeakRight, "rms": root.audioRmsRight }
+                                ]
+
+                                delegate: RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Label {
+                                        text: modelData.name
+                                        Layout.preferredWidth: 14
+                                        color: palette.text
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 12
+                                        radius: 6
+                                        color: palette.base
+                                        border.width: 1
+                                        border.color: palette.mid
+
+                                        Rectangle {
+                                            anchors.left: parent.left
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            height: parent.height - 2
+                                            width: Math.min(parent.width, parent.width * Math.max(0, Math.min(1, modelData.rms)))
+                                            radius: 5
+                                            color: palette.highlight
+                                            opacity: 0.55
+                                        }
+
+                                        Rectangle {
+                                            anchors.left: parent.left
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            height: parent.height - 2
+                                            width: Math.min(parent.width, parent.width * Math.max(0, Math.min(1, modelData.peak)))
+                                            radius: 5
+                                            color: modelData.peak > 0.95 ? "#d94f4f" : "#4fd97b"
+                                        }
+                                    }
+
+                                    Label {
+                                        text: (Math.max(modelData.peak, 0) * 100).toFixed(0) + "%"
+                                        Layout.preferredWidth: 42
+                                        horizontalAlignment: Text.AlignRight
+                                        color: palette.text
+                                        opacity: 0.75
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 10
+                        text: qsTr("Carlaプラグインチェーン")
+                        color: palette.text
+                        font.pixelSize: 15
+                        font.bold: true
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 10
+                        text: audioEffectsModel.length > 0 ? qsTr("左側のリストでプラグインを選択・並べ替えできます。") : qsTr("上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。")
+                        color: palette.text
+                        opacity: 0.7
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
                 Repeater {
                     id: videoEffectsRepeater
 
-                    model: effectsModel
+                    model: root.isAudioWorkspaceClip ? [] : effectsModel
 
                     delegate: ColumnLayout {
                         id: effectRoot

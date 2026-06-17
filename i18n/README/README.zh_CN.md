@@ -76,17 +76,11 @@
 
 `BUILD.py` 会自动检测当前操作系统并确定构建目标。通常只需 `python BUILD.py` 即可，但也支持手动指定。
 
-首先克隆仓库，并根据需要创建虚拟环境：
+首先克隆仓库：
 
 ```bash
 git clone https://github.com/GT-610/AviQtl-Plus.git
 cd AviQtl-Plus
-
-# 通过 pip 安装 PySide6（推荐）
-python3 -m venv .venv
-# Linux/macOS/MSYS2: source .venv/bin/activate
-# Windows/PowerShell: .venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip PySide6
 ```
 
 <details>
@@ -95,9 +89,9 @@ python -m pip install --upgrade pip PySide6
 在 Linux 上，默认使用 distrobox/podman 容器隔离构建环境。
 
 1. **安装依赖**
-   - Pacman: `sudo pacman -S --needed distrobox podman python pyside6 git`
-   - APT: `sudo apt install distrobox podman python3 python3-pyside6 git`
-   - DNF: `sudo dnf install distrobox podman python3 python3-pyside6 git`
+   - Pacman: `sudo pacman -S --needed distrobox podman python git`
+   - APT: `sudo apt install distrobox podman python3 git`
+   - DNF: `sudo dnf install distrobox podman python3 git`
 2. **构建**
    - `python BUILD.py --arch`
 3. **运行**
@@ -110,7 +104,7 @@ python -m pip install --upgrade pip PySide6
 在 macOS 上，`BUILD.py` 通过 Homebrew 检查并安装依赖（CMake、Ninja、Qt6 等），然后执行 `macdeployqt` 和 `codesign` 创建 `.app` 包。
 
 1. **安装依赖**
-   - `brew install python pyside git`
+   - `brew install python git`
 2. **构建**
    - `python BUILD.py --xcode`
 3. **运行**
@@ -121,7 +115,7 @@ python -m pip install --upgrade pip PySide6
 <summary>Windows (MSYS2)</summary>
 
 1. **安装依赖**
-   - `pacman -S git mingw-w64-ucrt-x86_64-pyside6`
+   - `pacman -S git mingw-w64-ucrt-x86_64-python`
 2. **构建**
    - `python BUILD.py --msys2`
 3. **运行**
@@ -219,16 +213,7 @@ AviQtl-Plus 从根本上解决结构性弱点：
 <details>
 <summary>AviQtl-Plus 的路线图是什么？</summary>
 
-**短期（0.1.x）：**
-- [x] 实现核心服务层（TimelineService、ProjectService、媒体管理器），让基本编辑流程跑通
-- [x] ECS 渲染管线：RenderComponent、EffectParamBuffer、ECSRenderBridge、QML 集成
-- [x] TransportService：循环播放、逐帧步进、结束自动暂停
-- [x] ProjectSerializer：版本字段、相对媒体路径以支持跨设备移植
-- [x] 导出：逐帧图片序列导出（PNG）
-- [x] 打磨现有 UI 组件，修复边界情况
-- [x] 建立稳定的构建/发布流程
-
-**中期（0.2–0.3.x）：**
+**下一步（0.2.1–0.3.x）：**
 - 完善特效和对象插件生态
 - 音频编辑和混音打磨
 - 性能优化和 GPU Compute Shader 改进

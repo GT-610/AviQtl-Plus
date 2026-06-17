@@ -5,7 +5,6 @@
 #include <QHash>
 #include <QIODevice>
 #include <QObject>
-#include <QPointer>
 #include <memory>
 #include <unordered_map>
 
@@ -31,7 +30,7 @@ class AudioMixer : public QObject {
     void reset();
 
     // エクスポート用に生データを取得するメソッド
-    std::vector<float> mix(int currentFrame, double fps, int samplesPerFrame);
+    const std::vector<float> &mix(int currentFrame, double fps, int samplesPerFrame);
 
     // クリップID → プラグインチェーン
     Plugin::AudioPluginChain &getChain(int clipId);
@@ -39,6 +38,9 @@ class AudioMixer : public QObject {
 
     void setPlaybackSpeed(double speed);
     void setSampleRate(int sampleRate);
+
+  signals:
+    void audioMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);
 
   private:
     std::unique_ptr<QAudioSink> m_audioSink;
@@ -53,6 +55,7 @@ class AudioMixer : public QObject {
 
     std::vector<float> m_masterBuffer;
     std::vector<float> m_clipSamples;
+    std::vector<float> m_rawSamples;
     int m_lastSamplesPerFrame = 0;
 };
 

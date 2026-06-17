@@ -14,9 +14,11 @@ class AudioPluginChain {
         m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), 4096).toInt();
     }
 
-    void add(std::unique_ptr<IAudioPlugin> plugin);
+    void add(std::unique_ptr<IAudioPlugin> plugin, bool enabled = true);
     void remove(int index);
     void clear();
+    void setEnabled(int index, bool enabled);
+    bool isEnabled(int index) const;
 
     void prepare(double sampleRate, int maxBlockSize);
     // mix() から呼ばれる：バッファをチェーン内の全プラグインに通す
@@ -26,7 +28,12 @@ class AudioPluginChain {
     IAudioPlugin *get(int index) const;
 
   private:
-    std::vector<std::unique_ptr<IAudioPlugin>> m_plugins;
+    struct Entry {
+        std::unique_ptr<IAudioPlugin> plugin;
+        bool enabled = true;
+    };
+
+    std::vector<Entry> m_plugins;
     double m_sampleRate = 48000.0;
     int m_maxBlockSize = 4096;
 };

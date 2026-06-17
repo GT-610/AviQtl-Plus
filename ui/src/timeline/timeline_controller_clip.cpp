@@ -732,7 +732,14 @@ void TimelineController::addAudioPlugin(int clipId, const QString &pluginId) {
     auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginId);
     if (plugin) {
         qInfo() << "Adding audio plugin:" << plugin->name() << "to clip" << clipId;
-        m_mediaManager->audioMixer()->getChain(clipId).add(std::move(plugin));
+        AudioPluginState state;
+        state.id = pluginId;
+        state.enabled = true;
+        for (int i = 0; i < plugin->paramCount(); ++i) {
+            state.params.insert(QString::number(i), plugin->getParam(i));
+        }
+        m_timeline->addAudioPluginStateInternal(clipId, state);
+        m_mediaManager->syncAudioPluginChain(clipId);
         emit clipEffectsChanged(clipId);
     } else {
         qWarning() << "Failed to create audio plugin:" << pluginId;
@@ -740,19 +747,22 @@ void TimelineController::addAudioPlugin(int clipId, const QString &pluginId) {
 }
 
 void TimelineController::removeAudioPlugin(int clipId, int index) {
-    m_mediaManager->audioMixer()->getChain(clipId).remove(index);
+    m_timeline->removeAudioPluginStateInternal(clipId, index);
+    m_mediaManager->syncAudioPluginChain(clipId);
     emit clipEffectsChanged(clipId);
 }
 
 void TimelineController::setAudioPluginEnabled(int clipId, int index, bool enabled) {
     if (m_timeline != nullptr) {
         m_timeline->setAudioPluginEnabled(clipId, index, enabled);
+        m_mediaManager->syncAudioPluginChain(clipId);
     }
 }
 
 void TimelineController::reorderAudioPlugins(int clipId, int oldIndex, int newIndex) {
     if (m_timeline != nullptr) {
         m_timeline->reorderAudioPlugins(clipId, oldIndex, newIndex);
+        m_mediaManager->syncAudioPluginChain(clipId);
     }
 }
 
@@ -767,7 +777,7 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
     }
 
     const auto *clip = m_timeline->findClipById(clipId);
-    if ((clip == nullptr) || clip->type != "audio") {
+    if ((clip == nullptr) || clip->type != QLatin1String("audio")) {
         return {};
     }
 
@@ -809,12 +819,18 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
         double sourceStartSec = 0.0;
         double sourceDurationSec = frameStepSec;
         double volume = 1.0;
+        double masterVolume = 1.0;
         double pan = 0.0;
+        double fadeIn = 0.0;
+        double fadeOut = 0.0;
         bool mute = false;
 
         if (audioEffect != nullptr) {
             volume = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("volume"), relFrame, fps).toDouble());
+            masterVolume = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("masterVolume"), relFrame, fps).toDouble());
             pan = std::clamp(audioEffect->evaluatedParam(QStringLiteral("pan"), relFrame, fps).toDouble(), -1.0, 1.0);
+            fadeIn = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("fadeIn"), relFrame, fps).toDouble());
+            fadeOut = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("fadeOut"), relFrame, fps).toDouble());
             mute = audioEffect->evaluatedParam(QStringLiteral("mute"), relFrame, fps).toBool();
 
             if (directMode) {
@@ -835,8 +851,16 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
         }
 
         const auto pixelPeaks = decoder->getPeaks(sourceStartSec, sourceDurationSec, 1);
-        const double leftVol = mute ? 0.0 : volume * (pan <= 0.0 ? 1.0 : 1.0 - pan);
-        const double rightVol = mute ? 0.0 : volume * (pan >= 0.0 ? 1.0 : 1.0 + pan);
+        double fadeGain = 1.0;
+        if (fadeIn > 0.0) {
+            fadeGain = std::min(fadeGain, std::clamp(relSec / fadeIn, 0.0, 1.0));
+        }
+        if (fadeOut > 0.0) {
+            fadeGain = std::min(fadeGain, std::clamp((clipDurationSec - relSec) / fadeOut, 0.0, 1.0));
+        }
+        const double outputVolume = volume * masterVolume * fadeGain;
+        const double leftVol = mute ? 0.0 : outputVolume * (pan <= 0.0 ? 1.0 : 1.0 - pan);
+        const double rightVol = mute ? 0.0 : outputVolume * (pan >= 0.0 ? 1.0 : 1.0 + pan);
         const float displayGain = static_cast<float>(std::clamp((leftVol + rightVol) * 0.5, 0.0, 2.0));
         if (pixelPeaks.size() >= 2) {
             rawPeaks.push_back(pixelPeaks[0] * displayGain);
@@ -915,6 +939,7 @@ void TimelineController::setEffectParameter(int clipId, int effectIndex, int par
     auto *plugin = chain.get(effectIndex); // NOLINT(bugprone-easily-swappable-parameters)
     if (plugin != nullptr) {
         plugin->setParam(paramIndex, value);
+        m_timeline->setAudioPluginParamInternal(clipId, effectIndex, paramIndex, value);
     }
 }
 

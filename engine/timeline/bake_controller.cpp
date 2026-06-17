@@ -194,12 +194,10 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
     audio.clipId = clip.id;
     audio.startFrame = clip.startFrame;
     audio.durationFrames = clip.durationFrames;
-
-    for (const auto &effect : clip.effects) {
-        if (!effect.enabled || effect.id != QStringLiteral("audio")) {
-            continue;
-        }
-
+    auto it = std::find_if(clip.effects.begin(), clip.effects.end(),
+        [](const auto &e) { return e.enabled && e.id == QStringLiteral("audio"); });
+    if (it != clip.effects.end()) {
+        const auto &effect = *it;
         auto [tracks, allKeys, trackDuration] = buildEffectTracks(effect, clip.durationFrames);
 
         const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
@@ -208,9 +206,13 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         audio.playbackSpeed = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("speed"), 100.0f, relFrame, fps, trackDuration) / 100.0f);
         audio.directTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("directTime"), 0.0f, relFrame, fps, trackDuration));
         audio.volume = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("volume"), 1.0f, relFrame, fps, trackDuration));
+        audio.masterVolume = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("masterVolume"), 1.0f, relFrame, fps, trackDuration));
         audio.pan = std::clamp(evalFloatOr(effect.params, tracks, QStringLiteral("pan"), 0.0f, relFrame, fps, trackDuration), -1.0f, 1.0f);
+        audio.fadeInSec = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("fadeIn"), 0.0f, relFrame, fps, trackDuration));
+        audio.fadeOutSec = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("fadeOut"), 0.0f, relFrame, fps, trackDuration));
         audio.mute = effect.params.value(QStringLiteral("mute"), false).toBool();
-        break;
+        audio.solo = effect.params.value(QStringLiteral("solo"), false).toBool();
+        audio.limiter = effect.params.value(QStringLiteral("limiter"), true).toBool();
     }
 
     return audio;

@@ -11,6 +11,21 @@
 
 namespace AviQtl::Engine {
 
+namespace {
+
+auto fadeGainForTime(double relTime, double duration, float fadeInSec, float fadeOutSec) -> float {
+    double gain = 1.0;
+    if (fadeInSec > 0.0F) {
+        gain = std::min(gain, std::clamp(relTime / static_cast<double>(fadeInSec), 0.0, 1.0));
+    }
+    if (fadeOutSec > 0.0F) {
+        gain = std::min(gain, std::clamp((duration - relTime) / static_cast<double>(fadeOutSec), 0.0, 1.0));
+    }
+    return static_cast<float>(gain);
+}
+
+} // namespace
+
 AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
     int sampleRate = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), 48000).toInt();
     m_format.setSampleRate(sampleRate);
@@ -66,7 +81,7 @@ void AudioMixer::setSampleRate(int sampleRate) {
 
     QAudioDevice device = QMediaDevices::defaultAudioOutput();
     m_audioSink = std::make_unique<QAudioSink>(device, m_format);
-    m_audioSink->setBufferSize(sampleRate * 2 * sizeof(float) / 10);
+    m_audioSink->setBufferSize(static_cast<qsizetype>(static_cast<std::size_t>(sampleRate) * 2 * sizeof(float) / 10));
     m_audioOutput = m_audioSink->start();
 }
 
@@ -95,7 +110,7 @@ auto AudioMixer::isReady() const -> bool {
     return true;
 }
 
-auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
+auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const std::vector<float> & { // NOLINT(bugprone-easily-swappable-parameters)
     std::size_t newSize = static_cast<std::size_t>(samplesPerFrame) * 2;
     if (newSize != static_cast<std::size_t>(m_lastSamplesPerFrame) * 2) {
         m_masterBuffer.assign(newSize, 0.0F);
@@ -110,9 +125,18 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
         return masterBuffer;
     }
     const auto &audioStates = state->audioStates;
+    bool hasSolo = false;
+    for (const auto &audio : audioStates) {
+        if (audio.solo && !audio.mute && currentFrame >= audio.startFrame && currentFrame < audio.startFrame + audio.durationFrames) {
+            hasSolo = true;
+            break;
+        }
+    }
+
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
-        if (audio.mute) {
+        if (audio.mute || (hasSolo && !audio.solo)) {
+            emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
             continue;
         }
         auto decIt = m_decoders.find(clipId);
@@ -145,11 +169,11 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             // リサンプリングが必要な場合
             // 必要ソースサンプル数を計算（補間用に2サンプル余分に要求）
             int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * sourceRate)) + 2;
-            std::vector<float> rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
+            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
 
-            if (!rawSamples.empty()) {
+            if (!m_rawSamples.empty()) {
                 m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
-                int availableSrcSamples = static_cast<int>(rawSamples.size() / 2);
+                int availableSrcSamples = static_cast<int>(m_rawSamples.size() / 2);
 
                 for (int i = 0; i < samplesPerFrame; ++i) {
                     double srcIdx = i * sourceRate;
@@ -169,9 +193,9 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
                     double t = srcIdx - idx0;
 
                     // L ch
-                    m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
+                    m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((m_rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (m_rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
                     // R ch
-                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
+                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((m_rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (m_rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
                 }
             } else {
                 m_clipSamples.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
@@ -181,7 +205,8 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
         } else {
             // 1倍速の場合はそのまま取得
             int neededSamples = samplesPerFrame;
-            m_clipSamples = decoder->getSamples(startTime, neededSamples * 2);
+            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2);
+            m_clipSamples.swap(m_rawSamples);
             m_clipPhase[clipId] = startTime + (static_cast<double>(samplesPerFrame) / m_format.sampleRate());
         }
 
@@ -190,14 +215,42 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             chainIt.value()->process(m_clipSamples.data(), samplesPerFrame);
         }
 
-        float leftVol = audio.volume * (audio.pan <= 0 ? 1.0F : 1.0F - audio.pan);
-        float rightVol = audio.volume * (audio.pan >= 0 ? 1.0F : 1.0F + audio.pan);
+        const double clipDurationSec = fps > 0.0 ? static_cast<double>(audio.durationFrames) / fps : 0.0;
+        const float fadeGain = fadeGainForTime(relTime, clipDurationSec, audio.fadeInSec, audio.fadeOutSec);
+        const float outputVolume = audio.volume * audio.masterVolume * fadeGain;
+        float leftVol = outputVolume * (audio.pan <= 0 ? 1.0F : 1.0F - audio.pan);
+        float rightVol = outputVolume * (audio.pan >= 0 ? 1.0F : 1.0F + audio.pan);
+        float peakLeft = 0.0F;
+        float peakRight = 0.0F;
+        double squareLeft = 0.0;
+        double squareRight = 0.0;
 
         for (size_t i = 0; i < m_clipSamples.size() && i < masterBuffer.size(); i += 2) {
-            masterBuffer[i] += m_clipSamples[i] * leftVol;
-            if (i + 1 < m_clipSamples.size()) {
-                masterBuffer[i + 1] += m_clipSamples[i + 1] * rightVol;
+            float left = m_clipSamples[i] * leftVol;
+            if (audio.limiter) {
+                left = std::clamp(left, -1.0F, 1.0F);
             }
+            const float absLeft = std::abs(left);
+            peakLeft = std::max(peakLeft, absLeft);
+            squareLeft += static_cast<double>(left) * static_cast<double>(left);
+            masterBuffer[i] += left;
+            float right = m_clipSamples[i + 1] * rightVol;
+            if (audio.limiter) {
+                right = std::clamp(right, -1.0F, 1.0F);
+            }
+            const float absRight = std::abs(right);
+            peakRight = std::max(peakRight, absRight);
+            squareRight += static_cast<double>(right) * static_cast<double>(right);
+            masterBuffer[i + 1] += right;
+        }
+
+        if (!m_clipSamples.empty()) {
+            const auto frames = static_cast<double>(samplesPerFrame);
+            const float rmsLeft = static_cast<float>(std::sqrt(squareLeft / frames));
+            const float rmsRight = static_cast<float>(std::sqrt(squareRight / frames));
+            emit audioMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight);
+        } else {
+            emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
         }
     }
     return masterBuffer;

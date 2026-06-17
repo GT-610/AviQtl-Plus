@@ -38,6 +38,7 @@ void TimelineController::setupConnections() {
         [this]() -> void {
             emit clipsChanged();
             m_mediaManager->updateMediaDecoders();
+            m_mediaManager->syncAudioPluginChains();
             m_mediaManager->onCurrentFrameChanged();
             updateActiveClipsList();
             // Bake after sync — syncTimelineToDocumentModel() (from updateActiveClipsList)
@@ -86,6 +87,7 @@ void TimelineController::setupConnections() {
 
     // 画像や動画の準備ができたらUI側に再描画を促す
     connect(m_mediaManager, &TimelineMediaManager::frameUpdated, this, &TimelineController::clipEffectsChanged);
+    connect(m_mediaManager->audioMixer(), &AviQtl::Engine::AudioMixer::audioMeterChanged, this, &TimelineController::audioMeterChanged);
 
     connect(m_exportManager, &TimelineExportManager::exportStarted, this, &TimelineController::exportStarted);
     connect(m_exportManager, &TimelineExportManager::exportProgressChanged, this, &TimelineController::exportProgressChanged);

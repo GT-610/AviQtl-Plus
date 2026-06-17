@@ -8,6 +8,7 @@
 #include "timeline_controller.hpp"
 #include "video_decoder.hpp"
 #include "video_frame_store.hpp"
+#include "engine/plugin/audio_plugin_manager.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -120,7 +121,8 @@ auto TimelineMediaManager::getClipSourceUrl(const ClipData &clip) -> QUrl {
         return {};
     }
     // 音声以外は通常 "path" パラメータにファイルパスが入っている
-    QString path = effModel->params().value(clip.type == QStringLiteral("audio") ? QLatin1String("source") : QLatin1String("path")).toString();
+    const bool audioLike = clip.type == QStringLiteral("audio");
+    QString path = effModel->params().value(audioLike ? QLatin1String("source") : QLatin1String("path")).toString();
     return QUrl::fromLocalFile(path);
 }
 
@@ -194,6 +196,9 @@ void TimelineMediaManager::updateMediaDecoders() {
 
             if (decoder != nullptr) {
                 m_decoders.insert(clip.id, decoder);
+                if (clip.type == QStringLiteral("audio")) {
+                    syncAudioPluginChain(clip);
+                }
                 int cid = clip.id;
                 // 画像や動画のデコード準備ができたらUIへ通知する
                 connect(decoder, &AviQtl::Core::MediaDecoder::ready, this, [this, cid]() -> void { emit frameUpdated(cid); });
@@ -269,6 +274,51 @@ void TimelineMediaManager::updateMediaDecoders() {
         } else {
             ++it;
         }
+    }
+}
+
+void TimelineMediaManager::syncAudioPluginChain(int clipId) {
+    const auto *clip = m_controller->timeline()->findClipById(clipId);
+    if (clip != nullptr) {
+        syncAudioPluginChain(*clip);
+    }
+}
+
+void TimelineMediaManager::syncAudioPluginChains() {
+    const auto &scenes = m_controller->timeline()->getAllScenes();
+    for (const auto &scene : std::as_const(scenes)) {
+        for (const auto &clip : std::as_const(scene.clips)) {
+            syncAudioPluginChain(clip);
+        }
+    }
+}
+
+void TimelineMediaManager::syncAudioPluginChain(const ClipData &clip) {
+    if (clip.type != QStringLiteral("audio")) {
+        return;
+    }
+
+    auto *audioMixer = m_audioMixer.data();
+    if (audioMixer == nullptr) {
+        return;
+    }
+
+    auto &chain = audioMixer->getChain(clip.id);
+    chain.clear();
+    for (const auto &pluginState : clip.audioPlugins) {
+        auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginState.id);
+        if (!plugin) {
+            qWarning() << "Failed to restore audio plugin:" << pluginState.id << "for clip" << clip.id;
+            continue;
+        }
+        for (auto it = pluginState.params.cbegin(); it != pluginState.params.cend(); ++it) {
+            bool ok = false;
+            const int paramIndex = it.key().toInt(&ok);
+            if (ok) {
+                plugin->setParam(paramIndex, it.value().toFloat());
+            }
+        }
+        chain.add(std::move(plugin), pluginState.enabled);
     }
 }
 
