@@ -793,9 +793,9 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
 
     const EffectModel *audioEffect = nullptr;
     for (const auto *effect : clip->effects) {
-            if (effect != nullptr && effect->id() == QLatin1String("audio")) {
-                audioEffect = effect;
-                break;
+        if (effect != nullptr && effect->id() == QLatin1String("audio")) {
+            audioEffect = effect;
+            break;
         }
     }
 
