@@ -48,27 +48,27 @@
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (直線)</source>
-        <translation type="unfinished">（直线）</translation>
+        <translation>（直线）</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (加速)</source>
-        <translation type="unfinished">（加速）</translation>
+        <translation>（加速）</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (減速)</source>
-        <translation type="unfinished">（减速）</translation>
+        <translation>（减速）</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (加減速)</source>
-        <translation type="unfinished">（加减速）</translation>
+        <translation>（加减速）</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (ベジェ)</source>
-        <translation type="unfinished">（贝塞尔）</translation>
+        <translation>（贝塞尔）</translation>
     </message>
 </context>
 <context>
@@ -1186,72 +1186,72 @@
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="229"/>
         <source>クロマキー</source>
-        <translation type="unfinished"></translation>
+        <translation>色键抠像</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="230"/>
         <source>キー</source>
-        <translation type="unfinished"></translation>
+        <translation>键</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="231"/>
         <source>キー抜き</source>
-        <translation type="unfinished"></translation>
+        <translation>抠像</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="232"/>
         <source>シャープ</source>
-        <translation type="unfinished"></translation>
+        <translation>锐化</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="233"/>
         <source>シャドー</source>
-        <translation type="unfinished"></translation>
+        <translation>阴影</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="234"/>
         <source>しきい値</source>
-        <translation type="unfinished"></translation>
+        <translation>阈值</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="235"/>
         <source>ブレンド</source>
-        <translation type="unfinished"></translation>
+        <translation>混合</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="236"/>
         <source>類似度</source>
-        <translation type="unfinished"></translation>
+        <translation>相似度</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="237"/>
         <source>光色</source>
-        <translation type="unfinished"></translation>
+        <translation>光色</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="238"/>
         <source>濃さ</source>
-        <translation type="unfinished"></translation>
+        <translation>浓度</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="239"/>
         <source>色相範囲</source>
-        <translation type="unfinished"></translation>
+        <translation>色相范围</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="240"/>
         <source>反転</source>
-        <translation type="unfinished"></translation>
+        <translation>反转</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="241"/>
         <source>凸エッジ</source>
-        <translation type="unfinished"></translation>
+        <translation>浮雕</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="242"/>
         <source>発光</source>
-        <translation type="unfinished"></translation>
+        <translation>发光</translation>
     </message>
 </context>
 <context>

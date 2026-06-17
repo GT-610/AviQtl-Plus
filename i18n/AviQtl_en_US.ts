@@ -48,27 +48,27 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (直線)</source>
-        <translation type="unfinished"> (Linear)</translation>
+        <translation> (Linear)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (加速)</source>
-        <translation type="unfinished"> (Ease In)</translation>
+        <translation> (Ease In)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (減速)</source>
-        <translation type="unfinished"> (Ease Out)</translation>
+        <translation> (Ease Out)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (加減速)</source>
-        <translation type="unfinished"> (Ease In/Out)</translation>
+        <translation> (Ease In/Out)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (ベジェ)</source>
-        <translation type="unfinished"> (Bezier)</translation>
+        <translation> (Bezier)</translation>
     </message>
 </context>
 <context>
@@ -1186,72 +1186,72 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="229"/>
         <source>クロマキー</source>
-        <translation type="unfinished"></translation>
+        <translation>Chroma Key</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="230"/>
         <source>キー</source>
-        <translation type="unfinished"></translation>
+        <translation>Key</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="231"/>
         <source>キー抜き</source>
-        <translation type="unfinished"></translation>
+        <translation>Keying</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="232"/>
         <source>シャープ</source>
-        <translation type="unfinished"></translation>
+        <translation>Sharpen</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="233"/>
         <source>シャドー</source>
-        <translation type="unfinished"></translation>
+        <translation>Shadow</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="234"/>
         <source>しきい値</source>
-        <translation type="unfinished"></translation>
+        <translation>Threshold</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="235"/>
         <source>ブレンド</source>
-        <translation type="unfinished"></translation>
+        <translation>Blend</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="236"/>
         <source>類似度</source>
-        <translation type="unfinished"></translation>
+        <translation>Similarity</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="237"/>
         <source>光色</source>
-        <translation type="unfinished"></translation>
+        <translation>Light Color</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="238"/>
         <source>濃さ</source>
-        <translation type="unfinished"></translation>
+        <translation>Density</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="239"/>
         <source>色相範囲</source>
-        <translation type="unfinished"></translation>
+        <translation>Hue Range</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="240"/>
         <source>反転</source>
-        <translation type="unfinished"></translation>
+        <translation>Invert</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="241"/>
         <source>凸エッジ</source>
-        <translation type="unfinished"></translation>
+        <translation>Emboss</translation>
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="242"/>
         <source>発光</source>
-        <translation type="unfinished"></translation>
+        <translation>Emission</translation>
     </message>
 </context>
 <context>
@@ -1520,22 +1520,22 @@ This software is released under the GNU Affero General Public License Version 3.
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="43"/>
         <source>Invalid export configuration</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid export configuration</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="28"/>
         <source>Export end frame must be after start frame</source>
-        <translation type="unfinished"></translation>
+        <translation>Export end frame must be after start frame</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="34"/>
         <source>Export FPS does not match project FPS</source>
-        <translation type="unfinished"></translation>
+        <translation>Export FPS does not match project FPS</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="47"/>
         <source>Failed to start image sequence export</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to start image sequence export</translation>
     </message>
 </context>
 <context>
