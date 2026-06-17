@@ -1,0 +1,42 @@
+{
+    "id": "mask",
+    "name": "マスク",
+    "qml": "Mask.qml",
+    "params": {
+        "maskType": 0,
+        "invertMask": false,
+        "maskStrength": 100
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "enum",
+                "param": "maskType",
+                "label": "マスクタイプ",
+                "options": [
+                    "円形",
+                    "矩形",
+                    "星形",
+                    "ハート形"
+                ]
+            },
+            {
+                "type": "bool",
+                "param": "invertMask",
+                "label": "マスク反転"
+            },
+            {
+                "type": "float",
+                "param": "maskStrength",
+                "label": "マスク強度",
+                "min": 0,
+                "max": 100
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "切り抜き"
+    ]
+}

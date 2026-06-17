@@ -1,0 +1,48 @@
+{
+    "id": "fade",
+    "name": "フェード",
+    "qml": "Fade.qml",
+    "params": {
+        "fadeIn": 0,
+        "fadeOut": 0,
+        "fadeInDuration": 30,
+        "fadeOutDuration": 30
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "fadeIn",
+                "label": "フェードイン",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "fadeOut",
+                "label": "フェードアウト",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "fadeInDuration",
+                "label": "フェードイン時間(フレーム)",
+                "min": 1,
+                "max": 300
+            },
+            {
+                "type": "float",
+                "param": "fadeOutDuration",
+                "label": "フェードアウト時間(フレーム)",
+                "min": 1,
+                "max": 300
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "アニメーション"
+    ]
+}
