@@ -1,0 +1,64 @@
+{
+    "id": "extended_color_settings",
+    "name": "拡張色設定",
+    "qml": "ExtendedColorSettings.qml",
+    "params": {
+        "red": 100,
+        "green": 100,
+        "blue": 100,
+        "hue": 0,
+        "saturation": 100,
+        "value": 100
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "slider",
+                "param": "red",
+                "label": "赤",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "slider",
+                "param": "green",
+                "label": "緑",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "slider",
+                "param": "blue",
+                "label": "青",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "slider",
+                "param": "hue",
+                "label": "色相",
+                "min": -180,
+                "max": 180
+            },
+            {
+                "type": "slider",
+                "param": "saturation",
+                "label": "彩度",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "slider",
+                "param": "value",
+                "label": "明度",
+                "min": 0,
+                "max": 200
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "色調補正"
+    ]
+}

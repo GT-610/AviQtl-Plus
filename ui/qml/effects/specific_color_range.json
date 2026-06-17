@@ -1,0 +1,46 @@
+{
+    "id": "specific_color_range",
+    "name": "特定色域変換",
+    "qml": "SpecificColorRange.qml",
+    "params": {
+        "targetHue": 120,
+        "hueRange": 30,
+        "targetColor": "#ff0000",
+        "strength": 100
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "targetHue",
+                "label": "対象色相",
+                "min": 0,
+                "max": 360
+            },
+            {
+                "type": "float",
+                "param": "hueRange",
+                "label": "色相範囲",
+                "min": 0,
+                "max": 180
+            },
+            {
+                "type": "color",
+                "param": "targetColor",
+                "label": "変換先色"
+            },
+            {
+                "type": "float",
+                "param": "strength",
+                "label": "強度",
+                "min": 0,
+                "max": 100
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "色調補正"
+    ]
+}
