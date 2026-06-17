@@ -194,11 +194,10 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
     audio.clipId = clip.id;
     audio.startFrame = clip.startFrame;
     audio.durationFrames = clip.durationFrames;
-    for (const auto &effect : clip.effects) {
-        if (!effect.enabled || effect.id != QStringLiteral("audio")) {
-            continue;
-        }
-
+    auto it = std::find_if(clip.effects.begin(), clip.effects.end(),
+        [](const auto &e) { return e.enabled && e.id == QStringLiteral("audio"); });
+    if (it != clip.effects.end()) {
+        const auto &effect = *it;
         auto [tracks, allKeys, trackDuration] = buildEffectTracks(effect, clip.durationFrames);
 
         const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
@@ -214,7 +213,6 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         audio.mute = effect.params.value(QStringLiteral("mute"), false).toBool();
         audio.solo = effect.params.value(QStringLiteral("solo"), false).toBool();
         audio.limiter = effect.params.value(QStringLiteral("limiter"), true).toBool();
-        break;
     }
 
     return audio;

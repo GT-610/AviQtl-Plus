@@ -5,7 +5,6 @@
 #include <QHash>
 #include <QIODevice>
 #include <QObject>
-#include <QPointer>
 #include <memory>
 #include <unordered_map>
 
@@ -31,7 +30,7 @@ class AudioMixer : public QObject {
     void reset();
 
     // エクスポート用に生データを取得するメソッド
-    std::vector<float> mix(int currentFrame, double fps, int samplesPerFrame);
+    const std::vector<float> &mix(int currentFrame, double fps, int samplesPerFrame);
 
     // クリップID → プラグインチェーン
     Plugin::AudioPluginChain &getChain(int clipId);

@@ -81,7 +81,7 @@ void AudioMixer::setSampleRate(int sampleRate) {
 
     QAudioDevice device = QMediaDevices::defaultAudioOutput();
     m_audioSink = std::make_unique<QAudioSink>(device, m_format);
-    m_audioSink->setBufferSize(sampleRate * 2 * sizeof(float) / 10);
+    m_audioSink->setBufferSize(static_cast<qsizetype>(static_cast<std::size_t>(sampleRate) * 2 * sizeof(float) / 10));
     m_audioOutput = m_audioSink->start();
 }
 
@@ -110,7 +110,7 @@ auto AudioMixer::isReady() const -> bool {
     return true;
 }
 
-auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
+auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const std::vector<float> & { // NOLINT(bugprone-easily-swappable-parameters)
     std::size_t newSize = static_cast<std::size_t>(samplesPerFrame) * 2;
     if (newSize != static_cast<std::size_t>(m_lastSamplesPerFrame) * 2) {
         m_masterBuffer.assign(newSize, 0.0F);
@@ -223,7 +223,6 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
         float peakRight = 0.0F;
         double squareLeft = 0.0;
         double squareRight = 0.0;
-        int meterFrames = 0;
 
         for (size_t i = 0; i < m_clipSamples.size() && i < masterBuffer.size(); i += 2) {
             float left = m_clipSamples[i] * leftVol;
@@ -234,22 +233,20 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> std::
             peakLeft = std::max(peakLeft, absLeft);
             squareLeft += static_cast<double>(left) * static_cast<double>(left);
             masterBuffer[i] += left;
-            if (i + 1 < m_clipSamples.size()) {
-                float right = m_clipSamples[i + 1] * rightVol;
-                if (audio.limiter) {
-                    right = std::clamp(right, -1.0F, 1.0F);
-                }
-                const float absRight = std::abs(right);
-                peakRight = std::max(peakRight, absRight);
-                squareRight += static_cast<double>(right) * static_cast<double>(right);
-                ++meterFrames;
-                masterBuffer[i + 1] += right;
+            float right = m_clipSamples[i + 1] * rightVol;
+            if (audio.limiter) {
+                right = std::clamp(right, -1.0F, 1.0F);
             }
+            const float absRight = std::abs(right);
+            peakRight = std::max(peakRight, absRight);
+            squareRight += static_cast<double>(right) * static_cast<double>(right);
+            masterBuffer[i + 1] += right;
         }
 
-        if (meterFrames > 0) {
-            const float rmsLeft = static_cast<float>(std::sqrt(squareLeft / static_cast<double>(meterFrames)));
-            const float rmsRight = static_cast<float>(std::sqrt(squareRight / static_cast<double>(meterFrames)));
+        if (!m_clipSamples.empty()) {
+            const auto frames = static_cast<double>(samplesPerFrame);
+            const float rmsLeft = static_cast<float>(std::sqrt(squareLeft / frames));
+            const float rmsRight = static_cast<float>(std::sqrt(squareRight / frames));
             emit audioMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight);
         } else {
             emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
