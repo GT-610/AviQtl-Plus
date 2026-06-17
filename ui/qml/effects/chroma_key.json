@@ -1,0 +1,54 @@
+{
+    "id": "chroma_key",
+    "name": "クロマキー",
+    "qml": "ChromaKey.qml",
+    "params": {
+        "hue": 120,
+        "hueRange": 30,
+        "similarity": 40,
+        "blend": 10,
+        "invert": false
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "hue",
+                "label": "色相",
+                "min": 0,
+                "max": 360
+            },
+            {
+                "type": "float",
+                "param": "hueRange",
+                "label": "色相範囲",
+                "min": 0,
+                "max": 180
+            },
+            {
+                "type": "float",
+                "param": "similarity",
+                "label": "類似度",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "blend",
+                "label": "ブレンド",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "bool",
+                "param": "invert",
+                "label": "反転"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "キー"
+    ]
+}

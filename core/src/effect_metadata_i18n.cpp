@@ -226,6 +226,20 @@ namespace {
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "最小長"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "最大長"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "多角形"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "クロマキー"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "キー"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "キー抜き"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "シャープ"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "シャドー"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "しきい値"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ブレンド"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "類似度"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "光色"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "濃さ"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "色相範囲"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "反転"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "凸エッジ"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "発光"),
 };
 
 } // namespace

@@ -1,0 +1,32 @@
+{
+    "id": "sharpen",
+    "name": "シャープ",
+    "qml": "Sharpen.qml",
+    "params": {
+        "strength": 50,
+        "range": 100
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "strength",
+                "label": "強さ",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "range",
+                "label": "範囲",
+                "min": 50,
+                "max": 500
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "輪郭強調"
+    ]
+}

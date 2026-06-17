@@ -1,0 +1,52 @@
+{
+    "id": "emission",
+    "name": "発光",
+    "qml": "Emission.qml",
+    "params": {
+        "strength": 50,
+        "diffusion": 20,
+        "threshold": 80,
+        "color": "",
+        "fixedSize": false
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "strength",
+                "label": "強さ",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "diffusion",
+                "label": "拡散",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "threshold",
+                "label": "しきい値",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "color",
+                "param": "color",
+                "label": "光色"
+            },
+            {
+                "type": "bool",
+                "param": "fixedSize",
+                "label": "サイズ固定"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "ライティング"
+    ]
+}
