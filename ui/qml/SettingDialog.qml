@@ -1078,52 +1078,7 @@ Common.AviQtlWindow {
                                         }
                                     }
 
-                                    // Speed: track + dual slider
-                                    Item {
-                                        Layout.columnSpan: 2
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 12
-                                        property var rawKfs: root.audioKeyframeList("speed")
-                                        property var kfs: root.audioKeyframesWithEnd(rawKfs, root._audioClipDur)
-                                        Rectangle { anchors.centerIn: parent; width: parent.width; height: 2; color: palette.mid }
-                                        Repeater {
-                                            model: parent.kfs
-                                            Rectangle {
-                                                required property var modelData
-                                                property int kfFrame: modelData.frame
-                                                property bool isEndpoint: kfFrame === 0 || !!modelData.virtualEnd
-                                                width: 8; height: 8; rotation: 45; antialiasing: true
-                                                color: kfSpeedMa.containsMouse ? palette.highlight : palette.text
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                x: Math.min(parent.width - 4, (kfFrame / Math.max(1, root._audioClipDur)) * parent.width - 4)
-                                                MouseArea {
-                                                    id: kfSpeedMa
-                                                    anchors.fill: parent; anchors.margins: -4; hoverEnabled: true
-                                                    cursorShape: parent.isEndpoint ? Qt.ArrowCursor : Qt.PointingHandCursor
-                                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                                    onClicked: function(mouse) {
-                                                        if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
-                                                            Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.clipStartFrame + parent.kfFrame);
-                                                        else if (mouse.button === Qt.RightButton && !parent.isEndpoint && Workspace.currentTimeline)
-                                                            Workspace.currentTimeline.removeKeyframe(targetClipId, root.audioEffectIndex(), "speed", parent.kfFrame);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        Rectangle { width: 1; height: parent.height; color: palette.highlight; x: (root._audioRelFrame / Math.max(1, root._audioClipDur)) * parent.width; visible: root._audioClipDur > 0 }
-                                        MouseArea {
-                                            anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                            onDoubleClicked: function(mouse) {
-                                                var model = root.audioEffectModel(); var idx = root.audioEffectIndex();
-                                                if (!model || idx < 0 || !Workspace.currentTimeline) return;
-                                                var f = Math.round((mouse.x / parent.width) * root._audioClipDur);
-                                                f = Math.max(0, Math.min(root._audioClipDur, f));
-                                                var v = model.evaluatedParam("speed", f, root._projectFps);
-                                                Workspace.currentTimeline.setKeyframe(targetClipId, idx, "speed", f, (v !== undefined && v !== null) ? v : 100, {"interp": "linear"});
-                                            }
-                                        }
-                                    }
-
+                                    // Speed: dual slider + track
                                     RowLayout {
                                         Layout.columnSpan: 2
                                         Layout.fillWidth: true
@@ -1212,13 +1167,11 @@ Common.AviQtlWindow {
                                             }
                                         }
                                     }
-
-                                    // Direct: track + dual slider
                                     Item {
                                         Layout.columnSpan: 2
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 12
-                                        property var rawKfs: root.audioKeyframeList("directTime")
+                                        property var rawKfs: root.audioKeyframeList("speed")
                                         property var kfs: root.audioKeyframesWithEnd(rawKfs, root._audioClipDur)
                                         Rectangle { anchors.centerIn: parent; width: parent.width; height: 2; color: palette.mid }
                                         Repeater {
@@ -1228,11 +1181,11 @@ Common.AviQtlWindow {
                                                 property int kfFrame: modelData.frame
                                                 property bool isEndpoint: kfFrame === 0 || !!modelData.virtualEnd
                                                 width: 8; height: 8; rotation: 45; antialiasing: true
-                                                color: kfDirectMa.containsMouse ? palette.highlight : palette.text
+                                                color: kfSpeedMa.containsMouse ? palette.highlight : palette.text
                                                 anchors.verticalCenter: parent.verticalCenter
                                                 x: Math.min(parent.width - 4, (kfFrame / Math.max(1, root._audioClipDur)) * parent.width - 4)
                                                 MouseArea {
-                                                    id: kfDirectMa
+                                                    id: kfSpeedMa
                                                     anchors.fill: parent; anchors.margins: -4; hoverEnabled: true
                                                     cursorShape: parent.isEndpoint ? Qt.ArrowCursor : Qt.PointingHandCursor
                                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -1240,7 +1193,7 @@ Common.AviQtlWindow {
                                                         if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
                                                             Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.clipStartFrame + parent.kfFrame);
                                                         else if (mouse.button === Qt.RightButton && !parent.isEndpoint && Workspace.currentTimeline)
-                                                            Workspace.currentTimeline.removeKeyframe(targetClipId, root.audioEffectIndex(), "directTime", parent.kfFrame);
+                                                            Workspace.currentTimeline.removeKeyframe(targetClipId, root.audioEffectIndex(), "speed", parent.kfFrame);
                                                     }
                                                 }
                                             }
@@ -1253,12 +1206,13 @@ Common.AviQtlWindow {
                                                 if (!model || idx < 0 || !Workspace.currentTimeline) return;
                                                 var f = Math.round((mouse.x / parent.width) * root._audioClipDur);
                                                 f = Math.max(0, Math.min(root._audioClipDur, f));
-                                                var v = model.evaluatedParam("directTime", f, root._projectFps);
-                                                Workspace.currentTimeline.setKeyframe(targetClipId, idx, "directTime", f, (v !== undefined && v !== null) ? v : 0, {"interp": "linear"});
+                                                var v = model.evaluatedParam("speed", f, root._projectFps);
+                                                Workspace.currentTimeline.setKeyframe(targetClipId, idx, "speed", f, (v !== undefined && v !== null) ? v : 100, {"interp": "linear"});
                                             }
                                         }
                                     }
 
+                                    // Direct: dual slider + track
                                     RowLayout {
                                         Layout.columnSpan: 2
                                         Layout.fillWidth: true
@@ -1344,6 +1298,50 @@ Common.AviQtlWindow {
                                                 var nf = root._audioClipDur;
                                                 for (var i = 0; i < rawKfs.length; i++) { if (rawKfs[i].frame > root._audioRelFrame) { nf = rawKfs[i].frame; break; } }
                                                 Workspace.currentTimeline.setKeyframe(targetClipId, idx, "directTime", nf, value, {"interp": "linear"});
+                                            }
+                                        }
+                                    }
+                                    Item {
+                                        Layout.columnSpan: 2
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 12
+                                        property var rawKfs: root.audioKeyframeList("directTime")
+                                        property var kfs: root.audioKeyframesWithEnd(rawKfs, root._audioClipDur)
+                                        Rectangle { anchors.centerIn: parent; width: parent.width; height: 2; color: palette.mid }
+                                        Repeater {
+                                            model: parent.kfs
+                                            Rectangle {
+                                                required property var modelData
+                                                property int kfFrame: modelData.frame
+                                                property bool isEndpoint: kfFrame === 0 || !!modelData.virtualEnd
+                                                width: 8; height: 8; rotation: 45; antialiasing: true
+                                                color: kfDirectMa.containsMouse ? palette.highlight : palette.text
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                x: Math.min(parent.width - 4, (kfFrame / Math.max(1, root._audioClipDur)) * parent.width - 4)
+                                                MouseArea {
+                                                    id: kfDirectMa
+                                                    anchors.fill: parent; anchors.margins: -4; hoverEnabled: true
+                                                    cursorShape: parent.isEndpoint ? Qt.ArrowCursor : Qt.PointingHandCursor
+                                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                                    onClicked: function(mouse) {
+                                                        if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                                                            Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.clipStartFrame + parent.kfFrame);
+                                                        else if (mouse.button === Qt.RightButton && !parent.isEndpoint && Workspace.currentTimeline)
+                                                            Workspace.currentTimeline.removeKeyframe(targetClipId, root.audioEffectIndex(), "directTime", parent.kfFrame);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Rectangle { width: 1; height: parent.height; color: palette.highlight; x: (root._audioRelFrame / Math.max(1, root._audioClipDur)) * parent.width; visible: root._audioClipDur > 0 }
+                                        MouseArea {
+                                            anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            onDoubleClicked: function(mouse) {
+                                                var model = root.audioEffectModel(); var idx = root.audioEffectIndex();
+                                                if (!model || idx < 0 || !Workspace.currentTimeline) return;
+                                                var f = Math.round((mouse.x / parent.width) * root._audioClipDur);
+                                                f = Math.max(0, Math.min(root._audioClipDur, f));
+                                                var v = model.evaluatedParam("directTime", f, root._projectFps);
+                                                Workspace.currentTimeline.setKeyframe(targetClipId, idx, "directTime", f, (v !== undefined && v !== null) ? v : 0, {"interp": "linear"});
                                             }
                                         }
                                     }
