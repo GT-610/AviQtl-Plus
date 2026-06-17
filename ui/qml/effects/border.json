@@ -1,0 +1,38 @@
+{
+    "id": "border",
+    "name": "縁取り",
+    "qml": "Border.qml",
+    "params": {
+        "size": 3,
+        "blur": 0,
+        "color": "#ff0000"
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "size",
+                "label": "サイズ",
+                "min": 0,
+                "max": 50
+            },
+            {
+                "type": "float",
+                "param": "blur",
+                "label": "ぼかし",
+                "min": 0,
+                "max": 50
+            },
+            {
+                "type": "color",
+                "param": "color",
+                "label": "縁の色"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "輪郭強調"
+    ]
+}

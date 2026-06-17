@@ -265,6 +265,7 @@
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="45"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="243"/>
         <source>グラデーション</source>
         <translation>グラデーション</translation>
     </message>
@@ -490,6 +491,7 @@
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="90"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="254"/>
         <source>縁の色</source>
         <translation>縁の色</translation>
     </message>
@@ -1252,6 +1254,56 @@
         <location filename="../core/src/effect_metadata_i18n.cpp" line="242"/>
         <source>発光</source>
         <translation>発光</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="244"/>
+        <source>単色化</source>
+        <translation>単色化</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="245"/>
+        <source>エッジ抽出</source>
+        <translation>エッジ抽出</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="246"/>
+        <source>縁取り</source>
+        <translation>縁取り</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="247"/>
+        <source>ミラー</source>
+        <translation>ミラー</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="248"/>
+        <source>ノイズ</source>
+        <translation>ノイズ</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="249"/>
+        <source>開始色</source>
+        <translation>開始色</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="250"/>
+        <source>終了色</source>
+        <translation>終了色</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="251"/>
+        <source>輝度を保持する</source>
+        <translation>輝度を保持する</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="252"/>
+        <source>輝度エッジを抽出</source>
+        <translation>輝度エッジを抽出</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="253"/>
+        <source>透明度エッジを抽出</source>
+        <translation>透明度エッジを抽出</translation>
     </message>
 </context>
 <context>

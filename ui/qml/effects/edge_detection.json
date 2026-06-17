@@ -1,0 +1,50 @@
+{
+    "id": "edge_detection",
+    "name": "エッジ抽出",
+    "qml": "EdgeDetection.qml",
+    "params": {
+        "strength": 100,
+        "threshold": 20,
+        "luminanceEdge": true,
+        "alphaEdge": false,
+        "color": "#ffffff"
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "strength",
+                "label": "強さ",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "threshold",
+                "label": "しきい値",
+                "min": 0,
+                "max": 255
+            },
+            {
+                "type": "bool",
+                "param": "luminanceEdge",
+                "label": "輝度エッジを抽出"
+            },
+            {
+                "type": "bool",
+                "param": "alphaEdge",
+                "label": "透明度エッジを抽出"
+            },
+            {
+                "type": "color",
+                "param": "color",
+                "label": "色"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "輪郭強調"
+    ]
+}

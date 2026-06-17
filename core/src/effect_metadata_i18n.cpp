@@ -240,6 +240,18 @@ namespace {
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "反転"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "凸エッジ"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "発光"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "グラデーション"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "単色化"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "エッジ抽出"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "縁取り"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ミラー"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ノイズ"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "開始色"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "終了色"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "輝度を保持する"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "輝度エッジを抽出"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "透明度エッジを抽出"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "縁の色"),
 };
 
 } // namespace
