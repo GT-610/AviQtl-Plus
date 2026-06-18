@@ -199,6 +199,9 @@ auto VideoEncoder::open(const Config &config) -> bool {
 
         if (av_hwframe_ctx_init(hw_frames_ref) >= 0) {
             m_encCtx->hw_frames_ctx = hw_frames_ref;
+        } else {
+            qWarning() << "Failed to initialize hardware frame context";
+            av_buffer_unref(&hw_frames_ref);
         }
     }
 

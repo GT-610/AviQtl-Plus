@@ -7,8 +7,9 @@ import QtQuick3D
 Model {
     id: displayModel
 
-    // BaseObject reference — must be set by the parent object
-    required property Item baseObject
+    // BaseObject reference — must be set by the parent object.
+    // Typed as `var` because callers pass BaseObject (QtQuick3D Node), not QtQuick Item.
+    required property var baseObject
 
     source: "#Rectangle"
     visible: baseObject.outputModelVisible

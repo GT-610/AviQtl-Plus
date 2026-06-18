@@ -467,11 +467,6 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
 }
 
 void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-easily-swappable-parameters)
-    // Ensure misDecoding is always reset when the task leaves, even on early exits.
-    const auto decodingGuard = qScopeGuard([this]() {
-        misDecoding.store(false, std::memory_order_release);
-    });
-
     QMutexLocker locker(&m_mutex);
     if (mclosing.load(std::memory_order_acquire)) {
         return;

@@ -31,6 +31,9 @@ inline double resolveAudioTime(double relTime, bool isDirectMode, double directT
 // TimelineMediaManager::updateVideoClipFrame and BakeController.
 inline double resolveVideoTime(int relFrame, double sourceFps, bool isDirectMode,
                                double directFrame, double startFrame, double speed) {
+    if (sourceFps <= 0.0) {
+        return 0.0;
+    }
     if (isDirectMode) {
         return directFrame / sourceFps;
     }

@@ -76,7 +76,7 @@ void TimelineController::updateSelectionPreview(int frameA, int frameB, int laye
         return;
     }
     QVariantList ids;
-    if (additive && (m_selection != nullptr)) {
+    if (additive) {
         ids = m_selection->selectedClipIds();
     }
 
