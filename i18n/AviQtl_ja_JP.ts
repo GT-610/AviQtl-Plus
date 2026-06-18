@@ -1648,37 +1648,37 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="128"/>
         <source>プロパティ変更: %1</source>
         <translation>プロパティ変更: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="161"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="170"/>
         <source>開始フレーム変更</source>
         <translation>開始フレーム変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="178"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="187"/>
         <source>長さ変更</source>
         <translation>長さ変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="195"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
         <source>レイヤー変更</source>
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="328"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="337"/>
         <source>音声をインポート</source>
         <translation>音声をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="360"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="369"/>
         <source>画像をインポート</source>
         <translation>画像をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="532"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="541"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1688,17 +1688,17 @@
         <translation>保存先のファイルパスが不明です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="274"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="283"/>
         <source>動画をインポート</source>
         <translation>動画をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="255"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="264"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="389"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
@@ -1849,32 +1849,32 @@
 <context>
     <name>BaseObject</name>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="42"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="49"/>
         <source>通常</source>
         <translation>通常</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="43"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="50"/>
         <source>スクリーン</source>
         <translation>スクリーン</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="46"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="53"/>
         <source>乗算</source>
         <translation>乗算</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="49"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="56"/>
         <source>オーバーレイ</source>
         <translation>オーバーレイ</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="52"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="59"/>
         <source>焼き込み</source>
         <translation>焼き込み</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="55"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="62"/>
         <source>覆い焼き</source>
         <translation>覆い焼き</translation>
     </message>

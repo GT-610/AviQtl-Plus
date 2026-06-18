@@ -1648,37 +1648,37 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="128"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="161"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="170"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="178"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="187"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="195"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="328"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="337"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="360"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="369"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="532"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="541"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1688,17 +1688,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="274"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="283"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="255"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="264"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="389"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -1849,32 +1849,32 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>BaseObject</name>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="42"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="49"/>
         <source>通常</source>
         <translation>Normal</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="43"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="50"/>
         <source>スクリーン</source>
         <translation>Screen</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="46"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="53"/>
         <source>乗算</source>
         <translation>Multiply</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="49"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="56"/>
         <source>オーバーレイ</source>
         <translation>Overlay</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="52"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="59"/>
         <source>焼き込み</source>
         <translation>Burn</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="55"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="62"/>
         <source>覆い焼き</source>
         <translation>Dodge</translation>
     </message>
