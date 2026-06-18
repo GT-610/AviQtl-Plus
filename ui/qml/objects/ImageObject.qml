@@ -9,6 +9,7 @@ Common.BaseObject {
     property string imagePath: String(evalParam("image", "path", ""))
     property int fillMode: Number(evalParam("image", "fillMode", VideoOutput.PreserveAspectFit))
     property real imageOpacity: Number(evalParam("image", "opacity", 1))
+    outputModelOpacity: base.imageOpacity
     property int updateCounter: 0
     property string instanceKey: String(base.clipId)
 
@@ -34,23 +35,8 @@ Common.BaseObject {
         target: videoFrameStore
     }
 
-    Model {
-        source: "#Rectangle"
-        visible: base.outputModelVisible
-        scale: Qt.vector3d((base.displayOutput && base.displayOutput.sourceItem ? base.displayOutput.sourceItem.width : base.sourceItem.width) / 100, (base.displayOutput && base.displayOutput.sourceItem ? base.displayOutput.sourceItem.height : base.sourceItem.height) / 100, 1)
-        opacity: base.imageOpacity
-
-        materials: DefaultMaterial {
-            lighting: DefaultMaterial.NoLighting
-            blendMode: base.blendMode
-            cullMode: base.cullMode
-
-            diffuseMap: Texture {
-                sourceItem: base.displayOutput
-            }
-
-        }
-
+    Common.DisplayModel {
+        baseObject: base
     }
 
     Item {

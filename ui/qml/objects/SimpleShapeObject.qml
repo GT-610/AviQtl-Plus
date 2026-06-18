@@ -15,6 +15,7 @@ Common.BaseObject {
     property color strokeColor: evalColor(objectId, "strokeColor", "#ffffff")
     property real strokeWidth: evalNumber(objectId, "strokeWidth", 0)
     property real opacity: evalNumber(objectId, "opacity", 1)
+    outputModelOpacity: root.opacity
     readonly property real padding: strokeWidth / 2 + 4
 
     sourceItem: sourceItem
@@ -82,23 +83,8 @@ Common.BaseObject {
 
     }
 
-    Model {
-        source: "#Rectangle"
-        visible: root.outputModelVisible
-        scale: Qt.vector3d((root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.width : sourceItem.width) / 100, (root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.height : sourceItem.height) / 100, 1)
-        opacity: root.opacity
-
-        materials: DefaultMaterial {
-            lighting: DefaultMaterial.NoLighting
-            blendMode: root.blendMode
-            cullMode: root.cullMode
-
-            diffuseMap: Texture {
-                sourceItem: root.displayOutput
-            }
-
-        }
-
+    Common.DisplayModel {
+        baseObject: root
     }
 
 }

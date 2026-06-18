@@ -15,6 +15,7 @@ Common.BaseObject {
     property int ghosts: Math.max(0, Math.round(evalNumber(objectId, "ghosts", 4)))
     property color flareColor: evalColor(objectId, "color", "#fff2aa")
     property real opacity: evalNumber(objectId, "opacity", 1)
+    outputModelOpacity: root.opacity
 
     function rgbaString(c, a) {
         return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + Math.max(0, Math.min(1, a)) + ")";
@@ -81,23 +82,8 @@ Common.BaseObject {
 
     }
 
-    Model {
-        source: "#Rectangle"
-        visible: root.outputModelVisible
-        scale: Qt.vector3d((root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.width : sourceItem.width) / 100, (root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.height : sourceItem.height) / 100, 1)
-        opacity: root.opacity
-
-        materials: DefaultMaterial {
-            lighting: DefaultMaterial.NoLighting
-            blendMode: root.blendMode
-            cullMode: root.cullMode
-
-            diffuseMap: Texture {
-                sourceItem: root.displayOutput
-            }
-
-        }
-
+    Common.DisplayModel {
+        baseObject: root
     }
 
 }

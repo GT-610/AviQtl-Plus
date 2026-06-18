@@ -25,6 +25,12 @@ Node {
     property real clipNodeRotZ: 0
     property real clipNodeOpacity: 1
     property bool outputModelVisible: true
+    property real outputModelOpacity: 1
+    readonly property vector3d displayModelScale: {
+        var w = (displayOutput && displayOutput.sourceItem) ? displayOutput.sourceItem.width : 1
+        var h = (displayOutput && displayOutput.sourceItem) ? displayOutput.sourceItem.height : 1
+        return Qt.vector3d(w / 100, h / 100, 1)
+    }
     property alias fbCaptureItem: _fbCaptureItemImpl
     // transformエフェクトのモデルを探す
     readonly property var transformModel: {

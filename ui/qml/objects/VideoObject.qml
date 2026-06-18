@@ -12,6 +12,7 @@ Common.BaseObject {
     property real speed: Number(evalParam("video", "speed", 100))
     property int directFrame: Math.ceil(Number(evalParam("video", "directFrame", 0)))
     property real opacity: Number(evalParam("video", "opacity", 1))
+    outputModelOpacity: base.opacity
     property var source: undefined
     property var params: ({
     })
@@ -43,22 +44,8 @@ Common.BaseObject {
         target: videoFrameStore
     }
 
-    Model {
-        source: "#Rectangle"
-        visible: base.outputModelVisible
-        scale: Qt.vector3d((base.displayOutput && base.displayOutput.sourceItem ? base.displayOutput.sourceItem.width : base.sourceItem.width) / 100, (base.displayOutput && base.displayOutput.sourceItem ? base.displayOutput.sourceItem.height : base.sourceItem.height) / 100, 1)
-        opacity: base.opacity
-
-        materials: DefaultMaterial {
-            lighting: DefaultMaterial.NoLighting
-            blendMode: DefaultMaterial.SourceOver
-
-            diffuseMap: Texture {
-                sourceItem: base.displayOutput
-            }
-
-        }
-
+    Common.DisplayModel {
+        baseObject: base
     }
 
     sourceItem: Item {
