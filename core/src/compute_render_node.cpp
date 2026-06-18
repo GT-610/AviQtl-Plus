@@ -94,10 +94,21 @@ void ComputeRenderNode::syncWorkGroupSize(int x, int y, int z) {
 
 QRectF ComputeRenderNode::rect() const { return QRectF(0, 0, m_width, m_height); }
 
-QRhi *ComputeRenderNode::resolveRhi() const { return static_cast<QRhi *>(m_window->rendererInterface()->getResource(m_window, QSGRendererInterface::RhiResource)); }
+QRhi *ComputeRenderNode::resolveRhi() const {
+    if (!m_window)
+        return nullptr;
+    auto *ri = m_window->rendererInterface();
+    if (!ri)
+        return nullptr;
+    return static_cast<QRhi *>(ri->getResource(m_window, QSGRendererInterface::RhiResource));
+}
 
 QRhiCommandBuffer *ComputeRenderNode::resolveCommandBuffer() const {
+    if (!m_window)
+        return nullptr;
     auto *ri = m_window->rendererInterface();
+    if (!ri)
+        return nullptr;
     auto *cb = static_cast<QRhiCommandBuffer *>(ri->getResource(m_window, QSGRendererInterface::RhiRedirectCommandBuffer));
     if (!cb) {
         cb = static_cast<QRhiCommandBuffer *>(ri->getResource(m_window, QSGRendererInterface::CommandListResource));
@@ -106,6 +117,9 @@ QRhiCommandBuffer *ComputeRenderNode::resolveCommandBuffer() const {
 }
 
 bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
+    if (!rhi) {
+        return false;
+    }
     const bool computeSupported = rhi->isFeatureSupported(QRhi::Compute);
     QRhiTexture *currentInputRhiTexture = m_inputTexture ? m_inputTexture->rhiTexture() : nullptr;
     if (m_inputRhiTexture != currentInputRhiTexture) {
@@ -142,38 +156,8 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     if (!needsRebuild)
         return m_vbuf != nullptr && m_ubuf != nullptr && m_sampler != nullptr;
 
-    if (m_outputTexture) {
-        delete m_outputTexture;
-        m_outputTexture = nullptr;
-    }
-    if (m_sampler) {
-        delete m_sampler;
-        m_sampler = nullptr;
-    }
-    if (m_vbuf) {
-        delete m_vbuf;
-        m_vbuf = nullptr;
-    }
-    if (m_ubuf) {
-        delete m_ubuf;
-        m_ubuf = nullptr;
-    }
-    if (m_paramUbuf) {
-        delete m_paramUbuf;
-        m_paramUbuf = nullptr;
-    }
-    if (m_renderSrb) {
-        delete m_renderSrb;
-        m_renderSrb = nullptr;
-    }
-    if (m_renderPipeline) {
-        delete m_renderPipeline;
-        m_renderPipeline = nullptr;
-    }
-    delete m_srb;
-    m_srb = nullptr;
-    m_renderTexture = nullptr;
-    m_verticesUploaded = false;
+    // Clean up any previously-created resources before rebuilding.
+    destroyResources();
 
     QSize sz(qMax(1, static_cast<int>(m_width)), qMax(1, static_cast<int>(m_height)));
     if (m_inputTexture) {
