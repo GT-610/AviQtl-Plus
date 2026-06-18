@@ -17,6 +17,7 @@ Common.BaseObject {
     property bool arrow: evalBool("track_line", "arrow", true)
     property color lineColor: evalColor("track_line", "color", "#ffffff")
     property real opacity: evalNumber("track_line", "opacity", 1)
+    outputModelOpacity: root.opacity
     readonly property real padding: Math.max(24, lineWidth * 4)
 
     sourceItem: sourceItem
@@ -81,23 +82,8 @@ Common.BaseObject {
 
     }
 
-    Model {
-        source: "#Rectangle"
-        visible: root.outputModelVisible
-        scale: Qt.vector3d((root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.width : sourceItem.width) / 100, (root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.height : sourceItem.height) / 100, 1)
-        opacity: root.opacity
-
-        materials: DefaultMaterial {
-            lighting: DefaultMaterial.NoLighting
-            blendMode: root.blendMode
-            cullMode: root.cullMode
-
-            diffuseMap: Texture {
-                sourceItem: root.displayOutput
-            }
-
-        }
-
+    Common.DisplayModel {
+        baseObject: root
     }
 
 }

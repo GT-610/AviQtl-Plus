@@ -344,4 +344,43 @@ inline QVariant evaluateParam(const QVariantMap &params, const QVariantMap &keyf
     return evaluateTrack(resolved, frame, fallback);
 }
 
+// Resolve one track to its flattened evaluation-ready form.
+// This is the expensive step (normalize + flatten) and should be cached
+// when evaluating many frames or many parameters of the same track.
+inline QVariantList resolveTrack(const QVariant &raw, const QVariant &fallback, int durationFrames) {
+    if (isStructuredTrack(raw)) {
+        int d = (durationFrames > 0) ? durationFrames : inferredDurationForTrack(raw);
+        QVariantMap normalized = normalizeTrackForDuration(raw, fallback, d);
+        return flattenStructuredTrack(normalized);
+    }
+    return sortPoints(raw.toList());
+}
+
+// Resolve every keyframe track in a single pass. The returned hash maps each
+// known parameter name (from `params` plus any track key) to its flattened
+// evaluation-ready point list, sharing fallback values pulled from `params`.
+// Callers can then call evaluateTrack() directly per frame without repeating
+// the expensive normalize + flatten step.
+inline QHash<QString, QVariantList> resolveAllTracks(const QVariantMap &params,
+                                                     const QVariantMap &keyframeTracks,
+                                                     int durationFrames) {
+    QHash<QString, QVariantList> out;
+    out.reserve(params.size() + keyframeTracks.size());
+    for (auto it = keyframeTracks.constBegin(); it != keyframeTracks.constEnd(); ++it) {
+        const QVariant fallback = params.value(it.key());
+        out.insert(it.key(), resolveTrack(it.value(), fallback, durationFrames));
+    }
+    return out;
+}
+
+inline QVariant evaluateResolvedParam(const QVariantMap &params,
+                                       const QHash<QString, QVariantList> &resolved,
+                                       const QString &paramName, int frame) {
+    const QVariant fallback = params.value(paramName);
+    auto it = resolved.find(paramName);
+    if (it == resolved.end())
+        return fallback;
+    return evaluateTrack(it.value(), frame, fallback);
+}
+
 } // namespace AviQtl::Core::KeyframeUtils

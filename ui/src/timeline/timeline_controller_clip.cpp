@@ -61,6 +61,9 @@ static int findVacantFrameForLinkedMedia(const TimelineService *timeline, int vi
 }
 
 void TimelineController::handleClipClick(int clipId, int modifiers) { // NOLINT(bugprone-easily-swappable-parameters)
+    if (!m_timeline) {
+        return;
+    }
     if ((modifiers & Qt::ControlModifier) != 0U) {
         m_timeline->toggleSelection(clipId, QVariantMap());
     } else {
@@ -69,8 +72,11 @@ void TimelineController::handleClipClick(int clipId, int modifiers) { // NOLINT(
 }
 
 void TimelineController::updateSelectionPreview(int frameA, int frameB, int layerA, int layerB, bool additive) { // NOLINT(bugprone-easily-swappable-parameters)
+    if (!m_timeline || !m_selection) {
+        return;
+    }
     QVariantList ids;
-    if (additive && (m_selection != nullptr)) {
+    if (additive) {
         ids = m_selection->selectedClipIds();
     }
 
@@ -111,6 +117,9 @@ void TimelineController::clearSelectionPreview() {
 auto TimelineController::previewSelectionIds() const -> QVariantList { return m_previewSelectionIds; }
 
 void TimelineController::setClipProperty(const QString &name, const QVariant &value) {
+    if (!m_selection || !m_timeline) {
+        return;
+    }
     const QVariantList ids = m_selection->selectedClipIds();
     if (ids.isEmpty()) {
         return;

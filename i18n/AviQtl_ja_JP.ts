@@ -4,18 +4,6 @@
 <context>
     <name>AboutWindow</name>
     <message>
-        <source>AviQtlについて</source>
-        <translation type="vanished">AviQtlについて</translation>
-    </message>
-    <message>
-        <source>AviQtl は AviUtl ではありません。
-
-このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
-        <translation type="vanished">AviQtl は AviUtl ではありません。
-
-このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/AboutWindow.qml" line="9"/>
         <source>AviQtl Plusについて</source>
         <translation>AviQtl Plusについて</translation>
@@ -1539,90 +1527,6 @@
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <source>待機中</source>
-        <translation type="vanished">待機中</translation>
-    </message>
-    <message>
-        <source>キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</source>
-        <translation type="vanished">キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</translation>
-    </message>
-    <message>
-        <source>リポジトリを同期中...</source>
-        <translation type="vanished">リポジトリを同期中...</translation>
-    </message>
-    <message>
-        <source>同期完了</source>
-        <translation type="vanished">同期完了</translation>
-    </message>
-    <message>
-        <source>利用可能なファイルを検索中...</source>
-        <translation type="vanished">利用可能なファイルを検索中...</translation>
-    </message>
-    <message>
-        <source>リポジトリURLの形式が正しくありません。</source>
-        <translation type="vanished">リポジトリURLの形式が正しくありません。</translation>
-    </message>
-    <message>
-        <source>サポートされていないリポジトリホストです。</source>
-        <translation type="vanished">サポートされていないリポジトリホストです。</translation>
-    </message>
-    <message>
-        <source>ダウンロード可能なファイルが見つかりませんでした。</source>
-        <translation type="vanished">ダウンロード可能なファイルが見つかりませんでした。</translation>
-    </message>
-    <message>
-        <source>パッケージのインストール中: %1</source>
-        <translation type="vanished">パッケージのインストール中: %1</translation>
-    </message>
-    <message>
-        <source>アップグレード可能なパッケージはありません。</source>
-        <translation type="vanished">アップグレード可能なパッケージはありません。</translation>
-    </message>
-    <message>
-        <source>すべてのパッケージをアップグレード中...</source>
-        <translation type="vanished">すべてのパッケージをアップグレード中...</translation>
-    </message>
-    <message>
-        <source>すべてのアップグレードが完了しました</source>
-        <translation type="vanished">すべてのアップグレードが完了しました</translation>
-    </message>
-    <message>
-        <source>パッケージをアップグレード中: %1</source>
-        <translation type="vanished">パッケージをアップグレード中: %1</translation>
-    </message>
-    <message>
-        <source>パッケージが見つかりません: %1</source>
-        <translation type="vanished">パッケージが見つかりません: %1</translation>
-    </message>
-    <message>
-        <source>パッケージのリポジトリURLを特定できません。</source>
-        <translation type="vanished">パッケージのリポジトリURLを特定できません。</translation>
-    </message>
-    <message>
-        <source>リリース情報の取得に失敗しました (%1): %2</source>
-        <translation type="vanished">リリース情報の取得に失敗しました (%1): %2</translation>
-    </message>
-    <message>
-        <source>ダウンロードURLが指定されていません。アセット情報を取得してください。</source>
-        <translation type="vanished">ダウンロードURLが指定されていません。アセット情報を取得してください。</translation>
-    </message>
-    <message>
-        <source>インストール完了: %1</source>
-        <translation type="vanished">インストール完了: %1</translation>
-    </message>
-    <message>
-        <source>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</source>
-        <translation type="vanished">AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</translation>
-    </message>
-    <message>
-        <source>パッケージを削除中: %1</source>
-        <translation type="vanished">パッケージを削除中: %1</translation>
-    </message>
-    <message>
-        <source>削除完了: %1</source>
-        <translation type="vanished">削除完了: %1</translation>
-    </message>
-    <message>
         <location filename="../core/src/package_manager.cpp" line="111"/>
         <source>Idle</source>
         <translation>待機中</translation>
@@ -1744,37 +1648,37 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="119"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="128"/>
         <source>プロパティ変更: %1</source>
         <translation>プロパティ変更: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="161"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="170"/>
         <source>開始フレーム変更</source>
         <translation>開始フレーム変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="178"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="187"/>
         <source>長さ変更</source>
         <translation>長さ変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="195"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="204"/>
         <source>レイヤー変更</source>
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="328"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="337"/>
         <source>音声をインポート</source>
         <translation>音声をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="360"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="369"/>
         <source>画像をインポート</source>
         <translation>画像をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="532"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="541"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1784,17 +1688,17 @@
         <translation>保存先のファイルパスが不明です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="274"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="283"/>
         <source>動画をインポート</source>
         <translation>動画をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="255"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="264"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="389"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
@@ -1822,18 +1726,6 @@
 </context>
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
-    <message>
-        <source>エンコーダーの初期化に失敗しました</source>
-        <translation type="vanished">エンコーダーの初期化に失敗しました</translation>
-    </message>
-    <message>
-        <source>キャンセルされました</source>
-        <translation type="vanished">キャンセルされました</translation>
-    </message>
-    <message>
-        <source>書き出し完了</source>
-        <translation type="vanished">書き出し完了</translation>
-    </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
         <source>Encoder initialization failed</source>
@@ -1957,32 +1849,32 @@
 <context>
     <name>BaseObject</name>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="42"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="49"/>
         <source>通常</source>
         <translation>通常</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="43"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="50"/>
         <source>スクリーン</source>
         <translation>スクリーン</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="46"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="53"/>
         <source>乗算</source>
         <translation>乗算</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="49"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="56"/>
         <source>オーバーレイ</source>
         <translation>オーバーレイ</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="52"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="59"/>
         <source>焼き込み</source>
         <translation>焼き込み</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/BaseObject.qml" line="55"/>
+        <location filename="../ui/qml/common/BaseObject.qml" line="62"/>
         <source>覆い焼き</source>
         <translation>覆い焼き</translation>
     </message>
@@ -2270,21 +2162,9 @@
         <translation>減速</translation>
     </message>
     <message>
-        <source>補間方法:</source>
-        <translation type="vanished">補間方法:</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/common/EasingConfigWindow.qml" line="342"/>
         <source>瞬間移動</source>
         <translation>瞬間移動</translation>
-    </message>
-    <message>
-        <source>直線移動</source>
-        <translation type="vanished">直線移動</translation>
-    </message>
-    <message>
-        <source>曲線移動</source>
-        <translation type="vanished">曲線移動</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/EasingConfigWindow.qml" line="351"/>
@@ -2634,14 +2514,6 @@
 <context>
     <name>LayerHeader</name>
     <message>
-        <source>上に複数レイヤーを挿入</source>
-        <translation type="vanished">上に複数レイヤーを挿入</translation>
-    </message>
-    <message>
-        <source>下に複数レイヤーを挿入</source>
-        <translation type="vanished">下に複数レイヤーを挿入</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="207"/>
         <source>複数レイヤーを挿入</source>
         <translation>複数レイヤーを挿入</translation>
@@ -2732,10 +2604,6 @@
         <translation>すべてのレイヤーを非表示</translation>
     </message>
     <message>
-        <source>表示/非表示を切り替え</source>
-        <translation type="vanished">表示/非表示を切り替え</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="373"/>
         <source>上にレイヤーを挿入 (1行)</source>
         <translation>上にレイヤーを挿入 (1行)</translation>
@@ -2744,14 +2612,6 @@
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="383"/>
         <source>下にレイヤーを挿入 (1行)</source>
         <translation>下にレイヤーを挿入 (1行)</translation>
-    </message>
-    <message>
-        <source>上に複数レイヤーを挿入...</source>
-        <translation type="vanished">上に複数レイヤーを挿入...</translation>
-    </message>
-    <message>
-        <source>下に複数レイヤーを挿入...</source>
-        <translation type="vanished">下に複数レイヤーを挿入...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="403"/>
@@ -2768,29 +2628,9 @@
         <source>範囲を指定してレイヤー移動...</source>
         <translation>範囲を指定してレイヤー移動...</translation>
     </message>
-    <message>
-        <source>ロックを解除</source>
-        <translation type="vanished">ロックを解除</translation>
-    </message>
-    <message>
-        <source>ロック</source>
-        <translation type="vanished">ロック</translation>
-    </message>
-    <message>
-        <source>すべて表示</source>
-        <translation type="vanished">すべて表示</translation>
-    </message>
-    <message>
-        <source>すべて非表示</source>
-        <translation type="vanished">すべて非表示</translation>
-    </message>
 </context>
 <context>
     <name>MainWindow</name>
-    <message>
-        <source>AviQtl - プレビュー</source>
-        <translation type="vanished">AviQtl - プレビュー</translation>
-    </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="94"/>
         <source>新規プロジェクト</source>
@@ -3089,20 +2929,6 @@
         <translation>パッケージマネージャー</translation>
     </message>
     <message>
-        <source>AviQtl アップデート</source>
-        <translation type="vanished">AviQtl アップデート</translation>
-    </message>
-    <message>
-        <source>新しいバージョンのAviQtl (%1) が利用可能です。
-ダウンロードURL: %2
-
-アプリケーションを再起動して適用してください。</source>
-        <translation type="vanished">新しいバージョンのAviQtl (%1) が利用可能です。
-ダウンロードURL: %2
-
-アプリケーションを再起動して適用してください。</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
         <source>AviQtl Plus アップデート</source>
         <translation>AviQtl Plus アップデート</translation>
@@ -3305,10 +3131,6 @@
 </context>
 <context>
     <name>ProjectLauncherWindow</name>
-    <message>
-        <source>AviQtl - プロジェクトランチャー</source>
-        <translation type="vanished">AviQtl - プロジェクトランチャー</translation>
-    </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
         <source>AviQtl Plus - プロジェクトランチャー</source>
@@ -3838,14 +3660,6 @@
         <translation>開始</translation>
     </message>
     <message>
-        <source>Speed</source>
-        <translation type="vanished">速度</translation>
-    </message>
-    <message>
-        <source>Direct</source>
-        <translation type="vanished">直接指定</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/SettingDialog.qml" line="1127"/>
         <source>Channel Strip</source>
         <translation>チャンネルストリップ</translation>
@@ -3990,13 +3804,6 @@
         <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="80"/>
         <source>未設定</source>
         <translation>未設定</translation>
-    </message>
-</context>
-<context>
-    <name>SplashWindow</name>
-    <message>
-        <source>AviQtl を起動中...</source>
-        <translation type="vanished">AviQtl を起動中...</translation>
     </message>
 </context>
 <context>
@@ -4491,10 +4298,6 @@
         <location filename="../ui/qml/timeline/TimelineView.qml" line="533"/>
         <source>ここにドロップ</source>
         <translation>ここにドロップ</translation>
-    </message>
-    <message>
-        <source>ビデオにリンク</source>
-        <translation type="vanished">ビデオにリンク</translation>
     </message>
 </context>
 <context>

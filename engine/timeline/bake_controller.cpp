@@ -1,6 +1,7 @@
 #include "bake_controller.hpp"
 #include "core/include/document_model.hpp"
 #include "core/include/effect_registry.hpp"
+#include "core/include/keyframe_utils.hpp"
 #include "core/include/media_utils.hpp"
 #include "core/include/settings_manager.hpp"
 #include "ecs.hpp"
@@ -49,51 +50,55 @@ QVariantMap keyframesToTrack(const std::vector<AviQtl::Core::Keyframe> &kfs, con
     return track;
 }
 
-float evalFloat(const QVariantMap &params, const QVariantMap &tracks,
-                const QString &key, int frame, double fps, int duration) {
-    QVariant v = evaluateParam(params, tracks, key, frame, fps, duration);
+// Per-effect cache of resolved (normalized + flattened) keyframe tracks.
+// Building this once per effect avoids repeating the expensive resolve step
+// for every parameter evaluated below (e.g. transform reads ~8 params from
+// the same set of tracks).
+struct ResolvedTracks {
+    QVariantMap params;
+    QHash<QString, QVariantList> resolved;
+    QSet<QString> allKeys;
+};
+
+float evalFloat(const ResolvedTracks &rt, const QString &key, int frame) {
+    const QVariant v = AviQtl::Core::KeyframeUtils::evaluateResolvedParam(rt.params, rt.resolved, key, frame);
     return static_cast<float>(v.toDouble());
 }
 
-float evalFloatOr(const QVariantMap &params, const QVariantMap &tracks,
-                  const QString &key, float fallback, int frame, double fps, int duration) {
-    if (!params.contains(key) && !tracks.contains(key)) {
+float evalFloatOr(const ResolvedTracks &rt, const QString &key, float fallback, int frame) {
+    if (!rt.params.contains(key) && !rt.resolved.contains(key)) {
         return fallback;
     }
-    return evalFloat(params, tracks, key, frame, fps, duration);
+    return evalFloat(rt, key, frame);
 }
 
-struct EffectTracks {
+ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int relFrame, int clipDuration) {
+    ResolvedTracks out;
+    out.params = effect.params;
+    out.params[QStringLiteral("time")] = relFrame;
+
+    int trackDuration = clipDuration;
     QVariantMap tracks;
-    QSet<QString> allKeys;
-    int trackDuration;
-};
-
-EffectTracks buildEffectTracks(const AviQtl::Core::Effect &effect, int clipDuration) {
-    EffectTracks result;
-    result.trackDuration = clipDuration;
-
     for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it) {
-        result.allKeys.insert(it.key());
+        out.allKeys.insert(it.key());
     }
     for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it) {
-        result.allKeys.insert(it->first);
+        out.allKeys.insert(it->first);
+        const QVariant fallback = effect.params.value(it->first);
+        QVariantMap track = keyframesToTrack(it->second, fallback);
+        trackDuration = std::max(trackDuration, AviQtl::Core::KeyframeUtils::inferredDurationForTrack(track));
+        tracks.insert(it->first, track);
     }
 
-    for (const auto &key : std::as_const(result.allKeys)) {
-        const QVariant fallback = effect.params.value(key);
-        auto kfIt = effect.keyframes.find(key);
-        if (kfIt != effect.keyframes.end()) {
-            result.tracks[key] = keyframesToTrack(kfIt->second, fallback);
-            result.trackDuration = std::max(result.trackDuration, inferredDurationForTrack(result.tracks[key]));
-        }
-    }
-
-    return result;
+    // Resolve every track once (normalize + flatten); subsequent per-frame
+    // evaluations only walk the flattened list and apply easing.
+    out.resolved = AviQtl::Core::KeyframeUtils::resolveAllTracks(out.params, tracks, trackDuration);
+    return out;
 }
 
 void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fps,
                      RenderComponent &render, EffectParamBuffer &paramBuf) {
+    Q_UNUSED(fps);
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
     const double relTime = static_cast<double>(relFrame);
     auto &registry = AviQtl::Core::EffectRegistry::instance();
@@ -120,25 +125,23 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             continue;
         }
 
-        QVariantMap effectParams = effect.params;
-        effectParams[QStringLiteral("time")] = relFrame;
-        auto [tracks, allKeys, trackDuration] = buildEffectTracks(effect, clip.durationFrames);
+        const ResolvedTracks rt = buildResolvedTracks(effect, relFrame, clip.durationFrames);
 
         if (effect.id == QStringLiteral("transform")) {
             hasTransform = true;
-            render.x = evalFloat(effectParams, tracks, QStringLiteral("x"), relFrame, fps, trackDuration);
-            render.y = evalFloat(effectParams, tracks, QStringLiteral("y"), relFrame, fps, trackDuration);
-            render.z = evalFloat(effectParams, tracks, QStringLiteral("z"), relFrame, fps, trackDuration);
-            render.rotX = evalFloat(effectParams, tracks, QStringLiteral("rotationX"), relFrame, fps, trackDuration);
-            render.rotY = evalFloat(effectParams, tracks, QStringLiteral("rotationY"), relFrame, fps, trackDuration);
-            render.rotZ = evalFloat(effectParams, tracks, QStringLiteral("rotationZ"), relFrame, fps, trackDuration);
-            const float scale = evalFloat(effectParams, tracks, QStringLiteral("scale"), relFrame, fps, trackDuration);
+            render.x = evalFloat(rt, QStringLiteral("x"), relFrame);
+            render.y = evalFloat(rt, QStringLiteral("y"), relFrame);
+            render.z = evalFloat(rt, QStringLiteral("z"), relFrame);
+            render.rotX = evalFloat(rt, QStringLiteral("rotationX"), relFrame);
+            render.rotY = evalFloat(rt, QStringLiteral("rotationY"), relFrame);
+            render.rotZ = evalFloat(rt, QStringLiteral("rotationZ"), relFrame);
+            const float scale = evalFloat(rt, QStringLiteral("scale"), relFrame);
             render.scaleX = scale * 0.01f;
             render.scaleY = scale * 0.01f;
-            render.opacity = evalFloat(effectParams, tracks, QStringLiteral("opacity"), relFrame, fps, trackDuration);
+            render.opacity = evalFloat(rt, QStringLiteral("opacity"), relFrame);
         }
 
-        for (const auto &key : std::as_const(allKeys)) {
+        for (const auto &key : std::as_const(rt.allKeys)) {
             EffectParamEntry entry;
             entry.clipId = static_cast<uint32_t>(clip.id);
             entry.effectIndex = effectIdx;
@@ -148,7 +151,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             std::memcpy(entry.paramName, nameBytes.constData(), copyLen);
             entry.paramName[copyLen] = '\0';
 
-            QVariant evaluated = evaluateParam(effectParams, tracks, key, relFrame, fps, trackDuration);
+            QVariant evaluated = AviQtl::Core::KeyframeUtils::evaluateResolvedParam(rt.params, rt.resolved, key, relFrame);
 
             if (evaluated.canConvert<QColor>()) {
                 QColor c(evaluated.toString());
@@ -198,18 +201,18 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         [](const auto &e) { return e.enabled && e.id == QStringLiteral("audio"); });
     if (it != clip.effects.end()) {
         const auto &effect = *it;
-        auto [tracks, allKeys, trackDuration] = buildEffectTracks(effect, clip.durationFrames);
+        const ResolvedTracks rt = buildResolvedTracks(effect, relFrame, clip.durationFrames);
 
         const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
         audio.directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
-        audio.sourceStartTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("startTime"), 0.0f, relFrame, fps, trackDuration));
-        audio.playbackSpeed = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("speed"), 100.0f, relFrame, fps, trackDuration) / 100.0f);
-        audio.directTime = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("directTime"), 0.0f, relFrame, fps, trackDuration));
-        audio.volume = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("volume"), 1.0f, relFrame, fps, trackDuration));
-        audio.masterVolume = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("masterVolume"), 1.0f, relFrame, fps, trackDuration));
-        audio.pan = std::clamp(evalFloatOr(effect.params, tracks, QStringLiteral("pan"), 0.0f, relFrame, fps, trackDuration), -1.0f, 1.0f);
-        audio.fadeInSec = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("fadeIn"), 0.0f, relFrame, fps, trackDuration));
-        audio.fadeOutSec = std::max(0.0f, evalFloatOr(effect.params, tracks, QStringLiteral("fadeOut"), 0.0f, relFrame, fps, trackDuration));
+        audio.sourceStartTime = std::max(0.0f, evalFloatOr(rt, QStringLiteral("startTime"), 0.0f, relFrame));
+        audio.playbackSpeed = std::max(0.0f, evalFloatOr(rt, QStringLiteral("speed"), 100.0f, relFrame) / 100.0f);
+        audio.directTime = std::max(0.0f, evalFloatOr(rt, QStringLiteral("directTime"), 0.0f, relFrame));
+        audio.volume = std::max(0.0f, evalFloatOr(rt, QStringLiteral("volume"), 1.0f, relFrame));
+        audio.masterVolume = std::max(0.0f, evalFloatOr(rt, QStringLiteral("masterVolume"), 1.0f, relFrame));
+        audio.pan = std::clamp(evalFloatOr(rt, QStringLiteral("pan"), 0.0f, relFrame), -1.0f, 1.0f);
+        audio.fadeInSec = std::max(0.0f, evalFloatOr(rt, QStringLiteral("fadeIn"), 0.0f, relFrame));
+        audio.fadeOutSec = std::max(0.0f, evalFloatOr(rt, QStringLiteral("fadeOut"), 0.0f, relFrame));
         audio.mute = effect.params.value(QStringLiteral("mute"), false).toBool();
         audio.solo = effect.params.value(QStringLiteral("solo"), false).toBool();
         audio.limiter = effect.params.value(QStringLiteral("limiter"), true).toBool();

@@ -8,9 +8,7 @@ layout(std140, binding=0) uniform buf {
     float offsetY;
     float shadowOpacity;
     float diffusion;
-    float shadowColor_r;
-    float shadowColor_g;
-    float shadowColor_b;
+    vec3 shadowColor;
     float texelW;
     float texelH;
 };
@@ -24,7 +22,7 @@ void main() {
     if (diffusion < 0.001) {
         vec4 s = texture(source, qt_TexCoord0 - shift);
         float sa = s.a * shadowOpacity;
-        vec3 sc = vec3(shadowColor_r, shadowColor_g, shadowColor_b);
+        vec3 sc = shadowColor;
         vec3 result = mix(sc * sa, col.rgb, col.a);
         float outA = max(col.a, sa);
         fragColor = vec4(result, outA) * qt_Opacity;
@@ -48,7 +46,7 @@ void main() {
 
     vec3 shadowBase = (total > 0.0) ? sum / total : vec3(0.0);
     float shadowAlpha = (total / float((2 * radius + 1) * (2 * radius + 1))) * shadowOpacity;
-    vec3 sc = vec3(shadowColor_r, shadowColor_g, shadowColor_b) * shadowAlpha;
+    vec3 sc = shadowColor * shadowAlpha;
     vec3 result = mix(sc, col.rgb, col.a);
     float outA = max(col.a, shadowAlpha);
     fragColor = vec4(result, outA) * qt_Opacity;

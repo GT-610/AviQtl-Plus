@@ -1,4 +1,5 @@
 import "." as Common
+import "BlendModeUtils.js" as BlendModeUtils
 import QtQuick
 import QtQuick3D
 
@@ -24,6 +25,12 @@ Node {
     property real clipNodeRotZ: 0
     property real clipNodeOpacity: 1
     property bool outputModelVisible: true
+    property real outputModelOpacity: 1
+    readonly property vector3d displayModelScale: {
+        var w = (displayOutput && displayOutput.sourceItem) ? displayOutput.sourceItem.width : 1
+        var h = (displayOutput && displayOutput.sourceItem) ? displayOutput.sourceItem.height : 1
+        return Qt.vector3d(w / 100, h / 100, 1)
+    }
     property alias fbCaptureItem: _fbCaptureItemImpl
     // transformエフェクトのモデルを探す
     readonly property var transformModel: {
@@ -217,52 +224,7 @@ Node {
                 return 0;
 
             const m = tModel.params["blendMode"] || "通常";
-            if (m === "スクリーン")
-                return 1;
-
-            if (m === "乗算")
-                return 2;
-
-            if (m === "オーバーレイ")
-                return 3;
-
-            if (m === "加算")
-                return 4;
-
-            if (m === "減算")
-                return 5;
-
-            if (m === "比較（明）")
-                return 6;
-
-            if (m === "比較（暗）")
-                return 7;
-
-            if (m === "色反転")
-                return 8;
-
-            if (m === "ソフトライト")
-                return 9;
-
-            if (m === "ハードライト")
-                return 10;
-
-            if (m === "差の絶対値")
-                return 11;
-
-            if (m === "色相")
-                return 12;
-
-            if (m === "彩度")
-                return 13;
-
-            if (m === "カラー")
-                return 14;
-
-            if (m === "輝度")
-                return 15;
-
-            return 0; // 通常
+            return BlendModeUtils.blendModeToInt(m);
         }
         readonly property real fbOpacityValue: 1
 

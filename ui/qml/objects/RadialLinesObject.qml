@@ -18,6 +18,7 @@ Common.BaseObject {
     property int seed: Math.round(evalNumber("radial_lines", "seed", 1))
     property color lineColor: evalColor("radial_lines", "color", "#ffffff")
     property real opacity: evalNumber("radial_lines", "opacity", 1)
+    outputModelOpacity: root.opacity
 
     function rand(n) {
         var x = Math.sin((n + seed * 101.3) * 12.9898) * 43758.5;
@@ -122,23 +123,8 @@ Common.BaseObject {
 
     }
 
-    Model {
-        source: "#Rectangle"
-        visible: root.outputModelVisible
-        scale: Qt.vector3d((root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.width : sourceItem.width) / 100, (root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.height : sourceItem.height) / 100, 1)
-        opacity: root.opacity
-
-        materials: DefaultMaterial {
-            lighting: DefaultMaterial.NoLighting
-            blendMode: root.blendMode
-            cullMode: root.cullMode
-
-            diffuseMap: Texture {
-                sourceItem: root.displayOutput
-            }
-
-        }
-
+    Common.DisplayModel {
+        baseObject: root
     }
 
 }

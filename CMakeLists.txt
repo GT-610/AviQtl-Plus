@@ -72,46 +72,52 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Helper to apply consistent warning flags across all AviQtl targets
+function(aviqtl_target_warning_flags target)
+    target_compile_options(${target} PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>: -Wall -Wextra -Wpedantic -Wno-unused-parameter>
+        $<$<CXX_COMPILER_ID:Clang>: -fcolor-diagnostics -Wno-nullability-extension -Wno-deprecated-declarations -Wno-non-virtual-dtor>
+        $<$<CXX_COMPILER_ID:MSVC>: /W4 /permissive- /utf-8>
+    )
+endfunction()
+
 # --- Module: Core ---
-file(GLOB CORE_SOURCES "core/src/*.cpp")
-file(GLOB CORE_HEADERS "core/include/*.hpp")
-set(EFFECT_METADATA_I18N_SOURCE "${CMAKE_SOURCE_DIR}/core/src/effect_metadata_i18n.cpp")
-    # Exclude main.cpp – it is added to the executable later
-list(REMOVE_ITEM CORE_SOURCES "${CMAKE_SOURCE_DIR}/core/src/main.cpp")
-
-    # Exclude UI-dependent files (Platform Separation)
-set(UI_DEPENDENT_SOURCES
-    "core/src/compute_render_node.cpp"
-    "core/src/video_frame_provider.cpp"
-    "core/src/video_frame_store.cpp"
-    "core/src/image_decoder.cpp"
-    "core/src/video_decoder.cpp"
+set(CORE_SOURCES
+    core/src/audio_decoder.cpp
+    core/src/document_model.cpp
+    core/src/effect_metadata_i18n.cpp
+    core/src/effect_registry.cpp
+    core/src/media_decoder.cpp
+    core/src/media_utils.cpp
+    core/src/package_manager.cpp
+    core/src/preset_manager.cpp
+    core/src/project_serializer.cpp
+    core/src/settings_manager.cpp
+    core/src/theme_controller.cpp
+    core/src/video_encoder.cpp
+    core/include/audio_decoder.hpp
+    core/include/aviqtl_context.hpp
+    core/include/document_model.hpp
+    core/include/effect_registry.hpp
+    core/include/ffmpeg_video_buffer.hpp
+    core/include/keyframe_utils.hpp
+    core/include/media_decoder.hpp
+    core/include/media_utils.hpp
+    core/include/package_manager.hpp
+    core/include/preset_manager.hpp
+    core/include/project_serializer.hpp
+    core/include/settings_manager.hpp
+    core/include/theme_controller.hpp
+    core/include/version.hpp
+    core/include/video_encoder.hpp
 )
-set(UI_DEPENDENT_HEADERS
-    "core/include/compute_render_node.hpp"
-    "core/include/video_frame_provider.hpp"
-    "core/include/video_frame_store.hpp"
-    "core/include/effect_model.hpp"
-    "core/include/image_decoder.hpp"
-    "core/include/video_decoder.hpp"
-)
 
-foreach(F ${UI_DEPENDENT_SOURCES})
-    list(REMOVE_ITEM CORE_SOURCES "${CMAKE_SOURCE_DIR}/${F}")
-endforeach()
-foreach(F ${UI_DEPENDENT_HEADERS})
-    list(REMOVE_ITEM CORE_HEADERS "${CMAKE_SOURCE_DIR}/${F}")
-endforeach()
-    # Exclude files handled by the QML module separately
-list(REMOVE_ITEM CORE_SOURCES "${CMAKE_SOURCE_DIR}/core/src/compute_effect.cpp")
-list(REMOVE_ITEM CORE_HEADERS "${CMAKE_SOURCE_DIR}/core/include/compute_effect.hpp")
-
-add_library(AviQtl_Core STATIC ${CORE_SOURCES} ${CORE_HEADERS})
+add_library(AviQtl_Core STATIC ${CORE_SOURCES})
 target_include_directories(AviQtl_Core PUBLIC core/include ${CMAKE_SOURCE_DIR})
 target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
+aviqtl_target_warning_flags(AviQtl_Core)
 
 # Define version macros for AviQtl_Core
-# These will be used by core/include/version.hpp
 if(NOT DEFINED AVIQTL_VERSION_MAJOR)
     set(AVIQTL_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 endif()
@@ -132,43 +138,148 @@ target_compile_definitions(AviQtl_Core PUBLIC
 )
 
 # --- Module: Engine ---
-file(GLOB_RECURSE ENGINE_SOURCES "engine/*.cpp")
-file(GLOB_RECURSE ENGINE_HEADERS "engine/*.hpp")
-add_library(AviQtl_Engine STATIC ${ENGINE_SOURCES} ${ENGINE_HEADERS})
+set(ENGINE_SOURCES
+    engine/audio_mixer.cpp
+    engine/plugin/audio_plugin_chain.cpp
+    engine/plugin/audio_plugin_manager.cpp
+    engine/timeline/bake_controller.cpp
+    engine/timeline/ecs_system.cpp
+    engine/timeline/keyframe_evaluator.cpp
+    engine/audio_mixer.hpp
+    engine/plugin/audio_plugin_chain.hpp
+    engine/plugin/audio_plugin_host.hpp
+    engine/plugin/audio_plugin_manager.hpp
+    engine/timeline/bake_controller.hpp
+    engine/timeline/ecs.hpp
+    engine/timeline/ecs_profiler.hpp
+    engine/timeline/keyframe_evaluator.hpp
+)
+
+add_library(AviQtl_Engine STATIC ${ENGINE_SOURCES})
 target_include_directories(AviQtl_Engine PUBLIC engine ${CARLA_INCLUDE_DIRS})
 if(WIN32)
     target_link_libraries(AviQtl_Engine PUBLIC AviQtl_Core Qt6::Qml Qt6::Quick ${CARLA_LIBRARIES})
 else()
     target_link_libraries(AviQtl_Engine PUBLIC AviQtl_Core Qt6::Qml Qt6::Quick PkgConfig::CARLA)
 endif()
+aviqtl_target_warning_flags(AviQtl_Engine)
 
 # --- Module: Scripting ---
-file(GLOB SCRIPTING_SOURCES "scripting/*.cpp")
-file(GLOB SCRIPTING_HEADERS "scripting/*.hpp")
-add_library(AviQtl_Scripting STATIC ${SCRIPTING_SOURCES} ${SCRIPTING_HEADERS})
+set(SCRIPTING_SOURCES
+    scripting/lua_host.cpp
+    scripting/mod_engine.cpp
+    scripting/lua_host.hpp
+    scripting/mod_engine.hpp
+)
+
+add_library(AviQtl_Scripting STATIC ${SCRIPTING_SOURCES})
 target_include_directories(AviQtl_Scripting PUBLIC scripting)
 target_link_libraries(AviQtl_Scripting PUBLIC AviQtl_Core Qt6::Qml Qt6::Quick PkgConfig::LUAJIT)
+aviqtl_target_warning_flags(AviQtl_Scripting)
 
 # --- Module: UI (Bridge & Controllers) ---
-file(GLOB_RECURSE UI_SOURCES "ui/src/*.cpp")
-file(GLOB_RECURSE UI_HEADERS "ui/include/*.hpp")
-    # Integrate UI-dependent files relocated from Core
-list(APPEND UI_SOURCES ${UI_DEPENDENT_SOURCES})
-list(APPEND UI_HEADERS ${UI_DEPENDENT_HEADERS})
+# UI-dependent files that live under core/ but conceptually belong to the UI layer
+set(CORE_UI_DEPENDENT_SOURCES
+    core/src/compute_render_node.cpp
+    core/src/image_decoder.cpp
+    core/src/video_decoder.cpp
+    core/src/video_frame_provider.cpp
+    core/src/video_frame_store.cpp
+    core/include/compute_render_node.hpp
+    core/include/effect_model.hpp
+    core/include/image_decoder.hpp
+    core/include/video_decoder.hpp
+    core/include/video_frame_provider.hpp
+    core/include/video_frame_store.hpp
+)
 
-add_library(AviQtl_UI STATIC ${UI_SOURCES} ${UI_HEADERS})
-target_include_directories(AviQtl_UI PUBLIC ui/include)
+set(UI_SOURCES
+    ui/src/bridge/ecs_render_bridge.cpp
+    ui/src/selection_service.cpp
+    ui/src/timeline/timeline_clip.cpp
+    ui/src/timeline/timeline_commands.cpp
+    ui/src/timeline/timeline_controller_clip.cpp
+    ui/src/timeline/timeline_controller_export.cpp
+    ui/src/timeline/timeline_controller_project.cpp
+    ui/src/timeline/timeline_controller_scene.cpp
+    ui/src/timeline/timeline_effect.cpp
+    ui/src/timeline/timeline_export_manager.cpp
+    ui/src/timeline/timeline_layer.cpp
+    ui/src/timeline/timeline_media_manager.cpp
+    ui/src/timeline/timeline_scene.cpp
+    ui/src/timeline_controller.cpp
+    ui/src/timeline_service.cpp
+    ui/src/transport_service.cpp
+    ui/src/window_manager.cpp
+    ui/src/workspace.cpp
+    ui/include/bridge/ecs_render_bridge.hpp
+    ui/include/commands.hpp
+    ui/include/project_service.hpp
+    ui/include/selection_service.hpp
+    ui/include/timeline_controller.hpp
+    ui/include/timeline_export_manager.hpp
+    ui/include/timeline_media_manager.hpp
+    ui/include/timeline_service.hpp
+    ui/include/timeline_types.hpp
+    ui/include/transport_service.hpp
+    ui/include/window_manager.hpp
+    ui/include/workspace.hpp
+    ${CORE_UI_DEPENDENT_SOURCES}
+)
+
+add_library(AviQtl_UI STATIC ${UI_SOURCES})
+target_include_directories(AviQtl_UI PUBLIC ui/include core/include)
 target_link_libraries(AviQtl_UI PUBLIC AviQtl_Engine AviQtl_Scripting Qt6::Quick Qt6::QuickControls2 Qt6::Quick3D Qt6::Multimedia Qt6::Svg Qt6::Core5Compat Qt6::GuiPrivate Vulkan::Vulkan)
+aviqtl_target_warning_flags(AviQtl_UI)
 
 # --- QML Resources & Module ---
-    # Exclude effects and objects from QML module (binary embedding) – they are loaded at runtime as external modules
-file(GLOB_RECURSE QML_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} 
-    "ui/qml/*.qml" 
-    "ui/qml/*.js"
+# Effects and objects are loaded at runtime as external modules and are not embedded here.
+set(QML_FILES
+    ui/qml/AboutWindow.qml
+    ui/qml/common/AudioKfParamTrack.qml
+    ui/qml/common/AudioPluginMenu.qml
+    ui/qml/common/AviQtlIcon.qml
+    ui/qml/common/AviQtlWindow.qml
+    ui/qml/common/BaseComputeEffect.qml
+    ui/qml/common/BaseEffect.qml
+    ui/qml/common/BaseObject.qml
+    ui/qml/common/ControlLoader.qml
+    ui/qml/common/DisplayModel.qml
+    ui/qml/common/EasingConfigWindow.qml
+    ui/qml/common/IconMenuItem.qml
+    ui/qml/common/NodeLoader.qml
+    ui/qml/common/ObjectRenderer.qml
+    ui/qml/common/ParamControl.qml
+    ui/qml/CompositeView.qml
+    ui/qml/ExportDialog.qml
+    ui/qml/MainWindow.qml
+    ui/qml/PackageManagerWindow.qml
+    ui/qml/ProjectLauncherWindow.qml
+    ui/qml/ProjectSettingsWindow.qml
+    ui/qml/SceneRenderer.qml
+    ui/qml/SceneSettingsWindow.qml
+    ui/qml/SettingDialog.qml
+    ui/qml/settings/AppearanceSettingsPage.qml
+    ui/qml/settings/DecodeAudioSettingsPage.qml
+    ui/qml/settings/ExportSettingsPage.qml
+    ui/qml/settings/GeneralSettingsPage.qml
+    ui/qml/settings/PerformanceSettingsPage.qml
+    ui/qml/settings/PluginSettingsPage.qml
+    ui/qml/settings/ProjectSettingsPage.qml
+    ui/qml/settings/ShortcutSettingsPage.qml
+    ui/qml/settings/TimelineSettingsPage.qml
+    ui/qml/SystemSettingsWindow.qml
+    ui/qml/timeline/ClipItem.qml
+    ui/qml/timeline/LayerHeader.qml
+    ui/qml/timeline/Ruler.qml
+    ui/qml/timeline/TimelineGrid.qml
+    ui/qml/timeline/TimelineView.qml
+    ui/qml/TimelineWindow.qml
+    ui/qml/common/Icons.js
+    ui/qml/common/Logger.js
+    ui/qml/common/BlendModeUtils.js
 )
-list(FILTER QML_FILES EXCLUDE REGEX "ui/qml/(effects|objects)/.*")
 
-# --- QML Module (Attached to UI Module) ---
 qt_add_qml_module(AviQtl_UI
     URI "AviQtl"
     VERSION 1.0
@@ -181,15 +292,17 @@ qt_add_qml_module(AviQtl_UI
 )
 
 # --- External Assets: Shaders Compilation ---
-    # Shaders for effects and objects are compiled to .qsb so BUILD.py can pick them up
-    # Output as files, not embedded in the binary
+# Shaders are treated as data files; they are compiled to .qsb so BUILD.py can pick them up.
+# Using GLOB_RECURSE here is an intentional exception: every effect/object adds a matching
+# .frag file, and they are compiled generically. Source changes that add/remove shaders
+# still require a CMake reconfigure (e.g. touch CMakeLists.txt or use --fresh).
 set(EXTERNAL_QSB_FILES "")
 foreach(DIR "effects" "objects" "common/shaders")
     file(GLOB_RECURSE SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/${DIR}/*.frag" "ui/qml/${DIR}/*.vert" "ui/qml/${DIR}/*.comp")
     foreach(SH ${SHADERS})
         get_filename_component(SH_FILE_NAME ${SH} NAME)
         get_filename_component(SH_EXT ${SH} EXT)
-        
+
         set(OUTPUT_QSB "${CMAKE_BINARY_DIR}/${DIR}/${SH_FILE_NAME}.qsb")
         list(APPEND EXTERNAL_QSB_FILES ${OUTPUT_QSB})
 
@@ -208,7 +321,6 @@ foreach(DIR "effects" "objects" "common/shaders")
     endforeach()
 endforeach()
 
-    # Dummy target to include shader generation in the build process
 add_custom_target(AviQtl_ExternalShaders ALL DEPENDS ${EXTERNAL_QSB_FILES})
 
 # --- Executable ---
@@ -235,13 +347,18 @@ if(APPLE)
     )
 endif()
 
-    # Register external shader generation dependency
 add_dependencies(AviQtl AviQtl_ExternalShaders)
 
 target_link_libraries(AviQtl PRIVATE AviQtl_UI)
+aviqtl_target_warning_flags(AviQtl)
 
 # --- Translation ---
-file(GLOB TS_FILES "i18n/AviQtl_*.ts")
+set(TS_FILES
+    i18n/AviQtl_en_US.ts
+    i18n/AviQtl_ja_JP.ts
+    i18n/AviQtl_zh_CN.ts
+)
+
 if(TS_FILES)
     qt_add_translations(AviQtl TS_FILES ${TS_FILES})
     add_dependencies(AviQtl AviQtl_lupdate AviQtl_lrelease)
@@ -271,12 +388,9 @@ elseif(MSVC)
     set_target_properties(AviQtl PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
-# --- Compile Options ---
-target_compile_options(AviQtl PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>: -Wall -Wextra -Wpedantic -Wno-unused-parameter>
-    $<$<CXX_COMPILER_ID:Clang>: -fcolor-diagnostics -Wno-nullability-extension -flto=thin -Wno-deprecated-declarations -Wno-non-virtual-dtor>
-    $<$<CXX_COMPILER_ID:MSVC>: /W4 /permissive- /utf-8>
-)
+# --- Link-time optimization ---
+# LTO is kept at the executable level because enabling it on every static library
+# can inflate incremental build times. Individual targets still get full warnings.
 target_link_options(AviQtl PRIVATE
     $<$<AND:$<CXX_COMPILER_ID:Clang>,$<PLATFORM_ID:Linux>>: -flto=thin>
     $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release>>: /LTCG>

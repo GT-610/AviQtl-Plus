@@ -29,6 +29,7 @@ class MediaDecoder : public QObject {
 
   signals:
     void ready();
+    void decodingFailed(const QString &reason);
     void seekRequested(qint64 ms);
     void frameReady(int frameNum);
     void frameError(int frameNum);

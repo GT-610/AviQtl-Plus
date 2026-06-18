@@ -5,9 +5,7 @@ layout(std140, binding=0) uniform buf {
     mat4  qt_Matrix;
     float qt_Opacity;
     float strength;
-    float monoColor_r;
-    float monoColor_g;
-    float monoColor_b;
+    vec3 monoColor;
     float preserveLuma;
 };
 layout(binding=1) uniform sampler2D source;
@@ -20,9 +18,9 @@ void main() {
     if (preserveLuma > 0.5) {
         gray = vec3(luma);
     } else {
-        float baseLuma = dot(vec3(monoColor_r, monoColor_g, monoColor_b), vec3(0.299, 0.587, 0.114));
+        float baseLuma = dot(monoColor, vec3(0.299, 0.587, 0.114));
         gray = (baseLuma > 0.001)
-            ? vec3(monoColor_r, monoColor_g, monoColor_b) * (luma / baseLuma)
+            ? monoColor * (luma / baseLuma)
             : vec3(luma);
     }
 

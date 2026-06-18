@@ -21,6 +21,7 @@ Common.BaseObject {
     property real dashLength: evalNumber("rect", "dashLength", 0)
     property real dashSpace: evalNumber("rect", "dashSpace", 0)
     property real opacity: evalNumber("rect", "opacity", 1)
+    outputModelOpacity: root.opacity
     property string shapeType: evalString("rect", "shapeType", "polygon")
     // 縁取りが見切れないようにパディングを確保
     readonly property real padding: strokeWidth / 2 + 2
@@ -284,23 +285,8 @@ Common.BaseObject {
 
     }
 
-    Model {
-        source: "#Rectangle"
-        visible: root.outputModelVisible
-        scale: Qt.vector3d((root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.width : sourceItem.width) / 100, (root.displayOutput && root.displayOutput.sourceItem ? root.displayOutput.sourceItem.height : sourceItem.height) / 100, 1)
-        opacity: root.opacity
-
-        materials: DefaultMaterial {
-            lighting: DefaultMaterial.NoLighting
-            blendMode: root.blendMode
-            cullMode: root.cullMode
-
-            diffuseMap: Texture {
-                sourceItem: root.displayOutput
-            }
-
-        }
-
+    Common.DisplayModel {
+        baseObject: root
     }
 
 }

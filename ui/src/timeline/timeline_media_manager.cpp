@@ -18,6 +18,9 @@ TimelineMediaManager::TimelineMediaManager(TimelineController *controller, QObje
 
 void TimelineMediaManager::setVideoFrameStore(AviQtl::Core::VideoFrameStore *store) {
     m_videoFrameStore = store;
+    // Force a rebuild on next updateMediaDecoders() since video/image
+    // decoders depend on the store and may have been skipped earlier.
+    m_decoderFingerprint = 0;
     updateMediaDecoders();
 }
 
@@ -32,16 +35,25 @@ void TimelineMediaManager::onPlayingChanged() {
 }
 
 void TimelineMediaManager::onCurrentFrameChanged() {
+    if (!m_controller || !m_audioMixer) {
+        return;
+    }
+    auto *transport = m_controller->transport();
+    auto *project = m_controller->project();
+    auto *timeline = m_controller->timeline();
+    if (!transport || !project || !timeline) {
+        return;
+    }
 
-    int nextFrame = m_controller->transport()->currentFrame();
-    double fps = m_controller->project()->fps();
-    if (m_controller->transport()->isPlaying()) {
-        int sampleRate = m_controller->project()->sampleRate();
+    int nextFrame = transport->currentFrame();
+    double fps = project->fps();
+    if (transport->isPlaying()) {
+        int sampleRate = project->sampleRate();
         m_audioMixer->processFrame(nextFrame, fps, static_cast<int>(std::round(static_cast<double>(sampleRate) / fps)));
     }
 
     for (auto it = m_decoders.begin(); it != m_decoders.end(); ++it) {
-        const auto *clip = m_controller->timeline()->findClipById(it.key());
+        const auto *clip = timeline->findClipById(it.key());
         if ((clip == nullptr) || nextFrame < clip->startFrame || nextFrame >= clip->startFrame + clip->durationFrames) {
             continue;
         }
@@ -65,17 +77,15 @@ void TimelineMediaManager::onCurrentFrameChanged() {
                 }
 
                 const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始時間＋再生速度").toString();
+                const bool isDirect = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
+                const double directTime = eff->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
+                const double startTime = eff->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble();
+                const QString source = eff->params().value(QStringLiteral("source")).toString();
+                const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
+                const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
+                const double speed = linkedVideo ? 100.0 : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
 
-                if (playMode == QStringLiteral("時間直接指定")) {
-                    audioTime = eff->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
-                } else {
-                    const double startTime = eff->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble();
-                    const QString source = eff->params().value(QStringLiteral("source")).toString();
-                    const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
-                    const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
-                    const double speed = linkedVideo ? 100.0 : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
-                    audioTime = (relTime * (speed / 100.0)) + startTime;
-                }
+                audioTime = AviQtl::Core::MediaUtils::resolveAudioTime(relTime, isDirect, directTime, startTime, speed);
                 break;
             }
             aud->seek(static_cast<qint64>(audioTime * 1000.0));
@@ -131,6 +141,31 @@ void TimelineMediaManager::updateMediaDecoders() {
     const auto &scenes = m_controller->timeline()->getAllScenes();
     QSet<int> currentClipIds;
     QHash<int, int> clipToScene;
+
+    // Compute a fingerprint over the (sceneId, clipId, type, source) tuples
+    // that determine which decoders to instantiate. If nothing relevant
+    // changed since the last call, skip the rebuild walk entirely. This
+    // makes clipsChanged() effectively free for non-structural edits.
+    quint64 fingerprint = 1469598103934665603ULL; // FNV-1a offset basis
+    auto mix = [&fingerprint](quint64 v) {
+        fingerprint ^= v;
+        fingerprint *= 1099511628211ULL;
+    };
+    for (const auto &scene : std::as_const(scenes)) {
+        for (const auto &clip : std::as_const(scene.clips)) {
+            if (clip.type != QStringLiteral("video") && clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("image")) {
+                continue;
+            }
+            mix(static_cast<quint64>(scene.id));
+            mix(static_cast<quint64>(clip.id));
+            mix(static_cast<quint64>(qHash(clip.type)));
+            mix(static_cast<quint64>(qHash(getClipSourceUrl(clip))));
+        }
+    }
+    if (fingerprint == m_decoderFingerprint) {
+        return;
+    }
+    m_decoderFingerprint = fingerprint;
 
     for (const auto &scene : std::as_const(scenes)) {
         for (const auto &clip : std::as_const(scene.clips)) {
@@ -226,18 +261,9 @@ void TimelineMediaManager::updateMediaDecoders() {
                             break;
                         }
 
-                        if (speed <= 0.0 || sourceFps <= 0.0) {
-                            return;
-                        }
-
                         const int projectFps = static_cast<int>(m_controller->project()->fps());
-                        const double startSec = static_cast<double>(startVideoFrame) / sourceFps;
-                        const double remainingSec = (static_cast<double>(totalFrameCount) / sourceFps) - startSec;
-                        if (remainingSec <= 0.0) {
-                            return;
-                        }
-
-                        const int maxDuration = static_cast<int>(remainingSec / (speed / 100.0) * projectFps);
+                        const int maxDuration = AviQtl::Core::MediaUtils::maxVideoDurationFrames(
+                            totalFrameCount, sourceFps, speed, startVideoFrame, projectFps);
                         if (maxDuration > 0 && clip->durationFrames > maxDuration) {
                             m_controller->updateClip(clip->id, clip->layer, clip->startFrame, maxDuration);
                         }
@@ -332,7 +358,6 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
         const double f = m_controller->project()->fps();
         return f > 0.0 ? f : 30.0;
     }();
-    const double relTime = static_cast<double>(relFrame) / fps;
 
     for (const auto *eff : clip->effects) {
         if ((eff == nullptr) || eff->id() != QStringLiteral("video")) {
@@ -340,8 +365,9 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
         }
 
         const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始フレーム＋再生速度").toString();
+        const bool isDirect = (playMode == QStringLiteral("フレーム直接指定"));
 
-        if (playMode == QStringLiteral("フレーム直接指定")) {
+        if (isDirect) {
             const int absFrame = eff->evaluatedParam(QStringLiteral("directFrame"), relFrame, fps).toInt();
             vid->seekToFrame(absFrame, vid->sourceFps());
         } else {
@@ -353,8 +379,7 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
                 vfps = fps;
             }
 
-            const double startSec = static_cast<double>(startFrame) / vfps;
-            const double targetSec = startSec + (relTime * (speed / 100.0));
+            const double targetSec = AviQtl::Core::MediaUtils::resolveVideoTime(relFrame, vfps, false, 0.0, startFrame, speed);
             vid->seekToTime(targetSec);
         }
         return;

@@ -151,20 +151,24 @@ auto VideoEncoder::open(const Config &config) -> bool {
     const AVCodec *codec = avcodec_find_encoder_by_name(config.codecName.toStdString().c_str());
     if (codec == nullptr) {
         qWarning() << "Codec not found:" << config.codecName;
+        cleanup();
         return false;
     }
 
     m_stream = avformat_new_stream(m_fmtCtx, codec);
     if (m_stream == nullptr) {
+        cleanup();
         return false;
     }
 
     m_encCtx = avcodec_alloc_context3(codec);
     if (m_encCtx == nullptr) {
+        cleanup();
         return false;
     }
 
     if (!initHardware(config.codecName)) {
+        cleanup();
         return false;
     }
 
@@ -172,6 +176,7 @@ auto VideoEncoder::open(const Config &config) -> bool {
         AVBufferRef *hw_frames_ref = av_hwframe_ctx_alloc(m_hwDeviceCtx);
         if (hw_frames_ref == nullptr) {
             qWarning() << "Failed to allocate hardware frame context";
+            cleanup();
             return false;
         }
         auto *frames_ctx = reinterpret_cast<AVHWFramesContext *>(hw_frames_ref->data);
@@ -194,6 +199,9 @@ auto VideoEncoder::open(const Config &config) -> bool {
 
         if (av_hwframe_ctx_init(hw_frames_ref) >= 0) {
             m_encCtx->hw_frames_ctx = hw_frames_ref;
+        } else {
+            qWarning() << "Failed to initialize hardware frame context";
+            av_buffer_unref(&hw_frames_ref);
         }
     }
 
@@ -243,17 +251,20 @@ auto VideoEncoder::open(const Config &config) -> bool {
 
     if (avcodec_open2(m_encCtx, codec, nullptr) < 0) {
         qWarning() << "Could not open codec.";
+        cleanup();
         return false;
     }
 
     if (avcodec_parameters_from_context(m_stream->codecpar, m_encCtx) < 0) {
         qWarning() << "Failed to copy video codec parameters to stream";
+        cleanup();
         return false;
     }
 
     if ((m_fmtCtx->oformat->flags & AVFMT_NOFILE) == 0) {
         if (avio_open(&m_fmtCtx->pb, config.outputUrl.toStdString().c_str(), AVIO_FLAG_WRITE) < 0) {
             qWarning() << "Could not open output file:" << config.outputUrl;
+            cleanup();
             return false;
         }
     }

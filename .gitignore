@@ -1,16 +1,18 @@
-vendor
-QtQuickComputeItem
+# Build-time fetched dependencies (populated by BUILD.py)
+/vendor/
+
+# Removed vendored experiment; kept here in case it reappears
+/QtQuickComputeItem/
 
 # Builds
-vcpkg/
-vcpkg_installed/
-build/
-.build_tmp/
-dist
-__pycache__/
+/vcpkg/
+/vcpkg_installed/
+/build/
+/.build_tmp/
+/dist/
 
 # Exports
-project_context.json
+/project_context.json
 
 # ---> VisualStudioCode
 .vscode/*
@@ -19,6 +21,7 @@ project_context.json
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
+.vscode/.venv/
 
 # Local History for Visual Studio Code
 .history/
@@ -60,8 +63,8 @@ project_context.json
 *.out
 *.app
 
-# --> Python
-__pycache__
+# ---> Python
+__pycache__/
 
 # ---> Qt
 # C++ objects and libs
@@ -95,7 +98,6 @@ ui_*.h
 *.jsc
 Makefile*
 *build-*
-*.qm
 *.prl
 
 # Qt unit tests
@@ -112,7 +114,7 @@ target_wrapper.*
 CMakeLists.txt.user*
 
 # QtCreator 4.8< compilation database
-compile_commands.json
+/compile_commands.json
 
 # QtCreator local machine specific files for imported projects
 *creator.user*
@@ -121,3 +123,9 @@ compile_commands.json
 
 # macOS related
 .DS_Store
+
+# ---> AviQtl specific
+# Generated QML shader binaries (built from .frag/.comp)
+*.qsb
+# Generated Qt translation binaries (built from .ts)
+*.qm
