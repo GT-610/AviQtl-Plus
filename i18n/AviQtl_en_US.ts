@@ -48,27 +48,27 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (直線)</source>
-        <translation type="unfinished"> (Linear)</translation>
+        <translation> (Linear)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (加速)</source>
-        <translation type="unfinished"> (Ease In)</translation>
+        <translation> (Ease In)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (減速)</source>
-        <translation type="unfinished"> (Ease Out)</translation>
+        <translation> (Ease Out)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (加減速)</source>
-        <translation type="unfinished"> (Ease In/Out)</translation>
+        <translation> (Ease In/Out)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/AudioKfParamTrack.qml" line="42"/>
         <source> (ベジェ)</source>
-        <translation type="unfinished"> (Bezier)</translation>
+        <translation> (Bezier)</translation>
     </message>
 </context>
 <context>
@@ -265,6 +265,7 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="45"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="243"/>
         <source>グラデーション</source>
         <translation>Gradient</translation>
     </message>
@@ -490,6 +491,7 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../core/src/effect_metadata_i18n.cpp" line="90"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="254"/>
         <source>縁の色</source>
         <translation>Border Color</translation>
     </message>
@@ -1183,6 +1185,356 @@ This software is released under the GNU Affero General Public License Version 3.
         <source>多角形</source>
         <translation>Polygon</translation>
     </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="229"/>
+        <source>クロマキー</source>
+        <translation>Chroma Key</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="230"/>
+        <source>キー</source>
+        <translation>Key</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="231"/>
+        <source>キー抜き</source>
+        <translation>Keying</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="232"/>
+        <source>シャープ</source>
+        <translation>Sharpen</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="233"/>
+        <source>シャドー</source>
+        <translation>Shadow</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="234"/>
+        <source>しきい値</source>
+        <translation>Threshold</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="235"/>
+        <source>ブレンド</source>
+        <translation>Blend</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="236"/>
+        <source>類似度</source>
+        <translation>Similarity</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="237"/>
+        <source>光色</source>
+        <translation>Light Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="238"/>
+        <source>濃さ</source>
+        <translation>Density</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="239"/>
+        <source>色相範囲</source>
+        <translation>Hue Range</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="240"/>
+        <source>反転</source>
+        <translation>Invert</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="241"/>
+        <source>凸エッジ</source>
+        <translation>Emboss</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="242"/>
+        <source>発光</source>
+        <translation>Emission</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="244"/>
+        <source>単色化</source>
+        <translation>Monochrome</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="245"/>
+        <source>エッジ抽出</source>
+        <translation>Edge Detection</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="246"/>
+        <source>縁取り</source>
+        <translation>Border</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="247"/>
+        <source>ミラー</source>
+        <translation>Mirror</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="248"/>
+        <source>ノイズ</source>
+        <translation>Noise</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="249"/>
+        <source>開始色</source>
+        <translation>Start Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="250"/>
+        <source>終了色</source>
+        <translation>End Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="251"/>
+        <source>輝度を保持する</source>
+        <translation>Preserve Luminance</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="252"/>
+        <source>輝度エッジを抽出</source>
+        <translation>Extract Luminance Edges</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="253"/>
+        <source>透明度エッジを抽出</source>
+        <translation>Extract Alpha Edges</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="255"/>
+        <source>Xスケール</source>
+        <translation>X Scale</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="256"/>
+        <source>X位置</source>
+        <translation>X Position</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="257"/>
+        <source>Yスケール</source>
+        <translation>Y Scale</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="258"/>
+        <source>Y位置</source>
+        <translation>Y Position</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="259"/>
+        <source>アニメーション</source>
+        <translation>Animation</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="260"/>
+        <source>カラーキー</source>
+        <translation>Color Key</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="261"/>
+        <source>キー色</source>
+        <translation>Key Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="262"/>
+        <source>グロー</source>
+        <translation>Glow</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="263"/>
+        <source>グロー色</source>
+        <translation>Glow Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="264"/>
+        <source>スケール</source>
+        <translation>Scale</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="265"/>
+        <source>タイプ</source>
+        <translation>Type</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="266"/>
+        <source>ディスプレイスメントマップ</source>
+        <translation>Displacement Map</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="267"/>
+        <source>フェード</source>
+        <translation>Fade</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="268"/>
+        <source>フェードアウト</source>
+        <translation>Fade Out</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="269"/>
+        <source>フェードアウト時間(フレーム)</source>
+        <translation>Fade Out Duration (frames)</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="270"/>
+        <source>フェードイン</source>
+        <translation>Fade In</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="271"/>
+        <source>フェードイン時間(フレーム)</source>
+        <translation>Fade In Duration (frames)</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="272"/>
+        <source>マスク</source>
+        <translation>Mask</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="273"/>
+        <source>マスクタイプ</source>
+        <translation>Mask Type</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="274"/>
+        <source>マスク反転</source>
+        <translation>Invert Mask</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="275"/>
+        <source>マスク強度</source>
+        <translation>Mask Strength</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="276"/>
+        <source>マップタイプ</source>
+        <translation>Map Type</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="277"/>
+        <source>ライト</source>
+        <translation>Light</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="278"/>
+        <source>ライトタイプ</source>
+        <translation>Light Type</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="279"/>
+        <source>ライト色</source>
+        <translation>Light Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="280"/>
+        <source>ラスター</source>
+        <translation>Raster</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="281"/>
+        <source>ルミナンスキー</source>
+        <translation>Luminance Key</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="282"/>
+        <source>切り抜き</source>
+        <translation>Clipping</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="283"/>
+        <source>周波数</source>
+        <translation>Frequency</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="284"/>
+        <source>品質</source>
+        <translation>Quality</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="285"/>
+        <source>変形</source>
+        <translation>Transform</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="286"/>
+        <source>変換先色</source>
+        <translation>Target Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="287"/>
+        <source>対象色相</source>
+        <translation>Target Hue</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="288"/>
+        <source>強度</source>
+        <translation>Intensity</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="289"/>
+        <source>拡張色設定</source>
+        <translation>Extended Color Settings</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="290"/>
+        <source>振幅</source>
+        <translation>Amplitude</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="291"/>
+        <source>明度</source>
+        <translation>Brightness</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="292"/>
+        <source>極座標変換</source>
+        <translation>Polar Transform</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="293"/>
+        <source>波紋</source>
+        <translation>Ripple</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="294"/>
+        <source>特定色域変換</source>
+        <translation>Specific Color Range</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="295"/>
+        <source>緑</source>
+        <translation>Green</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="296"/>
+        <source>角度オフセット</source>
+        <translation>Angle Offset</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="297"/>
+        <source>赤</source>
+        <translation>Red</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="298"/>
+        <source>閃光</source>
+        <translation>Flash</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="299"/>
+        <source>閃光色</source>
+        <translation>Flash Color</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <source>青</source>
+        <translation>Blue</translation>
+    </message>
 </context>
 <context>
     <name>AviQtl::Core::PackageManager</name>
@@ -1450,22 +1802,22 @@ This software is released under the GNU Affero General Public License Version 3.
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="43"/>
         <source>Invalid export configuration</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid export configuration</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="28"/>
         <source>Export end frame must be after start frame</source>
-        <translation type="unfinished"></translation>
+        <translation>Export end frame must be after start frame</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="34"/>
         <source>Export FPS does not match project FPS</source>
-        <translation type="unfinished"></translation>
+        <translation>Export FPS does not match project FPS</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="47"/>
         <source>Failed to start image sequence export</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to start image sequence export</translation>
     </message>
 </context>
 <context>

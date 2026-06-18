@@ -1,0 +1,48 @@
+{
+    "id": "polar_transform",
+    "name": "極座標変換",
+    "qml": "PolarTransform.qml",
+    "params": {
+        "centerX": 50,
+        "centerY": 50,
+        "scale": 100,
+        "angleOffset": 0
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "centerX",
+                "label": "中心X",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "centerY",
+                "label": "中心Y",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "scale",
+                "label": "スケール",
+                "min": 10,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "angleOffset",
+                "label": "角度オフセット",
+                "min": 0,
+                "max": 360
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "変形"
+    ]
+}

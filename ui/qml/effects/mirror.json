@@ -1,0 +1,48 @@
+{
+    "id": "mirror",
+    "name": "ミラー",
+    "qml": "Mirror.qml",
+    "params": {
+        "transparency": 50,
+        "decay": 0,
+        "direction": 0,
+        "centerOffset": 0
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "transparency",
+                "label": "透明度",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "decay",
+                "label": "減衰",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "int",
+                "param": "direction",
+                "label": "方向",
+                "min": 0,
+                "max": 3
+            },
+            {
+                "type": "float",
+                "param": "centerOffset",
+                "label": "中心の位置を変更",
+                "min": -100,
+                "max": 100
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "変形"
+    ]
+}

@@ -1,0 +1,54 @@
+{
+    "id": "shadow",
+    "name": "シャドー",
+    "qml": "Shadow.qml",
+    "params": {
+        "x": 5,
+        "y": 5,
+        "opacity": 80,
+        "diffusion": 5,
+        "color": "#000000"
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "x",
+                "label": "Xずれ",
+                "min": -200,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "y",
+                "label": "Yずれ",
+                "min": -200,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "opacity",
+                "label": "濃さ",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "diffusion",
+                "label": "拡散",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "color",
+                "param": "color",
+                "label": "影色"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "ライティング"
+    ]
+}

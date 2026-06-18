@@ -1,0 +1,49 @@
+{
+    "id": "flash",
+    "name": "閃光",
+    "qml": "Flash.qml",
+    "params": {
+        "intensity": 100,
+        "speed": 50,
+        "color": "#ffffff",
+        "type": 0
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "intensity",
+                "label": "強度",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "speed",
+                "label": "速度",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "color",
+                "param": "color",
+                "label": "閃光色"
+            },
+            {
+                "type": "enum",
+                "param": "type",
+                "label": "タイプ",
+                "options": [
+                    "放射状",
+                    "直線",
+                    "円形"
+                ]
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "ライティング"
+    ]
+}

@@ -1,0 +1,65 @@
+{
+    "id": "light",
+    "name": "ライト",
+    "qml": "Light.qml",
+    "params": {
+        "lightType": 0,
+        "intensity": 100,
+        "radius": 50,
+        "x": 50,
+        "y": 50,
+        "color": "#ffffff"
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "enum",
+                "param": "lightType",
+                "label": "ライトタイプ",
+                "options": [
+                    "ポイントライト",
+                    "スポットライト",
+                    "アンビエント"
+                ]
+            },
+            {
+                "type": "float",
+                "param": "intensity",
+                "label": "強度",
+                "min": 0,
+                "max": 200
+            },
+            {
+                "type": "float",
+                "param": "radius",
+                "label": "半径",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "x",
+                "label": "X位置",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "y",
+                "label": "Y位置",
+                "min": 0,
+                "max": 100
+            },
+            {
+                "type": "color",
+                "param": "color",
+                "label": "ライト色"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "ライティング"
+    ]
+}
