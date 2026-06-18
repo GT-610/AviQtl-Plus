@@ -20,8 +20,18 @@ AudioDecoder::~AudioDecoder() {
 void AudioDecoder::startDecoding() {
     // UIスレッドをブロックしないようバックグラウンドで全デコード
     m_decodeFuture = QtConcurrent::run([this] -> void {
+        auto reportFailure = [this](const QString &reason) {
+            qWarning() << "[AudioDecoder]" << reason;
+            m_lastError = reason;
+            QMetaObject::invokeMethod(
+                this,
+                [this, reason]() { emit decodingFailed(reason); },
+                Qt::QueuedConnection);
+        };
+
         closeFFmpeg();
         m_isReady = false;
+        m_lastError.clear();
 
         QString path = m_source.toLocalFile();
         if (path.isEmpty()) {
@@ -29,56 +39,45 @@ void AudioDecoder::startDecoding() {
         }
 
         if (avformat_open_input(&m_fmtCtx, path.toUtf8().constData(), nullptr, nullptr) < 0) {
-            qWarning() << "[AudioDecoder] avformat_open_input failed:" << path;
-            m_isReady = true;
-            emit ready();
+            reportFailure(QStringLiteral("avformat_open_input failed: %1").arg(path));
             return;
         }
 
         if (avformat_find_stream_info(m_fmtCtx, nullptr) < 0) {
-            qWarning() << "[AudioDecoder] avformat_find_stream_info failed";
+            reportFailure(QStringLiteral("avformat_find_stream_info failed: %1").arg(path));
             closeFFmpeg();
-            m_isReady = true;
-            emit ready();
             return;
         }
 
         m_streamIdx = av_find_best_stream(m_fmtCtx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
         if (m_streamIdx < 0) {
-            qWarning() << "[AudioDecoder] Audio stream not found:" << path;
-            m_isReady = true;
-            emit ready();
+            reportFailure(QStringLiteral("Audio stream not found: %1").arg(path));
+            closeFFmpeg();
             return;
         }
         m_stream = m_fmtCtx->streams[m_streamIdx];
 
         const AVCodec *codec = avcodec_find_decoder(m_stream->codecpar->codec_id);
         if (!codec) {
-            qWarning() << "[AudioDecoder] No supported codec found";
-            m_isReady = true;
-            emit ready();
+            reportFailure(QStringLiteral("No supported codec found: %1").arg(path));
+            closeFFmpeg();
             return;
         }
 
         m_decCtx = avcodec_alloc_context3(codec);
         if (m_decCtx == nullptr) {
-            qWarning() << "[AudioDecoder] avcodec_alloc_context3 failed (OOM?)";
+            reportFailure(QStringLiteral("avcodec_alloc_context3 failed (OOM?): %1").arg(path));
             closeFFmpeg();
-            m_isReady = true;
-            emit ready();
             return;
         }
         if (avcodec_parameters_to_context(m_decCtx, m_stream->codecpar) < 0) {
-            qWarning() << "[AudioDecoder] avcodec_parameters_to_context failed";
+            reportFailure(QStringLiteral("avcodec_parameters_to_context failed: %1").arg(path));
             closeFFmpeg();
-            m_isReady = true;
-            emit ready();
             return;
         }
         if (avcodec_open2(m_decCtx, codec, nullptr) < 0) {
-            qWarning() << "[AudioDecoder] avcodec_open2 failed";
-            m_isReady = true;
-            emit ready();
+            reportFailure(QStringLiteral("avcodec_open2 failed: %1").arg(path));
+            closeFFmpeg();
             return;
         }
 
@@ -92,10 +91,8 @@ void AudioDecoder::startDecoding() {
         av_opt_set_int(m_swrCtx, "out_sample_rate", m_sampleRate, 0);
         av_opt_set_sample_fmt(m_swrCtx, "out_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
         if (swr_init(m_swrCtx) < 0) {
-            qWarning() << "[AudioDecoder] swr_init failed";
+            reportFailure(QStringLiteral("swr_init failed: %1").arg(path));
             closeFFmpeg();
-            m_isReady = true;
-            emit ready();
             return;
         }
 
@@ -104,6 +101,7 @@ void AudioDecoder::startDecoding() {
 
         // インターリーブ Float32 ステレオ バッファ
         std::vector<float> convertBuf;
+        bool decodePacketError = false;
 
         while (av_read_frame(m_fmtCtx, m_pkt) >= 0) {
             if (m_closing.load(std::memory_order_acquire)) {
@@ -116,8 +114,10 @@ void AudioDecoder::startDecoding() {
             }
 
             if (avcodec_send_packet(m_decCtx, m_pkt) < 0) {
+                qWarning() << "[AudioDecoder] avcodec_send_packet failed";
+                decodePacketError = true;
                 av_packet_unref(m_pkt);
-                continue;
+                break;
             }
             av_packet_unref(m_pkt);
 
@@ -167,6 +167,11 @@ void AudioDecoder::startDecoding() {
 
         buildPeakCache();
 
+        if (decodePacketError) {
+            reportFailure(QStringLiteral("Audio packet decode error: %1").arg(path));
+            return;
+        }
+
         qDebug() << "[AudioDecoder] clip" << m_clipId << "decoded. total samples:" << m_fullAudioData.size();
         m_isReady = true;
         emit ready();
@@ -197,6 +202,10 @@ void AudioDecoder::closeFFmpeg() {
     QMutexLocker locker(&m_mutex);
     m_fullAudioData.clear();
     m_peakPyramid.clear();
+}
+
+auto AudioDecoder::lastError() const -> QString {
+    return m_lastError;
 }
 
 void AudioDecoder::setSampleRate(int sampleRate) {

@@ -29,6 +29,7 @@ class AudioDecoder : public MediaDecoder {
     std::vector<float> getSamples(double startTime, int count) override;
     std::vector<float> getPeaks(double startSec, double durationSec, int pixelWidth);
     double totalDurationSec() const;
+    QString lastError() const;
 
   protected:
     void startDecoding() override;
@@ -58,6 +59,7 @@ class AudioDecoder : public MediaDecoder {
     std::vector<PeakLevel> m_peakPyramid;
     QFuture<void> m_decodeFuture;
     std::atomic<bool> m_closing{false};
+    QString m_lastError;
 };
 
 } // namespace AviQtl::Core
