@@ -8,9 +8,7 @@ layout(std140, binding=0) uniform buf {
     float threshold;
     float luminanceEdge;
     float alphaEdge;
-    float edgeColor_r;
-    float edgeColor_g;
-    float edgeColor_b;
+    vec3 edgeColor;
     float texelW;
     float texelH;
 };
@@ -42,7 +40,7 @@ void main() {
     float edge = sqrt(gx*gx + gy*gy) * strength;
     edge = smoothstep(threshold, threshold + 0.05, edge);
 
-    vec3 ec = vec3(edgeColor_r, edgeColor_g, edgeColor_b);
+    vec3 ec = edgeColor;
     vec3 result = mix(col.rgb, ec, edge);
     float outA = mix(col.a, 1.0, edge);
 

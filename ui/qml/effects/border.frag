@@ -6,9 +6,7 @@ layout(std140, binding=0) uniform buf {
     float qt_Opacity;
     float size;
     float blur;
-    float borderColor_r;
-    float borderColor_g;
-    float borderColor_b;
+    vec3 borderColor;
     float texelW;
     float texelH;
 };
@@ -34,7 +32,7 @@ void main() {
     }
 
     float borderMask = smoothstep(size + blur, size, maxDist) * (1.0 - col.a);
-    vec3 bc = vec3(borderColor_r, borderColor_g, borderColor_b);
+    vec3 bc = borderColor;
     vec3 result = mix(col.rgb, bc, borderMask);
     float outA = max(col.a, borderMask);
 
