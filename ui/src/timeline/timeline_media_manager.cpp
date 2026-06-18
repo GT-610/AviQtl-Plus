@@ -18,6 +18,9 @@ TimelineMediaManager::TimelineMediaManager(TimelineController *controller, QObje
 
 void TimelineMediaManager::setVideoFrameStore(AviQtl::Core::VideoFrameStore *store) {
     m_videoFrameStore = store;
+    // Force a rebuild on next updateMediaDecoders() since video/image
+    // decoders depend on the store and may have been skipped earlier.
+    m_decoderFingerprint = 0;
     updateMediaDecoders();
 }
 
@@ -140,6 +143,31 @@ void TimelineMediaManager::updateMediaDecoders() {
     const auto &scenes = m_controller->timeline()->getAllScenes();
     QSet<int> currentClipIds;
     QHash<int, int> clipToScene;
+
+    // Compute a fingerprint over the (sceneId, clipId, type, source) tuples
+    // that determine which decoders to instantiate. If nothing relevant
+    // changed since the last call, skip the rebuild walk entirely. This
+    // makes clipsChanged() effectively free for non-structural edits.
+    quint64 fingerprint = 1469598103934665603ULL; // FNV-1a offset basis
+    auto mix = [&fingerprint](quint64 v) {
+        fingerprint ^= v;
+        fingerprint *= 1099511628211ULL;
+    };
+    for (const auto &scene : std::as_const(scenes)) {
+        for (const auto &clip : std::as_const(scene.clips)) {
+            if (clip.type != QStringLiteral("video") && clip.type != QStringLiteral("audio") && clip.type != QStringLiteral("image")) {
+                continue;
+            }
+            mix(static_cast<quint64>(scene.id));
+            mix(static_cast<quint64>(clip.id));
+            mix(static_cast<quint64>(qHash(clip.type)));
+            mix(static_cast<quint64>(qHash(getClipSourceUrl(clip))));
+        }
+    }
+    if (fingerprint == m_decoderFingerprint) {
+        return;
+    }
+    m_decoderFingerprint = fingerprint;
 
     for (const auto &scene : std::as_const(scenes)) {
         for (const auto &clip : std::as_const(scene.clips)) {

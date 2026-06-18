@@ -53,5 +53,11 @@ class TimelineMediaManager : public QObject {
     AviQtl::Core::VideoFrameStore *m_videoFrameStore = nullptr;
     QHash<int, QPointer<AviQtl::Core::MediaDecoder>> m_decoders;
     QHash<int, QPointer<AviQtl::Core::ImageDecoder>> m_imageDecoders;
+
+    // Fingerprint of the last (sceneId, clipId, type, sourceUrl) set used to
+    // build decoders. updateMediaDecoders() compares against this and
+    // short-circuits when nothing has changed, sparing the per-clipsChanged
+    // walk through every scene.
+    quint64 m_decoderFingerprint = 0;
 };
 } // namespace AviQtl::UI
