@@ -4,8 +4,8 @@ layout(location=0) out vec4 fragColor;
 layout(std140, binding=0) uniform buf {
     mat4  qt_Matrix;
     float qt_Opacity;
-    float width;
-    float height;
+    float rasterW;
+    float rasterH;
     float speed;
     float angle;
     float time;
@@ -33,8 +33,8 @@ void main() {
     
     // Apply raster effect
     float timeOffset = time * speed * 0.1;
-    float rasterX = sin((pixel.x + timeOffset) * 3.14159 / width);
-    float rasterY = sin((pixel.y + timeOffset) * 3.14159 / height);
+    float rasterX = sin((pixel.x + timeOffset) * 3.14159 / rasterW);
+    float rasterY = sin((pixel.y + timeOffset) * 3.14159 / rasterH);
     
     // Combine raster effects
     float raster = rasterX * rasterY;
