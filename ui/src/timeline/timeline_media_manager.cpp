@@ -32,16 +32,25 @@ void TimelineMediaManager::onPlayingChanged() {
 }
 
 void TimelineMediaManager::onCurrentFrameChanged() {
+    if (!m_controller || !m_audioMixer) {
+        return;
+    }
+    auto *transport = m_controller->transport();
+    auto *project = m_controller->project();
+    auto *timeline = m_controller->timeline();
+    if (!transport || !project || !timeline) {
+        return;
+    }
 
-    int nextFrame = m_controller->transport()->currentFrame();
-    double fps = m_controller->project()->fps();
-    if (m_controller->transport()->isPlaying()) {
-        int sampleRate = m_controller->project()->sampleRate();
+    int nextFrame = transport->currentFrame();
+    double fps = project->fps();
+    if (transport->isPlaying()) {
+        int sampleRate = project->sampleRate();
         m_audioMixer->processFrame(nextFrame, fps, static_cast<int>(std::round(static_cast<double>(sampleRate) / fps)));
     }
 
     for (auto it = m_decoders.begin(); it != m_decoders.end(); ++it) {
-        const auto *clip = m_controller->timeline()->findClipById(it.key());
+        const auto *clip = timeline->findClipById(it.key());
         if ((clip == nullptr) || nextFrame < clip->startFrame || nextFrame >= clip->startFrame + clip->durationFrames) {
             continue;
         }
