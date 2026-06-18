@@ -276,6 +276,7 @@ set(QML_FILES
     ui/qml/TimelineWindow.qml
     ui/qml/common/Icons.js
     ui/qml/common/Logger.js
+    ui/qml/common/BlendModeUtils.js
 )
 
 qt_add_qml_module(AviQtl_UI
