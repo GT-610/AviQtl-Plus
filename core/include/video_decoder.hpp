@@ -27,6 +27,7 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     explicit VideoDecoder(int clipId, const QUrl &source, VideoFrameStore *store, QObject *parent = nullptr);
     ~VideoDecoder() override;
 
+  public:
     void seekToFrame(int frame, double fps);
     void seekToTime(double seconds);
     double sourceFps() const;

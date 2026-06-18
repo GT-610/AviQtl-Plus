@@ -138,12 +138,13 @@ VideoDecoder::VideoDecoder(int clipId, const QUrl &source, VideoFrameStore *stor
 
 VideoDecoder::~VideoDecoder() {
     mclosing.store(true, std::memory_order_release);
-    if (minitFuture.isRunning()) {
-        minitFuture.waitForFinished();
-    }
-    if (mdecodeFuture.isRunning()) {
-        mdecodeFuture.waitForFinished();
-    }
+
+    // Wait for async init and decode workers to finish. Use waitForFinished()
+    // unconditionally so already-completed futures do not leave dangling
+    // references to this object in queued QMetaObject::invokeMethod calls.
+    minitFuture.waitForFinished();
+    mdecodeFuture.waitForFinished();
+
     close();
     if (mswsCtx != nullptr) {
         sws_freeContext(mswsCtx);
@@ -442,6 +443,12 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
     }
 
     mdecodeFuture = QtConcurrent::run([this, fps]() -> void {
+        // Always reset the decoding flag when the outer decode loop exits so the
+        // next seekToFrame() can start a new worker. Individual tasks use their
+        // own qScopeGuard for the same guarantee.
+        const auto loopGuard = qScopeGuard([this]() {
+            misDecoding.store(false, std::memory_order_release);
+        });
         while (!mclosing.load(std::memory_order_acquire)) {
             int targetFrame = mlastRequestedFrame.load(std::memory_order_acquire);
             decodeTask(targetFrame, fps);
@@ -460,6 +467,11 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
 }
 
 void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-easily-swappable-parameters)
+    // Ensure misDecoding is always reset when the task leaves, even on early exits.
+    const auto decodingGuard = qScopeGuard([this]() {
+        misDecoding.store(false, std::memory_order_release);
+    });
+
     QMutexLocker locker(&m_mutex);
     if (mclosing.load(std::memory_order_acquire)) {
         return;
