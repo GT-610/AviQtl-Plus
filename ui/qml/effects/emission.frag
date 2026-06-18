@@ -7,9 +7,7 @@ layout(std140, binding=0) uniform buf {
     float strength;
     float diffusion;
     float threshold;
-    float glowColor_r;
-    float glowColor_g;
-    float glowColor_b;
+    vec3  glowColor;
     float useCustomColor;
     float texelW;
     float texelH;
@@ -39,8 +37,8 @@ void main() {
     }
 
     vec3 blurred = (total > 0.0) ? sum / total : vec3(0.0);
-    vec3 glowColor = mix(blurred, vec3(glowColor_r, glowColor_g, glowColor_b), useCustomColor);
-    vec3 result = col.rgb + glowColor * glowMask * strength;
+    vec3 glowColorMix = mix(blurred, glowColor, useCustomColor);
+    vec3 result = col.rgb + glowColorMix * glowMask * strength;
 
     fragColor = vec4(clamp(result, 0.0, 1.0), col.a) * qt_Opacity;
 }
