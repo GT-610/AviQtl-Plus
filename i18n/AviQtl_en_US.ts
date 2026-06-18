@@ -4,18 +4,6 @@
 <context>
     <name>AboutWindow</name>
     <message>
-        <source>AviQtlについて</source>
-        <translation type="vanished">About AviQtl</translation>
-    </message>
-    <message>
-        <source>AviQtl は AviUtl ではありません。
-
-このソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。</source>
-        <translation type="vanished">AviQtl is not AviUtl.
-
-This software is released under the GNU Affero General Public License Version 3.</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/AboutWindow.qml" line="9"/>
         <source>AviQtl Plusについて</source>
         <translation>About AviQtl Plus</translation>
@@ -1539,90 +1527,6 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <source>待機中</source>
-        <translation type="vanished">Waiting</translation>
-    </message>
-    <message>
-        <source>キャッシュからパッケージをロードしました（更新を確認するには「同期」を押してください）</source>
-        <translation type="vanished">Loaded packages from cache (press &quot;Sync&quot; to check for updates)</translation>
-    </message>
-    <message>
-        <source>リポジトリを同期中...</source>
-        <translation type="vanished">Synchronizing repository...</translation>
-    </message>
-    <message>
-        <source>同期完了</source>
-        <translation type="vanished">Synchronization complete</translation>
-    </message>
-    <message>
-        <source>利用可能なファイルを検索中...</source>
-        <translation type="vanished">Searching for available files...</translation>
-    </message>
-    <message>
-        <source>リポジトリURLの形式が正しくありません。</source>
-        <translation type="vanished">The repository URL format is incorrect.</translation>
-    </message>
-    <message>
-        <source>サポートされていないリポジトリホストです。</source>
-        <translation type="vanished">Unsupported repository host.</translation>
-    </message>
-    <message>
-        <source>ダウンロード可能なファイルが見つかりませんでした。</source>
-        <translation type="vanished">No downloadable files were found.</translation>
-    </message>
-    <message>
-        <source>パッケージのインストール中: %1</source>
-        <translation type="vanished">Installing package: %1</translation>
-    </message>
-    <message>
-        <source>アップグレード可能なパッケージはありません。</source>
-        <translation type="vanished">There are no packages that can be upgraded.</translation>
-    </message>
-    <message>
-        <source>すべてのパッケージをアップグレード中...</source>
-        <translation type="vanished">Upgrading all packages...</translation>
-    </message>
-    <message>
-        <source>すべてのアップグレードが完了しました</source>
-        <translation type="vanished">All upgrades are complete</translation>
-    </message>
-    <message>
-        <source>パッケージをアップグレード中: %1</source>
-        <translation type="vanished">Upgrading package: %1</translation>
-    </message>
-    <message>
-        <source>パッケージが見つかりません: %1</source>
-        <translation type="vanished">Package not found: %1</translation>
-    </message>
-    <message>
-        <source>パッケージのリポジトリURLを特定できません。</source>
-        <translation type="vanished">Unable to identify the repository URL for the package.</translation>
-    </message>
-    <message>
-        <source>リリース情報の取得に失敗しました (%1): %2</source>
-        <translation type="vanished">Failed to retrieve release information (%1): %2</translation>
-    </message>
-    <message>
-        <source>ダウンロードURLが指定されていません。アセット情報を取得してください。</source>
-        <translation type="vanished">Download URL is not specified. Please retrieve the asset information first.</translation>
-    </message>
-    <message>
-        <source>インストール完了: %1</source>
-        <translation type="vanished">Installation complete: %1</translation>
-    </message>
-    <message>
-        <source>AviQtlのアップデートがダウンロード可能です。再起動して適用してください。</source>
-        <translation type="vanished">An AviQtl update is available. Please restart to apply.</translation>
-    </message>
-    <message>
-        <source>パッケージを削除中: %1</source>
-        <translation type="vanished">Removing package: %1</translation>
-    </message>
-    <message>
-        <source>削除完了: %1</source>
-        <translation type="vanished">Removal complete: %1</translation>
-    </message>
-    <message>
         <location filename="../core/src/package_manager.cpp" line="111"/>
         <source>Idle</source>
         <translation>Idle</translation>
@@ -1822,18 +1726,6 @@ This software is released under the GNU Affero General Public License Version 3.
 </context>
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
-    <message>
-        <source>エンコーダーの初期化に失敗しました</source>
-        <translation type="vanished">Failed to initialize encoder</translation>
-    </message>
-    <message>
-        <source>キャンセルされました</source>
-        <translation type="vanished">Canceled</translation>
-    </message>
-    <message>
-        <source>書き出し完了</source>
-        <translation type="vanished">Export complete</translation>
-    </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
         <source>Encoder initialization failed</source>
@@ -2270,21 +2162,9 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Ease Out</translation>
     </message>
     <message>
-        <source>補間方法:</source>
-        <translation type="vanished">Interpolation method:</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/common/EasingConfigWindow.qml" line="342"/>
         <source>瞬間移動</source>
         <translation>Instant movement</translation>
-    </message>
-    <message>
-        <source>直線移動</source>
-        <translation type="vanished">Linear movement</translation>
-    </message>
-    <message>
-        <source>曲線移動</source>
-        <translation type="vanished">Curve movement</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/EasingConfigWindow.qml" line="351"/>
@@ -2634,14 +2514,6 @@ Progress will be lost.</translation>
 <context>
     <name>LayerHeader</name>
     <message>
-        <source>上に複数レイヤーを挿入</source>
-        <translation type="vanished">Insert Multiple Layers Above</translation>
-    </message>
-    <message>
-        <source>下に複数レイヤーを挿入</source>
-        <translation type="vanished">Insert Multiple Layers Below</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="207"/>
         <source>複数レイヤーを挿入</source>
         <translation>Insert multiple layers</translation>
@@ -2732,10 +2604,6 @@ Progress will be lost.</translation>
         <translation>Hide all layers</translation>
     </message>
     <message>
-        <source>表示/非表示を切り替え</source>
-        <translation type="vanished">Toggle visibility</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="373"/>
         <source>上にレイヤーを挿入 (1行)</source>
         <translation>Insert Layer Above (1 row)</translation>
@@ -2744,14 +2612,6 @@ Progress will be lost.</translation>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="383"/>
         <source>下にレイヤーを挿入 (1行)</source>
         <translation>Insert Layer Below (1 row)</translation>
-    </message>
-    <message>
-        <source>上に複数レイヤーを挿入...</source>
-        <translation type="vanished">Insert Multiple Layers Above...</translation>
-    </message>
-    <message>
-        <source>下に複数レイヤーを挿入...</source>
-        <translation type="vanished">Insert Multiple Layers Below...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/LayerHeader.qml" line="403"/>
@@ -2768,29 +2628,9 @@ Progress will be lost.</translation>
         <source>範囲を指定してレイヤー移動...</source>
         <translation>Move layers by range...</translation>
     </message>
-    <message>
-        <source>ロックを解除</source>
-        <translation type="vanished">Unlock</translation>
-    </message>
-    <message>
-        <source>ロック</source>
-        <translation type="vanished">Lock</translation>
-    </message>
-    <message>
-        <source>すべて表示</source>
-        <translation type="vanished">Show All</translation>
-    </message>
-    <message>
-        <source>すべて非表示</source>
-        <translation type="vanished">Hide All</translation>
-    </message>
 </context>
 <context>
     <name>MainWindow</name>
-    <message>
-        <source>AviQtl - プレビュー</source>
-        <translation type="vanished">AviQtl - Preview</translation>
-    </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="94"/>
         <source>新規プロジェクト</source>
@@ -3089,20 +2929,6 @@ Save before continuing?</translation>
         <translation>Package Manager</translation>
     </message>
     <message>
-        <source>AviQtl アップデート</source>
-        <translation type="vanished">AviQtl Update</translation>
-    </message>
-    <message>
-        <source>新しいバージョンのAviQtl (%1) が利用可能です。
-ダウンロードURL: %2
-
-アプリケーションを再起動して適用してください。</source>
-        <translation type="vanished">A new version of AviQtl (%1) is available.
-Download URL: %2
-
-Please restart the application to apply.</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
         <source>AviQtl Plus アップデート</source>
         <translation>AviQtl Plus Update</translation>
@@ -3192,14 +3018,6 @@ Please restart the application to apply the update.</translation>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
         <source>インストール</source>
         <translation>Install</translation>
-    </message>
-    <message>
-        <source>ここにドロップ</source>
-        <translation type="vanished">Drop here</translation>
-    </message>
-    <message>
-        <source>ビデオにリンク</source>
-        <translation type="vanished">Link to video file</translation>
     </message>
 </context>
 <context>
@@ -3314,10 +3132,6 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>ProjectLauncherWindow</name>
     <message>
-        <source>AviQtl - プロジェクトランチャー</source>
-        <translation type="vanished">AviQtl - Project Launcher</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="50"/>
         <source>新規プロジェクト</source>
         <translation>New Project</translation>
@@ -3326,30 +3140,6 @@ Please restart the application to apply the update.</translation>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="56"/>
         <source>プロジェクト設定</source>
         <translation>Project Settings</translation>
-    </message>
-    <message>
-        <source>テンプレート:</source>
-        <translation type="vanished">Template:</translation>
-    </message>
-    <message>
-        <source>HD 1080p (1920x1080, 30fps)</source>
-        <translation type="vanished">HD 1080p (1920x1080, 30fps)</translation>
-    </message>
-    <message>
-        <source>HD 720p (1280x720, 30fps)</source>
-        <translation type="vanished">HD 720p (1280x720, 30fps)</translation>
-    </message>
-    <message>
-        <source>Full HD (1920x1080, 60fps)</source>
-        <translation type="vanished">Full HD (1920x1080, 60fps)</translation>
-    </message>
-    <message>
-        <source>4K UHD (3840x2160, 30fps)</source>
-        <translation type="vanished">4K UHD (3840x2160, 30fps)</translation>
-    </message>
-    <message>
-        <source>カスタム</source>
-        <translation type="vanished">Custom</translation>
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="12"/>
@@ -3569,10 +3359,6 @@ Please restart the application to apply the update.</translation>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="119"/>
         <source>クリップ分割: %1</source>
         <translation>Split clip: %1</translation>
-    </message>
-    <message>
-        <source>クリップ削除: %1</source>
-        <translation type="vanished">Delete clip: %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="196"/>
@@ -3902,14 +3688,6 @@ Please restart the application to apply the update.</translation>
         <translation>Start</translation>
     </message>
     <message>
-        <source>Speed</source>
-        <translation type="vanished">Speed</translation>
-    </message>
-    <message>
-        <source>Direct</source>
-        <translation type="vanished">Direct</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/SettingDialog.qml" line="1127"/>
         <source>Channel Strip</source>
         <translation>Channel Strip</translation>
@@ -4054,13 +3832,6 @@ Please restart the application to apply the update.</translation>
         <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="80"/>
         <source>未設定</source>
         <translation>Not set</translation>
-    </message>
-</context>
-<context>
-    <name>SplashWindow</name>
-    <message>
-        <source>AviQtl を起動中...</source>
-        <translation type="vanished">Launching AviQtl...</translation>
     </message>
 </context>
 <context>
