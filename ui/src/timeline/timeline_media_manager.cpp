@@ -77,17 +77,15 @@ void TimelineMediaManager::onCurrentFrameChanged() {
                 }
 
                 const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始時間＋再生速度").toString();
+                const bool isDirect = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
+                const double directTime = eff->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
+                const double startTime = eff->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble();
+                const QString source = eff->params().value(QStringLiteral("source")).toString();
+                const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
+                const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
+                const double speed = linkedVideo ? 100.0 : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
 
-                if (playMode == QStringLiteral("時間直接指定")) {
-                    audioTime = eff->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
-                } else {
-                    const double startTime = eff->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble();
-                    const QString source = eff->params().value(QStringLiteral("source")).toString();
-                    const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
-                    const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
-                    const double speed = linkedVideo ? 100.0 : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
-                    audioTime = (relTime * (speed / 100.0)) + startTime;
-                }
+                audioTime = AviQtl::Core::MediaUtils::resolveAudioTime(relTime, isDirect, directTime, startTime, speed);
                 break;
             }
             aud->seek(static_cast<qint64>(audioTime * 1000.0));
@@ -263,18 +261,9 @@ void TimelineMediaManager::updateMediaDecoders() {
                             break;
                         }
 
-                        if (speed <= 0.0 || sourceFps <= 0.0) {
-                            return;
-                        }
-
                         const int projectFps = static_cast<int>(m_controller->project()->fps());
-                        const double startSec = static_cast<double>(startVideoFrame) / sourceFps;
-                        const double remainingSec = (static_cast<double>(totalFrameCount) / sourceFps) - startSec;
-                        if (remainingSec <= 0.0) {
-                            return;
-                        }
-
-                        const int maxDuration = static_cast<int>(remainingSec / (speed / 100.0) * projectFps);
+                        const int maxDuration = AviQtl::Core::MediaUtils::maxVideoDurationFrames(
+                            totalFrameCount, sourceFps, speed, startVideoFrame, projectFps);
                         if (maxDuration > 0 && clip->durationFrames > maxDuration) {
                             m_controller->updateClip(clip->id, clip->layer, clip->startFrame, maxDuration);
                         }
@@ -369,7 +358,6 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
         const double f = m_controller->project()->fps();
         return f > 0.0 ? f : 30.0;
     }();
-    const double relTime = static_cast<double>(relFrame) / fps;
 
     for (const auto *eff : clip->effects) {
         if ((eff == nullptr) || eff->id() != QStringLiteral("video")) {
@@ -377,8 +365,9 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
         }
 
         const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始フレーム＋再生速度").toString();
+        const bool isDirect = (playMode == QStringLiteral("フレーム直接指定"));
 
-        if (playMode == QStringLiteral("フレーム直接指定")) {
+        if (isDirect) {
             const int absFrame = eff->evaluatedParam(QStringLiteral("directFrame"), relFrame, fps).toInt();
             vid->seekToFrame(absFrame, vid->sourceFps());
         } else {
@@ -390,8 +379,7 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
                 vfps = fps;
             }
 
-            const double startSec = static_cast<double>(startFrame) / vfps;
-            const double targetSec = startSec + (relTime * (speed / 100.0));
+            const double targetSec = AviQtl::Core::MediaUtils::resolveVideoTime(relFrame, vfps, false, 0.0, startFrame, speed);
             vid->seekToTime(targetSec);
         }
         return;
