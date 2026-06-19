@@ -148,7 +148,7 @@ aviqtl_add_test(
 aviqtl_add_test(
     NAME plugin_manifest
     SOURCES test_plugin_manifest.cpp
-    LINKS AviQtl_Scripting
+    LINKS AviQtl_Scripting AviQtl_UI
 )
 
 # --- Plugin System Tests ---
