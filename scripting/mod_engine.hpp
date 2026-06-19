@@ -1,10 +1,36 @@
 #pragma once
 #include <QDir>
+#include <QFileSystemWatcher>
+#include <QObject>
 #include <QString>
 #include <QVariantMap>
 #include <lua.hpp>
 
 namespace AviQtl::Scripting {
+
+class PluginFileWatcher : public QObject {
+    Q_OBJECT
+  public:
+    explicit PluginFileWatcher(QObject *parent = nullptr) : QObject(parent) {}
+
+    void watchPath(const QString &path) {
+        if (!m_watcher.directories().contains(path)) {
+            m_watcher.addPath(path);
+        }
+    }
+
+    void clearPaths() {
+        for (const QString &path : m_watcher.directories()) {
+            m_watcher.removePath(path);
+        }
+    }
+
+  signals:
+    void directoryChanged(const QString &path);
+
+  private:
+    QFileSystemWatcher m_watcher;
+};
 
 struct PluginManifest {
     QString id;
@@ -66,6 +92,10 @@ class ModEngine {
     QList<PluginManifest> loadedPlugins() const { return m_loadedPlugins; }
     void unloadPlugins();
 
+    // Hot reload
+    void enableHotReload(bool enable);
+    bool isHotReloadEnabled() const { return m_hotReloadEnabled; }
+
     // Lifecycle hooks
     void onLoad();
     void onUnload();
@@ -83,7 +113,11 @@ class ModEngine {
     lua_State *L = nullptr;
     void _registerAviQtlAPI();
     void _callHook(const char *hookName, int nargs = 0);
+    void _setupFileWatcher();
+    void _onPluginDirectoryChanged(const QString &path);
     QList<PluginManifest> m_loadedPlugins;
+    PluginFileWatcher *m_fileWatcher = nullptr;
+    bool m_hotReloadEnabled = false;
 };
 
 } // namespace AviQtl::Scripting

@@ -155,6 +155,11 @@ auto main(int argc, char *argv[]) -> int {
         loadRegistry(QStringLiteral("Effects"));
         loadRegistry(QStringLiteral("Objects"));
 
+        // Enable hot reload if setting is enabled
+        if (sm.value(QStringLiteral("luaHotReload"), false).toBool()) {
+            modEngine.enableHotReload(true);
+        }
+
         // Call onLoad hook after all plugins are loaded
         modEngine.onLoad();
 

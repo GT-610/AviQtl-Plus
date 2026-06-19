@@ -603,6 +603,69 @@ void ModEngine::unloadPlugins() {
     qInfo() << "[ModEngine] Plugin list cleared (full unload requires Lua state reset)";
 }
 
+void ModEngine::enableHotReload(bool enable) {
+    if (m_hotReloadEnabled == enable) {
+        return;
+    }
+
+    m_hotReloadEnabled = enable;
+
+    if (enable) {
+        _setupFileWatcher();
+        qInfo() << "[ModEngine] Hot reload enabled";
+    } else {
+        if (m_fileWatcher) {
+            m_fileWatcher->clearPaths();
+        }
+        qInfo() << "[ModEngine] Hot reload disabled";
+    }
+}
+
+void ModEngine::_setupFileWatcher() {
+    if (m_fileWatcher) {
+        m_fileWatcher->clearPaths();
+    } else {
+        m_fileWatcher = new PluginFileWatcher();
+    }
+
+    QString pluginsPath = QCoreApplication::applicationDirPath() + QLatin1String("/plugins");
+
+    // Watch the plugins directory
+    if (QDir(pluginsPath).exists()) {
+        m_fileWatcher->watchPath(pluginsPath);
+
+        // Also watch subdirectories
+        const QStringList subdirs = QDir(pluginsPath).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString &subdir : subdirs) {
+            m_fileWatcher->watchPath(pluginsPath + QStringLiteral("/") + subdir);
+        }
+    }
+
+    QObject::connect(m_fileWatcher, &PluginFileWatcher::directoryChanged, [this](const QString &path) {
+        qInfo() << "[ModEngine] Plugin directory changed:" << path;
+        _onPluginDirectoryChanged(path);
+    });
+}
+
+void ModEngine::_onPluginDirectoryChanged(const QString &path) {
+    qInfo() << "[ModEngine] Plugin directory changed:" << path;
+
+    // Simple approach: reload all plugins
+    // A more sophisticated approach would track which plugin changed
+    // and only reload that specific plugin
+
+    // Clear current plugins
+    m_loadedPlugins.clear();
+
+    // Reload all plugins
+    loadPlugins();
+
+    // Re-call onLoad hook
+    onLoad();
+
+    qInfo() << "[ModEngine] Plugins reloaded due to file changes";
+}
+
 void ModEngine::onUpdate() {
     if (L == nullptr) {
         return;
