@@ -24,6 +24,122 @@ return {
 }
 ```
 
+## Script Parameters (Declarative UI)
+
+AviQtl supports AviUtl-style declarative parameter definitions in script headers. Parameters are automatically exposed as Lua global variables and their values persist across sessions.
+
+### Parameter Types
+
+#### Track (Slider)
+```lua
+--track@varname:label,min,max,default[,step]
+--track@speed:Speed,-100,100,0
+--track@scale:Scale,0,10,1,0.01
+```
+
+#### Check (Checkbox)
+```lua
+--check@varname:label,default
+--check@visible:Visible,true
+--check@debug:Debug Mode,false
+```
+
+#### Color
+```lua
+--color@varname:label,default
+--color@tint:Tint Color,0xff0000
+--color@bg:Background,0x000000
+```
+
+#### Select (Dropdown)
+```lua
+--select@varname:label=default,option1=value1,option2=value2
+--select@mode:Mode=fast,fast=0,normal=1,slow=2
+--select@blend:Blend=add,add=subtract=multiply=screen
+```
+
+#### Text (Multi-line)
+```lua
+--text@varname:label,default
+--text@content:Content,Default text here
+```
+
+#### String (Single-line)
+```lua
+--string@varname:label,default
+--string@name:Name,Default Name
+```
+
+#### File Selection
+```lua
+--file@varname:label
+--file@image:Image File
+```
+
+#### Folder Selection
+```lua
+--folder@varname:label
+--folder@output:Output Directory
+```
+
+#### Value (Generic)
+```lua
+--value@varname:label,default
+--value@count:Count,0
+--value@data:Data,{1,2,3}
+```
+
+### Groups
+
+Organize parameters into collapsible groups:
+
+```lua
+--group:Position
+--track@pos_x:X,-1000,1000,0
+--track@pos_y:Y,-1000,1000,0
+
+--group:Appearance
+--color@color:Color,0xffffff
+--check@visible:Visible,true
+
+--group:  -- End group
+```
+
+### Metadata Directives
+
+```lua
+--information:Script Name v1.0 by Author
+--script:lua        -- or --script:luajit (default)
+--require:2003500   -- Minimum app version
+--filter            -- Mark as filter object
+--label:Category    -- Menu label
+```
+
+### Example
+
+```lua
+--group:Movement
+--track@speed_x:X Speed,-10,10,0
+--track@speed_y:Y Speed,-10,10,0
+
+--group:Style
+--color@color:Color,0xff0000
+--check@bounce:Bounce,false
+--select@shape:Shape=circle,circle=square=triangle
+
+function AviQtlUpdateHook()
+    -- speed_x, speed_y, color, bounce, shape are automatically available
+    aviqtl.log("Speed: " .. speed_x .. ", " .. speed_y)
+end
+```
+
+### Notes
+
+- Parameters are injected as global Lua variables before script execution
+- Values persist across sessions (saved in application settings)
+- Use `--group:name` to organize parameters, `--group:` to end a group
+- Step value for track is optional (auto-detected from range)
+
 ## Permission System
 
 AviQtl implements a permission-based security model. Plugins must be granted specific permissions to access certain APIs. Permissions can be managed through the Package Manager UI.
