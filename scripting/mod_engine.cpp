@@ -208,6 +208,13 @@ static auto l_transport_play(lua_State *L) -> int {
     }
     return 0;
 }
+
+static auto l_log(lua_State *L) -> int {
+    const char *msg = luaL_checkstring(L, 1);
+    api_log(msg);
+    return 0;
+}
+
 static auto l_transport_pause(lua_State *L) -> int {
     _checkCtrl(L);
     if (!ModEngine::instance().checkPermission("transport_pause")) {
@@ -566,13 +573,19 @@ void ModEngine::initialize(void *ecsPtr) {
     lua_pushlightuserdata(L, ecsPtr);
     lua_setglobal(L, "AVIQTL_CORE_PTR");
 
+    _registerAviQtlAPI();
+    lua_pushlightuserdata(L, &g_hostApi);
+    lua_setglobal(L, "AVIQTL_HOST_API");
+    m_apiRegistered = true;
+
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
 }
 
 void ModEngine::registerController(void *controller) {
     g_ctrl = static_cast<AviQtl::UI::TimelineController *>(controller);
-    if (L != nullptr) {
+    if (L != nullptr && !m_apiRegistered) {
         _registerAviQtlAPI();
+        m_apiRegistered = true;
 
         // Export Host API Table
         lua_pushlightuserdata(L, &g_hostApi);
@@ -581,6 +594,7 @@ void ModEngine::registerController(void *controller) {
 }
 
 void ModEngine::_registerAviQtlAPI() {
+    lua_register(L, "aviqtl_log", l_log);
     // transport
     lua_register(L, "aviqtl_transport_play", l_transport_play);
     lua_register(L, "aviqtl_transport_pause", l_transport_pause);
@@ -669,6 +683,7 @@ aviqtl = {
         begin_group = aviqtl_command_begin_group,
         end_group = aviqtl_command_end_group,
     },
+    log = aviqtl_log,
     undo = aviqtl_undo,
     redo = aviqtl_redo,
 }
@@ -680,6 +695,14 @@ aviqtl = {
 }
 
 void ModEngine::loadPlugins() {
+    // Ensure API is registered (registerController may have been called before initialize)
+    if (!m_apiRegistered && L != nullptr) {
+        _registerAviQtlAPI();
+        lua_pushlightuserdata(L, &g_hostApi);
+        lua_setglobal(L, "AVIQTL_HOST_API");
+        m_apiRegistered = true;
+    }
+
     QString pluginsPath = QCoreApplication::applicationDirPath() + QLatin1String("/plugins");
     QDir dir(pluginsPath);
 
@@ -754,26 +777,22 @@ void ModEngine::loadPlugins() {
             info.filePath = mainLua;
             info.scriptMeta = scriptMeta;
 
-            for (const PluginManifest &manifest : m_loadedPlugins) {
-                QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
-                PluginManifest m = loadManifest(manifestDir);
-                if (m.isValid()) {
-                    info.manifest = m;
-                    setCurrentPluginId(m.id);
-                    m_lastLoadedPluginId = m.id;
+            QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
+            PluginManifest m = loadManifest(manifestDir);
+            if (m.isValid()) {
+                info.manifest = m;
+                setCurrentPluginId(m.id);
+                m_lastLoadedPluginId = m.id;
 
-                    // Load saved parameter values
-                    for (const ScriptParam &param : scriptMeta.params) {
-                        QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(m.id, param.varName);
-                        QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
-                        if (saved.isValid()) {
-                            info.paramValues[param.varName] = saved;
-                        } else {
-                            info.paramValues[param.varName] = param.defaultValue;
-                        }
+                // Load saved parameter values
+                for (const ScriptParam &param : scriptMeta.params) {
+                    QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(m.id, param.varName);
+                    QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
+                    if (saved.isValid()) {
+                        info.paramValues[param.varName] = saved;
+                    } else {
+                        info.paramValues[param.varName] = param.defaultValue;
                     }
-
-                    break;
                 }
             }
 
@@ -1025,6 +1044,15 @@ void ModEngine::injectPluginParams(lua_State *L, const PluginInfo &info) {
     // Inject parameter values as global Lua variables
     for (const ScriptParam &param : info.scriptMeta.params) {
         QVariant value = info.paramValues.value(param.varName, param.defaultValue);
+        if (param.type == ScriptParamType::Select && value.typeId() == QMetaType::QString) {
+            const QString text = value.toString();
+            for (const ScriptParamOption &option : param.options) {
+                if (text == option.label || text == option.value.toString()) {
+                    value = option.value;
+                    break;
+                }
+            }
+        }
 
         switch (value.typeId()) {
         case QMetaType::Bool:

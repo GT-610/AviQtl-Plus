@@ -138,6 +138,7 @@ class ModEngine {
     ModEngine(const ModEngine &) = delete;
     ModEngine &operator=(const ModEngine &) = delete;
     lua_State *L = nullptr;
+    bool m_apiRegistered = false;
     void _registerAviQtlAPI();
     void _callHook(const char *hookName, int nargs = 0);
     void _setupFileWatcher();

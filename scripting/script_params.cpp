@@ -17,7 +17,11 @@ ScriptMetadata ScriptParamParser::parseHeader(const QStringList &lines) {
     for (int i = 0; i < lines.size(); ++i) {
         const QString &line = lines[i].trimmed();
 
-        // Stop at first non-comment, non-empty line (except for block comments)
+        if (line.isEmpty()) {
+            continue;
+        }
+
+        // Stop at first non-comment line (except for block comments)
         if (!line.startsWith(QStringLiteral("--"))) {
             // Allow block comments --[[ ... ]]
             if (!line.startsWith(QStringLiteral("--[["))) {
@@ -84,16 +88,16 @@ ScriptMetadata ScriptParamParser::parseHeader(const QStringList &lines) {
         bool parsed = false;
 
         if (line.startsWith(QStringLiteral("--track@"))) {
-            param = parseTrack(line.mid(9));
+            param = parseTrack(line.mid(8));
             parsed = true;
         } else if (line.startsWith(QStringLiteral("--check@"))) {
-            param = parseCheck(line.mid(9));
+            param = parseCheck(line.mid(8));
             parsed = true;
         } else if (line.startsWith(QStringLiteral("--color@"))) {
-            param = parseColor(line.mid(9));
+            param = parseColor(line.mid(8));
             parsed = true;
         } else if (line.startsWith(QStringLiteral("--select@"))) {
-            param = parseSelect(line.mid(10));
+            param = parseSelect(line.mid(9));
             parsed = true;
         } else if (line.startsWith(QStringLiteral("--text@"))) {
             param = parseText(line.mid(7));
@@ -229,13 +233,27 @@ ScriptParam ScriptParamParser::parseSelect(const QString &def) {
     param.varName = def.left(colonIdx).trimmed();
     QString rest = def.mid(colonIdx + 1).trimmed();
 
+    QString defaultToken;
+
     // Parse label=default
     int eqIdx = rest.indexOf('=');
     int firstComma = rest.indexOf(',');
     if (eqIdx > 0 && (firstComma < 0 || eqIdx < firstComma)) {
         param.label = rest.left(eqIdx).trimmed();
-        rest = rest.mid(eqIdx + 1).trimmed();
+        defaultToken = rest.mid(eqIdx + 1, firstComma > 0 ? firstComma - eqIdx - 1 : -1).trimmed();
+        rest = firstComma > 0 ? rest.mid(firstComma + 1).trimmed() : QString();
     }
+
+    auto parseOptionValue = [](const QString &text) -> QVariant {
+        bool ok = false;
+        int intValue = text.toInt(&ok);
+        if (ok) return intValue;
+        double doubleValue = text.toDouble(&ok);
+        if (ok) return doubleValue;
+        if (text.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0) return true;
+        if (text.compare(QStringLiteral("false"), Qt::CaseInsensitive) == 0) return false;
+        return text;
+    };
 
     // Parse options
     QStringList optionParts = rest.split(',');
@@ -245,13 +263,16 @@ ScriptParam ScriptParamParser::parseSelect(const QString &def) {
         if (optEq > 0) {
             ScriptParamOption option;
             option.label = opt.left(optEq).trimmed();
-            option.value = opt.mid(optEq + 1).trimmed();
+            const QString valueText = opt.mid(optEq + 1).trimmed();
+            option.value = parseOptionValue(valueText);
             param.options.append(option);
 
-            if (isFirst) {
+            if (!defaultToken.isEmpty() && (defaultToken == option.label || defaultToken == valueText)) {
                 param.defaultValue = option.value;
-                isFirst = false;
+            } else if (isFirst && defaultToken.isEmpty()) {
+                param.defaultValue = option.value;
             }
+            isFirst = false;
         }
     }
 

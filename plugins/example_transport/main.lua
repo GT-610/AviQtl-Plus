@@ -37,8 +37,11 @@ function AviQtlUpdateHook()
 
     -- Monitor based on user-defined interval
     if is_monitoring and frame_counter % monitor_interval == 0 then
-        local current_frame = aviqtl.transport.get_frame()
-        local is_playing = aviqtl.transport.is_playing()
+        local ok_frame, current_frame = pcall(aviqtl.transport.get_frame)
+        local ok_playing, is_playing = pcall(aviqtl.transport.is_playing)
+        if not ok_frame or not ok_playing then
+            return
+        end
         log_with_level(0, string.format("Frame: %d, Playing: %s", current_frame, is_playing and "yes" or "no"))
     end
 end
