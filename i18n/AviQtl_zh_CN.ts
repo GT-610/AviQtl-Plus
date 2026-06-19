@@ -1653,32 +1653,37 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="835"/>
+        <location filename="../core/src/package_manager.cpp" line="842"/>
+        <source>Invalid package ID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="847"/>
         <source>Removing package: %1</source>
         <translation>正在删除软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="868"/>
+        <location filename="../core/src/package_manager.cpp" line="880"/>
         <source>Removal complete: %1</source>
         <translation>删除完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="915"/>
+        <location filename="../core/src/package_manager.cpp" line="927"/>
         <source>No packages to upgrade.</source>
         <translation>没有可升级的软件包。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="920"/>
+        <location filename="../core/src/package_manager.cpp" line="932"/>
         <source>Upgrading all packages...</source>
         <translation>正在升级所有软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="927"/>
+        <location filename="../core/src/package_manager.cpp" line="939"/>
         <source>All upgrades complete.</source>
         <translation>所有升级已完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="933"/>
+        <location filename="../core/src/package_manager.cpp" line="945"/>
         <source>Upgrading package: %1</source>
         <translation>正在升级软件包：%1</translation>
     </message>
@@ -3173,6 +3178,136 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
+        <source>再生制御</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
+        <source>再生、一時停止、シーク</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <source>クリップ読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <source>クリップ情報の一覧表示</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <source>クリップ変更</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <source>クリップの作成、削除、移動</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <source>エフェクト読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <source>エフェクト情報の一覧表示</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <source>エフェクト変更</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <source>エフェクトの追加、削除、変更</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <source>プロジェクト読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <source>解像度、FPS等の情報取得</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <source>プロジェクト保存</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <source>プロジェクトファイルの保存</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <source>プロジェクト読み込み</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <source>プロジェクトファイルの読み込み</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <source>シーン管理</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <source>シーンの作成、削除、切り替え</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <source>設定読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <source>プラグイン設定の読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <source>設定書き込み</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <source>プラグイン設定の保存</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <source>クリップボード</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <source>コピー、切り取り、貼り付け</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>ログ出力</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>コンソールへのログ出力</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
         <source>すべて許可</source>
         <translation type="unfinished"></translation>
@@ -3572,72 +3707,72 @@
         <translation type="obsolete">软件包管理器</translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="167"/>
+        <location filename="../core/src/permission_manager.cpp" line="186"/>
         <source>再生、一時停止、シークなどの再生制御</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="169"/>
+        <location filename="../core/src/permission_manager.cpp" line="188"/>
         <source>クリップ情報の一覧表示と読み取り</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="171"/>
+        <location filename="../core/src/permission_manager.cpp" line="190"/>
         <source>クリップの作成、削除、移動、変更</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="173"/>
+        <location filename="../core/src/permission_manager.cpp" line="192"/>
         <source>エフェクト情報の一覧表示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="175"/>
+        <location filename="../core/src/permission_manager.cpp" line="194"/>
         <source>エフェクトの追加、削除、パラメータ変更</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="177"/>
+        <location filename="../core/src/permission_manager.cpp" line="196"/>
         <source>プロジェクト情報（解像度、FPS等）の読み取り</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="179"/>
+        <location filename="../core/src/permission_manager.cpp" line="198"/>
         <source>プロジェクトファイルの保存</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="181"/>
+        <location filename="../core/src/permission_manager.cpp" line="200"/>
         <source>プロジェクトファイルの読み込み</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="183"/>
+        <location filename="../core/src/permission_manager.cpp" line="202"/>
         <source>シーンの作成、削除、切り替え</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="185"/>
+        <location filename="../core/src/permission_manager.cpp" line="204"/>
         <source>プラグイン設定の読み取り</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="187"/>
+        <location filename="../core/src/permission_manager.cpp" line="206"/>
         <source>プラグイン設定の書き込み</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="189"/>
+        <location filename="../core/src/permission_manager.cpp" line="208"/>
         <source>クリップボードへのコピー、切り取り、貼り付け</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="191"/>
+        <location filename="../core/src/permission_manager.cpp" line="210"/>
         <source>コンソールへのログ出力</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="193"/>
+        <location filename="../core/src/permission_manager.cpp" line="212"/>
         <source>不明な権限</source>
         <translation type="unfinished"></translation>
     </message>
