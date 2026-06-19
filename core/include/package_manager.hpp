@@ -64,6 +64,13 @@ class PackageManager : public QObject {
     void setHasUpdatesAvailable(bool available);
     void processUpgradeQueue();
 
+    // Package installation pipeline
+    void downloadPackage(const QString &packageId, const QUrl &url);
+    void extractAndDeploy(const QString &packageId, const QString &archivePath, const QString &packageType);
+    bool extractZip(const QString &archivePath, const QString &destDir);
+    bool deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType);
+    QString getPackageDeployDir(const QString &packageType) const;
+
     bool m_isBusy = false;
     QVariantList m_packageList;
     QNetworkAccessManager *m_networkManager;

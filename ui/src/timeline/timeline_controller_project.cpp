@@ -5,6 +5,7 @@
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
+#include "../../scripting/mod_engine.hpp"
 #include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
@@ -75,6 +76,9 @@ auto TimelineController::saveProject(const QString &fileUrl) -> bool {
         emit currentProjectUrlChanged();
         emit hasUnsavedChangesChanged();
         addRecentProject(targetUrl, m_project);
+
+        // Call onProjectSave hook
+        AviQtl::Scripting::ModEngine::instance().onProjectSave(targetUrl);
     } else {
         emit errorOccurred(error);
     }
@@ -92,6 +96,9 @@ auto TimelineController::loadProject(const QString &fileUrl) -> bool {
         emit currentProjectUrlChanged();
         emit hasUnsavedChangesChanged();
         addRecentProject(fileUrl, m_project);
+
+        // Call onProjectOpen hook
+        AviQtl::Scripting::ModEngine::instance().onProjectOpen(fileUrl);
     } else {
         emit errorOccurred(error);
     }

@@ -1,9 +1,20 @@
 #pragma once
 #include <QDir>
 #include <QString>
+#include <QVariantMap>
 #include <lua.hpp>
 
 namespace AviQtl::Scripting {
+
+struct PluginManifest {
+    QString id;
+    QString name;
+    QString version;
+    QString author;
+    QString description;
+    QString minAppVersion;
+    bool isValid() const { return !id.isEmpty() && !name.isEmpty() && !version.isEmpty(); }
+};
 
 struct HostApiTable {
     void (*log)(const char *msg);
@@ -31,6 +42,10 @@ struct HostApiTable {
     void (*scene_create)(const char *name);
     void (*scene_switch)(int sceneId);
 
+    // Settings
+    void (*settings_set)(const char *key, const char *value);
+    const char *(*settings_get)(const char *key);
+
     // Command (Undo/Redo Grouping)
     void (*command_begin_group)(const char *text);
     void (*command_end_group)();
@@ -46,6 +61,18 @@ class ModEngine {
     void loadPlugins();
     void onUpdate();
 
+    // Plugin management
+    PluginManifest loadManifest(const QString &pluginDir);
+    QList<PluginManifest> loadedPlugins() const { return m_loadedPlugins; }
+    void unloadPlugins();
+
+    // Lifecycle hooks
+    void onLoad();
+    void onUnload();
+    void onProjectOpen(const QString &path);
+    void onProjectSave(const QString &path);
+    void onClipChange();
+
     lua_State *state() { return L; }
 
   private:
@@ -55,6 +82,8 @@ class ModEngine {
     ModEngine &operator=(const ModEngine &) = delete;
     lua_State *L = nullptr;
     void _registerAviQtlAPI();
+    void _callHook(const char *hookName, int nargs = 0);
+    QList<PluginManifest> m_loadedPlugins;
 };
 
 } // namespace AviQtl::Scripting

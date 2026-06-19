@@ -155,6 +155,9 @@ auto main(int argc, char *argv[]) -> int {
         loadRegistry(QStringLiteral("Effects"));
         loadRegistry(QStringLiteral("Objects"));
 
+        // Call onLoad hook after all plugins are loaded
+        modEngine.onLoad();
+
         // 第三引数に &app (メインスレッド所属) を渡してメインスレッドで実行されるようにする
         QObject::connect(&Engine::Plugin::AudioPluginManager::instance(), &Engine::Plugin::AudioPluginManager::pluginsReady, &app, [&]() {
             UI::WindowManager::instance().showLauncher(&engine);

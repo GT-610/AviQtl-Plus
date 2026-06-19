@@ -1,14 +1,18 @@
 #include "package_manager.hpp"
+#include "effect_registry.hpp"
 #include "settings_manager.hpp"
 #include "version.hpp" // AviQtl本体のバージョン情報にアクセスするため
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QProcess>
+#include <QTemporaryDir>
 #include <QTimer>
 #include <QXmlStreamReader>
 
@@ -24,6 +28,39 @@ QString getInstalledPackagesPath() {
     const QString path = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
     QDir().mkpath(path);
     return path + QStringLiteral("/installed.json");
+}
+
+bool copyDirectory(const QString &srcPath, const QString &destPath) {
+    QDir srcDir(srcPath);
+    if (!srcDir.exists()) {
+        return false;
+    }
+
+    QDir destDir(destPath);
+    if (!destDir.exists()) {
+        QDir().mkpath(destPath);
+    }
+
+    const QStringList entries = srcDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &entry : entries) {
+        const QString srcFilePath = srcDir.absoluteFilePath(entry);
+        const QString destFilePath = destPath + QStringLiteral("/") + entry;
+        QFileInfo srcInfo(srcFilePath);
+
+        if (srcInfo.isDir()) {
+            if (!copyDirectory(srcFilePath, destFilePath)) {
+                return false;
+            }
+        } else {
+            if (QFile::exists(destFilePath)) {
+                QFile::remove(destFilePath);
+            }
+            if (!QFile::copy(srcFilePath, destFilePath)) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 int compareVersions(const QString &v1, const QString &v2) {
@@ -546,90 +583,290 @@ void PackageManager::installPackage(const QString &packageId, const QString &ass
         return;
     }
 
-    const QString versionToInstall = pkg.value(QStringLiteral("latest_version")).toString();
-    const QString downloadUrl = assetUrl;
+    // Self-update is handled separately
+    if (packageId == QStringLiteral("org.aviqtl.app")) {
+        const QString versionToInstall = pkg.value(QStringLiteral("latest_version")).toString();
+        emit selfUpdateAvailable(versionToInstall, assetUrl);
+        setStatus(tr("AviQtl update available. Restart to apply."));
+        return;
+    }
 
+    downloadPackage(packageId, QUrl(assetUrl));
+}
+
+void PackageManager::downloadPackage(const QString &packageId, const QUrl &url) {
     setBusy(true);
-    setStatus(tr("Installing package: %1").arg(packageId));
+    setStatus(tr("Downloading package: %1").arg(packageId));
     setProgress(0.0);
 
-    QTimer::singleShot(1500, this, [this, packageId, versionToInstall, downloadUrl]() {
-        setProgress(1.0);
-        setStatus(tr("Installation complete: %1").arg(packageId));
-        setBusy(false);
+    QNetworkReply *reply = m_networkManager->get(QNetworkRequest(url));
+    connect(reply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (total > 0) {
+            setProgress(static_cast<double>(received) / total * 0.5); // 0-50% for download
+        }
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, packageId, url]() {
+        reply->deleteLater();
 
-        // インストール済み情報の保存
-        QVariantMap installed = loadInstalledPackagesFromFile();
-        QVariantMap info;
-        info[QStringLiteral("version")] = versionToInstall;
-        installed[packageId] = info;
-
-        if (packageId == QStringLiteral("org.aviqtl.app")) {
-            emit selfUpdateAvailable(versionToInstall, downloadUrl);
-            setStatus(tr("AviQtl update available. Restart to apply."));
+        if (reply->error() != QNetworkReply::NoError) {
+            setBusy(false);
+            emit errorOccurred(tr("Download failed: %1").arg(reply->errorString()));
             return;
         }
 
-        QFile file(getInstalledPackagesPath());
-        if (file.open(QIODevice::WriteOnly)) {
-            file.write(QJsonDocument::fromVariant(installed).toJson());
-            file.close();
-        }
-
-        emit packageInstalled(packageId);
-
-        // リストの状態を更新
-        bool anyUpdates = false;
-        for (int i = 0; i < m_packageList.size(); ++i) {
-            QVariantMap item = m_packageList[i].toMap();
-            if (item.value("id").toString() == packageId) {
-                item[QStringLiteral("installed_version")] = versionToInstall;
-                m_packageList[i] = item;
-                emit packageListChanged();
-            }
-            // アップデートの有無を再評価
-            const QString installedVer = item.value(QStringLiteral("installed_version")).toString();
-            const QString latestVer = item.value(QStringLiteral("latest_version")).toString();
-            if (!installedVer.isEmpty() && !latestVer.isEmpty() && compareVersions(latestVer, installedVer) > 0) {
-                anyUpdates = true;
+        // Get package type
+        QVariantMap pkg;
+        for (const auto &p : std::as_const(m_packageList)) {
+            if (p.toMap().value(QStringLiteral("id")).toString() == packageId) {
+                pkg = p.toMap();
+                break;
             }
         }
-        setHasUpdatesAvailable(anyUpdates);
+        const QString packageType = pkg.value(QStringLiteral("type")).toString();
+
+        // Save to temp file
+        QTemporaryDir tempDir;
+        if (!tempDir.isValid()) {
+            setBusy(false);
+            emit errorOccurred(tr("Failed to create temporary directory."));
+            return;
+        }
+
+        const QString fileName = url.fileName();
+        if (fileName.isEmpty()) {
+            setBusy(false);
+            emit errorOccurred(tr("Invalid download URL."));
+            return;
+        }
+
+        const QString archivePath = tempDir.path() + QStringLiteral("/") + fileName;
+        QFile file(archivePath);
+        if (!file.open(QIODevice::WriteOnly)) {
+            setBusy(false);
+            emit errorOccurred(tr("Failed to save downloaded file."));
+            return;
+        }
+        file.write(reply->readAll());
+        file.close();
+
+        setStatus(tr("Extracting package..."));
+        setProgress(0.6);
+
+        // Extract and deploy
+        extractAndDeploy(packageId, archivePath, packageType);
     });
+}
+
+void PackageManager::extractAndDeploy(const QString &packageId, const QString &archivePath, const QString &packageType) {
+    QTemporaryDir extractDir;
+    if (!extractDir.isValid()) {
+        setBusy(false);
+        emit errorOccurred(tr("Failed to create extraction directory."));
+        return;
+    }
+
+    // Extract archive
+    if (!extractZip(archivePath, extractDir.path())) {
+        setBusy(false);
+        emit errorOccurred(tr("Failed to extract package archive."));
+        return;
+    }
+
+    setStatus(tr("Deploying package files..."));
+    setProgress(0.8);
+
+    // Deploy files to correct location
+    if (!deployPackageFiles(packageId, extractDir.path(), packageType)) {
+        setBusy(false);
+        emit errorOccurred(tr("Failed to deploy package files."));
+        return;
+    }
+
+    // Get version info
+    const QString versionToInstall = [this, packageId]() {
+        for (const auto &p : std::as_const(m_packageList)) {
+            if (p.toMap().value(QStringLiteral("id")).toString() == packageId) {
+                return p.toMap().value(QStringLiteral("latest_version")).toString();
+            }
+        }
+        return QString();
+    }();
+
+    // Save installed info
+    QVariantMap installed = loadInstalledPackagesFromFile();
+    QVariantMap info;
+    info[QStringLiteral("version")] = versionToInstall;
+    installed[packageId] = info;
+
+    QFile installedFile(getInstalledPackagesPath());
+    if (installedFile.open(QIODevice::WriteOnly)) {
+        installedFile.write(QJsonDocument::fromVariant(installed).toJson());
+        installedFile.close();
+    }
+
+    // Reload effects/objects if needed
+    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
+        const QString deployDir = getPackageDeployDir(packageType);
+        EffectRegistry::instance().loadEffectsFromDirectory(deployDir);
+    } else if (packageType == QStringLiteral("mod")) {
+        // Mods will be loaded on next app restart
+    }
+
+    setProgress(1.0);
+    setStatus(tr("Installation complete: %1").arg(packageId));
+    setBusy(false);
+
+    emit packageInstalled(packageId);
+
+    // Update list state
+    bool anyUpdates = false;
+    for (int i = 0; i < m_packageList.size(); ++i) {
+        QVariantMap item = m_packageList[i].toMap();
+        if (item.value(QStringLiteral("id")).toString() == packageId) {
+            item[QStringLiteral("installed_version")] = versionToInstall;
+            m_packageList[i] = item;
+            emit packageListChanged();
+        }
+        const QString installedVer = item.value(QStringLiteral("installed_version")).toString();
+        const QString latestVer = item.value(QStringLiteral("latest_version")).toString();
+        if (!installedVer.isEmpty() && !latestVer.isEmpty() && compareVersions(latestVer, installedVer) > 0) {
+            anyUpdates = true;
+        }
+    }
+    setHasUpdatesAvailable(anyUpdates);
+}
+
+bool PackageManager::extractZip(const QString &archivePath, const QString &destDir) {
+    QProcess process;
+
+#ifdef Q_OS_WIN
+    // Use PowerShell on Windows
+    const QString cmd = QStringLiteral("Expand-Archive");
+    const QStringList args = {
+        QStringLiteral("-Path"), archivePath,
+        QStringLiteral("-DestinationPath"), destDir,
+        QStringLiteral("-Force")
+    };
+    process.start(QStringLiteral("powershell"), {QStringLiteral("-Command"), cmd + " " + args.join(" ")});
+#else
+    // Use unzip on Linux/macOS
+    process.start(QStringLiteral("unzip"), {QStringLiteral("-o"), archivePath, QStringLiteral("-d"), destDir});
+#endif
+
+    process.waitForFinished(30000);
+    return process.exitCode() == 0;
+}
+
+bool PackageManager::deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType) {
+    const QString deployBase = getPackageDeployDir(packageType);
+    if (deployBase.isEmpty()) {
+        return false;
+    }
+
+    // Create package-specific subdirectory
+    const QString packageDir = deployBase + QStringLiteral("/") + packageId;
+    QDir().mkpath(packageDir);
+
+    // Find the content to deploy
+    QDir sourceDir(extractDir);
+    QStringList entries = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+
+    // If archive contains a single directory, use its contents
+    if (entries.size() == 1) {
+        QFileInfo fi(sourceDir.absoluteFilePath(entries.first()));
+        if (fi.isDir()) {
+            sourceDir.cd(entries.first());
+            entries = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+        }
+    }
+
+    // Copy all files
+    for (const QString &entry : std::as_const(entries)) {
+        const QString srcPath = sourceDir.absoluteFilePath(entry);
+        const QString destPath = packageDir + QStringLiteral("/") + entry;
+        QFileInfo srcInfo(srcPath);
+
+        if (srcInfo.isDir()) {
+            if (!copyDirectory(srcPath, destPath)) {
+                return false;
+            }
+        } else {
+            if (QFile::exists(destPath)) {
+                QFile::remove(destPath);
+            }
+            if (!QFile::copy(srcPath, destPath)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+QString PackageManager::getPackageDeployDir(const QString &packageType) const {
+    const QString appDir = QCoreApplication::applicationDirPath();
+
+    if (packageType == QStringLiteral("mod")) {
+        return appDir + QStringLiteral("/plugins");
+    } else if (packageType == QStringLiteral("effect")) {
+        return appDir + QStringLiteral("/effects");
+    } else if (packageType == QStringLiteral("object")) {
+        return appDir + QStringLiteral("/objects");
+    }
+
+    // Default to plugins directory
+    return appDir + QStringLiteral("/plugins");
 }
 
 void PackageManager::removePackage(const QString &packageId) {
     if (m_isBusy || packageId == QStringLiteral("org.aviqtl.app"))
         return;
 
+    // Get package type to determine file location
+    QVariantMap pkg;
+    for (const auto &p : std::as_const(m_packageList)) {
+        if (p.toMap().value(QStringLiteral("id")).toString() == packageId) {
+            pkg = p.toMap();
+            break;
+        }
+    }
+
     setBusy(true);
     setStatus(tr("Removing package: %1").arg(packageId));
 
-    QTimer::singleShot(500, this, [this, packageId]() {
-        QVariantMap installed = loadInstalledPackagesFromFile();
-        if (installed.remove(packageId)) {
-            QFile file(getInstalledPackagesPath());
-            if (file.open(QIODevice::WriteOnly)) {
-                file.write(QJsonDocument::fromVariant(installed).toJson());
-                file.close();
-            }
-        }
+    const QString packageType = pkg.value(QStringLiteral("type")).toString();
+    const QString deployDir = getPackageDeployDir(packageType);
+    const QString packageDir = deployDir + QStringLiteral("/") + packageId;
 
-        // リストの状態を更新
-        for (int i = 0; i < m_packageList.size(); ++i) {
-            QVariantMap item = m_packageList[i].toMap();
-            if (item.value(QStringLiteral("id")).toString() == packageId) {
-                item.remove(QStringLiteral("installed_version"));
-                m_packageList[i] = item;
-                emit packageListChanged();
-                break;
-            }
-        }
+    // Remove package files
+    if (QDir(packageDir).exists()) {
+        QDir(packageDir).removeRecursively();
+    }
 
-        setBusy(false);
-        setStatus(tr("Removal complete: %1").arg(packageId));
-        emit packageRemoved(packageId);
-    });
+    // Remove from installed list
+    QVariantMap installed = loadInstalledPackagesFromFile();
+    if (installed.remove(packageId)) {
+        QFile file(getInstalledPackagesPath());
+        if (file.open(QIODevice::WriteOnly)) {
+            file.write(QJsonDocument::fromVariant(installed).toJson());
+            file.close();
+        }
+    }
+
+    // Update list state
+    for (int i = 0; i < m_packageList.size(); ++i) {
+        QVariantMap item = m_packageList[i].toMap();
+        if (item.value(QStringLiteral("id")).toString() == packageId) {
+            item.remove(QStringLiteral("installed_version"));
+            m_packageList[i] = item;
+            emit packageListChanged();
+            break;
+        }
+    }
+
+    setBusy(false);
+    setStatus(tr("Removal complete: %1").arg(packageId));
+    emit packageRemoved(packageId);
 }
 
 QVariantList PackageManager::searchPackages(const QString &query) const {

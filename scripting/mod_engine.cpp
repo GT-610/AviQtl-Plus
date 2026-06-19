@@ -1,8 +1,11 @@
 #include "mod_engine.hpp"
 #include "lua_host.hpp"
 #include "../ui/include/timeline_controller.hpp"
+#include "../core/include/settings_manager.hpp"
 #include <QCoreApplication>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMetaObject>
 #include <QVariant>
 
@@ -87,6 +90,22 @@ static void api_command_end_group() {
         g_ctrl->timeline()->undoStack()->endMacro();
     }
 }
+
+// Settings API
+static char g_settings_buf[4096]; // Buffer for returning strings
+static void api_settings_set(const char *key, const char *value) {
+    AviQtl::Core::SettingsManager::instance().setValue(QString::fromUtf8(key), QString::fromUtf8(value));
+}
+static const char *api_settings_get(const char *key) {
+    QString val = AviQtl::Core::SettingsManager::instance().value(QString::fromUtf8(key)).toString();
+    QByteArray bytes = val.toUtf8();
+    if (bytes.size() >= (int)sizeof(g_settings_buf)) {
+        bytes.resize(sizeof(g_settings_buf) - 1);
+    }
+    memcpy(g_settings_buf, bytes.constData(), bytes.size());
+    g_settings_buf[bytes.size()] = '\0';
+    return g_settings_buf;
+}
 }
 
 static HostApiTable g_hostApi = {.log = api_log,
@@ -105,6 +124,8 @@ static HostApiTable g_hostApi = {.log = api_log,
                                  .project_get_fps = api_project_get_fps,
                                  .scene_create = api_scene_create,
                                  .scene_switch = api_scene_switch,
+                                 .settings_set = api_settings_set,
+                                 .settings_get = api_settings_get,
                                  .command_begin_group = api_command_begin_group,
                                  .command_end_group = api_command_end_group};
 
@@ -303,6 +324,20 @@ static auto l_redo(lua_State *L) -> int {
     return 0;
 }
 
+// settings
+static auto l_settings_set(lua_State *L) -> int {
+    const char *key = luaL_checkstring(L, 1);
+    const char *value = luaL_checkstring(L, 2);
+    api_settings_set(key, value);
+    return 0;
+}
+static auto l_settings_get(lua_State *L) -> int {
+    const char *key = luaL_checkstring(L, 1);
+    const char *value = api_settings_get(key);
+    lua_pushstring(L, value);
+    return 1;
+}
+
 // scene
 static auto l_scene_create(lua_State *L) -> int {
     _checkCtrl(L);
@@ -404,6 +439,9 @@ void ModEngine::_registerAviQtlAPI() {
     // undo/redo
     lua_register(L, "aviqtl_undo", l_undo);
     lua_register(L, "aviqtl_redo", l_redo);
+    // settings
+    lua_register(L, "aviqtl_settings_set", l_settings_set);
+    lua_register(L, "aviqtl_settings_get", l_settings_get);
     // scene
     lua_register(L, "aviqtl_scene_create", l_scene_create);
     lua_register(L, "aviqtl_scene_remove", l_scene_remove);
@@ -451,6 +489,10 @@ aviqtl = {
         remove = aviqtl_scene_remove,
         switch = aviqtl_scene_switch,
     },
+    settings = {
+        set = aviqtl_settings_set,
+        get = aviqtl_settings_get,
+    },
     command = {
         begin_group = aviqtl_command_begin_group,
         end_group = aviqtl_command_end_group,
@@ -474,6 +516,18 @@ void ModEngine::loadPlugins() {
         return;
     }
 
+    // First pass: load manifests
+    const QStringList subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &subdir : subdirs) {
+        QString pluginDir = pluginsPath + QStringLiteral("/") + subdir;
+        PluginManifest manifest = loadManifest(pluginDir);
+        if (manifest.isValid()) {
+            qInfo() << "[ModEngine] Found plugin:" << manifest.name << "v" << manifest.version << "(" << manifest.id << ")";
+            m_loadedPlugins.append(manifest);
+        }
+    }
+
+    // Second pass: load Lua files (both from root and subdirectories)
     QStringList filters;
     filters << QStringLiteral("*.lua");
     QFileInfoList files = dir.entryInfoList(filters, QDir::Files, QDir::Name);
@@ -485,20 +539,127 @@ void ModEngine::loadPlugins() {
             lua_pop(L, 1);
         }
     }
+
+    // Load from subdirectories that have main.lua
+    for (const QString &subdir : subdirs) {
+        QString mainLua = pluginsPath + QStringLiteral("/") + subdir + QStringLiteral("/main.lua");
+        if (QFile::exists(mainLua)) {
+            qInfo() << "[ModEngine] Loading plugin:" << subdir;
+            if (luaL_dofile(L, mainLua.toUtf8().constData())) {
+                qCritical() << "[ModEngine] Plugin Error:" << lua_tostring(L, -1);
+                lua_pop(L, 1);
+            }
+        }
+    }
+}
+
+PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
+    PluginManifest manifest;
+    QString manifestPath = pluginDir + QStringLiteral("/manifest.lua");
+
+    if (!QFile::exists(manifestPath)) {
+        return manifest;
+    }
+
+    // Load and execute manifest.lua to get the manifest table
+    if (luaL_dofile(L, manifestPath.toUtf8().constData()) != LUA_OK) {
+        qWarning() << "[ModEngine] Failed to load manifest:" << lua_tostring(L, -1);
+        lua_pop(L, 1);
+        return manifest;
+    }
+
+    // Get the returned table
+    if (!lua_istable(L, -1)) {
+        qWarning() << "[ModEngine] Manifest must return a table";
+        lua_pop(L, 1);
+        return manifest;
+    }
+
+    // Extract fields
+    auto getString = [&](const char *key) -> QString {
+        lua_getfield(L, -1, key);
+        const char *val = lua_tostring(L, -1);
+        QString result = val ? QString::fromUtf8(val) : QString();
+        lua_pop(L, 1);
+        return result;
+    };
+
+    manifest.id = getString("id");
+    manifest.name = getString("name");
+    manifest.version = getString("version");
+    manifest.author = getString("author");
+    manifest.description = getString("description");
+    manifest.minAppVersion = getString("min_app_version");
+
+    lua_pop(L, 1); // Pop the table
+    return manifest;
+}
+
+void ModEngine::unloadPlugins() {
+    // Note: Lua doesn't have a built-in unload mechanism
+    // We would need to track loaded chunks and their globals
+    // For now, this just clears the manifest list
+    m_loadedPlugins.clear();
+    qInfo() << "[ModEngine] Plugin list cleared (full unload requires Lua state reset)";
 }
 
 void ModEngine::onUpdate() {
     if (L == nullptr) {
         return;
     }
-    lua_getglobal(L, "AviQtlUpdateHook");
+    _callHook("AviQtlUpdateHook");
+}
+
+void ModEngine::onLoad() {
+    if (L == nullptr) {
+        return;
+    }
+    _callHook("AviQtlOnLoad");
+    qInfo() << "[ModEngine] onLoad hook called";
+}
+
+void ModEngine::onUnload() {
+    if (L == nullptr) {
+        return;
+    }
+    _callHook("AviQtlOnUnload");
+    qInfo() << "[ModEngine] onUnload hook called";
+}
+
+void ModEngine::onProjectOpen(const QString &path) {
+    if (L == nullptr) {
+        return;
+    }
+    lua_pushstring(L, path.toUtf8().constData());
+    _callHook("AviQtlOnProjectOpen", 1);
+    qInfo() << "[ModEngine] onProjectOpen hook called:" << path;
+}
+
+void ModEngine::onProjectSave(const QString &path) {
+    if (L == nullptr) {
+        return;
+    }
+    lua_pushstring(L, path.toUtf8().constData());
+    _callHook("AviQtlOnProjectSave", 1);
+    qInfo() << "[ModEngine] onProjectSave hook called:" << path;
+}
+
+void ModEngine::onClipChange() {
+    if (L == nullptr) {
+        return;
+    }
+    _callHook("AviQtlOnClipChange");
+}
+
+void ModEngine::_callHook(const char *hookName, int nargs) {
+    lua_getglobal(L, hookName);
     if (lua_isfunction(L, -1)) {
-        if (lua_pcall(L, 0, 0, 0) != 0) {
-            qCritical() << "[ModEngine] Hook Error:" << lua_tostring(L, -1);
+        if (lua_pcall(L, nargs, 0, 0) != 0) {
+            qCritical() << "[ModEngine] Hook" << hookName << "Error:" << lua_tostring(L, -1);
             lua_pop(L, 1);
         }
     } else {
-        lua_pop(L, 1);
+        lua_pop(L, 1 + nargs);
     }
 }
 
