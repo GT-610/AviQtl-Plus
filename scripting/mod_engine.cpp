@@ -2,6 +2,7 @@
 #include "lua_host.hpp"
 #include "../ui/include/timeline_controller.hpp"
 #include "../core/include/settings_manager.hpp"
+#include "../core/include/permission_manager.hpp"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QJsonDocument>
@@ -17,6 +18,9 @@ static AviQtl::UI::TimelineController *g_ctrl = nullptr;
 // C API Wrappers for HostApiTable
 extern "C" {
 static void api_log(const char *msg) {
+    if (!ModEngine::instance().checkPermission("log")) {
+        return; // Silently deny log output
+    }
     if (g_ctrl != nullptr) {
         AviQtl::UI::TimelineController::log(QString::fromUtf8(msg));
     }
@@ -129,6 +133,56 @@ static HostApiTable g_hostApi = {.log = api_log,
                                  .command_begin_group = api_command_begin_group,
                                  .command_end_group = api_command_end_group};
 
+bool ModEngine::checkPermission(const char *apiName) const {
+    if (m_currentPluginId.isEmpty()) {
+        return true; // No plugin context, allow (for direct calls)
+    }
+
+    auto &permMgr = AviQtl::Core::PermissionManager::instance();
+
+    // Map API names to permissions
+    struct ApiPermMap {
+        const char *prefix;
+        AviQtl::Core::PluginPermission permission;
+    };
+
+    static const ApiPermMap apiPermMap[] = {
+        {"transport", AviQtl::Core::PluginPermission::TransportControl},
+        {"clip_list", AviQtl::Core::PluginPermission::ClipRead},
+        {"clip_create", AviQtl::Core::PluginPermission::ClipModify},
+        {"clip_delete", AviQtl::Core::PluginPermission::ClipModify},
+        {"clip_update", AviQtl::Core::PluginPermission::ClipModify},
+        {"clip_select", AviQtl::Core::PluginPermission::ClipRead},
+        {"clip_split", AviQtl::Core::PluginPermission::ClipModify},
+        {"clip_copy", AviQtl::Core::PluginPermission::ClipboardAccess},
+        {"clip_cut", AviQtl::Core::PluginPermission::ClipboardAccess},
+        {"clip_paste", AviQtl::Core::PluginPermission::ClipboardAccess},
+        {"effect_add", AviQtl::Core::PluginPermission::EffectModify},
+        {"effect_remove", AviQtl::Core::PluginPermission::EffectModify},
+        {"effect_set_param", AviQtl::Core::PluginPermission::EffectModify},
+        {"project_width", AviQtl::Core::PluginPermission::ProjectRead},
+        {"project_height", AviQtl::Core::PluginPermission::ProjectRead},
+        {"project_fps", AviQtl::Core::PluginPermission::ProjectRead},
+        {"project_save", AviQtl::Core::PluginPermission::ProjectSave},
+        {"project_load", AviQtl::Core::PluginPermission::ProjectLoad},
+        {"scene_create", AviQtl::Core::PluginPermission::SceneManage},
+        {"scene_remove", AviQtl::Core::PluginPermission::SceneManage},
+        {"scene_switch", AviQtl::Core::PluginPermission::SceneManage},
+        {"settings_set", AviQtl::Core::PluginPermission::SettingsWrite},
+        {"settings_get", AviQtl::Core::PluginPermission::SettingsRead},
+        {"log", AviQtl::Core::PluginPermission::LogOutput},
+    };
+
+    for (const auto &entry : apiPermMap) {
+        if (strncmp(apiName, entry.prefix, strlen(entry.prefix)) == 0) {
+            return permMgr.hasPermission(m_currentPluginId, entry.permission);
+        }
+    }
+
+    // Default: allow if no specific permission required
+    return true;
+}
+
 // ヘルパー
 static auto _checkCtrl(lua_State *L) -> int {
     if (g_ctrl == nullptr) {
@@ -141,6 +195,10 @@ static auto _checkCtrl(lua_State *L) -> int {
 // transport
 static auto l_transport_play(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("transport_play")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: transport.control");
+        return lua_error(L);
+    }
     if (!g_ctrl->transport()->isPlaying()) {
         g_ctrl->transport()->togglePlay();
     }
@@ -148,6 +206,10 @@ static auto l_transport_play(lua_State *L) -> int {
 }
 static auto l_transport_pause(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("transport_pause")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: transport.control");
+        return lua_error(L);
+    }
     if (g_ctrl->transport()->isPlaying()) {
         g_ctrl->transport()->togglePlay();
     }
@@ -155,22 +217,38 @@ static auto l_transport_pause(lua_State *L) -> int {
 }
 static auto l_transport_toggle(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("transport_toggle")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: transport.control");
+        return lua_error(L);
+    }
     g_ctrl->transport()->togglePlay();
     return 0;
 }
 static auto l_transport_seek(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("transport_seek")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: transport.control");
+        return lua_error(L);
+    }
     int frame = static_cast<int>(luaL_checkinteger(L, 1));
     g_ctrl->transport()->setCurrentFrame(frame);
     return 0;
 }
 static auto l_transport_get_frame(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("transport_get_frame")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: transport.control");
+        return lua_error(L);
+    }
     lua_pushinteger(L, g_ctrl->transport()->currentFrame());
     return 1;
 }
 static auto l_transport_is_playing(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("transport_is_playing")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: transport.control");
+        return lua_error(L);
+    }
     lua_pushboolean(L, static_cast<int>(g_ctrl->transport()->isPlaying()));
     return 1;
 }
@@ -178,6 +256,10 @@ static auto l_transport_is_playing(lua_State *L) -> int {
 // clip
 static auto l_clip_create(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_create")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clip.modify");
+        return lua_error(L);
+    }
     // aviqtl_clip_create(type, startFrame, layer)
     const char *type = luaL_checkstring(L, 1);
     int startFrame = static_cast<int>(luaL_checkinteger(L, 2));
@@ -187,12 +269,20 @@ static auto l_clip_create(lua_State *L) -> int {
 }
 static auto l_clip_delete(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_delete")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clip.modify");
+        return lua_error(L);
+    }
     int clipId = static_cast<int>(luaL_checkinteger(L, 1));
     g_ctrl->deleteClip(clipId);
     return 0;
 }
 static auto l_clip_update(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_update")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clip.modify");
+        return lua_error(L);
+    }
     // aviqtl_clip_update(clipId, layer, startFrame, duration)
     int id = static_cast<int>(luaL_checkinteger(L, 1));
     int layer = static_cast<int>(luaL_checkinteger(L, 2));
@@ -203,31 +293,55 @@ static auto l_clip_update(lua_State *L) -> int {
 }
 static auto l_clip_select(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_select")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clip.read");
+        return lua_error(L);
+    }
     g_ctrl->selectClip(static_cast<int>(luaL_checkinteger(L, 1)));
     return 0;
 }
 static auto l_clip_split(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_split")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clip.modify");
+        return lua_error(L);
+    }
     g_ctrl->splitClip(static_cast<int>(luaL_checkinteger(L, 1)), static_cast<int>(luaL_checkinteger(L, 2)));
     return 0;
 }
 static auto l_clip_copy(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_copy")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clipboard.access");
+        return lua_error(L);
+    }
     g_ctrl->copyClip(static_cast<int>(luaL_checkinteger(L, 1)));
     return 0;
 }
 static auto l_clip_cut(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_cut")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clipboard.access");
+        return lua_error(L);
+    }
     g_ctrl->cutClip(static_cast<int>(luaL_checkinteger(L, 1)));
     return 0;
 }
 static auto l_clip_paste(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_paste")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clipboard.access");
+        return lua_error(L);
+    }
     g_ctrl->pasteClip(static_cast<int>(luaL_checkinteger(L, 1)), static_cast<int>(luaL_checkinteger(L, 2)));
     return 0;
 }
 static auto l_clip_list(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("clip_list")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: clip.read");
+        return lua_error(L);
+    }
     QVariantList clips = g_ctrl->clips();
     lua_newtable(L);
     for (int i = 0; i < clips.size(); i++) {
@@ -257,16 +371,28 @@ static auto l_clip_list(lua_State *L) -> int {
 // effect
 static auto l_effect_add(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("effect_add")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: effect.modify");
+        return lua_error(L);
+    }
     g_ctrl->addEffect(static_cast<int>(luaL_checkinteger(L, 1)), QString::fromUtf8(luaL_checkstring(L, 2)));
     return 0;
 }
 static auto l_effect_remove(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("effect_remove")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: effect.modify");
+        return lua_error(L);
+    }
     g_ctrl->removeEffect(static_cast<int>(luaL_checkinteger(L, 1)), static_cast<int>(luaL_checkinteger(L, 2)));
     return 0;
 }
 static auto l_effect_set_param(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("effect_set_param")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: effect.modify");
+        return lua_error(L);
+    }
     // aviqtl_effect_set_param(clipId, effectIndex, paramName, value)
     int clipId = static_cast<int>(luaL_checkinteger(L, 1));
     int effectIndex = static_cast<int>(luaL_checkinteger(L, 2));
@@ -286,27 +412,47 @@ static auto l_effect_set_param(lua_State *L) -> int {
 // project
 static auto l_project_get_width(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("project_width")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: project.read");
+        return lua_error(L);
+    }
     lua_pushinteger(L, g_ctrl->project()->width());
     return 1;
 }
 static auto l_project_get_height(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("project_height")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: project.read");
+        return lua_error(L);
+    }
     lua_pushinteger(L, g_ctrl->project()->height());
     return 1;
 }
 static auto l_project_get_fps(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("project_fps")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: project.read");
+        return lua_error(L);
+    }
     lua_pushnumber(L, g_ctrl->project()->fps());
     return 1;
 }
 static auto l_project_save(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("project_save")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: project.save");
+        return lua_error(L);
+    }
     bool ok = g_ctrl->saveProject(QString::fromUtf8(luaL_checkstring(L, 1)));
     lua_pushboolean(L, static_cast<int>(ok));
     return 1;
 }
 static auto l_project_load(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("project_load")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: project.load");
+        return lua_error(L);
+    }
     bool ok = g_ctrl->loadProject(QString::fromUtf8(luaL_checkstring(L, 1)));
     lua_pushboolean(L, static_cast<int>(ok));
     return 1;
@@ -315,23 +461,33 @@ static auto l_project_load(lua_State *L) -> int {
 // undo/redo
 static auto l_undo(lua_State *L) -> int {
     _checkCtrl(L);
+    // Undo/redo is allowed by default (no specific permission required)
     g_ctrl->undo();
     return 0;
 }
 static auto l_redo(lua_State *L) -> int {
     _checkCtrl(L);
+    // Undo/redo is allowed by default (no specific permission required)
     g_ctrl->redo();
     return 0;
 }
 
 // settings
 static auto l_settings_set(lua_State *L) -> int {
+    if (!ModEngine::instance().checkPermission("settings_set")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: settings.write");
+        return lua_error(L);
+    }
     const char *key = luaL_checkstring(L, 1);
     const char *value = luaL_checkstring(L, 2);
     api_settings_set(key, value);
     return 0;
 }
 static auto l_settings_get(lua_State *L) -> int {
+    if (!ModEngine::instance().checkPermission("settings_get")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: settings.read");
+        return lua_error(L);
+    }
     const char *key = luaL_checkstring(L, 1);
     const char *value = api_settings_get(key);
     lua_pushstring(L, value);
@@ -341,16 +497,28 @@ static auto l_settings_get(lua_State *L) -> int {
 // scene
 static auto l_scene_create(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("scene_create")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: scene.manage");
+        return lua_error(L);
+    }
     g_ctrl->createScene(QString::fromUtf8(luaL_checkstring(L, 1)));
     return 0;
 }
 static auto l_scene_remove(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("scene_remove")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: scene.manage");
+        return lua_error(L);
+    }
     g_ctrl->removeScene(static_cast<int>(luaL_checkinteger(L, 1)));
     return 0;
 }
 static auto l_scene_switch(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("scene_switch")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: scene.manage");
+        return lua_error(L);
+    }
     g_ctrl->switchScene(static_cast<int>(luaL_checkinteger(L, 1)));
     return 0;
 }
@@ -545,10 +713,23 @@ void ModEngine::loadPlugins() {
         QString mainLua = pluginsPath + QStringLiteral("/") + subdir + QStringLiteral("/main.lua");
         if (QFile::exists(mainLua)) {
             qInfo() << "[ModEngine] Loading plugin:" << subdir;
+
+            // Find the plugin manifest to get the ID for permission checking
+            for (const PluginManifest &manifest : m_loadedPlugins) {
+                // Match by directory name or use the manifest we loaded earlier
+                QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
+                PluginManifest m = loadManifest(manifestDir);
+                if (m.isValid()) {
+                    setCurrentPluginId(m.id);
+                    break;
+                }
+            }
+
             if (luaL_dofile(L, mainLua.toUtf8().constData())) {
                 qCritical() << "[ModEngine] Plugin Error:" << lua_tostring(L, -1);
                 lua_pop(L, 1);
             }
+            setCurrentPluginId(QString()); // Clear after loading
         }
     }
 }

@@ -6,6 +6,10 @@
 #include <QVariantMap>
 #include <lua.hpp>
 
+namespace AviQtl::Core {
+class PermissionManager;
+}
+
 namespace AviQtl::Scripting {
 
 class PluginFileWatcher : public QObject {
@@ -96,6 +100,11 @@ class ModEngine {
     void enableHotReload(bool enable);
     bool isHotReloadEnabled() const { return m_hotReloadEnabled; }
 
+    // Permission checking
+    bool checkPermission(const char *apiName) const;
+    void setCurrentPluginId(const QString &pluginId) { m_currentPluginId = pluginId; }
+    QString currentPluginId() const { return m_currentPluginId; }
+
     // Lifecycle hooks
     void onLoad();
     void onUnload();
@@ -118,6 +127,7 @@ class ModEngine {
     QList<PluginManifest> m_loadedPlugins;
     PluginFileWatcher *m_fileWatcher = nullptr;
     bool m_hotReloadEnabled = false;
+    QString m_currentPluginId;
 };
 
 } // namespace AviQtl::Scripting
