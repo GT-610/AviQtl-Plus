@@ -799,26 +799,36 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
         return manifest;
     }
 
+    // Use existing Lua state or create a temporary one for parsing
+    bool tempLua = (L == nullptr);
+    lua_State *ls = L;
+    if (tempLua) {
+        ls = luaL_newstate();
+        if (!ls) return manifest;
+    }
+
     // Load and execute manifest.lua to get the manifest table
-    if (luaL_dofile(L, manifestPath.toUtf8().constData()) != LUA_OK) {
-        qWarning() << "[ModEngine] Failed to load manifest:" << lua_tostring(L, -1);
-        lua_pop(L, 1);
+    if (luaL_dofile(ls, manifestPath.toUtf8().constData()) != LUA_OK) {
+        qWarning() << "[ModEngine] Failed to load manifest:" << lua_tostring(ls, -1);
+        lua_pop(ls, 1);
+        if (tempLua) lua_close(ls);
         return manifest;
     }
 
     // Get the returned table
-    if (!lua_istable(L, -1)) {
+    if (!lua_istable(ls, -1)) {
         qWarning() << "[ModEngine] Manifest must return a table";
-        lua_pop(L, 1);
+        lua_pop(ls, 1);
+        if (tempLua) lua_close(ls);
         return manifest;
     }
 
     // Extract fields
     auto getString = [&](const char *key) -> QString {
-        lua_getfield(L, -1, key);
-        const char *val = lua_tostring(L, -1);
+        lua_getfield(ls, -1, key);
+        const char *val = lua_tostring(ls, -1);
         QString result = val ? QString::fromUtf8(val) : QString();
-        lua_pop(L, 1);
+        lua_pop(ls, 1);
         return result;
     };
 
@@ -829,7 +839,8 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
     manifest.description = getString("description");
     manifest.minAppVersion = getString("min_app_version");
 
-    lua_pop(L, 1); // Pop the table
+    lua_pop(ls, 1); // Pop the table
+    if (tempLua) lua_close(ls);
     return manifest;
 }
 
