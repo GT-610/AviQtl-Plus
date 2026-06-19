@@ -6,6 +6,8 @@
 #include <QVariantMap>
 #include <lua.hpp>
 
+#include "script_params.hpp"
+
 namespace AviQtl::Core {
 class PermissionManager;
 }
@@ -44,6 +46,13 @@ struct PluginManifest {
     QString description;
     QString minAppVersion;
     bool isValid() const { return !id.isEmpty() && !name.isEmpty() && !version.isEmpty(); }
+};
+
+struct PluginInfo {
+    PluginManifest manifest;
+    ScriptMetadata scriptMeta;
+    QString filePath;
+    QVariantMap paramValues; // Current parameter values
 };
 
 struct HostApiTable {
@@ -93,8 +102,15 @@ class ModEngine {
 
     // Plugin management
     PluginManifest loadManifest(const QString &pluginDir);
+    ScriptMetadata loadScriptParams(const QString &scriptPath);
     QList<PluginManifest> loadedPlugins() const { return m_loadedPlugins; }
+    QList<PluginInfo> pluginInfos() const { return m_pluginInfos; }
     void unloadPlugins();
+
+    // Script parameters
+    Q_INVOKABLE QVariantMap getPluginParams(const QString &pluginId) const;
+    Q_INVOKABLE void setPluginParam(const QString &pluginId, const QString &key, const QVariant &value);
+    void injectPluginParams(lua_State *L, const PluginInfo &info);
 
     // Hot reload
     void enableHotReload(bool enable);
@@ -125,6 +141,7 @@ class ModEngine {
     void _setupFileWatcher();
     void _onPluginDirectoryChanged(const QString &path);
     QList<PluginManifest> m_loadedPlugins;
+    QList<PluginInfo> m_pluginInfos;
     PluginFileWatcher *m_fileWatcher = nullptr;
     bool m_hotReloadEnabled = false;
     QString m_currentPluginId;

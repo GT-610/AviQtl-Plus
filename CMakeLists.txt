@@ -170,8 +170,10 @@ aviqtl_target_warning_flags(AviQtl_Engine)
 set(SCRIPTING_SOURCES
     scripting/lua_host.cpp
     scripting/mod_engine.cpp
+    scripting/script_params.cpp
     scripting/lua_host.hpp
     scripting/mod_engine.hpp
+    scripting/script_params.hpp
 )
 
 add_library(AviQtl_Scripting STATIC ${SCRIPTING_SOURCES})

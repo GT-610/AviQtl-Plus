@@ -702,6 +702,34 @@ void ModEngine::loadPlugins() {
 
     for (const QFileInfo &fileInfo : files) {
         qInfo() << "[ModEngine] Loading MOD:" << fileInfo.fileName();
+
+        // Parse script parameters from header
+        ScriptMetadata scriptMeta = loadScriptParams(fileInfo.absoluteFilePath());
+        if (!scriptMeta.params.isEmpty()) {
+            qInfo() << "[ModEngine] Found" << scriptMeta.params.size() << "parameters in" << fileInfo.fileName();
+        }
+
+        // Create PluginInfo for single-file plugins
+        PluginInfo info;
+        info.filePath = fileInfo.absoluteFilePath();
+        info.scriptMeta = scriptMeta;
+
+        // Load saved parameter values
+        for (const ScriptParam &param : scriptMeta.params) {
+            QString settingsKey = QStringLiteral("plugin_param.single.%1.%2").arg(fileInfo.fileName(), param.varName);
+            QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
+            if (saved.isValid()) {
+                info.paramValues[param.varName] = saved;
+            } else {
+                info.paramValues[param.varName] = param.defaultValue;
+            }
+        }
+
+        m_pluginInfos.append(info);
+
+        // Inject parameters before loading
+        injectPluginParams(L, info);
+
         if (luaL_dofile(L, fileInfo.absoluteFilePath().toUtf8().constData())) {
             qCritical() << "[ModEngine] Load Error:" << lua_tostring(L, -1);
             lua_pop(L, 1);
@@ -714,16 +742,40 @@ void ModEngine::loadPlugins() {
         if (QFile::exists(mainLua)) {
             qInfo() << "[ModEngine] Loading plugin:" << subdir;
 
+            // Parse script parameters from main.lua
+            ScriptMetadata scriptMeta = loadScriptParams(mainLua);
+
             // Find the plugin manifest to get the ID for permission checking
+            PluginInfo info;
+            info.filePath = mainLua;
+            info.scriptMeta = scriptMeta;
+
             for (const PluginManifest &manifest : m_loadedPlugins) {
-                // Match by directory name or use the manifest we loaded earlier
                 QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
                 PluginManifest m = loadManifest(manifestDir);
                 if (m.isValid()) {
+                    info.manifest = m;
                     setCurrentPluginId(m.id);
+
+                    // Load saved parameter values
+                    for (const ScriptParam &param : scriptMeta.params) {
+                        QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(m.id, param.varName);
+                        QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
+                        if (saved.isValid()) {
+                            info.paramValues[param.varName] = saved;
+                        } else {
+                            info.paramValues[param.varName] = param.defaultValue;
+                        }
+                    }
+
                     break;
                 }
             }
+
+            m_pluginInfos.append(info);
+
+            // Inject parameters before loading
+            injectPluginParams(L, info);
 
             if (luaL_dofile(L, mainLua.toUtf8().constData())) {
                 qCritical() << "[ModEngine] Plugin Error:" << lua_tostring(L, -1);
@@ -904,6 +956,74 @@ void ModEngine::_callHook(const char *hookName, int nargs) {
         }
     } else {
         lua_pop(L, 1 + nargs);
+    }
+}
+
+ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {
+    QFile file(scriptPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return ScriptMetadata();
+    }
+
+    // Read first 100 lines for header parsing
+    QTextStream in(&file);
+    QStringList lines;
+    for (int i = 0; i < 100 && !in.atEnd(); ++i) {
+        lines.append(in.readLine());
+    }
+    file.close();
+
+    return ScriptParamParser::parseHeader(lines);
+}
+
+QVariantMap ModEngine::getPluginParams(const QString &pluginId) const {
+    for (const PluginInfo &info : m_pluginInfos) {
+        if (info.manifest.id == pluginId) {
+            return info.paramValues;
+        }
+    }
+    return QVariantMap();
+}
+
+void ModEngine::setPluginParam(const QString &pluginId, const QString &key, const QVariant &value) {
+    for (PluginInfo &info : m_pluginInfos) {
+        if (info.manifest.id == pluginId) {
+            info.paramValues[key] = value;
+            // Save to settings for persistence
+            QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(pluginId, key);
+            AviQtl::Core::SettingsManager::instance().setValue(settingsKey, value);
+            return;
+        }
+    }
+}
+
+void ModEngine::injectPluginParams(lua_State *L, const PluginInfo &info) {
+    // Inject parameter values as global Lua variables
+    for (const ScriptParam &param : info.scriptMeta.params) {
+        QVariant value = info.paramValues.value(param.varName, param.defaultValue);
+
+        switch (value.typeId()) {
+        case QMetaType::Bool:
+            lua_pushboolean(L, value.toBool() ? 1 : 0);
+            break;
+        case QMetaType::Int:
+        case QMetaType::LongLong:
+            lua_pushinteger(L, value.toLongLong());
+            break;
+        case QMetaType::Double:
+        case QMetaType::Float:
+            lua_pushnumber(L, value.toDouble());
+            break;
+        case QMetaType::QString:
+            lua_pushstring(L, value.toString().toUtf8().constData());
+            break;
+        default:
+            // For colors and other types, convert to number
+            lua_pushnumber(L, value.toDouble());
+            break;
+        }
+
+        lua_setglobal(L, param.varName.toUtf8().constData());
     }
 }
 
