@@ -84,6 +84,18 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME media_utils
+    SOURCES test_media_utils.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME keyframe_utils
+    SOURCES test_keyframe_utils.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI
