@@ -24,6 +24,35 @@ return {
 }
 ```
 
+## Permission System
+
+AviQtl implements a permission-based security model. Plugins must be granted specific permissions to access certain APIs. Permissions can be managed through the Package Manager UI.
+
+### Available Permissions
+
+| Permission | Description | Required for APIs |
+|------------|-------------|-------------------|
+| `transport.control` | Playback control | `transport.*` |
+| `clip.read` | Read clip information | `clip.list`, `clip.select` |
+| `clip.modify` | Modify clips | `clip.create`, `clip.delete`, `clip.update`, `clip.split` |
+| `effect.read` | Read effect information | (reserved) |
+| `effect.modify` | Modify effects | `effect.add`, `effect.remove`, `effect.set_param` |
+| `project.read` | Read project info | `project.width`, `project.height`, `project.fps` |
+| `project.save` | Save projects | `project.save` |
+| `project.load` | Load projects | `project.load` |
+| `scene.manage` | Manage scenes | `scene.create`, `scene.remove`, `scene.switch` |
+| `settings.read` | Read plugin settings | `settings.get` |
+| `settings.write` | Write plugin settings | `settings.set` |
+| `clipboard.access` | Clipboard operations | `clip.copy`, `clip.cut`, `clip.paste` |
+| `log.output` | Console logging | `log` |
+
+### Permission Behavior
+
+- If a plugin lacks permission for an API call, a Lua error is raised with "Permission denied"
+- New plugins have no permissions by default
+- Users must explicitly grant permissions through the Package Manager
+- Permissions are persisted in application settings
+
 ## Lifecycle Hooks
 
 Plugins can define these global functions to respond to application events:
