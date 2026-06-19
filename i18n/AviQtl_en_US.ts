@@ -3215,7 +3215,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
         <source>エフェクト情報の一覧表示</source>
-        <translation type="unfinished">List effect information</translation>
+        <translation>List effect information</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
@@ -3245,7 +3245,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
         <source>プロジェクトファイルの保存</source>
-        <translation type="unfinished">Save project files</translation>
+        <translation>Save project files</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
@@ -3255,7 +3255,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
         <source>プロジェクトファイルの読み込み</source>
-        <translation type="unfinished">Load project files</translation>
+        <translation>Load project files</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
@@ -3265,7 +3265,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
         <source>シーンの作成、削除、切り替え</source>
-        <translation type="unfinished">Create, remove, and switch scenes</translation>
+        <translation>Create, remove, and switch scenes</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
@@ -3275,7 +3275,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
         <source>プラグイン設定の読み取り</source>
-        <translation type="unfinished">Read plugin settings</translation>
+        <translation>Read plugin settings</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
@@ -3305,7 +3305,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
         <source>コンソールへのログ出力</source>
-        <translation type="unfinished">Output logs to console</translation>
+        <translation>Output logs to console</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
