@@ -24,6 +24,10 @@ bool PermissionManager::hasPermission(const QString &pluginId, PluginPermission 
 }
 
 bool PermissionManager::hasPermission(const QString &pluginId, const QString &permissionName) const {
+    if (!allPermissionNames().contains(permissionName)) {
+        qWarning() << "[PermissionManager] Unknown permission name:" << permissionName;
+        return false;
+    }
     return hasPermission(pluginId, permissionFromName(permissionName));
 }
 
@@ -31,6 +35,10 @@ void PermissionManager::grantPermission(const QString &pluginId, PluginPermissio
     m_permissions[pluginId].insert(permission);
     savePermissions();
     emit permissionsChanged(pluginId);
+}
+
+void PermissionManager::grantPermission(const QString &pluginId, const QString &permissionName) {
+    grantPermission(pluginId, permissionFromName(permissionName));
 }
 
 void PermissionManager::revokePermission(const QString &pluginId, PluginPermission permission) {
@@ -43,6 +51,10 @@ void PermissionManager::revokePermission(const QString &pluginId, PluginPermissi
         savePermissions();
         emit permissionsChanged(pluginId);
     }
+}
+
+void PermissionManager::revokePermission(const QString &pluginId, const QString &permissionName) {
+    revokePermission(pluginId, permissionFromName(permissionName));
 }
 
 void PermissionManager::grantAllPermissions(const QString &pluginId) {
@@ -77,8 +89,15 @@ void PermissionManager::setPluginPermissions(const QString &pluginId, const QSet
     emit permissionsChanged(pluginId);
 }
 
-QSet<PluginPermission> PermissionManager::getPluginPermissions(const QString &pluginId) const {
-    return m_permissions.value(pluginId);
+QVariantList PermissionManager::getPluginPermissions(const QString &pluginId) const {
+    QVariantList result;
+    auto it = m_permissions.constFind(pluginId);
+    if (it != m_permissions.constEnd()) {
+        for (PluginPermission p : *it) {
+            result.append(permissionName(p));
+        }
+    }
+    return result;
 }
 
 QString PermissionManager::permissionName(PluginPermission permission) {
@@ -194,6 +213,8 @@ QString PermissionManager::permissionDescription(PluginPermission permission) {
 }
 
 void PermissionManager::loadPermissions() {
+    m_permissions.clear();
+
     auto &sm = SettingsManager::instance();
     QVariantMap permData = sm.value(QStringLiteral("pluginPermissions")).toMap();
 
@@ -202,7 +223,9 @@ void PermissionManager::loadPermissions() {
         const QStringList permNames = it.value().toStringList();
         QSet<PluginPermission> perms;
         for (const QString &name : permNames) {
-            perms.insert(permissionFromName(name));
+            if (allPermissionNames().contains(name)) {
+                perms.insert(permissionFromName(name));
+            }
         }
         m_permissions[pluginId] = perms;
     }

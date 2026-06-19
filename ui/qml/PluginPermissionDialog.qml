@@ -5,8 +5,8 @@ import QtQuick.Layouts
 Dialog {
     id: root
 
-    required property string pluginId
-    required property string pluginName
+    property string pluginId: ""
+    property string pluginName: ""
 
     title: qsTr("権限管理: %1").arg(pluginName)
     modal: true
@@ -61,19 +61,19 @@ Dialog {
 
             ListView {
                 model: ListModel {
-                    ListElement { perm: "transport.control"; name: "再生制御"; desc: "再生、一時停止、シーク" }
-                    ListElement { perm: "clip.read"; name: "クリップ読み取り"; desc: "クリップ情報の一覧表示" }
-                    ListElement { perm: "clip.modify"; name: "クリップ変更"; desc: "クリップの作成、削除、移動" }
-                    ListElement { perm: "effect.read"; name: "エフェクト読み取り"; desc: "エフェクト情報の一覧表示" }
-                    ListElement { perm: "effect.modify"; name: "エフェクト変更"; desc: "エフェクトの追加、削除、変更" }
-                    ListElement { perm: "project.read"; name: "プロジェクト読み取り"; desc: "解像度、FPS等の情報取得" }
-                    ListElement { perm: "project.save"; name: "プロジェクト保存"; desc: "プロジェクトファイルの保存" }
-                    ListElement { perm: "project.load"; name: "プロジェクト読み込み"; desc: "プロジェクトファイルの読み込み" }
-                    ListElement { perm: "scene.manage"; name: "シーン管理"; desc: "シーンの作成、削除、切り替え" }
-                    ListElement { perm: "settings.read"; name: "設定読み取り"; desc: "プラグイン設定の読み取り" }
-                    ListElement { perm: "settings.write"; name: "設定書き込み"; desc: "プラグイン設定の保存" }
-                    ListElement { perm: "clipboard.access"; name: "クリップボード"; desc: "コピー、切り取り、貼り付け" }
-                    ListElement { perm: "log.output"; name: "ログ出力"; desc: "コンソールへのログ出力" }
+                    ListElement { perm: "transport.control"; name: qsTr("再生制御"); desc: qsTr("再生、一時停止、シーク") }
+                    ListElement { perm: "clip.read"; name: qsTr("クリップ読み取り"); desc: qsTr("クリップ情報の一覧表示") }
+                    ListElement { perm: "clip.modify"; name: qsTr("クリップ変更"); desc: qsTr("クリップの作成、削除、移動") }
+                    ListElement { perm: "effect.read"; name: qsTr("エフェクト読み取り"); desc: qsTr("エフェクト情報の一覧表示") }
+                    ListElement { perm: "effect.modify"; name: qsTr("エフェクト変更"); desc: qsTr("エフェクトの追加、削除、変更") }
+                    ListElement { perm: "project.read"; name: qsTr("プロジェクト読み取り"); desc: qsTr("解像度、FPS等の情報取得") }
+                    ListElement { perm: "project.save"; name: qsTr("プロジェクト保存"); desc: qsTr("プロジェクトファイルの保存") }
+                    ListElement { perm: "project.load"; name: qsTr("プロジェクト読み込み"); desc: qsTr("プロジェクトファイルの読み込み") }
+                    ListElement { perm: "scene.manage"; name: qsTr("シーン管理"); desc: qsTr("シーンの作成、削除、切り替え") }
+                    ListElement { perm: "settings.read"; name: qsTr("設定読み取り"); desc: qsTr("プラグイン設定の読み取り") }
+                    ListElement { perm: "settings.write"; name: qsTr("設定書き込み"); desc: qsTr("プラグイン設定の保存") }
+                    ListElement { perm: "clipboard.access"; name: qsTr("クリップボード"); desc: qsTr("コピー、切り取り、貼り付け") }
+                    ListElement { perm: "log.output"; name: qsTr("ログ出力"); desc: qsTr("コンソールへのログ出力") }
                 }
 
                 delegate: ItemDelegate {

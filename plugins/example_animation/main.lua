@@ -18,12 +18,12 @@
 --group:Appearance
 --check@visible:Visible,true
 --color@tint:Tint Color,0xffffff
---select@blend_mode:Blend Mode=normal,normal=add,subtract=multiply,screen=overlay
+--select@blend_mode:Blend Mode=normal,normal=0,add=1,subtract=2,multiply=3,screen=4
 
 --group:Animation
 --check@animate:Enable Animation,false
 --track@anim_speed:Animation Speed,0,10,1,0.1
---select@anim_type:Animation Type=sine,sine=linear=square=ease_in=ease_out
+--select@anim_type:Animation Type=0,sine=0,linear=1,square=2,ease_in=3,ease_out=4
 
 local time = 0
 

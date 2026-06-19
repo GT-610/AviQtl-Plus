@@ -17,7 +17,9 @@ namespace AviQtl::Scripting {
 class PluginFileWatcher : public QObject {
     Q_OBJECT
   public:
-    explicit PluginFileWatcher(QObject *parent = nullptr) : QObject(parent) {}
+    explicit PluginFileWatcher(QObject *parent = nullptr) : QObject(parent) {
+        connect(&m_watcher, &QFileSystemWatcher::directoryChanged, this, &PluginFileWatcher::directoryChanged);
+    }
 
     void watchPath(const QString &path) {
         if (!m_watcher.directories().contains(path)) {
@@ -145,6 +147,7 @@ class ModEngine {
     PluginFileWatcher *m_fileWatcher = nullptr;
     bool m_hotReloadEnabled = false;
     QString m_currentPluginId;
+    QString m_lastLoadedPluginId; // context for hook dispatch
 };
 
 } // namespace AviQtl::Scripting

@@ -161,12 +161,9 @@ void TestPermissionManager::permissionPersistence() {
     pm.grantPermission(pluginId, PluginPermission::ClipRead);
     pm.savePermissions();
 
-    // Create a new instance to test loading
-    // Note: Since PermissionManager is a singleton, we test the load method indirectly
-    // by verifying the settings were saved
-    QSet<PluginPermission> perms = pm.getPluginPermissions(pluginId);
-    QVERIFY(perms.contains(PluginPermission::TransportControl));
-    QVERIFY(perms.contains(PluginPermission::ClipRead));
+    // Verify permissions were saved and can be retrieved
+    QVERIFY(pm.hasPermission(pluginId, PluginPermission::TransportControl));
+    QVERIFY(pm.hasPermission(pluginId, PluginPermission::ClipRead));
 
     // Cleanup
     pm.revokeAllPermissions(pluginId);

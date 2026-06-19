@@ -758,6 +758,12 @@ bool PackageManager::extractZip(const QString &archivePath, const QString &destD
 }
 
 bool PackageManager::deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType) {
+    // Validate packageId to prevent path traversal
+    if (packageId.contains(QStringLiteral("..")) || packageId.contains('/') || packageId.contains('\\')) {
+        qWarning() << "[PackageManager] Invalid package ID (path traversal):" << packageId;
+        return false;
+    }
+
     const QString deployBase = getPackageDeployDir(packageType);
     if (deployBase.isEmpty()) {
         return false;
@@ -829,6 +835,12 @@ void PackageManager::removePackage(const QString &packageId) {
             pkg = p.toMap();
             break;
         }
+    }
+
+    // Validate packageId to prevent path traversal
+    if (packageId.contains(QStringLiteral("..")) || packageId.contains('/') || packageId.contains('\\')) {
+        emit errorOccurred(tr("Invalid package ID."));
+        return;
     }
 
     setBusy(true);
@@ -925,14 +937,85 @@ void PackageManager::processUpgradeQueue() {
     if (m_upgradeQueue.isEmpty()) {
         setBusy(false);
         setStatus(tr("All upgrades complete."));
-        setHasUpdatesAvailable(false); // すべてアップグレードされたので、利用可能なアップデートはない
+        setHasUpdatesAvailable(false);
         return;
     }
 
     QString nextPackageId = m_upgradeQueue.dequeue();
     setStatus(tr("Upgrading package: %1").arg(nextPackageId));
-    // installPackage が完了すると、その中で processUpgradeQueue() が再度呼ばれる
-    installPackage(nextPackageId);
+
+    // Find asset URL from package list
+    QVariantMap pkg;
+    for (const auto &p : std::as_const(m_packageList)) {
+        if (p.toMap().value(QStringLiteral("id")).toString() == nextPackageId) {
+            pkg = p.toMap();
+            break;
+        }
+    }
+
+    // Fetch assets, then download on success
+    QString repoUrl = pkg.value(QStringLiteral("repository_url")).toString();
+    if (repoUrl.isEmpty()) {
+        QString feed = pkg.value(QStringLiteral("release_feed")).toString();
+        if (!feed.isEmpty()) {
+            int idx = feed.indexOf(QStringLiteral("/releases"));
+            if (idx != -1) repoUrl = feed.left(idx);
+        }
+    }
+
+    if (repoUrl.isEmpty()) {
+        qWarning() << "[PackageManager] No repository URL for" << nextPackageId;
+        processUpgradeQueue(); // skip, try next
+        return;
+    }
+
+    QUrl apiUrl;
+    bool isGitHub = repoUrl.contains(QStringLiteral("github.com"));
+    bool isCodeberg = repoUrl.contains(QStringLiteral("codeberg.org"));
+    QString path = QUrl(repoUrl).path();
+    if (path.startsWith('/')) path.remove(0, 1);
+    QStringList parts = path.split('/');
+    if (parts.size() < 2) {
+        processUpgradeQueue();
+        return;
+    }
+    QString owner = parts[0];
+    QString repo = parts[1];
+    if (repo.endsWith(".git")) repo.remove(repo.size() - 4, 4);
+
+    if (isGitHub)
+        apiUrl = QStringLiteral("https://api.github.com/repos/%1/%2/releases/latest").arg(owner, repo);
+    else if (isCodeberg)
+        apiUrl = QStringLiteral("https://codeberg.org/api/v1/repos/%1/%2/releases?limit=1").arg(owner, repo);
+    else {
+        processUpgradeQueue();
+        return;
+    }
+
+    QNetworkReply *reply = m_networkManager->get(QNetworkRequest(apiUrl));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, nextPackageId]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            processUpgradeQueue();
+            return;
+        }
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonObject releaseObj;
+        if (doc.isArray() && !doc.array().isEmpty())
+            releaseObj = doc.array().at(0).toObject();
+        else if (doc.isObject())
+            releaseObj = doc.object();
+
+        QJsonArray assetsArr = releaseObj.value(QStringLiteral("assets")).toArray();
+        if (!assetsArr.isEmpty()) {
+            QString assetUrl = assetsArr.first().toObject().value(QStringLiteral("browser_download_url")).toString();
+            if (!assetUrl.isEmpty()) {
+                downloadPackage(nextPackageId, QUrl(assetUrl));
+                return;
+            }
+        }
+        processUpgradeQueue();
+    });
 }
 
 } // namespace AviQtl::Core

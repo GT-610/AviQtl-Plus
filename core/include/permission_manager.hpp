@@ -29,18 +29,20 @@ class PermissionManager : public QObject {
     static PermissionManager &instance();
 
     // Permission checking
-    bool hasPermission(const QString &pluginId, PluginPermission permission) const;
-    bool hasPermission(const QString &pluginId, const QString &permissionName) const;
+    Q_INVOKABLE bool hasPermission(const QString &pluginId, PluginPermission permission) const;
+    Q_INVOKABLE bool hasPermission(const QString &pluginId, const QString &permissionName) const;
 
     // Permission granting/revoking
     void grantPermission(const QString &pluginId, PluginPermission permission);
+    Q_INVOKABLE void grantPermission(const QString &pluginId, const QString &permissionName);
     void revokePermission(const QString &pluginId, PluginPermission permission);
-    void grantAllPermissions(const QString &pluginId);
-    void revokeAllPermissions(const QString &pluginId);
+    Q_INVOKABLE void revokePermission(const QString &pluginId, const QString &permissionName);
+    Q_INVOKABLE void grantAllPermissions(const QString &pluginId);
+    Q_INVOKABLE void revokeAllPermissions(const QString &pluginId);
 
     // Bulk operations
     void setPluginPermissions(const QString &pluginId, const QSet<PluginPermission> &permissions);
-    QSet<PluginPermission> getPluginPermissions(const QString &pluginId) const;
+    Q_INVOKABLE QVariantList getPluginPermissions(const QString &pluginId) const;
 
     // Permission name conversion
     static QString permissionName(PluginPermission permission);

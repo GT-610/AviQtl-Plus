@@ -55,7 +55,7 @@ AviQtl supports AviUtl-style declarative parameter definitions in script headers
 ```lua
 --select@varname:label=default,option1=value1,option2=value2
 --select@mode:Mode=fast,fast=0,normal=1,slow=2
---select@blend:Blend=add,add=subtract=multiply=screen
+--select@blend:Blend=normal,normal=0,add=1,subtract=2,multiply=3,screen=4
 ```
 
 #### Text (Multi-line)
@@ -164,7 +164,7 @@ AviQtl implements a permission-based security model. Plugins must be granted spe
 
 ### Permission Behavior
 
-- If a plugin lacks permission for an API call, a Lua error is raised with "Permission denied"
+- If a plugin lacks permission for an API call, a Lua error is raised: `[AviQtlAPI] Permission denied: <permission.name>`
 - New plugins have no permissions by default
 - Users must explicitly grant permissions through the Package Manager
 - Permissions are persisted in application settings

@@ -95,13 +95,17 @@ static void api_command_end_group() {
     }
 }
 
-// Settings API
+// Settings API (scoped to current plugin)
 static char g_settings_buf[4096]; // Buffer for returning strings
 static void api_settings_set(const char *key, const char *value) {
-    AviQtl::Core::SettingsManager::instance().setValue(QString::fromUtf8(key), QString::fromUtf8(value));
+    const QString &pluginId = ModEngine::instance().currentPluginId();
+    QString scopedKey = pluginId.isEmpty() ? QString::fromUtf8(key) : QStringLiteral("plugin.%1.%2").arg(pluginId, QString::fromUtf8(key));
+    AviQtl::Core::SettingsManager::instance().setValue(scopedKey, QString::fromUtf8(value));
 }
 static const char *api_settings_get(const char *key) {
-    QString val = AviQtl::Core::SettingsManager::instance().value(QString::fromUtf8(key)).toString();
+    const QString &pluginId = ModEngine::instance().currentPluginId();
+    QString scopedKey = pluginId.isEmpty() ? QString::fromUtf8(key) : QStringLiteral("plugin.%1.%2").arg(pluginId, QString::fromUtf8(key));
+    QString val = AviQtl::Core::SettingsManager::instance().value(scopedKey).toString();
     QByteArray bytes = val.toUtf8();
     if (bytes.size() >= (int)sizeof(g_settings_buf)) {
         bytes.resize(sizeof(g_settings_buf) - 1);
@@ -756,6 +760,7 @@ void ModEngine::loadPlugins() {
                 if (m.isValid()) {
                     info.manifest = m;
                     setCurrentPluginId(m.id);
+                    m_lastLoadedPluginId = m.id;
 
                     // Load saved parameter values
                     for (const ScriptParam &param : scriptMeta.params) {
@@ -889,6 +894,8 @@ void ModEngine::_onPluginDirectoryChanged(const QString &path) {
 
     // Clear current plugins
     m_loadedPlugins.clear();
+    m_pluginInfos.clear();
+    m_lastLoadedPluginId.clear();
 
     // Reload all plugins
     loadPlugins();
@@ -950,10 +957,16 @@ void ModEngine::onClipChange() {
 void ModEngine::_callHook(const char *hookName, int nargs) {
     lua_getglobal(L, hookName);
     if (lua_isfunction(L, -1)) {
+        // Set plugin context for permission checks during hook execution
+        QString prevPluginId = m_currentPluginId;
+        if (m_currentPluginId.isEmpty() && !m_lastLoadedPluginId.isEmpty()) {
+            m_currentPluginId = m_lastLoadedPluginId;
+        }
         if (lua_pcall(L, nargs, 0, 0) != 0) {
             qCritical() << "[ModEngine] Hook" << hookName << "Error:" << lua_tostring(L, -1);
             lua_pop(L, 1);
         }
+        m_currentPluginId = prevPluginId;
     } else {
         lua_pop(L, 1 + nargs);
     }

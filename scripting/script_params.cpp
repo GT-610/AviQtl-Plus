@@ -100,6 +100,7 @@ ScriptMetadata ScriptParamParser::parseHeader(const QStringList &lines) {
             parsed = true;
         } else if (line.startsWith(QStringLiteral("--string@"))) {
             param = parseText(line.mid(9));
+            param.type = ScriptParamType::String;
             parsed = true;
         } else if (line.startsWith(QStringLiteral("--file@"))) {
             param = parseFile(line.mid(7));
@@ -112,7 +113,7 @@ ScriptMetadata ScriptParamParser::parseHeader(const QStringList &lines) {
             parsed = true;
         }
 
-        if (parsed) {
+        if (parsed && !param.varName.isEmpty()) {
             param.groupName = currentGroup;
             meta.params.append(param);
 

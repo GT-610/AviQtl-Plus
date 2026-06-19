@@ -27,7 +27,7 @@ Plugins are scripts that extend AviQtl's functionality. Written in the Lua progr
 
 ### Directory Structure
 
-```
+```text
 plugins/
 ├── example_transport/      # Directory-based plugin
 │   ├── manifest.lua       # Plugin metadata

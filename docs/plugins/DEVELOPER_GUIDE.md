@@ -12,7 +12,7 @@ This guide explains how to develop plugins for AviQtl.
 
 ### Directory-Based (Recommended)
 
-```
+```text
 my_plugin/
 ├── manifest.lua    # Plugin metadata (required)
 ├── main.lua        # Main entry point (required)
@@ -22,7 +22,7 @@ my_plugin/
 
 ### Single-File
 
-```
+```text
 plugins/
 └── my_plugin.lua   # Everything in a single file
 ```
@@ -218,14 +218,14 @@ Plugins must be granted permissions to use certain APIs. Users manage permission
 
 | Permission | Required APIs |
 |------------|---------------|
-| `transport.control` | `transport.*` |
+| `transport.control` | `transport.play`, `transport.pause`, `transport.toggle`, `transport.seek`, `transport.get_frame`, `transport.is_playing` |
 | `clip.read` | `clip.list`, `clip.select` |
 | `clip.modify` | `clip.create`, `clip.delete`, `clip.update`, `clip.split` |
 | `effect.modify` | `effect.add`, `effect.remove`, `effect.set_param` |
 | `project.read` | `project.width`, `project.height`, `project.fps` |
 | `project.save` | `project.save` |
 | `project.load` | `project.load` |
-| `scene.manage` | `scene.*` |
+| `scene.manage` | `scene.create`, `scene.remove`, `scene.switch` |
 | `settings.read` | `settings.get` |
 | `settings.write` | `settings.set` |
 | `clipboard.access` | `clip.copy`, `clip.cut`, `clip.paste` |

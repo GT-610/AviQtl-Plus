@@ -4,7 +4,7 @@ This document describes the complete design of the AviQtl plugin system, includi
 
 ## Directory Structure
 
-```
+```text
 plugins/
 ├── example_transport/          # Directory-based plugin (recommended)
 │   ├── manifest.lua           # Plugin metadata
@@ -269,15 +269,15 @@ AviQtl implements a permission-based security model. Plugins must be granted spe
 
 | Permission | Description | Required APIs |
 |------------|-------------|---------------|
-| `transport.control` | Playback control | `transport.*` |
+| `transport.control` | Playback control | `transport.play`, `transport.pause`, `transport.toggle`, `transport.seek`, `transport.get_frame`, `transport.is_playing` |
 | `clip.read` | Read clip info | `clip.list`, `clip.select` |
 | `clip.modify` | Modify clips | `clip.create`, `clip.delete`, `clip.update`, `clip.split` |
 | `effect.read` | Read effects | (reserved) |
-| `effect.modify` | Modify effects | `effect.*` |
+| `effect.modify` | Modify effects | `effect.add`, `effect.remove`, `effect.set_param` |
 | `project.read` | Read project | `project.width`, `project.height`, `project.fps` |
 | `project.save` | Save projects | `project.save` |
 | `project.load` | Load projects | `project.load` |
-| `scene.manage` | Manage scenes | `scene.*` |
+| `scene.manage` | Manage scenes | `scene.create`, `scene.remove`, `scene.switch` |
 | `settings.read` | Read settings | `settings.get` |
 | `settings.write` | Write settings | `settings.set` |
 | `clipboard.access` | Clipboard ops | `clip.copy`, `clip.cut`, `clip.paste` |
