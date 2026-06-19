@@ -1527,109 +1527,163 @@
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="111"/>
+        <location filename="../core/src/package_manager.cpp" line="148"/>
         <source>Idle</source>
         <translation>空闲</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="211"/>
+        <location filename="../core/src/package_manager.cpp" line="248"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>已从缓存加载软件包（按「同步」检查更新）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="243"/>
+        <location filename="../core/src/package_manager.cpp" line="280"/>
         <source>Syncing repository...</source>
         <translation>正在同步仓库...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="331"/>
-        <location filename="../core/src/package_manager.cpp" line="359"/>
+        <location filename="../core/src/package_manager.cpp" line="368"/>
+        <location filename="../core/src/package_manager.cpp" line="396"/>
         <source>Sync complete</source>
         <translation>同步完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="411"/>
-        <location filename="../core/src/package_manager.cpp" line="540"/>
+        <location filename="../core/src/package_manager.cpp" line="448"/>
+        <location filename="../core/src/package_manager.cpp" line="577"/>
         <source>Package not found: %1</source>
         <translation>未找到软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="429"/>
+        <location filename="../core/src/package_manager.cpp" line="466"/>
         <source>Could not determine repository URL for the package.</source>
         <translation>无法识别软件包的仓库 URL。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="434"/>
+        <location filename="../core/src/package_manager.cpp" line="471"/>
         <source>Searching for available files...</source>
         <translation>正在搜索可用文件...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="446"/>
+        <location filename="../core/src/package_manager.cpp" line="483"/>
         <source>Repository URL is not in a valid format.</source>
         <translation>仓库 URL 格式不正确。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="461"/>
+        <location filename="../core/src/package_manager.cpp" line="498"/>
         <source>Unsupported repository host.</source>
         <translation>不受支持的仓库主机。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="471"/>
+        <location filename="../core/src/package_manager.cpp" line="508"/>
         <source>Failed to fetch release info (%1): %2</source>
         <translation>发布信息获取失败 (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="520"/>
+        <location filename="../core/src/package_manager.cpp" line="557"/>
         <source>No downloadable files found.</source>
         <translation>未找到可下载的文件。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="545"/>
+        <location filename="../core/src/package_manager.cpp" line="582"/>
         <source>Download URL not specified. Please fetch asset information.</source>
         <translation>未指定下载 URL。请先获取资产信息。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="553"/>
         <source>Installing package: %1</source>
-        <translation>正在安装软件包：%1</translation>
+        <translation type="vanished">正在安装软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="558"/>
+        <location filename="../core/src/package_manager.cpp" line="716"/>
         <source>Installation complete: %1</source>
         <translation>安装完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="569"/>
+        <location filename="../core/src/package_manager.cpp" line="590"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl 有可用更新。请重启以应用。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="606"/>
+        <location filename="../core/src/package_manager.cpp" line="599"/>
+        <source>Downloading package: %1</source>
+        <translation>正在下载软件包：%1</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="613"/>
+        <source>Download failed: %1</source>
+        <translation>下载失败：%1</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="631"/>
+        <source>Failed to create temporary directory.</source>
+        <translation>创建临时目录失败。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="638"/>
+        <source>Invalid download URL.</source>
+        <translation>无效的下载URL。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="646"/>
+        <source>Failed to save downloaded file.</source>
+        <translation>保存下载文件失败。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="652"/>
+        <source>Extracting package...</source>
+        <translation>正在解压软件包...</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="664"/>
+        <source>Failed to create extraction directory.</source>
+        <translation>创建解压目录失败。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="671"/>
+        <source>Failed to extract package archive.</source>
+        <translation>解压软件包归档失败。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="675"/>
+        <source>Deploying package files...</source>
+        <translation>正在部署软件包文件...</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="681"/>
+        <source>Failed to deploy package files.</source>
+        <translation>部署软件包文件失败。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="847"/>
+        <source>Invalid package ID.</source>
+        <translation>无效的软件包ID。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="852"/>
         <source>Removing package: %1</source>
         <translation>正在删除软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="630"/>
+        <location filename="../core/src/package_manager.cpp" line="885"/>
         <source>Removal complete: %1</source>
         <translation>删除完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="678"/>
+        <location filename="../core/src/package_manager.cpp" line="932"/>
         <source>No packages to upgrade.</source>
         <translation>没有可升级的软件包。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="683"/>
+        <location filename="../core/src/package_manager.cpp" line="937"/>
         <source>Upgrading all packages...</source>
         <translation>正在升级所有软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="690"/>
+        <location filename="../core/src/package_manager.cpp" line="944"/>
         <source>All upgrades complete.</source>
         <translation>所有升级已完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="696"/>
+        <location filename="../core/src/package_manager.cpp" line="950"/>
         <source>Upgrading package: %1</source>
         <translation>正在升级软件包：%1</translation>
     </message>
@@ -1683,7 +1737,7 @@
         <translation>调整多个片段大小：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="64"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="65"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>保存目标文件路径未知</translation>
     </message>
@@ -3006,16 +3060,21 @@
     </message>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="322"/>
+        <source>権限</source>
+        <translation>权限</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="333"/>
         <source>削除</source>
         <translation>卸载</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="340"/>
         <source>アップデート</source>
         <translation>更新</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="340"/>
         <source>インストール</source>
         <translation>安装</translation>
     </message>
@@ -3107,6 +3166,159 @@
     </message>
 </context>
 <context>
+    <name>PluginPermissionDialog</name>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="11"/>
+        <source>権限管理: %1</source>
+        <translation>权限管理：%1</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="52"/>
+        <source>このプラグインに許可する権限を選択してください:</source>
+        <translation>请选择要授予此插件的权限：</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
+        <source>再生制御</source>
+        <translation>播放控制</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
+        <source>再生、一時停止、シーク</source>
+        <translation>播放、暂停、跳转</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <source>クリップ読み取り</source>
+        <translation>读取剪辑</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <source>クリップ情報の一覧表示</source>
+        <translation>查看剪辑信息列表</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <source>クリップ変更</source>
+        <translation>修改剪辑</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <source>クリップの作成、削除、移動</source>
+        <translation>创建、删除、移动剪辑</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <source>エフェクト読み取り</source>
+        <translation>读取效果</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <source>エフェクト情報の一覧表示</source>
+        <translation>查看效果信息列表</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <source>エフェクト変更</source>
+        <translation>修改效果</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <source>エフェクトの追加、削除、変更</source>
+        <translation>添加、删除、修改效果</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <source>プロジェクト読み取り</source>
+        <translation>读取项目</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <source>解像度、FPS等の情報取得</source>
+        <translation>获取分辨率、帧率等信息</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <source>プロジェクト保存</source>
+        <translation>保存项目</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <source>プロジェクトファイルの保存</source>
+        <translation>保存项目文件</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <source>プロジェクト読み込み</source>
+        <translation>加载项目</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <source>プロジェクトファイルの読み込み</source>
+        <translation>加载项目文件</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <source>シーン管理</source>
+        <translation>场景管理</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <source>シーンの作成、削除、切り替え</source>
+        <translation>创建、删除、切换场景</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <source>設定読み取り</source>
+        <translation>读取设置</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <source>プラグイン設定の読み取り</source>
+        <translation>读取插件设置</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <source>設定書き込み</source>
+        <translation>写入设置</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <source>プラグイン設定の保存</source>
+        <translation>保存插件设置</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <source>クリップボード</source>
+        <translation>剪贴板</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <source>コピー、切り取り、貼り付け</source>
+        <translation>复制、剪切、粘贴</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>ログ出力</source>
+        <translation>日志输出</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>コンソールへのログ出力</source>
+        <translation>输出日志到控制台</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
+        <source>すべて許可</source>
+        <translation>全部允许</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="132"/>
+        <source>すべて拒否</source>
+        <translation>全部拒绝</translation>
+    </message>
+</context>
+<context>
     <name>PluginSettingsPage</name>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="53"/>
@@ -3114,17 +3326,32 @@
         <translation>可为每种格式设置是否启用及搜索路径</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="72"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="59"/>
+        <source>Lua プラグイン</source>
+        <translation>Lua 插件</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="67"/>
+        <source>ホットリロードを有効にする</source>
+        <translation>启用热重载</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="73"/>
+        <source>有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします</source>
+        <translation>启用后，检测到 plugins 文件夹变更时将自动重新加载插件</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="95"/>
         <source>%1 を読み込む</source>
         <translation>加载 %1</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="78"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="101"/>
         <source>検索パス</source>
         <translation>搜索路径</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="103"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="126"/>
         <source>1行に1パスを入力します</source>
         <translation>每行输入一个路径</translation>
     </message>
@@ -3478,6 +3705,76 @@
     <message>
         <source>パッケージマネージャー</source>
         <translation type="obsolete">软件包管理器</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="194"/>
+        <source>再生、一時停止、シークなどの再生制御</source>
+        <translation>播放、暂停、跳转等播放控制</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="196"/>
+        <source>クリップ情報の一覧表示と読み取り</source>
+        <translation>查看和读取剪辑信息</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="198"/>
+        <source>クリップの作成、削除、移動、変更</source>
+        <translation>创建、删除、移动、修改剪辑</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="200"/>
+        <source>エフェクト情報の一覧表示</source>
+        <translation>查看效果信息列表</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="202"/>
+        <source>エフェクトの追加、削除、パラメータ変更</source>
+        <translation>添加、删除效果及修改参数</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="204"/>
+        <source>プロジェクト情報（解像度、FPS等）の読み取り</source>
+        <translation>读取项目信息（分辨率、帧率等）</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="206"/>
+        <source>プロジェクトファイルの保存</source>
+        <translation>保存项目文件</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="208"/>
+        <source>プロジェクトファイルの読み込み</source>
+        <translation>加载项目文件</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="210"/>
+        <source>シーンの作成、削除、切り替え</source>
+        <translation>创建、删除、切换场景</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="212"/>
+        <source>プラグイン設定の読み取り</source>
+        <translation>读取插件设置</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="214"/>
+        <source>プラグイン設定の書き込み</source>
+        <translation>写入插件设置</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="216"/>
+        <source>クリップボードへのコピー、切り取り、貼り付け</source>
+        <translation>复制、剪切、粘贴到剪贴板</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="218"/>
+        <source>コンソールへのログ出力</source>
+        <translation>输出日志到控制台</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="220"/>
+        <source>不明な権限</source>
+        <translation>未知权限</translation>
     </message>
 </context>
 <context>

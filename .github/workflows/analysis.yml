@@ -39,6 +39,8 @@ jobs:
                                 AviQtl_Test_theme_controller \
                                 AviQtl_Test_media_decoder \
                                 AviQtl_Test_video_encoder \
+                                AviQtl_Test_media_utils \
+                                AviQtl_Test_keyframe_utils \
                                 AviQtl_Test_effect_model \
                                 AviQtl_Test_dense_component_map \
                                 AviQtl_Test_audio_plugin_chain \
@@ -47,6 +49,9 @@ jobs:
                                 AviQtl_Test_keyframe_evaluator \
                                 AviQtl_Test_triple_buffer \
                                 AviQtl_Test_lua_host \
+                                AviQtl_Test_plugin_manifest \
+                                AviQtl_Test_permission_manager \
+                                AviQtl_Test_package_deploy \
                                 AviQtl_Test_selection_service \
                                 AviQtl_Test_project_service \
                                 AviQtl_Test_transport_service \

@@ -55,6 +55,29 @@ ScrollView {
             wrapMode: Text.WordWrap
         }
 
+        GroupBox {
+            title: qsTr("Lua プラグイン")
+            Layout.fillWidth: true
+
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 8
+
+                CheckBox {
+                    text: qsTr("ホットリロードを有効にする")
+                    checked: root.valueOr("luaHotReload", false)
+                    onToggled: root.valueChanged("luaHotReload", checked)
+                }
+
+                Label {
+                    text: qsTr("有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします")
+                    color: root.secondaryTextColor
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                }
+            }
+        }
+
         Repeater {
             model: pluginFormats
 

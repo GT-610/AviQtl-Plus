@@ -90,6 +90,7 @@ set(CORE_SOURCES
     core/src/media_decoder.cpp
     core/src/media_utils.cpp
     core/src/package_manager.cpp
+    core/src/permission_manager.cpp
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
     core/src/settings_manager.cpp
@@ -104,6 +105,7 @@ set(CORE_SOURCES
     core/include/media_decoder.hpp
     core/include/media_utils.hpp
     core/include/package_manager.hpp
+    core/include/permission_manager.hpp
     core/include/preset_manager.hpp
     core/include/project_serializer.hpp
     core/include/settings_manager.hpp
@@ -168,8 +170,10 @@ aviqtl_target_warning_flags(AviQtl_Engine)
 set(SCRIPTING_SOURCES
     scripting/lua_host.cpp
     scripting/mod_engine.cpp
+    scripting/script_params.cpp
     scripting/lua_host.hpp
     scripting/mod_engine.hpp
+    scripting/script_params.hpp
 )
 
 add_library(AviQtl_Scripting STATIC ${SCRIPTING_SOURCES})
@@ -254,6 +258,7 @@ set(QML_FILES
     ui/qml/ExportDialog.qml
     ui/qml/MainWindow.qml
     ui/qml/PackageManagerWindow.qml
+    ui/qml/PluginPermissionDialog.qml
     ui/qml/ProjectLauncherWindow.qml
     ui/qml/ProjectSettingsWindow.qml
     ui/qml/SceneRenderer.qml

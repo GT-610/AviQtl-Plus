@@ -319,6 +319,17 @@ Common.AviQtlWindow {
                         }
 
                         Button {
+                            text: qsTr("権限")
+                            visible: installedVer !== "" && modelData.type === "mod"
+                            enabled: !PackageManager.isBusy
+                            onClicked: {
+                                permissionDialog.pluginId = modelData.id;
+                                permissionDialog.pluginName = modelData.display_name || modelData.id;
+                                permissionDialog.open();
+                            }
+                        }
+
+                        Button {
                             text: qsTr("削除")
                             visible: installedVer !== "" && modelData.id !== "org.aviqtl.app"
                             enabled: !PackageManager.isBusy
@@ -348,6 +359,11 @@ Common.AviQtlWindow {
             value: PackageManager ? PackageManager.progress : 0
         }
 
+    }
+
+    PluginPermissionDialog {
+        id: permissionDialog
+        anchors.centerIn: parent
     }
 
 }

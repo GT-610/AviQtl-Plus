@@ -1527,109 +1527,163 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="111"/>
+        <location filename="../core/src/package_manager.cpp" line="148"/>
         <source>Idle</source>
         <translation>Idle</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="211"/>
+        <location filename="../core/src/package_manager.cpp" line="248"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>Packages loaded from cache (Press Sync to check for updates)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="243"/>
+        <location filename="../core/src/package_manager.cpp" line="280"/>
         <source>Syncing repository...</source>
         <translation>Syncing repository...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="331"/>
-        <location filename="../core/src/package_manager.cpp" line="359"/>
+        <location filename="../core/src/package_manager.cpp" line="368"/>
+        <location filename="../core/src/package_manager.cpp" line="396"/>
         <source>Sync complete</source>
         <translation>Sync complete</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="411"/>
-        <location filename="../core/src/package_manager.cpp" line="540"/>
+        <location filename="../core/src/package_manager.cpp" line="448"/>
+        <location filename="../core/src/package_manager.cpp" line="577"/>
         <source>Package not found: %1</source>
         <translation>Package not found: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="429"/>
+        <location filename="../core/src/package_manager.cpp" line="466"/>
         <source>Could not determine repository URL for the package.</source>
         <translation>Could not determine repository URL for the package.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="434"/>
+        <location filename="../core/src/package_manager.cpp" line="471"/>
         <source>Searching for available files...</source>
         <translation>Searching for available files...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="446"/>
+        <location filename="../core/src/package_manager.cpp" line="483"/>
         <source>Repository URL is not in a valid format.</source>
         <translation>Repository URL is not in a valid format.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="461"/>
+        <location filename="../core/src/package_manager.cpp" line="498"/>
         <source>Unsupported repository host.</source>
         <translation>Unsupported repository host.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="471"/>
+        <location filename="../core/src/package_manager.cpp" line="508"/>
         <source>Failed to fetch release info (%1): %2</source>
         <translation>Failed to fetch release info (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="520"/>
+        <location filename="../core/src/package_manager.cpp" line="557"/>
         <source>No downloadable files found.</source>
         <translation>No downloadable files found.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="545"/>
+        <location filename="../core/src/package_manager.cpp" line="582"/>
         <source>Download URL not specified. Please fetch asset information.</source>
         <translation>Download URL not specified. Please fetch asset information.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="553"/>
         <source>Installing package: %1</source>
-        <translation>Installing package: %1</translation>
+        <translation type="vanished">Installing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="558"/>
+        <location filename="../core/src/package_manager.cpp" line="716"/>
         <source>Installation complete: %1</source>
         <translation>Installation complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="569"/>
+        <location filename="../core/src/package_manager.cpp" line="590"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl update available. Restart to apply.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="606"/>
+        <location filename="../core/src/package_manager.cpp" line="599"/>
+        <source>Downloading package: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="613"/>
+        <source>Download failed: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="631"/>
+        <source>Failed to create temporary directory.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="638"/>
+        <source>Invalid download URL.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="646"/>
+        <source>Failed to save downloaded file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="652"/>
+        <source>Extracting package...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="664"/>
+        <source>Failed to create extraction directory.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="671"/>
+        <source>Failed to extract package archive.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="675"/>
+        <source>Deploying package files...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="681"/>
+        <source>Failed to deploy package files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="847"/>
+        <source>Invalid package ID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="852"/>
         <source>Removing package: %1</source>
         <translation>Removing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="630"/>
+        <location filename="../core/src/package_manager.cpp" line="885"/>
         <source>Removal complete: %1</source>
         <translation>Removal complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="678"/>
+        <location filename="../core/src/package_manager.cpp" line="932"/>
         <source>No packages to upgrade.</source>
         <translation>No packages to upgrade.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="683"/>
+        <location filename="../core/src/package_manager.cpp" line="937"/>
         <source>Upgrading all packages...</source>
         <translation>Upgrading all packages...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="690"/>
+        <location filename="../core/src/package_manager.cpp" line="944"/>
         <source>All upgrades complete.</source>
         <translation>All upgrades complete.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="696"/>
+        <location filename="../core/src/package_manager.cpp" line="950"/>
         <source>Upgrading package: %1</source>
         <translation>Upgrading package: %1</translation>
     </message>
@@ -1683,7 +1737,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Resize multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="64"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="65"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>The destination file path is unknown</translation>
     </message>
@@ -3006,16 +3060,21 @@ Please restart the application to apply the update.</translation>
     </message>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="322"/>
+        <source>権限</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="333"/>
         <source>削除</source>
         <translation>Uninstall</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="340"/>
         <source>アップデート</source>
         <translation>Update</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="329"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="340"/>
         <source>インストール</source>
         <translation>Install</translation>
     </message>
@@ -3107,6 +3166,159 @@ Please restart the application to apply the update.</translation>
     </message>
 </context>
 <context>
+    <name>PluginPermissionDialog</name>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="11"/>
+        <source>権限管理: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="52"/>
+        <source>このプラグインに許可する権限を選択してください:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
+        <source>再生制御</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
+        <source>再生、一時停止、シーク</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <source>クリップ読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <source>クリップ情報の一覧表示</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <source>クリップ変更</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <source>クリップの作成、削除、移動</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <source>エフェクト読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <source>エフェクト情報の一覧表示</source>
+        <translation>List effect information</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <source>エフェクト変更</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <source>エフェクトの追加、削除、変更</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <source>プロジェクト読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <source>解像度、FPS等の情報取得</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <source>プロジェクト保存</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <source>プロジェクトファイルの保存</source>
+        <translation>Save project files</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <source>プロジェクト読み込み</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <source>プロジェクトファイルの読み込み</source>
+        <translation>Load project files</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <source>シーン管理</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <source>シーンの作成、削除、切り替え</source>
+        <translation>Create, remove, and switch scenes</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <source>設定読み取り</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <source>プラグイン設定の読み取り</source>
+        <translation>Read plugin settings</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <source>設定書き込み</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <source>プラグイン設定の保存</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <source>クリップボード</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <source>コピー、切り取り、貼り付け</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>ログ出力</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>コンソールへのログ出力</source>
+        <translation>Output logs to console</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
+        <source>すべて許可</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="132"/>
+        <source>すべて拒否</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>PluginSettingsPage</name>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="53"/>
@@ -3114,17 +3326,32 @@ Please restart the application to apply the update.</translation>
         <translation>You can configure enablement and search paths for each format</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="72"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="59"/>
+        <source>Lua プラグイン</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="67"/>
+        <source>ホットリロードを有効にする</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="73"/>
+        <source>有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="95"/>
         <source>%1 を読み込む</source>
         <translation>Load %1</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="78"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="101"/>
         <source>検索パス</source>
         <translation>Search Paths</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="103"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="126"/>
         <source>1行に1パスを入力します</source>
         <translation>Enter one path per line</translation>
     </message>
@@ -3478,6 +3705,76 @@ Please restart the application to apply the update.</translation>
     <message>
         <source>パッケージマネージャー</source>
         <translation type="obsolete">Package Manager</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="194"/>
+        <source>再生、一時停止、シークなどの再生制御</source>
+        <translation>Playback controls such as play, pause, and seek</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="196"/>
+        <source>クリップ情報の一覧表示と読み取り</source>
+        <translation>List and read clip information</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="198"/>
+        <source>クリップの作成、削除、移動、変更</source>
+        <translation>Create, delete, move, and modify clips</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="200"/>
+        <source>エフェクト情報の一覧表示</source>
+        <translation>List effect information</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="202"/>
+        <source>エフェクトの追加、削除、パラメータ変更</source>
+        <translation>Add, remove effects, and modify parameters</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="204"/>
+        <source>プロジェクト情報（解像度、FPS等）の読み取り</source>
+        <translation>Read project information (resolution, FPS, etc.)</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="206"/>
+        <source>プロジェクトファイルの保存</source>
+        <translation>Save project files</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="208"/>
+        <source>プロジェクトファイルの読み込み</source>
+        <translation>Load project files</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="210"/>
+        <source>シーンの作成、削除、切り替え</source>
+        <translation>Create, remove, and switch scenes</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="212"/>
+        <source>プラグイン設定の読み取り</source>
+        <translation>Read plugin settings</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="214"/>
+        <source>プラグイン設定の書き込み</source>
+        <translation>Write plugin settings</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="216"/>
+        <source>クリップボードへのコピー、切り取り、貼り付け</source>
+        <translation>Copy, cut, and paste to clipboard</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="218"/>
+        <source>コンソールへのログ出力</source>
+        <translation>Output logs to console</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="220"/>
+        <source>不明な権限</source>
+        <translation>Unknown permission</translation>
     </message>
 </context>
 <context>

@@ -145,6 +145,25 @@ aviqtl_add_test(
     LINKS AviQtl_Scripting
 )
 
+aviqtl_add_test(
+    NAME plugin_manifest
+    SOURCES test_plugin_manifest.cpp
+    LINKS AviQtl_Scripting AviQtl_UI
+)
+
+# --- Plugin System Tests ---
+aviqtl_add_test(
+    NAME permission_manager
+    SOURCES test_permission_manager.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME package_deploy
+    SOURCES test_package_deploy.cpp
+    LINKS AviQtl_Core
+)
+
 # --- UI Tests ---
 aviqtl_add_test(
     NAME selection_service

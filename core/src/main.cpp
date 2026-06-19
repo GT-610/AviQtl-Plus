@@ -13,6 +13,7 @@
 #include "compute_effect.hpp"
 #include "effect_registry.hpp"
 #include "package_manager.hpp"
+#include "permission_manager.hpp"
 #include "preset_manager.hpp"
 #include "settings_manager.hpp"
 #include "theme_controller.hpp"
@@ -61,6 +62,7 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
     ctx->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     ctx->setContextProperty(QStringLiteral("AviQtlVersion"), QString::fromUtf8(VERSION_STRING));
     ctx->setContextProperty(QStringLiteral("PackageManager"), &Core::PackageManager::instance());
+    ctx->setContextProperty(QStringLiteral("PermissionManager"), &Core::PermissionManager::instance());
     ctx->setContextProperty(QStringLiteral("PresetManager"), &Core::PresetManager::instance());
     ctx->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&UI::WindowManager::instance()));
 
@@ -154,6 +156,14 @@ auto main(int argc, char *argv[]) -> int {
 
         loadRegistry(QStringLiteral("Effects"));
         loadRegistry(QStringLiteral("Objects"));
+
+        // Enable hot reload if setting is enabled
+        if (sm.value(QStringLiteral("luaHotReload"), false).toBool()) {
+            modEngine.enableHotReload(true);
+        }
+
+        // Call onLoad hook after all plugins are loaded
+        modEngine.onLoad();
 
         // 第三引数に &app (メインスレッド所属) を渡してメインスレッドで実行されるようにする
         QObject::connect(&Engine::Plugin::AudioPluginManager::instance(), &Engine::Plugin::AudioPluginManager::pluginsReady, &app, [&]() {
