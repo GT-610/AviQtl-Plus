@@ -60,6 +60,7 @@ A project to develop a video editor that inherits the operability of **AviUtl 1.
 - UI closely resembling AviUtl
 - **Fast and powerful GPU-accelerated effects**
 - Support for **audio effects** such as VST3 and LV2
+- **LuaJIT plugin system** with package management, declarative parameters, and permission control
 - Cross-platform: **Linux**, **Windows**, **macOS**
 
 ## Installation
@@ -211,11 +212,17 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 <details>
 <summary>What is the roadmap for AviQtl-Plus?</summary>
 
-**Next (0.2.1–0.3.x):**
-- Complete effect and object plugin ecosystem
-- Audio editing and mixing refinement
+**Completed (0.3.0):**
+- LuaJIT plugin system with lifecycle hooks, declarative script parameters, and granular permissions
+- Package manager for installing/updating plugins, effects, and objects from remote repositories
+- 24 unit tests covering core, engine, scripting, and plugin subsystems
+- CI via GitHub Actions (build + static analysis)
+
+**Next (0.3.x-0.4.0):**
+- Expand effect and object plugin ecosystem (third-party effect registration API, example effect plugins)
+- Audio editing and mixing refinement (per-track controls, mixer panel)
 - Performance optimization and GPU compute shader improvements
-- Initial public alpha releases
+- Initial public alpha releases with automated CI/CD
 
 **Long-term:**
 - Full-featured video editor suitable as an AviUtl replacement

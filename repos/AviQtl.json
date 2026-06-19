@@ -3,22 +3,10 @@
   "packages": [
     {
       "id": "org.aviqtl.app",
-      "display_name": "AviQtl",
+      "display_name": "AviQtl-Plus",
       "type": "application",
-      "release_feed": "https://codeberg.org/taisho-guy/AviQtl/releases.atom",
-      "repository_url": "https://codeberg.org/taisho-guy/AviQtl"
-    },
-    {
-      "id": "org.aviqtl.mods.autosave",
-      "display_name": "Enhanced AutoSave",
-      "type": "mod",
-      "release_feed": "https://example.com/autosave-mod/releases.atom"
-    },
-    {
-      "id": "org.aviqtl.objects.particle",
-      "display_name": "Particle System",
-      "type": "object",
-      "release_feed": "https://example.com/particle/releases.atom"
+      "release_feed": "https://github.com/GT-610/AviQtl-Plus/releases.atom",
+      "repository_url": "https://github.com/GT-610/AviQtl-Plus"
     }
   ]
 }
