@@ -1,160 +1,160 @@
-# AviQtl プラグイン ユーザーガイド
+# AviQtl Plugin User Guide
 
-このガイドでは、AviQtlのプラグインのインストール、管理、使用方法について説明します。
+This guide explains how to install, manage, and use plugins in AviQtl.
 
-## プラグインとは
+## What Are Plugins
 
-プラグインはAviQtlの機能を拡張するスクリプトです。Luaプログラミング言語で書かれており、以下のことができます：
+Plugins are scripts that extend AviQtl's functionality. Written in the Lua programming language, they can:
 
-- タイムライン操作の自動化
-- プロジェクト情報の取得・変更
-- カスタムワークフローの作成
-- 設定の永続的な保存
+- Automate timeline operations
+- Retrieve and modify project information
+- Create custom workflows
+- Persist settings across sessions
 
-## プラグインのインストール
+## Installing Plugins
 
-### 方法1: パッケージマネージャーを使用
+### Method 1: Using the Package Manager
 
-1. **メニュー** → **ツール** → **パッケージマネージャー** を開きます
-2. **リポジトリを同期** をクリックしてパッケージ一覧を取得します
-3. インストールしたいプラグインの **インストール** ボタンをクリックします
-4. 必要に応じて、ダウンロードするファイルを選択します
+1. Open **Menu** → **Tools** → **Package Manager**
+2. Click **Sync Repository** to fetch the package list
+3. Click the **Install** button for the plugin you want to install
+4. Select the file to download if prompted
 
-### 方法2: 手動インストール
+### Method 2: Manual Installation
 
-1. プラグインファイルを AviQtl の `plugins/` ディレクトリにコピーします
-2. AviQtl を再起動するか、ホットリロードが有効な場合は自動的に読み込まれます
+1. Copy plugin files to AviQtl's `plugins/` directory
+2. Restart AviQtl, or if hot reload is enabled, plugins load automatically
 
-### ディレクトリ構造
+### Directory Structure
 
 ```
 plugins/
-├── example_transport/      # ディレクトリ形式のプラグイン
-│   ├── manifest.lua       # プラグイン情報
-│   └── main.lua           # メインコード
-├── simple_plugin.lua      # 単一ファイル形式のプラグイン
+├── example_transport/      # Directory-based plugin
+│   ├── manifest.lua       # Plugin metadata
+│   └── main.lua           # Main code
+├── simple_plugin.lua      # Single-file plugin
 └── another_plugin/
     ├── manifest.lua
     ├── main.lua
-    └── utils.lua          # 追加のスクリプトファイル
+    └── utils.lua          # Additional script files
 ```
 
-## プラグインの管理
+## Managing Plugins
 
-### パッケージマネージャー
+### Package Manager
 
-パッケージマネージャーでは以下の操作ができます：
+The Package Manager allows you to:
 
-- **インストール**: プラグインをダウンロードしてインストール
-- **アップデート**: 新しいバージョンがあれば更新
-- **削除**: プラグインをアンインストール
-- **権限管理**: プラグインに許可する権限を設定
+- **Install**: Download and install plugins
+- **Update**: Upgrade to newer versions when available
+- **Remove**: Uninstall plugins
+- **Permissions**: Configure which permissions plugins are granted
 
-### 権限システム
+### Permission System
 
-AviQtlはセキュリティのため、権限ベースのアクセス制御を実装しています。新しいプラグインはデフォルトで権限を持っていません。
+AviQtl implements a permission-based access control system for security. New plugins have no permissions by default.
 
-#### 権限の種類
+#### Available Permissions
 
-| 権限 | 説明 |
-|------|------|
-| 再生制御 | 再生、一時停止、シーク |
-| クリップ読み取り | クリップ情報の一覧表示 |
-| クリップ変更 | クリップの作成、削除、移動 |
-| エフェクト読み取り | エフェクト情報の一覧表示 |
-| エフェクト変更 | エフェクトの追加、削除、変更 |
-| プロジェクト読み取り | 解像度、FPS等の情報取得 |
-| プロジェクト保存 | プロジェクトファイルの保存 |
-| プロジェクト読み込み | プロジェクトファイルの読み込み |
-| シーン管理 | シーンの作成、削除、切り替え |
-| 設定読み取り | プラグイン設定の読み取り |
-| 設定書き込み | プラグイン設定の保存 |
-| クリップボード | コピー、切り取り、貼り付け |
-| ログ出力 | コンソールへのログ出力 |
+| Permission | Description |
+|------------|-------------|
+| Transport Control | Play, pause, seek |
+| Clip Read | List and read clip information |
+| Clip Modify | Create, delete, move clips |
+| Effect Read | List effect information |
+| Effect Modify | Add, remove, modify effects |
+| Project Read | Get resolution, FPS, etc. |
+| Project Save | Save project files |
+| Project Load | Load project files |
+| Scene Manage | Create, remove, switch scenes |
+| Settings Read | Read plugin settings |
+| Settings Write | Save plugin settings |
+| Clipboard | Copy, cut, paste operations |
+| Log Output | Write to console log |
 
-#### 権限の管理方法
+#### Managing Permissions
 
-1. **パッケージマネージャー** を開きます
-2. インストール済みのプラグインを見つけます
-3. **権限** ボタンをクリックします
-4. 必要な権限にチェックを入れます
-5. **OK** をクリックして保存します
+1. Open the **Package Manager**
+2. Find the installed plugin
+3. Click the **Permissions** button
+4. Check the permissions you want to grant
+5. Click **OK** to save
 
-## ホットリロード
+## Hot Reload
 
-ホットリロードを有効にすると、プラグインファイルの変更を検知して自動的に再読み込みします。
+When hot reload is enabled, AviQtl detects changes to plugin files and automatically reloads them.
 
-### 有効化方法
+### Enabling Hot Reload
 
-1. **設定** → **プラグイン** を開きます
-2. **ホットリロードを有効にする** にチェックを入れます
+1. Open **Settings** → **Plugins**
+2. Check **Enable Hot Reload**
 
-### 注意事項
+### Notes
 
-- ホットリロードは開発中のみ使用することをお勧めします
-- 本番環境では、安定性のため無効にしてください
-- プラグインの変更後、AviQtlを再起動することもできます
+- Hot reload is recommended for development only
+- For production use, disable it for stability
+- You can also restart AviQtl after making plugin changes
 
-## 組み込みプラグイン
+## Built-in Plugins
 
-AviQtlには以下のサンプルプラグインが含まれています：
+AviQtl includes the following example plugins:
 
 ### example_transport
 
-Transport Control APIのデモンストレーション。再生制御の使用方法を示します。
+Demonstrates the Transport Control API. Shows how to use playback controls.
 
 ```lua
--- 使用例
-aviqtl.transport.play()    -- 再生
-aviqtl.transport.pause()   -- 一時停止
-aviqtl.transport.toggle()  -- 切り替え
+-- Usage examples
+aviqtl.transport.play()    -- Start playback
+aviqtl.transport.pause()   -- Pause playback
+aviqtl.transport.toggle()  -- Toggle play/pause
 ```
 
 ### example_clip_ops
 
-Clip Operations APIのデモンストレーション。クリップ操作の使用方法を示します。
+Demonstrates the Clip Operations API. Shows how to manipulate clips.
 
 ```lua
--- 使用例
-local clips = aviqtl.clip.list()  -- クリップ一覧
-aviqtl.clip.create("text", 0, 0)  -- テキストクリップ作成
+-- Usage examples
+local clips = aviqtl.clip.list()  -- List all clips
+aviqtl.clip.create("text", 0, 0)  -- Create text clip
 ```
 
 ### example_project_info
 
-Project Info APIのデモンストレーション。プロジェクト情報と設定の使用方法を示します。
+Demonstrates the Project Info API. Shows how to access project information and settings.
 
 ```lua
--- 使用例
+-- Usage examples
 local width = aviqtl.project.width()
 local height = aviqtl.project.height()
 aviqtl.settings.set("my_key", "my_value")
 ```
 
-## トラブルシューティング
+## Troubleshooting
 
-### プラグインが読み込まれない
+### Plugin Not Loading
 
-1. `plugins/` ディレクトリにファイルがあることを確認
-2. Lua構文エラーがないか確認（コンソールにエラーが表示されます）
-3. AviQtlを再起動してみてください
+1. Verify files exist in the `plugins/` directory
+2. Check for Lua syntax errors (errors appear in the console)
+3. Try restarting AviQtl
 
-### 権限エラーが発生する
+### Permission Errors
 
-1. パッケージマネージャーでプラグインの権限を確認
-2. 必要な権限がすべて許可されていることを確認
-3. 権限を変更した後、プラグインを再読み込み
+1. Check plugin permissions in the Package Manager
+2. Ensure all required permissions are granted
+3. Reload the plugin after changing permissions
 
-### パフォーマンスが低下する
+### Performance Issues
 
-1. `AviQtlUpdateHook` 内の処理を軽量化
-2. 不要なプラグインを無効化
-3. ホットリロードを無効にして再起動
+1. Reduce work in `AviQtlUpdateHook`
+2. Disable unnecessary plugins
+3. Disable hot reload and restart
 
-## 開発者向け
+## For Developers
 
-プラグインの開発方法については、[開発者ガイド](DEVELOPER_GUIDE.md)を参照してください。
+See the [Developer Guide](DEVELOPER_GUIDE.md) for information on creating plugins.
 
-## API リファレンス
+## API Reference
 
-詳細なAPIについては、[APIリファレンス](API_REFERENCE.md)を参照してください。
+See the [API Reference](API_REFERENCE.md) for detailed API documentation.
