@@ -1605,85 +1605,85 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="599"/>
         <source>Downloading package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージをダウンロード中: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="613"/>
         <source>Download failed: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>ダウンロード失敗: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="631"/>
         <source>Failed to create temporary directory.</source>
-        <translation type="unfinished"></translation>
+        <translation>一時ディレクトリの作成に失敗しました。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="638"/>
         <source>Invalid download URL.</source>
-        <translation type="unfinished"></translation>
+        <translation>無効なダウンロードURLです。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="646"/>
         <source>Failed to save downloaded file.</source>
-        <translation type="unfinished"></translation>
+        <translation>ダウンロードファイルの保存に失敗しました。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="652"/>
         <source>Extracting package...</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージを展開中...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="664"/>
         <source>Failed to create extraction directory.</source>
-        <translation type="unfinished"></translation>
+        <translation>展開先ディレクトリの作成に失敗しました。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="671"/>
         <source>Failed to extract package archive.</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージアーカイブの展開に失敗しました。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="675"/>
         <source>Deploying package files...</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージファイルを配置中...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="681"/>
         <source>Failed to deploy package files.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="842"/>
-        <source>Invalid package ID.</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージファイルの配置に失敗しました。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="847"/>
+        <source>Invalid package ID.</source>
+        <translation>無効なパッケージIDです。</translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="852"/>
         <source>Removing package: %1</source>
         <translation>パッケージを削除中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="880"/>
+        <location filename="../core/src/package_manager.cpp" line="885"/>
         <source>Removal complete: %1</source>
         <translation>削除完了: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="927"/>
+        <location filename="../core/src/package_manager.cpp" line="932"/>
         <source>No packages to upgrade.</source>
         <translation>アップグレード可能なパッケージはありません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="932"/>
+        <location filename="../core/src/package_manager.cpp" line="937"/>
         <source>Upgrading all packages...</source>
         <translation>すべてのパッケージをアップグレード中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="939"/>
+        <location filename="../core/src/package_manager.cpp" line="944"/>
         <source>All upgrades complete.</source>
         <translation>すべてのアップグレードが完了しました</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="945"/>
+        <location filename="../core/src/package_manager.cpp" line="950"/>
         <source>Upgrading package: %1</source>
         <translation>パッケージをアップグレード中: %1</translation>
     </message>
@@ -3679,72 +3679,72 @@
         <translation>エフェクト順序変更 (%1件)</translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="186"/>
+        <location filename="../core/src/permission_manager.cpp" line="194"/>
         <source>再生、一時停止、シークなどの再生制御</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="188"/>
+        <location filename="../core/src/permission_manager.cpp" line="196"/>
         <source>クリップ情報の一覧表示と読み取り</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="190"/>
+        <location filename="../core/src/permission_manager.cpp" line="198"/>
         <source>クリップの作成、削除、移動、変更</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="192"/>
+        <location filename="../core/src/permission_manager.cpp" line="200"/>
         <source>エフェクト情報の一覧表示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="194"/>
+        <location filename="../core/src/permission_manager.cpp" line="202"/>
         <source>エフェクトの追加、削除、パラメータ変更</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="196"/>
+        <location filename="../core/src/permission_manager.cpp" line="204"/>
         <source>プロジェクト情報（解像度、FPS等）の読み取り</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="198"/>
+        <location filename="../core/src/permission_manager.cpp" line="206"/>
         <source>プロジェクトファイルの保存</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="200"/>
+        <location filename="../core/src/permission_manager.cpp" line="208"/>
         <source>プロジェクトファイルの読み込み</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="202"/>
+        <location filename="../core/src/permission_manager.cpp" line="210"/>
         <source>シーンの作成、削除、切り替え</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="204"/>
+        <location filename="../core/src/permission_manager.cpp" line="212"/>
         <source>プラグイン設定の読み取り</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="206"/>
+        <location filename="../core/src/permission_manager.cpp" line="214"/>
         <source>プラグイン設定の書き込み</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="208"/>
+        <location filename="../core/src/permission_manager.cpp" line="216"/>
         <source>クリップボードへのコピー、切り取り、貼り付け</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="210"/>
+        <location filename="../core/src/permission_manager.cpp" line="218"/>
         <source>コンソールへのログ出力</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="212"/>
+        <location filename="../core/src/permission_manager.cpp" line="220"/>
         <source>不明な権限</source>
         <translation type="unfinished"></translation>
     </message>

@@ -734,6 +734,11 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
         }
     }
     setHasUpdatesAvailable(anyUpdates);
+
+    // Continue upgrade queue if there are more packages to process
+    if (!m_upgradeQueue.isEmpty()) {
+        processUpgradeQueue();
+    }
 }
 
 bool PackageManager::extractZip(const QString &archivePath, const QString &destDir) {

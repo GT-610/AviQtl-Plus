@@ -38,6 +38,10 @@ void PermissionManager::grantPermission(const QString &pluginId, PluginPermissio
 }
 
 void PermissionManager::grantPermission(const QString &pluginId, const QString &permissionName) {
+    if (!allPermissionNames().contains(permissionName)) {
+        qWarning() << "[PermissionManager] Unknown permission name:" << permissionName;
+        return;
+    }
     grantPermission(pluginId, permissionFromName(permissionName));
 }
 
@@ -54,6 +58,10 @@ void PermissionManager::revokePermission(const QString &pluginId, PluginPermissi
 }
 
 void PermissionManager::revokePermission(const QString &pluginId, const QString &permissionName) {
+    if (!allPermissionNames().contains(permissionName)) {
+        qWarning() << "[PermissionManager] Unknown permission name:" << permissionName;
+        return;
+    }
     revokePermission(pluginId, permissionFromName(permissionName));
 }
 
