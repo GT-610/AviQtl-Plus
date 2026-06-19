@@ -3061,7 +3061,7 @@
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="322"/>
         <source>権限</source>
-        <translation type="unfinished"></translation>
+        <translation>权限</translation>
     </message>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="333"/>
@@ -3328,17 +3328,17 @@
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="59"/>
         <source>Lua プラグイン</source>
-        <translation type="unfinished"></translation>
+        <translation>Lua 插件</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="67"/>
         <source>ホットリロードを有効にする</source>
-        <translation type="unfinished"></translation>
+        <translation>启用热重载</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="73"/>
         <source>有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします</source>
-        <translation type="unfinished"></translation>
+        <translation>启用后，检测到 plugins 文件夹变更时将自动重新加载插件</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="95"/>

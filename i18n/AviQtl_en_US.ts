@@ -3215,7 +3215,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
         <source>エフェクト情報の一覧表示</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">List effect information</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
@@ -3245,7 +3245,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
         <source>プロジェクトファイルの保存</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Save project files</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
@@ -3255,7 +3255,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
         <source>プロジェクトファイルの読み込み</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Load project files</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
@@ -3265,7 +3265,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
         <source>シーンの作成、削除、切り替え</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Create, remove, and switch scenes</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
@@ -3275,7 +3275,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
         <source>プラグイン設定の読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Read plugin settings</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
@@ -3305,7 +3305,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
         <source>コンソールへのログ出力</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Output logs to console</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
@@ -3709,72 +3709,72 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="194"/>
         <source>再生、一時停止、シークなどの再生制御</source>
-        <translation type="unfinished"></translation>
+        <translation>Playback controls such as play, pause, and seek</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="196"/>
         <source>クリップ情報の一覧表示と読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>List and read clip information</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="198"/>
         <source>クリップの作成、削除、移動、変更</source>
-        <translation type="unfinished"></translation>
+        <translation>Create, delete, move, and modify clips</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="200"/>
         <source>エフェクト情報の一覧表示</source>
-        <translation type="unfinished"></translation>
+        <translation>List effect information</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="202"/>
         <source>エフェクトの追加、削除、パラメータ変更</source>
-        <translation type="unfinished"></translation>
+        <translation>Add, remove effects, and modify parameters</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="204"/>
         <source>プロジェクト情報（解像度、FPS等）の読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>Read project information (resolution, FPS, etc.)</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="206"/>
         <source>プロジェクトファイルの保存</source>
-        <translation type="unfinished"></translation>
+        <translation>Save project files</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="208"/>
         <source>プロジェクトファイルの読み込み</source>
-        <translation type="unfinished"></translation>
+        <translation>Load project files</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="210"/>
         <source>シーンの作成、削除、切り替え</source>
-        <translation type="unfinished"></translation>
+        <translation>Create, remove, and switch scenes</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="212"/>
         <source>プラグイン設定の読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>Read plugin settings</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="214"/>
         <source>プラグイン設定の書き込み</source>
-        <translation type="unfinished"></translation>
+        <translation>Write plugin settings</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="216"/>
         <source>クリップボードへのコピー、切り取り、貼り付け</source>
-        <translation type="unfinished"></translation>
+        <translation>Copy, cut, and paste to clipboard</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="218"/>
         <source>コンソールへのログ出力</source>
-        <translation type="unfinished"></translation>
+        <translation>Output logs to console</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="220"/>
         <source>不明な権限</source>
-        <translation type="unfinished"></translation>
+        <translation>Unknown permission</translation>
     </message>
 </context>
 <context>
