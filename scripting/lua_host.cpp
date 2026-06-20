@@ -1,9 +1,7 @@
 #include "lua_host.hpp"
 #include <QDebug>
-#include <cmath>
 #include <lua.hpp> // Standard Lua/LuaJIT header
 #include <unordered_map>
-#include <vector>
 
 namespace AviQtl::Scripting {
 
