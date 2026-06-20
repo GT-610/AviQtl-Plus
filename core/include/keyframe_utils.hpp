@@ -33,11 +33,11 @@ inline std::vector<TrackPoint> extractTrackPoints(const QVariantList &track) {
             customPoints = it.value().toList();
         }
         points.push_back({
-            m.value(QStringLiteral("frame")).toInt(),
-            m.value(QStringLiteral("value")),
-            m.value(QStringLiteral("interp")).toString(),
-            m.value(QStringLiteral("modeParams")).toMap(),
-            customPoints
+            .frame = m.value(QStringLiteral("frame")).toInt(),
+            .value = m.value(QStringLiteral("value")),
+            .interp = m.value(QStringLiteral("interp")).toString(),
+            .modeParams = m.value(QStringLiteral("modeParams")).toMap(),
+            .points = customPoints
         });
     }
     return points;
@@ -47,13 +47,16 @@ inline std::vector<TrackPoint> extractTrackPoints(const QVariantList &track) {
 inline const QHash<QString, EasingFunction> &easingFunctions();
 
 inline QVariant evaluateTrackFast(const std::vector<TrackPoint> &track, int frame, const QVariant &fallback) {
-    if (track.empty())
+    if (track.empty()) {
         return fallback;
+    }
 
-    if (frame <= track.front().frame)
+    if (frame <= track.front().frame) {
         return track.front().value;
-    if (frame >= track.back().frame)
+    }
+    if (frame >= track.back().frame) {
         return track.back().value;
+    }
 
     const bool numeric = fallback.canConvert<double>();
 
@@ -61,23 +64,28 @@ inline QVariant evaluateTrackFast(const std::vector<TrackPoint> &track, int fram
     size_t lo = 0, hi = track.size() - 1;
     while (lo < hi - 1) {
         size_t mid = lo + (hi - lo) / 2;
-        if (track[mid].frame <= frame)
+        if (track[mid].frame <= frame) {
             lo = mid;
-        else
+        } else {
             hi = mid;
+        }
     }
 
     const auto &p0 = track[lo];
     const auto &p1 = track[lo + 1];
-    const int f0 = p0.frame, f1 = p1.frame;
-    const QVariant &v0 = p0.value, &v1 = p1.value;
+    const int f0 = p0.frame;
+    const int f1 = p1.frame;
+    const QVariant &v0 = p0.value;
+    const QVariant &v1 = p1.value;
 
-    if (f0 == f1)
+    if (f0 == f1) {
         return v0;
+    }
     const double tRaw = (frame - f0) / double(f1 - f0);
 
-    if (p0.interp == QStringLiteral("none"))
+    if (p0.interp == QStringLiteral("none")) {
         return (frame < f1) ? v0 : v1;
+    }
 
     if (v0.typeId() == QMetaType::QString && v1.typeId() == QMetaType::QString) {
         QColor c0(v0.toString()), c1(v1.typeId() == QMetaType::QString ? v1.toString() : v0.toString());
@@ -226,11 +234,13 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
         {QStringLiteral("ease_in_expo"), [](double t, const auto &, const auto &) { return t == 0.0 ? 0.0 : std::pow(2.0, 10.0 * t - 10.0); }},
         {QStringLiteral("ease_out_expo"), [](double t, const auto &, const auto &) { return t == 1.0 ? 1.0 : 1.0 - std::pow(2.0, -10.0 * t); }},
         {QStringLiteral("ease_in_out_expo"), [](double t, const auto &, const auto &) {
-            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            if (t == 0.0) return 0.0;
+            if (t == 1.0) return 1.0;
             return t < 0.5 ? std::pow(2.0, 20.0 * t - 10.0) / 2.0 : (2.0 - std::pow(2.0, -20.0 * t + 10.0)) / 2.0;
         }},
         {QStringLiteral("ease_out_in_expo"), [](double t, const auto &, const auto &) {
-            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            if (t == 0.0) return 0.0;
+            if (t == 1.0) return 1.0;
             return t < 0.5 ? (1.0 - std::pow(2.0, -20.0 * t)) / 2.0 : std::pow(2.0, 20.0 * t - 20.0) / 2.0 + 0.5;
         }},
         {QStringLiteral("ease_in_circ"), [](double t, const auto &, const auto &) { return 1.0 - std::sqrt(1.0 - t * t); }},
@@ -262,21 +272,24 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble();
             double c4 = (2.0 * M_PI) / period;
-            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            if (t == 0.0) return 0.0;
+            if (t == 1.0) return 1.0;
             return -a * std::pow(2.0, 10.0 * t - 10.0) * std::sin((t - 1.0 - period / 4.0) * c4);
         }},
         {QStringLiteral("ease_out_elastic"), [](double t, const auto &, const auto &p) {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble();
             double c4 = (2.0 * M_PI) / period;
-            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            if (t == 0.0) return 0.0;
+            if (t == 1.0) return 1.0;
             return a * std::pow(2.0, -10.0 * t) * std::sin((t - period / 4.0) * c4) + 1.0;
         }},
         {QStringLiteral("ease_in_out_elastic"), [](double t, const auto &, const auto &p) {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble() * 1.5;
             double c5 = (2.0 * M_PI) / period;
-            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            if (t == 0.0) return 0.0;
+            if (t == 1.0) return 1.0;
             return t < 0.5
                 ? -(a * std::pow(2.0, 20.0 * t - 10.0) * std::sin((20.0 * t - 11.125) * c5)) / 2.0
                 : (a * std::pow(2.0, -20.0 * t + 10.0) * std::sin((20.0 * t - 11.125) * c5)) / 2.0 + 1.0;
@@ -285,7 +298,8 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble();
             double c4 = (2.0 * M_PI) / period;
-            if (t == 0.0) return 0.0; if (t == 1.0) return 1.0;
+            if (t == 0.0) return 0.0;
+            if (t == 1.0) return 1.0;
             auto eout = [&](double u) { return a * std::pow(2.0, -10.0 * u) * std::sin((u - period / 4.0) * c4) + 1.0; };
             auto ein = [&](double u) { return -a * std::pow(2.0, 10.0 * u - 10.0) * std::sin((u - 1.0 - period / 4.0) * c4); };
             return t < 0.5 ? eout(2.0 * t) / 2.0 : ein(2.0 * t - 1.0) / 2.0 + 0.5;

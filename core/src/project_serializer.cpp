@@ -19,18 +19,21 @@ namespace AviQtl::Core {
 inline constexpr int PROJECT_VERSION = 2;
 
 static QString toRelativePath(const QString &absolutePath, const QString &baseDir) {
-    if (absolutePath.isEmpty())
+    if (absolutePath.isEmpty()) {
         return absolutePath;
+    }
     QDir base(baseDir);
     QString rel = base.relativeFilePath(absolutePath);
     return rel.isEmpty() ? absolutePath : rel;
 }
 
 static QString toAbsolutePath(const QString &path, const QString &baseDir) {
-    if (path.isEmpty())
+    if (path.isEmpty()) {
         return path;
-    if (QDir::isAbsolutePath(path))
+    }
+    if (QDir::isAbsolutePath(path)) {
         return path;
+    }
     return QDir::cleanPath(QDir(baseDir).absoluteFilePath(path));
 }
 
@@ -38,12 +41,14 @@ static void convertMediaPaths(QVariantMap &params, const QString &baseDir, bool 
     const QStringList mediaKeys = {QStringLiteral("video"), QStringLiteral("image"), QStringLiteral("audio")};
     for (const auto &key : mediaKeys) {
         auto it = params.find(key);
-        if (it == params.end() || !it->canConvert<QVariantMap>())
+        if (it == params.end() || !it->canConvert<QVariantMap>()) {
             continue;
+        }
         QVariantMap media = it->toMap();
         auto pathIt = media.find(QStringLiteral("path"));
-        if (pathIt == media.end())
+        if (pathIt == media.end()) {
             pathIt = media.find(QStringLiteral("source"));
+        }
         if (pathIt != media.end()) {
             QString p = pathIt->toString();
             if (!p.isEmpty()) {
@@ -130,8 +135,9 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
-        if (errorMessage != nullptr)
+        if (errorMessage != nullptr) {
             *errorMessage = file.errorString();
+        }
         return false;
     }
     file.write(QJsonDocument(root).toJson());
@@ -140,13 +146,15 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
 
 auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeline, UI::ProjectService *project, QString *errorMessage) -> bool {
     QString path = QUrl(fileUrl).toLocalFile();
-    if (path.isEmpty())
+    if (path.isEmpty()) {
         path = fileUrl;
+    }
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        if (errorMessage != nullptr)
+        if (errorMessage != nullptr) {
             *errorMessage = file.errorString();
+        }
         return false;
     }
 

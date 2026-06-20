@@ -80,6 +80,7 @@ struct ThreadLocalLua {
 
     lua_State *state = nullptr;
     std::unordered_map<std::string, int> compiledRegistry; // スクリプト文字列 -> Registry Index
+    static constexpr size_t MAX_COMPILED_EXPRESSIONS = 1000; // Limit to prevent memory exhaustion
 
     ThreadLocalLua() : state(luaL_newstate()) {
 
@@ -110,6 +111,13 @@ auto LuaHost::evaluate(const std::string &expression, double time, int index, do
         return currentValue;
     }
 
+    // Limit expression length to prevent abuse
+    static constexpr size_t MAX_EXPRESSION_LENGTH = 10000;
+    if (expression.length() > MAX_EXPRESSION_LENGTH) {
+        qWarning() << "[LuaHost] Expression too long (" << expression.length() << " > " << MAX_EXPRESSION_LENGTH << ")";
+        return currentValue;
+    }
+
     // Reset stack
     lua_settop(threadL, 0);
 
@@ -131,6 +139,11 @@ auto LuaHost::evaluate(const std::string &expression, double time, int index, do
     int ref = LUA_REFNIL;
     auto it = t_lua.compiledRegistry.find(expression);
     if (it == t_lua.compiledRegistry.end()) {
+        // Limit compiled expression cache size to prevent memory exhaustion
+        if (t_lua.compiledRegistry.size() >= ThreadLocalLua::MAX_COMPILED_EXPRESSIONS) {
+            qWarning() << "[LuaHost] Expression cache full (" << ThreadLocalLua::MAX_COMPILED_EXPRESSIONS << "), skipping:" << QString::fromStdString(expression).left(50);
+            return currentValue;
+        }
         std::string code = "return " + expression;
         if (luaL_loadstring(threadL, code.c_str()) != LUA_OK) {
             qWarning() << "[LuaHost] Parse error:" << QString::fromStdString(expression) << "->" << lua_tostring(threadL, -1);

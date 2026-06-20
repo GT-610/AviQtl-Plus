@@ -123,7 +123,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
 
         QStringList categories;
         QJsonArray catArray = obj.value(QStringLiteral("categories")).toArray();
-        for (const QJsonValue &val : catArray) {
+        for (const auto &val : catArray) {
             if (val.isString()) {
                 categories.append(val.toString());
             }
@@ -161,7 +161,19 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
 
         // QMLファイルの絶対パスを解決 (JSONファイルからの相対パスとして処理)
         QFileInfo jsonInfo(file.fileName());
-        QString absoluteQmlPath = jsonInfo.absoluteDir().filePath(qmlFileName);
+        QDir jsonDir = jsonInfo.absoluteDir();
+        QString absoluteQmlPath = jsonDir.filePath(qmlFileName);
+
+        // Validate path stays within the JSON file's directory (prevent path traversal)
+        QFileInfo qmlInfo(absoluteQmlPath);
+        QString canonicalQmlPath = qmlInfo.canonicalFilePath();
+        QString canonicalBaseDir = jsonDir.canonicalPath();
+        if (!canonicalQmlPath.isEmpty() &&
+            !canonicalQmlPath.startsWith(canonicalBaseDir + QLatin1Char('/')) &&
+            canonicalQmlPath != canonicalBaseDir) {
+            qWarning().noquote() << "[EffectRegistry] Path traversal detected in QML reference. Effect:" << id << "Path:" << qmlFileName;
+            continue;
+        }
 
         if (QFile::exists(absoluteQmlPath)) {
             meta.qmlSource = QUrl::fromLocalFile(absoluteQmlPath).toString();

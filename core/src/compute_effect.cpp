@@ -3,14 +3,10 @@
 #include <QDebug>
 #include <QLoggingCategory>
 #include <QMetaObject>
-#include <QMetaType>
 #include <QPointer>
 #include <QSGNode>
 #include <QSGTexture>
 #include <QSGTextureProvider>
-#include <algorithm>
-#include <cmath>
-#include <cstring>
 
 namespace AviQtl::UI::Effects {
 

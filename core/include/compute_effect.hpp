@@ -1,10 +1,10 @@
 #pragma once
 #include <QObject>
+#include <QPointer>
 #include <QQuickItem>
 #include <QSGNode>
 #include <QUrl>
 #include <QVariantMap>
-#include <cstdint>
 
 namespace AviQtl::UI::Effects {
 
@@ -66,7 +66,7 @@ class ComputeEffect : public QQuickItem {
   private:
     void recalcAutoWorkGroup();
 
-    QQuickItem *m_source = nullptr;
+    QPointer<QQuickItem> m_source;
     QVariantMap m_params;
     bool m_enabled = true;
     QUrl m_shaderPath;
