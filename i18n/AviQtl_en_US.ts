@@ -1893,7 +1893,7 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>BaseComputeEffect</name>
     <message>
-        <location filename="../ui/qml/common/BaseComputeEffect.qml" line="71"/>
+        <location filename="../ui/qml/common/BaseComputeEffect.qml" line="74"/>
         <source>Compute Error:
 </source>
         <translation>Compute Error:

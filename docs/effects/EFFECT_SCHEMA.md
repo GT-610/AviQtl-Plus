@@ -339,6 +339,9 @@ layout(std140, binding = 2) uniform Params {
     float myParam;      // Must match JSON param key (or uniformMapping)
     float time;         // Auto-injected by BaseComputeEffect
 };
+// Optional extra textures (binding 3, 4, 5, ...)
+// layout(binding = 3) uniform sampler2D extraTex0;
+// layout(binding = 4) uniform sampler2D extraTex1;
 
 void main() {
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
@@ -355,6 +358,7 @@ void main() {
 **Key points:**
 - Work group size: always `local_size_x = 8, local_size_y = 8`
 - Binding 0: output image (RGBA8), binding 1: input texture, binding 2: params UBO
+- Binding 3+: extra textures (set via `extraTextures` property in QML)
 - Bounds check is mandatory
 - `time` is auto-injected (current frame number)
 - Uniform block member names must match JSON param keys (after `uniformMapping`)
@@ -396,8 +400,14 @@ Common.BaseComputeEffect {
     id: root
     computeShader: Qt.resolvedUrl("my_effect.comp.qsb")
     // Optional: uniformMapping: ({ "jsonKey": "glslMemberName" })
+    // Optional: hdrOutput: true  // Use RGBA16F instead of RGBA8
+    // Optional: extraTextures: [someItemWithLayer]  // binding 3, 4, ...
 }
 ```
+
+When using `extraTextures`, each entry must be a `QQuickItem` with
+`layer.enabled: true`. The first extra texture is at binding 3, the second
+at binding 4, and so on.
 
 ---
 
