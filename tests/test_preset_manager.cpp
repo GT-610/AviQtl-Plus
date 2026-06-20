@@ -1,4 +1,5 @@
 #include "preset_manager.hpp"
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
@@ -16,7 +17,7 @@ class TestPresetManager : public QObject {
 
   private slots:
     void init() {
-        m_testDir = QDir::tempPath() + QStringLiteral("/aviqtl_test_presets");
+        m_testDir = QCoreApplication::applicationDirPath() + QStringLiteral("/presets");
         QDir().mkpath(m_testDir);
     }
 
