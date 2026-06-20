@@ -99,6 +99,19 @@ RowLayout {
         }
     }
 
+    // 防抖定時器 - 左側スライダー用
+    Timer {
+        id: leftDebounceTimer
+
+        interval: 80
+        repeat: false
+        onTriggered: {
+            var val = parseFloat(leftValueField.text);
+            if (!isNaN(val))
+                root.pushLeftValue(val);
+        }
+    }
+
     // 左側スライダー（ボックスに追従）
     Slider {
         id: leftSlider
@@ -123,9 +136,12 @@ RowLayout {
             if (root.rightLinked)
                 root.syncRightDisplay(val);
 
+            // 防抖：拖動時延遲更新，釋放時立即更新
+            leftDebounceTimer.restart();
         }
         onPressedChanged: {
             if (!pressed) {
+                leftDebounceTimer.stop();
                 var val = parseFloat(leftValueField.text);
                 if (!isNaN(val))
                     root.pushLeftValue(val);
@@ -209,6 +225,19 @@ RowLayout {
 
     }
 
+    // 防抖定時器 - 右側スライダー用
+    Timer {
+        id: rightDebounceTimer
+
+        interval: 80
+        repeat: false
+        onTriggered: {
+            var val = parseFloat(rightValueField.text);
+            if (!isNaN(val))
+                root.endValueModified(val);
+        }
+    }
+
     // 右側スライダー（ボックスに追従）
     Slider {
         id: rightSlider
@@ -228,9 +257,12 @@ RowLayout {
             // スライダー操作時はボックスを更新
             var val = decimals === 0 ? Math.round(value) : value;
             rightValueField.text = root.formatValue(val);
+            // 防抖：拖動時延遲更新，釋放時立即更新
+            rightDebounceTimer.restart();
         }
         onPressedChanged: {
             if (!pressed) {
+                rightDebounceTimer.stop();
                 var val = parseFloat(rightValueField.text);
                 if (!isNaN(val))
                     root.endValueModified(val);
