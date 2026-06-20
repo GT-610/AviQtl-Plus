@@ -423,10 +423,15 @@ auto TimelineController::getClipEffectIndex(int clipId, QObject *effectModel) co
         if (clip.id != clipId) {
             continue;
         }
+        int visibleIndex = 0;
         for (int i = 0; i < clip.effects.size(); ++i) {
-            if (clip.effects.value(i) == effectModel) {
-                return i;
+            if (clip.type == QLatin1String("audio") && clip.effects.value(i)->id() == QLatin1String("transform")) {
+                continue;
             }
+            if (clip.effects.value(i) == effectModel) {
+                return visibleIndex;
+            }
+            ++visibleIndex;
         }
         break;
     }
