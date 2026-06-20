@@ -19,6 +19,7 @@ struct TrackPoint {
     QVariant value;
     QString interp;
     QVariantMap modeParams;
+    QVariantList points; // For custom bezier interpolation
 };
 
 inline std::vector<TrackPoint> extractTrackPoints(const QVariantList &track) {
@@ -26,11 +27,17 @@ inline std::vector<TrackPoint> extractTrackPoints(const QVariantList &track) {
     points.reserve(track.size());
     for (const auto &v : track) {
         const QVariantMap m = v.toMap();
+        QVariantList customPoints;
+        auto it = m.find(QStringLiteral("points"));
+        if (it != m.end()) {
+            customPoints = it.value().toList();
+        }
         points.push_back({
             m.value(QStringLiteral("frame")).toInt(),
             m.value(QStringLiteral("value")),
             m.value(QStringLiteral("interp")).toString(),
-            m.value(QStringLiteral("modeParams")).toMap()
+            m.value(QStringLiteral("modeParams")).toMap(),
+            customPoints
         });
     }
     return points;
@@ -74,8 +81,13 @@ inline QVariant evaluateTrackFast(const std::vector<TrackPoint> &track, int fram
         if (c0.isValid() && c1.isValid()) {
             std::vector<double> params;
             if (p0.interp == QStringLiteral("custom")) {
-                params = {p0.modeParams.value(QStringLiteral("bzx1"), 0.33).toDouble(), p0.modeParams.value(QStringLiteral("bzy1"), 0.0).toDouble(),
-                          p0.modeParams.value(QStringLiteral("bzx2"), 0.66).toDouble(), p0.modeParams.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
+                if (!p0.points.isEmpty()) {
+                    for (const auto &val : std::as_const(p0.points))
+                        params.push_back(val.toDouble());
+                } else {
+                    params = {p0.modeParams.value(QStringLiteral("bzx1"), 0.33).toDouble(), p0.modeParams.value(QStringLiteral("bzy1"), 0.0).toDouble(),
+                              p0.modeParams.value(QStringLiteral("bzx2"), 0.66).toDouble(), p0.modeParams.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
+                }
             }
             const auto &funcs = easingFunctions();
             QString type = p0.interp;
@@ -104,8 +116,13 @@ inline QVariant evaluateTrackFast(const std::vector<TrackPoint> &track, int fram
 
     std::vector<double> params;
     if (p0.interp == QStringLiteral("custom")) {
-        params = {p0.modeParams.value(QStringLiteral("bzx1"), 0.33).toDouble(), p0.modeParams.value(QStringLiteral("bzy1"), 0.0).toDouble(),
-                  p0.modeParams.value(QStringLiteral("bzx2"), 0.66).toDouble(), p0.modeParams.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
+        if (!p0.points.isEmpty()) {
+            for (const auto &val : std::as_const(p0.points))
+                params.push_back(val.toDouble());
+        } else {
+            params = {p0.modeParams.value(QStringLiteral("bzx1"), 0.33).toDouble(), p0.modeParams.value(QStringLiteral("bzy1"), 0.0).toDouble(),
+                      p0.modeParams.value(QStringLiteral("bzx2"), 0.66).toDouble(), p0.modeParams.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
+        }
     }
     const auto &funcs = easingFunctions();
     QString type = p0.interp;

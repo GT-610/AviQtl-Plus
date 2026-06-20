@@ -217,7 +217,7 @@ class EffectModel : public QObject {
         invalidateCache(key);
         if (m_params[key] != val) {
             m_params[key] = val;
-            m_expressionParams.clear(); // Rebuild on next access
+            m_expressionParamsBuilt = false; // Rebuild on next access
 
             // アニメーショントラックと同期させ、evaluatedParam() 等が常に最新の静値を返すようにする
             auto ktIt = m_keyframeTracks.find(key);
@@ -381,8 +381,9 @@ class EffectModel : public QObject {
         }
 
         // Check expression only if param is known to be an expression
-        if (m_expressionParams.isEmpty()) {
+        if (!m_expressionParamsBuilt) {
             rebuildExpressionSet();
+            m_expressionParamsBuilt = true;
         }
         if (m_expressionParams.contains(paramName)) {
             std::string expr = m_params.value(paramName).toString().mid(1).toStdString();
@@ -444,5 +445,6 @@ class EffectModel : public QObject {
     mutable QHash<QString, QVariantList> m_resolvedCache;
     mutable QHash<QString, std::vector<Core::KeyframeUtils::TrackPoint>> m_trackPointCache;
     mutable QSet<QString> m_expressionParams;
+    mutable bool m_expressionParamsBuilt = false;
 };
 } // namespace AviQtl::UI

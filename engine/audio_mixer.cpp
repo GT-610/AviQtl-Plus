@@ -140,8 +140,8 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
         }
     }
 
-    // Take shared lock for reading shared state
-    std::shared_lock lock(m_mutex);
+    // Take unique lock because we modify m_clipPhase and m_clipLastFrame
+    std::unique_lock lock(m_mutex);
 
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
@@ -300,13 +300,13 @@ void AudioMixer::reset() {
     m_clipLastFrame.clear();
 }
 
-auto AudioMixer::getChain(int clipId) -> Plugin::AudioPluginChain & {
+auto AudioMixer::getChain(int clipId) -> std::shared_ptr<Plugin::AudioPluginChain> {
     std::unique_lock lock(m_mutex);
     auto it = m_chains.find(clipId);
     if (it == m_chains.end()) {
         it = m_chains.insert(clipId, std::make_shared<Plugin::AudioPluginChain>());
     }
-    return *it.value();
+    return it.value();
 }
 
 void AudioMixer::clearChain(int clipId) {

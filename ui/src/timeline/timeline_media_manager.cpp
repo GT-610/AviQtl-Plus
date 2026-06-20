@@ -329,8 +329,8 @@ void TimelineMediaManager::syncAudioPluginChain(const ClipData &clip) {
         return;
     }
 
-    auto &chain = audioMixer->getChain(clip.id);
-    chain.clear();
+    auto chain = audioMixer->getChain(clip.id);
+    chain->clear();
     for (const auto &pluginState : clip.audioPlugins) {
         auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginState.id);
         if (!plugin) {
@@ -344,7 +344,7 @@ void TimelineMediaManager::syncAudioPluginChain(const ClipData &clip) {
                 plugin->setParam(paramIndex, it.value().toFloat());
             }
         }
-        chain.add(std::move(plugin), pluginState.enabled);
+        chain->add(std::move(plugin), pluginState.enabled);
     }
 }
 

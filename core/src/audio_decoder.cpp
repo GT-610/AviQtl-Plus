@@ -168,7 +168,7 @@ void AudioDecoder::startDecoding() {
         // Publish the decoded data atomically
         {
             QMutexLocker locker(&m_mutex);
-            m_fullAudioData = audioData;
+            std::atomic_store(&m_fullAudioData, audioData);
         }
 
         buildPeakCache();
@@ -178,7 +178,7 @@ void AudioDecoder::startDecoding() {
             return;
         }
 
-        qDebug() << "[AudioDecoder] clip" << m_clipId << "decoded. total samples:" << m_fullAudioData.size();
+        qDebug() << "[AudioDecoder] clip" << m_clipId << "decoded. total samples:" << audioData->size();
         m_isReady = true;
         emit ready();
     });
@@ -206,7 +206,7 @@ void AudioDecoder::closeFFmpeg() {
         m_fmtCtx = nullptr;
     }
     QMutexLocker locker(&m_mutex);
-    m_fullAudioData = std::make_shared<std::vector<float>>();
+    std::atomic_store(&m_fullAudioData, std::make_shared<std::vector<float>>());
     m_peakPyramid.clear();
 }
 
@@ -363,14 +363,16 @@ auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth)
                 break;
             }
         }
-        const auto &level = m_peakPyramid[levelIdx];
+        // Copy level data before unlocking to avoid use-after-free
+        const int levelSamplesPerEntry = m_peakPyramid[levelIdx].samplesPerEntry;
+        const auto levelPeaks = m_peakPyramid[levelIdx].peaks;
         locker.unlock();
 
         for (int i = 0; i < pixelWidth; ++i) {
-            auto entryIdx = static_cast<size_t>(((startSec + (durationSec * i / pixelWidth)) * m_sampleRate) / level.samplesPerEntry);
-            if (entryIdx < level.peaks.size()) {
-                result.push_back(level.peaks[entryIdx].min);
-                result.push_back(level.peaks[entryIdx].max);
+            auto entryIdx = static_cast<size_t>(((startSec + (durationSec * i / pixelWidth)) * m_sampleRate) / levelSamplesPerEntry);
+            if (entryIdx < levelPeaks.size()) {
+                result.push_back(levelPeaks[entryIdx].min);
+                result.push_back(levelPeaks[entryIdx].max);
             } else {
                 result.push_back(0.0F);
                 result.push_back(0.0F);
