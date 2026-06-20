@@ -103,6 +103,9 @@ void AudioDecoder::startDecoding() {
         std::vector<float> convertBuf;
         bool decodePacketError = false;
 
+        // Create a local shared_ptr for decoding
+        auto audioData = std::make_shared<std::vector<float>>();
+
         while (av_read_frame(m_fmtCtx, m_pkt) >= 0) {
             if (m_closing.load(std::memory_order_acquire)) {
                 av_packet_unref(m_pkt);
@@ -132,8 +135,7 @@ void AudioDecoder::startDecoding() {
                 int converted = swr_convert(m_swrCtx, &outPtr, outSamples, const_cast<const uint8_t **>(m_frame->data), m_frame->nb_samples);
 
                 if (converted > 0) {
-                    QMutexLocker locker(&m_mutex);
-                    m_fullAudioData.insert(m_fullAudioData.end(), convertBuf.begin(), convertBuf.begin() + static_cast<ptrdiff_t>(converted) * 2);
+                    audioData->insert(audioData->end(), convertBuf.begin(), convertBuf.begin() + static_cast<ptrdiff_t>(converted) * 2);
                 }
                 av_frame_unref(m_frame);
             }
@@ -147,8 +149,7 @@ void AudioDecoder::startDecoding() {
             auto *outPtr = reinterpret_cast<uint8_t *>(convertBuf.data());
             int converted = swr_convert(m_swrCtx, &outPtr, outSamples, const_cast<const uint8_t **>(m_frame->data), m_frame->nb_samples);
             if (converted > 0) {
-                QMutexLocker locker(&m_mutex);
-                m_fullAudioData.insert(m_fullAudioData.end(), convertBuf.begin(), convertBuf.begin() + static_cast<ptrdiff_t>(converted) * 2);
+                audioData->insert(audioData->end(), convertBuf.begin(), convertBuf.begin() + static_cast<ptrdiff_t>(converted) * 2);
             }
             av_frame_unref(m_frame);
         }
@@ -160,9 +161,14 @@ void AudioDecoder::startDecoding() {
             auto *outPtr = reinterpret_cast<uint8_t *>(convertBuf.data());
             int flushed = swr_convert(m_swrCtx, &outPtr, remaining, nullptr, 0);
             if (flushed > 0) {
-                QMutexLocker locker(&m_mutex);
-                m_fullAudioData.insert(m_fullAudioData.end(), convertBuf.begin(), convertBuf.begin() + static_cast<ptrdiff_t>(flushed) * 2);
+                audioData->insert(audioData->end(), convertBuf.begin(), convertBuf.begin() + static_cast<ptrdiff_t>(flushed) * 2);
             }
+        }
+
+        // Publish the decoded data atomically
+        {
+            QMutexLocker locker(&m_mutex);
+            m_fullAudioData = audioData;
         }
 
         buildPeakCache();
@@ -200,7 +206,7 @@ void AudioDecoder::closeFFmpeg() {
         m_fmtCtx = nullptr;
     }
     QMutexLocker locker(&m_mutex);
-    m_fullAudioData.clear();
+    m_fullAudioData = std::make_shared<std::vector<float>>();
     m_peakPyramid.clear();
 }
 
@@ -219,7 +225,8 @@ void AudioDecoder::setSampleRate(int sampleRate) {
 void AudioDecoder::seek(qint64 ms) { emit seekRequested(ms); }
 
 auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
-    QMutexLocker locker(&m_mutex);
+    // Get a local copy of the shared_ptr (atomic, lock-free)
+    auto audioData = std::atomic_load(&m_fullAudioData);
 
     // startTimeが負数の場合のアンダーフローを防ぐ（size_tへのキャスト前にクランプ）
     startTime = std::max(startTime, 0.0);
@@ -232,16 +239,16 @@ auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float>
         startIdx--;
     }
 
-    if (startIdx >= m_fullAudioData.size()) {
+    if (!audioData || startIdx >= audioData->size()) {
         return std::vector<float>(count, 0.0F);
     }
 
-    size_t available = m_fullAudioData.size() - startIdx;
+    size_t available = audioData->size() - startIdx;
     size_t actualCount = std::min(static_cast<size_t>(count), available);
 
     std::vector<float> result;
     result.reserve(static_cast<size_t>(count));
-    result.assign(m_fullAudioData.begin() + static_cast<ptrdiff_t>(startIdx), m_fullAudioData.begin() + static_cast<ptrdiff_t>(startIdx + actualCount));
+    result.assign(audioData->begin() + static_cast<ptrdiff_t>(startIdx), audioData->begin() + static_cast<ptrdiff_t>(startIdx + actualCount));
 
     // 足りない分は無音で埋める
     if (result.size() < static_cast<size_t>(count)) {
@@ -252,20 +259,16 @@ auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float>
 }
 
 void AudioDecoder::buildPeakCache() {
-    // Copy audio data out under lock to avoid a data race with
-    // closeFFmpeg() / setSampleRate(), which may clear the buffer
-    // from another thread while we build the pyramid off-thread.
-    std::vector<float> localAudio;
-    {
+    // Get a local copy of the shared_ptr (atomic, lock-free)
+    // This avoids holding the lock during the expensive peak building
+    auto localAudio = std::atomic_load(&m_fullAudioData);
+    if (!localAudio || localAudio->empty()) {
         QMutexLocker locker(&m_mutex);
-        if (m_fullAudioData.empty()) {
-            m_peakPyramid.clear();
-            return;
-        }
-        localAudio = m_fullAudioData; // copy under lock
+        m_peakPyramid.clear();
+        return;
     }
 
-    int numSamples = static_cast<int>(localAudio.size() / 2);
+    int numSamples = static_cast<int>(localAudio->size() / 2);
 
     std::vector<PeakLevel> localPyramid;
 
@@ -278,8 +281,8 @@ void AudioDecoder::buildPeakCache() {
         float pMin = 0.0F;
         float pMax = 0.0F;
         for (int j = 0; j < 32 && (i + j) < numSamples; ++j) {
-            float l = localAudio[static_cast<std::size_t>(i + j) * 2];
-            float r = localAudio[(static_cast<std::size_t>(i + j) * 2) + 1];
+            float l = (*localAudio)[static_cast<std::size_t>(i + j) * 2];
+            float r = (*localAudio)[(static_cast<std::size_t>(i + j) * 2) + 1];
             pMin = std::min({pMin, l, r});
             pMax = std::max({pMax, l, r});
         }
@@ -318,11 +321,13 @@ void AudioDecoder::buildPeakCache() {
 }
 
 auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth) -> std::vector<float> {
-    QMutexLocker locker(&m_mutex);
     if (pixelWidth <= 0) {
         return {};
     }
-    if (m_fullAudioData.empty()) {
+
+    // Get a local copy of the shared_ptr (atomic, lock-free)
+    auto audioData = std::atomic_load(&m_fullAudioData);
+    if (!audioData || audioData->empty()) {
         return std::vector<float>(static_cast<std::size_t>(pixelWidth) * 2, 0.0F);
     }
 
@@ -334,21 +339,22 @@ auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth)
 
     if (samplesPerPixel < 32.0) {
         // 超高精度: キャッシュレベルを超えたズーム時は生データを直接スキャン
-        int numSamples = static_cast<int>(m_fullAudioData.size() / 2);
+        int numSamples = static_cast<int>(audioData->size() / 2);
         for (int i = 0; i < pixelWidth; ++i) {
             int idxStart = std::clamp(static_cast<int>((startSec + (durationSec * i / pixelWidth)) * m_sampleRate), 0, numSamples - 1);
             int idxEnd = std::clamp(static_cast<int>((startSec + (durationSec * (i + 1) / pixelWidth)) * m_sampleRate), idxStart + 1, numSamples);
             float pMin = 0.0F;
             float pMax = 0.0F;
             for (int j = idxStart; j < idxEnd; ++j) {
-                pMin = std::min({pMin, m_fullAudioData[static_cast<std::size_t>(j) * 2], m_fullAudioData[(static_cast<std::size_t>(j) * 2) + 1]});
-                pMax = std::max({pMax, m_fullAudioData[static_cast<std::size_t>(j) * 2], m_fullAudioData[(static_cast<std::size_t>(j) * 2) + 1]});
+                pMin = std::min({pMin, (*audioData)[static_cast<std::size_t>(j) * 2], (*audioData)[(static_cast<std::size_t>(j) * 2) + 1]});
+                pMax = std::max({pMax, (*audioData)[static_cast<std::size_t>(j) * 2], (*audioData)[(static_cast<std::size_t>(j) * 2) + 1]});
             }
             result.push_back(pMin);
             result.push_back(pMax);
         }
     } else {
         // 通常・広域表示: ピラミッドキャッシュを使用
+        QMutexLocker locker(&m_mutex);
         size_t levelIdx = 0;
         for (size_t i = 0; i < m_peakPyramid.size(); ++i) {
             if (m_peakPyramid[i].samplesPerEntry <= samplesPerPixel) {
@@ -358,6 +364,8 @@ auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth)
             }
         }
         const auto &level = m_peakPyramid[levelIdx];
+        locker.unlock();
+
         for (int i = 0; i < pixelWidth; ++i) {
             auto entryIdx = static_cast<size_t>(((startSec + (durationSec * i / pixelWidth)) * m_sampleRate) / level.samplesPerEntry);
             if (entryIdx < level.peaks.size()) {
@@ -373,11 +381,14 @@ auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth)
 }
 
 auto AudioDecoder::totalDurationSec() const -> double {
-    QMutexLocker locker(&m_mutex);
     if (m_sampleRate <= 0) {
         return 0.0;
     }
-    const double frames = static_cast<double>(m_fullAudioData.size()) / 2.0;
+    auto audioData = std::atomic_load(&m_fullAudioData);
+    if (!audioData) {
+        return 0.0;
+    }
+    const double frames = static_cast<double>(audioData->size()) / 2.0;
     return frames / static_cast<double>(m_sampleRate);
 }
 
