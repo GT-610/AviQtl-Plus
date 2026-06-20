@@ -1653,37 +1653,37 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="877"/>
+        <location filename="../core/src/package_manager.cpp" line="881"/>
         <source>Invalid package ID.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="882"/>
+        <location filename="../core/src/package_manager.cpp" line="886"/>
         <source>Removing package: %1</source>
         <translation>Removing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="915"/>
+        <location filename="../core/src/package_manager.cpp" line="919"/>
         <source>Removal complete: %1</source>
         <translation>Removal complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="962"/>
+        <location filename="../core/src/package_manager.cpp" line="966"/>
         <source>No packages to upgrade.</source>
         <translation>No packages to upgrade.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="967"/>
+        <location filename="../core/src/package_manager.cpp" line="971"/>
         <source>Upgrading all packages...</source>
         <translation>Upgrading all packages...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="974"/>
+        <location filename="../core/src/package_manager.cpp" line="978"/>
         <source>All upgrades complete.</source>
         <translation>All upgrades complete.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="980"/>
+        <location filename="../core/src/package_manager.cpp" line="984"/>
         <source>Upgrading package: %1</source>
         <translation>Upgrading package: %1</translation>
     </message>
@@ -3102,27 +3102,27 @@ Please restart the application to apply the update.</translation>
         <translation>, range: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="177"/>
         <source> 数値入力</source>
         <translation> Number input</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="178"/>
         <source>パラメータの数値を直接入力します</source>
         <translation>Enter parameter value directly</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="203"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="205"/>
         <source>イージング設定を開きます</source>
         <translation>Open easing settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="219"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="221"/>
         <source> 終了値入力</source>
         <translation> End value input</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="220"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="222"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
         <translation>Enter end value (when using keyframes)</translation>
     </message>

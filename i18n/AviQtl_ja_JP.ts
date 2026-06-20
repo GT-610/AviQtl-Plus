@@ -1653,37 +1653,37 @@
         <translation>パッケージファイルの配置に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="877"/>
+        <location filename="../core/src/package_manager.cpp" line="881"/>
         <source>Invalid package ID.</source>
         <translation>無効なパッケージIDです。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="882"/>
+        <location filename="../core/src/package_manager.cpp" line="886"/>
         <source>Removing package: %1</source>
         <translation>パッケージを削除中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="915"/>
+        <location filename="../core/src/package_manager.cpp" line="919"/>
         <source>Removal complete: %1</source>
         <translation>削除完了: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="962"/>
+        <location filename="../core/src/package_manager.cpp" line="966"/>
         <source>No packages to upgrade.</source>
         <translation>アップグレード可能なパッケージはありません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="967"/>
+        <location filename="../core/src/package_manager.cpp" line="971"/>
         <source>Upgrading all packages...</source>
         <translation>すべてのパッケージをアップグレード中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="974"/>
+        <location filename="../core/src/package_manager.cpp" line="978"/>
         <source>All upgrades complete.</source>
         <translation>すべてのアップグレードが完了しました</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="980"/>
+        <location filename="../core/src/package_manager.cpp" line="984"/>
         <source>Upgrading package: %1</source>
         <translation>パッケージをアップグレード中: %1</translation>
     </message>
@@ -3102,27 +3102,27 @@
         <translation>、範囲: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="177"/>
         <source> 数値入力</source>
         <translation> 数値入力</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="178"/>
         <source>パラメータの数値を直接入力します</source>
         <translation>パラメータの数値を直接入力します</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="203"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="205"/>
         <source>イージング設定を開きます</source>
         <translation>イージング設定を開きます</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="219"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="221"/>
         <source> 終了値入力</source>
         <translation> 終了値入力</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="220"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="222"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
         <translation>終了点の数値を入力します (キーフレーム使用時)</translation>
     </message>

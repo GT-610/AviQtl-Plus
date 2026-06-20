@@ -168,7 +168,8 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         QFileInfo qmlInfo(absoluteQmlPath);
         QString canonicalQmlPath = qmlInfo.canonicalFilePath();
         QString canonicalBaseDir = jsonDir.canonicalPath();
-        if (!canonicalQmlPath.startsWith(canonicalBaseDir + QLatin1Char('/')) &&
+        if (!canonicalQmlPath.isEmpty() &&
+            !canonicalQmlPath.startsWith(canonicalBaseDir + QLatin1Char('/')) &&
             canonicalQmlPath != canonicalBaseDir) {
             qWarning().noquote() << "[EffectRegistry] Path traversal detected in QML reference. Effect:" << id << "Path:" << qmlFileName;
             continue;

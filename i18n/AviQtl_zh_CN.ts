@@ -1653,37 +1653,37 @@
         <translation>部署软件包文件失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="877"/>
+        <location filename="../core/src/package_manager.cpp" line="881"/>
         <source>Invalid package ID.</source>
         <translation>无效的软件包ID。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="882"/>
+        <location filename="../core/src/package_manager.cpp" line="886"/>
         <source>Removing package: %1</source>
         <translation>正在删除软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="915"/>
+        <location filename="../core/src/package_manager.cpp" line="919"/>
         <source>Removal complete: %1</source>
         <translation>删除完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="962"/>
+        <location filename="../core/src/package_manager.cpp" line="966"/>
         <source>No packages to upgrade.</source>
         <translation>没有可升级的软件包。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="967"/>
+        <location filename="../core/src/package_manager.cpp" line="971"/>
         <source>Upgrading all packages...</source>
         <translation>正在升级所有软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="974"/>
+        <location filename="../core/src/package_manager.cpp" line="978"/>
         <source>All upgrades complete.</source>
         <translation>所有升级已完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="980"/>
+        <location filename="../core/src/package_manager.cpp" line="984"/>
         <source>Upgrading package: %1</source>
         <translation>正在升级软件包：%1</translation>
     </message>
@@ -3102,27 +3102,27 @@
         <translation>、范围: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="177"/>
         <source> 数値入力</source>
         <translation> 数值输入</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="178"/>
         <source>パラメータの数値を直接入力します</source>
         <translation>直接输入参数值</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="203"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="205"/>
         <source>イージング設定を開きます</source>
         <translation>打开缓动设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="219"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="221"/>
         <source> 終了値入力</source>
         <translation> 终点值输入</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="220"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="222"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
         <translation>输入终点值（使用关键帧时）</translation>
     </message>

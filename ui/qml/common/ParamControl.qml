@@ -151,7 +151,9 @@ RowLayout {
             root.commitLeftSliderValue(value);
         }
         onPressedChanged: {
-            if (!pressed) {
+            if (pressed) {
+                root._lastLeftSliderValue = parseFloat(leftValueField.text);
+            } else {
                 var val = parseFloat(leftValueField.text);
                 if (!isNaN(val) && !root.sameValue(val, root._lastLeftSliderValue))
                     root.pushLeftValue(val);
@@ -255,7 +257,9 @@ RowLayout {
             root.commitRightSliderValue(value);
         }
         onPressedChanged: {
-            if (!pressed) {
+            if (pressed) {
+                root._lastRightSliderValue = parseFloat(rightValueField.text);
+            } else {
                 var val = parseFloat(rightValueField.text);
                 if (!isNaN(val) && !root.sameValue(val, root._lastRightSliderValue))
                     root.endValueModified(val);

@@ -44,11 +44,17 @@ Same effect implemented as a compute shader, demonstrating:
 ### Manual Installation
 
 1. Copy the effect files to your AviQtl effects directory:
-   ```
+   ```bash
    <AviQtl data dir>/effects/sepia/
    ```
 
-2. Restart AviQtl or use the package manager to reload effects.
+2. The `.qsb` shader files must be compiled before use. If building from source, CMake handles this automatically. For manual installs, compile with `qsb`:
+   ```bash
+   qsb --glsl 440 sepia.frag -o sepia.frag.qsb
+   qsb --glsl 430,hlsl 50,msl 12 sepia.comp -o sepia.comp.qsb
+   ```
+
+3. Restart AviQtl or use the package manager to reload effects.
 
 ### Package Manager Distribution
 

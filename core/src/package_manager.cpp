@@ -777,9 +777,13 @@ bool PackageManager::extractZip(const QString &archivePath, const QString &destD
     while (it.hasNext()) {
         it.next();
         const QString canonicalPath = QFileInfo(it.filePath()).canonicalFilePath();
-        if (!canonicalPath.startsWith(canonicalDest)) {
+        if (canonicalPath.isEmpty()) {
+            qWarning() << "[PackageManager] Path disappeared during extraction:" << it.filePath();
+            return false;
+        }
+        if (canonicalPath != canonicalDest &&
+            !canonicalPath.startsWith(canonicalDest + QLatin1Char('/'))) {
             qWarning() << "[PackageManager] Zip Slip detected, removing:" << it.filePath();
-            // Remove the malicious entry
             if (it.fileInfo().isDir()) {
                 QDir(it.filePath()).removeRecursively();
             } else {
