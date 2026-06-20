@@ -663,18 +663,38 @@ void TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSigna
 }
 
 auto TimelineService::findClipById(int clipId) -> ClipData * {
-    for (auto &scene : m_scenes) {
-        auto it = std::ranges::find_if(scene.clips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
-        if (it != scene.clips.end())
+    // Fast path: search current scene first (most operations work within current scene)
+    auto *scene = currentScene();
+    if (scene != nullptr) {
+        auto it = std::ranges::find_if(scene->clips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
+        if (it != scene->clips.end())
+            return &(*it);
+    }
+    // Fallback: search all scenes
+    for (auto &s : m_scenes) {
+        if (s.id == m_currentSceneId)
+            continue; // Already searched
+        auto it = std::ranges::find_if(s.clips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
+        if (it != s.clips.end())
             return &(*it);
     }
     return nullptr;
 }
 
 auto TimelineService::findClipById(int clipId) const -> const ClipData * {
-    for (const auto &scene : std::as_const(m_scenes)) {
-        auto it = std::ranges::find_if(scene.clips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
-        if (it != scene.clips.end())
+    // Fast path: search current scene first (most operations work within current scene)
+    const auto *scene = currentScene();
+    if (scene != nullptr) {
+        auto it = std::ranges::find_if(scene->clips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
+        if (it != scene->clips.end())
+            return &(*it);
+    }
+    // Fallback: search all scenes
+    for (const auto &s : std::as_const(m_scenes)) {
+        if (s.id == m_currentSceneId)
+            continue; // Already searched
+        auto it = std::ranges::find_if(s.clips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
+        if (it != s.clips.end())
             return &(*it);
     }
     return nullptr;
