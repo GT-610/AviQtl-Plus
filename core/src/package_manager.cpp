@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -745,21 +746,50 @@ bool PackageManager::extractZip(const QString &archivePath, const QString &destD
     QProcess process;
 
 #ifdef Q_OS_WIN
-    // Use PowerShell on Windows
-    const QString cmd = QStringLiteral("Expand-Archive");
-    const QStringList args = {
-        QStringLiteral("-Path"), archivePath,
-        QStringLiteral("-DestinationPath"), destDir,
-        QStringLiteral("-Force")
-    };
-    process.start(QStringLiteral("powershell"), {QStringLiteral("-Command"), cmd + " " + args.join(" ")});
+    // Use PowerShell on Windows with properly escaped arguments to prevent command injection
+    QString escapedPath = archivePath;
+    escapedPath.replace(QLatin1Char('\''), QStringLiteral("''"));
+    QString escapedDest = destDir;
+    escapedDest.replace(QLatin1Char('\''), QStringLiteral("''"));
+    const QString cmd = QStringLiteral("Expand-Archive -Path '%1' -DestinationPath '%2' -Force")
+        .arg(escapedPath, escapedDest);
+    process.start(QStringLiteral("powershell"), {
+        QStringLiteral("-NoProfile"),
+        QStringLiteral("-NonInteractive"),
+        QStringLiteral("-Command"),
+        cmd
+    });
 #else
-    // Use unzip on Linux/macOS
+    // Use unzip on Linux/macOS - arguments are passed separately (safe)
     process.start(QStringLiteral("unzip"), {QStringLiteral("-o"), archivePath, QStringLiteral("-d"), destDir});
 #endif
 
     process.waitForFinished(30000);
-    return process.exitCode() == 0;
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        qWarning() << "[PackageManager] Extraction failed:" << process.errorString();
+        return false;
+    }
+
+    // Validate extracted paths to prevent Zip Slip
+    const QDir destDirObj(destDir);
+    const QString canonicalDest = destDirObj.canonicalPath();
+    QDirIterator it(destDirObj.path(), QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        const QString canonicalPath = QFileInfo(it.filePath()).canonicalFilePath();
+        if (!canonicalPath.startsWith(canonicalDest)) {
+            qWarning() << "[PackageManager] Zip Slip detected, removing:" << it.filePath();
+            // Remove the malicious entry
+            if (it.fileInfo().isDir()) {
+                QDir(it.filePath()).removeRecursively();
+            } else {
+                QFile::remove(it.filePath());
+            }
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool PackageManager::deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType) {

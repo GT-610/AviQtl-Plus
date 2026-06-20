@@ -25,18 +25,9 @@ class EffectModel : public QObject {
     static QVariantList sortPoints(QVariantList points) { return Core::KeyframeUtils::sortPoints(std::move(points)); }
     static int inferredDurationForTrack(const QVariant &raw) { return Core::KeyframeUtils::inferredDurationForTrack(raw); }
     static QVariantList flattenStructuredTrack(const QVariantMap &track) { return Core::KeyframeUtils::flattenStructuredTrack(track); }
-    static double solveBezierT(double x, double x1, double x2) { return Core::KeyframeUtils::solveBezierT(x, x1, x2); }
     static const QHash<QString, EasingFunction> &easingFunctions() { return Core::KeyframeUtils::easingFunctions(); }
     static QVariant evaluateTrack(const QVariantList &track, int frame, const QVariant &fallback) { return Core::KeyframeUtils::evaluateTrack(track, frame, fallback); }
     static QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) { return Core::KeyframeUtils::normalizeTrackForDuration(rawTrack, fallback, durationFrames); }
-
-    static QVariantMap makePoint(int frame, const QVariant &value, const QString &interp = QStringLiteral("none")) {
-        QVariantMap p;
-        p[QStringLiteral("frame")] = frame;
-        p[QStringLiteral("value")] = value;
-        p[QStringLiteral("interp")] = interp;
-        return p;
-    }
 
   public:
     Q_PROPERTY(QString id READ id CONSTANT)
@@ -421,13 +412,6 @@ class EffectModel : public QObject {
             if (it.value().typeId() == QMetaType::QString && it.value().toString().startsWith(QStringLiteral("="))) {
                 m_expressionParams.insert(it.key());
             }
-        }
-    }
-
-    void rebuildTrackPointCache() const {
-        m_trackPointCache.clear();
-        for (auto it = m_resolvedCache.constBegin(); it != m_resolvedCache.constEnd(); ++it) {
-            m_trackPointCache.insert(it.key(), Core::KeyframeUtils::extractTrackPoints(it.value()));
         }
     }
 
