@@ -90,7 +90,7 @@ class TimelineService : public QObject {
     // 内部用 (コマンドから呼び出される)
     void deleteClipInternal(int clipId, bool emitSignal = true);
     void createClipInternal(int clipId, const QString &type, int startFrame, int layer, bool emitSignal = true);
-    void updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal = true);
+    void updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal = true, bool forcePosition = false);
     void setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal = true);
     void addEffectInternal(int clipId, const QString &effectId);
     void addClipsDirectInternal(const QList<ClipData> &clips);

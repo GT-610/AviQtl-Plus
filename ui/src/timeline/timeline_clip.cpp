@@ -410,7 +410,7 @@ auto TimelineService::resolveDragPosition(int clipId, int targetLayer, int propo
     return {finalFrame, finalLayer};
 }
 
-void TimelineService::updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal) {
+void TimelineService::updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal, bool forcePosition) {
     const auto *existingClip = findClipById(id);
     if (existingClip == nullptr) {
         return;
@@ -428,10 +428,13 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
 
     // [FINAL LOGIC] The ultimate gatekeeper for collision.
     // All position updates, whether from drag, undo, or other operations, must pass this check.
-    int safeStartFrame = findVacantFrame(layer, startFrame, duration, id);
-    if (safeStartFrame != startFrame) {
-        qWarning() << "updateClipInternal: Collision detected. Position adjusted from" << startFrame << "to" << safeStartFrame;
-        startFrame = safeStartFrame;
+    // Skip collision detection when forcePosition is true (e.g., undo operations).
+    if (!forcePosition) {
+        int safeStartFrame = findVacantFrame(layer, startFrame, duration, id);
+        if (safeStartFrame != startFrame) {
+            qWarning() << "updateClipInternal: Collision detected. Position adjusted from" << startFrame << "to" << safeStartFrame;
+            startFrame = safeStartFrame;
+        }
     }
 
     for (auto &clip : clipsMutable()) {
