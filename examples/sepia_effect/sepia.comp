@@ -1,0 +1,34 @@
+#version 430
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(std140, binding = 2) uniform Params {
+    float intensity;
+    float temperature;
+    float time;
+};
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y) return;
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+    vec4 color = texture(inTex, uv);
+
+    // Sepia conversion matrix
+    vec3 sepia;
+    sepia.r = dot(color.rgb, vec3(0.393, 0.769, 0.189));
+    sepia.g = dot(color.rgb, vec3(0.349, 0.686, 0.168));
+    sepia.b = dot(color.rgb, vec3(0.272, 0.534, 0.131));
+
+    // Apply temperature shift
+    sepia.r += temperature * 0.1;
+    sepia.b -= temperature * 0.1;
+
+    // Blend between original and sepia based on intensity
+    vec3 result = mix(color.rgb, sepia, intensity);
+
+    imageStore(outImage, gid, vec4(result, color.a));
+}

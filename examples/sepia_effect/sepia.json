@@ -1,0 +1,32 @@
+{
+  "id": "sepia",
+  "name": "Sepia",
+  "qml": "Sepia.qml",
+  "version": "1.0.0",
+  "kind": "effect",
+  "categories": ["Color"],
+  "params": {
+    "intensity": 1.0,
+    "temperature": 0.0
+  },
+  "ui": {
+    "controls": [
+      {
+        "type": "slider",
+        "param": "intensity",
+        "label": "Intensity",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      },
+      {
+        "type": "slider",
+        "param": "temperature",
+        "label": "Temperature",
+        "min": -1.0,
+        "max": 1.0,
+        "step": 0.01
+      }
+    ]
+  }
+}
