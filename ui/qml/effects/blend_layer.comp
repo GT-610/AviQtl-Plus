@@ -1,0 +1,111 @@
+#version 430
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D source;      // foreground
+layout(std140, binding = 2) uniform Params {
+    int   blendMode;
+    float opacityValue;
+    float time;
+};
+layout(binding = 3) uniform sampler2D background;   // background
+
+vec3 blendMultiply(vec3 base, vec3 blend) { return base * blend; }
+vec3 blendScreen(vec3 base, vec3 blend) { return 1.0 - (1.0 - base) * (1.0 - blend); }
+vec3 blendOverlay(vec3 base, vec3 blend) { return mix(2.0 * base * blend, 1.0 - 2.0 * (1.0 - base) * (1.0 - blend), step(0.5, base)); }
+vec3 blendAdd(vec3 base, vec3 blend) { return min(base + blend, vec3(1.0)); }
+vec3 blendSubtract(vec3 base, vec3 blend) { return max(base - blend, vec3(0.0)); }
+vec3 blendLighten(vec3 base, vec3 blend) { return max(base, blend); }
+vec3 blendDarken(vec3 base, vec3 blend) { return min(base, blend); }
+vec3 blendInvert(vec3 base, vec3 /*blend*/) { return 1.0 - base; }
+
+float blendSoftLight(float base, float blend) {
+    return (blend <= 0.5) ? (base - (1.0 - 2.0 * blend) * base * (1.0 - base))
+         : (((base <= 0.25) ? (((16.0 * base - 12.0) * base + 4.0) * base) : sqrt(base)) - base) * (2.0 * blend - 1.0) + base;
+}
+vec3 blendSoftLight(vec3 base, vec3 blend) { return vec3(blendSoftLight(base.r, blend.r), blendSoftLight(base.g, blend.g), blendSoftLight(base.b, blend.b)); }
+
+float blendHardLight(float base, float blend) {
+    return (blend < 0.5) ? (2.0 * base * blend) : (1.0 - 2.0 * (1.0 - base) * (1.0 - blend));
+}
+vec3 blendHardLight(vec3 base, vec3 blend) { return vec3(blendHardLight(base.r, blend.r), blendHardLight(base.g, blend.g), blendHardLight(base.b, blend.b)); }
+
+vec3 blendDifference(vec3 base, vec3 blend) { return abs(base - blend); }
+
+float getLuma(vec3 c) { return 0.3 * c.r + 0.59 * c.g + 0.11 * c.b; }
+
+vec3 setLuma(vec3 c, float l) {
+    float d = l - getLuma(c);
+    vec3 res = c + vec3(d);
+    float lMin = min(min(res.r, res.g), res.b);
+    float lMax = max(max(res.r, res.g), res.b);
+    if (lMin < 0.0) res = l + ((res - l) * l) / (l - lMin);
+    if (lMax > 1.0) res = l + ((res - l) * (1.0 - l)) / (lMax - l);
+    return res;
+}
+
+float getSat(vec3 c) { return max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b); }
+
+void setSatMinMax(inout float cMin, inout float cMid, inout float cMax, float s) {
+    if (cMax > cMin) { cMid = (((cMid - cMin) * s) / (cMax - cMin)); cMax = s; }
+    else { cMid = 0.0; cMax = 0.0; }
+    cMin = 0.0;
+}
+
+vec3 setSat(vec3 c, float s) {
+    vec3 r = c;
+    if (r.r <= r.g) {
+        if (r.g <= r.b) setSatMinMax(r.r, r.g, r.b, s);
+        else if (r.r <= r.b) setSatMinMax(r.r, r.b, r.g, s);
+        else setSatMinMax(r.b, r.r, r.g, s);
+    } else {
+        if (r.r <= r.b) setSatMinMax(r.g, r.r, r.b, s);
+        else if (r.g <= r.b) setSatMinMax(r.g, r.b, r.r, s);
+        else setSatMinMax(r.b, r.g, r.r, s);
+    }
+    return r;
+}
+
+vec3 blendHue(vec3 base, vec3 blend) { return setLuma(setSat(blend, getSat(base)), getLuma(base)); }
+vec3 blendSaturation(vec3 base, vec3 blend) { return setLuma(setSat(base, getSat(blend)), getLuma(base)); }
+vec3 blendColor(vec3 base, vec3 blend) { return setLuma(blend, getLuma(base)); }
+vec3 blendLuminosity(vec3 base, vec3 blend) { return setLuma(base, getLuma(blend)); }
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y) return;
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+    vec4 fg = texture(source, uv);
+    vec4 bg = texture(background, uv);
+
+    fg.a *= opacityValue;
+    fg.rgb *= fg.a;
+
+    if (fg.a <= 0.0) {
+        imageStore(outImage, gid, bg);
+        return;
+    }
+
+    vec3 blended = fg.rgb;
+    if (blendMode == 1)       blended = blendScreen(bg.rgb, fg.rgb);
+    else if (blendMode == 2)  blended = blendMultiply(bg.rgb, fg.rgb);
+    else if (blendMode == 3)  blended = blendOverlay(bg.rgb, fg.rgb);
+    else if (blendMode == 4)  blended = blendAdd(bg.rgb, fg.rgb);
+    else if (blendMode == 5)  blended = blendSubtract(bg.rgb, fg.rgb);
+    else if (blendMode == 6)  blended = blendLighten(bg.rgb, fg.rgb);
+    else if (blendMode == 7)  blended = blendDarken(bg.rgb, fg.rgb);
+    else if (blendMode == 8)  blended = blendInvert(bg.rgb, fg.rgb);
+    else if (blendMode == 9)  blended = blendSoftLight(bg.rgb, fg.rgb);
+    else if (blendMode == 10) blended = blendHardLight(bg.rgb, fg.rgb);
+    else if (blendMode == 11) blended = blendDifference(bg.rgb, fg.rgb);
+    else if (blendMode == 12) blended = blendHue(bg.rgb, fg.rgb);
+    else if (blendMode == 13) blended = blendSaturation(bg.rgb, fg.rgb);
+    else if (blendMode == 14) blended = blendColor(bg.rgb, fg.rgb);
+    else if (blendMode == 15) blended = blendLuminosity(bg.rgb, fg.rgb);
+
+    float a = fg.a + bg.a * (1.0 - fg.a);
+    vec3 result = (a > 0.0) ? mix(bg.rgb, blended, fg.a) : vec3(0.0);
+    imageStore(outImage, gid, vec4(result, a));
+}
