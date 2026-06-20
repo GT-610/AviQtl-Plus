@@ -3087,42 +3087,42 @@ Please restart the application to apply the update.</translation>
         <translation>Parameters</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="111"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="144"/>
         <source> スライダー</source>
         <translation> Slider</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="145"/>
         <source>現在値: </source>
         <translation>Current value: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="145"/>
         <source>、範囲: </source>
         <translation>, range: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="148"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
         <source> 数値入力</source>
         <translation> Number input</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="149"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
         <source>パラメータの数値を直接入力します</source>
         <translation>Enter parameter value directly</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="203"/>
         <source>イージング設定を開きます</source>
         <translation>Open easing settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="219"/>
         <source> 終了値入力</source>
         <translation> End value input</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="193"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="220"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
         <translation>Enter end value (when using keyframes)</translation>
     </message>

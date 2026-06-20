@@ -22,6 +22,9 @@ RowLayout {
     signal endValueModified(real value)
     signal paramButtonClicked()
 
+    property var _lastLeftSliderValue: undefined
+    property var _lastRightSliderValue: undefined
+
     function formatValue(val) {
         var num = Number(val);
         if (isNaN(num))
@@ -52,6 +55,23 @@ RowLayout {
         return true;
     }
 
+    function normalizeSliderValue(val) {
+        return root.decimals === 0 ? Math.round(val) : Number(val);
+    }
+
+    function sameValue(a, b) {
+        if (a === undefined || b === undefined)
+            return false;
+
+        var lhs = Number(a);
+        var rhs = Number(b);
+        if (isNaN(lhs) || isNaN(rhs))
+            return false;
+
+        var tolerance = root.decimals === 0 ? 0.5 : Math.pow(10, -root.decimals) / 2;
+        return Math.abs(lhs - rhs) < tolerance;
+    }
+
     function pushLeftValue(val) {
         var text = formatValue(val);
         if (leftValueField.text !== text)
@@ -62,6 +82,19 @@ RowLayout {
             syncRightDisplay(val);
             root.endValueModified(val);
         }
+    }
+
+    function commitLeftSliderValue(val) {
+        var normalized = normalizeSliderValue(val);
+        root._lastLeftSliderValue = normalized;
+        root.pushLeftValue(normalized);
+    }
+
+    function commitRightSliderValue(val) {
+        var normalized = normalizeSliderValue(val);
+        root._lastRightSliderValue = normalized;
+        rightValueField.text = root.formatValue(normalized);
+        root.endValueModified(normalized);
     }
 
     spacing: 8
@@ -115,22 +148,15 @@ RowLayout {
             return isNaN(val) ? root.startValue : val;
         }
         onMoved: {
-            var val = decimals === 0 ? Math.round(value) : value;
-            var text = root.formatValue(val);
-            if (leftValueField.text !== text)
-                leftValueField.text = text;
-
-            if (root.rightLinked)
-                root.syncRightDisplay(val);
-
-            root.pushLeftValue(val);
+            root.commitLeftSliderValue(value);
         }
         onPressedChanged: {
             if (!pressed) {
                 var val = parseFloat(leftValueField.text);
-                if (!isNaN(val))
+                if (!isNaN(val) && !root.sameValue(val, root._lastLeftSliderValue))
                     root.pushLeftValue(val);
 
+                root._lastLeftSliderValue = undefined;
             }
         }
     }
@@ -226,17 +252,15 @@ RowLayout {
             return isNaN(val) ? (root.rightLinked ? root.startValue : root.endValue) : val;
         }
         onMoved: {
-            // スライダー操作時はボックスを更新
-            var val = decimals === 0 ? Math.round(value) : value;
-            rightValueField.text = root.formatValue(val);
-            root.endValueModified(val);
+            root.commitRightSliderValue(value);
         }
         onPressedChanged: {
             if (!pressed) {
                 var val = parseFloat(rightValueField.text);
-                if (!isNaN(val))
+                if (!isNaN(val) && !root.sameValue(val, root._lastRightSliderValue))
                     root.endValueModified(val);
 
+                root._lastRightSliderValue = undefined;
             }
         }
     }

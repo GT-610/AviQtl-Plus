@@ -3087,42 +3087,42 @@
         <translation>参数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="111"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="144"/>
         <source> スライダー</source>
         <translation> 滑块</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="145"/>
         <source>現在値: </source>
         <translation>当前值: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="112"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="145"/>
         <source>、範囲: </source>
         <translation>、范围: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="148"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="175"/>
         <source> 数値入力</source>
         <translation> 数值输入</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="149"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
         <source>パラメータの数値を直接入力します</source>
         <translation>直接输入参数值</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="176"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="203"/>
         <source>イージング設定を開きます</source>
         <translation>打开缓动设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="192"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="219"/>
         <source> 終了値入力</source>
         <translation> 终点值输入</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ParamControl.qml" line="193"/>
+        <location filename="../ui/qml/common/ParamControl.qml" line="220"/>
         <source>終了点の数値を入力します (キーフレーム使用時)</source>
         <translation>输入终点值（使用关键帧时）</translation>
     </message>
