@@ -123,7 +123,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
 
         QStringList categories;
         QJsonArray catArray = obj.value(QStringLiteral("categories")).toArray();
-        for (const QJsonValue &val : catArray) {
+        for (const auto &val : catArray) {
             if (val.isString()) {
                 categories.append(val.toString());
             }

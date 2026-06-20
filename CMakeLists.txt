@@ -71,6 +71,7 @@ endif()
 # --- Common Settings ---
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)  # Disable C++20 modules for clang-tidy compatibility
 
 # Helper to apply consistent warning flags across all AviQtl targets
 function(aviqtl_target_warning_flags target)
