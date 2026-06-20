@@ -985,21 +985,25 @@ void ModEngine::onClipChange() {
 }
 
 void ModEngine::_callHook(const char *hookName, int nargs) {
+    // Stack before: [arg1, ..., argN]
     lua_getglobal(L, hookName);
-    if (lua_isfunction(L, -1)) {
-        // Set plugin context for permission checks during hook execution
-        QString prevPluginId = m_currentPluginId;
-        if (m_currentPluginId.isEmpty() && !m_lastLoadedPluginId.isEmpty()) {
-            m_currentPluginId = m_lastLoadedPluginId;
-        }
-        if (lua_pcall(L, nargs, 0, 0) != 0) {
-            qCritical() << "[ModEngine] Hook" << hookName << "Error:" << lua_tostring(L, -1);
-            lua_pop(L, 1);
-        }
-        m_currentPluginId = prevPluginId;
-    } else {
+    // Stack after: [arg1, ..., argN, function]
+    if (!lua_isfunction(L, -1)) {
         lua_pop(L, 1 + nargs);
+        return;
     }
+    // Move function below arguments: [arg1, ..., argN, function] -> [function, arg1, ..., argN]
+    lua_insert(L, -(nargs + 1));
+    // Set plugin context for permission checks during hook execution
+    QString prevPluginId = m_currentPluginId;
+    if (m_currentPluginId.isEmpty() && !m_lastLoadedPluginId.isEmpty()) {
+        m_currentPluginId = m_lastLoadedPluginId;
+    }
+    if (lua_pcall(L, nargs, 0, 0) != 0) {
+        qCritical() << "[ModEngine] Hook" << hookName << "Error:" << lua_tostring(L, -1);
+        lua_pop(L, 1);
+    }
+    m_currentPluginId = prevPluginId;
 }
 
 ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {
