@@ -1732,7 +1732,7 @@
         <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="541"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="546"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -3628,7 +3628,7 @@
         <translation>场景设置更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_scene.cpp" line="76"/>
+        <location filename="../ui/src/timeline/timeline_scene.cpp" line="78"/>
         <location filename="../ui/src/timeline_service.cpp" line="17"/>
         <source>ルート</source>
         <translation>根</translation>
@@ -3649,22 +3649,22 @@
         <translation>变换多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="631"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="634"/>
         <source>クリップ削除</source>
         <translation>删除片段</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="631"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="634"/>
         <source>複数クリップ削除: %1</source>
         <translation>删除多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="771"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="794"/>
         <source>複数クリップ分割: %1</source>
         <translation>分割多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="818"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="841"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>粘贴多个片段：%1</translation>
     </message>

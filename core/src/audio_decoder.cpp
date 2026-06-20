@@ -168,7 +168,7 @@ void AudioDecoder::startDecoding() {
         // Publish the decoded data atomically
         {
             QMutexLocker locker(&m_mutex);
-            std::atomic_store(&m_fullAudioData, audioData);
+            m_fullAudioData.store(audioData);
         }
 
         buildPeakCache();
@@ -206,7 +206,7 @@ void AudioDecoder::closeFFmpeg() {
         m_fmtCtx = nullptr;
     }
     QMutexLocker locker(&m_mutex);
-    std::atomic_store(&m_fullAudioData, std::make_shared<std::vector<float>>());
+    m_fullAudioData.store(std::make_shared<std::vector<float>>());
     m_peakPyramid.clear();
 }
 
@@ -226,7 +226,7 @@ void AudioDecoder::seek(qint64 ms) { emit seekRequested(ms); }
 
 auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
     // Get a local copy of the shared_ptr (atomic, lock-free)
-    auto audioData = std::atomic_load(&m_fullAudioData);
+    auto audioData = m_fullAudioData.load();
 
     // startTimeが負数の場合のアンダーフローを防ぐ（size_tへのキャスト前にクランプ）
     startTime = std::max(startTime, 0.0);
@@ -261,7 +261,7 @@ auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float>
 void AudioDecoder::buildPeakCache() {
     // Get a local copy of the shared_ptr (atomic, lock-free)
     // This avoids holding the lock during the expensive peak building
-    auto localAudio = std::atomic_load(&m_fullAudioData);
+    auto localAudio = m_fullAudioData.load();
     if (!localAudio || localAudio->empty()) {
         QMutexLocker locker(&m_mutex);
         m_peakPyramid.clear();
@@ -326,7 +326,7 @@ auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth)
     }
 
     // Get a local copy of the shared_ptr (atomic, lock-free)
-    auto audioData = std::atomic_load(&m_fullAudioData);
+    auto audioData = m_fullAudioData.load();
     if (!audioData || audioData->empty()) {
         return std::vector<float>(static_cast<std::size_t>(pixelWidth) * 2, 0.0F);
     }
@@ -386,7 +386,7 @@ auto AudioDecoder::totalDurationSec() const -> double {
     if (m_sampleRate <= 0) {
         return 0.0;
     }
-    auto audioData = std::atomic_load(&m_fullAudioData);
+    auto audioData = m_fullAudioData.load();
     if (!audioData) {
         return 0.0;
     }

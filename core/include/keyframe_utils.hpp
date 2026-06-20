@@ -43,6 +43,9 @@ inline std::vector<TrackPoint> extractTrackPoints(const QVariantList &track) {
     return points;
 }
 
+// Forward declaration - defined later in the file
+inline const QHash<QString, EasingFunction> &easingFunctions();
+
 inline QVariant evaluateTrackFast(const std::vector<TrackPoint> &track, int frame, const QVariant &fallback) {
     if (track.empty())
         return fallback;

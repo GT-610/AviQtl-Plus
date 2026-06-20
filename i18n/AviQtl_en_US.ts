@@ -1732,7 +1732,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="541"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="546"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -3628,7 +3628,7 @@ Please restart the application to apply the update.</translation>
         <translation>Scene settings change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_scene.cpp" line="76"/>
+        <location filename="../ui/src/timeline/timeline_scene.cpp" line="78"/>
         <location filename="../ui/src/timeline_service.cpp" line="17"/>
         <source>ルート</source>
         <translation>Root</translation>
@@ -3649,22 +3649,22 @@ Please restart the application to apply the update.</translation>
         <translation>Transform multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="631"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="634"/>
         <source>クリップ削除</source>
         <translation>Delete clip</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="631"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="634"/>
         <source>複数クリップ削除: %1</source>
         <translation>Delete multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="771"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="794"/>
         <source>複数クリップ分割: %1</source>
         <translation>Split multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="818"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="841"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>Paste multiple clips: %1</translation>
     </message>
