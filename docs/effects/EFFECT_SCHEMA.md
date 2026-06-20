@@ -362,6 +362,10 @@ void main() {
 - Bounds check is mandatory
 - `time` is auto-injected (current frame number)
 - Uniform block member names must match JSON param keys (after `uniformMapping`)
+- Multi-pass: set `dispatchCount > 1` for ping-pong iteration. The shader is
+  dispatched N times; pass 0 reads from the input texture, subsequent passes
+  read from the previous output. Use `dispatchCount` in the UBO to know which
+  pass is running.
 
 ---
 
@@ -402,6 +406,7 @@ Common.BaseComputeEffect {
     // Optional: uniformMapping: ({ "jsonKey": "glslMemberName" })
     // Optional: hdrOutput: true  // Use RGBA16F instead of RGBA8
     // Optional: extraTextures: [someItemWithLayer]  // binding 3, 4, ...
+    // Optional: dispatchCount: 3  // ping-pong multi-pass iteration
 }
 ```
 

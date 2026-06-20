@@ -26,6 +26,7 @@ class ComputeRenderNode final : public QSGRenderNode {
     void syncHdrOutput(bool hdr);
     void syncOpacity(qreal opacity);
     void syncExtraTextures(const QList<QSGTexture *> &textures);
+    void syncDispatchCount(int count);
 
     QString errorMessage() const { return m_error; }
 
@@ -48,6 +49,7 @@ class ComputeRenderNode final : public QSGRenderNode {
     QRhi *m_rhi = nullptr;
 
     QRhiTexture *m_outputTexture = nullptr;
+    QRhiTexture *m_outputTextureB = nullptr;
     QRhiSampler *m_sampler = nullptr;
     QRhiBuffer *m_vbuf = nullptr;
     QRhiBuffer *m_ubuf = nullptr;
@@ -79,10 +81,12 @@ class ComputeRenderNode final : public QSGRenderNode {
     int m_workGroupY = 1;
     int m_workGroupZ = 1;
 
+    int m_dispatchCount = 1;
     bool m_hdrOutput = false;
     qreal m_opacity = 1.0;
     QList<QSGTexture *> m_extraTextures;
     QList<QRhiTexture *> m_extraRhiTextures;
+    QList<QRhiShaderResourceBindings *> m_tempSrbList;
 };
 
 } // namespace AviQtl::UI::Effects

@@ -1893,7 +1893,7 @@
 <context>
     <name>BaseComputeEffect</name>
     <message>
-        <location filename="../ui/qml/common/BaseComputeEffect.qml" line="74"/>
+        <location filename="../ui/qml/common/BaseComputeEffect.qml" line="75"/>
         <source>Compute Error:
 </source>
         <translation>Compute Error:

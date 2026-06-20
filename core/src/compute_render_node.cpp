@@ -111,6 +111,10 @@ void ComputeRenderNode::syncExtraTextures(const QList<QSGTexture *> &textures) {
     m_bufferLayoutDirty = true;
 }
 
+void ComputeRenderNode::syncDispatchCount(int count) {
+    m_dispatchCount = qMax(1, count);
+}
+
 QRectF ComputeRenderNode::rect() const { return QRectF(0, 0, m_width, m_height); }
 
 QRhi *ComputeRenderNode::resolveRhi() const {
@@ -226,6 +230,15 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             m_error = QStringLiteral("Compute output texture creation failed.");
         } else {
             bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
+
+            // Second output texture for ping-pong (multi-pass)
+            if (m_dispatchCount > 1) {
+                m_outputTextureB = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+                if (!m_outputTextureB->create()) {
+                    delete m_outputTextureB;
+                    m_outputTextureB = nullptr;
+                }
+            }
         }
     }
 
@@ -343,6 +356,10 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
     wantedRenderTexture = computeOk ? m_outputTexture : m_inputRhiTexture;
     if (!wantedRenderTexture && m_outputTexture)
         wantedRenderTexture = m_outputTexture;
+    // For multi-pass ping-pong, the final output depends on dispatch count parity
+    if (computeOk && m_dispatchCount > 1 && m_outputTextureB) {
+        wantedRenderTexture = (m_dispatchCount % 2 == 1) ? m_outputTexture : m_outputTextureB;
+    }
     m_renderTexture = wantedRenderTexture;
 
     bool graphicsOk = false;
@@ -603,9 +620,47 @@ void ComputeRenderNode::prepare() {
 
     cb->beginComputePass(batch);
     cb->setComputePipeline(m_pipeline);
-    cb->setShaderResources(m_srb);
-    cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+
+    if (m_dispatchCount <= 1 || !m_outputTextureB) {
+        // Single pass: use the pre-built SRB
+        cb->setShaderResources(m_srb);
+        cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+    } else {
+        // Multi-pass ping-pong: build per-pass SRBs
+        QRhiTexture *textures[2] = {m_outputTexture, m_outputTextureB};
+
+        for (int pass = 0; pass < m_dispatchCount; ++pass) {
+            QRhiTexture *writeTex = textures[pass % 2];
+            QRhiTexture *readTex = (pass == 0) ? m_inputRhiTexture : textures[(pass + 1) % 2];
+
+            QList<QRhiShaderResourceBinding> passBindings;
+            passBindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, readTex, m_sampler));
+            passBindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, writeTex, 0));
+            passBindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
+            for (int i = 0; i < m_extraRhiTextures.size(); ++i) {
+                if (m_extraRhiTextures[i]) {
+                    passBindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, m_extraRhiTextures[i], m_sampler));
+                }
+            }
+
+            auto *passSrb = m_rhi->newShaderResourceBindings();
+            passSrb->setBindings(passBindings.cbegin(), passBindings.cend());
+            passSrb->create();
+
+            cb->setShaderResources(passSrb);
+            cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+
+            // Keep passSrb alive until after dispatch; clean up after loop
+            m_tempSrbList.append(passSrb);
+        }
+    }
+
     cb->endComputePass();
+
+    // Clean up temporary SRBs from this frame
+    for (auto *srb : std::as_const(m_tempSrbList))
+        delete srb;
+    m_tempSrbList.clear();
 
     m_paramsDirty = false;
 }
@@ -645,6 +700,8 @@ void ComputeRenderNode::destroyResources() {
     m_renderSrb = nullptr;
     delete m_outputTexture;
     m_outputTexture = nullptr;
+    delete m_outputTextureB;
+    m_outputTextureB = nullptr;
     delete m_sampler;
     m_sampler = nullptr;
     delete m_vbuf;
@@ -653,6 +710,9 @@ void ComputeRenderNode::destroyResources() {
     m_ubuf = nullptr;
     delete m_paramUbuf;
     m_paramUbuf = nullptr;
+    for (auto *srb : std::as_const(m_tempSrbList))
+        delete srb;
+    m_tempSrbList.clear();
     m_renderTexture = nullptr;
     m_inputRhiTexture = nullptr;
     m_extraRhiTextures.clear();

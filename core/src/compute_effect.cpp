@@ -110,6 +110,16 @@ void ComputeEffect::setExtraTextures(const QVariantList &textures) {
     update();
 }
 
+void ComputeEffect::setDispatchCount(int count) {
+    const int clamped = qMax(1, count);
+    if (m_dispatchCount == clamped)
+        return;
+    m_dispatchCount = clamped;
+    m_dirty = true;
+    emit dispatchCountChanged();
+    update();
+}
+
 void ComputeEffect::setErrorFromRenderThread(const QString &error) {
     if (m_error == error)
         return;
@@ -196,6 +206,7 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
                 extraTexList.append(tex);
         }
         node->syncExtraTextures(extraTexList);
+        node->syncDispatchCount(m_dispatchCount);
 
         m_dirty = false;
     }

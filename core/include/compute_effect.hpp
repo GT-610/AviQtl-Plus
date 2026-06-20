@@ -26,6 +26,7 @@ class ComputeEffect : public QQuickItem {
     Q_PROPERTY(bool hdrOutput READ hdrOutput WRITE setHdrOutput NOTIFY hdrOutputChanged)
     Q_PROPERTY(qreal opacity READ opacity WRITE setOpacity NOTIFY opacityChanged)
     Q_PROPERTY(QVariantList extraTextures READ extraTextures WRITE setExtraTextures NOTIFY extraTexturesChanged)
+    Q_PROPERTY(int dispatchCount READ dispatchCount WRITE setDispatchCount NOTIFY dispatchCountChanged)
 
   public:
     explicit ComputeEffect(QQuickItem *parent = nullptr);
@@ -45,6 +46,7 @@ class ComputeEffect : public QQuickItem {
     bool hdrOutput() const { return m_hdrOutput; }
     qreal opacity() const { return m_opacity; }
     QVariantList extraTextures() const { return m_extraTextures; }
+    int dispatchCount() const { return m_dispatchCount; }
 
     void setParams(const QVariantMap &params);
     void setShaderEnabled(bool enabled);
@@ -56,6 +58,7 @@ class ComputeEffect : public QQuickItem {
     void setHdrOutput(bool hdr);
     void setOpacity(qreal o);
     void setExtraTextures(const QVariantList &textures);
+    void setDispatchCount(int count);
 
     Q_INVOKABLE void setErrorFromRenderThread(const QString &error);
 
@@ -71,6 +74,7 @@ class ComputeEffect : public QQuickItem {
     void hdrOutputChanged();
     void opacityChanged();
     void extraTexturesChanged();
+    void dispatchCountChanged();
 
   protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *data) override;
@@ -92,6 +96,7 @@ class ComputeEffect : public QQuickItem {
     bool m_hdrOutput = false;
     qreal m_opacity = 1.0;
     QVariantList m_extraTextures;
+    int m_dispatchCount = 1;
 };
 
 } // namespace AviQtl::UI::Effects

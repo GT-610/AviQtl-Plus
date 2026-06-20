@@ -14,6 +14,7 @@ BaseEffect {
     // Extra texture inputs for compute shaders (binding 3, 4, 5, ...)
     // Each entry should be a QQuickItem with layer.enabled: true
     property alias extraTextures: compEffect.extraTextures
+    property alias dispatchCount: compEffect.dispatchCount
     // JSONのパラメータ名とシェーダーのUniform名が異なる場合のマッピング
     // 例: { "mix": "mixAmount" }
     property var uniformMapping: ({
