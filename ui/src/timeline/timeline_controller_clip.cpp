@@ -702,16 +702,19 @@ void TimelineController::applySelectionIds(const QVariantList &ids) {
 
 void TimelineController::addEffect(int clipId, const QString &effectId) {
     m_timeline->addEffect(clipId, effectId);
+    m_syncDirty = true;
     updateActiveClipsList();
 }
 
 void TimelineController::removeEffect(int clipId, int effectIndex) {
     m_timeline->removeEffect(clipId, effectIndex);
+    m_syncDirty = true;
     updateActiveClipsList();
 }
 
 void TimelineController::removeMultipleEffects(int clipId, const QList<int> &indices) {
     m_timeline->removeMultipleEffects(clipId, indices);
+    m_syncDirty = true;
     updateActiveClipsList();
 }
 

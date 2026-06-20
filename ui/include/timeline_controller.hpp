@@ -273,5 +273,8 @@ class TimelineController : public QObject {
     // キャッシュ: タイムラインの長さ（最大クリップ末尾フレーム）
     // clipsChanged / sceneChanged 時に再計算される
     mutable int m_cachedTimelineDuration = 300;
+
+    // Dirty flag for incremental sync
+    bool m_syncDirty = false;
 };
 } // namespace AviQtl::UI
