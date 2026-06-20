@@ -36,6 +36,7 @@ void TimelineController::setupConnections() {
     connect(
         m_timeline, &TimelineService::clipsChanged, this,
         [this]() -> void {
+            m_syncDirty = true;
             emit clipsChanged();
             m_mediaManager->updateMediaDecoders();
             m_mediaManager->syncAudioPluginChains();
@@ -59,6 +60,7 @@ void TimelineController::setupConnections() {
     });
 
     connect(m_timeline, &TimelineService::scenesChanged, this, [this]() -> void {
+        m_syncDirty = true;
         m_mediaManager->updateMediaDecoders();
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
@@ -72,6 +74,7 @@ void TimelineController::setupConnections() {
         emit currentSceneIdChanged();
     });
     connect(m_timeline, &TimelineService::clipEffectsChanged, this, [this](int id) -> void {
+        m_syncDirty = true;
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
         emit clipEffectsChanged(id);
@@ -79,6 +82,7 @@ void TimelineController::setupConnections() {
     // 引数付きのシグナルを QML へ転送
     connect(m_timeline, &TimelineService::effectParamChanged, this, &TimelineController::effectParamChanged);
     connect(m_timeline, &TimelineService::effectParamChanged, this, [this]() {
+        m_syncDirty = true;
         m_mediaManager->onCurrentFrameChanged();
         updateActiveClipsList();
         AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
@@ -142,7 +146,10 @@ void TimelineController::setTimelineScale(double scale) {
 }
 
 void TimelineController::updateActiveClipsList() {
-    syncTimelineToDocumentModel();
+    if (m_syncDirty) {
+        syncTimelineToDocumentModel();
+        m_syncDirty = false;
+    }
     // Bake is not called here — it is already triggered by the clipsChanged signal
     // handler which also calls updateActiveClipsList.
 }

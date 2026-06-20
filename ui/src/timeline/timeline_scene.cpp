@@ -17,7 +17,8 @@ auto TimelineService::currentScene() -> SceneData * {
         }
     }
     if (m_scenes.isEmpty()) {
-        static SceneData dummy;
+        // Emergency fallback: should never happen as constructor ensures m_scenes is non-empty
+        thread_local SceneData dummy;
         return &dummy;
     }
     return m_scenes.data();
@@ -30,7 +31,8 @@ auto TimelineService::currentScene() const -> const SceneData * {
         }
     }
     if (m_scenes.isEmpty()) {
-        static SceneData dummy;
+        // Emergency fallback: should never happen as constructor ensures m_scenes is non-empty
+        thread_local SceneData dummy;
         return &dummy;
     }
     return m_scenes.data();

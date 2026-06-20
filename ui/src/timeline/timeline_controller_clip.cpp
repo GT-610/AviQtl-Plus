@@ -423,10 +423,15 @@ auto TimelineController::getClipEffectIndex(int clipId, QObject *effectModel) co
         if (clip.id != clipId) {
             continue;
         }
+        int visibleIndex = 0;
         for (int i = 0; i < clip.effects.size(); ++i) {
-            if (clip.effects.value(i) == effectModel) {
-                return i;
+            if (clip.type == QLatin1String("audio") && clip.effects.value(i)->id() == QLatin1String("transform")) {
+                continue;
             }
+            if (clip.effects.value(i) == effectModel) {
+                return visibleIndex;
+            }
+            ++visibleIndex;
         }
         break;
     }
@@ -697,17 +702,17 @@ void TimelineController::applySelectionIds(const QVariantList &ids) {
 
 void TimelineController::addEffect(int clipId, const QString &effectId) {
     m_timeline->addEffect(clipId, effectId);
-    updateActiveClipsList();
+    // clipEffectsChanged signal handles sync
 }
 
 void TimelineController::removeEffect(int clipId, int effectIndex) {
     m_timeline->removeEffect(clipId, effectIndex);
-    updateActiveClipsList();
+    // clipEffectsChanged signal handles sync
 }
 
 void TimelineController::removeMultipleEffects(int clipId, const QList<int> &indices) {
     m_timeline->removeMultipleEffects(clipId, indices);
-    updateActiveClipsList();
+    // clipEffectsChanged signal handles sync
 }
 
 void TimelineController::setEffectEnabled(int clipId, int effectIndex, bool enabled) {
@@ -895,9 +900,9 @@ auto TimelineController::getClipEffectStack(int clipId) const -> QVariantList {
         return list;
     }
 
-    auto &chain = m_mediaManager->audioMixer()->getChain(clipId);
-    for (int i = 0; i < chain.count(); ++i) {
-        auto *plugin = chain.get(i);
+    auto chain = m_mediaManager->audioMixer()->getChain(clipId);
+    for (int i = 0; i < chain->count(); ++i) {
+        auto *plugin = chain->get(i);
         if (plugin != nullptr) {
             QVariantMap effectInfo;
             effectInfo.insert(QStringLiteral("name"), plugin->name());
@@ -913,8 +918,8 @@ auto TimelineController::getEffectParameters(int clipId, int effectIndex) const 
     if (clipId < 0) {
         return list;
     }
-    auto &chain = m_mediaManager->audioMixer()->getChain(clipId);
-    auto *plugin = chain.get(effectIndex);
+    auto chain = m_mediaManager->audioMixer()->getChain(clipId);
+    auto *plugin = chain->get(effectIndex);
     if (plugin != nullptr) {
         for (int i = 0; i < plugin->paramCount(); ++i) {
             QVariantMap paramInfo;
@@ -944,8 +949,8 @@ void TimelineController::setEffectParameter(int clipId, int effectIndex, int par
     if (clipId < 0) {
         return;
     }
-    auto &chain = m_mediaManager->audioMixer()->getChain(clipId);
-    auto *plugin = chain.get(effectIndex); // NOLINT(bugprone-easily-swappable-parameters)
+    auto chain = m_mediaManager->audioMixer()->getChain(clipId);
+    auto *plugin = chain->get(effectIndex); // NOLINT(bugprone-easily-swappable-parameters)
     if (plugin != nullptr) {
         plugin->setParam(paramIndex, value);
         m_timeline->setAudioPluginParamInternal(clipId, effectIndex, paramIndex, value);

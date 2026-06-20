@@ -59,10 +59,12 @@ AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
 }
 
 void AudioMixer::setPlaybackSpeed(double speed) {
+    std::unique_lock lock(m_mutex);
     if (std::abs(m_playbackSpeed - speed) > 0.001) {
         m_playbackSpeed = speed;
         m_clipPhase.clear();
         m_clipLastFrame.clear();
+        lock.unlock();
         reset();
     }
 }
@@ -96,12 +98,17 @@ void AudioMixer::registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder
         qWarning() << "[AudioMixer] Attempted to register null decoder for clip" << clipId;
         return;
     }
+    std::unique_lock lock(m_mutex);
     m_decoders[clipId] = decoder;
 }
 
-void AudioMixer::unregisterDecoder(int clipId) { m_decoders.erase(clipId); }
+void AudioMixer::unregisterDecoder(int clipId) {
+    std::unique_lock lock(m_mutex);
+    m_decoders.erase(clipId);
+}
 
 auto AudioMixer::isReady() const -> bool {
+    std::shared_lock lock(m_mutex);
     for (const auto &[id, decoder] : m_decoders) {
         if ((decoder == nullptr) || !decoder->isReady()) {
             return false;
@@ -132,6 +139,9 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
             break;
         }
     }
+
+    // Take unique lock because we modify m_clipPhase and m_clipLastFrame
+    std::unique_lock lock(m_mutex);
 
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
@@ -285,18 +295,23 @@ void AudioMixer::reset() {
         m_audioSink->reset();
         m_audioOutput = m_audioSink->start();
     }
+    std::unique_lock lock(m_mutex);
     m_clipPhase.clear();
     m_clipLastFrame.clear();
 }
 
-auto AudioMixer::getChain(int clipId) -> Plugin::AudioPluginChain & {
+auto AudioMixer::getChain(int clipId) -> std::shared_ptr<Plugin::AudioPluginChain> {
+    std::unique_lock lock(m_mutex);
     auto it = m_chains.find(clipId);
     if (it == m_chains.end()) {
         it = m_chains.insert(clipId, std::make_shared<Plugin::AudioPluginChain>());
     }
-    return *it.value();
+    return it.value();
 }
 
-void AudioMixer::clearChain(int clipId) { m_chains.remove(clipId); }
+void AudioMixer::clearChain(int clipId) {
+    std::unique_lock lock(m_mutex);
+    m_chains.remove(clipId);
+}
 
 } // namespace AviQtl::Engine

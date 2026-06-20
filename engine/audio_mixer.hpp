@@ -6,6 +6,8 @@
 #include <QIODevice>
 #include <QObject>
 #include <memory>
+#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 
 namespace AviQtl::Core {
@@ -33,7 +35,7 @@ class AudioMixer : public QObject {
     const std::vector<float> &mix(int currentFrame, double fps, int samplesPerFrame);
 
     // クリップID → プラグインチェーン
-    Plugin::AudioPluginChain &getChain(int clipId);
+    std::shared_ptr<Plugin::AudioPluginChain> getChain(int clipId);
     void clearChain(int clipId);
 
     void setPlaybackSpeed(double speed);
@@ -57,6 +59,9 @@ class AudioMixer : public QObject {
     std::vector<float> m_clipSamples;
     std::vector<float> m_rawSamples;
     int m_lastSamplesPerFrame = 0;
+
+    // Mutex to protect shared state between UI and audio threads
+    mutable std::shared_mutex m_mutex;
 };
 
 } // namespace AviQtl::Engine

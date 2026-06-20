@@ -1,5 +1,4 @@
 #include "script_params.hpp"
-#include <QRegularExpression>
 #include <QStringList>
 
 namespace AviQtl::Scripting {

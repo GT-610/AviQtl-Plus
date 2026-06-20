@@ -5,9 +5,6 @@
 #include "../core/include/permission_manager.hpp"
 #include <QCoreApplication>
 #include <QDebug>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QMetaObject>
 #include <QVariant>
 
 namespace AviQtl::Scripting {
@@ -15,7 +12,7 @@ namespace AviQtl::Scripting {
 // Lua から参照できるグローバルポインタ
 static AviQtl::UI::TimelineController *g_ctrl = nullptr;
 
-// C API Wrappers for HostApiTable
+// C API Wrappers (used by Lua bindings)
 extern "C" {
 static void api_log(const char *msg) {
     if (!ModEngine::instance().checkPermission("log")) {
@@ -23,75 +20,6 @@ static void api_log(const char *msg) {
     }
     if (g_ctrl != nullptr) {
         AviQtl::UI::TimelineController::log(QString::fromUtf8(msg));
-    }
-}
-static void api_transport_play() {
-    if ((g_ctrl != nullptr) && !g_ctrl->transport()->isPlaying()) {
-        g_ctrl->transport()->togglePlay();
-    }
-}
-static void api_transport_pause() {
-    if ((g_ctrl != nullptr) && g_ctrl->transport()->isPlaying()) {
-        g_ctrl->transport()->togglePlay();
-    }
-}
-static void api_transport_toggle() {
-    if (g_ctrl != nullptr) {
-        g_ctrl->transport()->togglePlay();
-    }
-}
-static void api_transport_seek(int frame) {
-    if (g_ctrl != nullptr) {
-        g_ctrl->transport()->setCurrentFrame(frame);
-    }
-}
-static auto api_transport_get_frame() -> int { return (g_ctrl != nullptr) ? g_ctrl->transport()->currentFrame() : 0; }
-static auto api_transport_is_playing() -> int { return (g_ctrl != nullptr) ? (int)g_ctrl->transport()->isPlaying() : 0; }
-
-static void api_clip_create(const char *type, int start, int layer) {
-    if (g_ctrl != nullptr) {
-        g_ctrl->createObject(QString::fromUtf8(type), start, layer);
-    }
-}
-static void api_clip_delete(int id) {
-    if (g_ctrl != nullptr) {
-        g_ctrl->deleteClip(id);
-    }
-}
-static void api_clip_update(int id, int layer, int start, int dur) {
-    if (g_ctrl != nullptr) {
-        g_ctrl->updateClip(id, layer, start, dur);
-    }
-}
-static void api_clip_select(int id) {
-    if (g_ctrl != nullptr) {
-        g_ctrl->selectClip(id);
-    }
-}
-
-static auto api_project_get_width() -> int { return (g_ctrl != nullptr) ? g_ctrl->project()->width() : 0; }
-static auto api_project_get_height() -> int { return (g_ctrl != nullptr) ? g_ctrl->project()->height() : 0; }
-static auto api_project_get_fps() -> double { return (g_ctrl != nullptr) ? g_ctrl->project()->fps() : 0.0; }
-
-static void api_scene_create(const char *name) {
-    if (g_ctrl != nullptr) {
-        g_ctrl->createScene(QString::fromUtf8(name));
-    }
-}
-static void api_scene_switch(int id) {
-    if (g_ctrl != nullptr) {
-        g_ctrl->switchScene(id);
-    }
-}
-
-static void api_command_begin_group(const char *text) {
-    if ((g_ctrl != nullptr) && (g_ctrl->timeline() != nullptr)) {
-        g_ctrl->timeline()->undoStack()->beginMacro(QString::fromUtf8(text));
-    }
-}
-static void api_command_end_group() {
-    if ((g_ctrl != nullptr) && (g_ctrl->timeline() != nullptr)) {
-        g_ctrl->timeline()->undoStack()->endMacro();
     }
 }
 
@@ -115,27 +43,6 @@ static const char *api_settings_get(const char *key) {
     return g_settings_buf;
 }
 }
-
-static HostApiTable g_hostApi = {.log = api_log,
-                                 .transport_play = api_transport_play,
-                                 .transport_pause = api_transport_pause,
-                                 .transport_toggle = api_transport_toggle,
-                                 .transport_seek = api_transport_seek,
-                                 .transport_get_frame = api_transport_get_frame,
-                                 .transport_is_playing = api_transport_is_playing,
-                                 .clip_create = api_clip_create,
-                                 .clip_delete = api_clip_delete,
-                                 .clip_update = api_clip_update,
-                                 .clip_select = api_clip_select,
-                                 .project_get_width = api_project_get_width,
-                                 .project_get_height = api_project_get_height,
-                                 .project_get_fps = api_project_get_fps,
-                                 .scene_create = api_scene_create,
-                                 .scene_switch = api_scene_switch,
-                                 .settings_set = api_settings_set,
-                                 .settings_get = api_settings_get,
-                                 .command_begin_group = api_command_begin_group,
-                                 .command_end_group = api_command_end_group};
 
 bool ModEngine::checkPermission(const char *apiName) const {
     if (m_currentPluginId.isEmpty()) {
@@ -574,8 +481,6 @@ void ModEngine::initialize(void *ecsPtr) {
     lua_setglobal(L, "AVIQTL_CORE_PTR");
 
     _registerAviQtlAPI();
-    lua_pushlightuserdata(L, &g_hostApi);
-    lua_setglobal(L, "AVIQTL_HOST_API");
     m_apiRegistered = true;
 
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
@@ -586,10 +491,6 @@ void ModEngine::registerController(void *controller) {
     if (L != nullptr && !m_apiRegistered) {
         _registerAviQtlAPI();
         m_apiRegistered = true;
-
-        // Export Host API Table
-        lua_pushlightuserdata(L, &g_hostApi);
-        lua_setglobal(L, "AVIQTL_HOST_API");
     }
 }
 
@@ -698,8 +599,6 @@ void ModEngine::loadPlugins() {
     // Ensure API is registered (registerController may have been called before initialize)
     if (!m_apiRegistered && L != nullptr) {
         _registerAviQtlAPI();
-        lua_pushlightuserdata(L, &g_hostApi);
-        lua_setglobal(L, "AVIQTL_HOST_API");
         m_apiRegistered = true;
     }
 
@@ -985,21 +884,25 @@ void ModEngine::onClipChange() {
 }
 
 void ModEngine::_callHook(const char *hookName, int nargs) {
+    // Stack before: [arg1, ..., argN]
     lua_getglobal(L, hookName);
-    if (lua_isfunction(L, -1)) {
-        // Set plugin context for permission checks during hook execution
-        QString prevPluginId = m_currentPluginId;
-        if (m_currentPluginId.isEmpty() && !m_lastLoadedPluginId.isEmpty()) {
-            m_currentPluginId = m_lastLoadedPluginId;
-        }
-        if (lua_pcall(L, nargs, 0, 0) != 0) {
-            qCritical() << "[ModEngine] Hook" << hookName << "Error:" << lua_tostring(L, -1);
-            lua_pop(L, 1);
-        }
-        m_currentPluginId = prevPluginId;
-    } else {
+    // Stack after: [arg1, ..., argN, function]
+    if (!lua_isfunction(L, -1)) {
         lua_pop(L, 1 + nargs);
+        return;
     }
+    // Move function below arguments: [arg1, ..., argN, function] -> [function, arg1, ..., argN]
+    lua_insert(L, -(nargs + 1));
+    // Set plugin context for permission checks during hook execution
+    QString prevPluginId = m_currentPluginId;
+    if (m_currentPluginId.isEmpty() && !m_lastLoadedPluginId.isEmpty()) {
+        m_currentPluginId = m_lastLoadedPluginId;
+    }
+    if (lua_pcall(L, nargs, 0, 0) != 0) {
+        qCritical() << "[ModEngine] Hook" << hookName << "Error:" << lua_tostring(L, -1);
+        lua_pop(L, 1);
+    }
+    m_currentPluginId = prevPluginId;
 }
 
 ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {

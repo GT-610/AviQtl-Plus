@@ -13,6 +13,127 @@ namespace AviQtl::Core::KeyframeUtils {
 
 using EasingFunction = std::function<double(double, const std::vector<double> &, const QVariantMap &)>;
 
+// Pre-extracted track point to avoid per-frame QVariantMap allocations
+struct TrackPoint {
+    int frame;
+    QVariant value;
+    QString interp;
+    QVariantMap modeParams;
+    QVariantList points; // For custom bezier interpolation
+};
+
+inline std::vector<TrackPoint> extractTrackPoints(const QVariantList &track) {
+    std::vector<TrackPoint> points;
+    points.reserve(track.size());
+    for (const auto &v : track) {
+        const QVariantMap m = v.toMap();
+        QVariantList customPoints;
+        auto it = m.find(QStringLiteral("points"));
+        if (it != m.end()) {
+            customPoints = it.value().toList();
+        }
+        points.push_back({
+            m.value(QStringLiteral("frame")).toInt(),
+            m.value(QStringLiteral("value")),
+            m.value(QStringLiteral("interp")).toString(),
+            m.value(QStringLiteral("modeParams")).toMap(),
+            customPoints
+        });
+    }
+    return points;
+}
+
+// Forward declaration - defined later in the file
+inline const QHash<QString, EasingFunction> &easingFunctions();
+
+inline QVariant evaluateTrackFast(const std::vector<TrackPoint> &track, int frame, const QVariant &fallback) {
+    if (track.empty())
+        return fallback;
+
+    if (frame <= track.front().frame)
+        return track.front().value;
+    if (frame >= track.back().frame)
+        return track.back().value;
+
+    const bool numeric = fallback.canConvert<double>();
+
+    // Binary search for the correct segment
+    size_t lo = 0, hi = track.size() - 1;
+    while (lo < hi - 1) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (track[mid].frame <= frame)
+            lo = mid;
+        else
+            hi = mid;
+    }
+
+    const auto &p0 = track[lo];
+    const auto &p1 = track[lo + 1];
+    const int f0 = p0.frame, f1 = p1.frame;
+    const QVariant &v0 = p0.value, &v1 = p1.value;
+
+    if (f0 == f1)
+        return v0;
+    const double tRaw = (frame - f0) / double(f1 - f0);
+
+    if (p0.interp == QStringLiteral("none"))
+        return (frame < f1) ? v0 : v1;
+
+    if (v0.typeId() == QMetaType::QString && v1.typeId() == QMetaType::QString) {
+        QColor c0(v0.toString()), c1(v1.typeId() == QMetaType::QString ? v1.toString() : v0.toString());
+        if (c0.isValid() && c1.isValid()) {
+            std::vector<double> params;
+            if (p0.interp == QStringLiteral("custom")) {
+                if (!p0.points.isEmpty()) {
+                    for (const auto &val : std::as_const(p0.points))
+                        params.push_back(val.toDouble());
+                } else {
+                    params = {p0.modeParams.value(QStringLiteral("bzx1"), 0.33).toDouble(), p0.modeParams.value(QStringLiteral("bzy1"), 0.0).toDouble(),
+                              p0.modeParams.value(QStringLiteral("bzx2"), 0.66).toDouble(), p0.modeParams.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
+                }
+            }
+            const auto &funcs = easingFunctions();
+            QString type = p0.interp;
+            auto efIt = funcs.find(type);
+            if (efIt == funcs.end()) { type = QStringLiteral("linear"); efIt = funcs.find(type); }
+            const double t = efIt.value()(tRaw, params, p0.modeParams);
+            return QColor(static_cast<int>(c0.red() + (c1.red() - c0.red()) * t), static_cast<int>(c0.green() + (c1.green() - c0.green()) * t),
+                          static_cast<int>(c0.blue() + (c1.blue() - c0.blue()) * t), static_cast<int>(c0.alpha() + (c1.alpha() - c0.alpha()) * t))
+                .name(QColor::HexArgb);
+        }
+    }
+
+    if (!numeric || !v0.canConvert<double>() || !v1.canConvert<double>())
+        return v0;
+
+    const double a = v0.toDouble(), b = v1.toDouble();
+    if (p0.interp == QStringLiteral("random")) {
+        const int stepFrames = std::max(1, p0.modeParams.value(QStringLiteral("stepFrames"), 1).toInt()), stepIndex = (frame - f0) / stepFrames;
+        const quint32 seed = qHash(f0) ^ qHash(f1) ^ qHash(stepIndex) ^ qHash(static_cast<qint64>(a * 1000)) ^ qHash(static_cast<qint64>(b * 1000));
+        return std::min(a, b) + (std::max(a, b) - std::min(a, b)) * (double(seed % 1000000u) / 999999.0);
+    }
+    if (p0.interp == QStringLiteral("alternate")) {
+        const int stepFrames = std::max(1, p0.modeParams.value(QStringLiteral("stepFrames"), 1).toInt());
+        return ((frame - f0) / stepFrames % 2 == 0) ? a : b;
+    }
+
+    std::vector<double> params;
+    if (p0.interp == QStringLiteral("custom")) {
+        if (!p0.points.isEmpty()) {
+            for (const auto &val : std::as_const(p0.points))
+                params.push_back(val.toDouble());
+        } else {
+            params = {p0.modeParams.value(QStringLiteral("bzx1"), 0.33).toDouble(), p0.modeParams.value(QStringLiteral("bzy1"), 0.0).toDouble(),
+                      p0.modeParams.value(QStringLiteral("bzx2"), 0.66).toDouble(), p0.modeParams.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
+        }
+    }
+    const auto &funcs = easingFunctions();
+    QString type = p0.interp;
+    auto efIt = funcs.find(type);
+    if (efIt == funcs.end()) { type = QStringLiteral("linear"); efIt = funcs.find(type); }
+    return a + (b - a) * efIt.value()(tRaw, params, p0.modeParams);
+}
+
 inline bool isStructuredTrack(const QVariant &raw) {
     const QVariantMap m = raw.toMap();
     return m.contains(QStringLiteral("start")) && m.contains(QStringLiteral("points"));

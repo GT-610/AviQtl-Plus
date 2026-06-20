@@ -1,6 +1,7 @@
 #pragma once
 #include "timeline_service.hpp"
 #include <QUndoCommand>
+#include <memory>
 
 namespace AviQtl::UI {
 
@@ -163,7 +164,7 @@ class PasteEffectCommand : public QUndoCommand {
   private:
     TimelineService *m_service;
     int m_clipId, m_targetIndex;
-    EffectModel *m_effect;
+    std::unique_ptr<EffectModel> m_effect;
 };
 
 class SetAudioPluginEnabledCommand : public QUndoCommand {

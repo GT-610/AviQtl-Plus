@@ -206,6 +206,7 @@ class EffectModel : public QObject {
 
     void setEnabled(bool e) {
         m_resolvedCache.clear();
+        m_trackPointCache.clear();
         if (m_enabled != e) {
             m_enabled = e;
             emit enabledChanged();
@@ -216,6 +217,7 @@ class EffectModel : public QObject {
         invalidateCache(key);
         if (m_params[key] != val) {
             m_params[key] = val;
+            m_expressionParamsBuilt = false; // Rebuild on next access
 
             // アニメーショントラックと同期させ、evaluatedParam() 等が常に最新の静値を返すようにする
             auto ktIt = m_keyframeTracks.find(key);
@@ -365,13 +367,26 @@ class EffectModel : public QObject {
             } else {
                 rcIt = m_resolvedCache.insert(paramName, sortPoints(raw.toList()));
             }
+            // Rebuild track point cache for this parameter
+            m_trackPointCache.insert(paramName, Core::KeyframeUtils::extractTrackPoints(rcIt.value()));
         }
-        QVariant baseValue = evaluateTrack(rcIt.value(), frame, fallback); // evaluateTrack internally calls easing functions with modeParams
 
-        QString strVal = m_params.value(paramName).toString();
-        if (strVal.startsWith(QStringLiteral("="))) {
-            // "=time*100" -> "time*100"
-            std::string expr = strVal.mid(1).toStdString();
+        // Use fast path with pre-extracted track points and binary search
+        auto tpIt = m_trackPointCache.find(paramName);
+        QVariant baseValue;
+        if (tpIt != m_trackPointCache.end()) {
+            baseValue = Core::KeyframeUtils::evaluateTrackFast(tpIt.value(), frame, fallback);
+        } else {
+            baseValue = evaluateTrack(rcIt.value(), frame, fallback);
+        }
+
+        // Check expression only if param is known to be an expression
+        if (!m_expressionParamsBuilt) {
+            rebuildExpressionSet();
+            m_expressionParamsBuilt = true;
+        }
+        if (m_expressionParams.contains(paramName)) {
+            std::string expr = m_params.value(paramName).toString().mid(1).toStdString();
             double time = (fps > 0.0) ? frame / fps : 0.0;
             return AviQtl::Scripting::LuaHost::instance().evaluate(expr, time, 0, baseValue.toDouble());
         }
@@ -381,12 +396,15 @@ class EffectModel : public QObject {
 
     void setKeyframeTracks(const QVariantMap &tracks) {
         m_keyframeTracks = tracks;
+        m_resolvedCache.clear();
+        m_trackPointCache.clear();
         emit keyframeTracksChanged();
     }
 
     void invalidateCache(const QString &paramName) const {
         if (!paramName.isEmpty()) {
             m_resolvedCache.remove(paramName);
+            m_trackPointCache.remove(paramName);
         }
     }
 
@@ -397,6 +415,22 @@ class EffectModel : public QObject {
     void keyframeTracksChanged();
 
   private:
+    void rebuildExpressionSet() const {
+        m_expressionParams.clear();
+        for (auto it = m_params.constBegin(); it != m_params.constEnd(); ++it) {
+            if (it.value().typeId() == QMetaType::QString && it.value().toString().startsWith(QStringLiteral("="))) {
+                m_expressionParams.insert(it.key());
+            }
+        }
+    }
+
+    void rebuildTrackPointCache() const {
+        m_trackPointCache.clear();
+        for (auto it = m_resolvedCache.constBegin(); it != m_resolvedCache.constEnd(); ++it) {
+            m_trackPointCache.insert(it.key(), Core::KeyframeUtils::extractTrackPoints(it.value()));
+        }
+    }
+
     QString m_id;
     QString m_name;
     QString m_kind;
@@ -409,5 +443,8 @@ class EffectModel : public QObject {
 
     mutable int m_lastDuration = -1;
     mutable QHash<QString, QVariantList> m_resolvedCache;
+    mutable QHash<QString, std::vector<Core::KeyframeUtils::TrackPoint>> m_trackPointCache;
+    mutable QSet<QString> m_expressionParams;
+    mutable bool m_expressionParamsBuilt = false;
 };
 } // namespace AviQtl::UI

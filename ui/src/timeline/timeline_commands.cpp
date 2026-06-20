@@ -16,7 +16,7 @@ MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int oldLa
     : m_service(service), m_clipId(clipId), m_oldLayer(oldLayer), m_oldStart(oldStart), m_oldDuration(oldDuration), m_newLayer(newLayer), m_newStart(newStart), m_newDuration(newDuration), m_clipName(clipName) {
     setText(QObject::tr("クリップ移動: %1").arg(clipName));
 }
-void MoveClipCommand::undo() { m_service->updateClipInternal(m_clipId, m_oldLayer, m_oldStart, m_oldDuration); }
+void MoveClipCommand::undo() { m_service->updateClipInternal(m_clipId, m_oldLayer, m_oldStart, m_oldDuration, true, true); }
 void MoveClipCommand::redo() { m_service->updateClipInternal(m_clipId, m_newLayer, m_newStart, m_newDuration); }
 
 SetClipByUpperObjectCommand::SetClipByUpperObjectCommand(TimelineService *service, int clipId, bool enabled) : m_service(service), m_clipId(clipId), m_enabled(enabled) {
@@ -104,7 +104,7 @@ PasteEffectCommand::PasteEffectCommand(TimelineService *service, int clipId, int
     setText(QObject::tr("エフェクト貼り付け"));
 }
 void PasteEffectCommand::undo() { m_service->removeEffectInternal(m_clipId, m_targetIndex); }
-void PasteEffectCommand::redo() { m_service->pasteEffectInternal(m_clipId, m_targetIndex, m_effect); }
+void PasteEffectCommand::redo() { m_service->pasteEffectInternal(m_clipId, m_targetIndex, m_effect.get()); }
 
 UpdateLayerStateCommand::UpdateLayerStateCommand(TimelineService *service, int sceneId, int layer, bool value, StateType type)
     : m_service(service), m_sceneId(sceneId), m_layer(layer), m_value(value), m_type(type) { // NOLINT(bugprone-easily-swappable-parameters)
@@ -125,7 +125,7 @@ void SplitClipCommand::undo() {
     const auto &clips = m_service->clips();
     auto it = std::ranges::find_if(clips, [this](const ClipData &c) -> bool { return c.id == m_originalClipId; });
     if (it != clips.end()) {
-        m_service->updateClipInternal(m_originalClipId, it->layer, it->startFrame, m_originalDuration);
+        m_service->updateClipInternal(m_originalClipId, it->layer, it->startFrame, m_originalDuration, true, true);
     }
 }
 
