@@ -101,6 +101,15 @@ void ComputeEffect::setOpacity(qreal o) {
     update();
 }
 
+void ComputeEffect::setExtraTextures(const QVariantList &textures) {
+    if (m_extraTextures == textures)
+        return;
+    m_extraTextures = textures;
+    m_dirty = true;
+    emit extraTexturesChanged();
+    update();
+}
+
 void ComputeEffect::setErrorFromRenderThread(const QString &error) {
     if (m_error == error)
         return;
@@ -174,6 +183,20 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
         node->syncWorkGroupSize(m_workGroupX, m_workGroupY);
         node->syncHdrOutput(m_hdrOutput);
         node->syncOpacity(m_opacity);
+
+        // Collect extra textures from QQuickItem sources
+        QList<QSGTexture *> extraTexList;
+        for (const QVariant &v : std::as_const(m_extraTextures)) {
+            auto *item = v.value<QQuickItem *>();
+            if (!item)
+                continue;
+            QSGTextureProvider *tp = item->textureProvider();
+            QSGTexture *tex = tp ? tp->texture() : nullptr;
+            if (tex)
+                extraTexList.append(tex);
+        }
+        node->syncExtraTextures(extraTexList);
+
         m_dirty = false;
     }
 

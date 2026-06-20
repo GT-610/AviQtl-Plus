@@ -4,6 +4,7 @@
 #include <QQuickItem>
 #include <QSGNode>
 #include <QUrl>
+#include <QVariantList>
 #include <QVariantMap>
 
 namespace AviQtl::UI::Effects {
@@ -24,6 +25,7 @@ class ComputeEffect : public QQuickItem {
     Q_PROPERTY(bool autoWorkGroup READ autoWorkGroup WRITE setAutoWorkGroup NOTIFY autoWorkGroupChanged)
     Q_PROPERTY(bool hdrOutput READ hdrOutput WRITE setHdrOutput NOTIFY hdrOutputChanged)
     Q_PROPERTY(qreal opacity READ opacity WRITE setOpacity NOTIFY opacityChanged)
+    Q_PROPERTY(QVariantList extraTextures READ extraTextures WRITE setExtraTextures NOTIFY extraTexturesChanged)
 
   public:
     explicit ComputeEffect(QQuickItem *parent = nullptr);
@@ -42,6 +44,7 @@ class ComputeEffect : public QQuickItem {
     bool autoWorkGroup() const { return m_autoWorkGroup; }
     bool hdrOutput() const { return m_hdrOutput; }
     qreal opacity() const { return m_opacity; }
+    QVariantList extraTextures() const { return m_extraTextures; }
 
     void setParams(const QVariantMap &params);
     void setShaderEnabled(bool enabled);
@@ -52,6 +55,7 @@ class ComputeEffect : public QQuickItem {
     void setAutoWorkGroup(bool autoWG);
     void setHdrOutput(bool hdr);
     void setOpacity(qreal o);
+    void setExtraTextures(const QVariantList &textures);
 
     Q_INVOKABLE void setErrorFromRenderThread(const QString &error);
 
@@ -66,6 +70,7 @@ class ComputeEffect : public QQuickItem {
     void autoWorkGroupChanged();
     void hdrOutputChanged();
     void opacityChanged();
+    void extraTexturesChanged();
 
   protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *data) override;
@@ -86,6 +91,7 @@ class ComputeEffect : public QQuickItem {
     bool m_autoWorkGroup = true;
     bool m_hdrOutput = false;
     qreal m_opacity = 1.0;
+    QVariantList m_extraTextures;
 };
 
 } // namespace AviQtl::UI::Effects

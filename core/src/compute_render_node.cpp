@@ -19,6 +19,7 @@ namespace {
 static constexpr int kOutputBinding = 0;
 static constexpr int kInputBinding = 1;
 static constexpr int kParamsBinding = 2;
+static constexpr int kExtraBindingBase = 3;
 static constexpr int kParamsBlockSize = 32;
 
 static constexpr float kQuadData[] = {
@@ -103,6 +104,13 @@ void ComputeRenderNode::syncOpacity(qreal opacity) {
     m_opacity = qBound(0.0, opacity, 1.0);
 }
 
+void ComputeRenderNode::syncExtraTextures(const QList<QSGTexture *> &textures) {
+    if (m_extraTextures == textures)
+        return;
+    m_extraTextures = textures;
+    m_bufferLayoutDirty = true;
+}
+
 QRectF ComputeRenderNode::rect() const { return QRectF(0, 0, m_width, m_height); }
 
 QRhi *ComputeRenderNode::resolveRhi() const {
@@ -137,6 +145,15 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         m_inputRhiTexture = currentInputRhiTexture;
         m_bufferLayoutDirty = true;
         m_renderTargetDirty = true;
+    }
+
+    // Track extra texture rhi changes
+    QList<QRhiTexture *> currentExtraRhi;
+    for (auto *tex : std::as_const(m_extraTextures))
+        currentExtraRhi.append(tex ? tex->rhiTexture() : nullptr);
+    if (m_extraRhiTextures != currentExtraRhi) {
+        m_extraRhiTextures = currentExtraRhi;
+        m_bufferLayoutDirty = true;
     }
 
     if (!m_shaderPath.isEmpty() && m_shaderDirty) {
@@ -188,6 +205,14 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
 
     if (computeSupported && m_srb && m_inputRhiTexture) {
         bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
+    }
+
+    // Extra textures at binding 3, 4, 5, ...
+    for (int i = 0; i < m_extraTextures.size(); ++i) {
+        QRhiTexture *extraRhi = m_extraTextures[i] ? m_extraTextures[i]->rhiTexture() : nullptr;
+        if (extraRhi) {
+            bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, extraRhi, m_sampler));
+        }
     }
 
     if (computeSupported && m_srb) {
@@ -630,6 +655,7 @@ void ComputeRenderNode::destroyResources() {
     m_paramUbuf = nullptr;
     m_renderTexture = nullptr;
     m_inputRhiTexture = nullptr;
+    m_extraRhiTextures.clear();
     m_verticesUploaded = false;
 
     m_bufferLayoutDirty = true;
