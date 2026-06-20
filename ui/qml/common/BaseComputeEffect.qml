@@ -10,6 +10,7 @@ BaseEffect {
     property alias workGroupSizeX: compEffect.workGroupSizeX
     property alias workGroupSizeY: compEffect.workGroupSizeY
     property alias computeError: compEffect.error
+    property alias hdrOutput: compEffect.hdrOutput
     // JSONのパラメータ名とシェーダーのUniform名が異なる場合のマッピング
     // 例: { "mix": "mixAmount" }
     property var uniformMapping: ({
@@ -23,6 +24,11 @@ BaseEffect {
             p = p.parent;
         }
         return null;
+    }
+
+    onSourceChanged: {
+        if (source && source.layer)
+            source.layer.enabled = true;
     }
 
     // params からキーフレーム評価済みの Uniform オブジェクトを自動構築する
@@ -57,6 +63,7 @@ BaseEffect {
         source: root.sourceProxy
         params: root.buildUniforms()
         autoWorkGroup: true
+        opacity: root.opacity
     }
 
     Label {

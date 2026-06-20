@@ -23,6 +23,8 @@ class ComputeRenderNode final : public QSGRenderNode {
     void syncInputTexture(QSGTexture *tex);
     void syncSize(float w, float h);
     void syncWorkGroupSize(int x, int y, int z = 1);
+    void syncHdrOutput(bool hdr);
+    void syncOpacity(qreal opacity);
 
     QString errorMessage() const { return m_error; }
 
@@ -75,6 +77,9 @@ class ComputeRenderNode final : public QSGRenderNode {
     int m_workGroupX = 1;
     int m_workGroupY = 1;
     int m_workGroupZ = 1;
+
+    bool m_hdrOutput = false;
+    qreal m_opacity = 1.0;
 };
 
 } // namespace AviQtl::UI::Effects

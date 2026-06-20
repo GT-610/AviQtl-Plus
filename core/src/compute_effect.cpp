@@ -82,6 +82,25 @@ void ComputeEffect::setAutoWorkGroup(bool autoWG) {
     update();
 }
 
+void ComputeEffect::setHdrOutput(bool hdr) {
+    if (m_hdrOutput == hdr)
+        return;
+    m_hdrOutput = hdr;
+    m_dirty = true;
+    emit hdrOutputChanged();
+    update();
+}
+
+void ComputeEffect::setOpacity(qreal o) {
+    const qreal clamped = qBound(0.0, o, 1.0);
+    if (qFuzzyCompare(m_opacity, clamped))
+        return;
+    m_opacity = clamped;
+    m_dirty = true;
+    emit opacityChanged();
+    update();
+}
+
 void ComputeEffect::setErrorFromRenderThread(const QString &error) {
     if (m_error == error)
         return;
@@ -153,6 +172,8 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
         node->syncShaderPath(pathStr);
         node->syncSize(width(), height());
         node->syncWorkGroupSize(m_workGroupX, m_workGroupY);
+        node->syncHdrOutput(m_hdrOutput);
+        node->syncOpacity(m_opacity);
         m_dirty = false;
     }
 

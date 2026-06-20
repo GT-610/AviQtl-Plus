@@ -92,6 +92,17 @@ void ComputeRenderNode::syncWorkGroupSize(int x, int y, int z) {
     m_workGroupZ = qMax(1, z);
 }
 
+void ComputeRenderNode::syncHdrOutput(bool hdr) {
+    if (m_hdrOutput == hdr)
+        return;
+    m_hdrOutput = hdr;
+    m_renderTargetDirty = true;
+}
+
+void ComputeRenderNode::syncOpacity(qreal opacity) {
+    m_opacity = qBound(0.0, opacity, 1.0);
+}
+
 QRectF ComputeRenderNode::rect() const { return QRectF(0, 0, m_width, m_height); }
 
 QRhi *ComputeRenderNode::resolveRhi() const {
@@ -180,8 +191,8 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     }
 
     if (computeSupported && m_srb) {
-        // Change from RGBA8 to RGBA16F (16-bit float) for HDR compute output
-        m_outputTexture = rhi->newTexture(QRhiTexture::RGBA16F, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+        const QRhiTexture::Format outputFormat = m_hdrOutput ? QRhiTexture::RGBA16F : QRhiTexture::RGBA8;
+        m_outputTexture = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
         if (!m_outputTexture->create()) {
             delete m_outputTexture;
             m_outputTexture = nullptr;
@@ -203,7 +214,7 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         return false;
     }
 
-    m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64);
+    m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 80);
     if (!m_ubuf->create()) {
         m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
         delete m_ubuf; m_ubuf = nullptr;
@@ -382,6 +393,8 @@ void ComputeRenderNode::prepare() {
             mvp *= *nodeMatrix;
         mvp.scale(m_width, m_height, 1.0f);
         batch->updateDynamicBuffer(m_ubuf, 0, 64, mvp.constData());
+        const float opacity = static_cast<float>(m_opacity);
+        batch->updateDynamicBuffer(m_ubuf, 64, 4, &opacity);
     }
 
     if (m_paramUbuf && m_shader.isValid() && m_paramsDirty) {
@@ -475,6 +488,76 @@ void ComputeRenderNode::prepare() {
                         }
                     }
                     std::memcpy(upload.data() + offset, v, 4 * sizeof(float));
+                    break;
+                }
+                case QShaderDescription::Mat2: {
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        float m[4] = {1, 0, 0, 1};
+                        for (int i = 0; i < qMin(list.size(), 4); ++i)
+                            m[i] = list[i].toFloat();
+                        std::memcpy(upload.data() + offset, m, 4 * sizeof(float));
+                    }
+                    break;
+                }
+                case QShaderDescription::Mat3: {
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        float m[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+                        for (int i = 0; i < qMin(list.size(), 9); ++i)
+                            m[i] = list[i].toFloat();
+                        std::memcpy(upload.data() + offset, m, 9 * sizeof(float));
+                    }
+                    break;
+                }
+                case QShaderDescription::Mat4: {
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        float m[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+                        for (int i = 0; i < qMin(list.size(), 16); ++i)
+                            m[i] = list[i].toFloat();
+                        std::memcpy(upload.data() + offset, m, 16 * sizeof(float));
+                    }
+                    break;
+                }
+                case QShaderDescription::Int2:
+                case QShaderDescription::Int3:
+                case QShaderDescription::Int4: {
+                    const int count = (member.type == QShaderDescription::Int2) ? 2 :
+                                      (member.type == QShaderDescription::Int3) ? 3 : 4;
+                    int v[4] = {0, 0, 0, 0};
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        for (int i = 0; i < qMin(list.size(), count); ++i)
+                            v[i] = list[i].toInt();
+                    } else if (count == 1) {
+                        v[0] = val.toInt();
+                    }
+                    std::memcpy(upload.data() + offset, v, count * sizeof(int));
+                    break;
+                }
+                case QShaderDescription::Uint: {
+                    int i = val.toInt();
+                    std::memcpy(upload.data() + offset, &i, sizeof(int));
+                    break;
+                }
+                case QShaderDescription::Half:
+                case QShaderDescription::Half2:
+                case QShaderDescription::Half3:
+                case QShaderDescription::Half4: {
+                    const int count = (member.type == QShaderDescription::Half) ? 1 :
+                                      (member.type == QShaderDescription::Half2) ? 2 :
+                                      (member.type == QShaderDescription::Half3) ? 3 : 4;
+                    float v[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        for (int i = 0; i < qMin(list.size(), count); ++i)
+                            v[i] = list[i].toFloat();
+                    } else if (count == 1) {
+                        v[0] = val.toFloat();
+                    }
+                    // half is 2 bytes but std140 may align to 4; use member.size
+                    std::memcpy(upload.data() + offset, v, qMin(member.size, static_cast<int>(count * sizeof(float))));
                     break;
                 }
                 default:
