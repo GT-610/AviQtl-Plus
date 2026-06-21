@@ -19,6 +19,7 @@ namespace {
 static constexpr int kOutputBinding = 0;
 static constexpr int kInputBinding = 1;
 static constexpr int kParamsBinding = 2;
+static constexpr int kExtraBindingBase = 3;
 static constexpr int kParamsBlockSize = 32;
 
 static constexpr float kQuadData[] = {
@@ -92,6 +93,33 @@ void ComputeRenderNode::syncWorkGroupSize(int x, int y, int z) {
     m_workGroupZ = qMax(1, z);
 }
 
+void ComputeRenderNode::syncHdrOutput(bool hdr) {
+    if (m_hdrOutput == hdr)
+        return;
+    m_hdrOutput = hdr;
+    m_renderTargetDirty = true;
+    m_bufferLayoutDirty = true;
+}
+
+void ComputeRenderNode::syncOpacity(qreal opacity) {
+    m_opacity = qBound(0.0, opacity, 1.0);
+}
+
+void ComputeRenderNode::syncExtraTextures(const QList<QSGTexture *> &textures) {
+    if (m_extraTextures == textures)
+        return;
+    m_extraTextures = textures;
+    m_bufferLayoutDirty = true;
+}
+
+void ComputeRenderNode::syncDispatchCount(int count) {
+    const int clamped = qMax(1, count);
+    if (m_dispatchCount == clamped)
+        return;
+    m_dispatchCount = clamped;
+    m_bufferLayoutDirty = true;
+}
+
 QRectF ComputeRenderNode::rect() const { return QRectF(0, 0, m_width, m_height); }
 
 QRhi *ComputeRenderNode::resolveRhi() const {
@@ -126,6 +154,15 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         m_inputRhiTexture = currentInputRhiTexture;
         m_bufferLayoutDirty = true;
         m_renderTargetDirty = true;
+    }
+
+    // Track extra texture rhi changes
+    QList<QRhiTexture *> currentExtraRhi;
+    for (auto *tex : std::as_const(m_extraTextures))
+        currentExtraRhi.append(tex ? tex->rhiTexture() : nullptr);
+    if (m_extraRhiTextures != currentExtraRhi) {
+        m_extraRhiTextures = currentExtraRhi;
+        m_bufferLayoutDirty = true;
     }
 
     if (!m_shaderPath.isEmpty() && m_shaderDirty) {
@@ -179,9 +216,17 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
     }
 
+    // Extra textures at binding 3, 4, 5, ...
+    for (int i = 0; i < m_extraTextures.size(); ++i) {
+        QRhiTexture *extraRhi = m_extraTextures[i] ? m_extraTextures[i]->rhiTexture() : nullptr;
+        if (extraRhi) {
+            bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, extraRhi, m_sampler));
+        }
+    }
+
     if (computeSupported && m_srb) {
-        // Change from RGBA8 to RGBA16F (16-bit float) for HDR compute output
-        m_outputTexture = rhi->newTexture(QRhiTexture::RGBA16F, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+        const QRhiTexture::Format outputFormat = m_hdrOutput ? QRhiTexture::RGBA16F : QRhiTexture::RGBA8;
+        m_outputTexture = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
         if (!m_outputTexture->create()) {
             delete m_outputTexture;
             m_outputTexture = nullptr;
@@ -190,6 +235,15 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             m_error = QStringLiteral("Compute output texture creation failed.");
         } else {
             bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
+
+            // Second output texture for ping-pong (multi-pass)
+            if (m_dispatchCount > 1) {
+                m_outputTextureB = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+                if (!m_outputTextureB->create()) {
+                    delete m_outputTextureB;
+                    m_outputTextureB = nullptr;
+                }
+            }
         }
     }
 
@@ -203,7 +257,7 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         return false;
     }
 
-    m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64);
+    m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 80);
     if (!m_ubuf->create()) {
         m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
         delete m_ubuf; m_ubuf = nullptr;
@@ -307,6 +361,10 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
     wantedRenderTexture = computeOk ? m_outputTexture : m_inputRhiTexture;
     if (!wantedRenderTexture && m_outputTexture)
         wantedRenderTexture = m_outputTexture;
+    // For multi-pass ping-pong, the final output depends on dispatch count parity
+    if (computeOk && m_dispatchCount > 1 && m_outputTextureB) {
+        wantedRenderTexture = (m_dispatchCount % 2 == 1) ? m_outputTexture : m_outputTextureB;
+    }
     m_renderTexture = wantedRenderTexture;
 
     bool graphicsOk = false;
@@ -382,6 +440,8 @@ void ComputeRenderNode::prepare() {
             mvp *= *nodeMatrix;
         mvp.scale(m_width, m_height, 1.0f);
         batch->updateDynamicBuffer(m_ubuf, 0, 64, mvp.constData());
+        const float opacity = static_cast<float>(m_opacity);
+        batch->updateDynamicBuffer(m_ubuf, 64, 4, &opacity);
     }
 
     if (m_paramUbuf && m_shader.isValid() && m_paramsDirty) {
@@ -477,6 +537,103 @@ void ComputeRenderNode::prepare() {
                     std::memcpy(upload.data() + offset, v, 4 * sizeof(float));
                     break;
                 }
+                case QShaderDescription::Mat2: {
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        const int stride = member.matrixStride > 0 ? member.matrixStride : static_cast<int>(2 * sizeof(float));
+                        const int cols = 2;
+                        const int rows = 2;
+                        for (int c = 0; c < cols; ++c) {
+                            for (int r = 0; r < rows; ++r) {
+                                const int srcIdx = member.matrixIsRowMajor ? (r * cols + c) : (c * rows + r);
+                                const int dstOff = offset + c * stride + r * static_cast<int>(sizeof(float));
+                                if (dstOff + static_cast<int>(sizeof(float)) <= upload.size() && srcIdx < list.size()) {
+                                    float f = list[srcIdx].toFloat();
+                                    std::memcpy(upload.data() + dstOff, &f, sizeof(float));
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case QShaderDescription::Mat3: {
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        const int stride = member.matrixStride > 0 ? member.matrixStride : static_cast<int>(4 * sizeof(float));
+                        const int cols = 3;
+                        const int rows = 3;
+                        for (int c = 0; c < cols; ++c) {
+                            for (int r = 0; r < rows; ++r) {
+                                const int srcIdx = member.matrixIsRowMajor ? (r * cols + c) : (c * rows + r);
+                                const int dstOff = offset + c * stride + r * static_cast<int>(sizeof(float));
+                                if (dstOff + static_cast<int>(sizeof(float)) <= upload.size() && srcIdx < list.size()) {
+                                    float f = list[srcIdx].toFloat();
+                                    std::memcpy(upload.data() + dstOff, &f, sizeof(float));
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case QShaderDescription::Mat4: {
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        const int stride = member.matrixStride > 0 ? member.matrixStride : static_cast<int>(4 * sizeof(float));
+                        const int cols = 4;
+                        const int rows = 4;
+                        for (int c = 0; c < cols; ++c) {
+                            for (int r = 0; r < rows; ++r) {
+                                const int srcIdx = member.matrixIsRowMajor ? (r * cols + c) : (c * rows + r);
+                                const int dstOff = offset + c * stride + r * static_cast<int>(sizeof(float));
+                                if (dstOff + static_cast<int>(sizeof(float)) <= upload.size() && srcIdx < list.size()) {
+                                    float f = list[srcIdx].toFloat();
+                                    std::memcpy(upload.data() + dstOff, &f, sizeof(float));
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                case QShaderDescription::Int2:
+                case QShaderDescription::Int3:
+                case QShaderDescription::Int4: {
+                    const int count = (member.type == QShaderDescription::Int2) ? 2 :
+                                      (member.type == QShaderDescription::Int3) ? 3 : 4;
+                    int v[4] = {0, 0, 0, 0};
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        for (int i = 0; i < qMin(list.size(), count); ++i)
+                            v[i] = list[i].toInt();
+                    } else if (count == 1) {
+                        v[0] = val.toInt();
+                    }
+                    std::memcpy(upload.data() + offset, v, count * sizeof(int));
+                    break;
+                }
+                case QShaderDescription::Uint: {
+                    int i = val.toInt();
+                    std::memcpy(upload.data() + offset, &i, sizeof(int));
+                    break;
+                }
+                case QShaderDescription::Half:
+                case QShaderDescription::Half2:
+                case QShaderDescription::Half3:
+                case QShaderDescription::Half4: {
+                    const int count = (member.type == QShaderDescription::Half) ? 1 :
+                                      (member.type == QShaderDescription::Half2) ? 2 :
+                                      (member.type == QShaderDescription::Half3) ? 3 : 4;
+                    float v[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+                    if (val.canConvert<QVariantList>()) {
+                        QVariantList list = val.toList();
+                        for (int i = 0; i < qMin(list.size(), count); ++i)
+                            v[i] = list[i].toFloat();
+                    } else if (count == 1) {
+                        v[0] = val.toFloat();
+                    }
+                    // half is 2 bytes but std140 may align to 4; use member.size
+                    std::memcpy(upload.data() + offset, v, qMin(member.size, static_cast<int>(count * sizeof(float))));
+                    break;
+                }
                 default:
                     break;
                 }
@@ -495,9 +652,51 @@ void ComputeRenderNode::prepare() {
 
     cb->beginComputePass(batch);
     cb->setComputePipeline(m_pipeline);
-    cb->setShaderResources(m_srb);
-    cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+
+    if (m_dispatchCount <= 1 || !m_outputTextureB) {
+        // Single pass: use the pre-built SRB
+        cb->setShaderResources(m_srb);
+        cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+    } else {
+        // Multi-pass ping-pong: build per-pass SRBs
+        QRhiTexture *textures[2] = {m_outputTexture, m_outputTextureB};
+
+        for (int pass = 0; pass < m_dispatchCount; ++pass) {
+            QRhiTexture *writeTex = textures[pass % 2];
+            QRhiTexture *readTex = (pass == 0) ? m_inputRhiTexture : textures[(pass + 1) % 2];
+
+            QList<QRhiShaderResourceBinding> passBindings;
+            passBindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, readTex, m_sampler));
+            passBindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, writeTex, 0));
+            passBindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
+            for (int i = 0; i < m_extraRhiTextures.size(); ++i) {
+                if (m_extraRhiTextures[i]) {
+                    passBindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, m_extraRhiTextures[i], m_sampler));
+                }
+            }
+
+            auto *passSrb = m_rhi->newShaderResourceBindings();
+            passSrb->setBindings(passBindings.cbegin(), passBindings.cend());
+            if (!passSrb->create()) {
+                m_error = QStringLiteral("Multi-pass SRB creation failed at pass %1").arg(pass);
+                delete passSrb;
+                break;
+            }
+
+            cb->setShaderResources(passSrb);
+            cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+
+            // Keep passSrb alive until after dispatch; clean up after loop
+            m_tempSrbList.append(passSrb);
+        }
+    }
+
     cb->endComputePass();
+
+    // Clean up temporary SRBs from this frame
+    for (auto *srb : std::as_const(m_tempSrbList))
+        delete srb;
+    m_tempSrbList.clear();
 
     m_paramsDirty = false;
 }
@@ -537,6 +736,8 @@ void ComputeRenderNode::destroyResources() {
     m_renderSrb = nullptr;
     delete m_outputTexture;
     m_outputTexture = nullptr;
+    delete m_outputTextureB;
+    m_outputTextureB = nullptr;
     delete m_sampler;
     m_sampler = nullptr;
     delete m_vbuf;
@@ -545,8 +746,12 @@ void ComputeRenderNode::destroyResources() {
     m_ubuf = nullptr;
     delete m_paramUbuf;
     m_paramUbuf = nullptr;
+    for (auto *srb : std::as_const(m_tempSrbList))
+        delete srb;
+    m_tempSrbList.clear();
     m_renderTexture = nullptr;
     m_inputRhiTexture = nullptr;
+    m_extraRhiTextures.clear();
     m_verticesUploaded = false;
 
     m_bufferLayoutDirty = true;

@@ -82,6 +82,44 @@ void ComputeEffect::setAutoWorkGroup(bool autoWG) {
     update();
 }
 
+void ComputeEffect::setHdrOutput(bool hdr) {
+    if (m_hdrOutput == hdr)
+        return;
+    m_hdrOutput = hdr;
+    m_dirty = true;
+    emit hdrOutputChanged();
+    update();
+}
+
+void ComputeEffect::setOpacity(qreal o) {
+    const qreal clamped = qBound(0.0, o, 1.0);
+    if (qFuzzyCompare(m_opacity, clamped))
+        return;
+    m_opacity = clamped;
+    m_dirty = true;
+    emit opacityChanged();
+    update();
+}
+
+void ComputeEffect::setExtraTextures(const QVariantList &textures) {
+    if (m_extraTextures == textures)
+        return;
+    m_extraTextures = textures;
+    m_dirty = true;
+    emit extraTexturesChanged();
+    update();
+}
+
+void ComputeEffect::setDispatchCount(int count) {
+    const int clamped = qMax(1, count);
+    if (m_dispatchCount == clamped)
+        return;
+    m_dispatchCount = clamped;
+    m_dirty = true;
+    emit dispatchCountChanged();
+    update();
+}
+
 void ComputeEffect::setErrorFromRenderThread(const QString &error) {
     if (m_error == error)
         return;
@@ -153,6 +191,24 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
         node->syncShaderPath(pathStr);
         node->syncSize(width(), height());
         node->syncWorkGroupSize(m_workGroupX, m_workGroupY);
+        node->syncHdrOutput(m_hdrOutput);
+        node->syncOpacity(m_opacity);
+
+        // Collect extra textures from QQuickItem sources
+        // Preserve slot positions to maintain binding index correspondence
+        QList<QSGTexture *> extraTexList;
+        for (const QVariant &v : std::as_const(m_extraTextures)) {
+            auto *item = v.value<QQuickItem *>();
+            QSGTexture *tex = nullptr;
+            if (item) {
+                QSGTextureProvider *tp = item->textureProvider();
+                tex = tp ? tp->texture() : nullptr;
+            }
+            extraTexList.append(tex);
+        }
+        node->syncExtraTextures(extraTexList);
+        node->syncDispatchCount(m_dispatchCount);
+
         m_dirty = false;
     }
 

@@ -4,6 +4,7 @@
 #include <QQuickItem>
 #include <QSGNode>
 #include <QUrl>
+#include <QVariantList>
 #include <QVariantMap>
 
 namespace AviQtl::UI::Effects {
@@ -22,6 +23,10 @@ class ComputeEffect : public QQuickItem {
     Q_PROPERTY(int workGroupSizeX READ workGroupSizeX WRITE setWorkGroupSizeX NOTIFY workGroupSizeXChanged)
     Q_PROPERTY(int workGroupSizeY READ workGroupSizeY WRITE setWorkGroupSizeY NOTIFY workGroupSizeYChanged)
     Q_PROPERTY(bool autoWorkGroup READ autoWorkGroup WRITE setAutoWorkGroup NOTIFY autoWorkGroupChanged)
+    Q_PROPERTY(bool hdrOutput READ hdrOutput WRITE setHdrOutput NOTIFY hdrOutputChanged)
+    Q_PROPERTY(qreal opacity READ opacity WRITE setOpacity NOTIFY opacityChanged)
+    Q_PROPERTY(QVariantList extraTextures READ extraTextures WRITE setExtraTextures NOTIFY extraTexturesChanged)
+    Q_PROPERTY(int dispatchCount READ dispatchCount WRITE setDispatchCount NOTIFY dispatchCountChanged)
 
   public:
     explicit ComputeEffect(QQuickItem *parent = nullptr);
@@ -38,6 +43,10 @@ class ComputeEffect : public QQuickItem {
     int workGroupSizeX() const { return m_workGroupX; }
     int workGroupSizeY() const { return m_workGroupY; }
     bool autoWorkGroup() const { return m_autoWorkGroup; }
+    bool hdrOutput() const { return m_hdrOutput; }
+    qreal opacity() const { return m_opacity; }
+    QVariantList extraTextures() const { return m_extraTextures; }
+    int dispatchCount() const { return m_dispatchCount; }
 
     void setParams(const QVariantMap &params);
     void setShaderEnabled(bool enabled);
@@ -46,6 +55,10 @@ class ComputeEffect : public QQuickItem {
     void setWorkGroupSizeX(int x);
     void setWorkGroupSizeY(int y);
     void setAutoWorkGroup(bool autoWG);
+    void setHdrOutput(bool hdr);
+    void setOpacity(qreal o);
+    void setExtraTextures(const QVariantList &textures);
+    void setDispatchCount(int count);
 
     Q_INVOKABLE void setErrorFromRenderThread(const QString &error);
 
@@ -58,6 +71,10 @@ class ComputeEffect : public QQuickItem {
     void workGroupSizeXChanged();
     void workGroupSizeYChanged();
     void autoWorkGroupChanged();
+    void hdrOutputChanged();
+    void opacityChanged();
+    void extraTexturesChanged();
+    void dispatchCountChanged();
 
   protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *data) override;
@@ -76,6 +93,10 @@ class ComputeEffect : public QQuickItem {
     int m_workGroupX = 1;
     int m_workGroupY = 1;
     bool m_autoWorkGroup = true;
+    bool m_hdrOutput = false;
+    qreal m_opacity = 1.0;
+    QVariantList m_extraTextures;
+    int m_dispatchCount = 1;
 };
 
 } // namespace AviQtl::UI::Effects

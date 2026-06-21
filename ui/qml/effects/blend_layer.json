@@ -1,0 +1,32 @@
+{
+  "id": "blend_layer",
+  "name": "合成モード",
+  "qml": "BlendLayer.qml",
+  "params": {
+    "blendMode": 1,
+    "opacityValue": 1.0
+  },
+  "ui": {
+    "controls": [
+      {
+        "type": "slider",
+        "param": "blendMode",
+        "label": "合成モード",
+        "min": 1,
+        "max": 15,
+        "step": 1
+      },
+      {
+        "type": "slider",
+        "param": "opacityValue",
+        "label": "不透明度",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      }
+    ]
+  },
+  "version": "1.0.0",
+  "kind": "effect",
+  "categories": ["合成"]
+}
