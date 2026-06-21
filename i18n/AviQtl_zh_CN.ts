@@ -1519,9 +1519,84 @@
         <translation>闪光颜色</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="301"/>
         <source>青</source>
         <translation>蓝</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <source>ワイプ</source>
+        <translation>擦除</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
+        <source>クロスフェード</source>
+        <translation>交叉淡化</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
+        <source>ワイプ（円）</source>
+        <translation>擦除（圆形）</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
+        <source>スライド</source>
+        <translation>滑动</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
+        <source>円形</source>
+        <translation>圆形</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
+        <source>持続フレーム</source>
+        <translation>持续帧数</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
+        <source>イージング</source>
+        <translation>缓动</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
+        <source>linear</source>
+        <translation>线性</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
+        <source>ease_in</source>
+        <translation>缓入</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
+        <source>ease_out</source>
+        <translation>缓出</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
+        <source>ease_in_out</source>
+        <translation>缓入缓出</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
+        <source>left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
+        <source>right</source>
+        <translation>右</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
+        <source>up</source>
+        <translation>上</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
+        <source>down</source>
+        <translation>下</translation>
     </message>
 </context>
 <context>

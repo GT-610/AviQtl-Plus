@@ -297,7 +297,24 @@ namespace {
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "赤"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "閃光"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "閃光色"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ワイプ"),
     QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "青"),
+
+    // Transition effects
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "クロスフェード"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ワイプ（円）"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "スライド"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "円形"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "持続フレーム"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "イージング"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "linear"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ease_in"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ease_out"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "ease_in_out"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "left"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "right"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "up"),
+    QT_TRANSLATE_NOOP("AviQtl::Core::EffectRegistry", "down"),
 };
 
 } // namespace

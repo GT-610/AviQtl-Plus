@@ -1519,9 +1519,84 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Flash Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="301"/>
         <source>青</source>
         <translation>Blue</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <source>ワイプ</source>
+        <translation>Wipe</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
+        <source>クロスフェード</source>
+        <translation>Cross Fade</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
+        <source>ワイプ（円）</source>
+        <translation>Wipe (Circle)</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
+        <source>スライド</source>
+        <translation>Slide</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
+        <source>円形</source>
+        <translation>Circle</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
+        <source>持続フレーム</source>
+        <translation>Duration (frames)</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
+        <source>イージング</source>
+        <translation>Easing</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
+        <source>linear</source>
+        <translation>Linear</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
+        <source>ease_in</source>
+        <translation>Ease In</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
+        <source>ease_out</source>
+        <translation>Ease Out</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
+        <source>ease_in_out</source>
+        <translation>Ease In Out</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
+        <source>left</source>
+        <translation>Left</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
+        <source>right</source>
+        <translation>Right</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
+        <source>up</source>
+        <translation>Up</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
+        <source>down</source>
+        <translation>Down</translation>
     </message>
 </context>
 <context>

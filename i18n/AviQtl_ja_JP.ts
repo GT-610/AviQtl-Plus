@@ -1519,9 +1519,84 @@
         <translation>閃光色</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="301"/>
         <source>青</source>
         <translation>青</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <source>ワイプ</source>
+        <translation>ワイプ</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
+        <source>クロスフェード</source>
+        <translation>クロスフェード</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
+        <source>ワイプ（円）</source>
+        <translation>ワイプ（円）</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
+        <source>スライド</source>
+        <translation>スライド</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
+        <source>円形</source>
+        <translation>円形</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
+        <source>持続フレーム</source>
+        <translation>持続フレーム</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
+        <source>イージング</source>
+        <translation>イージング</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
+        <source>linear</source>
+        <translation>linear</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
+        <source>ease_in</source>
+        <translation>ease_in</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
+        <source>ease_out</source>
+        <translation>ease_out</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
+        <source>ease_in_out</source>
+        <translation>ease_in_out</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
+        <source>left</source>
+        <translation>left</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
+        <source>right</source>
+        <translation>right</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
+        <source>up</source>
+        <translation>up</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
+        <source>down</source>
+        <translation>down</translation>
     </message>
 </context>
 <context>
