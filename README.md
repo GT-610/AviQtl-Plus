@@ -14,11 +14,11 @@
 </p>
 
 > [!IMPORTANT]
-> This repository is a fork of [taisho-guy/AviQtl](https://codeberg.org/taisho-guy/AviQtl). In late May 2026, the original author decided to **reset development** — the `main` branch now hosts a new AviQtl built on **Qt Widgets + SDL3 + bgfx**, while the Qt Quick-based version was moved to the `legacy` branch (referred to as **AviQtl Legacy**). I ([GT610](https://github.com/GT-610)), an early core contributor to the original project, continue the Qt Quick path here as **AviQtl-Plus**.
+> This repository is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl). In late May 2026, the original author decided to **reset development** — the `main` branch now hosts a new NeoUtl built on **Qt Widgets + SDL3 + bgfx**, while the Qt Quick-based version was moved to the `legacy` branch (referred to as **NeoUtl Legacy**). I ([GT610](https://github.com/GT-610)), an early core contributor to the original project, continue the Qt Quick path here as **AviQtl-Plus**.
 >
-> As a result, three AviQtl-related projects now exist in parallel:
-> - **[AviQtl](https://codeberg.org/taisho-guy/AviQtl)** — the original project rebuilt with a new technology stack
-> - **[AviQtl Legacy](https://codeberg.org/taisho-guy/AviQtl/src/branch/legacy)** — the original Qt Quick-based version, no longer updated
+> As a result, three NeoUtl-related projects now exist in parallel:
+> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — the original project rebuilt with a new technology stack
+> - **[NeoUtl Legacy](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy)** — the original Qt Quick-based version, no longer updated
 > - **AviQtl-Plus (this project)** — a fork continuing development of the Qt Quick + QRhi + ECS approach
 
 ### Why the original project paused
@@ -43,11 +43,11 @@ The vision remains unchanged: **a video editor that inherits and surpasses AviUt
 
 The original author has already acted on their plan — the new `main` branch is being rebuilt from scratch with **Qt Widgets + SDL3 + bgfx**, reflecting their conviction that Qt Quick is not the right foundation for the compute-shader-heavy future they envision. They have stated that PRs will not be accepted during the initial core implementation phase.
 
-The old Qt Quick source code remains available on the [`legacy` branch](https://codeberg.org/taisho-guy/AviQtl/src/branch/legacy), and the original author [explicitly recommends](https://codeberg.org/taisho-guy/AviQtl) AviQtl-Plus to users who prefer the Qt Quick approach.
+The old Qt Quick source code remains available on the [`legacy` branch](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy), and the original author [explicitly recommends](https://codeberg.org/taisho-guy/NeoUtl) AviQtl-Plus to users who prefer the Qt Quick approach.
 
-### Our relationship with the new AviQtl
+### Our relationship with the new NeoUtl
 
-The original author and I maintain a friendly relationship. If any of our contributions from AviQtl-Plus prove applicable to the new AviQtl, I will gladly submit them upstream. Similarly, I hope that innovations from both projects can cross-pollinate over time — ultimately benefiting all users who seek a modern, powerful, and intuitive AviUtl successor.
+The original author and I maintain a friendly relationship. If any of our contributions from AviQtl-Plus prove applicable to the new NeoUtl, I will gladly submit them upstream. Similarly, I hope that innovations from both projects can cross-pollinate over time — ultimately benefiting all users who seek a modern, powerful, and intuitive AviUtl successor.
 
 ## What is [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)?
 
@@ -152,10 +152,10 @@ It started with AviUtl not running on Linux. **Maintaining a Windows environment
 Regardless of the reason, many users continue using AviUtl reluctantly. The ecosystem, bloated by years of extensions like a "Howl's Moving Castle", is hard to let go of despite the dissatisfaction.
 
 ### Project goals and mission
-During a research project at [Kagoshima Prefectural Konan High School](https://edunet002.synapse-blog.jp/konan/), I decided to develop AviQtl independently to solve this problem.
+During a research project at [Kagoshima Prefectural Konan High School](https://edunet002.synapse-blog.jp/konan/), I decided to develop NeoUtl independently to solve this problem.
 
-- **Personal goal:** Produce music videos using only AviQtl on Linux, without juggling Domino, VocalShifter, REAPER, and AviUtl.
-- **AviQtl's mission:** To be the optimal solution for those who use AviUtl reluctantly.
+- **Personal goal:** Produce music videos using only NeoUtl on Linux, without juggling Domino, VocalShifter, REAPER, and AviUtl.
+- **NeoUtl's mission:** To be the optimal solution for those who use AviUtl reluctantly.
 </details>
 
 <details>
@@ -202,7 +202,7 @@ No. The mechanisms differ, so there is no compatibility. There are no plans to i
 > The following Q&A reflects the perspective of AviQtl-Plus maintainer ([GT610](https://github.com/GT-610)).
 
 <details>
-<summary>Why continue AviQtl development?</summary>
+<summary>Why continue AviQtl-Plus development?</summary>
 
 The original project was suspended due to genuine technical difficulties with Qt Quick — but it also proved that **Qt + FFmpeg can rapidly produce a high-quality video editor prototype**. The architecture is well-designed, the foundation is solid, and I believe the Qt Quick route is still worth pursuing, especially now that QRhi provides a viable compute shader path that wasn't fully explored.
 
@@ -227,7 +227,7 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 **Long-term:**
 - Full-featured video editor suitable as an AviUtl replacement
 - Potential rebranding (name and logo) to reflect the independent direction of the project
-- Continue monitoring the new AviQtl's progress and explore cross-pollination opportunities between projects
+- Continue monitoring the new NeoUtl's progress and explore cross-pollination opportunities between projects
 
 The project is entirely driven by personal motivation — there are no deadlines or commercial pressures. Progress will be steady but paced.
 </details>
@@ -251,8 +251,8 @@ AviQtl-Plus stands on the shoulders of many wonderful projects.
 | Project | License | Role |
 | :--- | :--- | :--- |
 | AviUtl | Non-free | Respected origin |
-| AviQtl (Legacy) | AGPLv3 | Original Qt Quick project; `legacy` branch of the upstream |
-| AviQtl | AGPLv3 | New Qt Widgets + bgfx version by the original author |
+| NeoUtl (Legacy) | AGPLv3 | Original Qt Quick project; `legacy` branch of the upstream |
+| NeoUtl | AGPLv3 | New Qt Widgets + bgfx version by the original author |
 | AviQtl-Plus | AGPLv3 | This project — continued Qt Quick + QRhi + ECS development |
 | Carla | GPLv2+ | Audio effect host (VST3/LV2 etc.) |
 | FFmpeg | GPLv2+ | Video/audio decoding & encoding |
