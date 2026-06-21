@@ -81,7 +81,6 @@ void main() {
     vec4 bg = texture(background, uv);
 
     fg.a *= opacityValue;
-    fg.rgb *= fg.a;
 
     if (fg.a <= 0.0) {
         imageStore(outImage, gid, bg);
@@ -105,7 +104,7 @@ void main() {
     else if (blendMode == 14) blended = blendColor(bg.rgb, fg.rgb);
     else if (blendMode == 15) blended = blendLuminosity(bg.rgb, fg.rgb);
 
-    float a = fg.a + bg.a * (1.0 - fg.a);
-    vec3 result = (a > 0.0) ? mix(bg.rgb, blended, fg.a) : vec3(0.0);
-    imageStore(outImage, gid, vec4(result, a));
+    blended *= fg.a;
+    vec3 result = bg.rgb * (1.0 - fg.a) + blended;
+    imageStore(outImage, gid, vec4(result, fg.a + bg.a * (1.0 - fg.a)));
 }

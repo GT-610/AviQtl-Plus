@@ -98,6 +98,7 @@ void ComputeRenderNode::syncHdrOutput(bool hdr) {
         return;
     m_hdrOutput = hdr;
     m_renderTargetDirty = true;
+    m_bufferLayoutDirty = true;
 }
 
 void ComputeRenderNode::syncOpacity(qreal opacity) {
@@ -112,7 +113,11 @@ void ComputeRenderNode::syncExtraTextures(const QList<QSGTexture *> &textures) {
 }
 
 void ComputeRenderNode::syncDispatchCount(int count) {
-    m_dispatchCount = qMax(1, count);
+    const int clamped = qMax(1, count);
+    if (m_dispatchCount == clamped)
+        return;
+    m_dispatchCount = clamped;
+    m_bufferLayoutDirty = true;
 }
 
 QRectF ComputeRenderNode::rect() const { return QRectF(0, 0, m_width, m_height); }
@@ -535,30 +540,57 @@ void ComputeRenderNode::prepare() {
                 case QShaderDescription::Mat2: {
                     if (val.canConvert<QVariantList>()) {
                         QVariantList list = val.toList();
-                        float m[4] = {1, 0, 0, 1};
-                        for (int i = 0; i < qMin(list.size(), 4); ++i)
-                            m[i] = list[i].toFloat();
-                        std::memcpy(upload.data() + offset, m, 4 * sizeof(float));
+                        const int stride = member.matrixStride > 0 ? member.matrixStride : static_cast<int>(2 * sizeof(float));
+                        const int cols = 2;
+                        const int rows = 2;
+                        for (int c = 0; c < cols; ++c) {
+                            for (int r = 0; r < rows; ++r) {
+                                const int srcIdx = member.matrixIsRowMajor ? (r * cols + c) : (c * rows + r);
+                                const int dstOff = offset + c * stride + r * static_cast<int>(sizeof(float));
+                                if (dstOff + static_cast<int>(sizeof(float)) <= upload.size() && srcIdx < list.size()) {
+                                    float f = list[srcIdx].toFloat();
+                                    std::memcpy(upload.data() + dstOff, &f, sizeof(float));
+                                }
+                            }
+                        }
                     }
                     break;
                 }
                 case QShaderDescription::Mat3: {
                     if (val.canConvert<QVariantList>()) {
                         QVariantList list = val.toList();
-                        float m[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-                        for (int i = 0; i < qMin(list.size(), 9); ++i)
-                            m[i] = list[i].toFloat();
-                        std::memcpy(upload.data() + offset, m, 9 * sizeof(float));
+                        const int stride = member.matrixStride > 0 ? member.matrixStride : static_cast<int>(4 * sizeof(float));
+                        const int cols = 3;
+                        const int rows = 3;
+                        for (int c = 0; c < cols; ++c) {
+                            for (int r = 0; r < rows; ++r) {
+                                const int srcIdx = member.matrixIsRowMajor ? (r * cols + c) : (c * rows + r);
+                                const int dstOff = offset + c * stride + r * static_cast<int>(sizeof(float));
+                                if (dstOff + static_cast<int>(sizeof(float)) <= upload.size() && srcIdx < list.size()) {
+                                    float f = list[srcIdx].toFloat();
+                                    std::memcpy(upload.data() + dstOff, &f, sizeof(float));
+                                }
+                            }
+                        }
                     }
                     break;
                 }
                 case QShaderDescription::Mat4: {
                     if (val.canConvert<QVariantList>()) {
                         QVariantList list = val.toList();
-                        float m[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-                        for (int i = 0; i < qMin(list.size(), 16); ++i)
-                            m[i] = list[i].toFloat();
-                        std::memcpy(upload.data() + offset, m, 16 * sizeof(float));
+                        const int stride = member.matrixStride > 0 ? member.matrixStride : static_cast<int>(4 * sizeof(float));
+                        const int cols = 4;
+                        const int rows = 4;
+                        for (int c = 0; c < cols; ++c) {
+                            for (int r = 0; r < rows; ++r) {
+                                const int srcIdx = member.matrixIsRowMajor ? (r * cols + c) : (c * rows + r);
+                                const int dstOff = offset + c * stride + r * static_cast<int>(sizeof(float));
+                                if (dstOff + static_cast<int>(sizeof(float)) <= upload.size() && srcIdx < list.size()) {
+                                    float f = list[srcIdx].toFloat();
+                                    std::memcpy(upload.data() + dstOff, &f, sizeof(float));
+                                }
+                            }
+                        }
                     }
                     break;
                 }
@@ -645,7 +677,11 @@ void ComputeRenderNode::prepare() {
 
             auto *passSrb = m_rhi->newShaderResourceBindings();
             passSrb->setBindings(passBindings.cbegin(), passBindings.cend());
-            passSrb->create();
+            if (!passSrb->create()) {
+                m_error = QStringLiteral("Multi-pass SRB creation failed at pass %1").arg(pass);
+                delete passSrb;
+                break;
+            }
 
             cb->setShaderResources(passSrb);
             cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);

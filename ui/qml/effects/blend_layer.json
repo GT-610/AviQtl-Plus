@@ -3,7 +3,7 @@
   "name": "合成モード",
   "qml": "BlendLayer.qml",
   "params": {
-    "blendMode": 0,
+    "blendMode": 1,
     "opacityValue": 1.0
   },
   "ui": {
@@ -12,7 +12,7 @@
         "type": "slider",
         "param": "blendMode",
         "label": "合成モード",
-        "min": 0,
+        "min": 1,
         "max": 15,
         "step": 1
       },

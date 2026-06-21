@@ -195,15 +195,16 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
         node->syncOpacity(m_opacity);
 
         // Collect extra textures from QQuickItem sources
+        // Preserve slot positions to maintain binding index correspondence
         QList<QSGTexture *> extraTexList;
         for (const QVariant &v : std::as_const(m_extraTextures)) {
             auto *item = v.value<QQuickItem *>();
-            if (!item)
-                continue;
-            QSGTextureProvider *tp = item->textureProvider();
-            QSGTexture *tex = tp ? tp->texture() : nullptr;
-            if (tex)
-                extraTexList.append(tex);
+            QSGTexture *tex = nullptr;
+            if (item) {
+                QSGTextureProvider *tp = item->textureProvider();
+                tex = tp ? tp->texture() : nullptr;
+            }
+            extraTexList.append(tex);
         }
         node->syncExtraTextures(extraTexList);
         node->syncDispatchCount(m_dispatchCount);
