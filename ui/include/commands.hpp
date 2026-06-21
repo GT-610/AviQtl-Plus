@@ -273,6 +273,49 @@ class MoveKeyframeCommand : public QUndoCommand {
     QString m_paramName;
 };
 
+class SetAudioPluginKeyframeCommand : public QUndoCommand {
+  public:
+    SetAudioPluginKeyframeCommand(TimelineService *service, int clipId, int pluginIndex, const QString &paramKey, int frame, QVariant newValue, QVariantMap options, QVariant oldValue, QVariantMap oldOptions, bool wasExisting);
+    void undo() override;
+    void redo() override;
+    int id() const override;
+    bool mergeWith(const QUndoCommand *other) override;
+
+  private:
+    TimelineService *m_service;
+    int m_clipId, m_pluginIndex, m_frame;
+    QString m_paramKey;
+    QVariant m_newValue, m_oldValue;
+    QVariantMap m_newOptions, m_oldOptions;
+    bool m_wasExisting;
+};
+
+class RemoveAudioPluginKeyframeCommand : public QUndoCommand {
+  public:
+    RemoveAudioPluginKeyframeCommand(TimelineService *service, int clipId, int pluginIndex, const QString &paramKey, int frame, QVariant savedValue, QVariantMap savedOptions);
+    void undo() override;
+    void redo() override;
+
+  private:
+    TimelineService *m_service;
+    int m_clipId, m_pluginIndex, m_frame;
+    QString m_paramKey;
+    QVariant m_savedValue;
+    QVariantMap m_savedOptions;
+};
+
+class MoveAudioPluginKeyframeCommand : public QUndoCommand {
+  public:
+    MoveAudioPluginKeyframeCommand(TimelineService *service, int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame);
+    void undo() override;
+    void redo() override;
+
+  private:
+    TimelineService *m_service;
+    int m_clipId, m_pluginIndex, m_oldFrame, m_newFrame;
+    QString m_paramKey;
+};
+
 class AddSceneCommand : public QUndoCommand {
   public:
     AddSceneCommand(TimelineService *service, int sceneId, const QString &name);

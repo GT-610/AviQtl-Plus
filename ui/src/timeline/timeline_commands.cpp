@@ -278,4 +278,47 @@ UpdateSceneSettingsCommand::UpdateSceneSettingsCommand(TimelineService *service,
 void UpdateSceneSettingsCommand::redo() { m_service->applySceneSettingsInternal(m_sceneId, m_newData); }
 void UpdateSceneSettingsCommand::undo() { m_service->applySceneSettingsInternal(m_sceneId, m_oldData); }
 
+SetAudioPluginKeyframeCommand::SetAudioPluginKeyframeCommand(TimelineService *service, int clipId, int pluginIndex, const QString &paramKey, int frame, QVariant newValue, QVariantMap options, QVariant oldValue, QVariantMap oldOptions,
+                                                             bool wasExisting) // NOLINT(bugprone-easily-swappable-parameters)
+    : m_service(service), m_clipId(clipId), m_pluginIndex(pluginIndex), m_frame(frame), m_paramKey(paramKey), m_newValue(std::move(newValue)), m_oldValue(std::move(oldValue)), m_newOptions(std::move(options)), m_oldOptions(std::move(oldOptions)),
+      m_wasExisting(wasExisting) {
+    setText(QObject::tr("オーディオプラグインキーフレーム設定: %1").arg(paramKey));
+}
+void SetAudioPluginKeyframeCommand::redo() { m_service->setAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_frame, m_newValue, m_newOptions); }
+void SetAudioPluginKeyframeCommand::undo() {
+    if (m_wasExisting) {
+        m_service->setAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_frame, m_oldValue, m_oldOptions);
+    } else {
+        m_service->removeAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_frame);
+    }
+}
+auto SetAudioPluginKeyframeCommand::id() const -> int { return 1003; }
+auto SetAudioPluginKeyframeCommand::mergeWith(const QUndoCommand *other) -> bool {
+    if (other->id() != id()) {
+        return false;
+    }
+    const auto *cmd = dynamic_cast<const SetAudioPluginKeyframeCommand *>(other);
+    if (cmd->m_clipId != m_clipId || cmd->m_pluginIndex != m_pluginIndex || cmd->m_paramKey != m_paramKey || cmd->m_frame != m_frame) {
+        return false;
+    }
+    m_newValue = cmd->m_newValue;
+    m_newOptions = cmd->m_newOptions;
+    redo();
+    return true;
+}
+
+RemoveAudioPluginKeyframeCommand::RemoveAudioPluginKeyframeCommand(TimelineService *service, int clipId, int pluginIndex, const QString &paramKey, int frame, QVariant savedValue, QVariantMap savedOptions) // NOLINT(bugprone-easily-swappable-parameters)
+    : m_service(service), m_clipId(clipId), m_pluginIndex(pluginIndex), m_frame(frame), m_paramKey(paramKey), m_savedValue(std::move(savedValue)), m_savedOptions(std::move(savedOptions)) {
+    setText(QObject::tr("オーディオプラグインキーフレーム削除: %1 [%2]").arg(paramKey).arg(frame));
+}
+void RemoveAudioPluginKeyframeCommand::redo() { m_service->removeAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_frame); }
+void RemoveAudioPluginKeyframeCommand::undo() { m_service->setAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_frame, m_savedValue, m_savedOptions); }
+
+MoveAudioPluginKeyframeCommand::MoveAudioPluginKeyframeCommand(TimelineService *service, int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame) // NOLINT(bugprone-easily-swappable-parameters)
+    : m_service(service), m_clipId(clipId), m_pluginIndex(pluginIndex), m_oldFrame(oldFrame), m_newFrame(newFrame), m_paramKey(paramKey) {
+    setText(QObject::tr("オーディオプラグインキーフレーム移動: %1 [%2 -> %3]").arg(paramKey).arg(oldFrame).arg(newFrame));
+}
+void MoveAudioPluginKeyframeCommand::redo() { m_service->moveAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_oldFrame, m_newFrame); }
+void MoveAudioPluginKeyframeCommand::undo() { m_service->moveAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_newFrame, m_oldFrame); }
+
 } // namespace AviQtl::UI

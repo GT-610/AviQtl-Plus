@@ -799,6 +799,88 @@ auto TimelineController::isAudioClip(int clipId) const -> bool {
     return (clip != nullptr) && clip->type == QLatin1String("audio");
 }
 
+auto TimelineController::getAllAudioClips() const -> QVariantList {
+    QVariantList list;
+    for (const auto &clip : m_timeline->clips()) {
+        if (clip.type != QLatin1String("audio")) {
+            continue;
+        }
+        QVariantMap info;
+        info.insert(QStringLiteral("id"), clip.id);
+        info.insert(QStringLiteral("layer"), clip.layer);
+        info.insert(QStringLiteral("startFrame"), clip.startFrame);
+        info.insert(QStringLiteral("durationFrames"), clip.durationFrames);
+
+        // Find the audio effect model for this clip
+        for (const auto *effect : clip.effects) {
+            if (effect != nullptr && effect->id() == QLatin1String("audio")) {
+                const QVariantMap params = effect->params();
+                info.insert(QStringLiteral("source"), params.value(QStringLiteral("source")).toString());
+                info.insert(QStringLiteral("volume"), effect->evaluatedParam(QStringLiteral("volume"), 0, m_project->fps()).toDouble());
+                info.insert(QStringLiteral("masterVolume"), effect->evaluatedParam(QStringLiteral("masterVolume"), 0, m_project->fps()).toDouble());
+                info.insert(QStringLiteral("pan"), effect->evaluatedParam(QStringLiteral("pan"), 0, m_project->fps()).toDouble());
+                info.insert(QStringLiteral("mute"), effect->evaluatedParam(QStringLiteral("mute"), 0, m_project->fps()).toBool());
+                info.insert(QStringLiteral("solo"), effect->evaluatedParam(QStringLiteral("solo"), 0, m_project->fps()).toBool());
+                break;
+            }
+        }
+        list.append(info);
+    }
+    return list;
+}
+
+void TimelineController::setAudioClipVolume(int clipId, float volume) {
+    auto *clip = m_timeline->findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    for (int i = 0; i < clip->effects.size(); ++i) {
+        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
+            m_timeline->updateEffectParam(clipId, i, QStringLiteral("volume"), static_cast<double>(volume));
+            return;
+        }
+    }
+}
+
+void TimelineController::setAudioClipPan(int clipId, float pan) {
+    auto *clip = m_timeline->findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    for (int i = 0; i < clip->effects.size(); ++i) {
+        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
+            m_timeline->updateEffectParam(clipId, i, QStringLiteral("pan"), static_cast<double>(pan));
+            return;
+        }
+    }
+}
+
+void TimelineController::setAudioClipMute(int clipId, bool mute) {
+    auto *clip = m_timeline->findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    for (int i = 0; i < clip->effects.size(); ++i) {
+        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
+            m_timeline->updateEffectParam(clipId, i, QStringLiteral("mute"), mute);
+            return;
+        }
+    }
+}
+
+void TimelineController::setAudioClipSolo(int clipId, bool solo) {
+    auto *clip = m_timeline->findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    for (int i = 0; i < clip->effects.size(); ++i) {
+        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
+            m_timeline->updateEffectParam(clipId, i, QStringLiteral("solo"), solo);
+            return;
+        }
+    }
+}
+
 auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displayDurationFrames) const -> QVariantList { // NOLINT(bugprone-easily-swappable-parameters)
     if (pixelWidth <= 0 || displayDurationFrames <= 0) {
         return {};
@@ -935,11 +1017,20 @@ auto TimelineController::getEffectParameters(int clipId, int effectIndex) const 
     auto chain = m_mediaManager->audioMixer()->getChain(clipId);
     auto *plugin = chain->get(effectIndex);
     if (plugin != nullptr) {
+        // Get keyframe tracks from AudioPluginState
+        const auto *clip = m_timeline->findClipById(clipId);
+        const QVariantMap *kfTracks = nullptr;
+        if (clip != nullptr && effectIndex >= 0 && effectIndex < clip->audioPlugins.size()) {
+            kfTracks = &clip->audioPlugins.at(effectIndex).keyframeTracks;
+        }
+
         for (int i = 0; i < plugin->paramCount(); ++i) {
             QVariantMap paramInfo;
             auto info = plugin->getParamInfo(i);
+            const QString paramKey = QString::number(i);
 
             paramInfo.insert(QStringLiteral("pIdx"), i);
+            paramInfo.insert(QStringLiteral("pKey"), paramKey);
             paramInfo.insert(QStringLiteral("name"), info.name);
             paramInfo.insert(QStringLiteral("current"), plugin->getParam(i));
             paramInfo.insert(QStringLiteral("min"), info.min);
@@ -951,6 +1042,11 @@ auto TimelineController::getEffectParameters(int clipId, int effectIndex) const 
                 paramInfo.insert(QStringLiteral("type"), "int");
             } else {
                 paramInfo.insert(QStringLiteral("type"), "slider");
+            }
+
+            // Include keyframe track data if available
+            if (kfTracks != nullptr && kfTracks->contains(paramKey)) {
+                paramInfo.insert(QStringLiteral("hasKeyframes"), true);
             }
 
             list.append(paramInfo);
@@ -976,6 +1072,87 @@ void TimelineController::setKeyframe(int clipId, int effectIndex, const QString 
 void TimelineController::removeKeyframe(int clipId, int effectIndex, const QString &paramName, int frame) { m_timeline->removeKeyframe(clipId, effectIndex, paramName, frame); }
 
 void TimelineController::moveKeyframe(int clipId, int effectIndex, const QString &paramName, int oldFrame, int newFrame) { m_timeline->moveKeyframe(clipId, effectIndex, paramName, oldFrame, newFrame); }
+
+void TimelineController::setAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame, const QVariant &value, const QVariantMap &options) { m_timeline->setAudioPluginKeyframe(clipId, pluginIndex, paramKey, frame, value, options); }
+
+void TimelineController::removeAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame) { m_timeline->removeAudioPluginKeyframe(clipId, pluginIndex, paramKey, frame); }
+
+void TimelineController::moveAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame) { m_timeline->moveAudioPluginKeyframe(clipId, pluginIndex, paramKey, oldFrame, newFrame); }
+
+auto TimelineController::audioPluginKeyframeListForUi(int clipId, int pluginIndex, const QString &paramKey) const -> QVariantList {
+    const auto *clip = m_timeline->findClipById(clipId);
+    if ((clip == nullptr) || pluginIndex < 0 || pluginIndex >= clip->audioPlugins.size()) {
+        return {};
+    }
+    const auto &plugin = clip->audioPlugins.at(pluginIndex);
+    const QVariant raw = plugin.keyframeTracks.value(paramKey);
+    if (raw.typeId() == QMetaType::QVariantMap && raw.toMap().contains(QStringLiteral("start"))) {
+        QVariantMap track = raw.toMap();
+        QVariantList flat;
+        flat.append(track.value(QStringLiteral("start")).toMap());
+        const QVariantList points = track.value(QStringLiteral("points")).toList();
+        for (const auto &v : points) {
+            flat.append(v);
+        }
+        std::sort(flat.begin(), flat.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
+        return flat;
+    }
+    QVariantList list = raw.toList();
+    std::sort(list.begin(), list.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
+    return list;
+}
+
+auto TimelineController::audioPluginEvaluatedParam(int clipId, int pluginIndex, const QString &paramKey, int frame) const -> QVariant {
+    const auto *clip = m_timeline->findClipById(clipId);
+    if ((clip == nullptr) || pluginIndex < 0 || pluginIndex >= clip->audioPlugins.size()) {
+        return {};
+    }
+    const auto &plugin = clip->audioPlugins.at(pluginIndex);
+    const QVariant fallback = plugin.params.value(paramKey);
+    const QVariant raw = plugin.keyframeTracks.value(paramKey);
+    if (!raw.isValid()) {
+        return fallback;
+    }
+    QVariantList flat;
+    if (raw.typeId() == QMetaType::QVariantMap && raw.toMap().contains(QStringLiteral("start"))) {
+        QVariantMap track = raw.toMap();
+        flat.append(track.value(QStringLiteral("start")).toMap());
+        const QVariantList points = track.value(QStringLiteral("points")).toList();
+        for (const auto &v : points) {
+            flat.append(v);
+        }
+        std::sort(flat.begin(), flat.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
+    } else {
+        flat = raw.toList();
+        std::sort(flat.begin(), flat.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
+    }
+    if (flat.isEmpty()) {
+        return fallback;
+    }
+    QVariantMap firstPoint = flat.first().toMap();
+    if (frame <= firstPoint.value(QStringLiteral("frame")).toInt()) {
+        return firstPoint.value(QStringLiteral("value"), fallback);
+    }
+    for (int i = 0; i < flat.size() - 1; ++i) {
+        QVariantMap cur = flat[i].toMap();
+        QVariantMap nxt = flat[i + 1].toMap();
+        int f0 = cur.value(QStringLiteral("frame")).toInt();
+        int f1 = nxt.value(QStringLiteral("frame")).toInt();
+        if (frame >= f0 && frame <= f1) {
+            if (frame == f0) {
+                return cur.value(QStringLiteral("value"), fallback);
+            }
+            if (frame == f1) {
+                return nxt.value(QStringLiteral("value"), fallback);
+            }
+            double t = static_cast<double>(frame - f0) / static_cast<double>(f1 - f0);
+            double v0 = cur.value(QStringLiteral("value"), fallback).toDouble();
+            double v1 = nxt.value(QStringLiteral("value"), fallback).toDouble();
+            return v0 + (v1 - v0) * t;
+        }
+    }
+    return flat.last().toMap().value(QStringLiteral("value"), fallback);
+}
 
 void TimelineController::deleteClip(int clipId) { requestDelete(clipId); }
 

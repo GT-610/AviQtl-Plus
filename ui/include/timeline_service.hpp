@@ -77,6 +77,11 @@ class TimelineService : public QObject {
     void removeKeyframe(int clipId, int effectIndex, const QString &paramName, int frame);
     void moveKeyframe(int clipId, int effectIndex, const QString &paramName, int oldFrame, int newFrame);
 
+    // Audio plugin keyframes
+    void setAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame, const QVariant &value, const QVariantMap &options);
+    void removeAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame);
+    void moveAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame);
+
     // クリップボード
     void copyClip(int clipId);
     void cutClip(int clipId);
@@ -118,6 +123,9 @@ class TimelineService : public QObject {
     void setKeyframeInternal(int clipId, int effectIndex, const QString &paramName, int frame, const QVariant &value, const QVariantMap &options);
     void removeKeyframeInternal(int clipId, int effectIndex, const QString &paramName, int frame);
     void moveKeyframeInternal(int clipId, int effectIndex, const QString &paramName, int oldFrame, int newFrame);
+    void setAudioPluginKeyframeInternal(int clipId, int pluginIndex, const QString &paramKey, int frame, const QVariant &value, const QVariantMap &options);
+    void removeAudioPluginKeyframeInternal(int clipId, int pluginIndex, const QString &paramKey, int frame);
+    void moveAudioPluginKeyframeInternal(int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame);
     void setLayerStateInternal(int sceneId, int layer, bool value, int type);
     ClipData *findClipById(int clipId);
     const ClipData *findClipById(int clipId) const;

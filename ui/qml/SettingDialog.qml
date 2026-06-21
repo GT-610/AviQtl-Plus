@@ -1144,20 +1144,50 @@ Common.AviQtlWindow {
                                     rowSpacing: 6
                                     columnSpacing: 8
 
-                                    Label { text: qsTr("VOL"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.audioParamValue("volume", 1)); onMoved: root.setAudioParam("volume", value) }
+                                    Common.AudioKfParamTrack {
+                                        paramName: "volume"
+                                        defaultValue: 1
+                                        sliderFrom: 0
+                                        sliderTo: 2
+                                        decimals: 2
+                                        buttonLabel: "VOL"
+                                    }
 
-                                    Label { text: qsTr("MASTER"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 2; value: Number(root.audioParamValue("masterVolume", 1)); onMoved: root.setAudioParam("masterVolume", value) }
+                                    Common.AudioKfParamTrack {
+                                        paramName: "masterVolume"
+                                        defaultValue: 1
+                                        sliderFrom: 0
+                                        sliderTo: 2
+                                        decimals: 2
+                                        buttonLabel: "MASTER"
+                                    }
 
-                                    Label { text: qsTr("PAN"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: -1; to: 1; value: Number(root.audioParamValue("pan", 0)); onMoved: root.setAudioParam("pan", value) }
+                                    Common.AudioKfParamTrack {
+                                        paramName: "pan"
+                                        defaultValue: 0
+                                        sliderFrom: -1
+                                        sliderTo: 1
+                                        decimals: 2
+                                        buttonLabel: "PAN"
+                                    }
 
-                                    Label { text: qsTr("FADE IN"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.audioParamValue("fadeIn", 0)); onMoved: root.setAudioParam("fadeIn", value) }
+                                    Common.AudioKfParamTrack {
+                                        paramName: "fadeIn"
+                                        defaultValue: 0
+                                        sliderFrom: 0
+                                        sliderTo: 10
+                                        decimals: 2
+                                        buttonLabel: "FADE IN"
+                                    }
 
-                                    Label { text: qsTr("FADE OUT"); color: palette.text }
-                                    Slider { Layout.fillWidth: true; from: 0; to: 10; value: Number(root.audioParamValue("fadeOut", 0)); onMoved: root.setAudioParam("fadeOut", value) }
+                                    Common.AudioKfParamTrack {
+                                        paramName: "fadeOut"
+                                        defaultValue: 0
+                                        sliderFrom: 0
+                                        sliderTo: 10
+                                        decimals: 2
+                                        buttonLabel: "FADE OUT"
+                                    }
                                 }
 
                                 RowLayout {
@@ -1998,20 +2028,128 @@ Common.AviQtlWindow {
                             }
 
                             Repeater {
+                                id: audioPluginParamsRepeater
                                 model: Workspace.currentTimeline.getEffectParameters(targetClipId, index)
 
-                                delegate: Common.ControlLoader {
+                                delegate: ColumnLayout {
+                                    id: audioPluginParamDelegate
                                     Layout.fillWidth: true
                                     Layout.margins: 4
-                                    definition: ({
-                                        "type": modelData.type || "slider",
-                                        "label": modelData.name,
-                                        "min": modelData.min,
-                                        "max": modelData.max
-                                    })
-                                    value: modelData.current
-                                    onValueModified: (newValue) => {
-                                        Workspace.currentTimeline.setEffectParameter(targetClipId, audioEffectRoot.effectIndex, modelData.pIdx, newValue);
+                                    spacing: 2
+
+                                    required property var modelData
+                                    required property int index
+
+                                    property string paramKey: modelData.pKey || String(modelData.pIdx)
+                                    property string paramName: modelData.name
+                                    property real paramMin: modelData.min || 0
+                                    property real paramMax: modelData.max || 1
+                                    property int paramIdx: modelData.pIdx
+                                    property string paramType: modelData.type || "slider"
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Label {
+                                            text: audioPluginParamDelegate.paramName
+                                            color: palette.text
+                                            font.pixelSize: 11
+                                            Layout.preferredWidth: 100
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Slider {
+                                            id: audioPluginSlider
+                                            Layout.fillWidth: true
+                                            from: audioPluginParamDelegate.paramMin
+                                            to: audioPluginParamDelegate.paramMax
+                                            value: {
+                                                var _ = root._audioKfRev;
+                                                var v = Workspace.currentTimeline.audioPluginEvaluatedParam(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, root._audioRelFrame);
+                                                return (v !== undefined && v !== null) ? Number(v) : audioPluginParamDelegate.paramMin;
+                                            }
+                                            onMoved: {
+                                                var kfs = Workspace.currentTimeline.audioPluginKeyframeListForUi(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey);
+                                                if (kfs.length > 0) {
+                                                    Workspace.currentTimeline.setAudioPluginKeyframe(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, root._audioRelFrame, value, {"interp": "linear"});
+                                                } else {
+                                                    Workspace.currentTimeline.setEffectParameter(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramIdx, value);
+                                                }
+                                            }
+                                        }
+
+                                        TextField {
+                                            Layout.preferredWidth: 56
+                                            text: {
+                                                var _ = root._audioKfRev;
+                                                var v = Workspace.currentTimeline.audioPluginEvaluatedParam(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, root._audioRelFrame);
+                                                return (v !== undefined && v !== null) ? Number(v).toFixed(3) : "0.000";
+                                            }
+                                            horizontalAlignment: Text.AlignHCenter
+                                            font.pixelSize: 11
+                                            onEditingFinished: {
+                                                Workspace.currentTimeline.setEffectParameter(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramIdx, Number(text));
+                                            }
+                                        }
+
+                                        Button {
+                                            Layout.preferredWidth: 24
+                                            flat: true
+                                            text: "K"
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                            onClicked: {
+                                                var kfs = Workspace.currentTimeline.audioPluginKeyframeListForUi(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey);
+                                                if (kfs.length === 0) {
+                                                    var curVal = Workspace.currentTimeline.audioPluginEvaluatedParam(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, 0);
+                                                    Workspace.currentTimeline.setAudioPluginKeyframe(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, 0, (curVal !== undefined && curVal !== null) ? curVal : 0, {"interp": "linear"});
+                                                    curVal = Workspace.currentTimeline.audioPluginEvaluatedParam(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, root._audioClipDur);
+                                                    Workspace.currentTimeline.setAudioPluginKeyframe(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, root._audioClipDur, (curVal !== undefined && curVal !== null) ? curVal : 0, {"interp": "linear"});
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Item {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 12
+                                        property var rawKfs: Workspace.currentTimeline.audioPluginKeyframeListForUi(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey)
+                                        Rectangle { anchors.centerIn: parent; width: parent.width; height: 2; color: palette.mid }
+                                        Repeater {
+                                            model: parent.rawKfs
+                                            Rectangle {
+                                                required property var modelData
+                                                property int kfFrame: modelData.frame
+                                                property bool isEndpoint: kfFrame === 0 || kfFrame === root._audioClipDur
+                                                width: 8; height: 8; rotation: 45; antialiasing: true
+                                                color: kfMa2.containsMouse ? palette.highlight : palette.text
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                x: Math.min(parent.width - 4, (kfFrame / Math.max(1, root._audioClipDur)) * parent.width - 4)
+                                                MouseArea {
+                                                    id: kfMa2
+                                                    anchors.fill: parent; anchors.margins: -4; hoverEnabled: true
+                                                    cursorShape: parent.isEndpoint ? Qt.ArrowCursor : Qt.PointingHandCursor
+                                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                                    onClicked: function(mouse) {
+                                                        if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                                                            Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.clipStartFrame + parent.kfFrame);
+                                                        else if (mouse.button === Qt.RightButton && !parent.isEndpoint && Workspace.currentTimeline)
+                                                            Workspace.currentTimeline.removeAudioPluginKeyframe(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, parent.kfFrame);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Rectangle { width: 1; height: parent.height; color: palette.highlight; x: (root._audioRelFrame / Math.max(1, root._audioClipDur)) * parent.width; visible: root._audioClipDur > 0 }
+                                        MouseArea {
+                                            anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            onDoubleClicked: function(mouse) {
+                                                var f = Math.round((mouse.x / parent.width) * root._audioClipDur);
+                                                f = Math.max(0, Math.min(root._audioClipDur, f));
+                                                var v = Workspace.currentTimeline.audioPluginEvaluatedParam(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, f);
+                                                Workspace.currentTimeline.setAudioPluginKeyframe(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, f, (v !== undefined && v !== null) ? v : 0, {"interp": "linear"});
+                                            }
+                                        }
                                     }
                                 }
 
