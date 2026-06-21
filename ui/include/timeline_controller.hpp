@@ -84,6 +84,7 @@ class TimelineController : public QObject {
     bool isClipActive() const;
 
     Q_INVOKABLE void createObject(const QString &type, int startFrame, int layer);
+    Q_INVOKABLE void createTransition(const QString &type, int startFrame, int layer);
     Q_INVOKABLE void importMediaFile(const QString &fileUrl, int startFrame, int layer);
     QString activeObjectType() const;
 
@@ -107,9 +108,10 @@ class TimelineController : public QObject {
     Q_INVOKABLE int getClipEffectIndex(int clipId, QObject *effectModel) const;
     Q_INVOKABLE void updateClipEffectParam(int clipId, int effectIndex, const QString &paramName, const QVariant &value);
 
-    // エフェクト・オブジェクトの利用可能リスト取得
+    // エフェクト・オブジェクト・トランジションの利用可能リスト取得
     Q_INVOKABLE static QVariantList getAvailableEffects();
     Q_INVOKABLE static QVariantList getAvailableObjects();
+    Q_INVOKABLE static QVariantList getAvailableTransitions();
     Q_INVOKABLE static QString getClipTypeColor(const QString &type);
     Q_INVOKABLE void addEffect(int clipId, const QString &effectId);
     Q_INVOKABLE void removeEffect(int clipId, int effectIndex);

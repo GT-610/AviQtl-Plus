@@ -1519,9 +1519,84 @@
         <translation>闪光颜色</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="301"/>
         <source>青</source>
         <translation>蓝</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <source>ワイプ</source>
+        <translation>擦除</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
+        <source>クロスフェード</source>
+        <translation>交叉淡化</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
+        <source>ワイプ（円）</source>
+        <translation>擦除（圆形）</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
+        <source>スライド</source>
+        <translation>滑动</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
+        <source>円形</source>
+        <translation>圆形</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
+        <source>持続フレーム</source>
+        <translation>持续帧数</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
+        <source>イージング</source>
+        <translation>缓动</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
+        <source>linear</source>
+        <translation>线性</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
+        <source>ease_in</source>
+        <translation>缓入</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
+        <source>ease_out</source>
+        <translation>缓出</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
+        <source>ease_in_out</source>
+        <translation>缓入缓出</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
+        <source>left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
+        <source>right</source>
+        <translation>右</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
+        <source>up</source>
+        <translation>上</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
+        <source>down</source>
+        <translation>下</translation>
     </message>
 </context>
 <context>
@@ -1722,17 +1797,17 @@
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="337"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="351"/>
         <source>音声をインポート</source>
         <translation>导入音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="369"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="383"/>
         <source>画像をインポート</source>
         <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="546"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="560"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1742,17 +1817,17 @@
         <translation>保存目标文件路径未知</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="283"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="297"/>
         <source>動画をインポート</source>
         <translation>导入视频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="264"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="278"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="412"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>
@@ -4545,77 +4620,82 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="903"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="927"/>
         <source>オブジェクトを追加</source>
         <translation>添加对象</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="916"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="942"/>
+        <source>トランジションを追加</source>
+        <translation>添加转场</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="954"/>
         <source>元に戻す</source>
         <translation>撤销</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="917"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="955"/>
         <source>やり直す</source>
         <translation>重做</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="918"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="956"/>
         <source>貼り付け</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="920"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="958"/>
         <source>シーン設定...</source>
         <translation>场景设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="921"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="959"/>
         <source>プロジェクト設定...</source>
         <translation>项目设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="922"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="960"/>
         <source>環境設定...</source>
         <translation>首选项...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="924"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="962"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="925"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="963"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="926"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="964"/>
         <source>複製</source>
         <translation>复制副本</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="928"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="966"/>
         <source>切り取り</source>
         <translation>剪切</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="929"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="967"/>
         <source>コピー</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="933"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="971"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>用上方对象裁剪</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="945"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="983"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="969"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1007"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>搜索效果/对象...</translation>
     </message>

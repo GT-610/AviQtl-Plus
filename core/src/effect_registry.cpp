@@ -116,8 +116,8 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         }
 
         QString kind = obj.value(QStringLiteral("kind")).toString();
-        if (kind != QStringLiteral("effect") && kind != QStringLiteral("object")) {
-            qWarning().noquote() << QStringLiteral("Invalid kind ('effect' or 'object' required):") << file.fileName();
+        if (kind != QStringLiteral("effect") && kind != QStringLiteral("object") && kind != QStringLiteral("transition")) {
+            qWarning().noquote() << QStringLiteral("Invalid kind ('effect', 'object', or 'transition' required):") << file.fileName();
             continue;
         }
 

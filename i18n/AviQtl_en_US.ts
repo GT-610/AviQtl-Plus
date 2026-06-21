@@ -1519,9 +1519,84 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Flash Color</translation>
     </message>
     <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="301"/>
         <source>青</source>
         <translation>Blue</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="300"/>
+        <source>ワイプ</source>
+        <translation>Wipe</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
+        <source>クロスフェード</source>
+        <translation>Cross Fade</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
+        <source>ワイプ（円）</source>
+        <translation>Wipe (Circle)</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
+        <source>スライド</source>
+        <translation>Slide</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
+        <source>円形</source>
+        <translation>Circle</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
+        <source>持続フレーム</source>
+        <translation>Duration (frames)</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
+        <source>イージング</source>
+        <translation>Easing</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
+        <source>linear</source>
+        <translation>Linear</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
+        <source>ease_in</source>
+        <translation>Ease In</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
+        <source>ease_out</source>
+        <translation>Ease Out</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
+        <source>ease_in_out</source>
+        <translation>Ease In Out</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
+        <source>left</source>
+        <translation>Left</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
+        <source>right</source>
+        <translation>Right</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
+        <source>up</source>
+        <translation>Up</translation>
+    </message>
+    <message>
+        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
+        <source>down</source>
+        <translation>Down</translation>
     </message>
 </context>
 <context>
@@ -1722,17 +1797,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="337"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="351"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="369"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="383"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="546"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="560"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1742,17 +1817,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="283"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="297"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="264"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="278"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="412"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -4545,77 +4620,82 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="903"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="927"/>
         <source>オブジェクトを追加</source>
         <translation>Add Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="916"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="942"/>
+        <source>トランジションを追加</source>
+        <translation>Add Transition</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="954"/>
         <source>元に戻す</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="917"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="955"/>
         <source>やり直す</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="918"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="956"/>
         <source>貼り付け</source>
         <translation>Paste</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="920"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="958"/>
         <source>シーン設定...</source>
         <translation>Scene Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="921"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="959"/>
         <source>プロジェクト設定...</source>
         <translation>Project Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="922"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="960"/>
         <source>環境設定...</source>
         <translation>Preferences...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="924"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="962"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="925"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="963"/>
         <source>分割</source>
         <translation>Split</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="926"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="964"/>
         <source>複製</source>
         <translation>Duplicate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="928"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="966"/>
         <source>切り取り</source>
         <translation>Cut</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="929"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="967"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="933"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="971"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="945"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="983"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="969"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1007"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>Search effects/objects...</translation>
     </message>

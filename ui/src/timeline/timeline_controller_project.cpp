@@ -241,6 +241,26 @@ auto TimelineController::getAvailableObjects() -> QVariantList {
 
 auto TimelineController::getClipTypeColor(const QString &type) -> QString { return AviQtl::Core::EffectRegistry::instance().getEffect(type).color; }
 
+auto TimelineController::getAvailableTransitions() -> QVariantList {
+    QVariantList list;
+    const auto effects = AviQtl::Core::EffectRegistry::instance().getAllEffects();
+
+    for (const auto &meta : effects) {
+        if (meta.kind != "transition") {
+            continue;
+        }
+        QVariantMap m;
+        m.insert(QStringLiteral("id"), meta.id);
+        m.insert(QStringLiteral("name"), meta.name);
+
+        for (const QString &categoryPath : meta.categories) {
+            QStringList pathTokens = categoryPath.split(QStringLiteral("/"), Qt::SkipEmptyParts);
+            insertIntoCategoryTree(list, pathTokens, m);
+        }
+    }
+    return list;
+}
+
 auto TimelineController::getAvailableAudioPlugins() -> QVariantList { return AviQtl::Engine::Plugin::AudioPluginManager::instance().getPluginList(); }
 
 auto TimelineController::getPluginCategories() -> QVariantList {

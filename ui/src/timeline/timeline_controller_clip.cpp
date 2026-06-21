@@ -248,6 +248,20 @@ void TimelineController::createObject(const QString &type, int startFrame, int l
     }
 }
 
+void TimelineController::createTransition(const QString &type, int startFrame, int layer) {
+    if (m_timeline != nullptr) {
+        // トランジションは通常のオブジェクトとして作成
+        int actualFrame = m_timeline->createClip(type, startFrame, layer);
+        // トランジションのデフォルト持続時間を取得
+        auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(type);
+        int duration = 30; // デフォルト30フレーム
+        if (meta.defaultParams.contains(QStringLiteral("duration"))) {
+            duration = meta.defaultParams.value(QStringLiteral("duration")).toInt();
+        }
+        setCursorFrame(actualFrame + duration);
+    }
+}
+
 void TimelineController::importMediaFile(const QString &fileUrl, int startFrame, int layer) {
     if (m_timeline == nullptr) {
         return;

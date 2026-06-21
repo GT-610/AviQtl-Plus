@@ -156,6 +156,7 @@ auto main(int argc, char *argv[]) -> int {
 
         loadRegistry(QStringLiteral("Effects"));
         loadRegistry(QStringLiteral("Objects"));
+        loadRegistry(QStringLiteral("Transitions"));
 
         // Enable hot reload if setting is enabled
         if (sm.value(QStringLiteral("luaHotReload"), false).toBool()) {

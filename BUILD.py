@@ -345,12 +345,12 @@ class PlatformBuilder:
                 tmp_file.unlink()
 
     def copy_assets(self, asset_dest: Path):
-        for d in ["effects", "objects", "common/shaders"]:
+        for d in ["effects", "objects", "transitions", "common/shaders"]:
             src = self.config.source_dir / "ui/qml" / d
             dst = asset_dest / d
             if src.exists():
                 shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.frag", "*.vert", "*.comp", "*.glsl"), dirs_exist_ok=True)
-        for d in ["effects", "objects", "common/shaders"]:
+        for d in ["effects", "objects", "transitions", "common/shaders"]:
             qsb_src = self.config.work_dir / d
             qsb_dst = asset_dest / d
             if qsb_src.exists():

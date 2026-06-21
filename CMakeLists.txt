@@ -303,7 +303,7 @@ qt_add_qml_module(AviQtl_UI
 # .frag file, and they are compiled generically. Source changes that add/remove shaders
 # still require a CMake reconfigure (e.g. touch CMakeLists.txt or use --fresh).
 set(EXTERNAL_QSB_FILES "")
-foreach(DIR "effects" "objects" "common/shaders")
+foreach(DIR "effects" "objects" "transitions" "common/shaders")
     file(GLOB_RECURSE SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/${DIR}/*.frag" "ui/qml/${DIR}/*.vert" "ui/qml/${DIR}/*.comp")
     foreach(SH ${SHADERS})
         get_filename_component(SH_FILE_NAME ${SH} NAME)
@@ -354,6 +354,30 @@ if(APPLE)
 endif()
 
 add_dependencies(AviQtl AviQtl_ExternalShaders)
+
+foreach(AVIQTL_EXTERNAL_ASSET_DIR effects objects transitions)
+    add_custom_command(TARGET AviQtl POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/${AVIQTL_EXTERNAL_ASSET_DIR}"
+            "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/${AVIQTL_EXTERNAL_ASSET_DIR}"
+            "$<TARGET_FILE_DIR:AviQtl>/${AVIQTL_EXTERNAL_ASSET_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
+            "$<TARGET_FILE_DIR:AviQtl>/${AVIQTL_EXTERNAL_ASSET_DIR}"
+        VERBATIM
+    )
+endforeach()
+
+add_custom_command(TARGET AviQtl POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:AviQtl>"
+        "${CMAKE_BINARY_DIR}/$<TARGET_FILE_NAME:AviQtl>"
+    VERBATIM
+)
 
 target_link_libraries(AviQtl PRIVATE AviQtl_UI)
 aviqtl_target_warning_flags(AviQtl)
