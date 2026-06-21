@@ -242,52 +242,8 @@ auto TimelineController::getAvailableObjects() -> QVariantList {
 auto TimelineController::getClipTypeColor(const QString &type) -> QString { return AviQtl::Core::EffectRegistry::instance().getEffect(type).color; }
 
 auto TimelineController::getAvailableTransitions() -> QVariantList {
-    auto translatedCategory = [](const QString &key) -> QString { return QCoreApplication::translate("AviQtl::Core::EffectRegistry", key.toUtf8().constData()); };
-
     QVariantList list;
-    auto effects = AviQtl::Core::EffectRegistry::instance().getAllEffects();
-
-    // カテゴリ階層を構築するヘルパー
-    std::function<void(QVariantList &, const QStringList &, const QVariantMap &)> insertIntoCategoryTree;
-    insertIntoCategoryTree = [&](QVariantList &target, const QStringList &path, const QVariantMap &item) {
-        if (path.isEmpty()) {
-            target.append(item);
-            return;
-        }
-        QString currentLevel = path.first();
-        QStringList remainingPath = path.mid(1);
-
-        QVariantMap *foundCategory = nullptr;
-        for (auto &node : target) {
-            QVariantMap map = node.toMap();
-            if (map.value(QStringLiteral("isCategory")).toBool() && map.value(QStringLiteral("title")).toString() == currentLevel) {
-                foundCategory = &map;
-                break;
-            }
-        }
-
-        if (foundCategory) {
-            QVariantList children = foundCategory->value(QStringLiteral("children")).toList();
-            insertIntoCategoryTree(children, remainingPath, item);
-            (*foundCategory)[QStringLiteral("children")] = children;
-            // 更新 list 中的对应项
-            for (int i = 0; i < target.size(); ++i) {
-                QVariantMap map = target[i].toMap();
-                if (map.value(QStringLiteral("isCategory")).toBool() && map.value(QStringLiteral("title")).toString() == currentLevel) {
-                    target[i] = *foundCategory;
-                    break;
-                }
-            }
-        } else {
-            QVariantMap newCategory;
-            newCategory[QStringLiteral("isCategory")] = true;
-            newCategory[QStringLiteral("title")] = currentLevel;
-            QVariantList children;
-            insertIntoCategoryTree(children, remainingPath, item);
-            newCategory[QStringLiteral("children")] = children;
-            target.append(newCategory);
-        }
-    };
+    const auto effects = AviQtl::Core::EffectRegistry::instance().getAllEffects();
 
     for (const auto &meta : effects) {
         if (meta.kind != "transition") {

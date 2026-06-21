@@ -4552,7 +4552,7 @@
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="942"/>
         <source>トランジションを追加</source>
-        <translation type="unfinished"></translation>
+        <translation>添加转场</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="954"/>
