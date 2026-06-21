@@ -62,7 +62,8 @@ Item {
 
             var cx = width * centerX;
             var cy = height * centerY;
-            var radius = maxRadius * progress;
+            var p = reverse ? (1.0 - progress) : progress;
+            var radius = maxRadius * p;
 
             // 前のシーンを描画（黒でマスク）
             ctx.fillStyle = "black";

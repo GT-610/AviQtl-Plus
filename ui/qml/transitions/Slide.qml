@@ -78,9 +78,9 @@ Item {
             }
         }
 
-        Rectangle {
+        Loader {
             anchors.fill: parent
-            color: "black"
+            sourceComponent: transitionRoot.previousScene
         }
     }
 
@@ -88,10 +88,8 @@ Item {
     Item {
         id: nextContainer
         anchors.fill: parent
-        x: transitionRoot.getOffset().x > 0 ? -transitionRoot.getOffset().x : 
-           transitionRoot.getOffset().x < 0 ? -transitionRoot.getOffset().x : 0
-        y: transitionRoot.getOffset().y > 0 ? -transitionRoot.getOffset().y : 
-           transitionRoot.getOffset().y < 0 ? -transitionRoot.getOffset().y : 0
+        x: -transitionRoot.getOffset().x
+        y: -transitionRoot.getOffset().y
 
         Behavior on x {
             NumberAnimation {
@@ -107,9 +105,9 @@ Item {
             }
         }
 
-        Rectangle {
+        Loader {
             anchors.fill: parent
-            color: "white"
+            sourceComponent: transitionRoot.nextScene
         }
     }
 
