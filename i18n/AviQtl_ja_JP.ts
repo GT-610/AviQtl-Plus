@@ -1722,17 +1722,17 @@
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="337"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="351"/>
         <source>音声をインポート</source>
         <translation>音声をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="369"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="383"/>
         <source>画像をインポート</source>
         <translation>画像をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="546"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="560"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1742,17 +1742,17 @@
         <translation>保存先のファイルパスが不明です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="283"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="297"/>
         <source>動画をインポート</source>
         <translation>動画をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="264"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="278"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="412"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
@@ -4517,77 +4517,82 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="903"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="927"/>
         <source>オブジェクトを追加</source>
         <translation>オブジェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="916"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="942"/>
+        <source>トランジションを追加</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="954"/>
         <source>元に戻す</source>
         <translation>元に戻す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="917"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="955"/>
         <source>やり直す</source>
         <translation>やり直す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="918"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="956"/>
         <source>貼り付け</source>
         <translation>貼り付け</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="920"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="958"/>
         <source>シーン設定...</source>
         <translation>シーン設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="921"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="959"/>
         <source>プロジェクト設定...</source>
         <translation>プロジェクト設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="922"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="960"/>
         <source>環境設定...</source>
         <translation>環境設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="924"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="962"/>
         <source>削除</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="925"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="963"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="926"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="964"/>
         <source>複製</source>
         <translation>複製</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="928"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="966"/>
         <source>切り取り</source>
         <translation>切り取り</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="929"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="967"/>
         <source>コピー</source>
         <translation>コピー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="933"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="971"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>上のオブジェクトでクリッピング</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="945"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="983"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="969"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1007"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>エフェクト/オブジェクトを検索...</translation>
     </message>

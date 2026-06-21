@@ -303,7 +303,7 @@ qt_add_qml_module(AviQtl_UI
 # .frag file, and they are compiled generically. Source changes that add/remove shaders
 # still require a CMake reconfigure (e.g. touch CMakeLists.txt or use --fresh).
 set(EXTERNAL_QSB_FILES "")
-foreach(DIR "effects" "objects" "common/shaders")
+foreach(DIR "effects" "objects" "transitions" "common/shaders")
     file(GLOB_RECURSE SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/${DIR}/*.frag" "ui/qml/${DIR}/*.vert" "ui/qml/${DIR}/*.comp")
     foreach(SH ${SHADERS})
         get_filename_component(SH_FILE_NAME ${SH} NAME)
