@@ -466,6 +466,23 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
     });
 }
 
+bool VideoDecoder::tryCacheHit(int targetFrame, const QString &clipKey) {
+    QVideoFrame cachedFrame;
+    if (getFrameFromGopCache(targetFrame, cachedFrame)) {
+        m_store->setVideoFrameSafe(clipKey, cachedFrame);
+        QMetaObject::invokeMethod(this, [this, targetFrame]() -> void { emit frameReady(targetFrame); }, Qt::QueuedConnection);
+        return true;
+    }
+
+    if (QVideoFrame *cached = m_frameCache.object(targetFrame)) {
+        m_store->setVideoFrameSafe(clipKey, *cached);
+        QMetaObject::invokeMethod(this, [this, targetFrame]() { emit frameReady(targetFrame); }, Qt::QueuedConnection);
+        return true;
+    }
+
+    return false;
+}
+
 void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-easily-swappable-parameters)
     QMutexLocker locker(&m_mutex);
     if (m_closing.load(std::memory_order_acquire)) {
@@ -480,17 +497,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 
     const QString &clipKey = clipIdString();
 
-    // 1. GOPキャッシュのチェック (MLT O(1) パス)
-    QVideoFrame cachedFrame;
-    if (getFrameFromGopCache(targetFrame, cachedFrame)) {
-        m_store->setVideoFrameSafe(clipKey, cachedFrame);
-        QMetaObject::invokeMethod(this, [this, targetFrame]() -> void { emit frameReady(targetFrame); }, Qt::QueuedConnection);
-        return;
-    }
-
-    if (QVideoFrame *cached = m_frameCache.object(targetFrame)) {
-        m_store->setVideoFrameSafe(clipKey, *cached);
-        QMetaObject::invokeMethod(this, [this, targetFrame]() { emit frameReady(targetFrame); }, Qt::QueuedConnection);
+    if (tryCacheHit(targetFrame, clipKey)) {
         return;
     }
 

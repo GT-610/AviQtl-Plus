@@ -266,6 +266,11 @@ class TimelineController : public QObject {
     void onCurrentFrameChanged();
 
     int clampedDuration(int clipId, int newStart, int requestedDuration) const;
+    int clampVideoDuration(int clipId, int requestedDuration, int projectFps) const;
+    int clampAudioDuration(int clipId, int requestedDuration, int projectFps) const;
+    int clampSceneDuration(const ClipData *clip, int requestedDuration) const;
+    void setupClipAfterCreation(ClipData *clip, int duration, const QString &effectId, const QVariantMap &params);
+    double getSceneFps() const;
 
     void updateClipActiveState();
     double m_timelineScale = 1.0; // タイムラインの表示倍率 (1.0 = 1フレームあたり1ピクセル)

@@ -53,6 +53,7 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     };
 
     void decodeTask(int targetFrame, double fps);
+    bool tryCacheHit(int targetFrame, const QString &clipKey);
     bool open(const QString &path);
     int findGopEndIndex(int startFrame) const;
     void close();

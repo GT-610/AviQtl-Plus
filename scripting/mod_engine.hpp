@@ -108,6 +108,8 @@ class ModEngine {
     void callHook(const char *hookName, int nargs = 0);
     void setupFileWatcher();
     void onPluginDirectoryChanged(const QString &path);
+    void loadSingleFilePlugin(const QFileInfo &fileInfo);
+    void loadDirectoryPlugin(const QString &subdir, const QString &pluginsPath);
     QList<PluginManifest> m_loadedPlugins;
     QList<PluginInfo> m_pluginInfos;
     PluginFileWatcher *m_fileWatcher = nullptr;
