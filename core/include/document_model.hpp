@@ -1,4 +1,5 @@
 #pragma once
+#include "constants.hpp"
 #include <QList>
 #include <QObject>
 #include <QString>
@@ -48,9 +49,9 @@ struct Clip {
 struct SceneSettings {
     int id = 0;
     QString name;
-    int width = 1920;
-    int height = 1080;
-    double fps = 60.0;
+    int width = AviQtl::kDefaultWidth;
+    int height = AviQtl::kDefaultHeight;
+    double fps = AviQtl::kDefaultFps;
 
     bool enableSnap = true;
     QString gridMode = QStringLiteral("Auto");
@@ -62,10 +63,10 @@ struct SceneSettings {
 
 struct ProjectSettings {
     QString name;
-    int defaultSceneWidth = 1920;
-    int defaultSceneHeight = 1080;
-    double defaultFps = 60.0;
-    int audioSampleRate = 48000;
+    int defaultSceneWidth = AviQtl::kDefaultWidth;
+    int defaultSceneHeight = AviQtl::kDefaultHeight;
+    double defaultFps = AviQtl::kDefaultFps;
+    int audioSampleRate = AviQtl::kDefaultSampleRate;
     QString colorSpace = QStringLiteral("BT.709");
     bool highBitDepth = false; // true の場合 16bit float 処理を有効化
 };

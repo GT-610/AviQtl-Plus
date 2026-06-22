@@ -6,8 +6,8 @@ Common.BaseObject {
     id: root
 
     property string objectId: "lens_flare_object"
-    property real sizeW: evalNumber(objectId, "sizeW", 1920)
-    property real sizeH: evalNumber(objectId, "sizeH", 1080)
+    property real sizeW: evalNumber(objectId, "sizeW", DefaultWidth)
+    property real sizeH: evalNumber(objectId, "sizeH", DefaultHeight)
     property real centerX: evalNumber(objectId, "centerX", 0)
     property real centerY: evalNumber(objectId, "centerY", 0)
     property real radius: evalNumber(objectId, "radius", 180)

@@ -20,8 +20,8 @@ Common.AviQtlWindow {
             heightField.value = Workspace.currentTimeline.project.height;
             fpsField.value = Math.round(Workspace.currentTimeline.project.fps * 100);
         } else {
-            widthField.value = SettingsManager ? SettingsManager.value("defaultProjectWidth", 1920) : 1920;
-            heightField.value = SettingsManager ? SettingsManager.value("defaultProjectHeight", 1080) : 1080;
+            widthField.value = SettingsManager ? SettingsManager.value("defaultProjectWidth", DefaultWidth) : DefaultWidth;
+            heightField.value = SettingsManager ? SettingsManager.value("defaultProjectHeight", DefaultHeight) : DefaultHeight;
             fpsField.value = Math.round((SettingsManager ? SettingsManager.value("defaultProjectFps", 60) : 60) * 100);
         }
         // グリッド設定はデフォルト値
@@ -295,7 +295,7 @@ Common.AviQtlWindow {
                     highlighted: true
                     onClicked: {
                         if (Workspace.currentTimeline) {
-                            var framesToApply = isCreationMode ? (SettingsManager ? SettingsManager.value("defaultProjectFrames", 300) : 300) : Workspace.currentTimeline.getSceneDuration(targetSceneId);
+                            var framesToApply = isCreationMode ? (SettingsManager ? SettingsManager.value("defaultProjectFrames", DefaultTotalFrames) : DefaultTotalFrames) : Workspace.currentTimeline.getSceneDuration(targetSceneId);
                             var mKey = "Auto";
                             if (modeCombo.currentIndex === 1)
                                 mKey = "BPM";

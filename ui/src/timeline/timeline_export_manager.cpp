@@ -1,4 +1,5 @@
 #include "timeline_export_manager.hpp"
+#include "constants.hpp"
 #include "engine/audio_mixer.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
@@ -83,7 +84,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     }
 
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
-    const int sr = std::max(1, settings.value(QStringLiteral("defaultProjectSampleRate"), 48000).toInt());
+    const int sr = std::max(1, settings.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toInt());
     const int ch = std::max(1, settings.value(QStringLiteral("audioChannels"), 2).toInt());
     encoder.addAudioStream(sr, ch);
 

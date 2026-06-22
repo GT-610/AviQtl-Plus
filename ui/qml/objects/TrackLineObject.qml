@@ -5,8 +5,8 @@ import "qrc:/qt/qml/AviQtl/ui/qml/common" as Common
 Common.BaseObject {
     id: root
 
-    property real sizeW: evalNumber("track_line", "sizeW", 1920)
-    property real sizeH: evalNumber("track_line", "sizeH", 1080)
+    property real sizeW: evalNumber("track_line", "sizeW", DefaultWidth)
+    property real sizeH: evalNumber("track_line", "sizeH", DefaultHeight)
     property real startX: evalNumber("track_line", "startX", -240)
     property real startY: evalNumber("track_line", "startY", 120)
     property real endX: evalNumber("track_line", "endX", 240)

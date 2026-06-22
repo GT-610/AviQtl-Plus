@@ -1,5 +1,6 @@
 #include "timeline_media_manager.hpp"
 #include "audio_decoder.hpp"
+#include "constants.hpp"
 #include "core/include/media_utils.hpp"
 #include "effect_registry.hpp"
 #include "engine/audio_mixer.hpp"
@@ -83,7 +84,7 @@ void TimelineMediaManager::onCurrentFrameChanged() {
                 const QString source = eff->params().value(QStringLiteral("source")).toString();
                 const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
                 const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
-                const double speed = linkedVideo ? 100.0 : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
+                const double speed = linkedVideo ? AviQtl::kDefaultSpeed : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
 
                 audioTime = AviQtl::Core::MediaUtils::resolveAudioTime(relTime, isDirect, directTime, startTime, speed);
                 break;
@@ -247,7 +248,7 @@ void TimelineMediaManager::updateMediaDecoders() {
                         }
 
                         int startVideoFrame = 0;
-                        double speed = 100.0;
+                        double speed = AviQtl::kDefaultSpeed;
                         for (const auto *eff : clip->effects) {
                             if (eff->id() != QStringLiteral("video")) {
                                 continue;
@@ -257,7 +258,7 @@ void TimelineMediaManager::updateMediaDecoders() {
                                 return;
                             }
                             startVideoFrame = eff->params().value(QStringLiteral("startFrame"), 0).toInt();
-                            speed = eff->params().value(QStringLiteral("speed"), 100.0).toDouble();
+                            speed = eff->params().value(QStringLiteral("speed"), AviQtl::kDefaultSpeed).toDouble();
                             break;
                         }
 

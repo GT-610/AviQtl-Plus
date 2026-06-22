@@ -16,6 +16,8 @@
 #include <memory>
 #include <vector>
 
+Q_DECLARE_LOGGING_CATEGORY(lcTimeline)
+
 namespace AviQtl::Core {
 class VideoFrameStore;
 }
@@ -264,6 +266,11 @@ class TimelineController : public QObject {
     void onCurrentFrameChanged();
 
     int clampedDuration(int clipId, int newStart, int requestedDuration) const;
+    int clampVideoDuration(int clipId, int requestedDuration, int projectFps) const;
+    int clampAudioDuration(int clipId, int requestedDuration, int projectFps) const;
+    int clampSceneDuration(const ClipData *clip, int requestedDuration) const;
+    void setupClipAfterCreation(ClipData *clip, int duration, const QString &effectId, const QVariantMap &params);
+    double getSceneFps() const;
 
     void updateClipActiveState();
     double m_timelineScale = 1.0; // タイムラインの表示倍率 (1.0 = 1フレームあたり1ピクセル)
@@ -288,7 +295,7 @@ class TimelineController : public QObject {
 
     // キャッシュ: タイムラインの長さ（最大クリップ末尾フレーム）
     // clipsChanged / sceneChanged 時に再計算される
-    mutable int m_cachedTimelineDuration = 300;
+    mutable int m_cachedTimelineDuration = AviQtl::kDefaultTotalFrames;
 
     // Dirty flag for incremental sync
     bool m_syncDirty = false;

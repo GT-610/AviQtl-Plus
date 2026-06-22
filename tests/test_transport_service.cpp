@@ -13,7 +13,7 @@ class TestTransportService : public QObject {
         QCOMPARE(svc.currentFrame(), 0);
         QCOMPARE(svc.isPlaying(), false);
         QCOMPARE(svc.playbackSpeed(), 1.0);
-        QCOMPARE(svc.fps(), 60.0);
+        QCOMPARE(svc.fps(), AviQtl::kDefaultFps);
         QCOMPARE(svc.totalFrames(), 0);
     }
 

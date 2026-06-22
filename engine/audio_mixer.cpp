@@ -1,9 +1,11 @@
 #include "audio_mixer.hpp"
+#include "core/include/constants.hpp"
 #include "core/include/audio_decoder.hpp"
 #include "core/include/settings_manager.hpp"
 #include "engine/timeline/ecs.hpp"
 #include <QAudioFormat>
 #include <QDebug>
+#include <QLoggingCategory>
 #include <QMediaDevices>
 #include <algorithm>
 #include <cmath>
@@ -26,8 +28,10 @@ auto fadeGainForTime(double relTime, double duration, float fadeInSec, float fad
 
 } // namespace
 
+Q_LOGGING_CATEGORY(lcAudioMixer, "aviqtl.audio_mixer")
+
 AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
-    int sampleRate = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), 48000).toInt();
+    int sampleRate = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), AviQtl::kDefaultSampleRate).toInt();
     m_format.setSampleRate(sampleRate);
     m_format.setChannelCount(2);
     m_format.setSampleFormat(QAudioFormat::Float);
@@ -74,7 +78,7 @@ void AudioMixer::setSampleRate(int sampleRate) {
         return;
     }
 
-    qDebug() << "[AudioMixer] Changing sample rate to" << sampleRate;
+    qCInfo(lcAudioMixer) << "Changing sample rate to" << sampleRate;
     m_format.setSampleRate(sampleRate);
 
     if (m_audioSink) {

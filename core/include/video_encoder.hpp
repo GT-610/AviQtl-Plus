@@ -1,6 +1,8 @@
 #pragma once
 
+#include "constants.hpp"
 #include <QImage>
+#include <QLoggingCategory>
 #include <QObject>
 #include <QSize>
 #include <QString>
@@ -8,6 +10,8 @@
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+
+Q_DECLARE_LOGGING_CATEGORY(lcVideoEncoder)
 #include <thread>
 #include <vector>
 
@@ -48,7 +52,7 @@ class VideoEncoder : public QObject {
 
     bool open(const Config &config);
     bool pushFrame(const QImage &img, int64_t pts); // CPU -> HW Upload
-    bool addAudioStream(int sampleRate = 48000, int channels = 2);
+    bool addAudioStream(int sampleRate = AviQtl::kDefaultSampleRate, int channels = 2);
     bool pushAudio(const float *samples, int sampleCount);
     void close();
 

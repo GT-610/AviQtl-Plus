@@ -1,4 +1,5 @@
 #pragma once
+#include "../../core/include/constants.hpp"
 #include "../../core/include/settings_manager.hpp"
 #include "audio_plugin_host.hpp"
 #include <memory>
@@ -10,8 +11,8 @@ class AudioPluginChain {
   public:
     AudioPluginChain() {
         const auto &sm = AviQtl::Core::SettingsManager::instance();
-        m_sampleRate = sm.value(QStringLiteral("defaultProjectSampleRate"), 48000).toDouble();
-        m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), 4096).toInt();
+        m_sampleRate = sm.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toDouble();
+        m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), AviQtl::kAudioMaxBlockSize).toInt();
     }
 
     void add(std::unique_ptr<IAudioPlugin> plugin, bool enabled = true);
@@ -34,8 +35,8 @@ class AudioPluginChain {
     };
 
     std::vector<Entry> m_plugins;
-    double m_sampleRate = 48000.0;
-    int m_maxBlockSize = 4096;
+    double m_sampleRate = static_cast<double>(AviQtl::kDefaultSampleRate);
+    int m_maxBlockSize = AviQtl::kAudioMaxBlockSize;
 };
 
 } // namespace AviQtl::Engine::Plugin

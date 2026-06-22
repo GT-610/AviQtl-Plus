@@ -1,3 +1,4 @@
+#include "constants.hpp"
 #include "mod_engine.hpp"
 #include <QDir>
 #include <QTemporaryDir>

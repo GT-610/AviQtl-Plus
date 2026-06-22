@@ -1,4 +1,5 @@
 #pragma once
+#include "constants.hpp"
 #include <QMutex>
 #include <QObject>
 #include <QUrl>
@@ -41,7 +42,7 @@ class MediaDecoder : public QObject {
     int m_clipId;
     QString m_clipIdString;
     QUrl m_source;
-    int m_sampleRate = 48000;
+    int m_sampleRate = AviQtl::kDefaultSampleRate;
     std::atomic<bool> m_isReady{false};
     mutable QMutex m_mutex;
 };

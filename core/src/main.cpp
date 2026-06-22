@@ -11,6 +11,7 @@
 
 // Core Headers
 #include "compute_effect.hpp"
+#include "constants.hpp"
 #include "effect_registry.hpp"
 #include "package_manager.hpp"
 #include "permission_manager.hpp"
@@ -61,6 +62,11 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
     auto *ctx = engine.rootContext();
     ctx->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     ctx->setContextProperty(QStringLiteral("AviQtlVersion"), QString::fromUtf8(VERSION_STRING));
+    ctx->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
+    ctx->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
+    ctx->setContextProperty(QStringLiteral("DefaultSampleRate"), AviQtl::kDefaultSampleRate);
+    ctx->setContextProperty(QStringLiteral("DefaultTotalFrames"), AviQtl::kDefaultTotalFrames);
+    ctx->setContextProperty(QStringLiteral("DefaultFps"), AviQtl::kDefaultFps);
     ctx->setContextProperty(QStringLiteral("PackageManager"), &Core::PackageManager::instance());
     ctx->setContextProperty(QStringLiteral("PermissionManager"), &Core::PermissionManager::instance());
     ctx->setContextProperty(QStringLiteral("PresetManager"), &Core::PresetManager::instance());

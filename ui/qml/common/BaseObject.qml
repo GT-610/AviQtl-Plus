@@ -228,8 +228,8 @@ Node {
         }
         readonly property real fbOpacityValue: 1
 
-        width: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : 1920
-        height: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : 1080
+        width: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : DefaultWidth
+        height: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : DefaultHeight
         visible: true // SceneGraph に残すため true (opacity は renderHost 側で 0)
 
         Item {

@@ -1,7 +1,10 @@
 #pragma once
 #include <QJsonObject>
+#include <QLoggingCategory>
 #include <QObject>
 #include <QVariantMap>
+
+Q_DECLARE_LOGGING_CATEGORY(lcSettings)
 
 namespace AviQtl::Core {
 

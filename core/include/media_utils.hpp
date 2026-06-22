@@ -1,4 +1,5 @@
 #pragma once
+#include "constants.hpp"
 #include <QString>
 #include <QStringView>
 
@@ -23,7 +24,7 @@ inline double resolveAudioTime(double relTime, bool isDirectMode, double directT
     if (isDirectMode) {
         return directTime;
     }
-    return (relTime * (speed / 100.0)) + startTime;
+    return (relTime * (speed / AviQtl::kDefaultSpeed)) + startTime;
 }
 
 // Video time mapping: resolves the source file position (in seconds) from
@@ -39,7 +40,7 @@ inline double resolveVideoTime(int relFrame, double sourceFps, bool isDirectMode
     }
     const double startSec = startFrame / sourceFps;
     const double relTime = static_cast<double>(relFrame) / sourceFps;
-    return startSec + (relTime * (speed / 100.0));
+    return startSec + (relTime * (speed / AviQtl::kDefaultSpeed));
 }
 
 // Compute how many project frames the source video can sustain given its
@@ -55,7 +56,7 @@ inline int maxVideoDurationFrames(int totalFrameCount, double sourceFps,
     if (remainingSec <= 0.0) {
         return 0;
     }
-    return static_cast<int>(remainingSec / (speed / 100.0) * projectFps);
+    return static_cast<int>(remainingSec / (speed / AviQtl::kDefaultSpeed) * projectFps);
 }
 
 double mediaDurationSeconds(const QString &path, int mediaType);

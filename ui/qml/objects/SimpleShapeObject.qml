@@ -6,8 +6,8 @@ Common.BaseObject {
     id: root
 
     property string objectId: "polygon_shape"
-    property real sizeW: evalNumber(objectId, "sizeW", 1920)
-    property real sizeH: evalNumber(objectId, "sizeH", 1080)
+    property real sizeW: evalNumber(objectId, "sizeW", DefaultWidth)
+    property real sizeH: evalNumber(objectId, "sizeH", DefaultHeight)
     property int sides: Math.max(3, Math.round(evalNumber(objectId, "sides", 6)))
     property real angle: evalNumber(objectId, "angle", 180)
     property real rotation: evalNumber(objectId, "rotation", 0)

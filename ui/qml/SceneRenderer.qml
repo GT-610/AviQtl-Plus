@@ -9,8 +9,8 @@ Item {
     property int currentFrame: 0
     property var timelineBridge: null
     property var sceneStack: sceneId >= 0 ? [sceneId] : []
-    property int sceneWidth: 1920
-    property int sceneHeight: 1080
+    property int sceneWidth: DefaultWidth
+    property int sceneHeight: DefaultHeight
     property var ecsRenderData: ({})
 
     property var sceneInfo: {
@@ -28,8 +28,8 @@ Item {
 
     onSceneInfoChanged: {
         if (sceneInfo) {
-            sceneWidth = sceneInfo.width || 1920;
-            sceneHeight = sceneInfo.height || 1080;
+            sceneWidth = sceneInfo.width || DefaultWidth;
+            sceneHeight = sceneInfo.height || DefaultHeight;
         }
     }
     width: sceneWidth
