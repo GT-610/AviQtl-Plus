@@ -237,7 +237,7 @@ class TestBakeController : public QObject {
     void audioParamsBakedToEcs() {
         SceneSettings scene;
         scene.id = 8;
-        scene.fps = 60.0;
+        scene.fps = AviQtl::kDefaultFps;
 
         Clip c;
         c.id = 60;

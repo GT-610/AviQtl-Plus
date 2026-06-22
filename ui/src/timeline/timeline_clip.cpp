@@ -1,4 +1,5 @@
 #include "commands.hpp"
+#include "constants.hpp"
 #include "effect_registry.hpp"
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
@@ -17,7 +18,7 @@ int TimelineService::createClip(const QString &type, int startFrame, int layer) 
     if (!meta.name.isEmpty()) {
         clipName = meta.name;
     }
-    const int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+    const int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
     int safeFrame = findVacantFrame(layer, startFrame, duration, -1);
     m_undoStack->push(new AddClipCommand(this, id, type, safeFrame, layer, clipName));
     return safeFrame;
@@ -32,7 +33,7 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
         return;
     }
 
-    const int defaultDuration = AviQtl::Core::SettingsManager::instance().settings().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+    const int defaultDuration = AviQtl::Core::SettingsManager::instance().settings().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
     int safeStartFrame = findVacantFrame(layer, startFrame, defaultDuration, -1);
 
     ClipData newClip;

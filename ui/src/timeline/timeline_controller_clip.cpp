@@ -1,5 +1,6 @@
 #include "audio_decoder.hpp"
 #include "commands.hpp"
+#include "constants.hpp"
 #include "core/include/media_utils.hpp"
 #include "effect_registry.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
@@ -243,7 +244,7 @@ auto TimelineController::activeObjectType() const -> QString { return m_selectio
 void TimelineController::createObject(const QString &type, int startFrame, int layer) {
     if (m_timeline != nullptr) {
         int actualFrame = m_timeline->createClip(type, startFrame, layer);
-        int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+        int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         setCursorFrame(actualFrame + duration);
     }
 }
@@ -288,9 +289,9 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         const int sceneId = m_timeline->currentSceneId();
         for (const auto &scene : m_timeline->getAllScenes()) {
             if (scene.id == sceneId)
-                return scene.fps > 0.0 ? scene.fps : 60.0;
+                return scene.fps > 0.0 ? scene.fps : AviQtl::kDefaultFps;
         }
-        return 60.0;
+        return AviQtl::kDefaultFps;
     };
 
     if (AviQtl::Core::MediaUtils::isVideoFile(filePath)) {
@@ -299,7 +300,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_VIDEO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
-        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = findVacantFrameForLinkedMedia(m_timeline, layer, startFrame, importDuration);
 
         int videoClipId = m_timeline->nextClipId();
@@ -338,7 +339,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
                 if (eff->id() == QLatin1String("audio")) {
                     eff->setParam(QStringLiteral("source"), filePath);
                     eff->setParam(QStringLiteral("linkedVideo"), true);
-                    eff->setParam(QStringLiteral("speed"), 100.0);
+                    eff->setParam(QStringLiteral("speed"), AviQtl::kDefaultSpeed);
                     break;
                 }
             }
@@ -353,7 +354,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_AUDIO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
-        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
         int clipId = m_timeline->nextClipId();
@@ -382,7 +383,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     } else if (imageExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
 
-        const int importDuration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), 100).toInt();
+        const int importDuration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
         int clipId = m_timeline->nextClipId();
@@ -580,7 +581,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
         auto *vid = qobject_cast<AviQtl::Core::VideoDecoder *>(m_mediaManager->decoderForClip(clipId));
         if ((vid != nullptr) && vid->isReady()) {
             int startVideoFrame = 0;
-            double speed = 100.0;
+            double speed = AviQtl::kDefaultSpeed;
             bool isDirectMode = false;
 
             for (const auto *eff : clip->effects) {
@@ -594,7 +595,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
                     break;
                 }
                 startVideoFrame = p.value(QStringLiteral("startFrame"), 0).toInt();
-                speed = p.value(QStringLiteral("speed"), 100.0).toDouble();
+                speed = p.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed).toDouble();
                 break;
             }
 
@@ -611,7 +612,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
                 const double startSec = static_cast<double>(startVideoFrame) / srcFps;
                 const double remainingSec = (static_cast<double>(vid->totalFrameCount()) / srcFps) - startSec;
                 if (remainingSec > 0.0) {
-                    maxDuration = static_cast<int>(remainingSec / (speed / 100.0) * projectFps);
+                    maxDuration = static_cast<int>(remainingSec / (speed / AviQtl::kDefaultSpeed) * projectFps);
                 }
             }
             if (maxDuration > 0 && duration > maxDuration) {
@@ -622,7 +623,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
         auto *aud = qobject_cast<AviQtl::Core::AudioDecoder *>(m_mediaManager->decoderForClip(clipId));
         if ((aud != nullptr) && aud->isReady()) {
             double startTime = 0.0;
-            double speed = 100.0;
+            double speed = AviQtl::kDefaultSpeed;
             bool isDirectMode = false;
 
             for (const auto *eff : clip->effects) {
@@ -636,7 +637,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
                     break;
                 }
                 startTime = p.value(QStringLiteral("startTime"), 0.0).toDouble();
-                speed = p.value(QStringLiteral("speed"), 100.0).toDouble();
+                speed = p.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed).toDouble();
                 break;
             }
 
@@ -648,7 +649,7 @@ int TimelineController::clampedDuration(int clipId, int newStart, int requestedD
             } else if (speed > 0.0) {
                 const double remainingSec = totalSec - startTime;
                 if (remainingSec > 0.0) {
-                    maxDuration = static_cast<int>(remainingSec / (speed / 100.0) * projectFps);
+                    maxDuration = static_cast<int>(remainingSec / (speed / AviQtl::kDefaultSpeed) * projectFps);
                 }
             }
             if (maxDuration > 0 && duration > maxDuration) {
@@ -898,7 +899,7 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
 
     double fps = m_project->fps();
     if (fps <= 0.0) {
-        fps = 60.0;
+        fps = AviQtl::kDefaultFps;
     }
 
     const EffectModel *audioEffect = nullptr;
@@ -950,8 +951,8 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
                 sourceDurationSec = std::max(std::abs(nextDirectTime - directTime), frameStepSec);
             } else {
                 const double startTime = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble());
-                const double speed = linkedVideo ? 100.0 : audioEffect->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
-                const double sourceRate = std::max(0.0, speed / 100.0);
+                const double speed = linkedVideo ? AviQtl::kDefaultSpeed : audioEffect->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
+                const double sourceRate = std::max(0.0, speed / AviQtl::kDefaultSpeed);
                 sourceStartSec = startTime + (relSec * sourceRate);
                 sourceDurationSec = std::max((nextRelSec - relSec) * sourceRate, frameStepSec);
             }
@@ -1204,7 +1205,7 @@ auto TimelineController::evaluateClipParams(int clipId, int relFrame) const -> Q
         return out;
     }
 
-    const double fps = project() ? project()->fps() : 60.0;
+    const double fps = project() ? project()->fps() : AviQtl::kDefaultFps;
 
     for (auto *eff : clip->effects) {
         // 各エフェクトの評価済みパラメータを取得

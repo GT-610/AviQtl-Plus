@@ -1,4 +1,5 @@
 #include "commands.hpp"
+#include "constants.hpp"
 #include "core/include/media_utils.hpp"
 #include "effect_registry.hpp"
 #include "selection_service.hpp"
@@ -18,14 +19,14 @@ namespace {
 
 double sceneFpsForClip(const TimelineService *timeline, const ClipData &clip) {
     if (timeline == nullptr) {
-        return 60.0;
+        return AviQtl::kDefaultFps;
     }
     for (const auto &scene : timeline->getAllScenes()) {
         if (scene.id == clip.sceneId) {
-            return scene.fps > 0.0 ? scene.fps : 60.0;
+            return scene.fps > 0.0 ? scene.fps : AviQtl::kDefaultFps;
         }
     }
-    return 60.0;
+    return AviQtl::kDefaultFps;
 }
 
 bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, EffectModel *effect, const QString &paramName) {
@@ -61,12 +62,12 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
         const bool sourceIsVideo = sourceLower.endsWith(QStringLiteral(".mp4")) || sourceLower.endsWith(QStringLiteral(".mov")) || sourceLower.endsWith(QStringLiteral(".avi")) || sourceLower.endsWith(QStringLiteral(".mkv")) ||
                                    sourceLower.endsWith(QStringLiteral(".webm")) || sourceLower.endsWith(QStringLiteral(".wmv"));
         const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
-        const double speed = linkedVideo ? 100.0 : params.value(QStringLiteral("speed"), 100.0).toDouble();
+        const double speed = linkedVideo ? AviQtl::kDefaultSpeed : params.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed).toDouble();
         if (speed <= 0.0 || startTime >= totalSec) {
             return false;
         }
 
-        newDuration = std::max(1, static_cast<int>(std::ceil((totalSec - startTime) / (speed / 100.0) * fps)));
+        newDuration = std::max(1, static_cast<int>(std::ceil((totalSec - startTime) / (speed / AviQtl::kDefaultSpeed) * fps)));
     }
     if (newDuration == clip.durationFrames) {
         return false;

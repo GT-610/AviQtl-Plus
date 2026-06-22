@@ -1,4 +1,5 @@
 #include "commands.hpp"
+#include "constants.hpp"
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
 #include "timeline_service.hpp"
@@ -167,7 +168,7 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
     newScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
     newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
-    newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), 60.0).toDouble();
+    newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
     m_scenes.append(newScene);
     invalidateCurrentSceneCache();
     emit scenesChanged();

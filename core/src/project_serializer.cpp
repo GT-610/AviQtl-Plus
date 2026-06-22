@@ -171,7 +171,7 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     QJsonObject s = root.value(QStringLiteral("settings")).toObject();
     project->setWidth(s.value(QStringLiteral("width")).toInt(AviQtl::kDefaultWidth));
     project->setHeight(s.value(QStringLiteral("height")).toInt(AviQtl::kDefaultHeight));
-    project->setFps(s.value(QStringLiteral("fps")).toDouble(60.0));
+    project->setFps(s.value(QStringLiteral("fps")).toDouble(AviQtl::kDefaultFps));
     project->setSampleRate(s.value(QStringLiteral("sampleRate")).toInt(AviQtl::kDefaultSampleRate));
 
     QList<UI::SceneData> tempScenes;

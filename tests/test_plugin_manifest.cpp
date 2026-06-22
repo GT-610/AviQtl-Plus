@@ -203,7 +203,7 @@ local loaded = true
 
     QCOMPARE(meta.params.size(), 3);
     QCOMPARE(meta.params.at(0).varName, QStringLiteral("monitor_interval"));
-    QCOMPARE(meta.params.at(0).defaultValue.toDouble(), 60.0);
+    QCOMPARE(meta.params.at(0).defaultValue.toDouble(), AviQtl::kDefaultFps);
     QCOMPARE(meta.params.at(1).varName, QStringLiteral("auto_play"));
     QCOMPARE(meta.params.at(1).defaultValue.toBool(), false);
     QCOMPARE(meta.params.at(2).varName, QStringLiteral("log_level"));

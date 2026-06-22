@@ -122,7 +122,7 @@ class CarlaHostedPlugin final : public IAudioPlugin {
             m_sampleRate = sm.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toDouble();
         }
         if (m_maxBlockSize <= 0) {
-            m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), 512).toInt();
+            m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), AviQtl::kAudioMaxBlockSize).toInt();
         }
 
         m_uiNameBuf = m_info.name.toUtf8();
@@ -203,7 +203,7 @@ class CarlaHostedPlugin final : public IAudioPlugin {
 
     void prepare(double sampleRate, int maxBlockSize) override { // NOLINT(bugprone-easily-swappable-parameters)
         m_sampleRate = sampleRate > 1.0 ? sampleRate : static_cast<double>(AviQtl::kDefaultSampleRate);
-        m_maxBlockSize = maxBlockSize > 0 ? maxBlockSize : 512;
+        m_maxBlockSize = maxBlockSize > 0 ? maxBlockSize : AviQtl::kAudioMaxBlockSize;
         ensureBuffers(m_maxBlockSize);
         // サンプルレート/バッファサイズは NativeHostDescriptor コールバックで動的に返す
     }
@@ -310,7 +310,7 @@ class CarlaHostedPlugin final : public IAudioPlugin {
     PluginInfo m_info;
     bool m_loaded = false;
     double m_sampleRate = static_cast<double>(AviQtl::kDefaultSampleRate);
-    int m_maxBlockSize = 512;
+    int m_maxBlockSize = AviQtl::kAudioMaxBlockSize;
     std::vector<float> m_inL;
     std::vector<float> m_inR;
     std::vector<float> m_outL;
@@ -699,7 +699,7 @@ void AudioPluginManager::scanPlugins() {
         m_scanning = false;
         return;
     }
-    qDebug() << "[AudioPluginManager] Discovery tool:" << tool;
+    qCDebug(lcPluginManager) << "Discovery tool:" << tool;
 
     QList<PluginInfo> newPlugins;
     QHash<QString, PluginInfo> newMap;

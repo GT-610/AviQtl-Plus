@@ -16,7 +16,7 @@ class ProjectService : public QObject {
         const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
         m_width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
         m_height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
-        m_fps = settings.value(QStringLiteral("defaultProjectFps"), 60.0).toDouble();
+        m_fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
         m_sampleRate = settings.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toInt();
         AviQtl::Core::SettingsManager::instance().setValue(QStringLiteral("_runtime_projectSampleRate"), m_sampleRate);
     }

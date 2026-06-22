@@ -66,6 +66,7 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
     ctx->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
     ctx->setContextProperty(QStringLiteral("DefaultSampleRate"), AviQtl::kDefaultSampleRate);
     ctx->setContextProperty(QStringLiteral("DefaultTotalFrames"), AviQtl::kDefaultTotalFrames);
+    ctx->setContextProperty(QStringLiteral("DefaultFps"), AviQtl::kDefaultFps);
     ctx->setContextProperty(QStringLiteral("PackageManager"), &Core::PackageManager::instance());
     ctx->setContextProperty(QStringLiteral("PermissionManager"), &Core::PermissionManager::instance());
     ctx->setContextProperty(QStringLiteral("PresetManager"), &Core::PresetManager::instance());

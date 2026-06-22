@@ -206,7 +206,7 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
         audio.directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
         audio.sourceStartTime = std::max(0.0f, evalFloatOr(rt, QStringLiteral("startTime"), 0.0f, relFrame));
-        audio.playbackSpeed = std::max(0.0f, evalFloatOr(rt, QStringLiteral("speed"), 100.0f, relFrame) / 100.0f);
+        audio.playbackSpeed = std::max(0.0f, evalFloatOr(rt, QStringLiteral("speed"), AviQtl::kDefaultSpeed, relFrame) / static_cast<float>(AviQtl::kDefaultSpeed));
         audio.directTime = std::max(0.0f, evalFloatOr(rt, QStringLiteral("directTime"), 0.0f, relFrame));
         audio.volume = std::max(0.0f, evalFloatOr(rt, QStringLiteral("volume"), 1.0f, relFrame));
         audio.masterVolume = std::max(0.0f, evalFloatOr(rt, QStringLiteral("masterVolume"), 1.0f, relFrame));

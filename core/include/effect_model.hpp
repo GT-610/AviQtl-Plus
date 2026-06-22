@@ -1,5 +1,6 @@
 #pragma once
 #include "../../scripting/lua_host.hpp"
+#include "constants.hpp"
 #include "keyframe_utils.hpp"
 #include <QColor>
 #include <QHash>
@@ -333,7 +334,7 @@ class EffectModel : public QObject {
         return true;
     }
 
-    Q_INVOKABLE QVariantMap evaluatedParams(int frame, double fps = 60.0) const {
+    Q_INVOKABLE QVariantMap evaluatedParams(int frame, double fps = AviQtl::kDefaultFps) const {
         QVariantMap out;
         // 全てのキーを網羅するために m_params から開始 (avoid temporary QList from keys())
         for (auto it = m_params.cbegin(); it != m_params.cend(); ++it) {
@@ -342,7 +343,7 @@ class EffectModel : public QObject {
         return out;
     }
 
-    Q_INVOKABLE QVariant evaluatedParam(const QString &paramName, int frame, double fps = 60.0) const {
+    Q_INVOKABLE QVariant evaluatedParam(const QString &paramName, int frame, double fps = AviQtl::kDefaultFps) const {
         const QVariant fallback = m_params.value(paramName);
         auto ktIt = m_keyframeTracks.find(paramName);
         if (ktIt == m_keyframeTracks.end())

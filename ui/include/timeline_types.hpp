@@ -49,7 +49,7 @@ struct SceneData {
 
     int width = AviQtl::kDefaultWidth;
     int height = AviQtl::kDefaultHeight;
-    double fps = 60.0;
+    double fps = AviQtl::kDefaultFps;
     int totalFrames = AviQtl::kDefaultTotalFrames;
 
     // ネスト利用のためのメタデータ

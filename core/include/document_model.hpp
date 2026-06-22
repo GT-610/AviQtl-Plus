@@ -51,7 +51,7 @@ struct SceneSettings {
     QString name;
     int width = AviQtl::kDefaultWidth;
     int height = AviQtl::kDefaultHeight;
-    double fps = 60.0;
+    double fps = AviQtl::kDefaultFps;
 
     bool enableSnap = true;
     QString gridMode = QStringLiteral("Auto");
@@ -65,7 +65,7 @@ struct ProjectSettings {
     QString name;
     int defaultSceneWidth = AviQtl::kDefaultWidth;
     int defaultSceneHeight = AviQtl::kDefaultHeight;
-    double defaultFps = 60.0;
+    double defaultFps = AviQtl::kDefaultFps;
     int audioSampleRate = AviQtl::kDefaultSampleRate;
     QString colorSpace = QStringLiteral("BT.709");
     bool highBitDepth = false; // true の場合 16bit float 処理を有効化

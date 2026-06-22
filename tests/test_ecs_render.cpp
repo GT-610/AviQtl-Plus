@@ -42,7 +42,7 @@ class TestECSRender : public QObject {
     void renderComponentPopulated() {
         SceneSettings scene;
         scene.id = 1;
-        scene.fps = 60.0;
+        scene.fps = AviQtl::kDefaultFps;
 
         Clip clip;
         clip.id = 5;
@@ -85,7 +85,7 @@ class TestECSRender : public QObject {
     void effectParamBufferPopulated() {
         SceneSettings scene;
         scene.id = 2;
-        scene.fps = 60.0;
+        scene.fps = AviQtl::kDefaultFps;
 
         Clip clip;
         clip.id = 10;
@@ -139,7 +139,7 @@ class TestECSRender : public QObject {
     void defaultTransformWhenNoTransformEffect() {
         SceneSettings scene;
         scene.id = 3;
-        scene.fps = 60.0;
+        scene.fps = AviQtl::kDefaultFps;
 
         Clip clip;
         clip.id = 15;
@@ -168,7 +168,7 @@ class TestECSRender : public QObject {
     void clipSyncRemovesDeletedClips() {
         SceneSettings scene;
         scene.id = 4;
-        scene.fps = 60.0;
+        scene.fps = AviQtl::kDefaultFps;
 
         Clip c1;
         c1.id = 20;

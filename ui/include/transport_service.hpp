@@ -1,4 +1,5 @@
 #pragma once
+#include "constants.hpp"
 #include <QElapsedTimer>
 #include <QObject>
 #include <QTimer>
@@ -104,7 +105,7 @@ class TransportService : public QObject {
     int m_currentFrame = 0;
     bool m_isPlaying = false;
     double m_playbackSpeed = 1.0;
-    double m_fps = 60.0;
+    double m_fps = AviQtl::kDefaultFps;
     int m_totalFrames = 0;
     bool m_loopEnabled = false;
 

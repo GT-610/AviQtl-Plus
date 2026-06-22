@@ -9,6 +9,8 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 
+Q_LOGGING_CATEGORY(lcSettings, "aviqtl.settings")
+
 namespace AviQtl::Core {
 
 namespace {
@@ -72,10 +74,10 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"backupInterval", 5},
         {"defaultProjectWidth", AviQtl::kDefaultWidth},
         {"defaultProjectHeight", AviQtl::kDefaultHeight},
-        {"defaultProjectFps", 60.0},
+        {"defaultProjectFps", AviQtl::kDefaultFps},
         {"defaultProjectFrames", 3600},
         {"defaultProjectSampleRate", AviQtl::kDefaultSampleRate},
-        {"defaultClipDuration", 100},
+        {"defaultClipDuration", AviQtl::kDefaultClipDuration},
         {"timeUnit", "frame"},
         {"enableSnap", true},
         {"splitAtCursor", true},
@@ -108,7 +110,7 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"exportFrameGrabTimeoutMs", 2000},
         {"exportProgressInterval", 5},
         {"audioChannels", 2},
-        {"audioPluginMaxBlockSize", 4096},
+        {"audioPluginMaxBlockSize", AviQtl::kAudioMaxBlockSize},
         {"sceneWidthMax", 8000},
         {"sceneHeightMax", 8000},
         {"sceneFramesMin", 100},
@@ -204,7 +206,7 @@ void SettingsManager::load() {
     QString path = getSettingsFilePath();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "Settings file not found:" << path << ". Using default values.";
+        qCInfo(lcSettings) << "Settings file not found:" << path << ". Using default values.";
         return;
     }
 
@@ -224,7 +226,7 @@ void SettingsManager::load() {
             m_settings.insert(it.key(), it.value());
         }
         emit settingsChanged();
-        qDebug() << "Settings loaded:" << path;
+        qCInfo(lcSettings) << "Settings loaded:" << path;
     }
 }
 
@@ -239,7 +241,7 @@ void SettingsManager::save() {
     QJsonObject obj = QJsonObject::fromVariantMap(m_settings);
     QJsonDocument doc(obj);
     file.write(doc.toJson());
-    qDebug() << "Settings saved:" << path;
+    qCInfo(lcSettings) << "Settings saved:" << path;
 }
 
 void SettingsManager::setValue(const QString &key, const QVariant &value) {

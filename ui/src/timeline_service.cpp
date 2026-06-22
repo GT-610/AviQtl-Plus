@@ -1,5 +1,6 @@
 #include "timeline_service.hpp"
 #include "commands.hpp"
+#include "constants.hpp"
 #include "effect_registry.hpp"
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
@@ -18,7 +19,7 @@ TimelineService::TimelineService(SelectionService *selection, QObject *parent) :
     const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
     rootScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
     rootScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
-    rootScene.fps = settings.value(QStringLiteral("defaultProjectFps"), 60.0).toDouble();
+    rootScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
     m_scenes.append(rootScene);
 }
 
