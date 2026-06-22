@@ -218,9 +218,17 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 - 24 unit tests covering core, engine, scripting, and plugin subsystems
 - CI via GitHub Actions (build + static analysis)
 
-**Next (0.3.x-0.4.0):**
-- Expand effect and object plugin ecosystem (third-party effect registration API, example effect plugins)
-- Audio editing and mixing refinement (per-track controls, mixer panel)
+**Completed (0.3.1-0.3.2):**
+- Thread-safe audio handling with lock-free shared pointers and keyframe evaluation optimization
+- HDR output, opacity, and multi-pass dispatch for compute shader effects
+- Transition effects (CrossFade, Slide, WipeCircle)
+- Audio plugin keyframe editing and mixer panel UI
+- Effect schema documentation and sepia effect example
+- Standardized logging and hardcoded constants extraction
+- Object JSON/QML naming consistency alignment
+
+**Next (0.4.0):**
+- Expand effect and object plugin ecosystem (more example plugins)
 - Performance optimization and GPU compute shader improvements
 - Initial public alpha releases with automated CI/CD
 
