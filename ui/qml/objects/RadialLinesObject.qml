@@ -5,8 +5,8 @@ import "qrc:/qt/qml/AviQtl/ui/qml/common" as Common
 Common.BaseObject {
     id: root
 
-    property real sizeW: evalNumber("radial_lines", "sizeW", 1920)
-    property real sizeH: evalNumber("radial_lines", "sizeH", 1080)
+    property real sizeW: evalNumber("radial_lines", "sizeW", DefaultWidth)
+    property real sizeH: evalNumber("radial_lines", "sizeH", DefaultHeight)
     property int lineCount: Math.max(1, Math.round(evalNumber("radial_lines", "lineCount", 128)))
     property real minLength: evalNumber("radial_lines", "minLength", 760)
     property real maxLength: evalNumber("radial_lines", "maxLength", 1500)

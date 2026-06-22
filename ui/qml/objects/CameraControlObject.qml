@@ -39,7 +39,7 @@ Node {
     // CompositeView が View3D.camera に直接バインドするノード
     property alias camera: cam
     readonly property real _defaultDist: {
-        var h = (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : 1080;
+        var h = (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : DefaultHeight;
         return h / (2 * Math.tan(fov * Math.PI / 360));
     }
 

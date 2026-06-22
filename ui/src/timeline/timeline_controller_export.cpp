@@ -7,8 +7,8 @@ namespace AviQtl::UI {
 
 void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     AviQtl::Core::VideoEncoder::Config c;
-    c.width = cfg.value(QStringLiteral("width"), 1920).toInt();
-    c.height = cfg.value(QStringLiteral("height"), 1080).toInt();
+    c.width = cfg.value(QStringLiteral("width"), AviQtl::kDefaultWidth).toInt();
+    c.height = cfg.value(QStringLiteral("height"), AviQtl::kDefaultHeight).toInt();
     c.fps_num = cfg.value(QStringLiteral("fps_num"), 60000).toInt();
     c.fps_den = cfg.value(QStringLiteral("fps_den"), 1000).toInt();
     c.bitrate = cfg.value(QStringLiteral("bitrate"), 15'000'000).toLongLong();

@@ -167,7 +167,7 @@ void TimelineController::invalidateTimelineDuration() {
         }
         m_cachedTimelineDuration = std::max(1, maxEnd);
     } else {
-        m_cachedTimelineDuration = 300; // fallback
+        m_cachedTimelineDuration = AviQtl::kDefaultTotalFrames; // fallback
     }
     if (m_cachedTimelineDuration != oldVal) {
         emit timelineDurationChanged();

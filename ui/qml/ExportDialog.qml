@@ -204,7 +204,7 @@ Common.AviQtlWindow {
                 }
 
                 Label {
-                    text: ((project ? project.width : 1920)) + " × " + ((project ? project.height : 1080))
+                    text: ((project ? project.width : DefaultWidth)) + " × " + ((project ? project.height : DefaultHeight))
                     font.bold: true
                     Layout.columnSpan: 3
                 }
@@ -497,7 +497,7 @@ Common.AviQtlWindow {
                     enabled: !fullRangeCheck.checked
                     from: startFrameSpin.value + 1
                     to: 999999
-                    value: 300
+                    value: DefaultTotalFrames
                     editable: true
                     Component.onCompleted: {
                         if (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0)
@@ -562,8 +562,8 @@ Common.AviQtlWindow {
                         var codec = codecCombo.model[codecCombo.currentIndex].value;
                         var audioCodec = audioCodecCombo.model[audioCodecCombo.currentIndex].value;
                         Workspace.currentTimeline.exportVideoAsync({
-                            "width": (project ? project.width : 1920),
-                            "height": (project ? project.height : 1080),
+                            "width": (project ? project.width : DefaultWidth),
+                            "height": (project ? project.height : DefaultHeight),
                             "fps_num": pFps === Math.floor(pFps) ? pFps * 1000 : Math.round(pFps * 1001),
                             "fps_den": pFps === Math.floor(pFps) ? 1000 : 1001,
                             "bitrate": bitrateSpin.value * 1e+06,

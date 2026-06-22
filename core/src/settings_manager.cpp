@@ -1,4 +1,5 @@
 #include "settings_manager.hpp"
+#include "constants.hpp"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
@@ -69,11 +70,11 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"showConfirmOnClose", true},
         {"enableAutoBackup", true},
         {"backupInterval", 5},
-        {"defaultProjectWidth", 1920},
-        {"defaultProjectHeight", 1080},
+        {"defaultProjectWidth", AviQtl::kDefaultWidth},
+        {"defaultProjectHeight", AviQtl::kDefaultHeight},
         {"defaultProjectFps", 60.0},
         {"defaultProjectFrames", 3600},
-        {"defaultProjectSampleRate", 48000},
+        {"defaultProjectSampleRate", AviQtl::kDefaultSampleRate},
         {"defaultClipDuration", 100},
         {"timeUnit", "frame"},
         {"enableSnap", true},

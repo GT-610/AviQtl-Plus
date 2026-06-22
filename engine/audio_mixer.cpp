@@ -1,4 +1,5 @@
 #include "audio_mixer.hpp"
+#include "core/include/constants.hpp"
 #include "core/include/audio_decoder.hpp"
 #include "core/include/settings_manager.hpp"
 #include "engine/timeline/ecs.hpp"
@@ -27,7 +28,7 @@ auto fadeGainForTime(double relTime, double duration, float fadeInSec, float fad
 } // namespace
 
 AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
-    int sampleRate = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), 48000).toInt();
+    int sampleRate = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), AviQtl::kDefaultSampleRate).toInt();
     m_format.setSampleRate(sampleRate);
     m_format.setChannelCount(2);
     m_format.setSampleFormat(QAudioFormat::Float);

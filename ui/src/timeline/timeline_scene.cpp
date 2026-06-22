@@ -165,8 +165,8 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     newScene.id = sceneId;
     newScene.name = name;
     const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
-    newScene.width = settings.value(QStringLiteral("defaultProjectWidth"), 1920).toInt();
-    newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), 1080).toInt();
+    newScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
+    newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
     newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), 60.0).toDouble();
     m_scenes.append(newScene);
     invalidateCurrentSceneCache();

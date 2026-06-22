@@ -51,7 +51,7 @@ ScrollView {
                 SpinBox {
                     from: 1
                     to: 16000
-                    value: root.valueOr("defaultProjectWidth", 1920)
+                    value: root.valueOr("defaultProjectWidth", DefaultWidth)
                     onValueModified: root.setValue("defaultProjectWidth", value)
                 }
 
@@ -62,7 +62,7 @@ ScrollView {
                 SpinBox {
                     from: 1
                     to: 16000
-                    value: root.valueOr("defaultProjectHeight", 1080)
+                    value: root.valueOr("defaultProjectHeight", DefaultHeight)
                     onValueModified: root.setValue("defaultProjectHeight", value)
                 }
 
@@ -103,7 +103,7 @@ ScrollView {
                     from: 8000
                     to: 192000
                     stepSize: 1000
-                    value: root.valueOr("defaultProjectSampleRate", 48000)
+                    value: root.valueOr("defaultProjectSampleRate", DefaultSampleRate)
                     onValueModified: root.setValue("defaultProjectSampleRate", value)
                 }
 

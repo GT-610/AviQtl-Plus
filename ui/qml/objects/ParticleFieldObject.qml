@@ -6,8 +6,8 @@ Common.BaseObject {
     id: root
 
     property string objectId: "star"
-    property real sizeW: evalNumber(objectId, "sizeW", 1920)
-    property real sizeH: evalNumber(objectId, "sizeH", 1080)
+    property real sizeW: evalNumber(objectId, "sizeW", DefaultWidth)
+    property real sizeH: evalNumber(objectId, "sizeH", DefaultHeight)
     property int count: Math.max(1, Math.round(evalNumber(objectId, "count", 120)))
     property real speed: evalNumber(objectId, "speed", 1)
     property real particleSize: evalNumber(objectId, "particleSize", 4)

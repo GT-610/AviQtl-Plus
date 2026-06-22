@@ -1,4 +1,5 @@
 #pragma once
+#include "constants.hpp"
 #include "settings_manager.hpp"
 #include <QObject>
 
@@ -13,10 +14,10 @@ class ProjectService : public QObject {
   public:
     explicit ProjectService(QObject *parent = nullptr) : QObject(parent) {
         const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
-        m_width = settings.value(QStringLiteral("defaultProjectWidth"), 1920).toInt();
-        m_height = settings.value(QStringLiteral("defaultProjectHeight"), 1080).toInt();
+        m_width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
+        m_height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
         m_fps = settings.value(QStringLiteral("defaultProjectFps"), 60.0).toDouble();
-        m_sampleRate = settings.value(QStringLiteral("defaultProjectSampleRate"), 48000).toInt();
+        m_sampleRate = settings.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toInt();
         AviQtl::Core::SettingsManager::instance().setValue(QStringLiteral("_runtime_projectSampleRate"), m_sampleRate);
     }
 
