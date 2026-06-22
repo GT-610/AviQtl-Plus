@@ -104,10 +104,10 @@ class ModEngine {
     ModEngine &operator=(const ModEngine &) = delete;
     lua_State *L = nullptr;
     bool m_apiRegistered = false;
-    void _registerAviQtlAPI();
-    void _callHook(const char *hookName, int nargs = 0);
-    void _setupFileWatcher();
-    void _onPluginDirectoryChanged(const QString &path);
+    void registerAviQtlAPI();
+    void callHook(const char *hookName, int nargs = 0);
+    void setupFileWatcher();
+    void onPluginDirectoryChanged(const QString &path);
     QList<PluginManifest> m_loadedPlugins;
     QList<PluginInfo> m_pluginInfos;
     PluginFileWatcher *m_fileWatcher = nullptr;

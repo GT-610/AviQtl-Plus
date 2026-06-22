@@ -480,7 +480,7 @@ void ModEngine::initialize(void *ecsPtr) {
     lua_pushlightuserdata(L, ecsPtr);
     lua_setglobal(L, "AVIQTL_CORE_PTR");
 
-    _registerAviQtlAPI();
+    registerAviQtlAPI();
     m_apiRegistered = true;
 
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
@@ -489,12 +489,12 @@ void ModEngine::initialize(void *ecsPtr) {
 void ModEngine::registerController(void *controller) {
     g_ctrl = static_cast<AviQtl::UI::TimelineController *>(controller);
     if (L != nullptr && !m_apiRegistered) {
-        _registerAviQtlAPI();
+        registerAviQtlAPI();
         m_apiRegistered = true;
     }
 }
 
-void ModEngine::_registerAviQtlAPI() {
+void ModEngine::registerAviQtlAPI() {
     lua_register(L, "aviqtl_log", l_log);
     // transport
     lua_register(L, "aviqtl_transport_play", l_transport_play);
@@ -598,7 +598,7 @@ aviqtl = {
 void ModEngine::loadPlugins() {
     // Ensure API is registered (registerController may have been called before initialize)
     if (!m_apiRegistered && L != nullptr) {
-        _registerAviQtlAPI();
+        registerAviQtlAPI();
         m_apiRegistered = true;
     }
 
@@ -778,7 +778,7 @@ void ModEngine::enableHotReload(bool enable) {
     m_hotReloadEnabled = enable;
 
     if (enable) {
-        _setupFileWatcher();
+        setupFileWatcher();
         qInfo() << "[ModEngine] Hot reload enabled";
     } else {
         if (m_fileWatcher) {
@@ -788,7 +788,7 @@ void ModEngine::enableHotReload(bool enable) {
     }
 }
 
-void ModEngine::_setupFileWatcher() {
+void ModEngine::setupFileWatcher() {
     if (m_fileWatcher) {
         m_fileWatcher->clearPaths();
     } else {
@@ -810,11 +810,11 @@ void ModEngine::_setupFileWatcher() {
 
     QObject::connect(m_fileWatcher, &PluginFileWatcher::directoryChanged, [this](const QString &path) {
         qInfo() << "[ModEngine] Plugin directory changed:" << path;
-        _onPluginDirectoryChanged(path);
+        onPluginDirectoryChanged(path);
     });
 }
 
-void ModEngine::_onPluginDirectoryChanged(const QString &path) {
+void ModEngine::onPluginDirectoryChanged(const QString &path) {
     qInfo() << "[ModEngine] Plugin directory changed:" << path;
 
     // Simple approach: reload all plugins
@@ -839,14 +839,14 @@ void ModEngine::onUpdate() {
     if (L == nullptr) {
         return;
     }
-    _callHook("AviQtlUpdateHook");
+    callHook("AviQtlUpdateHook");
 }
 
 void ModEngine::onLoad() {
     if (L == nullptr) {
         return;
     }
-    _callHook("AviQtlOnLoad");
+    callHook("AviQtlOnLoad");
     qInfo() << "[ModEngine] onLoad hook called";
 }
 
@@ -854,7 +854,7 @@ void ModEngine::onUnload() {
     if (L == nullptr) {
         return;
     }
-    _callHook("AviQtlOnUnload");
+    callHook("AviQtlOnUnload");
     qInfo() << "[ModEngine] onUnload hook called";
 }
 
@@ -863,7 +863,7 @@ void ModEngine::onProjectOpen(const QString &path) {
         return;
     }
     lua_pushstring(L, path.toUtf8().constData());
-    _callHook("AviQtlOnProjectOpen", 1);
+    callHook("AviQtlOnProjectOpen", 1);
     qInfo() << "[ModEngine] onProjectOpen hook called:" << path;
 }
 
@@ -872,7 +872,7 @@ void ModEngine::onProjectSave(const QString &path) {
         return;
     }
     lua_pushstring(L, path.toUtf8().constData());
-    _callHook("AviQtlOnProjectSave", 1);
+    callHook("AviQtlOnProjectSave", 1);
     qInfo() << "[ModEngine] onProjectSave hook called:" << path;
 }
 
@@ -880,10 +880,10 @@ void ModEngine::onClipChange() {
     if (L == nullptr) {
         return;
     }
-    _callHook("AviQtlOnClipChange");
+    callHook("AviQtlOnClipChange");
 }
 
-void ModEngine::_callHook(const char *hookName, int nargs) {
+void ModEngine::callHook(const char *hookName, int nargs) {
     // Stack before: [arg1, ..., argN]
     lua_getglobal(L, hookName);
     // Stack after: [arg1, ..., argN, function]

@@ -58,7 +58,7 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     void close();
     void updateCacheSize();
 
-    VideoFrameStore *mstore = nullptr;
+    VideoFrameStore *m_store = nullptr;
 
     // MLT風：GOP単位のリングバッファ
     struct GopCacheBlock {
@@ -70,23 +70,23 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     static constexpr int MAX_GOP_CACHE_SIZE = 3;
     std::mutex m_gopCacheMutex;
 
-    AVFormatContext *mfmtCtx = nullptr;
-    AVCodecContext *mdecCtx = nullptr;
-    AVStream *mstream = nullptr;
-    int mstreamIndex = -1;
-    AVFrame *mframe = nullptr;
-    SwsContext *mswsCtx = nullptr;
-    AVBufferRef *mhwDeviceCtx = nullptr;
-    int mhwPixFmt = -1; // AV_PIX_FMT_NONE
+    AVFormatContext *m_fmtCtx = nullptr;
+    AVCodecContext *m_decCtx = nullptr;
+    AVStream *m_stream = nullptr;
+    int m_streamIndex = -1;
+    AVFrame *m_frame = nullptr;
+    SwsContext *m_swsCtx = nullptr;
+    AVBufferRef *m_hwDeviceCtx = nullptr;
+    int m_hwPixFmt = -1; // AV_PIX_FMT_NONE
 
-    int mlastDecodedFrame = -1;
-    std::vector<FrameIndexEntry> mindex;
+    int m_lastDecodedFrame = -1;
+    std::vector<FrameIndexEntry> m_index;
     std::vector<int> m_prevKeyframe; ///< m_prevKeyframe[i] = index of the closest keyframe before or at frame i
-    QCache<int, QVideoFrame> mframeCache;
-    std::atomic<int> mlastRequestedFrame{-1};
+    QCache<int, QVideoFrame> m_frameCache;
+    std::atomic<int> m_lastRequestedFrame{-1};
     QVideoFrame m_lastGoodFrame; ///< MLT-style last valid frame for error concealment
-    std::atomic<bool> mclosing{false};
-    std::atomic<bool> misPlaying{false};
+    std::atomic<bool> m_closing{false};
+    std::atomic<bool> m_isPlaying{false};
 
     int m_gopCacheCount = 0;
     GopCacheBlock m_gopCacheA[MAX_GOP_CACHE_SIZE];
@@ -95,16 +95,16 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     bool getFrameFromGopCache(int frameIndex, QVideoFrame &outFrame);
     void putGopCacheBlock(GopCacheBlock &&block);
 
-    std::atomic<bool> misDecoding{false};
-    QFuture<void> minitFuture;
-    QFuture<void> mdecodeFuture;
-    double msourceFps = 0.0;
-    AVRational mtimeBase{0, 1};
+    std::atomic<bool> m_isDecoding{false};
+    QFuture<void> m_initFuture;
+    QFuture<void> m_decodeFuture;
+    double m_sourceFps = 0.0;
+    AVRational m_timeBase{0, 1};
     int m_displayRotationCcw = 0;
 
     AVPacket *m_pkt = nullptr;
 
-    static enum AVPixelFormat gethwformat(AVCodecContext *ctx, const enum AVPixelFormat *pixfmts);
+    static enum AVPixelFormat getHwFormat(AVCodecContext *ctx, const enum AVPixelFormat *pixfmts);
 };
 
 } // namespace AviQtl::Core
