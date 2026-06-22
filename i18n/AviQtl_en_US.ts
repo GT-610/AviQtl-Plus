@@ -1967,7 +1967,7 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/window_manager.cpp" line="56"/>
         <source>ミキサー</source>
-        <translation type="unfinished"></translation>
+        <translation>Mixer</translation>
     </message>
 </context>
 <context>
@@ -2788,14 +2788,14 @@ Progress will be lost.</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="156"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1329"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1336"/>
         <source>終了</source>
         <translation>Exit</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="223"/>
         <source>ミキサーの表示</source>
-        <translation type="unfinished"></translation>
+        <translation>Show Mixer</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="236"/>
@@ -2987,7 +2987,7 @@ Save before continuing?</translation>
         <translation>Speed</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1292"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1299"/>
         <source>ファイル</source>
         <translation>File</translation>
     </message>
@@ -3012,27 +3012,27 @@ Save before continuing?</translation>
         <translation>AviQtl Plus - Preview</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1390"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1397"/>
         <source>ツール</source>
         <translation>Tools</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1393"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1400"/>
         <source>パッケージマネージャー</source>
         <translation>Package Manager</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1352"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1359"/>
         <source>設定</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1337"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1344"/>
         <source>編集</source>
         <translation>Edit</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1370"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1377"/>
         <source>表示</source>
         <translation>View</translation>
     </message>
@@ -3047,7 +3047,7 @@ Save before continuing?</translation>
         <translation>Show Settings Dialog</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1412"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1419"/>
         <source>バージョン情報</source>
         <translation>About</translation>
     </message>
@@ -3715,22 +3715,22 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="285"/>
         <source>オーディオプラグインキーフレーム設定: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio plugin keyframe set: %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="312"/>
         <source>オーディオプラグインキーフレーム削除: %1 [%2]</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio plugin keyframe delete: %1 [%2]</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="319"/>
         <source>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio plugin keyframe move: %1 [%2 -&gt; %3]</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="326"/>
         <source>オーディオプラグインパラメータ変更: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio plugin parameter change: %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="78"/>
@@ -4203,12 +4203,12 @@ Please restart the application to apply the update.</translation>
         <translation> (Bezier)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2355"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2362"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2366"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2373"/>
         <source>検索...</source>
         <translation>Search...</translation>
     </message>

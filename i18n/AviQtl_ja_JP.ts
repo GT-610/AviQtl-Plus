@@ -2788,7 +2788,7 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="156"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1329"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1336"/>
         <source>終了</source>
         <translation>終了</translation>
     </message>
@@ -2987,7 +2987,7 @@
         <translation>速度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1292"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1299"/>
         <source>ファイル</source>
         <translation>ファイル</translation>
     </message>
@@ -3012,27 +3012,27 @@
         <translation>AviQtl Plus - プレビュー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1390"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1397"/>
         <source>ツール</source>
         <translation>ツール</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1393"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1400"/>
         <source>パッケージマネージャー</source>
         <translation>パッケージマネージャー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1352"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1359"/>
         <source>設定</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1337"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1344"/>
         <source>編集</source>
         <translation>編集</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1370"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1377"/>
         <source>表示</source>
         <translation>表示</translation>
     </message>
@@ -3047,7 +3047,7 @@
         <translation>設定ダイアログの表示</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1412"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1419"/>
         <source>バージョン情報</source>
         <translation>バージョン情報</translation>
     </message>
@@ -4175,12 +4175,12 @@
         <translation> (ベジェ)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2355"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2362"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2366"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2373"/>
         <source>検索...</source>
         <translation>検索...</translation>
     </message>

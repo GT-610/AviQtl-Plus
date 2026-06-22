@@ -1967,7 +1967,7 @@
     <message>
         <location filename="../ui/src/window_manager.cpp" line="56"/>
         <source>ミキサー</source>
-        <translation type="unfinished"></translation>
+        <translation>混音器</translation>
     </message>
 </context>
 <context>
@@ -2788,14 +2788,14 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="156"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1329"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1336"/>
         <source>終了</source>
         <translation>退出</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="223"/>
         <source>ミキサーの表示</source>
-        <translation type="unfinished"></translation>
+        <translation>显示混音器</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="236"/>
@@ -2987,7 +2987,7 @@
         <translation>速度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1292"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1299"/>
         <source>ファイル</source>
         <translation>文件</translation>
     </message>
@@ -3012,27 +3012,27 @@
         <translation>AviQtl Plus - 预览</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1390"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1397"/>
         <source>ツール</source>
         <translation>工具</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1393"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1400"/>
         <source>パッケージマネージャー</source>
         <translation>软件包管理器</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1352"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1359"/>
         <source>設定</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1337"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1344"/>
         <source>編集</source>
         <translation>编辑</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1370"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1377"/>
         <source>表示</source>
         <translation>显示</translation>
     </message>
@@ -3047,7 +3047,7 @@
         <translation>显示设置对话框</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1412"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1419"/>
         <source>バージョン情報</source>
         <translation>版本信息</translation>
     </message>
@@ -3715,22 +3715,22 @@
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="285"/>
         <source>オーディオプラグインキーフレーム設定: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>音频插件关键帧设置：%1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="312"/>
         <source>オーディオプラグインキーフレーム削除: %1 [%2]</source>
-        <translation type="unfinished"></translation>
+        <translation>音频插件关键帧删除：%1 [%2]</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="319"/>
         <source>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</source>
-        <translation type="unfinished"></translation>
+        <translation>音频插件关键帧移动：%1 [%2 -&gt; %3]</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="326"/>
         <source>オーディオプラグインパラメータ変更: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>音频插件参数更改：%1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="78"/>
@@ -4203,12 +4203,12 @@
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2355"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2362"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2366"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2373"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>

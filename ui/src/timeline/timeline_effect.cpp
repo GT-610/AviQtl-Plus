@@ -727,7 +727,15 @@ QVariantMap normalizeAudioPluginTrackForDuration(const QVariant &rawTrack, const
     start[QStringLiteral("value")] = fallback;
     start[QStringLiteral("interp")] = QStringLiteral("none");
     track[QStringLiteral("start")] = start;
-    track[QStringLiteral("points")] = QVariantList();
+    // Preserve existing keyframes if present
+    if (rawTrack.typeId() == QMetaType::QVariantList) {
+        track[QStringLiteral("points")] = rawTrack.toList();
+    } else if (rawTrack.typeId() == QMetaType::QVariantMap) {
+        QVariantMap rawMap = rawTrack.toMap();
+        track[QStringLiteral("points")] = rawMap.value(QStringLiteral("points")).toList();
+    } else {
+        track[QStringLiteral("points")] = QVariantList();
+    }
     return track;
 }
 

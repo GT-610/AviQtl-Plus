@@ -1148,6 +1148,13 @@ auto TimelineController::audioPluginEvaluatedParam(int clipId, int pluginIndex, 
             double t = static_cast<double>(frame - f0) / static_cast<double>(f1 - f0);
             double v0 = cur.value(QStringLiteral("value"), fallback).toDouble();
             double v1 = nxt.value(QStringLiteral("value"), fallback).toDouble();
+            // Discrete types: hold current value until crossing the midpoint
+            if (fallback.typeId() == QMetaType::Bool) {
+                return t < 0.5 ? v0 : v1;
+            }
+            if (fallback.typeId() == QMetaType::Int || fallback.typeId() == QMetaType::LongLong) {
+                return t < 0.5 ? std::floor(v0) : std::floor(v1);
+            }
             return v0 + (v1 - v0) * t;
         }
     }

@@ -2097,7 +2097,14 @@ Common.AviQtlWindow {
                                             horizontalAlignment: Text.AlignHCenter
                                             font.pixelSize: 11
                                             onEditingFinished: {
-                                                Workspace.currentTimeline.setEffectParameter(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramIdx, Number(text));
+                                                var parsed = Number(text);
+                                                if (isNaN(parsed)) return;
+                                                var kfs = Workspace.currentTimeline.audioPluginKeyframeListForUi(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey);
+                                                if (kfs.length > 0) {
+                                                    Workspace.currentTimeline.setAudioPluginKeyframe(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, root._audioRelFrame, parsed, {"interp": "linear"});
+                                                } else {
+                                                    Workspace.currentTimeline.setEffectParameter(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramIdx, parsed);
+                                                }
                                             }
                                         }
 

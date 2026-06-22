@@ -20,6 +20,9 @@ Common.AviQtlWindow {
     function refreshClips() {
         if (!Workspace.currentTimeline) return;
         audioClips = Workspace.currentTimeline.getAllAudioClips();
+        root.meterData = ({});
+        root.masterPeakL = 0;
+        root.masterPeakR = 0;
     }
 
     Component.onCompleted: refreshClips()

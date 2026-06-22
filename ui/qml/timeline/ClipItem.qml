@@ -230,24 +230,22 @@ Item {
             }
             // Don't handle drag - let moveArea handle it
             preventStealing: false
-            z: 0
+            z: 2
         }
 
         // Playhead line on waveform
         Rectangle {
             id: waveformPlayhead
-            visible: waveformCanvas.isAudio && Workspace.currentTimeline && Workspace.currentTimeline.transport
+            property int _relFrame: {
+                if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport) return -1;
+                return Workspace.currentTimeline.transport.currentFrame - modelData.startFrame;
+            }
+            visible: waveformCanvas.isAudio && _relFrame >= 0 && _relFrame <= waveformCanvas.displayDuration
             width: 1
             height: parent.height
             color: palette.highlight
             opacity: 0.9
-            x: {
-                if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport) return 0;
-                var absFrame = Workspace.currentTimeline.transport.currentFrame;
-                var relFrame = absFrame - modelData.startFrame;
-                if (relFrame < 0 || relFrame > waveformCanvas.displayDuration) return -1;
-                return (relFrame / Math.max(1, waveformCanvas.displayDuration)) * parent.width;
-            }
+            x: (_relFrame / Math.max(1, waveformCanvas.displayDuration)) * parent.width
             z: 1
         }
 

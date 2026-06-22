@@ -1276,6 +1276,13 @@ ApplicationWindow {
     }
 
     Shortcut {
+        sequence: showMixerAction.shortcutText
+        context: Qt.ApplicationShortcut
+        enabled: !_isInputFocused
+        onActivated: showMixerAction.trigger()
+    }
+
+    Shortcut {
         sequence: addSceneAction.shortcutText
         context: Qt.ApplicationShortcut
         enabled: !_isInputFocused
