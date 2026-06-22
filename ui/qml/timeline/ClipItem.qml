@@ -215,6 +215,40 @@ Item {
 
         }
 
+        // Waveform click-to-seek and playhead overlay
+        MouseArea {
+            id: waveformSeekArea
+            anchors.fill: parent
+            visible: waveformCanvas.isAudio
+            enabled: waveformCanvas.isAudio
+            acceptedButtons: Qt.LeftButton
+            onPressed: function(mouse) {
+                if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport) return;
+                var relFrame = Math.round((mouse.x / width) * waveformCanvas.displayDuration);
+                relFrame = Math.max(0, Math.min(waveformCanvas.displayDuration, relFrame));
+                Workspace.currentTimeline.transport.setCurrentFrame_seek(modelData.startFrame + relFrame);
+            }
+            // Don't handle drag - let moveArea handle it
+            preventStealing: false
+            z: 2
+        }
+
+        // Playhead line on waveform
+        Rectangle {
+            id: waveformPlayhead
+            property int _relFrame: {
+                if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport) return -1;
+                return Workspace.currentTimeline.transport.currentFrame - modelData.startFrame;
+            }
+            visible: waveformCanvas.isAudio && _relFrame >= 0 && _relFrame <= waveformCanvas.displayDuration
+            width: 1
+            height: parent.height
+            color: palette.highlight
+            opacity: 0.9
+            x: (_relFrame / Math.max(1, waveformCanvas.displayDuration)) * parent.width
+            z: 1
+        }
+
         MouseArea {
             id: moveArea
 

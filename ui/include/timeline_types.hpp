@@ -19,6 +19,7 @@ struct AudioPluginState {
     QString id;
     bool enabled = true;
     QVariantMap params;
+    QVariantMap keyframeTracks; // paramIndex -> structured keyframe track
 };
 
 struct ClipData {

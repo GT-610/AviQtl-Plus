@@ -216,6 +216,19 @@ ApplicationWindow {
     }
 
     Action {
+        id: showMixerAction
+
+        property string shortcutText: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["view.mixer"]) || "F5"
+
+        text: qsTr("ミキサーの表示")
+        onTriggered: {
+            if (WindowManager)
+                WindowManager.toggleVisible("mixer");
+
+        }
+    }
+
+    Action {
         id: addSceneAction
 
         property string shortcutText: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["timeline.addScene"]) || "Ctrl+T"
@@ -1263,6 +1276,13 @@ ApplicationWindow {
     }
 
     Shortcut {
+        sequence: showMixerAction.shortcutText
+        context: Qt.ApplicationShortcut
+        enabled: !_isInputFocused
+        onActivated: showMixerAction.trigger()
+    }
+
+    Shortcut {
         sequence: addSceneAction.shortcutText
         context: Qt.ApplicationShortcut
         enabled: !_isInputFocused
@@ -1364,6 +1384,11 @@ ApplicationWindow {
             Common.IconMenuItem {
                 action: showObjectSettingsAction
                 iconName: "equalizer_line"
+            }
+
+            Common.IconMenuItem {
+                action: showMixerAction
+                iconName: "volume_up_line"
             }
 
         }

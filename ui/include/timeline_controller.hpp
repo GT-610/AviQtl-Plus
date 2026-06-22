@@ -139,6 +139,13 @@ class TimelineController : public QObject {
     Q_INVOKABLE bool isAudioClip(int clipId) const;
     Q_INVOKABLE QVariantList getWaveformPeaks(int clipId, int pixelWidth, int displayDurationFrames) const;
 
+    // Mixer panel support
+    Q_INVOKABLE QVariantList getAllAudioClips() const;
+    Q_INVOKABLE void setAudioClipVolume(int clipId, float volume);
+    Q_INVOKABLE void setAudioClipPan(int clipId, float pan);
+    Q_INVOKABLE void setAudioClipMute(int clipId, bool mute);
+    Q_INVOKABLE void setAudioClipSolo(int clipId, bool solo);
+
     // パラメータ操作用
     Q_INVOKABLE QVariantList getClipEffectStack(int clipId) const;
     Q_INVOKABLE QVariantList getEffectParameters(int clipId, int effectIndex) const;
@@ -146,6 +153,13 @@ class TimelineController : public QObject {
     Q_INVOKABLE void setKeyframe(int clipId, int effectIndex, const QString &paramName, int frame, const QVariant &value, const QVariantMap &options);
     Q_INVOKABLE void removeKeyframe(int clipId, int effectIndex, const QString &paramName, int frame);
     Q_INVOKABLE void moveKeyframe(int clipId, int effectIndex, const QString &paramName, int oldFrame, int newFrame);
+
+    // Audio plugin keyframe operations
+    Q_INVOKABLE void setAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame, const QVariant &value, const QVariantMap &options);
+    Q_INVOKABLE void removeAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame);
+    Q_INVOKABLE void moveAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame);
+    Q_INVOKABLE QVariantList audioPluginKeyframeListForUi(int clipId, int pluginIndex, const QString &paramKey) const;
+    Q_INVOKABLE QVariant audioPluginEvaluatedParam(int clipId, int pluginIndex, const QString &paramKey, int frame) const;
 
     // シーン操作
     QVariantList scenes() const;

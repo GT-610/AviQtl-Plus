@@ -113,6 +113,9 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
                 pObj.insert(QStringLiteral("id"), plugin.id);
                 pObj.insert(QStringLiteral("enabled"), plugin.enabled);
                 pObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(plugin.params));
+                if (!plugin.keyframeTracks.isEmpty()) {
+                    pObj.insert(QStringLiteral("keyframes"), QJsonObject::fromVariantMap(plugin.keyframeTracks));
+                }
                 audioPluginsArray.append(pObj);
             }
             clipObj.insert(QStringLiteral("audioPlugins"), audioPluginsArray);
@@ -217,6 +220,10 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
             plugin.id = pObj.value(QStringLiteral("id")).toString();
             plugin.enabled = pObj.value(QStringLiteral("enabled")).toBool(true);
             plugin.params = pObj.value(QStringLiteral("params")).toObject().toVariantMap();
+            auto kfIt = pObj.find(QStringLiteral("keyframes"));
+            if (kfIt != pObj.end()) {
+                plugin.keyframeTracks = kfIt.value().toObject().toVariantMap();
+            }
             if (!plugin.id.isEmpty()) {
                 clip.audioPlugins.append(plugin);
             }
