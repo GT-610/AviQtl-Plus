@@ -117,6 +117,7 @@ Common.AviQtlWindow {
                                         ]
                                         delegate: Row {
                                             spacing: 2
+                                            property real peakDb: modelData.peak > 0.0001 ? 20 * Math.log10(modelData.peak) : -100
                                             Label { text: modelData.name; font.pixelSize: 8; color: palette.text; width: 8 }
                                             Rectangle {
                                                 width: 48; height: 8; radius: 2
@@ -132,7 +133,7 @@ Common.AviQtlWindow {
                                                     color: modelData.peak > 0.95 ? "#d94f4f" : "#4fd97b"
                                                 }
                                             }
-                                            Label { text: Math.round(modelData.peak * 100) + "%"; font.pixelSize: 7; color: palette.text; width: 28; horizontalAlignment: Text.AlignRight }
+                                            Label { text: modelData.peak > 0.95 ? "CLIP" : (peakDb > -100 ? peakDb.toFixed(1) + "dB" : "-inf"); font.pixelSize: 7; color: modelData.peak > 0.95 ? "#d94f4f" : palette.text; width: 36; horizontalAlignment: Text.AlignRight }
                                         }
                                     }
                                 }
@@ -251,6 +252,7 @@ Common.AviQtlWindow {
                             ]
                             delegate: Row {
                                 spacing: 2
+                                property real peakDb: modelData.peak > 0.0001 ? 20 * Math.log10(modelData.peak) : -100
                                 Label { text: modelData.name; font.pixelSize: 8; color: palette.text; width: 8 }
                                 Rectangle {
                                     width: 56; height: 8; radius: 2
@@ -261,7 +263,7 @@ Common.AviQtlWindow {
                                         color: modelData.peak > 0.95 ? "#d94f4f" : "#4fd97b"
                                     }
                                 }
-                                Label { text: Math.round(modelData.peak * 100) + "%"; font.pixelSize: 7; color: palette.text; width: 28; horizontalAlignment: Text.AlignRight }
+                                Label { text: modelData.peak > 0.95 ? "CLIP" : (peakDb > -100 ? peakDb.toFixed(1) + "dB" : "-inf"); font.pixelSize: 7; color: modelData.peak > 0.95 ? "#d94f4f" : palette.text; width: 36; horizontalAlignment: Text.AlignRight }
                             }
                         }
                     }

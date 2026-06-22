@@ -498,6 +498,18 @@ void TimelineService::updateEffectParam(int clipId, int effectIndex, const QStri
     m_undoStack->push(new UpdateEffectParamCommand(this, clipId, effectIndex, paramName, value, oldValue, eff->name()));
 }
 
+void TimelineService::setAudioPluginParam(int clipId, int pluginIndex, int paramIndex, float value) {
+    const auto *clip = findClipById(clipId);
+    if ((clip == nullptr) || pluginIndex < 0 || pluginIndex >= static_cast<int>(clip->audioPlugins.size())) {
+        return;
+    }
+
+    const auto &plugin = clip->audioPlugins.at(pluginIndex);
+    const float oldValue = plugin.params.value(QString::number(paramIndex)).toFloat();
+
+    m_undoStack->push(new SetAudioPluginParamCommand(this, clipId, pluginIndex, paramIndex, value, oldValue, plugin.id));
+}
+
 void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, const QString &paramName, const QVariant &value) {
     auto *clip = findClipById(clipId);
     if (clip != nullptr) {

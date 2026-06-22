@@ -73,6 +73,7 @@ class TimelineService : public QObject {
     void copyEffect(int clipId, int effectIndex);
     void pasteEffect(int clipId, int targetIndex);
     void updateEffectParam(int clipId, int effectIndex, const QString &paramName, const QVariant &value);
+    void setAudioPluginParam(int clipId, int pluginIndex, int paramIndex, float value);
     void setKeyframe(int clipId, int effectIndex, const QString &paramName, int frame, const QVariant &value, const QVariantMap &options);
     void removeKeyframe(int clipId, int effectIndex, const QString &paramName, int frame);
     void moveKeyframe(int clipId, int effectIndex, const QString &paramName, int oldFrame, int newFrame);

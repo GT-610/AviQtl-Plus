@@ -366,4 +366,22 @@ class UpdateLayerStateCommand : public QUndoCommand {
     StateType m_type;
 };
 
+class SetAudioPluginParamCommand : public QUndoCommand {
+  public:
+    SetAudioPluginParamCommand(TimelineService *service, int clipId, int pluginIndex, int paramIndex, float newValue, float oldValue, const QString &pluginName);
+    void undo() override;
+    void redo() override;
+    int id() const override;
+    bool mergeWith(const QUndoCommand *other) override;
+
+  private:
+    TimelineService *m_service;
+    int m_clipId;
+    int m_pluginIndex;
+    int m_paramIndex;
+    float m_newValue;
+    float m_oldValue;
+    QString m_pluginName;
+};
+
 } // namespace AviQtl::UI

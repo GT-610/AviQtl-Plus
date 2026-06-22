@@ -1063,7 +1063,7 @@ void TimelineController::setEffectParameter(int clipId, int effectIndex, int par
     auto *plugin = chain->get(effectIndex); // NOLINT(bugprone-easily-swappable-parameters)
     if (plugin != nullptr) {
         plugin->setParam(paramIndex, value);
-        m_timeline->setAudioPluginParamInternal(clipId, effectIndex, paramIndex, value);
+        m_timeline->setAudioPluginParam(clipId, effectIndex, paramIndex, value);
     }
 }
 

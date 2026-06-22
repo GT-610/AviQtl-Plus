@@ -3728,6 +3728,11 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="326"/>
+        <source>オーディオプラグインパラメータ変更: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="78"/>
         <location filename="../ui/src/timeline_service.cpp" line="17"/>
         <source>ルート</source>
@@ -4158,52 +4163,52 @@
         <translation>电平表</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1297"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1305"/>
         <source>Carlaプラグインチェーン</source>
         <translation>Carla插件链</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1307"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1315"/>
         <source>左側のリストでプラグインを選択・並べ替えできます。</source>
         <translation>可以在左侧列表中选择和重新排序插件。</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1307"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1315"/>
         <source>上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。</source>
         <translation>请通过顶部的“添加插件”或菜单添加Carla插件。</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1693"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1701"/>
         <source> (直線)</source>
         <translation>（直线）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1694"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1702"/>
         <source> (加速)</source>
         <translation>（加速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1695"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1703"/>
         <source> (減速)</source>
         <translation>（减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1696"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1704"/>
         <source> (加減速)</source>
         <translation>（加减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1697"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1705"/>
         <source> (ベジェ)</source>
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2347"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2355"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2358"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2366"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>

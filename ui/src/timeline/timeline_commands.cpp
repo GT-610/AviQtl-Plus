@@ -321,4 +321,24 @@ MoveAudioPluginKeyframeCommand::MoveAudioPluginKeyframeCommand(TimelineService *
 void MoveAudioPluginKeyframeCommand::redo() { m_service->moveAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_oldFrame, m_newFrame); }
 void MoveAudioPluginKeyframeCommand::undo() { m_service->moveAudioPluginKeyframeInternal(m_clipId, m_pluginIndex, m_paramKey, m_newFrame, m_oldFrame); }
 
+SetAudioPluginParamCommand::SetAudioPluginParamCommand(TimelineService *service, int clipId, int pluginIndex, int paramIndex, float newValue, float oldValue, const QString &pluginName) // NOLINT(bugprone-easily-swappable-parameters)
+    : m_service(service), m_clipId(clipId), m_pluginIndex(pluginIndex), m_paramIndex(paramIndex), m_newValue(newValue), m_oldValue(oldValue), m_pluginName(pluginName) {
+    setText(QObject::tr("オーディオプラグインパラメータ変更: %1").arg(pluginName));
+}
+void SetAudioPluginParamCommand::redo() { m_service->setAudioPluginParamInternal(m_clipId, m_pluginIndex, m_paramIndex, m_newValue); }
+void SetAudioPluginParamCommand::undo() { m_service->setAudioPluginParamInternal(m_clipId, m_pluginIndex, m_paramIndex, m_oldValue); }
+auto SetAudioPluginParamCommand::id() const -> int { return 1004; }
+auto SetAudioPluginParamCommand::mergeWith(const QUndoCommand *other) -> bool {
+    if (other->id() != id()) {
+        return false;
+    }
+    const auto *cmd = dynamic_cast<const SetAudioPluginParamCommand *>(other);
+    if (cmd->m_clipId != m_clipId || cmd->m_pluginIndex != m_pluginIndex || cmd->m_paramIndex != m_paramIndex) {
+        return false;
+    }
+    m_newValue = cmd->m_newValue;
+    redo();
+    return true;
+}
+
 } // namespace AviQtl::UI

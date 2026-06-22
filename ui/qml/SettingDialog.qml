@@ -1244,6 +1244,8 @@ Common.AviQtlWindow {
                                     Layout.fillWidth: true
                                     spacing: 8
 
+                                    property real peakDb: modelData.peak > 0.0001 ? 20 * Math.log10(modelData.peak) : -100
+
                                     Label {
                                         text: modelData.name
                                         Layout.preferredWidth: 14
@@ -1279,11 +1281,17 @@ Common.AviQtlWindow {
                                     }
 
                                     Label {
-                                        text: (Math.max(modelData.peak, 0) * 100).toFixed(0) + "%"
-                                        Layout.preferredWidth: 42
+                                        text: {
+                                            if (modelData.peak > 0.95) return "CLIP";
+                                            var db = parent.peakDb;
+                                            return db > -100 ? db.toFixed(1) + "dB" : "-inf";
+                                        }
+                                        Layout.preferredWidth: 48
                                         horizontalAlignment: Text.AlignRight
-                                        color: palette.text
-                                        opacity: 0.75
+                                        color: modelData.peak > 0.95 ? "#d94f4f" : palette.text
+                                        font.pixelSize: 11
+                                        font.bold: modelData.peak > 0.95
+                                        opacity: 0.85
                                     }
                                 }
                             }
