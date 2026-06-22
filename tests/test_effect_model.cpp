@@ -107,7 +107,7 @@ class TestEffectModel : public QObject {
         QCOMPARE(track[1].toMap().value(QStringLiteral("frame")).toInt(), 5);
         QCOMPARE(track[1].toMap().value(QStringLiteral("value")).toInt(), 100);
         QCOMPARE(track[1].toMap().value(QStringLiteral("interp")).toString(), QStringLiteral("linear"));
-        QCOMPARE(m.evaluatedParam(QStringLiteral("pos"), 3).toDouble(), AviQtl::kDefaultFps);
+        QCOMPARE(m.evaluatedParam(QStringLiteral("pos"), 3).toDouble(), 60.0);
         QCOMPARE(m.evaluatedParam(QStringLiteral("pos"), 8).toDouble(), 160.0);
     }
 

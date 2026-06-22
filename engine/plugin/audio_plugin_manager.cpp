@@ -120,9 +120,15 @@ class CarlaHostedPlugin final : public IAudioPlugin {
         const auto &sm = AviQtl::Core::SettingsManager::instance();
         if (m_sampleRate <= 1.0) {
             m_sampleRate = sm.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toDouble();
+            if (m_sampleRate <= 0.0) {
+                m_sampleRate = AviQtl::kDefaultSampleRate;
+            }
         }
         if (m_maxBlockSize <= 0) {
             m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), AviQtl::kAudioMaxBlockSize).toInt();
+            if (m_maxBlockSize <= 0) {
+                m_maxBlockSize = AviQtl::kAudioMaxBlockSize;
+            }
         }
 
         m_uiNameBuf = m_info.name.toUtf8();

@@ -730,7 +730,7 @@ Item {
                         }
                     }
                     if (curScene) {
-                        win.openForScene(curScene.id, curScene.name, curScene.width !== undefined ? curScene.width : DefaultWidth, curScene.height !== undefined ? curScene.height : DefaultHeight, curScene.fps !== undefined ? curScene.fps : 60, curScene.totalFrames !== undefined ? curScene.totalFrames : DefaultTotalFrames, curScene.gridMode || "Auto", curScene.gridBpm !== undefined ? curScene.gridBpm : 120, curScene.gridOffset !== undefined ? curScene.gridOffset : 0, curScene.gridInterval !== undefined ? curScene.gridInterval : 10, curScene.gridSubdivision !== undefined ? curScene.gridSubdivision : 4, curScene.enableSnap !== undefined ? curScene.enableSnap : true, curScene.magneticSnapRange !== undefined ? curScene.magneticSnapRange : 10);
+                        win.openForScene(curScene.id, curScene.name, curScene.width !== undefined ? curScene.width : DefaultWidth, curScene.height !== undefined ? curScene.height : DefaultHeight, curScene.fps !== undefined ? curScene.fps : DefaultFps, curScene.totalFrames !== undefined ? curScene.totalFrames : DefaultTotalFrames, curScene.gridMode || "Auto", curScene.gridBpm !== undefined ? curScene.gridBpm : 120, curScene.gridOffset !== undefined ? curScene.gridOffset : 0, curScene.gridInterval !== undefined ? curScene.gridInterval : 10, curScene.gridSubdivision !== undefined ? curScene.gridSubdivision : 4, curScene.enableSnap !== undefined ? curScene.enableSnap : true, curScene.magneticSnapRange !== undefined ? curScene.magneticSnapRange : 10);
                     } else {
                         win.show();
                         win.raise();

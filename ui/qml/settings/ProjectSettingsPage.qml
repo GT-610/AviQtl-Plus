@@ -74,7 +74,7 @@ ScrollView {
                     from: 100
                     to: 24000
                     stepSize: 100
-                    value: Math.round(root.valueOr("defaultProjectFps", 60) * 100)
+                    value: Math.round(root.valueOr("defaultProjectFps", DefaultFps) * 100)
                     textFromValue: function(value, locale) {
                         return (value / 100).toFixed(2);
                     }

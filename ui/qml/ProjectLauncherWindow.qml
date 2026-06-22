@@ -22,7 +22,7 @@ Common.AviQtlWindow {
             // 設定からデフォルト値を読み込む
             widthField.text = SettingsManager.settings.defaultProjectWidth || "" + DefaultWidth;
             heightField.text = SettingsManager.settings.defaultProjectHeight || "" + DefaultHeight;
-            fpsField.text = SettingsManager.settings.defaultProjectFps || "60";
+            fpsField.text = SettingsManager.settings.defaultProjectFps || "" + DefaultFps;
             sampleRateField.text = SettingsManager.settings.defaultProjectSampleRate || "" + DefaultSampleRate;
         }
     }
@@ -221,7 +221,7 @@ Common.AviQtlWindow {
                             }
 
                             Label {
-                                text: (model.width || DefaultWidth) + "x" + (model.height || DefaultHeight) + " @ " + (model.fps || 30) + "fps"
+                                text: (model.width || DefaultWidth) + "x" + (model.height || DefaultHeight) + " @ " + (model.fps || DefaultFps) + "fps"
                                 font.pixelSize: 10
                             }
 
