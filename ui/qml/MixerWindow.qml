@@ -18,7 +18,13 @@ Common.AviQtlWindow {
     property real masterPeakR: 0
 
     function refreshClips() {
-        if (!Workspace.currentTimeline) return;
+        if (!Workspace.currentTimeline) {
+            audioClips = [];
+            root.meterData = ({});
+            root.masterPeakL = 0;
+            root.masterPeakR = 0;
+            return;
+        }
         audioClips = Workspace.currentTimeline.getAllAudioClips();
         root.meterData = ({});
         root.masterPeakL = 0;
@@ -26,6 +32,11 @@ Common.AviQtlWindow {
     }
 
     Component.onCompleted: refreshClips()
+
+    Connections {
+        target: Workspace
+        function onCurrentTimelineChanged() { refreshClips(); }
+    }
 
     Connections {
         target: Workspace.currentTimeline
