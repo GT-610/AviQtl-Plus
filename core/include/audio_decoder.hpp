@@ -59,8 +59,7 @@ class AudioDecoder : public MediaDecoder {
     AVFrame *m_frame = nullptr;
     AVPacket *m_pkt = nullptr;
 
-    // Use atomic<shared_ptr> for lock-free access during peak cache building
-    std::atomic<std::shared_ptr<std::vector<float>>> m_fullAudioData = std::make_shared<std::vector<float>>();
+    std::shared_ptr<std::vector<float>> m_fullAudioData = std::make_shared<std::vector<float>>();
     std::vector<PeakLevel> m_peakPyramid;
     QFuture<void> m_decodeFuture;
     std::atomic<bool> m_closing{false};

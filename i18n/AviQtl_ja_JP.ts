@@ -1797,17 +1797,17 @@
         <translation>レイヤー変更</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="352"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="344"/>
         <source>音声をインポート</source>
         <translation>音声をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="384"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="362"/>
         <source>画像をインポート</source>
         <translation>画像をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="561"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="525"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>複数クリップリサイズ: %1</translation>
     </message>
@@ -1817,17 +1817,17 @@
         <translation>保存先のファイルパスが不明です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="318"/>
         <source>動画をインポート</source>
         <translation>動画をインポート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="279"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="308"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>ファイルが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="413"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="377"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>

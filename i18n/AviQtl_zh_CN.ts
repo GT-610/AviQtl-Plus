@@ -1797,17 +1797,17 @@
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="352"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="344"/>
         <source>音声をインポート</source>
         <translation>导入音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="384"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="362"/>
         <source>画像をインポート</source>
         <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="561"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="525"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1817,17 +1817,17 @@
         <translation>保存目标文件路径未知</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="318"/>
         <source>動画をインポート</source>
         <translation>导入视频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="279"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="308"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="413"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="377"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>

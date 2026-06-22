@@ -1797,17 +1797,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="352"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="344"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="384"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="362"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="561"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="525"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1817,17 +1817,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="298"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="318"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="279"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="308"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="413"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="377"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
