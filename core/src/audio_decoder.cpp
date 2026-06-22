@@ -1,7 +1,10 @@
 #include "audio_decoder.hpp"
 #include <QDebug>
+#include <QLoggingCategory>
 #include <QtConcurrent>
 #include <algorithm>
+
+Q_LOGGING_CATEGORY(lcAudioDecoder, "aviqtl.audio_decoder")
 
 namespace AviQtl::Core {
 
@@ -178,7 +181,7 @@ void AudioDecoder::startDecoding() {
             return;
         }
 
-        qDebug() << "[AudioDecoder] clip" << m_clipId << "decoded. total samples:" << audioData->size();
+        qCInfo(lcAudioDecoder) << "clip" << m_clipId << "decoded. total samples:" << audioData->size();
         m_isReady = true;
         emit ready();
     });

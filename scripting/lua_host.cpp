@@ -1,7 +1,10 @@
 #include "lua_host.hpp"
 #include <QDebug>
+#include <QLoggingCategory>
 #include <lua.hpp> // Standard Lua/LuaJIT header
 #include <unordered_map>
+
+Q_LOGGING_CATEGORY(lcScripting, "aviqtl.scripting")
 
 namespace AviQtl::Scripting {
 
@@ -71,7 +74,7 @@ void LuaHost::initialize() {
     }
     L = luaL_newstate();
     setupSafeLuaState(L);
-    qDebug() << "[LuaHost] LuaJIT engine initialized (Main Thread)";
+    qCInfo(lcScripting) << "LuaJIT engine initialized (Main Thread)";
 }
 
 struct ThreadLocalLua {

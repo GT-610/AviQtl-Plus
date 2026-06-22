@@ -1856,35 +1856,35 @@
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="82"/>
         <source>Encoder initialization failed</source>
         <translation>编码器初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="120"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="254"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="255"/>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="157"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="290"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="158"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="291"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="168"/>
         <source>Cannot create output directory</source>
         <translation>无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="239"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="108"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="240"/>
         <source>Failed to capture frame %1</source>
         <translation>捕获帧 %1 失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="279"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="280"/>
         <source>Failed to save frame %1</source>
         <translation>保存帧 %1 失败</translation>
     </message>
@@ -1915,57 +1915,57 @@
 <context>
     <name>AviQtl::UI::WindowManager</name>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="35"/>
+        <location filename="../ui/src/window_manager.cpp" line="37"/>
         <source>AviQtl メインプレビュー</source>
         <translation>AviQtl 主预览</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="37"/>
+        <location filename="../ui/src/window_manager.cpp" line="39"/>
         <source>タイムライン</source>
         <translation>时间线</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="39"/>
+        <location filename="../ui/src/window_manager.cpp" line="41"/>
         <source>プロジェクト設定</source>
         <translation>项目设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="41"/>
+        <location filename="../ui/src/window_manager.cpp" line="43"/>
         <source>オブジェクト設定</source>
         <translation>对象设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="43"/>
+        <location filename="../ui/src/window_manager.cpp" line="45"/>
         <source>環境設定</source>
         <translation>首选项</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="45"/>
+        <location filename="../ui/src/window_manager.cpp" line="47"/>
         <source>AviQtlについて</source>
         <translation>关于 AviQtl</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="47"/>
+        <location filename="../ui/src/window_manager.cpp" line="49"/>
         <source>シーン設定</source>
         <translation>场景设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="49"/>
+        <location filename="../ui/src/window_manager.cpp" line="51"/>
         <source>メディアの書き出し</source>
         <translation>导出媒体</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="51"/>
+        <location filename="../ui/src/window_manager.cpp" line="53"/>
         <source>補間設定</source>
         <translation>插值设置</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="53"/>
+        <location filename="../ui/src/window_manager.cpp" line="55"/>
         <source>パッケージマネージャー</source>
         <translation>软件包管理器</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="56"/>
+        <location filename="../ui/src/window_manager.cpp" line="58"/>
         <source>ミキサー</source>
         <translation>混音器</translation>
     </message>

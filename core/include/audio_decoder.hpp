@@ -2,10 +2,13 @@
 
 #include "media_decoder.hpp"
 #include <QFuture>
+#include <QLoggingCategory>
 #include <atomic>
 #include <memory>
 #include <mutex>
 #include <vector>
+
+Q_DECLARE_LOGGING_CATEGORY(lcAudioDecoder)
 
 extern "C" {
 #include <libavcodec/avcodec.h>

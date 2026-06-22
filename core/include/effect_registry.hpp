@@ -1,9 +1,12 @@
 #pragma once
 #include <QHash>
 #include <QList>
+#include <QLoggingCategory>
 #include <QString>
 #include <QVariantMap>
 #include <vector>
+
+Q_DECLARE_LOGGING_CATEGORY(lcEffectRegistry)
 
 namespace AviQtl::Core {
 

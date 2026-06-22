@@ -1,11 +1,14 @@
 #pragma once
 #include "audio_plugin_host.hpp"
 #include <QHash>
+#include <QLoggingCategory>
 #include <QMutex>
 #include <QObject>
 #include <QVariantList>
 #include <atomic>
 #include <memory>
+
+Q_DECLARE_LOGGING_CATEGORY(lcPluginManager)
 
 namespace AviQtl::Engine::Plugin {
 

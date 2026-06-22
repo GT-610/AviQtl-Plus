@@ -1,6 +1,7 @@
 #include "video_encoder.hpp"
 #include "settings_manager.hpp"
 #include <QDebug>
+#include <QLoggingCategory>
 #include <math.h>
 #include <algorithm>
 
@@ -16,6 +17,8 @@ extern "C" {
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 }
+
+Q_LOGGING_CATEGORY(lcVideoEncoder, "aviqtl.video_encoder")
 
 namespace AviQtl::Core {
 
@@ -131,7 +134,7 @@ auto VideoEncoder::initHardware(const QString &codecName) -> bool {
         qWarning() << "Failed to create HW device context for" << codecName << "Error:" << err;
         return false;
     }
-    qDebug() << "Hardware device initialized:" << av_hwdevice_get_type_name(type);
+    qCInfo(lcVideoEncoder) << "Hardware device initialized:" << av_hwdevice_get_type_name(type);
     return true;
 }
 
@@ -285,7 +288,7 @@ auto VideoEncoder::open(const Config &config) -> bool {
 
     m_hwFrame = av_frame_alloc(); // For HW upload
 
-    qDebug() << "VideoEncoder opened using codec:" << config.codecName;
+    qCInfo(lcVideoEncoder) << "VideoEncoder opened using codec:" << config.codecName;
 
     // エンコードスレッド開始
     m_stopEncoding = false;
@@ -374,7 +377,7 @@ auto VideoEncoder::addAudioStream(int sampleRate, int channels) -> bool {
         return false;
     }
 
-    qDebug() << "Audio stream added: AAC" << sampleRate << "Hz";
+    qCInfo(lcVideoEncoder) << "Audio stream added: AAC" << sampleRate << "Hz";
     return true;
 }
 
@@ -874,7 +877,7 @@ void VideoEncoder::close() {
 
     av_write_trailer(m_fmtCtx);
     cleanup();
-    qDebug() << "VideoEncoder closed.";
+    qCDebug(lcVideoEncoder) << "VideoEncoder closed.";
 }
 
 } // namespace AviQtl::Core

@@ -3,8 +3,12 @@
 #include "commands.hpp"
 #include "core/include/document_model.hpp"
 #include "engine/timeline/bake_controller.hpp"
+#include <QDebug>
+#include <QLoggingCategory>
 #include <QSet>
 #include <QSignalBlocker>
+
+Q_LOGGING_CATEGORY(lcTimeline, "aviqtl.timeline")
 
 namespace AviQtl::UI {
 
@@ -124,7 +128,7 @@ void TimelineController::onCurrentFrameChanged() {
 }
 
 void TimelineController::setVideoFrameStore(AviQtl::Core::VideoFrameStore *store) {
-    qDebug() << "TimelineController: VideoFrameStore set. Updating decoders...";
+    qCInfo(lcTimeline) << "VideoFrameStore set. Updating decoders...";
     m_mediaManager->setVideoFrameStore(store);
 }
 
@@ -174,7 +178,7 @@ void TimelineController::invalidateTimelineDuration() {
     }
 }
 
-void TimelineController::log(const QString &msg) { qDebug() << "[TimelineBridge] " << msg; }
+void TimelineController::log(const QString &msg) { qCDebug(lcTimeline) << "[Bridge]" << msg; }
 
 auto TimelineController::resolveDragPosition(int clipId, int targetLayer, int proposedStartFrame, const QVariantList &batchIds) -> QPoint { return m_timeline->resolveDragPosition(clipId, targetLayer, proposedStartFrame, batchIds); }
 

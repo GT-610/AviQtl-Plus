@@ -1,7 +1,10 @@
 #pragma once
 
+#include <QLoggingCategory>
 #include <lua.hpp>
 #include <string>
+
+Q_DECLARE_LOGGING_CATEGORY(lcScripting)
 
 namespace AviQtl::Scripting {
 

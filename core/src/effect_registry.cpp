@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
+#include <QLoggingCategory>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -11,6 +12,8 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QUrl>
+
+Q_LOGGING_CATEGORY(lcEffectRegistry, "aviqtl.effect_registry")
 
 namespace AviQtl::Core {
 
@@ -76,7 +79,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
     }
 
     int loadedCount = 0;
-    qDebug().noquote() << "[EffectRegistry] Scanning:" << path;
+    qCDebug(lcEffectRegistry).noquote() << "Scanning:" << path;
 
     // *.json ファイルをサブディレクトリを含めて検索
     QDirIterator it(path, {QStringLiteral("*.json")}, QDir::Files, QDirIterator::Subdirectories);
@@ -186,7 +189,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         loadedCount++;
     }
 
-    qDebug().noquote() << "[EffectRegistry]" << dir.dirName() << "→" << loadedCount << " loaded";
+    qCInfo(lcEffectRegistry).noquote() << dir.dirName() << "→" << loadedCount << " loaded";
 }
 
 } // namespace AviQtl::Core

@@ -16,6 +16,8 @@
 #include <memory>
 #include <vector>
 
+Q_DECLARE_LOGGING_CATEGORY(lcTimeline)
+
 namespace AviQtl::Core {
 class VideoFrameStore;
 }

@@ -4,11 +4,13 @@
 #include <QAudioSink>
 #include <QHash>
 #include <QIODevice>
+#include <QLoggingCategory>
 #include <QObject>
 #include <memory>
 #include <mutex>
-#include <shared_mutex>
 #include <unordered_map>
+
+Q_DECLARE_LOGGING_CATEGORY(lcAudioMixer)
 
 namespace AviQtl::Core {
 class AudioDecoder;

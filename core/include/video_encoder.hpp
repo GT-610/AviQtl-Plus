@@ -2,6 +2,7 @@
 
 #include "constants.hpp"
 #include <QImage>
+#include <QLoggingCategory>
 #include <QObject>
 #include <QSize>
 #include <QString>
@@ -9,6 +10,8 @@
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+
+Q_DECLARE_LOGGING_CATEGORY(lcVideoEncoder)
 #include <thread>
 #include <vector>
 

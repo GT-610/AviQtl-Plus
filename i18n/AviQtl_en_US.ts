@@ -1856,35 +1856,35 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="81"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="82"/>
         <source>Encoder initialization failed</source>
         <translation>Encoder initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="120"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="254"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="255"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="157"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="290"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="158"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="291"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="168"/>
         <source>Cannot create output directory</source>
         <translation>Cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="239"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="108"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="240"/>
         <source>Failed to capture frame %1</source>
         <translation>Failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="279"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="280"/>
         <source>Failed to save frame %1</source>
         <translation>Failed to save frame %1</translation>
     </message>
@@ -1915,57 +1915,57 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::WindowManager</name>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="35"/>
+        <location filename="../ui/src/window_manager.cpp" line="37"/>
         <source>AviQtl メインプレビュー</source>
         <translation>AviQtl Main Preview</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="37"/>
+        <location filename="../ui/src/window_manager.cpp" line="39"/>
         <source>タイムライン</source>
         <translation>Timeline</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="39"/>
+        <location filename="../ui/src/window_manager.cpp" line="41"/>
         <source>プロジェクト設定</source>
         <translation>Project Settings</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="41"/>
+        <location filename="../ui/src/window_manager.cpp" line="43"/>
         <source>オブジェクト設定</source>
         <translation>Object Settings</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="43"/>
+        <location filename="../ui/src/window_manager.cpp" line="45"/>
         <source>環境設定</source>
         <translation>Preferences</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="45"/>
+        <location filename="../ui/src/window_manager.cpp" line="47"/>
         <source>AviQtlについて</source>
         <translation>About AviQtl</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="47"/>
+        <location filename="../ui/src/window_manager.cpp" line="49"/>
         <source>シーン設定</source>
         <translation>Scene Settings</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="49"/>
+        <location filename="../ui/src/window_manager.cpp" line="51"/>
         <source>メディアの書き出し</source>
         <translation>Export Media</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="51"/>
+        <location filename="../ui/src/window_manager.cpp" line="53"/>
         <source>補間設定</source>
         <translation>Interpolation Settings</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="53"/>
+        <location filename="../ui/src/window_manager.cpp" line="55"/>
         <source>パッケージマネージャー</source>
         <translation>Package Manager</translation>
     </message>
     <message>
-        <location filename="../ui/src/window_manager.cpp" line="56"/>
+        <location filename="../ui/src/window_manager.cpp" line="58"/>
         <source>ミキサー</source>
         <translation>Mixer</translation>
     </message>

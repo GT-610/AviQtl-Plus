@@ -17,6 +17,8 @@
 #include <utility>
 #include <vector>
 
+Q_LOGGING_CATEGORY(lcPluginManager, "aviqtl.plugin_manager")
+
 #include <CarlaNativePlugin.h>
 
 namespace AviQtl::Engine::Plugin {
@@ -195,7 +197,7 @@ class CarlaHostedPlugin final : public IAudioPlugin {
         carla_set_active(m_hostHandle, m_pluginId, true);
         m_descriptor->activate(m_nativeHandle);
         ensureBuffers(m_maxBlockSize);
-        qDebug() << "[CarlaHostedPlugin] NativePlugin load complete:" << m_info.name;
+        qCInfo(lcPluginManager) << "NativePlugin load complete:" << m_info.name;
         return true;
     }
 
@@ -552,7 +554,7 @@ auto runDiscovery(const QString &tool, const QString &type, const QString &forma
     if (output.isEmpty() && errOutput.contains("carla-discovery::")) {
         output = errOutput;
     } else if (!errOutput.isEmpty() && output.isEmpty()) {
-        qDebug() << "[Discovery] Error output:" << target << errOutput.left(200).trimmed();
+        qCWarning(lcPluginManager) << "Discovery error output:" << target << errOutput.left(200).trimmed();
     }
     return parseDiscoveryOutput(QString::fromUtf8(output), format, target);
 }
@@ -621,9 +623,9 @@ auto discoverFormat(const QString &tool, const FormatConfig &cfg, std::atomic<bo
     }
 
     if (cfg.type == QStringLiteral("lv2")) {
-        qDebug() << "[AudioPluginManager]" << cfg.format << "bundles" << targets.size() << " detected";
+        qCInfo(lcPluginManager) << cfg.format << "bundles" << targets.size() << "detected";
     } else {
-        qDebug() << "[AudioPluginManager]" << cfg.format << "files" << targets.size() << " detected";
+        qCInfo(lcPluginManager) << cfg.format << "files" << targets.size() << "detected";
     }
 
     QList<PluginInfo> all;
@@ -676,7 +678,7 @@ void AudioPluginManager::initialize() {
 void AudioPluginManager::scanPlugins() {
     bool expected = false;
     if (!m_scanning.compare_exchange_strong(expected, true)) {
-        qDebug() << "[AudioPluginManager] Scan already in progress";
+        qCWarning(lcPluginManager) << "Scan already in progress";
         return;
     }
     m_stopRequested = false;
@@ -712,9 +714,9 @@ void AudioPluginManager::scanPlugins() {
             continue;
         }
 
-        qDebug() << "[AudioPluginManager] Scanning:" << cfg.format;
+        qCDebug(lcPluginManager) << "Scanning:" << cfg.format;
         const QList<PluginInfo> found = discoverFormat(tool, cfg, m_stopRequested);
-        qDebug() << "[AudioPluginManager]" << cfg.format << "→" << found.size() << " found";
+        qCInfo(lcPluginManager) << cfg.format << "→" << found.size() << "found";
         for (const PluginInfo &p : std::as_const(found)) {
             if (!newMap.contains(p.id)) {
                 newPlugins.append(p);
@@ -728,7 +730,7 @@ void AudioPluginManager::scanPlugins() {
         m_plugins = std::move(newPlugins);
         m_pluginMap = std::move(newMap);
     }
-    qDebug() << "[AudioPluginManager] Plugins detected:" << m_plugins.size();
+    qCInfo(lcPluginManager) << "Plugins detected:" << m_plugins.size();
     m_scanning = false;
 }
 
@@ -809,7 +811,7 @@ auto AudioPluginManager::createPlugin(const QString &id) -> std::unique_ptr<IAud
         return nullptr;
     }
 
-    qDebug() << "[AudioPluginManager] Loaded plugin via independent Carla instance:" << it->name << it->format << it->path;
+    qCInfo(lcPluginManager) << "Loaded plugin via independent Carla instance:" << it->name << it->format << it->path;
     return plugin;
 }
 
