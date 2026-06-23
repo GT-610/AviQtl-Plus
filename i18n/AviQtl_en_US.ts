@@ -1832,23 +1832,23 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Unsupported file format: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="43"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="35"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="54"/>
         <source>Invalid export configuration</source>
         <translation>Invalid export configuration</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="28"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="39"/>
         <source>Export end frame must be after start frame</source>
         <translation>Export end frame must be after start frame</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="34"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="45"/>
         <source>Export FPS does not match project FPS</source>
         <translation>Export FPS does not match project FPS</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="47"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="58"/>
         <source>Failed to start image sequence export</source>
         <translation>Failed to start image sequence export</translation>
     </message>
@@ -1856,35 +1856,35 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="82"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="83"/>
         <source>Encoder initialization failed</source>
         <translation>Encoder initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="121"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="255"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="126"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
         <source>Cancelled</source>
         <translation>Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="158"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="291"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="308"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="168"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="177"/>
         <source>Cannot create output directory</source>
         <translation>Cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="108"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="240"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="109"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="249"/>
         <source>Failed to capture frame %1</source>
         <translation>Failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="280"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="293"/>
         <source>Failed to save frame %1</source>
         <translation>Failed to save frame %1</translation>
     </message>
@@ -2324,190 +2324,250 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>ExportDialog</name>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="58"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="78"/>
         <source>メディアの書き出し</source>
         <translation>Export Media</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="81"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="101"/>
         <source>書き出し中...</source>
         <translation>Exporting...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="100"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="120"/>
         <source>0 / 0 フレーム</source>
         <translation>0 / 0 frames</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="107"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="548"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="127"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="655"/>
         <source>キャンセル</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="119"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="144"/>
+        <source> (残り %1時間%2分)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="148"/>
+        <source> (残り %1分%2秒)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="150"/>
+        <source> (残り %1秒)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="152"/>
+        <source>%1 / %2 フレーム%3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="154"/>
         <source>%1 / %2 フレーム</source>
         <translation>%1 / %2 frames</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="138"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="174"/>
         <source>完了</source>
         <translation>Complete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="138"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="174"/>
         <source>エラー</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="160"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="196"/>
         <source>形式:</source>
         <translation>Format:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="201"/>
         <source>動画ファイル</source>
         <translation>Video File</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="165"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="201"/>
         <source>画像シーケンス</source>
         <translation>Image Sequence</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="180"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="216"/>
         <source>保存先ファイルパス...</source>
         <translation>Destination file path...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="180"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="216"/>
         <source>保存先フォルダ...</source>
         <translation>Destination folder...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="184"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="220"/>
         <source>参照...</source>
         <translation>Browse...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="192"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="228"/>
         <source>映像</source>
         <translation>Video</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="203"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="239"/>
         <source>解像度:</source>
         <translation>Resolution:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="213"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="249"/>
         <source>FPS:</source>
         <translation>FPS:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="223"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="394"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="259"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="494"/>
         <source>コーデック:</source>
         <translation>Codec:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="291"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="334"/>
         <source>品質モード:</source>
         <translation>Quality mode:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="301"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="344"/>
         <source>CRF</source>
         <translation>CRF</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="307"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="350"/>
         <source>ビットレート</source>
         <translation>Bitrate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="317"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="360"/>
         <source>CRF:</source>
         <translation>CRF:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="385"/>
         <source>高品質</source>
         <translation>High quality</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="385"/>
         <source>標準</source>
         <translation>Standard</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="342"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="385"/>
         <source>低品質</source>
         <translation>Low quality</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="351"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="435"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="394"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="542"/>
         <source>ビットレート:</source>
         <translation>Bitrate:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="368"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="411"/>
         <source>%1 Mbps</source>
         <translation>%1 Mbps</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="383"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="422"/>
+        <source>プリセット:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="431"/>
+        <source>最速 (ultrafast)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="434"/>
+        <source>高速 (fast)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="437"/>
+        <source>標準 (medium)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="440"/>
+        <source>高品質 (slow)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="443"/>
+        <source>最高品質 (veryslow)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="452"/>
+        <source>プロファイル:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="461"/>
+        <source>自動</source>
+        <translation type="unfinished">Auto</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/ExportDialog.qml" line="483"/>
         <source>音声</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="462"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="569"/>
         <source>範囲</source>
         <translation>Range</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="472"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="579"/>
         <source>タイムライン全体</source>
         <translation>Entire timeline</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="477"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="584"/>
         <source>開始:</source>
         <translation>Start:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="491"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="598"/>
         <source>終了:</source>
         <translation>End:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="525"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="632"/>
         <source>(%1 フレーム / %2 秒)</source>
         <translation>(%1 frames / %2 seconds)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="553"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="660"/>
         <source>書き出し開始</source>
         <translation>Start Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="589"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="700"/>
         <source>保存先を指定</source>
         <translation>Specify Destination</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="601"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="712"/>
         <source>保存先フォルダを指定</source>
         <translation>Specify Destination Folder</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="611"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="722"/>
         <source>書き出しキャンセル</source>
         <translation>Cancel Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="617"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="728"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
         <translation>Cancel the export?

@@ -134,9 +134,25 @@ Common.AviQtlWindow {
 
     // 進捗シグナルの受信
     Connections {
-        function onExportProgressChanged(progress, current, total) {
+        function onExportProgressChanged(progress, current, total, etaSeconds) {
             exportProgressBar.value = progress;
-            progressLabel.text = qsTr("%1 / %2 フレーム").arg(current).arg(total);
+            if (etaSeconds > 0) {
+                var etaText = "";
+                if (etaSeconds >= 3600) {
+                    var hours = Math.floor(etaSeconds / 3600);
+                    var minutes = Math.floor((etaSeconds % 3600) / 60);
+                    etaText = qsTr(" (残り %1時間%2分)").arg(hours).arg(minutes);
+                } else if (etaSeconds >= 60) {
+                    var minutes = Math.floor(etaSeconds / 60);
+                    var seconds = etaSeconds % 60;
+                    etaText = qsTr(" (残り %1分%2秒)").arg(minutes).arg(seconds);
+                } else {
+                    etaText = qsTr(" (残り %1秒)").arg(etaSeconds);
+                }
+                progressLabel.text = qsTr("%1 / %2 フレーム%3").arg(current).arg(total).arg(etaText);
+            } else {
+                progressLabel.text = qsTr("%1 / %2 フレーム").arg(current).arg(total);
+            }
         }
 
         function onExportFinished(success, message) {

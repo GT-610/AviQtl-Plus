@@ -29,7 +29,7 @@ class TimelineExportManager : public QObject {
 
   signals:
     void exportStarted(int totalFrames);
-    void exportProgressChanged(int progress, int currentFrame, int totalFrames);
+    void exportProgressChanged(int progress, int currentFrame, int totalFrames, int etaSeconds);
     void exportFinished(bool success, const QString &message);
 
   private:
