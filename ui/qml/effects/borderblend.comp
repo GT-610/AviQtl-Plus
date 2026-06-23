@@ -1,0 +1,65 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(std140, binding = 2) uniform Params {
+    float size;
+    float blurAlpha;
+    float targetWidth;
+    float targetHeight;
+    int   passIndex;
+    float aspect;
+};
+layout(binding = 3) uniform sampler2D origTex;
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y)
+        return;
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+
+    if (passIndex < 2) {
+        // Pass 0 (horizontal) and pass 1 (vertical): separable Gaussian blur
+        vec2 texel = vec2(1.0 / targetWidth, 1.0 / targetHeight);
+        float baseR = clamp(size, 0.0, 64.0);
+        float hRatio = aspect > 0.0 ? (100.0 - aspect) / 100.0 : 1.0;
+        float vRatio = aspect < 0.0 ? (100.0 + aspect) / 100.0 : 1.0;
+        int r = int(baseR * (passIndex == 0 ? hRatio : vRatio));
+        if (r < 1) {
+            imageStore(outImage, gid, texture(inTex, uv));
+            return;
+        }
+        float sigma2 = float(r * r) * 2.0;
+
+        vec4 sum = vec4(0.0);
+        float total = 0.0;
+
+        if (passIndex == 0) {
+            for (int x = -r; x <= r; x++) {
+                float w = exp(-float(x * x) / sigma2);
+                sum += texture(inTex, uv + vec2(float(x) * texel.x, 0.0)) * w;
+                total += w;
+            }
+        } else {
+            for (int y = -r; y <= r; y++) {
+                float w = exp(-float(y * y) / sigma2);
+                sum += texture(inTex, uv + vec2(0.0, float(y) * texel.y)) * w;
+                total += w;
+            }
+        }
+
+        imageStore(outImage, gid, sum / max(total, 0.0001));
+    } else {
+        // Pass 2: edge-detect blend between original and blurred
+        vec4 center  = texture(origTex, uv);
+        vec4 blurred = texture(inTex, uv);
+        float edge   = abs(center.a - blurred.a) * 4.0;
+        float mixF   = clamp(edge, 0.0, 1.0);
+        float outA   = blurAlpha > 0.5 ? mix(center.a, blurred.a, mixF) : center.a;
+        imageStore(outImage, gid, vec4(mix(center.rgb, blurred.rgb, mixF), outA));
+    }
+}

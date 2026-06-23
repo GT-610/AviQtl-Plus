@@ -74,6 +74,8 @@ class ComputeRenderNode final : public QSGRenderNode {
 
     bool m_shaderDirty = true;
     bool m_bufferLayoutDirty = true;
+    bool m_texturesDirty = true;
+    bool m_passSrbDirty = true;
     bool m_renderTargetDirty = true;
     bool m_verticesUploaded = false;
 
@@ -86,7 +88,10 @@ class ComputeRenderNode final : public QSGRenderNode {
     qreal m_opacity = 1.0;
     QList<QSGTexture *> m_extraTextures;
     QList<QRhiTexture *> m_extraRhiTextures;
-    QList<QRhiShaderResourceBindings *> m_tempSrbList;
+
+    QRhiShaderResourceBindings *m_passSrbA = nullptr;
+    QRhiShaderResourceBindings *m_passSrbB = nullptr;
+    QRhiShaderResourceBindings *m_passSrbC = nullptr;
 };
 
 } // namespace AviQtl::UI::Effects

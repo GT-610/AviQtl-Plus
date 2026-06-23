@@ -98,7 +98,7 @@ void ComputeRenderNode::syncHdrOutput(bool hdr) {
         return;
     m_hdrOutput = hdr;
     m_renderTargetDirty = true;
-    m_bufferLayoutDirty = true;
+    m_texturesDirty = true;
 }
 
 void ComputeRenderNode::syncOpacity(qreal opacity) {
@@ -110,6 +110,7 @@ void ComputeRenderNode::syncExtraTextures(const QList<QSGTexture *> &textures) {
         return;
     m_extraTextures = textures;
     m_bufferLayoutDirty = true;
+    m_passSrbDirty = true;
 }
 
 void ComputeRenderNode::syncDispatchCount(int count) {
@@ -117,7 +118,8 @@ void ComputeRenderNode::syncDispatchCount(int count) {
     if (m_dispatchCount == clamped)
         return;
     m_dispatchCount = clamped;
-    m_bufferLayoutDirty = true;
+    m_texturesDirty = true;
+    m_passSrbDirty = true;
 }
 
 QRectF ComputeRenderNode::rect() const { return QRectF(0, 0, m_width, m_height); }
@@ -162,7 +164,7 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         currentExtraRhi.append(tex ? tex->rhiTexture() : nullptr);
     if (m_extraRhiTextures != currentExtraRhi) {
         m_extraRhiTextures = currentExtraRhi;
-        m_bufferLayoutDirty = true;
+        m_passSrbDirty = true;
     }
 
     if (!m_shaderPath.isEmpty() && m_shaderDirty) {
@@ -186,133 +188,251 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         if (!m_outputTexture || m_outputTexture->pixelSize() != sz) {
             qCDebug(lcComputeRenderNode) << "ComputeRenderNode: Resizing output texture to" << sz;
             textureSizeChanged = true;
+            m_texturesDirty = true;
         }
     }
 
-    bool needsRebuild = m_bufferLayoutDirty || textureSizeChanged;
-    if (!needsRebuild)
-        return m_vbuf != nullptr && m_ubuf != nullptr && m_sampler != nullptr;
+    // Full rebuild: shader change, input change, or first init
+    if (m_bufferLayoutDirty) {
+        destroyResources();
+        m_bufferLayoutDirty = false;
+        m_texturesDirty = false;
+        m_passSrbDirty = false;
 
-    // Clean up any previously-created resources before rebuilding.
-    destroyResources();
-
-    QSize sz(qMax(1, static_cast<int>(m_width)), qMax(1, static_cast<int>(m_height)));
-    if (m_inputTexture) {
-        QSize ts = m_inputTexture->textureSize();
-        if (ts.isValid() && ts.width() > 0)
-            sz = ts;
-    }
-
-    if (computeSupported)
-        m_srb = rhi->newShaderResourceBindings();
-    QList<QRhiShaderResourceBinding> bindings;
-
-    if (!m_sampler) {
-        m_sampler = rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None, QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
-        m_sampler->create();
-    }
-
-    if (computeSupported && m_srb && m_inputRhiTexture) {
-        bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
-    }
-
-    // Extra textures at binding 3, 4, 5, ...
-    for (int i = 0; i < m_extraTextures.size(); ++i) {
-        QRhiTexture *extraRhi = m_extraTextures[i] ? m_extraTextures[i]->rhiTexture() : nullptr;
-        if (extraRhi) {
-            bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, extraRhi, m_sampler));
+        QSize sz(qMax(1, static_cast<int>(m_width)), qMax(1, static_cast<int>(m_height)));
+        if (m_inputTexture) {
+            QSize ts = m_inputTexture->textureSize();
+            if (ts.isValid() && ts.width() > 0)
+                sz = ts;
         }
+
+        if (computeSupported)
+            m_srb = rhi->newShaderResourceBindings();
+        QList<QRhiShaderResourceBinding> bindings;
+
+        if (!m_sampler) {
+            m_sampler = rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None, QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
+            m_sampler->create();
+        }
+
+        if (computeSupported && m_srb && m_inputRhiTexture) {
+            bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
+        }
+
+        // Extra textures at binding 3, 4, 5, ...
+        for (int i = 0; i < m_extraTextures.size(); ++i) {
+            QRhiTexture *extraRhi = m_extraTextures[i] ? m_extraTextures[i]->rhiTexture() : nullptr;
+            if (extraRhi) {
+                bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, extraRhi, m_sampler));
+            }
+        }
+
+        if (computeSupported && m_srb) {
+            const QRhiTexture::Format outputFormat = m_hdrOutput ? QRhiTexture::RGBA16F : QRhiTexture::RGBA8;
+            m_outputTexture = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+            if (!m_outputTexture->create()) {
+                delete m_outputTexture;
+                m_outputTexture = nullptr;
+                delete m_srb;
+                m_srb = nullptr;
+                m_error = QStringLiteral("Compute output texture creation failed.");
+            } else {
+                bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
+
+                // Second output texture for ping-pong (multi-pass)
+                if (m_dispatchCount > 1) {
+                    m_outputTextureB = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+                    if (!m_outputTextureB->create()) {
+                        delete m_outputTextureB;
+                        m_outputTextureB = nullptr;
+                    }
+                }
+            }
+        }
+
+        m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(kQuadData));
+        if (!m_vbuf->create()) {
+            m_error = QStringLiteral("Compute blit vertex buffer creation failed.");
+            delete m_vbuf; m_vbuf = nullptr;
+            delete m_sampler; m_sampler = nullptr;
+            delete m_outputTexture; m_outputTexture = nullptr;
+            delete m_srb; m_srb = nullptr;
+            return false;
+        }
+
+        m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 80);
+        if (!m_ubuf->create()) {
+            m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
+            delete m_ubuf; m_ubuf = nullptr;
+            delete m_vbuf; m_vbuf = nullptr;
+            delete m_sampler; m_sampler = nullptr;
+            delete m_outputTexture; m_outputTexture = nullptr;
+            delete m_srb; m_srb = nullptr;
+            return false;
+        }
+
+        if (m_inputTexture && !m_inputRhiTexture) {
+            m_bufferLayoutDirty = true;
+        }
+
+        if (computeSupported && m_srb) {
+            quint32 ubufSize = kParamsBlockSize;
+            if (m_shader.isValid()) {
+                const QShaderDescription desc = m_shader.description();
+                const QList<QShaderDescription::UniformBlock> blocks = desc.uniformBlocks();
+                for (const auto &block : blocks) {
+                    if (block.binding == kParamsBinding) {
+                        ubufSize = block.size;
+                        break;
+                    }
+                }
+            }
+            ubufSize = qMax<quint32>(32, ubufSize);
+
+            m_paramUbuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, ubufSize);
+            if (!m_paramUbuf->create()) {
+                delete m_paramUbuf;
+                m_paramUbuf = nullptr;
+                delete m_srb;
+                m_srb = nullptr;
+                if (m_error.isEmpty())
+                    m_error = QStringLiteral("Compute parameter uniform buffer creation failed.");
+            } else {
+                bindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
+                m_srb->setBindings(bindings.cbegin(), bindings.cend());
+                if (!m_srb->create()) {
+                    delete m_srb;
+                    m_srb = nullptr;
+                    if (m_error.isEmpty())
+                        m_error = QStringLiteral("Compute shader resource bindings creation failed.");
+                    qCWarning(lcComputeRenderNode) << m_error;
+                } else {
+                    m_paramsDirty = true;
+                }
+            }
+        }
+
+        m_shaderDirty = true;
+        m_renderTargetDirty = true;
+        return true;
     }
 
-    if (computeSupported && m_srb) {
+    // Partial rebuild: only output textures changed (HDR format, texture size)
+    if (m_texturesDirty && computeSupported && m_srb) {
+        m_texturesDirty = false;
+        m_passSrbDirty = true;
+
+        delete m_outputTexture;
+        m_outputTexture = nullptr;
+        delete m_outputTextureB;
+        m_outputTextureB = nullptr;
+
+        QSize sz(qMax(1, static_cast<int>(m_width)), qMax(1, static_cast<int>(m_height)));
+        if (m_inputTexture) {
+            QSize ts = m_inputTexture->textureSize();
+            if (ts.isValid() && ts.width() > 0)
+                sz = ts;
+        }
+
         const QRhiTexture::Format outputFormat = m_hdrOutput ? QRhiTexture::RGBA16F : QRhiTexture::RGBA8;
         m_outputTexture = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
         if (!m_outputTexture->create()) {
             delete m_outputTexture;
             m_outputTexture = nullptr;
-            delete m_srb;
-            m_srb = nullptr;
             m_error = QStringLiteral("Compute output texture creation failed.");
-        } else {
-            bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
+            return false;
+        }
 
-            // Second output texture for ping-pong (multi-pass)
-            if (m_dispatchCount > 1) {
-                m_outputTextureB = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
-                if (!m_outputTextureB->create()) {
-                    delete m_outputTextureB;
-                    m_outputTextureB = nullptr;
-                }
+        if (m_dispatchCount > 1) {
+            m_outputTextureB = rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget);
+            if (!m_outputTextureB->create()) {
+                delete m_outputTextureB;
+                m_outputTextureB = nullptr;
             }
         }
-    }
 
-    m_vbuf = rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(kQuadData));
-    if (!m_vbuf->create()) {
-        m_error = QStringLiteral("Compute blit vertex buffer creation failed.");
-        delete m_vbuf; m_vbuf = nullptr;
-        delete m_sampler; m_sampler = nullptr;
-        delete m_outputTexture; m_outputTexture = nullptr;
-        delete m_srb; m_srb = nullptr;
-        return false;
-    }
-
-    m_ubuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 80);
-    if (!m_ubuf->create()) {
-        m_error = QStringLiteral("Compute blit uniform buffer creation failed.");
-        delete m_ubuf; m_ubuf = nullptr;
-        delete m_vbuf; m_vbuf = nullptr;
-        delete m_sampler; m_sampler = nullptr;
-        delete m_outputTexture; m_outputTexture = nullptr;
-        delete m_srb; m_srb = nullptr;
-        return false;
-    }
-
-    if (m_inputTexture && !m_inputRhiTexture) {
-        m_bufferLayoutDirty = true;
-    }
-
-    if (computeSupported && m_srb) {
-        quint32 ubufSize = kParamsBlockSize;
-        if (m_shader.isValid()) {
-            const QShaderDescription desc = m_shader.description();
-            const QList<QShaderDescription::UniformBlock> blocks = desc.uniformBlocks();
-            for (const auto &block : blocks) {
-                if (block.binding == kParamsBinding) {
-                    ubufSize = block.size;
-                    break;
-                }
-            }
+        // Rebuild main SRB with new output texture
+        delete m_srb;
+        m_srb = rhi->newShaderResourceBindings();
+        QList<QRhiShaderResourceBinding> bindings;
+        if (m_inputRhiTexture)
+            bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
+        for (int i = 0; i < m_extraRhiTextures.size(); ++i) {
+            if (m_extraRhiTextures[i])
+                bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, m_extraRhiTextures[i], m_sampler));
         }
-        ubufSize = qMax<quint32>(32, ubufSize);
-
-        m_paramUbuf = rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, ubufSize);
-        if (!m_paramUbuf->create()) {
-            delete m_paramUbuf;
-            m_paramUbuf = nullptr;
+        bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
+        if (m_paramUbuf)
+            bindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
+        m_srb->setBindings(bindings.cbegin(), bindings.cend());
+        if (!m_srb->create()) {
             delete m_srb;
             m_srb = nullptr;
-            if (m_error.isEmpty())
-                m_error = QStringLiteral("Compute parameter uniform buffer creation failed.");
-        } else {
-            bindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
-            m_srb->setBindings(bindings.cbegin(), bindings.cend());
-            if (!m_srb->create()) {
-                delete m_srb;
-                m_srb = nullptr;
-                if (m_error.isEmpty())
-                    m_error = QStringLiteral("Compute shader resource bindings creation failed.");
-                qCWarning(lcComputeRenderNode) << m_error;
-            } else {
-                m_paramsDirty = true; // Force initial UBO upload after rebuild
-            }
+            m_error = QStringLiteral("Compute shader resource bindings creation failed.");
+            return false;
         }
+
+        m_renderTargetDirty = true;
+        m_paramsDirty = true;
     }
 
-    m_bufferLayoutDirty = false;
-    m_shaderDirty = true;
-    m_renderTargetDirty = true;
-    return true;
+    // Rebuild pass SRBs for multi-pass ping-pong
+    if (m_passSrbDirty && computeSupported && m_outputTexture && m_outputTextureB && m_sampler && m_paramUbuf && m_dispatchCount > 1) {
+        m_passSrbDirty = false;
+
+        delete m_passSrbA;
+        m_passSrbA = nullptr;
+        delete m_passSrbB;
+        m_passSrbB = nullptr;
+        delete m_passSrbC;
+        m_passSrbC = nullptr;
+
+        QRhiTexture *texA = m_outputTexture;
+        QRhiTexture *texB = m_outputTextureB;
+
+        // Build up to 3 distinct SRBs for correct ping-pong across any pass count:
+        // SRB A: read from input,  write to A (pass 0)
+        // SRB B: read from A,      write to B (pass 1)
+        // SRB C: read from B,      write to A (pass 2+)
+        struct PassConfig { QRhiTexture *readTex; QRhiTexture *writeTex; QRhiShaderResourceBindings **target; };
+        const PassConfig configs[] = {
+            { m_inputRhiTexture, texA, &m_passSrbA },
+            { texA,              texB, &m_passSrbB },
+            { texB,              texA, &m_passSrbC },
+        };
+
+        const int numConfigs = qMin(3, m_dispatchCount);
+        for (int i = 0; i < numConfigs; ++i) {
+            const auto &cfg = configs[i];
+            QList<QRhiShaderResourceBinding> passBindings;
+            passBindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, cfg.readTex, m_sampler));
+            passBindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, cfg.writeTex, 0));
+            passBindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
+            for (int j = 0; j < m_extraRhiTextures.size(); ++j) {
+                if (m_extraRhiTextures[j])
+                    passBindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + j, QRhiShaderResourceBinding::ComputeStage, m_extraRhiTextures[j], m_sampler));
+            }
+
+            *cfg.target = rhi->newShaderResourceBindings();
+            (*cfg.target)->setBindings(passBindings.cbegin(), passBindings.cend());
+            if (!(*cfg.target)->create()) {
+                delete *cfg.target;
+                *cfg.target = nullptr;
+                m_error = QStringLiteral("Multi-pass SRB creation failed at config %1").arg(i);
+                break;
+            }
+        }
+    } else if (m_dispatchCount <= 1) {
+        m_passSrbDirty = false;
+        delete m_passSrbA;
+        m_passSrbA = nullptr;
+        delete m_passSrbB;
+        m_passSrbB = nullptr;
+        delete m_passSrbC;
+        m_passSrbC = nullptr;
+    }
+
+    return m_vbuf != nullptr && m_ubuf != nullptr && m_sampler != nullptr;
 }
 
 bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
@@ -650,53 +770,59 @@ void ComputeRenderNode::prepare() {
         return;
     }
 
-    cb->beginComputePass(batch);
-    cb->setComputePipeline(m_pipeline);
-
     if (m_dispatchCount <= 1 || !m_outputTextureB) {
         // Single pass: use the pre-built SRB
+        cb->beginComputePass(batch);
+        cb->setComputePipeline(m_pipeline);
         cb->setShaderResources(m_srb);
         cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+        cb->endComputePass();
     } else {
-        // Multi-pass ping-pong: build per-pass SRBs
-        QRhiTexture *textures[2] = {m_outputTexture, m_outputTextureB};
-
-        for (int pass = 0; pass < m_dispatchCount; ++pass) {
-            QRhiTexture *writeTex = textures[pass % 2];
-            QRhiTexture *readTex = (pass == 0) ? m_inputRhiTexture : textures[(pass + 1) % 2];
-
-            QList<QRhiShaderResourceBinding> passBindings;
-            passBindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, readTex, m_sampler));
-            passBindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, writeTex, 0));
-            passBindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
-            for (int i = 0; i < m_extraRhiTextures.size(); ++i) {
-                if (m_extraRhiTextures[i]) {
-                    passBindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, m_extraRhiTextures[i], m_sampler));
+        // Multi-pass: each pass gets its own batch and compute pass scope
+        // so that passIndex UBO updates apply to the correct dispatch.
+        int passIndexOffset = -1;
+        if (m_shader.isValid()) {
+            const QShaderDescription desc = m_shader.description();
+            const QList<QShaderDescription::UniformBlock> blocks = desc.uniformBlocks();
+            for (const auto &block : blocks) {
+                if (block.binding == kParamsBinding) {
+                    for (const auto &member : block.members) {
+                        if (member.name == "passIndex" && member.type == QShaderDescription::Int) {
+                            passIndexOffset = member.offset;
+                            break;
+                        }
+                    }
+                    break;
                 }
             }
+        }
 
-            auto *passSrb = m_rhi->newShaderResourceBindings();
-            passSrb->setBindings(passBindings.cbegin(), passBindings.cend());
-            if (!passSrb->create()) {
-                m_error = QStringLiteral("Multi-pass SRB creation failed at pass %1").arg(pass);
-                delete passSrb;
-                break;
+        for (int pass = 0; pass < m_dispatchCount; ++pass) {
+            QRhiResourceUpdateBatch *passBatch = m_rhi->nextResourceUpdateBatch();
+
+            if (passIndexOffset >= 0 && m_paramUbuf) {
+                const int passVal = pass;
+                passBatch->updateDynamicBuffer(m_paramUbuf, static_cast<quint32>(passIndexOffset), sizeof(int), &passVal);
             }
 
+            QRhiShaderResourceBindings *passSrb = nullptr;
+            if (pass == 0)
+                passSrb = m_passSrbA;
+            else if (pass == 1)
+                passSrb = m_passSrbB;
+            else
+                passSrb = (pass % 2 == 0) ? m_passSrbC : m_passSrbB;
+
+            if (!passSrb)
+                break;
+
+            cb->beginComputePass(passBatch);
+            cb->setComputePipeline(m_pipeline);
             cb->setShaderResources(passSrb);
             cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
-
-            // Keep passSrb alive until after dispatch; clean up after loop
-            m_tempSrbList.append(passSrb);
+            cb->endComputePass();
         }
     }
-
-    cb->endComputePass();
-
-    // Clean up temporary SRBs from this frame
-    for (auto *srb : std::as_const(m_tempSrbList))
-        delete srb;
-    m_tempSrbList.clear();
 
     m_paramsDirty = false;
 }
@@ -746,15 +872,20 @@ void ComputeRenderNode::destroyResources() {
     m_ubuf = nullptr;
     delete m_paramUbuf;
     m_paramUbuf = nullptr;
-    for (auto *srb : std::as_const(m_tempSrbList))
-        delete srb;
-    m_tempSrbList.clear();
+    delete m_passSrbA;
+    m_passSrbA = nullptr;
+    delete m_passSrbB;
+    m_passSrbB = nullptr;
+    delete m_passSrbC;
+    m_passSrbC = nullptr;
     m_renderTexture = nullptr;
     m_inputRhiTexture = nullptr;
     m_extraRhiTextures.clear();
     m_verticesUploaded = false;
 
     m_bufferLayoutDirty = true;
+    m_texturesDirty = false;
+    m_passSrbDirty = false;
     m_shaderDirty = true;
     m_renderTargetDirty = true;
 }
