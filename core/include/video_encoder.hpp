@@ -3,9 +3,11 @@
 #include "constants.hpp"
 #include <QImage>
 #include <QLoggingCategory>
+#include <QMap>
 #include <QObject>
 #include <QSize>
 #include <QString>
+#include <QStringList>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -49,6 +51,10 @@ class VideoEncoder : public QObject {
 
     explicit VideoEncoder(QObject *parent = nullptr);
     ~VideoEncoder() override;
+
+    static QStringList availableVideoEncoders();
+    static QStringList availableAudioEncoders();
+    static QString fallbackEncoder(const QString &hwEncoder);
 
     bool open(const Config &config);
     bool pushFrame(const QImage &img, int64_t pts); // CPU -> HW Upload

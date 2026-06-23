@@ -1,9 +1,18 @@
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
+#include "video_encoder.hpp"
 #include <cmath>
 
 namespace AviQtl::UI {
+
+QStringList TimelineController::availableVideoEncoders() const {
+    return AviQtl::Core::VideoEncoder::availableVideoEncoders();
+}
+
+QStringList TimelineController::availableAudioEncoders() const {
+    return AviQtl::Core::VideoEncoder::availableAudioEncoders();
+}
 
 void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     AviQtl::Core::VideoEncoder::Config c;

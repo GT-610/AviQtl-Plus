@@ -1,0 +1,71 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(std140, binding = 2) uniform Params {
+    float intensity;
+    float radius;
+    float threshold;
+    vec4  glowColor;
+    float targetWidth;
+    float targetHeight;
+    int   passIndex;
+};
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y)
+        return;
+
+    vec2 texel = vec2(1.0 / targetWidth, 1.0 / targetHeight);
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+
+    int r = int(clamp(radius, 1.0, 16.0));
+    float sigma2 = float(r * r) * 2.0;
+
+    if (passIndex == 0) {
+        // Pass 0: Horizontal blur + threshold
+        vec4 srcColor = texture(inTex, uv);
+        float luminance = dot(srcColor.rgb, vec3(0.299, 0.587, 0.114));
+        float glowAmount = smoothstep(threshold, threshold + 0.1, luminance);
+
+        // Horizontal Gaussian blur on source
+        vec4 sum = vec4(0.0);
+        float total = 0.0;
+        for (int x = -r; x <= r; x++) {
+            float w = exp(-float(x * x) / sigma2);
+            vec2 offset = vec2(float(x) * texel.x, 0.0);
+            sum += texture(inTex, uv + offset) * w;
+            total += w;
+        }
+        vec4 blurred = sum / max(total, 0.0001);
+
+        // Store blurred * glowAmount for vertical pass
+        imageStore(outImage, gid, vec4(blurred.rgb * glowAmount, srcColor.a));
+    } else {
+        // Pass 1: Vertical blur + color blend with original
+        vec4 srcColor = texture(inTex, uv);
+
+        // Vertical Gaussian blur
+        vec4 sum = vec4(0.0);
+        float total = 0.0;
+        for (int y = -r; y <= r; y++) {
+            float w = exp(-float(y * y) / sigma2);
+            vec2 offset = vec2(0.0, float(y) * texel.y);
+            sum += texture(inTex, uv + offset) * w;
+            total += w;
+        }
+        vec4 blurred = sum / max(total, 0.0001);
+
+        // Apply glow color and intensity
+        vec3 glow = blurred.rgb * glowColor.rgb * intensity;
+
+        // Combine with original
+        vec3 finalColor = srcColor.rgb + glow * srcColor.a;
+
+        imageStore(outImage, gid, vec4(finalColor, srcColor.a));
+    }
+}

@@ -192,6 +192,10 @@ class TimelineController : public QObject {
     Q_PROPERTY(bool isExporting READ isExporting NOTIFY exportFinished)
     bool isExporting() const;
 
+    // エンコーダー検出
+    Q_INVOKABLE QStringList availableVideoEncoders() const;
+    Q_INVOKABLE QStringList availableAudioEncoders() const;
+
     Q_INVOKABLE void handleClipClick(int clipId, int modifiers);
     Q_INVOKABLE void updateSelectionPreview(int frameA, int frameB, int layerA, int layerB, bool additive);
     Q_INVOKABLE void finalizeSelectionPreview();
