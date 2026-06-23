@@ -6,6 +6,7 @@
 #include "video_encoder.hpp"
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QEventLoop>
 #include <QImage>
 #include <QPointer>
@@ -116,6 +117,10 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     int64_t audioSampleAccumulator = 0;
     const int64_t audioSampleNum = sr;
 
+    QElapsedTimer timer;
+    timer.start();
+    qint64 elapsedMs = 0;
+
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
             emit exportFinished(false, tr("Cancelled"));
@@ -150,7 +155,11 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
         const int done = frame - startFrame + 1;
         if (done % progInterval == 0 || done == totalFrames) {
-            emit exportProgressChanged(done * 100 / totalFrames, done, totalFrames);
+            elapsedMs = timer.elapsed();
+            const double msPerFrame = static_cast<double>(elapsedMs) / done;
+            const int remainingFrames = totalFrames - done;
+            const int etaSeconds = static_cast<int>((msPerFrame * remainingFrames) / 1000.0);
+            emit exportProgressChanged(done * 100 / totalFrames, done, totalFrames, etaSeconds);
         }
     }
 
@@ -250,6 +259,10 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
     const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
     const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
 
+    QElapsedTimer timer;
+    timer.start();
+    qint64 elapsedMs = 0;
+
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
             emit exportFinished(false, tr("Cancelled"));
@@ -284,7 +297,11 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
         const int done = frame - startFrame + 1;
         if (done % progInterval == 0 || done == totalFrames) {
-            emit exportProgressChanged(done * 100 / totalFrames, done, totalFrames);
+            elapsedMs = timer.elapsed();
+            const double msPerFrame = static_cast<double>(elapsedMs) / done;
+            const int remainingFrames = totalFrames - done;
+            const int etaSeconds = static_cast<int>((msPerFrame * remainingFrames) / 1000.0);
+            emit exportProgressChanged(done * 100 / totalFrames, done, totalFrames, etaSeconds);
         }
     }
 

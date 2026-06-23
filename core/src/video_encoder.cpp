@@ -75,6 +75,116 @@ VideoEncoder::VideoEncoder(QObject *parent) : QObject(parent) {}
 
 VideoEncoder::~VideoEncoder() { close(); }
 
+QStringList VideoEncoder::availableVideoEncoders() {
+    // Cache the result to avoid expensive HW device probing on every call
+    static QStringList cachedResult;
+    static bool initialized = false;
+
+    if (initialized) {
+        return cachedResult;
+    }
+
+    QStringList result;
+    const QStringList allEncoders = {
+        QStringLiteral("libx264"),
+        QStringLiteral("h264_nvenc"),
+        QStringLiteral("h264_amf"),
+        QStringLiteral("h264_qsv"),
+        QStringLiteral("h264_vaapi"),
+        QStringLiteral("libx265"),
+        QStringLiteral("hevc_nvenc"),
+        QStringLiteral("hevc_amf"),
+        QStringLiteral("hevc_qsv"),
+        QStringLiteral("hevc_vaapi"),
+        QStringLiteral("libaom-av1"),
+        QStringLiteral("av1_nvenc"),
+        QStringLiteral("av1_amf"),
+        QStringLiteral("av1_vaapi"),
+    };
+
+    for (const auto &name : allEncoders) {
+        const AVCodec *codec = avcodec_find_encoder_by_name(name.toStdString().c_str());
+        if (codec == nullptr) {
+            continue;
+        }
+
+        // AMF encoders don't need HW device context probing (managed internally by AMD SDK)
+        if (name.contains(QLatin1String("amf"))) {
+            result.append(name);
+            continue;
+        }
+
+        // For other hardware encoders, test if the device can be created
+        if (name.contains(QLatin1String("nvenc")) || name.contains(QLatin1String("vaapi")) ||
+            name.contains(QLatin1String("qsv"))) {
+            AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
+            if (name.contains(QLatin1String("nvenc"))) {
+                type = AV_HWDEVICE_TYPE_CUDA;
+            } else if (name.contains(QLatin1String("vaapi"))) {
+                type = AV_HWDEVICE_TYPE_VAAPI;
+            } else if (name.contains(QLatin1String("qsv"))) {
+                type = AV_HWDEVICE_TYPE_QSV;
+            }
+
+            AVBufferRef *hwDeviceCtx = nullptr;
+            int err = av_hwdevice_ctx_create(&hwDeviceCtx, type, nullptr, nullptr, 0);
+            if (err < 0) {
+                continue; // Hardware not available
+            }
+            av_buffer_unref(&hwDeviceCtx);
+        }
+
+        result.append(name);
+    }
+
+    // Always ensure software fallbacks are present
+    if (!result.contains(QStringLiteral("libx264"))) {
+        result.prepend(QStringLiteral("libx264"));
+    }
+
+    cachedResult = result;
+    initialized = true;
+    return result;
+}
+
+QStringList VideoEncoder::availableAudioEncoders() {
+    QStringList result;
+    const QStringList allEncoders = {
+        QStringLiteral("aac"),
+        QStringLiteral("libopus"),
+        QStringLiteral("libmp3lame"),
+        QStringLiteral("flac"),
+        QStringLiteral("pcm_s16le"),
+    };
+
+    for (const auto &name : allEncoders) {
+        const AVCodec *codec = avcodec_find_encoder_by_name(name.toStdString().c_str());
+        if (codec != nullptr) {
+            result.append(name);
+        }
+    }
+
+    return result;
+}
+
+QString VideoEncoder::fallbackEncoder(const QString &hwEncoder) {
+    static const QMap<QString, QString> fallbackMap = {
+        {QStringLiteral("h264_nvenc"), QStringLiteral("libx264")},
+        {QStringLiteral("h264_amf"), QStringLiteral("libx264")},
+        {QStringLiteral("h264_qsv"), QStringLiteral("libx264")},
+        {QStringLiteral("h264_vaapi"), QStringLiteral("libx264")},
+        {QStringLiteral("hevc_nvenc"), QStringLiteral("libx265")},
+        {QStringLiteral("hevc_amf"), QStringLiteral("libx265")},
+        {QStringLiteral("hevc_qsv"), QStringLiteral("libx265")},
+        {QStringLiteral("hevc_vaapi"), QStringLiteral("libx265")},
+        {QStringLiteral("av1_nvenc"), QStringLiteral("libaom-av1")},
+        {QStringLiteral("av1_amf"), QStringLiteral("libaom-av1")},
+        {QStringLiteral("av1_vaapi"), QStringLiteral("libaom-av1")},
+    };
+
+    return fallbackMap.value(hwEncoder, hwEncoder);
+}
+
 void VideoEncoder::cleanup() {
     if (m_swsCtx != nullptr) {
         sws_freeContext(m_swsCtx);
@@ -171,8 +281,29 @@ auto VideoEncoder::open(const Config &config) -> bool {
     }
 
     if (!initHardware(config.codecName)) {
-        cleanup();
-        return false;
+        // Hardware initialization failed, try fallback to software encoder
+        QString fallback = fallbackEncoder(config.codecName);
+        if (fallback != config.codecName) {
+            qCInfo(lcVideoEncoder) << "Hardware encoder" << config.codecName << "not available, falling back to" << fallback;
+            m_config.codecName = fallback;
+            const AVCodec *fallbackCodec = avcodec_find_encoder_by_name(fallback.toStdString().c_str());
+            if (fallbackCodec == nullptr) {
+                qWarning() << "Fallback codec not found:" << fallback;
+                cleanup();
+                return false;
+            }
+            // Re-create codec context with fallback codec
+            avcodec_free_context(&m_encCtx);
+            m_encCtx = avcodec_alloc_context3(fallbackCodec);
+            if (m_encCtx == nullptr) {
+                cleanup();
+                return false;
+            }
+            // No hardware context needed for software encoder
+        } else {
+            cleanup();
+            return false;
+        }
     }
 
     if (m_hwDeviceCtx != nullptr) {
@@ -245,6 +376,16 @@ auto VideoEncoder::open(const Config &config) -> bool {
         m_encCtx->bit_rate = config.bitrate;
         m_encCtx->rc_max_rate = config.bitrate;
         m_encCtx->rc_buffer_size = static_cast<int>(config.bitrate / 2); // 0.5秒バッファ
+    }
+
+    // Set encoding preset if specified
+    if (!config.preset.isEmpty()) {
+        av_opt_set(m_encCtx->priv_data, "preset", config.preset.toStdString().c_str(), 0);
+    }
+
+    // Set H.264/H.265 profile if specified
+    if (!config.profile.isEmpty()) {
+        av_opt_set(m_encCtx->priv_data, "profile", config.profile.toStdString().c_str(), 0);
     }
 
     // グローバルヘッダーが必要なコンテナ(mp4等)の場合

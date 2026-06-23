@@ -1,0 +1,82 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(binding = 3) uniform sampler2D originalTex;
+layout(std140, binding = 2) uniform Params {
+    float radius;
+    float xOffset;
+    float yOffset;
+    float strength;
+    vec4  shadowColor;
+    float targetWidth;
+    float targetHeight;
+    int   passIndex;
+};
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y)
+        return;
+
+    vec2 texel = vec2(1.0 / max(1.0, targetWidth), 1.0 / max(1.0, targetHeight));
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+    vec2 offsetUv = uv - vec2(xOffset, yOffset) * texel;
+
+    int steps = int(clamp(radius * 0.5, 1.0, 10.0));
+    float stepSize = radius / float(max(1, steps));
+    float sigma2 = float(steps * steps) * 0.5 + 0.1;
+
+    if (passIndex == 0) {
+        // Pass 0: Horizontal blur on offset source
+        if (offsetUv.x < 0.0 || offsetUv.x > 1.0 || offsetUv.y < 0.0 || offsetUv.y > 1.0) {
+            imageStore(outImage, gid, vec4(0.0));
+            return;
+        }
+
+        vec4 sum = vec4(0.0);
+        float total = 0.0;
+        for (int i = -steps; i <= steps; i++) {
+            vec2 sampleUv = offsetUv + vec2(float(i) * stepSize * texel.x, 0.0);
+            if (sampleUv.x >= 0.0 && sampleUv.x <= 1.0) {
+                float w = exp(-float(i * i) / sigma2);
+                sum += texture(inTex, sampleUv) * w;
+                total += w;
+            }
+        }
+        if (total > 0.0) sum /= total;
+        imageStore(outImage, gid, sum);
+    } else {
+        // Pass 1: Vertical blur + composite with original
+        vec4 srcColor = texture(originalTex, uv);
+
+        // Vertical blur on horizontally blurred result
+        vec4 sum = vec4(0.0);
+        float total = 0.0;
+        for (int j = -steps; j <= steps; j++) {
+            vec2 sampleUv = uv + vec2(0.0, float(j) * stepSize * texel.y);
+            if (sampleUv.y >= 0.0 && sampleUv.y <= 1.0) {
+                float w = exp(-float(j * j) / sigma2);
+                sum += texture(inTex, sampleUv) * w;
+                total += w;
+            }
+        }
+        if (total > 0.0) sum /= total;
+
+        // Apply shadow color and opacity
+        float sAlpha = sum.a * strength * shadowColor.a;
+        vec3 sColor = shadowColor.rgb * sAlpha;
+
+        // Composite shadow with original
+        float outAlpha = srcColor.a + sAlpha * (1.0 - srcColor.a);
+        vec3 outColor = vec3(0.0);
+        if (outAlpha > 0.0) {
+            outColor = (srcColor.rgb * srcColor.a + sColor * (1.0 - srcColor.a)) / outAlpha;
+        }
+
+        imageStore(outImage, gid, vec4(outColor * outAlpha, outAlpha));
+    }
+}

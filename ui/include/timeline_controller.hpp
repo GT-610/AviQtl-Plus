@@ -192,6 +192,10 @@ class TimelineController : public QObject {
     Q_PROPERTY(bool isExporting READ isExporting NOTIFY exportFinished)
     bool isExporting() const;
 
+    // エンコーダー検出
+    Q_INVOKABLE QStringList availableVideoEncoders() const;
+    Q_INVOKABLE QStringList availableAudioEncoders() const;
+
     Q_INVOKABLE void handleClipClick(int clipId, int modifiers);
     Q_INVOKABLE void updateSelectionPreview(int frameA, int frameB, int layerA, int layerB, bool additive);
     Q_INVOKABLE void finalizeSelectionPreview();
@@ -250,7 +254,7 @@ class TimelineController : public QObject {
     void selectedLayerChanged();
     void errorOccurred(const QString &message);
     void exportStarted(int totalFrames);
-    void exportProgressChanged(int progress, int currentFrame, int totalFrames);
+    void exportProgressChanged(int progress, int currentFrame, int totalFrames, int etaSeconds);
     void exportFinished(bool success, const QString &message);
     void timelineDurationChanged();
     void audioMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);

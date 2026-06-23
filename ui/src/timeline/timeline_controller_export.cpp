@@ -1,9 +1,18 @@
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
+#include "video_encoder.hpp"
 #include <cmath>
 
 namespace AviQtl::UI {
+
+QStringList TimelineController::availableVideoEncoders() const {
+    return AviQtl::Core::VideoEncoder::availableVideoEncoders();
+}
+
+QStringList TimelineController::availableAudioEncoders() const {
+    return AviQtl::Core::VideoEncoder::availableAudioEncoders();
+}
 
 void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     AviQtl::Core::VideoEncoder::Config c;
@@ -19,6 +28,8 @@ void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     c.outputUrl = cfg.value(QStringLiteral("outputUrl")).toString();
     c.startFrame = cfg.value(QStringLiteral("startFrame"), 0).toInt();
     c.endFrame = cfg.value(QStringLiteral("endFrame"), -1).toInt();
+    c.preset = cfg.value(QStringLiteral("preset")).toString();
+    c.profile = cfg.value(QStringLiteral("profile")).toString();
 
     if (c.outputUrl.isEmpty() || c.width <= 0 || c.height <= 0 || c.fps_den <= 0) {
         emit exportFinished(false, tr("Invalid export configuration"));
