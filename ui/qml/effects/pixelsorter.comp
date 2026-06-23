@@ -2,10 +2,8 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-// compute_effect.cpp の SRB 構築順序に厳密に従うこと
 layout(binding = 0, rgba8) uniform coherent image2D outImage;
 layout(binding = 1) uniform sampler2D inTex;
-// メンバ名は BaseComputeEffect から渡される params のキーと一致させる
 layout(std140, binding = 2) uniform Params {
     float blockSize;
     float minLuma;
@@ -32,7 +30,6 @@ void main() {
     vec4 orig = texture(inTex, uv0);
     float myL = luma(orig.rgb);
 
-    // 輝度範囲外はそのまま出力
     if (myL < minLuma || myL > maxLuma) {
         imageStore(outImage, gid, orig);
         return;
@@ -41,7 +38,6 @@ void main() {
     int blockStart  = (coord / bs) * bs;
     int myOffset    = coord - blockStart;
 
-    // ブロック内の有効ピクセルを収集
     vec4  sortPx[64];
     float sortL [64];
     int   cnt           = 0;
@@ -69,20 +65,28 @@ void main() {
         return;
     }
 
-    // 挿入ソート（cnt <= 64）
-    for (int i = 1; i < cnt; i++) {
-        float keyL = sortL [i];
-        vec4  keyP = sortPx[i];
-        int   j    = i - 1;
-        while (j >= 0) {
-            bool sw = (reverse == 0) ? (sortL[j] > keyL) : (sortL[j] < keyL);
-            if (!sw) break;
-            sortL [j + 1] = sortL [j];
-            sortPx[j + 1] = sortPx[j];
-            j--;
+    // Bitonic sort: O(n log^2 n), GPU-friendly with no data-dependent branches
+    for (int k = 2; k <= cnt; k *= 2) {
+        for (int j = k / 2; j > 0; j /= 2) {
+            for (int i = 0; i < cnt; i++) {
+                int ixj = i ^ j;
+                if (ixj > i && ixj < cnt) {
+                    bool ascending = ((i & k) == 0);
+                    if (reverse != 0) ascending = !ascending;
+
+                    bool shouldSwap = ascending ? (sortL[i] > sortL[ixj]) : (sortL[i] < sortL[ixj]);
+                    if (shouldSwap) {
+                        float tmpL = sortL[i];
+                        sortL[i] = sortL[ixj];
+                        sortL[ixj] = tmpL;
+
+                        vec4 tmpP = sortPx[i];
+                        sortPx[i] = sortPx[ixj];
+                        sortPx[ixj] = tmpP;
+                    }
+                }
+            }
         }
-        sortL [j + 1] = keyL;
-        sortPx[j + 1] = keyP;
     }
 
     vec4 result = mix(orig, sortPx[myValidOffset], mixAmount);

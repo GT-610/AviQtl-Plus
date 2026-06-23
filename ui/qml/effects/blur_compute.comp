@@ -1,0 +1,50 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(std140, binding = 2) uniform Params {
+    float size;
+    float quality;
+    float targetWidth;
+    float targetHeight;
+    int   passIndex;
+};
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y)
+        return;
+
+    vec2 texel = vec2(1.0 / targetWidth, 1.0 / targetHeight);
+    int r = int(clamp(size, 1.0, 64.0));
+    int sampleRadius = r * int(clamp(quality, 1.0, 3.0));
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+    vec4 sum = vec4(0.0);
+    float total = 0.0;
+
+    float sigma2 = float(sampleRadius * sampleRadius) * 2.0;
+
+    if (passIndex == 0) {
+        // Horizontal pass
+        for (int x = -sampleRadius; x <= sampleRadius; x++) {
+            float w = exp(-float(x * x) / sigma2);
+            vec2 offset = vec2(float(x) * texel.x, 0.0);
+            sum += texture(inTex, uv + offset) * w;
+            total += w;
+        }
+    } else {
+        // Vertical pass
+        for (int y = -sampleRadius; y <= sampleRadius; y++) {
+            float w = exp(-float(y * y) / sigma2);
+            vec2 offset = vec2(0.0, float(y) * texel.y);
+            sum += texture(inTex, uv + offset) * w;
+            total += w;
+        }
+    }
+
+    imageStore(outImage, gid, sum / max(total, 0.0001));
+}
