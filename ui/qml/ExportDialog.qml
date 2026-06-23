@@ -22,6 +22,7 @@ Common.AviQtlWindow {
 
     property var availableVideoCodecs: []
     property var availableAudioCodecs: []
+    property string selectedCodecValue: codecCombo.currentIndex >= 0 && codecCombo.currentIndex < codecCombo.model.length ? codecCombo.model[codecCombo.currentIndex].value : "libx264"
 
     function show() {
         refreshAvailableCodecs();
@@ -38,6 +39,21 @@ Common.AviQtlWindow {
             availableVideoCodecs = Workspace.currentTimeline.availableVideoEncoders();
             availableAudioCodecs = Workspace.currentTimeline.availableAudioEncoders();
         }
+        updateCodecIndex();
+    }
+
+    function updateCodecIndex() {
+        var idx = -1;
+        for (var i = 0; i < codecCombo.model.length; i++) {
+            if (codecCombo.model[i].value === root.defaultCodec) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx >= 0)
+            codecCombo.currentIndex = idx;
+        else
+            codecCombo.currentIndex = 0;
     }
 
     function isCodecAvailable(codecValue) {
@@ -46,6 +62,14 @@ Common.AviQtlWindow {
 
     function isAudioCodecAvailable(codecValue) {
         return availableAudioCodecs.length === 0 || availableAudioCodecs.indexOf(codecValue) >= 0;
+    }
+
+    function isSoftwareCodec(codecValue) {
+        return codecValue.startsWith("lib") || codecValue === "libaom-av1";
+    }
+
+    function isNvidiaCodec(codecValue) {
+        return codecValue.contains("nvenc");
     }
 
     function isValidExportPath(path) {
@@ -315,19 +339,8 @@ Common.AviQtlWindow {
                         });
                     }
                     textRole: "text"
-                    Component.onCompleted: {
-                        var idx = -1;
-                        for (var i = 0; i < model.length; i++) {
-                            if (model[i].value === root.defaultCodec) {
-                                idx = i;
-                                break;
-                            }
-                        }
-                        if (idx >= 0)
-                            currentIndex = idx;
-                        else
-                            currentIndex = 0; // Fallback to libx264 (software, works everywhere)
-                    }
+                    onModelChanged: root.updateCodecIndex()
+                    Component.onCompleted: root.updateCodecIndex()
                 }
 
                 Label {
@@ -417,9 +430,10 @@ Common.AviQtlWindow {
 
                 }
 
-                // エンコードプリセット
+                // エンコードプリセット (software encoders only)
                 Label {
                     text: qsTr("プリセット:")
+                    visible: root.isSoftwareCodec(root.selectedCodecValue)
                 }
 
                 ComboBox {
@@ -427,7 +441,17 @@ Common.AviQtlWindow {
 
                     Layout.columnSpan: 3
                     Layout.fillWidth: true
-                    model: [{
+                    visible: root.isSoftwareCodec(root.selectedCodecValue)
+                    model: root.isNvidiaCodec(root.selectedCodecValue) ? [{
+                        "text": qsTr("高速 (fast)"),
+                        "value": "fast"
+                    }, {
+                        "text": qsTr("標準 (medium)"),
+                        "value": "medium"
+                    }, {
+                        "text": qsTr("高品質 (slow)"),
+                        "value": "slow"
+                    }] : [{
                         "text": qsTr("最速 (ultrafast)"),
                         "value": "ultrafast"
                     }, {
@@ -444,12 +468,13 @@ Common.AviQtlWindow {
                         "value": "veryslow"
                     }]
                     textRole: "text"
-                    currentIndex: 2 // medium
+                    currentIndex: model.length > 2 ? 2 : 1
                 }
 
-                // H.264プロファイル
+                // H.264/H.265プロファイル (software encoders only)
                 Label {
                     text: qsTr("プロファイル:")
+                    visible: root.isSoftwareCodec(root.selectedCodecValue)
                 }
 
                 ComboBox {
@@ -457,6 +482,7 @@ Common.AviQtlWindow {
 
                     Layout.columnSpan: 3
                     Layout.fillWidth: true
+                    visible: root.isSoftwareCodec(root.selectedCodecValue)
                     model: [{
                         "text": qsTr("自動"),
                         "value": ""
@@ -668,8 +694,12 @@ Common.AviQtlWindow {
                     } else {
                         var codec = codecCombo.model[codecCombo.currentIndex].value;
                         var audioCodec = audioCodecCombo.model[audioCodecCombo.currentIndex].value;
-                        var preset = presetCombo.model[presetCombo.currentIndex].value;
-                        var profile = profileCombo.model[profileCombo.currentIndex].value;
+                        var preset = "";
+                        var profile = "";
+                        if (root.isSoftwareCodec(codec)) {
+                            preset = presetCombo.model[presetCombo.currentIndex].value;
+                            profile = profileCombo.model[profileCombo.currentIndex].value;
+                        }
                         Workspace.currentTimeline.exportVideoAsync({
                             "width": (project ? project.width : DefaultWidth),
                             "height": (project ? project.height : DefaultHeight),

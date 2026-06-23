@@ -12,4 +12,5 @@ Common.BaseComputeEffect {
 
     computeShader: "dropshadow_compute.comp.qsb"
     dispatchCount: 2
+    extraTextures: [root.sourceProxy]
 }

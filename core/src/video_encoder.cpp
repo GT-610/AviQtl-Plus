@@ -76,6 +76,14 @@ VideoEncoder::VideoEncoder(QObject *parent) : QObject(parent) {}
 VideoEncoder::~VideoEncoder() { close(); }
 
 QStringList VideoEncoder::availableVideoEncoders() {
+    // Cache the result to avoid expensive HW device probing on every call
+    static QStringList cachedResult;
+    static bool initialized = false;
+
+    if (initialized) {
+        return cachedResult;
+    }
+
     QStringList result;
     const QStringList allEncoders = {
         QStringLiteral("libx264"),
@@ -100,9 +108,15 @@ QStringList VideoEncoder::availableVideoEncoders() {
             continue;
         }
 
-        // For hardware encoders, test if the device can be created
+        // AMF encoders don't need HW device context probing (managed internally by AMD SDK)
+        if (name.contains(QLatin1String("amf"))) {
+            result.append(name);
+            continue;
+        }
+
+        // For other hardware encoders, test if the device can be created
         if (name.contains(QLatin1String("nvenc")) || name.contains(QLatin1String("vaapi")) ||
-            name.contains(QLatin1String("qsv")) || name.contains(QLatin1String("videotoolbox"))) {
+            name.contains(QLatin1String("qsv"))) {
             AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
             if (name.contains(QLatin1String("nvenc"))) {
                 type = AV_HWDEVICE_TYPE_CUDA;
@@ -110,8 +124,6 @@ QStringList VideoEncoder::availableVideoEncoders() {
                 type = AV_HWDEVICE_TYPE_VAAPI;
             } else if (name.contains(QLatin1String("qsv"))) {
                 type = AV_HWDEVICE_TYPE_QSV;
-            } else if (name.contains(QLatin1String("videotoolbox"))) {
-                type = AV_HWDEVICE_TYPE_VIDEOTOOLBOX;
             }
 
             AVBufferRef *hwDeviceCtx = nullptr;
@@ -130,6 +142,8 @@ QStringList VideoEncoder::availableVideoEncoders() {
         result.prepend(QStringLiteral("libx264"));
     }
 
+    cachedResult = result;
+    initialized = true;
     return result;
 }
 

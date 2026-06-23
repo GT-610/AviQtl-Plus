@@ -22,7 +22,7 @@ void main() {
     vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
     vec2 center = vec2(0.5 + centerX / targetWidth, 0.5 - centerY / targetHeight);
     vec2 dir = uv - center;
-    int n = max(1, int(samples));
+    int n = min(64, max(1, int(samples)));
     float step = strength / float(n) * 0.002;
     vec4 sum = vec4(0.0);
 

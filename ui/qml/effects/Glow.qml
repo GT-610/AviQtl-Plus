@@ -11,4 +11,5 @@ Common.BaseComputeEffect {
 
     computeShader: "glow_compute.comp.qsb"
     dispatchCount: 2
+    extraTextures: [root.sourceProxy]
 }

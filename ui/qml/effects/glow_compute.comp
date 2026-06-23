@@ -4,6 +4,7 @@ layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(binding = 0, rgba8) uniform coherent image2D outImage;
 layout(binding = 1) uniform sampler2D inTex;
+layout(binding = 3) uniform sampler2D originalTex;
 layout(std140, binding = 2) uniform Params {
     float intensity;
     float radius;
@@ -47,9 +48,9 @@ void main() {
         imageStore(outImage, gid, vec4(blurred.rgb * glowAmount, srcColor.a));
     } else {
         // Pass 1: Vertical blur + color blend with original
-        vec4 srcColor = texture(inTex, uv);
+        vec4 srcColor = texture(originalTex, uv);
 
-        // Vertical Gaussian blur
+        // Vertical Gaussian blur on horizontally blurred result
         vec4 sum = vec4(0.0);
         float total = 0.0;
         for (int y = -r; y <= r; y++) {
