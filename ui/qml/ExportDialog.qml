@@ -723,7 +723,8 @@ Common.AviQtlWindow {
         modal: true
         anchors.centerIn: parent
         standardButtons: Dialog.Yes | Dialog.No
-        implicitWidth: Math.max(300, contentItem.implicitWidth + leftPadding + rightPadding)
+        width: 300
+
         contentItem: Label {
             text: qsTr("書き出しをキャンセルしますか？\n進捗は失われます。")
             wrapMode: Text.WordWrap
