@@ -91,6 +91,7 @@ class ComputeRenderNode final : public QSGRenderNode {
 
     QRhiShaderResourceBindings *m_passSrbA = nullptr;
     QRhiShaderResourceBindings *m_passSrbB = nullptr;
+    QRhiShaderResourceBindings *m_passSrbC = nullptr;
 };
 
 } // namespace AviQtl::UI::Effects

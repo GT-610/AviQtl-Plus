@@ -1,7 +1,7 @@
 import QtQuick
 import "qrc:/qt/qml/AviQtl/ui/qml/common" as Common
 
-Common.BaseEffect {
+Common.BaseComputeEffect {
     id: root
 
     property real size: Math.max(0, root.evalNumber("size", 5))
@@ -11,15 +11,14 @@ Common.BaseEffect {
     readonly property real vRatio: aspect < 0 ? (100 + aspect) / 100 : 1
     readonly property real effectSize: size * Math.max(hRatio, vRatio)
 
-    ShaderEffect {
-        property variant source: root.sourceProxy
-        property real size: root.effectSize
-        property real blurAlpha: root.blurAlpha ? 1 : 0
-        property real targetWidth: root.width
-        property real targetHeight: root.height
+    computeShader: "borderblend.comp.qsb"
+    dispatchCount: 3
+    extraTextures: [origSourceProxy]
 
-        anchors.fill: parent
-        fragmentShader: "borderblur.frag.qsb"
+    ShaderEffectSource {
+        id: origSourceProxy
+        sourceItem: root.source
+        hideSource: false
+        visible: false
     }
-
 }

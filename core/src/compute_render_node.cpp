@@ -384,28 +384,41 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         m_passSrbA = nullptr;
         delete m_passSrbB;
         m_passSrbB = nullptr;
+        delete m_passSrbC;
+        m_passSrbC = nullptr;
 
-        QRhiTexture *textures[2] = {m_outputTexture, m_outputTextureB};
-        for (int pass = 0; pass < qMin(2, m_dispatchCount); ++pass) {
-            QRhiTexture *writeTex = textures[pass % 2];
-            QRhiTexture *readTex = (pass == 0) ? m_inputRhiTexture : textures[(pass + 1) % 2];
+        QRhiTexture *texA = m_outputTexture;
+        QRhiTexture *texB = m_outputTextureB;
 
+        // Build up to 3 distinct SRBs for correct ping-pong across any pass count:
+        // SRB A: read from input,  write to A (pass 0)
+        // SRB B: read from A,      write to B (pass 1)
+        // SRB C: read from B,      write to A (pass 2+)
+        struct PassConfig { QRhiTexture *readTex; QRhiTexture *writeTex; QRhiShaderResourceBindings **target; };
+        const PassConfig configs[] = {
+            { m_inputRhiTexture, texA, &m_passSrbA },
+            { texA,              texB, &m_passSrbB },
+            { texB,              texA, &m_passSrbC },
+        };
+
+        const int numConfigs = qMin(3, m_dispatchCount);
+        for (int i = 0; i < numConfigs; ++i) {
+            const auto &cfg = configs[i];
             QList<QRhiShaderResourceBinding> passBindings;
-            passBindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, readTex, m_sampler));
-            passBindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, writeTex, 0));
+            passBindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, cfg.readTex, m_sampler));
+            passBindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, cfg.writeTex, 0));
             passBindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
-            for (int i = 0; i < m_extraRhiTextures.size(); ++i) {
-                if (m_extraRhiTextures[i])
-                    passBindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, m_extraRhiTextures[i], m_sampler));
+            for (int j = 0; j < m_extraRhiTextures.size(); ++j) {
+                if (m_extraRhiTextures[j])
+                    passBindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + j, QRhiShaderResourceBinding::ComputeStage, m_extraRhiTextures[j], m_sampler));
             }
 
-            auto *&targetSrb = (pass == 0) ? m_passSrbA : m_passSrbB;
-            targetSrb = rhi->newShaderResourceBindings();
-            targetSrb->setBindings(passBindings.cbegin(), passBindings.cend());
-            if (!targetSrb->create()) {
-                delete targetSrb;
-                targetSrb = nullptr;
-                m_error = QStringLiteral("Multi-pass SRB creation failed at pass %1").arg(pass);
+            *cfg.target = rhi->newShaderResourceBindings();
+            (*cfg.target)->setBindings(passBindings.cbegin(), passBindings.cend());
+            if (!(*cfg.target)->create()) {
+                delete *cfg.target;
+                *cfg.target = nullptr;
+                m_error = QStringLiteral("Multi-pass SRB creation failed at config %1").arg(i);
                 break;
             }
         }
@@ -415,6 +428,8 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         m_passSrbA = nullptr;
         delete m_passSrbB;
         m_passSrbB = nullptr;
+        delete m_passSrbC;
+        m_passSrbC = nullptr;
     }
 
     return m_vbuf != nullptr && m_ubuf != nullptr && m_sampler != nullptr;
@@ -789,7 +804,15 @@ void ComputeRenderNode::prepare() {
                 batch->updateDynamicBuffer(m_paramUbuf, static_cast<quint32>(passIndexOffset), sizeof(int), &passVal);
             }
 
-            QRhiShaderResourceBindings *passSrb = (pass % 2 == 0) ? m_passSrbA : m_passSrbB;
+            // SRB selection: pass 0→A, pass 1→B, pass 2+ alternates C/B
+            QRhiShaderResourceBindings *passSrb = nullptr;
+            if (pass == 0)
+                passSrb = m_passSrbA;
+            else if (pass == 1)
+                passSrb = m_passSrbB;
+            else
+                passSrb = (pass % 2 == 0) ? m_passSrbC : m_passSrbB;
+
             if (!passSrb)
                 break;
 
@@ -852,6 +875,8 @@ void ComputeRenderNode::destroyResources() {
     m_passSrbA = nullptr;
     delete m_passSrbB;
     m_passSrbB = nullptr;
+    delete m_passSrbC;
+    m_passSrbC = nullptr;
     m_renderTexture = nullptr;
     m_inputRhiTexture = nullptr;
     m_extraRhiTextures.clear();
