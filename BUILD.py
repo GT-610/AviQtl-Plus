@@ -1364,12 +1364,48 @@ class XcodeBuilder(PlatformBuilder):
             if carla_bin_src and carla_bin_src.exists():
                 shutil.copy2(carla_bin_src, carla_bin_dst)
                 self.logger.log(f"  Bundled: {carla_bin_src}")
+                self.fix_bundled_binary_rpaths(carla_bin_dst, dest_app / "Contents/Frameworks")
         except Exception as e:
             self.logger.log(f"  Warning: could not locate carla-discovery-native: {e}")
 
         self.logger.log("Running codesign...")
         self.run_cmd(["codesign", "--deep", "--force", "--sign", "-", str(dest_app)])
         self.logger.log(f"App bundle: {dest_app}")
+
+    def fix_bundled_binary_rpaths(self, binary: Path, frameworks_dir: Path):
+        """Fix hardcoded Homebrew absolute paths in a copied binary to use @executable_path/../Frameworks/."""
+        try:
+            result = subprocess.run(
+                ["otool", "-L", str(binary)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+            )
+        except OSError:
+            self.logger.log(f"  Warning: otool not found, skipping RPATH fix for {binary.name}")
+            return
+
+        bundled_names = {f.name for f in frameworks_dir.iterdir()} if frameworks_dir.exists() else set()
+
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line or line.startswith(str(binary)):
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            lib_path = parts[0]
+            # Skip system libraries and already-relative paths
+            if lib_path.startswith(("@executable_path", "@rpath", "@loader_path", "/usr/lib", "/System")):
+                continue
+            # Only fix paths that point to Homebrew
+            if "/opt/homebrew/" not in lib_path and "/usr/local/" not in lib_path:
+                continue
+            lib_name = Path(lib_path).name
+            if lib_name not in bundled_names:
+                self.logger.log(f"  Warning: {lib_name} not in Frameworks, cannot fix RPATH for {binary.name}")
+                continue
+            new_path = f"@executable_path/../Frameworks/{lib_name}"
+            self.run_cmd(["install_name_tool", "-change", lib_path, new_path, str(binary)])
+            self.logger.log(f"  Fixed: {lib_path} -> {new_path}")
 
     def get_archive_name(self) -> str:
         return "AviQtl-macOS-Xcode-Universal"
