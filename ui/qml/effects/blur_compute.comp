@@ -19,10 +19,16 @@ void main() {
         return;
 
     vec2 texel = vec2(1.0 / targetWidth, 1.0 / targetHeight);
-    int r = int(clamp(size, 1.0, 64.0));
+    int r = int(clamp(size, 0.0, 64.0));
     int sampleRadius = r * int(clamp(quality, 1.0, 3.0));
 
     vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+
+    if (sampleRadius < 1) {
+        imageStore(outImage, gid, texture(inTex, uv));
+        return;
+    }
+
     vec4 sum = vec4(0.0);
     float total = 0.0;
 

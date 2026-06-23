@@ -770,16 +770,16 @@ void ComputeRenderNode::prepare() {
         return;
     }
 
-    cb->beginComputePass(batch);
-    cb->setComputePipeline(m_pipeline);
-
     if (m_dispatchCount <= 1 || !m_outputTextureB) {
         // Single pass: use the pre-built SRB
+        cb->beginComputePass(batch);
+        cb->setComputePipeline(m_pipeline);
         cb->setShaderResources(m_srb);
         cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+        cb->endComputePass();
     } else {
-        // Multi-pass ping-pong: use pre-allocated SRBs
-        // Find passIndex member offset for per-pass uniform injection
+        // Multi-pass: each pass gets its own batch and compute pass scope
+        // so that passIndex UBO updates apply to the correct dispatch.
         int passIndexOffset = -1;
         if (m_shader.isValid()) {
             const QShaderDescription desc = m_shader.description();
@@ -798,13 +798,13 @@ void ComputeRenderNode::prepare() {
         }
 
         for (int pass = 0; pass < m_dispatchCount; ++pass) {
-            // Inject passIndex into the UBO if the shader declares it
+            QRhiResourceUpdateBatch *passBatch = m_rhi->nextResourceUpdateBatch();
+
             if (passIndexOffset >= 0 && m_paramUbuf) {
                 const int passVal = pass;
-                batch->updateDynamicBuffer(m_paramUbuf, static_cast<quint32>(passIndexOffset), sizeof(int), &passVal);
+                passBatch->updateDynamicBuffer(m_paramUbuf, static_cast<quint32>(passIndexOffset), sizeof(int), &passVal);
             }
 
-            // SRB selection: pass 0→A, pass 1→B, pass 2+ alternates C/B
             QRhiShaderResourceBindings *passSrb = nullptr;
             if (pass == 0)
                 passSrb = m_passSrbA;
@@ -816,12 +816,13 @@ void ComputeRenderNode::prepare() {
             if (!passSrb)
                 break;
 
+            cb->beginComputePass(passBatch);
+            cb->setComputePipeline(m_pipeline);
             cb->setShaderResources(passSrb);
             cb->dispatch(m_workGroupX, m_workGroupY, m_workGroupZ);
+            cb->endComputePass();
         }
     }
-
-    cb->endComputePass();
 
     m_paramsDirty = false;
 }

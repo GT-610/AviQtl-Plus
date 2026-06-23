@@ -10,6 +10,7 @@ layout(std140, binding = 2) uniform Params {
     float targetWidth;
     float targetHeight;
     int   passIndex;
+    float aspect;
 };
 layout(binding = 3) uniform sampler2D origTex;
 
@@ -24,7 +25,14 @@ void main() {
     if (passIndex < 2) {
         // Pass 0 (horizontal) and pass 1 (vertical): separable Gaussian blur
         vec2 texel = vec2(1.0 / targetWidth, 1.0 / targetHeight);
-        int r = int(clamp(size, 1.0, 64.0));
+        float baseR = clamp(size, 0.0, 64.0);
+        float hRatio = aspect > 0.0 ? (100.0 - aspect) / 100.0 : 1.0;
+        float vRatio = aspect < 0.0 ? (100.0 + aspect) / 100.0 : 1.0;
+        int r = int(baseR * (passIndex == 0 ? hRatio : vRatio));
+        if (r < 1) {
+            imageStore(outImage, gid, texture(inTex, uv));
+            return;
+        }
         float sigma2 = float(r * r) * 2.0;
 
         vec4 sum = vec4(0.0);
