@@ -364,6 +364,16 @@ auto VideoEncoder::open(const Config &config) -> bool {
         m_encCtx->rc_buffer_size = static_cast<int>(config.bitrate / 2); // 0.5秒バッファ
     }
 
+    // Set encoding preset if specified
+    if (!config.preset.isEmpty()) {
+        av_opt_set(m_encCtx->priv_data, "preset", config.preset.toStdString().c_str(), 0);
+    }
+
+    // Set H.264/H.265 profile if specified
+    if (!config.profile.isEmpty()) {
+        av_opt_set(m_encCtx->priv_data, "profile", config.profile.toStdString().c_str(), 0);
+    }
+
     // グローバルヘッダーが必要なコンテナ(mp4等)の場合
     if ((m_fmtCtx->oformat->flags & AVFMT_GLOBALHEADER) != 0) {
         m_encCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;

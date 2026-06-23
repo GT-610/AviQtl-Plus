@@ -401,6 +401,63 @@ Common.AviQtlWindow {
 
                 }
 
+                // エンコードプリセット
+                Label {
+                    text: qsTr("プリセット:")
+                }
+
+                ComboBox {
+                    id: presetCombo
+
+                    Layout.columnSpan: 3
+                    Layout.fillWidth: true
+                    model: [{
+                        "text": qsTr("最速 (ultrafast)"),
+                        "value": "ultrafast"
+                    }, {
+                        "text": qsTr("高速 (fast)"),
+                        "value": "fast"
+                    }, {
+                        "text": qsTr("標準 (medium)"),
+                        "value": "medium"
+                    }, {
+                        "text": qsTr("高品質 (slow)"),
+                        "value": "slow"
+                    }, {
+                        "text": qsTr("最高品質 (veryslow)"),
+                        "value": "veryslow"
+                    }]
+                    textRole: "text"
+                    currentIndex: 2 // medium
+                }
+
+                // H.264プロファイル
+                Label {
+                    text: qsTr("プロファイル:")
+                }
+
+                ComboBox {
+                    id: profileCombo
+
+                    Layout.columnSpan: 3
+                    Layout.fillWidth: true
+                    model: [{
+                        "text": qsTr("自動"),
+                        "value": ""
+                    }, {
+                        "text": "Baseline",
+                        "value": "baseline"
+                    }, {
+                        "text": "Main",
+                        "value": "main"
+                    }, {
+                        "text": "High",
+                        "value": "high"
+                    }]
+                    textRole: "text"
+                    currentIndex: 0
+                }
+
             }
 
         }
@@ -595,6 +652,8 @@ Common.AviQtlWindow {
                     } else {
                         var codec = codecCombo.model[codecCombo.currentIndex].value;
                         var audioCodec = audioCodecCombo.model[audioCodecCombo.currentIndex].value;
+                        var preset = presetCombo.model[presetCombo.currentIndex].value;
+                        var profile = profileCombo.model[profileCombo.currentIndex].value;
                         Workspace.currentTimeline.exportVideoAsync({
                             "width": (project ? project.width : DefaultWidth),
                             "height": (project ? project.height : DefaultHeight),
@@ -607,7 +666,9 @@ Common.AviQtlWindow {
                             "audioBitrate": audioBitrateCombo.bitrate,
                             "outputUrl": filePathField.text,
                             "startFrame": fullRangeCheck.checked ? 0 : startFrameSpin.value,
-                            "endFrame": fullRangeCheck.checked ? -1 : endFrameSpin.value
+                            "endFrame": fullRangeCheck.checked ? -1 : endFrameSpin.value,
+                            "preset": preset,
+                            "profile": profile
                         });
                     }
                 }
