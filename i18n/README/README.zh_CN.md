@@ -228,10 +228,15 @@ AviQtl-Plus 从根本上解决结构性弱点：
 - 特效 schema 文档和 sepia 特效示例
 - 硬编码常量提取和日志标准化
 - 对象 JSON/QML 命名一致性对齐
+- macOS 构建与打包修复（atomic shared_ptr、carla-discovery-native RPATH）
 
-**下一步（0.4.0）：**
+**已完成（0.4.0）：**
+- GPU Compute Shader 优化：SRB 预分配、细粒度脏标志、可分离模糊、Bitonic 排序
+- BorderBlur O(n²) → O(2n)，边缘检测混合与宽高比控制
+- 3 pass 以上多 pass ping-pong 的正确性
+
+**下一步（0.4.x-0.5.0）：**
 - 扩展特效和对象插件生态（更多示例插件）
-- 性能优化和 GPU Compute Shader 改进
 - 配备自动化 CI/CD 的初期公开 Alpha 版本发布
 
 **长期：**

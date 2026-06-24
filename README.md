@@ -226,10 +226,15 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 - Effect schema documentation and sepia effect example
 - Standardized logging and hardcoded constants extraction
 - Object JSON/QML naming consistency alignment
+- macOS build and packaging fixes (atomic shared_ptr, carla-discovery-native RPATH)
 
-**Next (0.4.0):**
+**Completed (0.4.0):**
+- GPU compute shader optimizations: SRB pre-allocation, fine-grained dirty flags, separable blur, bitonic sort
+- BorderBlur O(n²) → O(2n) with edge-detect blend and aspect ratio control
+- Multi-pass ping-pong correctness for 3+ pass dispatches
+
+**Next (0.5.0):**
 - Expand effect and object plugin ecosystem (more example plugins)
-- Performance optimization and GPU compute shader improvements
 - Initial public alpha releases with automated CI/CD
 
 **Long-term:**
