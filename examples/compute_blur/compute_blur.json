@@ -1,0 +1,23 @@
+{
+  "id": "compute_blur",
+  "name": "Compute Blur",
+  "qml": "ComputeBlur.qml",
+  "version": "1.0.0",
+  "kind": "effect",
+  "categories": ["Blur"],
+  "params": {
+    "radius": 5.0
+  },
+  "ui": {
+    "controls": [
+      {
+        "type": "slider",
+        "param": "radius",
+        "label": "Radius",
+        "min": 0.0,
+        "max": 32.0,
+        "step": 1.0
+      }
+    ]
+  }
+}
