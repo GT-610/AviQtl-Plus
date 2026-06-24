@@ -1,0 +1,51 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// Binding 0: output image (write-only)
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+// Binding 1: input texture (read-only, from previous pass or source)
+layout(binding = 1) uniform sampler2D inTex;
+// Binding 2: parameter UBO (names must match JSON param keys)
+layout(std140, binding = 2) uniform Params {
+    float radius;
+    float targetWidth;
+    float targetHeight;
+    int   passIndex;   // auto-injected by ComputeRenderNode
+};
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y)
+        return;
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(sz);
+
+    int r = int(clamp(radius, 0.0, 32.0));
+    if (r < 1) {
+        // No blur: copy input to output
+        imageStore(outImage, gid, texture(inTex, uv));
+        return;
+    }
+
+    vec2 texel = vec2(1.0 / targetWidth, 1.0 / targetHeight);
+    vec4 sum = vec4(0.0);
+    int count = 0;
+
+    if (passIndex == 0) {
+        // Horizontal pass
+        for (int x = -r; x <= r; x++) {
+            sum += texture(inTex, uv + vec2(float(x) * texel.x, 0.0));
+            count++;
+        }
+    } else {
+        // Vertical pass
+        for (int y = -r; y <= r; y++) {
+            sum += texture(inTex, uv + vec2(0.0, float(y) * texel.y));
+            count++;
+        }
+    }
+
+    imageStore(outImage, gid, sum / float(max(count, 1)));
+}

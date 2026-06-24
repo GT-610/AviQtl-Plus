@@ -1967,7 +1967,7 @@
     <message>
         <location filename="../ui/src/window_manager.cpp" line="58"/>
         <source>ミキサー</source>
-        <translation type="unfinished"></translation>
+        <translation>ミキサー</translation>
     </message>
 </context>
 <context>
@@ -2858,7 +2858,7 @@
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="223"/>
         <source>ミキサーの表示</source>
-        <translation type="unfinished"></translation>
+        <translation>ミキサーの表示</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="236"/>
@@ -3209,7 +3209,7 @@
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="322"/>
         <source>権限</source>
-        <translation type="unfinished"></translation>
+        <translation>権限</translation>
     </message>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="333"/>
@@ -3318,152 +3318,152 @@
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="11"/>
         <source>権限管理: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>権限管理: %1</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="52"/>
         <source>このプラグインに許可する権限を選択してください:</source>
-        <translation type="unfinished"></translation>
+        <translation>このプラグインに許可する権限を選択してください:</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
         <source>再生制御</source>
-        <translation type="unfinished"></translation>
+        <translation>再生制御</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
         <source>再生、一時停止、シーク</source>
-        <translation type="unfinished"></translation>
+        <translation>再生、一時停止、シーク</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
         <source>クリップ読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップ読み取り</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
         <source>クリップ情報の一覧表示</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップ情報の一覧表示</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
         <source>クリップ変更</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップ変更</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
         <source>クリップの作成、削除、移動</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップの作成、削除、移動</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
         <source>エフェクト読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>エフェクト読み取り</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
         <source>エフェクト情報の一覧表示</source>
-        <translation type="unfinished"></translation>
+        <translation>エフェクト情報の一覧表示</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
         <source>エフェクト変更</source>
-        <translation type="unfinished"></translation>
+        <translation>エフェクト変更</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
         <source>エフェクトの追加、削除、変更</source>
-        <translation type="unfinished"></translation>
+        <translation>エフェクトの追加、削除、変更</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
         <source>プロジェクト読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクト読み取り</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
         <source>解像度、FPS等の情報取得</source>
-        <translation type="unfinished"></translation>
+        <translation>解像度、FPS等の情報取得</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
         <source>プロジェクト保存</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクト保存</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
         <source>プロジェクトファイルの保存</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクトファイルの保存</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
         <source>プロジェクト読み込み</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクト読み込み</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
         <source>プロジェクトファイルの読み込み</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクトファイルの読み込み</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
         <source>シーン管理</source>
-        <translation type="unfinished"></translation>
+        <translation>シーン管理</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
         <source>シーンの作成、削除、切り替え</source>
-        <translation type="unfinished"></translation>
+        <translation>シーンの作成、削除、切り替え</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
         <source>設定読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>設定読み取り</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
         <source>プラグイン設定の読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>プラグイン設定の読み取り</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
         <source>設定書き込み</source>
-        <translation type="unfinished"></translation>
+        <translation>設定書き込み</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
         <source>プラグイン設定の保存</source>
-        <translation type="unfinished"></translation>
+        <translation>プラグイン設定の保存</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
         <source>クリップボード</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップボード</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
         <source>コピー、切り取り、貼り付け</source>
-        <translation type="unfinished"></translation>
+        <translation>コピー、切り取り、貼り付け</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
         <source>ログ出力</source>
-        <translation type="unfinished"></translation>
+        <translation>ログ出力</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
         <source>コンソールへのログ出力</source>
-        <translation type="unfinished"></translation>
+        <translation>コンソールへのログ出力</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
         <source>すべて許可</source>
-        <translation type="unfinished"></translation>
+        <translation>すべて許可</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="132"/>
         <source>すべて拒否</source>
-        <translation type="unfinished"></translation>
+        <translation>すべて拒否</translation>
     </message>
 </context>
 <context>
@@ -3476,17 +3476,17 @@
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="59"/>
         <source>Lua プラグイン</source>
-        <translation type="unfinished"></translation>
+        <translation>Lua プラグイン</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="67"/>
         <source>ホットリロードを有効にする</source>
-        <translation type="unfinished"></translation>
+        <translation>ホットリロードを有効にする</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="73"/>
         <source>有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします</source>
-        <translation type="unfinished"></translation>
+        <translation>有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="95"/>
@@ -3758,22 +3758,22 @@
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="285"/>
         <source>オーディオプラグインキーフレーム設定: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>オーディオプラグインキーフレーム設定: %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="312"/>
         <source>オーディオプラグインキーフレーム削除: %1 [%2]</source>
-        <translation type="unfinished"></translation>
+        <translation>オーディオプラグインキーフレーム削除: %1 [%2]</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="319"/>
         <source>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</source>
-        <translation type="unfinished"></translation>
+        <translation>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="326"/>
         <source>オーディオプラグインパラメータ変更: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>オーディオプラグインパラメータ変更: %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_commands.cpp" line="196"/>
@@ -3849,72 +3849,72 @@
     <message>
         <location filename="../core/src/permission_manager.cpp" line="194"/>
         <source>再生、一時停止、シークなどの再生制御</source>
-        <translation type="unfinished"></translation>
+        <translation>再生、一時停止、シークなどの再生制御</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="196"/>
         <source>クリップ情報の一覧表示と読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップ情報の一覧表示と読み取り</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="198"/>
         <source>クリップの作成、削除、移動、変更</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップの作成、削除、移動、変更</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="200"/>
         <source>エフェクト情報の一覧表示</source>
-        <translation type="unfinished"></translation>
+        <translation>エフェクト情報の一覧表示</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="202"/>
         <source>エフェクトの追加、削除、パラメータ変更</source>
-        <translation type="unfinished"></translation>
+        <translation>エフェクトの追加、削除、パラメータ変更</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="204"/>
         <source>プロジェクト情報（解像度、FPS等）の読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクト情報（解像度、FPS等）の読み取り</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="206"/>
         <source>プロジェクトファイルの保存</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクトファイルの保存</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="208"/>
         <source>プロジェクトファイルの読み込み</source>
-        <translation type="unfinished"></translation>
+        <translation>プロジェクトファイルの読み込み</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="210"/>
         <source>シーンの作成、削除、切り替え</source>
-        <translation type="unfinished"></translation>
+        <translation>シーンの作成、削除、切り替え</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="212"/>
         <source>プラグイン設定の読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>プラグイン設定の読み取り</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="214"/>
         <source>プラグイン設定の書き込み</source>
-        <translation type="unfinished"></translation>
+        <translation>プラグイン設定の書き込み</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="216"/>
         <source>クリップボードへのコピー、切り取り、貼り付け</source>
-        <translation type="unfinished"></translation>
+        <translation>クリップボードへのコピー、切り取り、貼り付け</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="218"/>
         <source>コンソールへのログ出力</source>
-        <translation type="unfinished"></translation>
+        <translation>コンソールへのログ出力</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="220"/>
         <source>不明な権限</source>
-        <translation type="unfinished"></translation>
+        <translation>不明な権限</translation>
     </message>
 </context>
 <context>
