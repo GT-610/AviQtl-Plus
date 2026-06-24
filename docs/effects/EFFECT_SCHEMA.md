@@ -2,6 +2,8 @@
 
 This document describes the JSON format for defining effects and objects in AviQtl-Plus.
 
+A machine-readable JSON Schema is available at [schema.json](schema.json) for IDE validation and tooling.
+
 ## Overview
 
 Effects and objects are defined as **JSON + QML + GLSL** triples:

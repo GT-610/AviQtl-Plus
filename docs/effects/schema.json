@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aviqtl.example/schemas/effect.json",
+  "title": "AviQtl Effect/Object/Transition Definition",
+  "description": "JSON schema for AviQtl-Plus effect, object, and transition definitions.",
+  "type": "object",
+  "required": ["id", "name", "qml", "version", "kind", "categories", "params", "ui"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier (e.g. 'blur', 'my_effect')",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name (localized at load time)"
+    },
+    "qml": {
+      "type": "string",
+      "description": "QML file name or qrc: URL"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version x.y.z",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["effect", "object", "transition"],
+      "description": "Component type"
+    },
+    "categories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "At least one category (localized)"
+    },
+    "params": {
+      "type": "object",
+      "description": "Default parameter key/value pairs",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "number" },
+          { "type": "string" },
+          { "type": "boolean" }
+        ]
+      }
+    },
+    "ui": {
+      "type": "object",
+      "required": ["controls"],
+      "properties": {
+        "group": {
+          "type": "string",
+          "enum": ["effect", "object", "transition"]
+        },
+        "controls": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/control" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "color": {
+      "type": "string",
+      "description": "Hex color for timeline badge (e.g. '#3b82f6')",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "control": {
+      "type": "object",
+      "required": ["type"],
+      "oneOf": [
+        { "$ref": "#/$defs/sliderControl" },
+        { "$ref": "#/$defs/floatControl" },
+        { "$ref": "#/$defs/intControl" },
+        { "$ref": "#/$defs/boolControl" },
+        { "$ref": "#/$defs/colorControl" },
+        { "$ref": "#/$defs/stringControl" },
+        { "$ref": "#/$defs/pathControl" },
+        { "$ref": "#/$defs/enumControl" },
+        { "$ref": "#/$defs/comboControl" },
+        { "$ref": "#/$defs/fontControl" },
+        { "$ref": "#/$defs/headerControl" }
+      ]
+    },
+    "sliderControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "const": "slider" },
+        "param": { "type": "string" },
+        "label": { "type": "string" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "step": { "type": "number" },
+        "decimals": { "type": "integer" },
+        "unit": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "floatControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "enum": ["float", "number"] },
+        "param": { "type": "string" },
+        "label": { "type": "string" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "step": { "type": "number" },
+        "decimals": { "type": "integer" },
+        "unit": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "intControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "enum": ["int", "integer", "spinner"] },
+        "param": { "type": "string" },
+        "label": { "type": "string" },
+        "min": { "type": "integer" },
+        "max": { "type": "integer" },
+        "step": { "type": "integer" },
+        "unit": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "boolControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "enum": ["bool", "boolean"] },
+        "param": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "colorControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "const": "color" },
+        "param": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "stringControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "enum": ["string", "text"] },
+        "param": { "type": "string" },
+        "label": { "type": "string" },
+        "placeholder": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "pathControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "enum": ["path", "file"] },
+        "param": { "type": "string" },
+        "label": { "type": "string" },
+        "filter": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "enumControl": {
+      "type": "object",
+      "required": ["type", "param", "label", "options"],
+      "properties": {
+        "type": { "const": "enum" },
+        "param": { "type": "string" },
+        "label": { "type": "string" },
+        "options": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "required": ["value", "label"],
+                "properties": {
+                  "value": {},
+                  "label": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "comboControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "const": "combo" },
+        "param": { "type": "string" },
+        "label": { "type": "string" },
+        "source": { "type": "string" },
+        "sourceProperty": { "type": "string" },
+        "textRole": { "type": "string", "default": "name" },
+        "valueRole": { "type": "string", "default": "id" },
+        "excludeCurrentScene": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
+    },
+    "fontControl": {
+      "type": "object",
+      "required": ["type", "param", "label"],
+      "properties": {
+        "type": { "const": "font" },
+        "param": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "headerControl": {
+      "type": "object",
+      "required": ["type", "label"],
+      "properties": {
+        "type": { "const": "header" },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
