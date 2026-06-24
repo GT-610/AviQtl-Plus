@@ -1,0 +1,32 @@
+{
+  "id": "posterize",
+  "name": "Posterize",
+  "qml": "Posterize.qml",
+  "version": "1.0.0",
+  "kind": "effect",
+  "categories": ["Stylize"],
+  "params": {
+    "levels": 8.0,
+    "dither": 0.0
+  },
+  "ui": {
+    "controls": [
+      {
+        "type": "slider",
+        "param": "levels",
+        "label": "Levels",
+        "min": 2.0,
+        "max": 32.0,
+        "step": 1.0
+      },
+      {
+        "type": "slider",
+        "param": "dither",
+        "label": "Dither",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      }
+    ]
+  }
+}
