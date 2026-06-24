@@ -34,7 +34,7 @@ class TestEffectRegistryLoad : public QObject {
 };
 
 void TestEffectRegistryLoad::init() {
-    // Clean up all files in temp dir between tests
+    QVERIFY(m_dir.isValid());
     QDir dir(m_dir.path());
     for (const auto &entry : dir.entryList(QDir::Files)) {
         dir.remove(entry);
@@ -308,7 +308,7 @@ void TestEffectRegistryLoad::loadFromSubdirectory() {
 void TestEffectRegistryLoad::loadFromNonexistentDir() {
     EffectRegistry &reg = EffectRegistry::instance();
     int before = reg.getAllEffects().size();
-    reg.loadEffectsFromDirectory("/nonexistent/path/that/does/not/exist");
+    reg.loadEffectsFromDirectory(m_dir.path() + "/nonexistent_subdir");
     QCOMPARE(reg.getAllEffects().size(), before);
 }
 
