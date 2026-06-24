@@ -1680,57 +1680,57 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../core/src/package_manager.cpp" line="600"/>
         <source>Downloading package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Downloading package: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="614"/>
         <source>Download failed: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Download failed: %1</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="632"/>
         <source>Failed to create temporary directory.</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to create temporary directory.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="639"/>
         <source>Invalid download URL.</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid download URL.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="647"/>
         <source>Failed to save downloaded file.</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to save downloaded file.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="653"/>
         <source>Extracting package...</source>
-        <translation type="unfinished"></translation>
+        <translation>Extracting package...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="665"/>
         <source>Failed to create extraction directory.</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to create extraction directory.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="672"/>
         <source>Failed to extract package archive.</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to extract package archive.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="676"/>
         <source>Deploying package files...</source>
-        <translation type="unfinished"></translation>
+        <translation>Deploying package files...</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="682"/>
         <source>Failed to deploy package files.</source>
-        <translation type="unfinished"></translation>
+        <translation>Failed to deploy package files.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="881"/>
         <source>Invalid package ID.</source>
-        <translation type="unfinished"></translation>
+        <translation>Invalid package ID.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="886"/>
@@ -3209,7 +3209,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="322"/>
         <source>権限</source>
-        <translation type="unfinished"></translation>
+        <translation>Permissions</translation>
     </message>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="333"/>
@@ -3318,47 +3318,47 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="11"/>
         <source>権限管理: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Permission Management: %1</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="52"/>
         <source>このプラグインに許可する権限を選択してください:</source>
-        <translation type="unfinished"></translation>
+        <translation>Select the permissions to grant to this plugin:</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
         <source>再生制御</source>
-        <translation type="unfinished"></translation>
+        <translation>Playback Control</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="64"/>
         <source>再生、一時停止、シーク</source>
-        <translation type="unfinished"></translation>
+        <translation>Play, pause, seek</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
         <source>クリップ読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>Clip Read</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
         <source>クリップ情報の一覧表示</source>
-        <translation type="unfinished"></translation>
+        <translation>List clip information</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
         <source>クリップ変更</source>
-        <translation type="unfinished"></translation>
+        <translation>Clip Modify</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
         <source>クリップの作成、削除、移動</source>
-        <translation type="unfinished"></translation>
+        <translation>Create, delete, and move clips</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
         <source>エフェクト読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>Effect Read</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
@@ -3368,27 +3368,27 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
         <source>エフェクト変更</source>
-        <translation type="unfinished"></translation>
+        <translation>Effect Modify</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
         <source>エフェクトの追加、削除、変更</source>
-        <translation type="unfinished"></translation>
+        <translation>Add, remove, and modify effects</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
         <source>プロジェクト読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>Project Read</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
         <source>解像度、FPS等の情報取得</source>
-        <translation type="unfinished"></translation>
+        <translation>Get resolution, FPS, and other info</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
         <source>プロジェクト保存</source>
-        <translation type="unfinished"></translation>
+        <translation>Project Save</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
@@ -3398,7 +3398,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
         <source>プロジェクト読み込み</source>
-        <translation type="unfinished"></translation>
+        <translation>Project Load</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
@@ -3408,7 +3408,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
         <source>シーン管理</source>
-        <translation type="unfinished"></translation>
+        <translation>Scene Management</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
@@ -3418,7 +3418,7 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
         <source>設定読み取り</source>
-        <translation type="unfinished"></translation>
+        <translation>Settings Read</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
@@ -3428,27 +3428,27 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
         <source>設定書き込み</source>
-        <translation type="unfinished"></translation>
+        <translation>Settings Write</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
         <source>プラグイン設定の保存</source>
-        <translation type="unfinished"></translation>
+        <translation>Save plugin settings</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
         <source>クリップボード</source>
-        <translation type="unfinished"></translation>
+        <translation>Clipboard</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
         <source>コピー、切り取り、貼り付け</source>
-        <translation type="unfinished"></translation>
+        <translation>Copy, cut, and paste</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
         <source>ログ出力</source>
-        <translation type="unfinished"></translation>
+        <translation>Logging</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
@@ -3458,12 +3458,12 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
         <source>すべて許可</source>
-        <translation type="unfinished"></translation>
+        <translation>Allow All</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="132"/>
         <source>すべて拒否</source>
-        <translation type="unfinished"></translation>
+        <translation>Deny All</translation>
     </message>
 </context>
 <context>
@@ -3476,17 +3476,17 @@ Please restart the application to apply the update.</translation>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="59"/>
         <source>Lua プラグイン</source>
-        <translation type="unfinished"></translation>
+        <translation>Lua Plugins</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="67"/>
         <source>ホットリロードを有効にする</source>
-        <translation type="unfinished"></translation>
+        <translation>Enable Hot Reload</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="73"/>
         <source>有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします</source>
-        <translation type="unfinished"></translation>
+        <translation>When enabled, automatically reloads plugins when changes to the plugins folder are detected</translation>
     </message>
     <message>
         <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="95"/>
