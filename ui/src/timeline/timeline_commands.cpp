@@ -341,4 +341,31 @@ auto SetAudioPluginParamCommand::mergeWith(const QUndoCommand *other) -> bool {
     return true;
 }
 
+AddAudioPluginCommand::AddAudioPluginCommand(TimelineService *service, int clipId, const AudioPluginState &state, const QString &pluginName)
+    : m_service(service), m_clipId(clipId), m_state(state), m_insertedIndex(-1) {
+    setText(QObject::tr("オーディオプラグイン追加: %1").arg(pluginName));
+}
+void AddAudioPluginCommand::redo() { m_insertedIndex = m_service->addAudioPluginStateInternal(m_clipId, m_state); }
+void AddAudioPluginCommand::undo() { m_service->removeAudioPluginStateInternal(m_clipId, m_insertedIndex); }
+
+RemoveAudioPluginCommand::RemoveAudioPluginCommand(TimelineService *service, int clipId, int index, const QString &pluginName)
+    : m_service(service), m_clipId(clipId), m_index(index), m_valid(false) {
+    setText(QObject::tr("オーディオプラグイン削除: %1").arg(pluginName));
+    const auto *clip = service->findClipById(clipId);
+    if (clip != nullptr && index >= 0 && index < clip->audioPlugins.size()) {
+        m_savedState = clip->audioPlugins.at(index);
+        m_valid = true;
+    }
+}
+void RemoveAudioPluginCommand::redo() {
+    if (m_valid) {
+        m_service->removeAudioPluginStateInternal(m_clipId, m_index);
+    }
+}
+void RemoveAudioPluginCommand::undo() {
+    if (m_valid) {
+        m_service->restoreAudioPluginStateInternal(m_clipId, m_index, m_savedState);
+    }
+}
+
 } // namespace AviQtl::UI

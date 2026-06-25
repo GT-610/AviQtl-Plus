@@ -12,11 +12,13 @@
 namespace AviQtl::UI {
 
 TimelineService::TimelineService(SelectionService *selection, QObject *parent) : QObject(parent), m_undoStack(new QUndoStack(this)), m_selection(selection) {
+    const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
+    m_undoStack->setUndoLimit(settings.value(QStringLiteral("undoCount"), 32).toInt());
+
     // 初期シーンを作成
     SceneData rootScene;
     rootScene.id = 0;
     rootScene.name = QObject::tr("ルート");
-    const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
     rootScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
     rootScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
     rootScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();

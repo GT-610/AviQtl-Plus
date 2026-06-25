@@ -384,4 +384,31 @@ class SetAudioPluginParamCommand : public QUndoCommand {
     QString m_pluginName;
 };
 
+class AddAudioPluginCommand : public QUndoCommand {
+  public:
+    AddAudioPluginCommand(TimelineService *service, int clipId, const AudioPluginState &state, const QString &pluginName);
+    void undo() override;
+    void redo() override;
+
+  private:
+    TimelineService *m_service;
+    int m_clipId;
+    AudioPluginState m_state;
+    int m_insertedIndex;
+};
+
+class RemoveAudioPluginCommand : public QUndoCommand {
+  public:
+    RemoveAudioPluginCommand(TimelineService *service, int clipId, int index, const QString &pluginName);
+    void undo() override;
+    void redo() override;
+
+  private:
+    TimelineService *m_service;
+    int m_clipId;
+    int m_index;
+    AudioPluginState m_savedState;
+    bool m_valid;
+};
+
 } // namespace AviQtl::UI

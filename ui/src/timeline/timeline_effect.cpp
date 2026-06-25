@@ -265,6 +265,14 @@ void TimelineService::setEffectEnabled(int clipId, int effectIndex, bool enabled
 
 void TimelineService::setAudioPluginEnabled(int clipId, int index, bool enabled) { m_undoStack->push(new SetAudioPluginEnabledCommand(this, clipId, index, enabled)); }
 
+void TimelineService::addAudioPlugin(int clipId, const AudioPluginState &state, const QString &pluginName) {
+    m_undoStack->push(new AddAudioPluginCommand(this, clipId, state, pluginName));
+}
+
+void TimelineService::removeAudioPlugin(int clipId, int index, const QString &pluginName) {
+    m_undoStack->push(new RemoveAudioPluginCommand(this, clipId, index, pluginName));
+}
+
 void TimelineService::reorderEffects(int clipId, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) {
         return;
@@ -416,15 +424,16 @@ void TimelineService::setAudioPluginEnabledInternal(int clipId, int index, bool 
     emit clipsChanged(); // エンジン側の同期を促す
 }
 
-void TimelineService::addAudioPluginStateInternal(int clipId, const AudioPluginState &state) {
+int TimelineService::addAudioPluginStateInternal(int clipId, const AudioPluginState &state) {
     auto *clip = findClipById(clipId);
     if (clip == nullptr) {
-        return;
+        return -1;
     }
 
     clip->audioPlugins.append(state);
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
+    return clip->audioPlugins.size() - 1;
 }
 
 void TimelineService::removeAudioPluginStateInternal(int clipId, int index) {
@@ -434,6 +443,20 @@ void TimelineService::removeAudioPluginStateInternal(int clipId, int index) {
     }
 
     clip->audioPlugins.removeAt(index);
+    emit clipEffectsChanged(clipId);
+    emit clipsChanged();
+}
+
+void TimelineService::restoreAudioPluginStateInternal(int clipId, int index, const AudioPluginState &state) {
+    auto *clip = findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+
+    if (index < 0 || index > static_cast<int>(clip->audioPlugins.size())) {
+        index = clip->audioPlugins.size();
+    }
+    clip->audioPlugins.insert(index, state);
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }

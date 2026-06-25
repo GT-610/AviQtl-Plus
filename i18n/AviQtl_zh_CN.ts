@@ -3796,8 +3796,18 @@
         <translation>音频插件参数更改：%1</translation>
     </message>
     <message>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="346"/>
+        <source>オーディオプラグイン追加: %1</source>
+        <translation>音频插件添加：%1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="353"/>
+        <source>オーディオプラグイン削除: %1</source>
+        <translation>音频插件删除：%1</translation>
+    </message>
+    <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="79"/>
-        <location filename="../ui/src/timeline_service.cpp" line="18"/>
+        <location filename="../ui/src/timeline_service.cpp" line="21"/>
         <source>ルート</source>
         <translation>根</translation>
     </message>
@@ -3842,7 +3852,7 @@
         <translation>删除效果（%1 项）</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="359"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="367"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>更改效果顺序（%1 项）</translation>
     </message>
