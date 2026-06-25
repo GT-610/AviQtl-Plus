@@ -48,6 +48,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME effect_registry_load
+    SOURCES test_effect_registry_load.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME document_model
     SOURCES test_document_model.cpp
     LINKS AviQtl_Core
