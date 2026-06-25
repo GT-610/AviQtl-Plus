@@ -83,6 +83,10 @@ class TimelineService : public QObject {
     void removeAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame);
     void moveAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame);
 
+    // Audio plugin add/remove (undoable)
+    void addAudioPlugin(int clipId, const AudioPluginState &state, const QString &pluginName);
+    void removeAudioPlugin(int clipId, int index, const QString &pluginName);
+
     // クリップボード
     void copyClip(int clipId);
     void cutClip(int clipId);
@@ -105,8 +109,9 @@ class TimelineService : public QObject {
     void removeEffectInternal(int clipId, int effectIndex);
     void removeMultipleEffectsInternal(int clipId, const QList<int> &sortedDescIndices, QList<QVariantMap> *outData);
     void restoreMultipleEffectsInternal(int clipId, const QList<QVariantMap> &ascData);
-    void addAudioPluginStateInternal(int clipId, const AudioPluginState &state);
+    int addAudioPluginStateInternal(int clipId, const AudioPluginState &state);
     void removeAudioPluginStateInternal(int clipId, int index);
+    void restoreAudioPluginStateInternal(int clipId, int index, const AudioPluginState &state);
     void setEffectEnabledInternal(int clipId, int effectIndex, bool enabled);
     void setAudioPluginParamInternal(int clipId, int index, int paramIndex, float value);
     void pasteEffectInternal(int clipId, int targetIndex, EffectModel *effect);

@@ -752,7 +752,7 @@ void TimelineController::addAudioPlugin(int clipId, const QString &pluginId) {
         for (int i = 0; i < plugin->paramCount(); ++i) {
             state.params.insert(QString::number(i), plugin->getParam(i));
         }
-        m_timeline->addAudioPluginStateInternal(clipId, state);
+        m_timeline->addAudioPlugin(clipId, state, pluginId);
         m_mediaManager->syncAudioPluginChain(clipId);
         emit clipEffectsChanged(clipId);
     } else {
@@ -761,7 +761,12 @@ void TimelineController::addAudioPlugin(int clipId, const QString &pluginId) {
 }
 
 void TimelineController::removeAudioPlugin(int clipId, int index) {
-    m_timeline->removeAudioPluginStateInternal(clipId, index);
+    const auto *clip = m_timeline->findClipById(clipId);
+    QString pluginName;
+    if (clip != nullptr && index >= 0 && index < clip->audioPlugins.size()) {
+        pluginName = clip->audioPlugins.at(index).id;
+    }
+    m_timeline->removeAudioPlugin(clipId, index, pluginName);
     m_mediaManager->syncAudioPluginChain(clipId);
     emit clipEffectsChanged(clipId);
 }
