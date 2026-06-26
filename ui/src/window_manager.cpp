@@ -47,15 +47,11 @@ static void ensureWindowCreated(QQmlEngine *engine, QHash<QString, QPointer<QQui
         WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/AboutWindow.qml"), WindowManager::tr("AviQtlについて"), get("width", ABOUT_WIDTH), get("height", ABOUT_HEIGHT), get("x", ABOUT_X), get("y", ABOUT_Y), false, maximized);
     } else if (id == QStringLiteral("sceneSettings")) {
         WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/SceneSettingsWindow.qml"), WindowManager::tr("シーン設定"), get("width", SCENE_SETTINGS_WIDTH), get("height", SCENE_SETTINGS_HEIGHT), get("x", SCENE_SETTINGS_X), get("y", SCENE_SETTINGS_Y), false, maximized);
-    } else if (id == QStringLiteral("export")) {
-        WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/ExportDialog.qml"), WindowManager::tr("メディアの書き出し"), get("width", EXPORT_WIDTH), get("height", EXPORT_HEIGHT), get("x", EXPORT_X), get("y", EXPORT_Y), false, maximized);
     } else if (id == QStringLiteral("easingConfig")) {
         WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/common/EasingConfigWindow.qml"), WindowManager::tr("補間設定"), get("width", EASING_CONFIG_WIDTH), get("height", EASING_CONFIG_HEIGHT), get("x", EASING_CONFIG_X), get("y", EASING_CONFIG_Y), false, maximized);
     } else if (id == QStringLiteral("packageManager")) {
         WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/PackageManagerWindow.qml"), WindowManager::tr("パッケージマネージャー"), get("width", PACKAGE_MANAGER_WIDTH), get("height", PACKAGE_MANAGER_HEIGHT), get("x", PACKAGE_MANAGER_X), get("y", PACKAGE_MANAGER_Y), false,
                                                maximized);
-    } else if (id == QStringLiteral("mixer")) {
-        WindowManager::instance().spawnWindow(engine, id, QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/MixerWindow.qml"), WindowManager::tr("ミキサー"), get("width", MIXER_WIDTH), get("height", MIXER_HEIGHT), get("x", MIXER_X), get("y", MIXER_Y), false, maximized);
     } else {
         qWarning() << "[WindowManager] Unknown lazy window id:" << id;
     }

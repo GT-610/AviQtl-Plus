@@ -44,12 +44,6 @@ constexpr int SCENE_SETTINGS_HEIGHT = 300;
 constexpr int SCENE_SETTINGS_X = 300;
 constexpr int SCENE_SETTINGS_Y = 200;
 
-// Export
-constexpr int EXPORT_WIDTH = 620;
-constexpr int EXPORT_HEIGHT = 580;
-constexpr int EXPORT_X = 240;
-constexpr int EXPORT_Y = 160;
-
 // Easing Config
 constexpr int EASING_CONFIG_WIDTH = 820;
 constexpr int EASING_CONFIG_HEIGHT = 540;
@@ -61,11 +55,5 @@ constexpr int PACKAGE_MANAGER_WIDTH = 600;
 constexpr int PACKAGE_MANAGER_HEIGHT = 400;
 constexpr int PACKAGE_MANAGER_X = 500;
 constexpr int PACKAGE_MANAGER_Y = 300;
-
-// Mixer
-constexpr int MIXER_WIDTH = 800;
-constexpr int MIXER_HEIGHT = 320;
-constexpr int MIXER_X = 200;
-constexpr int MIXER_Y = 400;
 
 } // namespace AviQtl::UI::WindowDefaults
