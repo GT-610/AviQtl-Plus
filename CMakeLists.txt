@@ -22,7 +22,7 @@ endif()
 find_package(Qt6 REQUIRED COMPONENTS
     Core Gui GuiPrivate Quick QuickControls2 Quick3D
     Widgets Core5Compat Sql Svg Multimedia Concurrent
-    ShaderTools LinguistTools Network Test ${EXTRA_QT_COMPONENTS}
+    ShaderTools ShaderToolsPrivate LinguistTools Network Test ${EXTRA_QT_COMPONENTS}
 )
 
 if(APPLE)
@@ -95,6 +95,7 @@ set(CORE_SOURCES
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
     core/src/settings_manager.cpp
+    core/src/shader_compiler.cpp
     core/src/theme_controller.cpp
     core/src/video_encoder.cpp
     core/include/audio_decoder.hpp
@@ -110,6 +111,7 @@ set(CORE_SOURCES
     core/include/preset_manager.hpp
     core/include/project_serializer.hpp
     core/include/settings_manager.hpp
+    core/include/shader_compiler.hpp
     core/include/theme_controller.hpp
     core/include/version.hpp
     core/include/video_encoder.hpp
@@ -117,7 +119,7 @@ set(CORE_SOURCES
 
 add_library(AviQtl_Core STATIC ${CORE_SOURCES})
 target_include_directories(AviQtl_Core PUBLIC core/include ${CMAKE_SOURCE_DIR})
-target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
+target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml Qt6::ShaderToolsPrivate PkgConfig::FFMPEG PkgConfig::LUAJIT)
 aviqtl_target_warning_flags(AviQtl_Core)
 
 # Define version macros for AviQtl_Core

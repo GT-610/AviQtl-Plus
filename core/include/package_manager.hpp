@@ -70,6 +70,7 @@ class PackageManager : public QObject {
     bool extractZip(const QString &archivePath, const QString &destDir);
     bool deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType);
     QString getPackageDeployDir(const QString &packageType) const;
+    void compileShadersInDirectory(const QString &directory);
 
     bool m_isBusy = false;
     QVariantList m_packageList;
