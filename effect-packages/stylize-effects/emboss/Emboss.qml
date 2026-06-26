@@ -11,8 +11,8 @@ Common.BaseEffect {
 
     ShaderEffect {
         property variant source: root.sourceProxy
-        property real width: root.embossWidth
-        property real height: root.embossHeight
+        property real embossW: root.embossWidth
+        property real embossH: root.embossHeight
         property real angle: root.angle
         property real strength: root.strength
         property real texelW: root.source ? 1.0 / root.source.width : 0

@@ -51,14 +51,14 @@ Item {
         id: prevSource
         sourceItem: prevLoader
         visible: false
-        hideSource: false
+        hideSource: true
     }
 
     ShaderEffectSource {
         id: nextSource
         sourceItem: nextLoader
         visible: false
-        hideSource: false
+        hideSource: true
     }
 
     // 前のシーン

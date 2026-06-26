@@ -4,8 +4,8 @@ layout(location=0) out vec4 fragColor;
 layout(std140, binding=0) uniform buf {
     mat4  qt_Matrix;
     float qt_Opacity;
-    float width;
-    float height;
+    float embossW;
+    float embossH;
     float angle;
     float strength;
     float texelW;
@@ -16,7 +16,7 @@ layout(binding=1) uniform sampler2D source;
 void main() {
     float rad = radians(angle);
     vec2 dir = vec2(cos(rad), sin(rad));
-    vec2 offset = vec2(texelW * width, texelH * height) * dir;
+    vec2 offset = vec2(texelW * embossW, texelH * embossH) * dir;
 
     vec4 light = texture(source, qt_TexCoord0 + offset);
     vec4 dark  = texture(source, qt_TexCoord0 - offset);
