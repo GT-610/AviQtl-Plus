@@ -1,0 +1,48 @@
+{
+    "id": "emboss",
+    "name": "凸エッジ",
+    "qml": "Emboss.qml",
+    "params": {
+        "width": 200,
+        "height": 200,
+        "angle": 135,
+        "strength": 100
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "width",
+                "label": "幅",
+                "min": 100,
+                "max": 1000
+            },
+            {
+                "type": "float",
+                "param": "height",
+                "label": "高さ",
+                "min": 100,
+                "max": 1000
+            },
+            {
+                "type": "float",
+                "param": "angle",
+                "label": "角度",
+                "min": 0,
+                "max": 360
+            },
+            {
+                "type": "float",
+                "param": "strength",
+                "label": "強さ",
+                "min": 0,
+                "max": 200
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "輪郭強調"
+    ]
+}

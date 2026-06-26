@@ -1,4 +1,5 @@
 #include "effect_registry.hpp"
+#include "shader_compiler.hpp"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
@@ -180,6 +181,15 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
 
         if (QFile::exists(absoluteQmlPath)) {
             meta.qmlSource = QUrl::fromLocalFile(absoluteQmlPath).toString();
+
+            // Ensure shaders in the same directory are compiled
+            const QStringList shaderExtensions = {QStringLiteral("*.frag"), QStringLiteral("*.comp"), QStringLiteral("*.vert")};
+            QDirIterator shaderIt(jsonDir.path(), shaderExtensions, QDir::Files, QDirIterator::Subdirectories);
+            while (shaderIt.hasNext()) {
+                const QString shaderPath = shaderIt.next();
+                const QString shaderDir = QFileInfo(shaderPath).absolutePath();
+                ShaderCompiler::ensureCompiled(shaderPath, shaderDir);
+            }
         } else {
             qWarning().noquote() << "[EffectRegistry] Referenced QML file not found. Effect:" << id << "Path:" << absoluteQmlPath;
             continue;

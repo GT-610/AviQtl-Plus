@@ -1,0 +1,115 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform coherent image2D outImage;
+layout(binding = 1) uniform sampler2D inTex;
+layout(std140, binding = 2) uniform Params {
+    float blockSize;
+    float minLuma;
+    float maxLuma;
+    float mixAmount;
+    int   direction;
+    int   reverse;
+};
+
+float luma(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz  = imageSize(outImage);
+    if (gid.x >= sz.x || gid.y >= sz.y) return;
+
+    int bs       = clamp(int(blockSize), 2, 64);
+    int coord    = (direction == 0) ? gid.x : gid.y;
+    int maxCoord = (direction == 0) ? sz.x  : sz.y;
+
+    vec2 uv0 = (vec2(gid) + 0.5) / vec2(sz);
+    vec4 orig = texture(inTex, uv0);
+    float myL = luma(orig.rgb);
+
+    if (myL < minLuma || myL > maxLuma) {
+        imageStore(outImage, gid, orig);
+        return;
+    }
+
+    int blockStart  = (coord / bs) * bs;
+    int myOffset    = coord - blockStart;
+
+    vec4  sortPx[64];
+    float sortL [64];
+    int   cnt           = 0;
+    int   myValidOffset = 0;
+
+    for (int i = 0; i < bs; i++) {
+        int c = blockStart + i;
+        if (c >= maxCoord) break;
+
+        ivec2 sc = (direction == 0) ? ivec2(c, gid.y) : ivec2(gid.x, c);
+        vec2  uv = (vec2(sc) + 0.5) / vec2(sz);
+        vec4  px = texture(inTex, uv);
+        float l  = luma(px.rgb);
+
+        if (l < minLuma || l > maxLuma) continue;
+
+        if (i < myOffset) myValidOffset++;
+        sortPx[cnt] = px;
+        sortL [cnt] = l;
+        cnt++;
+    }
+
+    if (cnt <= 1) {
+        imageStore(outImage, gid, orig);
+        return;
+    }
+
+    // Pad to next power of two with sentinel values for bitonic sort correctness
+    // Sentinels (0.0 luma) always sort to the end via special comparison logic
+    int paddedSize = 1;
+    while (paddedSize < cnt) paddedSize *= 2;
+    for (int i = cnt; i < paddedSize; i++) {
+        sortL[i]  = 0.0;
+        sortPx[i] = vec4(0.0);
+    }
+
+    // Bitonic sort: O(n log^2 n), GPU-friendly with no data-dependent branches
+    for (int k = 2; k <= paddedSize; k *= 2) {
+        for (int j = k / 2; j > 0; j /= 2) {
+            for (int i = 0; i < paddedSize; i++) {
+                int ixj = i ^ j;
+                if (ixj > i && ixj < paddedSize) {
+                    bool ascending = ((i & k) == 0);
+                    if (reverse != 0) ascending = !ascending;
+
+                    // Sentinels (sortL == 0 from padding) always sort to the end
+                    bool iSentinel = (i >= cnt);
+                    bool jSentinel = (ixj >= cnt);
+                    bool shouldSwap;
+                    if (iSentinel && jSentinel) {
+                        shouldSwap = false;
+                    } else if (iSentinel) {
+                        shouldSwap = !ascending;
+                    } else if (jSentinel) {
+                        shouldSwap = ascending;
+                    } else {
+                        shouldSwap = ascending ? (sortL[i] > sortL[ixj]) : (sortL[i] < sortL[ixj]);
+                    }
+                    if (shouldSwap) {
+                        float tmpL = sortL[i];
+                        sortL[i] = sortL[ixj];
+                        sortL[ixj] = tmpL;
+
+                        vec4 tmpP = sortPx[i];
+                        sortPx[i] = sortPx[ixj];
+                        sortPx[ixj] = tmpP;
+                    }
+                }
+            }
+        }
+    }
+
+    vec4 result = mix(orig, sortPx[myValidOffset], mixAmount);
+    imageStore(outImage, gid, result);
+}

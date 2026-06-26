@@ -364,6 +364,22 @@ class PlatformBuilder:
         for qm in self.config.work_dir.rglob("*.qm"):
             if "CMakeFiles" not in qm.parts:
                 shutil.copy2(qm, i18n_dest / qm.name)
+        # Copy effect packages (source files + compiled .qsb)
+        effect_packages_src = self.config.source_dir / "effect-packages"
+        if effect_packages_src.exists():
+            effect_packages_dest = asset_dest / "effect-packages"
+            # Copy source files (exclude raw shaders)
+            shutil.copytree(effect_packages_src, effect_packages_dest,
+                          ignore=shutil.ignore_patterns("*.frag", "*.vert", "*.comp", "*.glsl"),
+                          dirs_exist_ok=True)
+            # Copy compiled .qsb files from build directory
+            effect_packages_build = self.config.work_dir / "effect-packages"
+            if effect_packages_build.exists():
+                for qsb_file in effect_packages_build.rglob("*.qsb"):
+                    rel_path = qsb_file.relative_to(effect_packages_build)
+                    dest_file = effect_packages_dest / rel_path
+                    dest_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(qsb_file, dest_file)
 
 
 class LinuxBuilderBase(PlatformBuilder):

@@ -22,7 +22,7 @@ endif()
 find_package(Qt6 REQUIRED COMPONENTS
     Core Gui GuiPrivate Quick QuickControls2 Quick3D
     Widgets Core5Compat Sql Svg Multimedia Concurrent
-    ShaderTools LinguistTools Network Test ${EXTRA_QT_COMPONENTS}
+    ShaderTools ShaderToolsPrivate LinguistTools Network Test ${EXTRA_QT_COMPONENTS}
 )
 
 if(APPLE)
@@ -95,6 +95,7 @@ set(CORE_SOURCES
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
     core/src/settings_manager.cpp
+    core/src/shader_compiler.cpp
     core/src/theme_controller.cpp
     core/src/video_encoder.cpp
     core/include/audio_decoder.hpp
@@ -110,6 +111,7 @@ set(CORE_SOURCES
     core/include/preset_manager.hpp
     core/include/project_serializer.hpp
     core/include/settings_manager.hpp
+    core/include/shader_compiler.hpp
     core/include/theme_controller.hpp
     core/include/version.hpp
     core/include/video_encoder.hpp
@@ -117,7 +119,8 @@ set(CORE_SOURCES
 
 add_library(AviQtl_Core STATIC ${CORE_SOURCES})
 target_include_directories(AviQtl_Core PUBLIC core/include ${CMAKE_SOURCE_DIR})
-target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
+target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
+target_link_libraries(AviQtl_Core PRIVATE Qt6::ShaderToolsPrivate)
 aviqtl_target_warning_flags(AviQtl_Core)
 
 # Define version macros for AviQtl_Core
@@ -303,6 +306,8 @@ qt_add_qml_module(AviQtl_UI
 # .frag file, and they are compiled generically. Source changes that add/remove shaders
 # still require a CMake reconfigure (e.g. touch CMakeLists.txt or use --fresh).
 set(EXTERNAL_QSB_FILES "")
+
+# Compile shaders from ui/qml/ (built-in effects)
 foreach(DIR "effects" "objects" "transitions" "common/shaders")
     file(GLOB_RECURSE SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/${DIR}/*.frag" "ui/qml/${DIR}/*.vert" "ui/qml/${DIR}/*.comp")
     foreach(SH ${SHADERS})
@@ -325,6 +330,31 @@ foreach(DIR "effects" "objects" "transitions" "common/shaders")
             VERBATIM
         )
     endforeach()
+endforeach()
+
+# Compile shaders from effect-packages/ (external effect packages)
+file(GLOB_RECURSE EFFECT_PACKAGE_SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    "effect-packages/**/*.frag" "effect-packages/**/*.vert" "effect-packages/**/*.comp")
+foreach(SH ${EFFECT_PACKAGE_SHADERS})
+    get_filename_component(SH_DIR ${SH} DIRECTORY)
+    get_filename_component(SH_FILE_NAME ${SH} NAME)
+    get_filename_component(SH_EXT ${SH} EXT)
+
+    set(OUTPUT_QSB "${CMAKE_BINARY_DIR}/${SH_DIR}/${SH_FILE_NAME}.qsb")
+    list(APPEND EXTERNAL_QSB_FILES ${OUTPUT_QSB})
+
+    set(QSB_ARGS "--glsl" "100es,120,150" "--hlsl" "50" "--msl" "12")
+    if(SH_EXT STREQUAL ".comp")
+        set(QSB_ARGS "--glsl" "310es,430" "--hlsl" "50" "--msl" "12")
+    endif()
+
+    add_custom_command(
+        OUTPUT ${OUTPUT_QSB}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/${SH_DIR}"
+        COMMAND Qt6::qsb ${QSB_ARGS} -o ${OUTPUT_QSB} "${CMAKE_SOURCE_DIR}/${SH}"
+        DEPENDS "${CMAKE_SOURCE_DIR}/${SH}"
+        VERBATIM
+    )
 endforeach()
 
 add_custom_target(AviQtl_ExternalShaders ALL DEPENDS ${EXTERNAL_QSB_FILES})
@@ -371,6 +401,17 @@ foreach(AVIQTL_EXTERNAL_ASSET_DIR effects objects transitions)
         VERBATIM
     )
 endforeach()
+
+# Copy effect-packages/ to build output (source files + compiled .qsb)
+add_custom_command(TARGET AviQtl POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/effect-packages"
+        "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_BINARY_DIR}/effect-packages"
+        "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
+    VERBATIM
+)
 
 add_custom_command(TARGET AviQtl POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

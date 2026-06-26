@@ -1,6 +1,7 @@
 #include "package_manager.hpp"
 #include "effect_registry.hpp"
 #include "settings_manager.hpp"
+#include "shader_compiler.hpp"
 #include "version.hpp" // AviQtl本体のバージョン情報にアクセスするため
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -683,6 +684,13 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
         return;
     }
 
+    // Compile shaders in deployed package
+    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
+        const QString deployDir = getPackageDeployDir(packageType);
+        const QString packageDir = deployDir + QStringLiteral("/") + packageId;
+        compileShadersInDirectory(packageDir);
+    }
+
     // Get version info
     const QString versionToInstall = [this, packageId]() {
         for (const auto &p : std::as_const(m_packageList)) {
@@ -1055,6 +1063,38 @@ void PackageManager::processUpgradeQueue() {
         }
         processUpgradeQueue();
     });
+}
+
+void PackageManager::compileShadersInDirectory(const QString &directory) {
+    const QStringList shaderExtensions = {QStringLiteral("*.frag"), QStringLiteral("*.comp"), QStringLiteral("*.vert")};
+    QDirIterator it(directory, shaderExtensions, QDir::Files, QDirIterator::Subdirectories);
+
+    int compiled = 0;
+    int skipped = 0;
+    int failed = 0;
+
+    while (it.hasNext()) {
+        const QString sourcePath = it.next();
+        const QString qsbPath = sourcePath + QStringLiteral(".qsb");
+
+        // Skip if already compiled and up-to-date
+        if (!ShaderCompiler::needsRecompile(sourcePath, qsbPath)) {
+            skipped++;
+            continue;
+        }
+
+        QString error;
+        if (ShaderCompiler::compileToFile(sourcePath, qsbPath, &error)) {
+            compiled++;
+        } else {
+            qWarning().noquote() << "[PackageManager] Shader compilation failed:" << sourcePath << ":" << error;
+            failed++;
+        }
+    }
+
+    if (compiled > 0 || failed > 0) {
+        qDebug().noquote() << "[PackageManager] Shaders compiled:" << compiled << "skipped:" << skipped << "failed:" << failed;
+    }
 }
 
 } // namespace AviQtl::Core

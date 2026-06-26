@@ -1,0 +1,14 @@
+{
+  "id": "com.aviqtl.objects.weather",
+  "name": "Weather Objects Pack",
+  "version": "1.0.0",
+  "author": "AviQtl Team",
+  "description": "Weather animation objects including rain and snow effects",
+  "min_app_version": "0.4.0",
+  "type": "object",
+  "objects": [
+    "rain",
+    "snow"
+  ],
+  "license": "AGPL-3.0"
+}

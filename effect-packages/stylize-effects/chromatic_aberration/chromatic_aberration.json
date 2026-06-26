@@ -1,0 +1,64 @@
+{
+    "id": "chromatic_aberration",
+    "name": "Chromatic Aberration",
+    "qml": "ChromaticAberration.qml",
+    "params": {
+        "redX": 5,
+        "redY": 0,
+        "greenX": 0,
+        "greenY": 0,
+        "blueX": -5,
+        "blueY": 0
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "redX",
+                "label": "Red Shift X",
+                "min": -100,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "redY",
+                "label": "Red Shift Y",
+                "min": -100,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "greenX",
+                "label": "Green Shift X",
+                "min": -100,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "greenY",
+                "label": "Green Shift Y",
+                "min": -100,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "blueX",
+                "label": "Blue Shift X",
+                "min": -100,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "blueY",
+                "label": "Blue Shift Y",
+                "min": -100,
+                "max": 100
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "Stylize"
+    ]
+}
