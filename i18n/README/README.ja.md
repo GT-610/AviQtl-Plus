@@ -139,6 +139,19 @@ MSVC ビルドは環境構築の複雑さから非推奨としています。
    - `.\build\AviQtl.exe`
 </details>
 
+## エフェクトパッケージ
+
+AviQtl-Plus はモジュラーなエフェクトシステムを備えています。`effect-packages/` ディレクトリには、拡張システムを示す即利用可能なエフェクトパッケージが含まれています：
+
+| パッケージ | タイプ | 内容 |
+|-----------|--------|------|
+| [stylize-effects](effect-packages/stylize-effects/) | エフェクト | グリッチ、ピクセルソート、色収差、モザイク、ノイズ、エッジ、ラスター |
+| [advanced-blur](effect-packages/advanced-blur/) | エフェクト | レンズブラー、放射ブラー、方向ブラー、モーションブラー |
+| [weather-objects](effect-packages/weather-objects/) | オブジェクト | 雨、雪アニメーション |
+| [transitions](effect-packages/transitions/) | トランジション | クロスフェード、スライド、ワイプ（円） |
+
+これらのパッケージは、実用的な追加機能であると同時に、カスタムエフェクト作成のための開発者リファレンスとしても活用できます。詳細は [effect-packages/README.md](effect-packages/README.md) を参照してください。
+
 ## Q & A
 
 > [!NOTE]
