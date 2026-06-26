@@ -139,6 +139,19 @@ cd AviQtl-Plus
    - `.\build\AviQtl.exe`
 </details>
 
+## 效果包
+
+AviQtl-Plus 拥有模块化效果系统。`effect-packages/` 目录包含即用型效果包，展示扩展系统：
+
+| 包 | 类型 | 内容 |
+|---|------|------|
+| [stylize-effects](../../effect-packages/stylize-effects/) | 效果 | Glitch、像素排序、色差、马赛克、噪声、浮雕、光栅 |
+| [advanced-blur](../../effect-packages/advanced-blur/) | 效果 | 镜头模糊、径向模糊、方向模糊、运动模糊 |
+| [weather-objects](../../effect-packages/weather-objects/) | 对象 | 雨、雪动画 |
+| [transitions](../../effect-packages/transitions/) | 转场 | 交叉淡化、滑动、圆形擦除 |
+
+这些效果包既是实用的附加组件，也是开发者创建自定义效果的参考。详见 [effect-packages/README.md](../../effect-packages/README.md)。
+
 ## 常见问题
 
 > [!NOTE]

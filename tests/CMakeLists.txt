@@ -54,6 +54,18 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME shader_compiler
+    SOURCES test_shader_compiler.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME effect_package
+    SOURCES test_effect_package.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME document_model
     SOURCES test_document_model.cpp
     LINKS AviQtl_Core
