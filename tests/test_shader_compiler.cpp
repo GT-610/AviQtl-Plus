@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 
 using namespace AviQtl::Core;
 
@@ -124,24 +125,20 @@ void TestShaderCompiler::needsRecompileWhenStale() {
     QString srcPath = dir.path() + "/src.frag";
     QString qsbPath = dir.path() + "/src.frag.qsb";
 
-    // Create source file
-    QFile src(srcPath);
-    QVERIFY(src.open(QIODevice::WriteOnly));
-    src.write("old");
-    src.close();
-
-    // Create .qsb file (older)
+    // Create .qsb file first
     QFile qsb(qsbPath);
     QVERIFY(qsb.open(QIODevice::WriteOnly));
     qsb.write("old_qsb");
     qsb.close();
 
-    // Touch source to make it newer
-    QVERIFY(QFile::remove(srcPath));
-    QFile src2(srcPath);
-    QVERIFY(src2.open(QIODevice::WriteOnly));
-    src2.write("new");
-    src2.close();
+    // Ensure timestamp separation on coarse filesystems
+    QThread::msleep(50);
+
+    // Create source file (newer than .qsb)
+    QFile src(srcPath);
+    QVERIFY(src.open(QIODevice::WriteOnly));
+    src.write("new");
+    src.close();
 
     QVERIFY(ShaderCompiler::needsRecompile(srcPath, qsbPath));
 }
@@ -200,9 +197,10 @@ void TestShaderCompiler::ensureCompiledRecompiles() {
 
     QString result1 = ShaderCompiler::ensureCompiled(srcPath, dir.path());
     QVERIFY(!result1.isEmpty());
+    QDateTime mtime1 = QFileInfo(result1).lastModified();
 
     // Modify source to trigger recompile
-    QThread::msleep(50); // Ensure file timestamp changes
+    QThread::msleep(50);
     QFile src2(srcPath);
     QVERIFY(src2.open(QIODevice::WriteOnly));
     src2.write(simpleComputeShader());
@@ -210,7 +208,11 @@ void TestShaderCompiler::ensureCompiledRecompiles() {
 
     QString result2 = ShaderCompiler::ensureCompiled(srcPath, dir.path());
     QVERIFY(!result2.isEmpty());
-    QCOMPARE(result1, result2); // Same path, but recompiled
+    QCOMPARE(result1, result2); // Same output path
+
+    // Verify recompilation actually happened (file was regenerated)
+    QDateTime mtime2 = QFileInfo(result2).lastModified();
+    QVERIFY(mtime2 > mtime1);
 }
 
 QTEST_MAIN(TestShaderCompiler)

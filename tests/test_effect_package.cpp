@@ -71,7 +71,7 @@ void main() { fragColor = texture(source, qt_TexCoord0) * qt_Opacity; }
 void TestEffectPackage::loadEffectFromSubdirectory() {
     // Simulate effect-packages/stylize-effects/glitch/ structure
     QDir(m_dir.path()).mkpath("stylize-effects/glitch");
-    writeJson("stylize-effects/glitch/glitch.json", R"({
+    QByteArray json = R"({
         "id": "pkg.test.glitch",
         "name": "Test Glitch",
         "qml": "Glitch.qml",
@@ -80,8 +80,9 @@ void TestEffectPackage::loadEffectFromSubdirectory() {
         "categories": ["Stylize"],
         "params": {"intensity": 0.5},
         "ui": {"controls": [{"type": "slider", "param": "intensity", "label": "Intensity"}]}
-    })");
-    writeQml("stylize-effects/glitch/Glitch.qml");
+    })";
+    QVERIFY(writeJson("stylize-effects/glitch/glitch.json", json));
+    QVERIFY(writeQml("stylize-effects/glitch/Glitch.qml"));
 
     EffectRegistry &reg = EffectRegistry::instance();
     reg.loadEffectsFromDirectory(m_dir.path());
@@ -97,7 +98,7 @@ void TestEffectPackage::loadMultipleEffectsFromPackage() {
     QDir(m_dir.path()).mkpath("advanced-blur/lens_blur");
     QDir(m_dir.path()).mkpath("advanced-blur/radial_blur");
 
-    writeJson("advanced-blur/lens_blur/lens_blur.json", R"({
+    QByteArray lensJson = R"({
         "id": "pkg.test.lens_blur",
         "name": "Test Lens Blur",
         "qml": "LensBlur.qml",
@@ -106,10 +107,11 @@ void TestEffectPackage::loadMultipleEffectsFromPackage() {
         "categories": ["Blur"],
         "params": {"radius": 10},
         "ui": {"controls": [{"type": "float", "param": "radius", "label": "Radius"}]}
-    })");
-    writeQml("advanced-blur/lens_blur/LensBlur.qml");
+    })";
+    QVERIFY(writeJson("advanced-blur/lens_blur/lens_blur.json", lensJson));
+    QVERIFY(writeQml("advanced-blur/lens_blur/LensBlur.qml"));
 
-    writeJson("advanced-blur/radial_blur/radial_blur.json", R"({
+    QByteArray radialJson = R"({
         "id": "pkg.test.radial_blur",
         "name": "Test Radial Blur",
         "qml": "RadialBlur.qml",
@@ -118,8 +120,9 @@ void TestEffectPackage::loadMultipleEffectsFromPackage() {
         "categories": ["Blur"],
         "params": {"strength": 0.1},
         "ui": {"controls": [{"type": "float", "param": "strength", "label": "Strength"}]}
-    })");
-    writeQml("advanced-blur/radial_blur/RadialBlur.qml");
+    })";
+    QVERIFY(writeJson("advanced-blur/radial_blur/radial_blur.json", radialJson));
+    QVERIFY(writeQml("advanced-blur/radial_blur/RadialBlur.qml"));
 
     EffectRegistry &reg = EffectRegistry::instance();
     reg.loadEffectsFromDirectory(m_dir.path());
@@ -130,7 +133,7 @@ void TestEffectPackage::loadMultipleEffectsFromPackage() {
 
 void TestEffectPackage::skipEffectWithMissingQml() {
     QDir(m_dir.path()).mkpath("bad_pkg");
-    writeJson("bad_pkg/bad.json", R"({
+    QByteArray json = R"({
         "id": "pkg.test.bad",
         "name": "Bad Effect",
         "qml": "Nonexistent.qml",
@@ -139,7 +142,8 @@ void TestEffectPackage::skipEffectWithMissingQml() {
         "categories": ["Test"],
         "params": {},
         "ui": {"controls": [{"type": "header", "label": "X"}]}
-    })");
+    })";
+    QVERIFY(writeJson("bad_pkg/bad.json", json));
     // No QML file written
 
     EffectRegistry &reg = EffectRegistry::instance();
@@ -151,7 +155,7 @@ void TestEffectPackage::skipEffectWithMissingQml() {
 
 void TestEffectPackage::shaderCompiledOnLoad() {
     QDir(m_dir.path()).mkpath("test_pkg");
-    writeJson("test_pkg/test.json", R"({
+    QByteArray json = R"({
         "id": "pkg.test.shader",
         "name": "Shader Test",
         "qml": "ShaderTest.qml",
@@ -160,9 +164,10 @@ void TestEffectPackage::shaderCompiledOnLoad() {
         "categories": ["Test"],
         "params": {"intensity": 0.5},
         "ui": {"controls": [{"type": "slider", "param": "intensity", "label": "Intensity"}]}
-    })");
-    writeQml("test_pkg/ShaderTest.qml");
-    writeFrag("test_pkg/test.frag");
+    })";
+    QVERIFY(writeJson("test_pkg/test.json", json));
+    QVERIFY(writeQml("test_pkg/ShaderTest.qml"));
+    QVERIFY(writeFrag("test_pkg/test.frag"));
 
     // Before loading, no .qsb should exist
     QVERIFY(!QFile::exists(m_dir.path() + "/test_pkg/test.frag.qsb"));
