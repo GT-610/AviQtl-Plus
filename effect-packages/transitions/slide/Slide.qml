@@ -27,7 +27,7 @@ Item {
         }
     }
 
-    // 方向に基づいてオフセットを計算
+    // 方向に基づいてオフセットを計算（前のシーン用：画面外へスライドアウト）
     function getOffset() {
         var offset = progress;
         if (reverse) {
@@ -43,6 +43,27 @@ Item {
             return Qt.point(0, offset * height);
         case "down":
             return Qt.point(0, -offset * height);
+        default:
+            return Qt.point(0, 0);
+        }
+    }
+
+    // 次のシーン用オフセット（画面外からスライドイン）
+    function getIncomingOffset() {
+        var offset = 1.0 - progress;
+        if (reverse) {
+            offset = progress;
+        }
+
+        switch (direction) {
+        case "left":
+            return Qt.point(-offset * width, 0);
+        case "right":
+            return Qt.point(offset * width, 0);
+        case "up":
+            return Qt.point(0, -offset * height);
+        case "down":
+            return Qt.point(0, offset * height);
         default:
             return Qt.point(0, 0);
         }
@@ -88,8 +109,8 @@ Item {
     Item {
         id: nextContainer
         anchors.fill: parent
-        x: -transitionRoot.getOffset().x
-        y: -transitionRoot.getOffset().y
+        x: transitionRoot.getIncomingOffset().x
+        y: transitionRoot.getIncomingOffset().y
 
         Behavior on x {
             NumberAnimation {
