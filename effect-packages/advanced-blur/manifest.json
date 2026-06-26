@@ -1,0 +1,16 @@
+{
+  "id": "com.aviqtl.effects.advanced-blur",
+  "name": "Advanced Blur Effects Pack",
+  "version": "1.0.0",
+  "author": "AviQtl Team",
+  "description": "Professional blur effects including lens blur, radial blur, directional blur, and motion blur",
+  "min_app_version": "0.4.0",
+  "type": "effect",
+  "effects": [
+    "lens_blur",
+    "radial_blur",
+    "directional_blur",
+    "motion_blur"
+  ],
+  "license": "AGPL-3.0"
+}

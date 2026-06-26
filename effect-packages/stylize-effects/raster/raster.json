@@ -1,0 +1,48 @@
+{
+    "id": "raster",
+    "name": "ラスター",
+    "qml": "Raster.qml",
+    "params": {
+        "width": 10,
+        "height": 10,
+        "speed": 0,
+        "angle": 0
+    },
+    "ui": {
+        "controls": [
+            {
+                "type": "float",
+                "param": "width",
+                "label": "幅",
+                "min": 1,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "height",
+                "label": "高さ",
+                "min": 1,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "speed",
+                "label": "速度",
+                "min": -100,
+                "max": 100
+            },
+            {
+                "type": "float",
+                "param": "angle",
+                "label": "角度",
+                "min": 0,
+                "max": 360
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "effect",
+    "categories": [
+        "変形"
+    ]
+}

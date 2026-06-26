@@ -1,0 +1,15 @@
+{
+  "id": "com.aviqtl.transitions.basic",
+  "name": "Basic Transitions Pack",
+  "version": "1.0.0",
+  "author": "AviQtl Team",
+  "description": "Basic transition effects including cross fade, slide, and wipe circle",
+  "min_app_version": "0.4.0",
+  "type": "transition",
+  "transitions": [
+    "cross_fade",
+    "slide",
+    "wipe_circle"
+  ],
+  "license": "AGPL-3.0"
+}

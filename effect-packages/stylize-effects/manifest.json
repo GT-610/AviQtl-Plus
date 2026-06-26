@@ -1,0 +1,19 @@
+{
+  "id": "com.aviqtl.effects.stylize",
+  "name": "Stylize Effects Pack",
+  "version": "1.0.0",
+  "author": "AviQtl Team",
+  "description": "Creative stylize effects including glitch, pixel sorting, chromatic aberration, mosaic, noise, emboss, and raster",
+  "min_app_version": "0.4.0",
+  "type": "effect",
+  "effects": [
+    "glitch",
+    "pixelsorter",
+    "chromatic_aberration",
+    "mosaic",
+    "noise",
+    "emboss",
+    "raster"
+  ],
+  "license": "AGPL-3.0"
+}
