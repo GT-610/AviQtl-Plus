@@ -20,9 +20,17 @@ QShader ShaderCompiler::compileSource(const QByteArray &glslSource,
 
     QList<QShaderBaker::GeneratedShader> targets;
     targets.append({QShader::SpirvShader, QShaderVersion(100)});
-    targets.append({QShader::GlslShader, QShaderVersion(100, QShaderVersion::GlslEs)});
-    targets.append({QShader::GlslShader, QShaderVersion(120)});
-    targets.append({QShader::GlslShader, QShaderVersion(150)});
+
+    if (stage == QShader::ComputeStage) {
+        // Compute shaders require GLSL 310es/430 (matching CMake qsb settings)
+        targets.append({QShader::GlslShader, QShaderVersion(310, QShaderVersion::GlslEs)});
+        targets.append({QShader::GlslShader, QShaderVersion(430)});
+    } else {
+        targets.append({QShader::GlslShader, QShaderVersion(100, QShaderVersion::GlslEs)});
+        targets.append({QShader::GlslShader, QShaderVersion(120)});
+        targets.append({QShader::GlslShader, QShaderVersion(150)});
+    }
+
     targets.append({QShader::HlslShader, QShaderVersion(50)});
     targets.append({QShader::MslShader, QShaderVersion(12)});
     baker.setGeneratedShaders(targets);

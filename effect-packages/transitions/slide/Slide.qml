@@ -36,13 +36,13 @@ Item {
 
         switch (direction) {
         case "left":
-            return Qt.point(-offset * width, 0);
-        case "right":
             return Qt.point(offset * width, 0);
+        case "right":
+            return Qt.point(-offset * width, 0);
         case "up":
-            return Qt.point(0, -offset * height);
-        case "down":
             return Qt.point(0, offset * height);
+        case "down":
+            return Qt.point(0, -offset * height);
         default:
             return Qt.point(0, 0);
         }

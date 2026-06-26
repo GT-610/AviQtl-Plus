@@ -29,7 +29,7 @@ Professional blur effects for AviQtl-Plus.
 
 Each effect is contained in its own subdirectory named after the effect ID:
 
-```
+```text
 advanced-blur/
 ├── manifest.json              # Package metadata
 ├── README.md                  # This file

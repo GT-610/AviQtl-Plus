@@ -37,7 +37,7 @@ This directory contains effect packages that demonstrate the extensibility of Av
 
 Each package follows this structure:
 
-```
+```text
 package-name/
 ├── manifest.json          # Package metadata
 ├── README.md              # Package documentation
@@ -52,7 +52,7 @@ package-name/
 └── ...
 ```
 
-**Important**: Each effect/object/transition must be in a subdirectory named after its ID. The ID in the directory name must match the `id` field in the JSON file.
+**Important**: Each effect/object/transition should be placed in a subdirectory named after its ID. The ID in the directory name should match the `id` field in the JSON file for consistency, though the registry loads effects by scanning for JSON files regardless of directory name.
 
 ## Effect Types
 
@@ -72,7 +72,7 @@ package-name/
 
 ### 2. Create the Structure
 
-```
+```text
 my-package/
 ├── manifest.json
 ├── README.md

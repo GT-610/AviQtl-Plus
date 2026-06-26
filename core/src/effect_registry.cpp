@@ -187,8 +187,8 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
             QDirIterator shaderIt(jsonDir.path(), shaderExtensions, QDir::Files, QDirIterator::Subdirectories);
             while (shaderIt.hasNext()) {
                 const QString shaderPath = shaderIt.next();
-                const QString qsbPath = shaderPath + QStringLiteral(".qsb");
-                ShaderCompiler::ensureCompiled(shaderPath, jsonDir.path());
+                const QString shaderDir = QFileInfo(shaderPath).absolutePath();
+                ShaderCompiler::ensureCompiled(shaderPath, shaderDir);
             }
         } else {
             qWarning().noquote() << "[EffectRegistry] Referenced QML file not found. Effect:" << id << "Path:" << absoluteQmlPath;

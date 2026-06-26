@@ -32,7 +32,7 @@ A collection of creative stylize effects for AviQtl-Plus.
 
 Each effect is contained in its own subdirectory named after the effect ID:
 
-```
+```text
 stylize-effects/
 ├── manifest.json              # Package metadata
 ├── README.md                  # This file

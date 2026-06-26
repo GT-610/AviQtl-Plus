@@ -29,17 +29,12 @@ Item {
     }
 
     // 最大半径を計算
-    property real maxRadius: {
-        var cx = width * centerX;
-        var cy = height * centerY;
-        var dx = Math.max(cx, width - cx);
-        var dy = Math.max(cy, height - cy);
+    readonly property real maxRadius: {
+        var cxc = width * centerX;
+        var cyc = height * centerY;
+        var dx = Math.max(cxc, width - cxc);
+        var dy = Math.max(cyc, height - cyc);
         return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    // 進行状況を更新
-    onProgressChanged: {
-        canvas.requestPaint();
     }
 
     // アニメーション
@@ -51,35 +46,47 @@ Item {
         running: true
     }
 
-    // 円形ワイプ用キャンバス
-    Canvas {
-        id: canvas
+    // 前のシーンと次のシーンをレイヤーとしてキャプチャ
+    ShaderEffectSource {
+        id: prevSource
+        sourceItem: prevLoader
+        visible: false
+        hideSource: false
+    }
+
+    ShaderEffectSource {
+        id: nextSource
+        sourceItem: nextLoader
+        visible: false
+        hideSource: false
+    }
+
+    // 前のシーン
+    Item {
+        id: prevContainer
         anchors.fill: parent
+        Loader { id: prevLoader; anchors.fill: parent; sourceComponent: transitionRoot.previousScene }
+    }
 
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.clearRect(0, 0, width, height);
+    // 次のシーン
+    Item {
+        id: nextContainer
+        anchors.fill: parent
+        Loader { id: nextLoader; anchors.fill: parent; sourceComponent: transitionRoot.nextScene }
+    }
 
-            var cx = width * centerX;
-            var cy = height * centerY;
-            var p = reverse ? (1.0 - progress) : progress;
-            var radius = maxRadius * p;
+    // 円形ワイプ合成
+    ShaderEffect {
+        anchors.fill: parent
+        property variant prevTexture: prevSource
+        property variant nextTexture: nextSource
+        property real cx: transitionRoot.centerX
+        property real cy: transitionRoot.centerY
+        property real wipeRadius: transitionRoot.maxRadius * (transitionRoot.reverse ? (1.0 - transitionRoot.progress) : transitionRoot.progress)
+        property real targetWidth: parent.width
+        property real targetHeight: parent.height
 
-            // 前のシーンを描画（黒でマスク）
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, width, height);
-
-            // 円形の穴を開ける
-            ctx.globalCompositeOperation = "destination-out";
-            ctx.beginPath();
-            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            // 次のシーンを描画
-            ctx.globalCompositeOperation = "destination-over";
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, width, height);
-        }
+        fragmentShader: "wipe_circle.frag.qsb"
     }
 
     // デバッグ用テキスト

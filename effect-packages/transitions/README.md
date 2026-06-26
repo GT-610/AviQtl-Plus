@@ -57,8 +57,8 @@ transitions/
 
 ### Wipe Circle
 - `duration` - Transition duration in frames (1-300)
-- `center_x` - Center X position (0-1)
-- `center_y` - Center Y position (0-1)
+- `centerX` - Center X position (0-1)
+- `centerY` - Center Y position (0-1)
 - `easing` - Easing function
 
 ## Transition JSON Format

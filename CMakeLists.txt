@@ -119,7 +119,8 @@ set(CORE_SOURCES
 
 add_library(AviQtl_Core STATIC ${CORE_SOURCES})
 target_include_directories(AviQtl_Core PUBLIC core/include ${CMAKE_SOURCE_DIR})
-target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml Qt6::ShaderToolsPrivate PkgConfig::FFMPEG PkgConfig::LUAJIT)
+target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
+target_link_libraries(AviQtl_Core PRIVATE Qt6::ShaderToolsPrivate)
 aviqtl_target_warning_flags(AviQtl_Core)
 
 # Define version macros for AviQtl_Core

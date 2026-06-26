@@ -42,19 +42,25 @@ weather-objects/
 ## Object Parameters
 
 ### Rain Object
-- `intensity` - Rain intensity (0-100)
-- `angle` - Rain angle (-90 to 90)
-- `speed` - Drop speed (0-100)
-- `dropLength` - Drop length (1-50)
-- `color` - Drop color (#RRGGBB)
+- `sizeW` - Area width (1-4000)
+- `sizeH` - Area height (1-4000)
+- `count` - Particle count (1-2000)
+- `speed` - Fall speed (-20 to 20)
+- `particleSize` - Particle size (0.1-100)
+- `spread` - Horizontal spread (0-4)
+- `seed` - Random seed (0-999999)
+- `color` - Particle color (#RRGGBB)
 - `opacity` - Overall opacity (0-1)
 
 ### Snow Object
-- `density` - Snow density (0-100)
-- `wind` - Wind direction (-100 to 100)
-- `speed` - Fall speed (0-100)
-- `flakeSize` - Flake size (1-20)
-- `color` - Flake color (#RRGGBB)
+- `sizeW` - Area width (1-4000)
+- `sizeH` - Area height (1-4000)
+- `count` - Particle count (1-2000)
+- `speed` - Fall speed (-20 to 20)
+- `particleSize` - Particle size (0.1-100)
+- `spread` - Horizontal spread (0-4)
+- `seed` - Random seed (0-999999)
+- `color` - Particle color (#RRGGBB)
 - `opacity` - Overall opacity (0-1)
 
 ## Object JSON Format
