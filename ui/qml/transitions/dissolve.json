@@ -1,0 +1,41 @@
+{
+    "id": "dissolve",
+    "name": "ディゾルブ",
+    "qml": "Dissolve.qml",
+    "params": {
+        "duration": 30,
+        "easing": "linear",
+        "reverse": false
+    },
+    "ui": {
+        "group": "transition",
+        "controls": [
+            {
+                "type": "spinner",
+                "param": "duration",
+                "label": "持続フレーム",
+                "min": 1,
+                "max": 300,
+                "step": 1
+            },
+            {
+                "type": "enum",
+                "param": "easing",
+                "label": "イージング",
+                "options": ["linear", "ease_in", "ease_out", "ease_in_out"]
+            },
+            {
+                "type": "bool",
+                "param": "reverse",
+                "label": "反転"
+            }
+        ]
+    },
+    "version": "1.0.0",
+    "kind": "transition",
+    "color": "#9C27B0",
+    "categories": [
+        "フェード",
+        "基本"
+    ]
+}
