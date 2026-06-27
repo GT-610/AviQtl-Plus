@@ -215,24 +215,6 @@ Item {
 
         }
 
-        // Waveform click-to-seek and playhead overlay
-        MouseArea {
-            id: waveformSeekArea
-            anchors.fill: parent
-            visible: waveformCanvas.isAudio
-            enabled: waveformCanvas.isAudio
-            acceptedButtons: Qt.LeftButton
-            onPressed: function(mouse) {
-                if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport) return;
-                var relFrame = Math.round((mouse.x / width) * waveformCanvas.displayDuration);
-                relFrame = Math.max(0, Math.min(waveformCanvas.displayDuration, relFrame));
-                Workspace.currentTimeline.transport.setCurrentFrame_seek(modelData.startFrame + relFrame);
-            }
-            // Don't handle drag - let moveArea handle it
-            preventStealing: false
-            z: 2
-        }
-
         // Playhead line on waveform
         Rectangle {
             id: waveformPlayhead
@@ -304,6 +286,14 @@ Item {
                 });
                 if (clipDelegate.isLayerLocked)
                     return ;
+
+                // Seek to clicked position for audio clips
+                if (waveformCanvas.isAudio && Workspace.currentTimeline && Workspace.currentTimeline.transport) {
+                    var absX = mouse.x + clipResizeHandleWidth;
+                    var relFrame = Math.round((absX / parent.width) * waveformCanvas.displayDuration);
+                    relFrame = Math.max(0, Math.min(waveformCanvas.displayDuration, relFrame));
+                    Workspace.currentTimeline.transport.setCurrentFrame_seek(modelData.startFrame + relFrame);
+                }
 
                 dragActive = false;
                 pressModifiers = mouse.modifiers;
