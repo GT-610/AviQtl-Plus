@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 import "common" as Common
+import "common/TimelineHelper.js" as TH
 
 ApplicationWindow {
     // Global Shortcuts
@@ -224,7 +225,7 @@ ApplicationWindow {
         onTriggered: {
             var win = WindowManager.getWindow("sceneSettings");
             if (win) {
-                var count = Workspace.currentTimeline ? Workspace.currentTimeline.scenes.length : 0;
+                var count = Workspace.currentTimeline?.scenes?.length ?? 0;
                 win.openForCreate(qsTr("シーン %1").arg(count + 1));
             }
         }
@@ -458,7 +459,7 @@ ApplicationWindow {
 
         text: qsTr("先頭へ移動")
         onTriggered: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+            if (Workspace.currentTimeline?.transport)
                 Workspace.currentTimeline.transport.currentFrame = 0;
 
         }
@@ -471,7 +472,7 @@ ApplicationWindow {
 
         text: qsTr("末尾へ移動")
         onTriggered: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+            if (Workspace.currentTimeline?.transport)
                 Workspace.currentTimeline.transport.currentFrame = Workspace.currentTimeline.transport.totalFrames;
 
         }
@@ -487,9 +488,9 @@ ApplicationWindow {
             if (Workspace.currentTimeline) {
                 var step = SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10;
                 var maxZ = SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400;
-                var curPercent = Workspace.currentTimeline.timelineScale <= 1 ? Workspace.currentTimeline.timelineScale * 100 : 100 + ((Workspace.currentTimeline.timelineScale - 1) * 300 / 9);
+                var curPercent = TH.scaleToPercent(Workspace.currentTimeline.timelineScale);
                 var nextPercent = Math.min(curPercent + step, maxZ);
-                Workspace.currentTimeline.timelineScale = nextPercent <= 100 ? nextPercent / 100 : 1 + ((nextPercent - 100) * 9 / 300);
+                Workspace.currentTimeline.timelineScale = TH.percentToScale(nextPercent);
             }
         }
     }
@@ -504,9 +505,9 @@ ApplicationWindow {
             if (Workspace.currentTimeline) {
                 var step = SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10;
                 var minZ = SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10;
-                var curPercent = Workspace.currentTimeline.timelineScale <= 1 ? Workspace.currentTimeline.timelineScale * 100 : 100 + ((Workspace.currentTimeline.timelineScale - 1) * 300 / 9);
+                var curPercent = TH.scaleToPercent(Workspace.currentTimeline.timelineScale);
                 var nextPercent = Math.max(curPercent - step, minZ);
-                Workspace.currentTimeline.timelineScale = nextPercent <= 100 ? nextPercent / 100 : 1 + ((nextPercent - 100) * 9 / 300);
+                Workspace.currentTimeline.timelineScale = TH.percentToScale(nextPercent);
             }
         }
     }
@@ -626,9 +627,9 @@ ApplicationWindow {
 
     // FPSと再生速度の同期設定
     Binding {
-        target: Workspace.currentTimeline ? Workspace.currentTimeline.transport : null
+        target: Workspace.currentTimeline?.transport ?? null
         property: "fps"
-        value: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60
+        value: Workspace.currentTimeline?.project?.fps ?? 60
     }
 
     Connections {
@@ -638,7 +639,7 @@ ApplicationWindow {
 
         }
 
-        target: Workspace.currentTimeline ? Workspace.currentTimeline.transport : null
+        target: Workspace.currentTimeline?.transport ?? null
     }
 
     Connections {
@@ -648,7 +649,7 @@ ApplicationWindow {
 
         }
 
-        target: Workspace.currentTimeline ? Workspace.currentTimeline.project : null
+        target: Workspace.currentTimeline?.project ?? null
     }
 
     Connections {
@@ -843,10 +844,10 @@ ApplicationWindow {
             id: compositeView
 
             // タイムラインの存在に依存するプロパティ
-            sceneId: Workspace.currentTimeline ? Workspace.currentTimeline.currentSceneId : -1
-            currentFrame: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Workspace.currentTimeline.transport.currentFrame : 0
+            sceneId: Workspace.currentTimeline?.currentSceneId ?? -1
+            currentFrame: Workspace.currentTimeline?.transport?.currentFrame ?? 0
             clipModel: {
-                var _trigger = Workspace.currentTimeline ? Workspace.currentTimeline.clips : null;
+                var _trigger = Workspace.currentTimeline?.clips ?? null;
                 if (Workspace.currentTimeline && sceneId >= 0)
                     return Workspace.currentTimeline.getSceneClips(sceneId);
 
@@ -900,11 +901,11 @@ ApplicationWindow {
 
                     Layout.fillWidth: true
                     from: 0
-                    to: (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0) ? Workspace.currentTimeline.timelineDuration : 1
+                    to: (Workspace.currentTimeline?.timelineDuration > 0) ? Workspace.currentTimeline.timelineDuration : 1
                     Accessible.name: qsTr("シークバー")
                     Accessible.description: qsTr("タイムライン上の現在位置をドラッグして再生位置を変更します")
                     onPressedChanged: {
-                        if (Workspace.currentTimeline && Workspace.currentTimeline.transport) {
+                        if (Workspace.currentTimeline?.transport) {
                             Workspace.currentTimeline.transport.isScrubbing = pressed;
                             if (pressed)
                                 Workspace.currentTimeline.transport.beginScrub();
@@ -913,7 +914,7 @@ ApplicationWindow {
                         }
                     }
                     onMoved: {
-                        if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                        if (Workspace.currentTimeline?.transport)
                             Workspace.currentTimeline.transport.scrubTo(Math.floor(value));
 
                     }
@@ -927,7 +928,7 @@ ApplicationWindow {
                     // スクラブ中はUI側からの書き換えを優先し、通常時はトランスポートに同期する
                     Binding on value {
                         when: !seekSlider.pressed
-                        value: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Workspace.currentTimeline.transport.currentFrame : 0
+                        value: Workspace.currentTimeline?.transport?.currentFrame ?? 0
                         restoreMode: Binding.RestoreBinding
                     }
 
@@ -961,7 +962,7 @@ ApplicationWindow {
                         Accessible.name: qsTr("1フレーム戻る")
                         Accessible.description: qsTr("再生位置を1フレーム前に移動します")
                         onClicked: {
-                            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                            if (Workspace.currentTimeline?.transport)
                                 Workspace.currentTimeline.transport.setCurrentFrame_seek(Math.max(0, Workspace.currentTimeline.transport.currentFrame - 1));
 
                         }
@@ -978,16 +979,16 @@ ApplicationWindow {
                         Layout.preferredWidth: 32
                         Layout.preferredHeight: 32
                         flat: true
-                        Accessible.name: (Workspace.currentTimeline && Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.isPlaying) ? qsTr("一時停止") : qsTr("再生")
+                        Accessible.name: (Workspace.currentTimeline?.transport?.isPlaying) ? qsTr("一時停止") : qsTr("再生")
                         Accessible.description: qsTr("再生を開始または一時停止します")
                         onClicked: {
-                            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                            if (Workspace.currentTimeline?.transport)
                                 Workspace.currentTimeline.transport.togglePlay();
 
                         }
 
                         contentItem: Common.AviQtlIcon {
-                            iconName: (Workspace.currentTimeline && Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.isPlaying) ? "pause_fill" : "play_fill"
+                            iconName: (Workspace.currentTimeline?.transport?.isPlaying) ? "pause_fill" : "play_fill"
                             size: 24
                             color: parent.hovered ? parent.palette.highlight : parent.palette.text
                         }
@@ -1001,7 +1002,7 @@ ApplicationWindow {
                         Accessible.name: qsTr("1フレーム進む")
                         Accessible.description: qsTr("再生位置を1フレーム後に移動します")
                         onClicked: {
-                            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                            if (Workspace.currentTimeline?.transport)
                                 Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.transport.currentFrame + 1);
 
                         }
@@ -1033,11 +1034,11 @@ ApplicationWindow {
                         editable: true
                         Layout.preferredWidth: 80
                         Layout.preferredHeight: 28
-                        enabled: !(Workspace.currentTimeline && Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.isPlaying)
+                        enabled: !(Workspace.currentTimeline?.transport?.isPlaying)
                         // 値のバインディング
-                        value: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Math.round(Workspace.currentTimeline.transport.playbackSpeed * 100) : 100
+                        value: Workspace.currentTimeline?.transport ? Math.round(Workspace.currentTimeline.transport.playbackSpeed * 100) : 100
                         onValueModified: {
-                            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                            if (Workspace.currentTimeline?.transport)
                                 Workspace.currentTimeline.transport.playbackSpeed = value / 100;
 
                         }
