@@ -14,11 +14,11 @@ Item {
     }
     property int resizeDraftStart: -1
     property int resizeDraftDuration: -1
-    property double scale: Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1
+    property double scale: Workspace.currentTimeline?.timelineScale ?? 1
     property bool forceVisualSelection: false
     property var forcedSelectedIds: []
-    readonly property bool committedSelected: ((Workspace.currentTimeline && Workspace.currentTimeline.selection) ? (Workspace.currentTimeline.selection.selectedClipIds.includes(modelData.id)) : false)
-    readonly property bool previewSelected: Workspace.currentTimeline && Workspace.currentTimeline.previewSelectionIds ? Workspace.currentTimeline.previewSelectionIds.includes(modelData.id) : false
+    readonly property bool committedSelected: Workspace.currentTimeline?.selection?.selectedClipIds?.includes(modelData.id) ?? false
+    readonly property bool previewSelected: Workspace.currentTimeline?.previewSelectionIds?.includes(modelData.id) ?? false
     readonly property bool forcedSelected: forceVisualSelection && forcedSelectedIds.includes(modelData.id)
     readonly property bool isSelected: previewSelected || (forceVisualSelection ? forcedSelected : committedSelected)
     readonly property bool isLayerLocked: getLayerLocked(modelData.layer)
@@ -82,7 +82,7 @@ Item {
     Rectangle {
         id: clipRect
 
-        readonly property var _rawColor: Workspace.currentTimeline ? Workspace.currentTimeline.getClipTypeColor(modelData.type) : ""
+        readonly property var _rawColor: Workspace.currentTimeline?.getClipTypeColor(modelData.type) ?? ""
         readonly property color _baseColor: _rawColor !== "" ? _rawColor : Qt.darker(palette.highlight, 1.6)
         // テキストのコントラスト計算用に現在の実効的な背景色を保持
         readonly property color _displayColor: isSelected ? (_rawColor !== "" ? Qt.lighter(_rawColor, 1.3) : palette.highlight) : _baseColor
@@ -215,30 +215,12 @@ Item {
 
         }
 
-        // Waveform click-to-seek and playhead overlay
-        MouseArea {
-            id: waveformSeekArea
-            anchors.fill: parent
-            visible: waveformCanvas.isAudio
-            enabled: waveformCanvas.isAudio
-            acceptedButtons: Qt.LeftButton
-            onPressed: function(mouse) {
-                if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport) return;
-                var relFrame = Math.round((mouse.x / width) * waveformCanvas.displayDuration);
-                relFrame = Math.max(0, Math.min(waveformCanvas.displayDuration, relFrame));
-                Workspace.currentTimeline.transport.setCurrentFrame_seek(modelData.startFrame + relFrame);
-            }
-            // Don't handle drag - let moveArea handle it
-            preventStealing: false
-            z: 2
-        }
-
         // Playhead line on waveform
         Rectangle {
             id: waveformPlayhead
-            property int _relFrame: {
-                if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport) return -1;
-                return Workspace.currentTimeline.transport.currentFrame - modelData.startFrame;
+            readonly property int _relFrame: {
+                var frame = Workspace.currentTimeline?.transport?.currentFrame;
+                return frame != null ? frame - modelData.startFrame : -1;
             }
             visible: waveformCanvas.isAudio && _relFrame >= 0 && _relFrame <= waveformCanvas.displayDuration
             width: 1
@@ -270,10 +252,10 @@ Item {
                 var deltaFrame = Math.round(dX / clipDelegate.scale);
                 var deltaLayer = Math.round(dY / layerHeight);
                 var ignoreSnap = (modifiers & Qt.ShiftModifier);
-                if (Workspace.currentTimeline && typeof Workspace.currentTimeline.resolveDragDelta === "function") {
+                if (typeof Workspace.currentTimeline?.resolveDragDelta === "function") {
                     var activeIds = (timelineViewRoot && timelineViewRoot.selectionVisualLatchIds) || [];
-                    if (activeIds.length === 0 && Workspace.currentTimeline.selection)
-                        activeIds = Workspace.currentTimeline.selection.selectedClipIds;
+                    if (activeIds.length === 0)
+                        activeIds = Workspace.currentTimeline?.selection?.selectedClipIds ?? activeIds;
 
                     var res = Workspace.currentTimeline.resolveDragDelta(modelData.id, deltaFrame, deltaLayer, activeIds, timelineViewRoot.selectionMinFrame, timelineViewRoot.selectionMinLayer, timelineViewRoot.selectionMaxLayer, timelineViewRoot.layerCount);
                     var dF = res.x;
@@ -305,6 +287,14 @@ Item {
                 if (clipDelegate.isLayerLocked)
                     return ;
 
+                // Seek to clicked position for audio clips
+                if (waveformCanvas.isAudio && Workspace.currentTimeline?.transport) {
+                    var absX = mouse.x + clipResizeHandleWidth;
+                    var relFrame = Math.round((absX / parent.width) * waveformCanvas.displayDuration);
+                    relFrame = Math.max(0, Math.min(waveformCanvas.displayDuration, relFrame));
+                    Workspace.currentTimeline.transport.setCurrentFrame_seek(modelData.startFrame + relFrame);
+                }
+
                 dragActive = false;
                 pressModifiers = mouse.modifiers;
                 // [FIX] REMOVED early selection logic here.
@@ -332,23 +322,25 @@ Item {
                         return ;
 
                     dragActive = true;
-                    if (!clipDelegate.isSelected && Workspace.currentTimeline)
-                        Workspace.currentTimeline.handleClipClick(modelData.id, pressModifiers);
+                    if (!clipDelegate.isSelected)
+                        Workspace.currentTimeline?.handleClipClick(modelData.id, pressModifiers);
 
                     var minF = modelData.startFrame;
                     var minL = modelData.layer;
                     var maxL = modelData.layer;
-                    if (Workspace.currentTimeline && Workspace.currentTimeline.selection) {
+                    var selIds = Workspace.currentTimeline?.selection?.selectedClipIds;
+                    if (selIds) {
                         var ids = (timelineViewRoot && timelineViewRoot.selectionVisualLatchIds) || [];
                         if (ids.length === 0)
-                            ids = Workspace.currentTimeline.selection.selectedClipIds;
+                            ids = selIds;
 
                         if (ids.length > 0) {
                             minF = 1e+07;
                             minL = 1e+07;
                             maxL = -1;
-                            for (var i = 0; i < Workspace.currentTimeline.clips.length; i++) {
-                                var c = Workspace.currentTimeline.clips[i];
+                            var clips = Workspace.currentTimeline?.clips ?? [];
+                            for (var i = 0; i < clips.length; i++) {
+                                var c = clips[i];
                                 if (ids.includes(c.id)) {
                                     if (c.startFrame < minF)
                                         minF = c.startFrame;
@@ -382,8 +374,7 @@ Item {
                     return ;
 
                 if (!dragActive) {
-                    if (Workspace.currentTimeline)
-                        Workspace.currentTimeline.handleClipClick(modelData.id, pressModifiers);
+                    Workspace.currentTimeline?.handleClipClick(modelData.id, pressModifiers);
 
                     return ;
                 }
@@ -433,8 +424,8 @@ Item {
                     if (clipDelegate.isLayerLocked)
                         return ;
 
-                    if (!clipDelegate.isSelected && Workspace.currentTimeline)
-                        Workspace.currentTimeline.handleClipClick(modelData.id, mouse.modifiers);
+                    if (!clipDelegate.isSelected)
+                        Workspace.currentTimeline?.handleClipClick(modelData.id, mouse.modifiers);
 
                     var sp = mapToItem(flickableContentItem, mouse.x, mouse.y);
                     startSceneX = sp.x;
@@ -455,7 +446,7 @@ Item {
                     var ignoreSnap = (mouse.modifiers & Qt.ShiftModifier);
                     var newStart = Math.max(0, snapFrameFunc(rawNewStart, ignoreSnap));
                     var newDur = endFrame - newStart;
-                    var minDur = SettingsManager ? SettingsManager.value("minClipDurationFrames", 5) : 5;
+                    var minDur = SettingsManager?.value("minClipDurationFrames", 5) ?? 5;
                     if (newDur < minDur) {
                         newStart = endFrame - minDur;
                         newDur = minDur;
@@ -506,8 +497,8 @@ Item {
                     if (clipDelegate.isLayerLocked)
                         return ;
 
-                    if (!clipDelegate.isSelected && Workspace.currentTimeline)
-                        Workspace.currentTimeline.handleClipClick(modelData.id, mouse.modifiers);
+                    if (!clipDelegate.isSelected)
+                        Workspace.currentTimeline?.handleClipClick(modelData.id, mouse.modifiers);
 
                     var sp = mapToItem(flickableContentItem, mouse.x, mouse.y);
                     startSceneX = sp.x;
@@ -526,7 +517,7 @@ Item {
                     var rawEndFrame = startFrame + (startDuration * clipDelegate.scale + delta) / clipDelegate.scale;
                     var ignoreSnap = (mouse.modifiers & Qt.ShiftModifier);
                     var snappedEndFrame = snapFrameFunc(rawEndFrame, ignoreSnap);
-                    var minDur = SettingsManager ? SettingsManager.value("minClipDurationFrames", 5) : 5;
+                    var minDur = SettingsManager?.value("minClipDurationFrames", 5) ?? 5;
                     var newDur = Math.max(minDur, snappedEndFrame - startFrame);
                     // ドラフトプロパティ経由で表示更新（バインディング破壊なし）
                     clipDelegate.resizeDraftDuration = newDur;

@@ -15,7 +15,7 @@ Common.AviQtlWindow {
         targetSceneId = -1; // 新規作成なのでIDは未定
         nameField.text = defaultName;
         // プロジェクトのデフォルト設定を初期値として使用
-        if (Workspace.currentTimeline && Workspace.currentTimeline.project) {
+        if (Workspace.currentTimeline?.project) {
             widthField.value = Workspace.currentTimeline.project.width;
             heightField.value = Workspace.currentTimeline.project.height;
             fpsField.value = Math.round(Workspace.currentTimeline.project.fps * 100);

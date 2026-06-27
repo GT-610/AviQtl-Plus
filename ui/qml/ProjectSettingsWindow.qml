@@ -11,7 +11,7 @@ Common.AviQtlWindow {
     title: qsTr("プロジェクト設定")
     // ウィンドウが表示されたときに現在の値をUIに反映
     onVisibleChanged: {
-        if (visible && Workspace.currentTimeline && Workspace.currentTimeline.project) {
+        if (visible && Workspace.currentTimeline?.project) {
             widthField.text = Workspace.currentTimeline.project.width;
             heightField.text = Workspace.currentTimeline.project.height;
             fpsField.text = Workspace.currentTimeline.project.fps;
@@ -101,7 +101,7 @@ Common.AviQtlWindow {
                 text: qsTr("適用")
                 highlighted: true
                 onClicked: {
-                    if (Workspace.currentTimeline && Workspace.currentTimeline.project) {
+                    if (Workspace.currentTimeline?.project) {
                         Workspace.currentTimeline.project.width = parseInt(widthField.text);
                         Workspace.currentTimeline.project.height = parseInt(heightField.text);
                         Workspace.currentTimeline.project.fps = parseFloat(fpsField.text);

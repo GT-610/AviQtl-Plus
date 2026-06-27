@@ -16,7 +16,7 @@ Item {
     function evalParam(key, fallback) {
         var _ = base._rev;
         if (base.effectModel) {
-            var fps = (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60;
+            var fps = Workspace.currentTimeline?.project?.fps ?? 60;
             var v = base.effectModel.evaluatedParam(key, base.frame, fps);
             if (v !== undefined && v !== null)
                 return v;

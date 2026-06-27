@@ -149,7 +149,7 @@ Common.AviQtlWindow {
 
                             implicitWidth: Math.max(100, contentItem.implicitWidth + leftPadding + rightPadding)
                             height: sceneTabHeight
-                            checked: Workspace.currentTimeline && Workspace.currentTimeline.currentSceneId === modelData.id
+                            checked: Workspace.currentTimeline?.currentSceneId === modelData.id
                             onClicked: {
                                 if (Workspace.currentTimeline)
                                     Workspace.currentTimeline.switchScene(modelData.id);
@@ -244,7 +244,7 @@ Common.AviQtlWindow {
             targetFlickable: timelineView.flickable
             rulerHeight: timelineWindow.rulerHeight
             timeWidth: timelineWindow.headerWidth
-            fps: Workspace.currentTimeline && Workspace.currentTimeline.project ? Workspace.currentTimeline.project.fps : 60
+            fps: Workspace.currentTimeline?.project?.fps ?? 60
             timelineDuration: timelineView.timelineLengthFrames
             Layout.preferredHeight: timelineWindow.rulerHeight
             Layout.minimumHeight: timelineWindow.rulerHeight

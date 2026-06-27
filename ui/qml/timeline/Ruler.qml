@@ -226,7 +226,7 @@ Rectangle {
             Rectangle {
                 id: rulerPlayhead
 
-                x: Math.round(((Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport.currentFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
+                x: Math.round(((Workspace.currentTimeline?.transport?.currentFrame ?? 0) * (Workspace.currentTimeline?.timelineScale ?? 1)) - (targetFlickable ? targetFlickable.contentX : 0))
                 y: 0
                 width: 2
                 height: parent.height
@@ -254,18 +254,18 @@ Rectangle {
                 cursorShape: pressed ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onPressed: (mouse) => {
-                    if (mouse.button === Qt.LeftButton && targetFlickable && Workspace.currentTimeline && Workspace.currentTimeline.transport) {
+                    if (mouse.button === Qt.LeftButton && targetFlickable && Workspace.currentTimeline?.transport) {
                         Workspace.currentTimeline.transport.beginScrub();
                         Workspace.currentTimeline.transport.scrubTo(pxToFrame(mouse.x, targetFlickable.contentX));
                     }
                 }
                 onPositionChanged: (mouse) => {
-                    if (pressed && (mouse.buttons & Qt.LeftButton) && targetFlickable && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                    if (pressed && (mouse.buttons & Qt.LeftButton) && targetFlickable && Workspace.currentTimeline?.transport)
                         Workspace.currentTimeline.transport.scrubTo(pxToFrame(mouse.x, targetFlickable.contentX));
 
                 }
                 onReleased: (mouse) => {
-                    if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                    if (mouse.button === Qt.LeftButton && Workspace.currentTimeline?.transport)
                         Workspace.currentTimeline.transport.endScrub();
 
                 }
