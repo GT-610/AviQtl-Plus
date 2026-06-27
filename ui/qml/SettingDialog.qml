@@ -11,23 +11,23 @@ import "common/Logger.js" as Logger
 Common.AviQtlWindow {
     id: root
 
-    property int targetClipId: (Workspace.currentTimeline && Workspace.currentTimeline.selection) ? Workspace.currentTimeline.selection.selectedClipId : -1
+    property int targetClipId: Workspace.currentTimeline?.selection?.selectedClipId ?? -1
     property var effectsModel: []
     property var audioEffectsModel: []
     property bool inputting: false // 入力中フラグ（reloadループ防止用）
     property bool reloading: false
     property bool isDeleting: false // 複数エフェクト削除中フラグ（途中reload抑制用）
-    property bool enableSnap: SettingsManager && SettingsManager.settings ? SettingsManager.settings.enableSnap : true
-    property bool sidebarOnRight: (SettingsManager && SettingsManager.settings && SettingsManager.settings.settingDialogSidebarRight !== undefined) ? SettingsManager.settings.settingDialogSidebarRight : false
-    readonly property real _projectFps: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60
-    readonly property bool isAudioWorkspaceClip: Workspace.currentTimeline && Workspace.currentTimeline.activeObjectType === "audio"
+    property bool enableSnap: SettingsManager?.settings?.enableSnap ?? true
+    property bool sidebarOnRight: SettingsManager?.settings?.settingDialogSidebarRight ?? false
+    readonly property real _projectFps: Workspace.currentTimeline?.project?.fps ?? 60
+    readonly property bool isAudioWorkspaceClip: Workspace.currentTimeline?.activeObjectType === "audio"
     property real audioPeakLeft: 0
     property real audioPeakRight: 0
     property real audioRmsLeft: 0
     property real audioRmsRight: 0
     property int _audioKfRev: 0
-    readonly property int _audioClipDur: Workspace.currentTimeline ? Workspace.currentTimeline.clipDurationFrames : 100
-    readonly property int _audioRelFrame: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Math.max(0, Workspace.currentTimeline.transport.currentFrame - Workspace.currentTimeline.clipStartFrame) : 0
+    readonly property int _audioClipDur: Workspace.currentTimeline?.clipDurationFrames ?? 100
+    readonly property int _audioRelFrame: Math.max(0, (Workspace.currentTimeline?.transport?.currentFrame ?? 0) - (Workspace.currentTimeline?.clipStartFrame ?? 0))
     readonly property var _cachedAudioModel: {
         var _ = _audioKfRev;
         for (var i = 0; i < effectsModel.length; i++) {
@@ -61,7 +61,7 @@ Common.AviQtlWindow {
         var model = audioEffectModel();
         if (!model)
             return fallback;
-        var curFrame = (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Math.max(0, Workspace.currentTimeline.transport.currentFrame - Workspace.currentTimeline.clipStartFrame) : 0;
+        var curFrame = Math.max(0, (Workspace.currentTimeline?.transport?.currentFrame ?? 0) - (Workspace.currentTimeline?.clipStartFrame ?? 0));
         var v = model.evaluatedParam(paramName, curFrame, root._projectFps);
         return (v !== undefined && v !== null) ? v : fallback;
     }
@@ -116,7 +116,7 @@ Common.AviQtlWindow {
     }
 
     function currentSceneData() {
-        if (!Workspace.currentTimeline || !Workspace.currentTimeline.scenes)
+        if (!Workspace.currentTimeline?.scenes)
             return null;
 
         for (let i = 0; i < Workspace.currentTimeline.scenes.length; i++) {
@@ -153,7 +153,7 @@ Common.AviQtlWindow {
 
         const gs = gridSettings();
         const scale = Workspace.currentTimeline.timelineScale;
-        const fps = (Workspace.currentTimeline.project && Workspace.currentTimeline.project.fps) ? Workspace.currentTimeline.project.fps : 60;
+        const fps = Workspace.currentTimeline?.project?.fps ?? 60;
         if (gs.mode === "BPM") {
             const beatFrames = fps / (gs.bpm / 60);
             const bpmDiv = scale > 3 ? 4 : scale > 1.5 ? 2 : 1;
@@ -186,7 +186,7 @@ Common.AviQtlWindow {
     }
 
     function reload() {
-        if (!Workspace.currentTimeline || !Workspace.currentTimeline.selection || reloading)
+        if (!Workspace.currentTimeline?.selection || reloading)
             return ;
 
         reloading = true;
@@ -213,7 +213,7 @@ Common.AviQtlWindow {
             audioEffectsModel = [];
         }
         // 保存したオブジェクト参照から新インデックスを復元
-        var newModel = (Workspace.currentTimeline && Workspace.currentTimeline.isAudioClip(id)) ? audioEffectsModel : effectsModel;
+        var newModel = Workspace.currentTimeline?.isAudioClip(id) ? audioEffectsModel : effectsModel;
         if (newModel && oldSelectedObjects.length > 0) {
             var newSel = [];
             for (var j = 0; j < newModel.length; j++) {
@@ -268,7 +268,7 @@ Common.AviQtlWindow {
     }
 
     function scrollToEffect(index) {
-        var isAudio = Workspace.currentTimeline && Workspace.currentTimeline.isAudioClip(targetClipId);
+        var isAudio = Workspace.currentTimeline?.isAudioClip(targetClipId);
         var repeater = isAudio ? audioEffectsRepeater : videoEffectsRepeater;
         if (!repeater)
             return ;
@@ -339,7 +339,7 @@ Common.AviQtlWindow {
 
         }
 
-        target: Workspace.currentTimeline ? Workspace.currentTimeline.selection : null
+        target: Workspace.currentTimeline?.selection
     }
 
     Connections {
@@ -459,7 +459,7 @@ Common.AviQtlWindow {
                 LayoutMirroring.childrenInherit: true
                 clip: true
                 // 選択中のクリップタイプに応じてモデルを切り替え
-                model: (Workspace.currentTimeline && Workspace.currentTimeline.isAudioClip(targetClipId)) ? audioEffectsModel : effectsModel
+                model: Workspace.currentTimeline?.isAudioClip(targetClipId) ? audioEffectsModel : effectsModel
                 boundsBehavior: Flickable.StopAtBounds
 
                 delegate: Item {
@@ -658,7 +658,7 @@ Common.AviQtlWindow {
                         if (!m)
                             return false;
 
-                        var isAudio = Workspace.currentTimeline && Workspace.currentTimeline.isAudioClip(targetClipId);
+                        var isAudio = Workspace.currentTimeline?.isAudioClip(targetClipId);
                         for (var i = 0; i < indices.length; i++) {
                             var idx = indices[i];
                             if (idx >= 0 && idx < m.length)
@@ -1421,8 +1421,8 @@ Common.AviQtlWindow {
                                 property var effectModel: effectRoot.effectModel
                                 property int effIdx: effectRoot.effectIndex
                                 // キーフレーム
-                                property int curRelFrame: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Math.max(0, Workspace.currentTimeline.transport.currentFrame - Workspace.currentTimeline.clipStartFrame) : 0
-                                property int clipDur: Workspace.currentTimeline ? Workspace.currentTimeline.clipDurationFrames : 100
+                                property int curRelFrame: Math.max(0, (Workspace.currentTimeline?.transport?.currentFrame ?? 0) - (Workspace.currentTimeline?.clipStartFrame ?? 0))
+                                property int clipDur: Workspace.currentTimeline?.clipDurationFrames ?? 100
                                 property var tracks: effectModel ? effectModel.keyframeTracks : null
                                 property var rawKfs: {
                                     var _ = tracks;
@@ -1503,7 +1503,7 @@ Common.AviQtlWindow {
                                 }
 
                                 function seekTrackFrameAt(xPos) {
-                                    if (!Workspace.currentTimeline || !Workspace.currentTimeline.transport || clipDur <= 0 || trackItem.width <= 0)
+                                    if (!Workspace.currentTimeline?.transport || clipDur <= 0 || trackItem.width <= 0)
                                         return ;
 
                                     var rawRelFrame = (xPos / trackItem.width) * clipDur;
@@ -1624,7 +1624,7 @@ Common.AviQtlWindow {
                                         return [];
 
                                     let gs = gridSettings();
-                                    let fps = (Workspace.currentTimeline.project && Workspace.currentTimeline.project.fps) ? Workspace.currentTimeline.project.fps : 60;
+                                    let fps = Workspace.currentTimeline?.project?.fps ?? 60;
                                     let offsetF = (gs.mode === "BPM") ? gs.offset * fps : 0;
                                     let lines = [];
                                     let startAbs = Workspace.currentTimeline.clipStartFrame;
@@ -1987,7 +1987,7 @@ Common.AviQtlWindow {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 1
-                    visible: Workspace.currentTimeline && Workspace.currentTimeline.isAudioClip(targetClipId)
+                    visible: Workspace.currentTimeline?.isAudioClip(targetClipId)
 
                     Repeater {
                         id: audioEffectsRepeater
@@ -2147,7 +2147,7 @@ Common.AviQtlWindow {
                                                     cursorShape: parent.isEndpoint ? Qt.ArrowCursor : Qt.PointingHandCursor
                                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                                                     onClicked: function(mouse) {
-                                                        if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                                                        if (mouse.button === Qt.LeftButton && Workspace.currentTimeline?.transport)
                                                             Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.clipStartFrame + parent.kfFrame);
                                                         else if (mouse.button === Qt.RightButton && !parent.isEndpoint && Workspace.currentTimeline)
                                                             Workspace.currentTimeline.removeAudioPluginKeyframe(targetClipId, audioEffectRoot.effectIndex, audioPluginParamDelegate.paramKey, parent.kfFrame);
