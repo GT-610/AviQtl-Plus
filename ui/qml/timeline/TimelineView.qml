@@ -37,7 +37,7 @@ Item {
     property real dragScrollStep: 24
     property var dragAutoScrollCallback: null
     property var currentSceneData: {
-        if (!Workspace.currentTimeline || !Workspace.currentTimeline.scenes)
+        if (!Workspace.currentTimeline?.scenes)
             return null;
 
         for (var i = 0; i < Workspace.currentTimeline.scenes.length; i++) {
@@ -47,8 +47,8 @@ Item {
         }
         return null;
     }
-    property bool enableSnap: currentSceneData && currentSceneData.enableSnap !== undefined ? currentSceneData.enableSnap : (SettingsManager.settings ? SettingsManager.settings.enableSnap : true)
-    property int magneticSnapRange: currentSceneData && currentSceneData.magneticSnapRange !== undefined ? currentSceneData.magneticSnapRange : (SettingsManager.settings ? SettingsManager.value("magneticSnapRange", 10) : 10)
+    property bool enableSnap: currentSceneData?.enableSnap ?? SettingsManager.settings?.enableSnap ?? true
+    property int magneticSnapRange: currentSceneData?.magneticSnapRange ?? SettingsManager.settings?.value("magneticSnapRange", 10) ?? 10
     property var gridSettings: {
         if (currentSceneData)
             return {
@@ -69,7 +69,7 @@ Item {
     }
     property int tailPaddingFrames: 120
     readonly property int maxClipEndFrame: {
-        var clips = Workspace.currentTimeline ? Workspace.currentTimeline.clips : null;
+        var clips = Workspace.currentTimeline?.clips ?? null;
         if (!clips)
             return 0;
 
@@ -82,7 +82,7 @@ Item {
         }
         return max;
     }
-    readonly property int sceneTotalFrames: currentSceneData && currentSceneData.totalFrames !== undefined ? currentSceneData.totalFrames : 0
+    readonly property int sceneTotalFrames: currentSceneData?.totalFrames ?? 0
     readonly property int timelineLengthFrames: Math.max(100, sceneTotalFrames, maxClipEndFrame + tailPaddingFrames)
     readonly property int scrollBarThickness: 14
 
@@ -135,7 +135,7 @@ Item {
             return 1;
 
         var scale = Workspace.currentTimeline.timelineScale;
-        var projectFps = (Workspace.currentTimeline.project && Workspace.currentTimeline.project.fps) ? Workspace.currentTimeline.project.fps : 60;
+        var projectFps = Workspace.currentTimeline.project?.fps ?? 60;
         if (gridSettings.mode === "BPM") {
             var beatFrames = projectFps / (gridSettings.bpm / 60);
             var bpmDiv = scale > 3 ? 4 : scale > 1.5 ? 2 : 1;
@@ -163,7 +163,7 @@ Item {
 
         // グリッド無視時は整数丸めのみ
         var step = getGridInterval();
-        var offset = (gridSettings.mode === "BPM" && Workspace.currentTimeline && Workspace.currentTimeline.project) ? gridSettings.offset * Workspace.currentTimeline.project.fps : 0;
+        var offset = gridSettings.mode === "BPM" ? gridSettings.offset * (Workspace.currentTimeline.project?.fps ?? 0) : 0;
         return Math.max(0, Math.round((Math.round((frame - offset) / step) * step) + offset));
     }
 
@@ -175,7 +175,7 @@ Item {
 
         anchors.fill: parent
         clip: true
-        contentWidth: timelineLengthFrames * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
+        contentWidth: timelineLengthFrames * (Workspace.currentTimeline?.timelineScale ?? 1)
         contentHeight: layerCount * layerHeight
         interactive: false
 
@@ -200,7 +200,7 @@ Item {
                 if (verticalScrollBar.active && (verticalScrollBar.pressed || verticalScrollBar.hovered))
                     timelineViewRoot.autoScrollSuspended = true;
 
-                if (Workspace.currentTimeline.transport && Workspace.currentTimeline.transport.isPlaying && !timelineViewRoot.autoScrollSuspended) {
+                if (Workspace.currentTimeline.transport?.isPlaying && !timelineViewRoot.autoScrollSuspended) {
                     let viewportWidth = timelineFlickable.width;
                     let playheadX = Workspace.currentTimeline.transport.currentFrame * Workspace.currentTimeline.timelineScale;
                     let left = timelineFlickable.contentX;
@@ -245,14 +245,14 @@ Item {
 
             }
 
-            target: Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport : null
+            target: Workspace.currentTimeline?.transport ?? null
         }
 
         // 選択レイヤーの背景ハイライト
         Rectangle {
             visible: Workspace.currentTimeline !== null
             x: timelineFlickable.contentX
-            y: (Workspace.currentTimeline ? Workspace.currentTimeline.selectedLayer : 0) * layerHeight
+            y: (Workspace.currentTimeline?.selectedLayer ?? 0) * layerHeight
             width: timelineFlickable.width
             height: layerHeight
             color: palette.highlight
@@ -265,7 +265,7 @@ Item {
             id: editCursorLine
 
             visible: Workspace.currentTimeline !== null
-            x: (Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
+            x: (Workspace.currentTimeline?.cursorFrame ?? 0) * (Workspace.currentTimeline?.timelineScale ?? 1)
             y: 0
             width: 1
             height: timelineFlickable.contentHeight
@@ -300,7 +300,7 @@ Item {
         }
 
         Repeater {
-            model: Workspace.currentTimeline ? Workspace.currentTimeline.clips : []
+            model: Workspace.currentTimeline?.clips ?? []
 
             delegate: ClipItem {
                 layerHeight: timelineViewRoot.layerHeight
@@ -312,7 +312,7 @@ Item {
                 snapFrameFunc: timelineViewRoot.snapFrame
                 onClipMoved: (clipId, deltaLayer, deltaStart, unused) => {
                     if (Workspace.currentTimeline) {
-                        var selectedIds = Workspace.currentTimeline.selection ? Workspace.currentTimeline.selection.selectedClipIds : [];
+                        var selectedIds = Workspace.currentTimeline?.selection?.selectedClipIds ?? [];
                         if (selectedIds.includes(clipId)) {
                             var moves = [];
                             for (var i = 0; i < Workspace.currentTimeline.clips.length; i++) {
@@ -351,7 +351,7 @@ Item {
                 }
                 onClipResized: (clipId, deltaStart, deltaDuration, unused) => {
                     if (Workspace.currentTimeline) {
-                        if (Workspace.currentTimeline && Workspace.currentTimeline.selection && Workspace.currentTimeline.selection.selectedClipIds.includes(clipId)) {
+                        if (Workspace.currentTimeline?.selection?.selectedClipIds?.includes(clipId)) {
                             Workspace.currentTimeline.resizeSelectedClips(deltaStart, deltaDuration);
                         } else {
                             var c = Workspace.currentTimeline.clips.find((c) => {
@@ -431,11 +431,11 @@ Item {
             onReleased: (mouse) => {
                 boxSelectionCurrent = mapToItem(timelineFlickable.contentItem, mouse.x, mouse.y);
                 if (!boxSelecting) {
-                    var scale = Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1;
+                    var scale = Workspace.currentTimeline?.timelineScale ?? 1;
                     var frame = timelineViewRoot.snapFrame(boxSelectionCurrent.x / scale);
                     var layer = Math.floor(boxSelectionCurrent.y / layerHeight);
                     var clickedClipId = -1;
-                    if (Workspace.currentTimeline && Workspace.currentTimeline.clips) {
+                    if (Workspace.currentTimeline?.clips) {
                         for (var i = Workspace.currentTimeline.clips.length - 1; i >= 0; i--) {
                             var c = Workspace.currentTimeline.clips[i];
                             if (c.layer === layer && frame >= c.startFrame && frame < c.startFrame + c.durationFrames) {
@@ -444,7 +444,7 @@ Item {
                             }
                         }
                     }
-                    if (clickedClipId >= 0 && Workspace.currentTimeline && Workspace.currentTimeline.selection && !Workspace.currentTimeline.selection.selectedClipIds.includes(clickedClipId))
+                    if (clickedClipId >= 0 && Workspace.currentTimeline?.selection?.selectedClipIds && !Workspace.currentTimeline.selection.selectedClipIds.includes(clickedClipId))
                         Workspace.currentTimeline.applySelectionIds([clickedClipId]);
 
                     contextMenu.openAt(mouse.x, mouse.y, clickedClipId >= 0 ? "clip" : "timeline", frame, layer, clickedClipId);
@@ -473,7 +473,7 @@ Item {
         Rectangle {
             id: playhead
 
-            x: (Workspace.currentTimeline && Workspace.currentTimeline.transport ? Workspace.currentTimeline.transport.currentFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)
+            x: (Workspace.currentTimeline?.transport?.currentFrame ?? 0) * (Workspace.currentTimeline?.timelineScale ?? 1)
             y: 0
             width: 2
             height: parent.height
@@ -553,9 +553,9 @@ Item {
             var dx = (wheel.pixelDelta && wheel.pixelDelta.x !== 0) ? wheel.pixelDelta.x * 10 : wheel.angleDelta.x;
             if (wheel.modifiers & Qt.AltModifier || wheel.modifiers & Qt.ControlModifier) {
                 if (Workspace.currentTimeline) {
-                    var step = SettingsManager ? SettingsManager.value("timelineZoomStep", 10) : 10;
-                    var minZ = SettingsManager ? SettingsManager.value("timelineZoomMin", 10) : 10;
-                    var maxZ = SettingsManager ? SettingsManager.value("timelineZoomMax", 400) : 400;
+                    var step = SettingsManager?.value("timelineZoomStep", 10) ?? 10;
+                    var minZ = SettingsManager?.value("timelineZoomMin", 10) ?? 10;
+                    var maxZ = SettingsManager?.value("timelineZoomMax", 400) ?? 400;
                     var direction = (Math.abs(dy) > Math.abs(dx) ? dy : dx) > 0 ? 1 : -1;
                     var zoomPercent = scaleToZoomPercent(Workspace.currentTimeline.timelineScale);
                     var newScale = zoomPercentToScale(clamp(zoomPercent + (direction * step), minZ, maxZ));
@@ -659,7 +659,7 @@ Item {
         }
 
         function shouldApplyToSelection() {
-            if (!Workspace.currentTimeline || !Workspace.currentTimeline.selection || targetClipId < 0)
+            if (!Workspace.currentTimeline?.selection || targetClipId < 0)
                 return false;
 
             var ids = Workspace.currentTimeline.selection.selectedClipIds;
@@ -719,7 +719,7 @@ Item {
                 break;
             case "view.scenesettings":
                 var win = WindowManager.getWindow("sceneSettings");
-                if (win && Workspace.currentTimeline && Workspace.currentTimeline.scenes) {
+                if (win && Workspace.currentTimeline?.scenes) {
                     var scenes = Workspace.currentTimeline.scenes;
                     var curId = Workspace.currentTimeline.currentSceneId;
                     var curScene = null;
@@ -730,7 +730,7 @@ Item {
                         }
                     }
                     if (curScene) {
-                        win.openForScene(curScene.id, curScene.name, curScene.width !== undefined ? curScene.width : DefaultWidth, curScene.height !== undefined ? curScene.height : DefaultHeight, curScene.fps !== undefined ? curScene.fps : DefaultFps, curScene.totalFrames !== undefined ? curScene.totalFrames : DefaultTotalFrames, curScene.gridMode || "Auto", curScene.gridBpm !== undefined ? curScene.gridBpm : 120, curScene.gridOffset !== undefined ? curScene.gridOffset : 0, curScene.gridInterval !== undefined ? curScene.gridInterval : 10, curScene.gridSubdivision !== undefined ? curScene.gridSubdivision : 4, curScene.enableSnap !== undefined ? curScene.enableSnap : true, curScene.magneticSnapRange !== undefined ? curScene.magneticSnapRange : 10);
+                        win.openForScene(curScene.id, curScene.name, curScene.width ?? DefaultWidth, curScene.height ?? DefaultHeight, curScene.fps ?? DefaultFps, curScene.totalFrames ?? DefaultTotalFrames, curScene.gridMode || "Auto", curScene.gridBpm ?? 120, curScene.gridOffset ?? 0, curScene.gridInterval ?? 10, curScene.gridSubdivision ?? 4, curScene.enableSnap ?? true, curScene.magneticSnapRange ?? 10);
                     } else {
                         win.show();
                         win.raise();
