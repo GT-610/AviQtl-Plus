@@ -2,6 +2,21 @@
 
 All notable changes to AviQtl-Plus are documented in this file.
 
+## [Unreleased]
+
+### Added
+- 4 new transitions: Dissolve, Push, Zoom, Wipe (7 total)
+- CONTRIBUTING.md and CHANGELOG.md
+- CI: test steps for macOS and Windows in build workflow
+
+### Fixed
+- Wipe transition now properly composites previous/next scenes
+- Push transition reverse direction positioning
+
+### Removed
+- Duplicate effect-packages/transitions/ (built-in transitions only)
+- Empty plugins/placeholder
+
 ## [0.4.0] - 2026-06-24
 
 ### Added

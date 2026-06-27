@@ -139,7 +139,7 @@ jobs:
 
       - name: Test (macOS)
         if: matrix.platform == 'macos'
-        run: cd build && ctest --output-on-failure
+        run: cd .build_tmp/xcode/Release && ctest --output-on-failure
         env:
           QT_QPA_PLATFORM: offscreen
 

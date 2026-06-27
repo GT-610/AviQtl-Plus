@@ -25,10 +25,6 @@ Item {
         }
     }
 
-    onProgressChanged: {
-        canvas.requestPaint();
-    }
-
     NumberAnimation on progress {
         from: 0.0
         to: 1.0
@@ -37,41 +33,29 @@ Item {
         running: true
     }
 
-    Canvas {
-        id: canvas
+    readonly property real p: reverse ? (1.0 - progress) : progress
+
+    Item {
+        id: previousContainer
         anchors.fill: parent
 
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.clearRect(0, 0, width, height);
+        Loader {
+            anchors.fill: parent
+            sourceComponent: transitionRoot.previousScene
+        }
+    }
 
-            var p = reverse ? (1.0 - progress) : progress;
+    Item {
+        id: nextContainer
+        clip: true
+        x: (direction === "right") ? parent.width * (1.0 - p) : 0
+        y: (direction === "down") ? parent.height * (1.0 - p) : 0
+        width: (direction === "left" || direction === "right") ? parent.width * p : parent.width
+        height: (direction === "up" || direction === "down") ? parent.height * p : parent.height
 
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, width, height);
-
-            ctx.globalCompositeOperation = "destination-out";
-            ctx.beginPath();
-
-            switch (direction) {
-            case "left":
-                ctx.rect(0, 0, width * p, height);
-                break;
-            case "right":
-                ctx.rect(width * (1.0 - p), 0, width * p, height);
-                break;
-            case "up":
-                ctx.rect(0, 0, width, height * p);
-                break;
-            case "down":
-                ctx.rect(0, height * (1.0 - p), width, height * p);
-                break;
-            }
-            ctx.fill();
-
-            ctx.globalCompositeOperation = "destination-over";
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, width, height);
+        Loader {
+            anchors.fill: parent
+            sourceComponent: transitionRoot.nextScene
         }
     }
 }

@@ -26,16 +26,15 @@ Item {
     }
 
     function getOffset(p) {
-        var offset = reverse ? (1.0 - p) : p;
         switch (direction) {
         case "left":
-            return Qt.point(-offset * width, 0);
+            return Qt.point(-p * width, 0);
         case "right":
-            return Qt.point(offset * width, 0);
+            return Qt.point(p * width, 0);
         case "up":
-            return Qt.point(0, -offset * height);
+            return Qt.point(0, -p * height);
         case "down":
-            return Qt.point(0, offset * height);
+            return Qt.point(0, p * height);
         default:
             return Qt.point(0, 0);
         }
@@ -52,8 +51,8 @@ Item {
     Item {
         id: previousContainer
         anchors.fill: parent
-        x: transitionRoot.getOffset(progress).x
-        y: transitionRoot.getOffset(progress).y
+        x: getOffset(reverse ? (1.0 - progress) : progress).x
+        y: getOffset(reverse ? (1.0 - progress) : progress).y
 
         Loader {
             anchors.fill: parent
@@ -64,8 +63,8 @@ Item {
     Item {
         id: nextContainer
         anchors.fill: parent
-        x: transitionRoot.getOffset(progress - 1.0).x
-        y: transitionRoot.getOffset(progress - 1.0).y
+        x: getOffset(reverse ? progress : (progress - 1.0)).x
+        y: getOffset(reverse ? progress : (progress - 1.0)).y
 
         Loader {
             anchors.fill: parent
