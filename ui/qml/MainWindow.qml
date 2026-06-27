@@ -316,7 +316,7 @@ ApplicationWindow {
 
         text: qsTr("現在のシーンを削除")
         onTriggered: {
-            if (Workspace.currentTimeline?.currentSceneId !== 0)
+            if (Workspace.currentTimeline && Workspace.currentTimeline.currentSceneId !== 0)
                 Workspace.currentTimeline.removeScene(Workspace.currentTimeline.currentSceneId);
 
         }

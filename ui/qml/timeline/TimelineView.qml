@@ -48,7 +48,7 @@ Item {
         return null;
     }
     property bool enableSnap: currentSceneData?.enableSnap ?? SettingsManager.settings?.enableSnap ?? true
-    property int magneticSnapRange: currentSceneData?.magneticSnapRange ?? SettingsManager.settings?.value("magneticSnapRange", 10) ?? 10
+    property int magneticSnapRange: currentSceneData?.magneticSnapRange ?? SettingsManager?.value("magneticSnapRange", 10) ?? 10
     property var gridSettings: {
         if (currentSceneData)
             return {

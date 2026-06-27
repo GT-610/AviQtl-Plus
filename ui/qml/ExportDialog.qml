@@ -648,6 +648,16 @@ Common.AviQtlWindow {
                         target: Workspace.currentTimeline
                     }
 
+                    Connections {
+                        function onCurrentTimelineChanged() {
+                            if (Workspace.currentTimeline?.timelineDuration > 0)
+                                endFrameSpin.value = Workspace.currentTimeline.timelineDuration;
+
+                        }
+
+                        target: Workspace
+                    }
+
                 }
 
                 Label {
