@@ -79,7 +79,7 @@ Rectangle {
                     property int layerIndex: index
                     property bool isVisible: (headerRoot.layerStateRevision, headerRoot.getLayerVisible(layerIndex))
                     property bool isLocked: (headerRoot.layerStateRevision, headerRoot.getLayerLocked(layerIndex))
-                    property bool isSelected: (Workspace.currentTimeline && Workspace.currentTimeline.selectedLayer === layerIndex)
+                    property bool isSelected: Workspace.currentTimeline?.selectedLayer === layerIndex
 
                     width: headerRoot.headerWidth
                     height: headerRoot.layerHeight

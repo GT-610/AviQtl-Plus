@@ -53,7 +53,7 @@ ApplicationWindow {
         if (tabIndex !== undefined && Workspace.currentIndex !== tabIndex)
             Workspace.currentIndex = tabIndex;
 
-        if (Workspace.currentTimeline && Workspace.currentTimeline.hasUnsavedChanges) {
+        if (Workspace.currentTimeline?.hasUnsavedChanges) {
             saveConfirmDialog.pendingAction = action;
             saveConfirmDialog.open();
         } else {
@@ -277,12 +277,12 @@ ApplicationWindow {
 
         text: qsTr("クリップを分割")
         onTriggered: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport) {
+            if (Workspace.currentTimeline?.transport) {
                 var f = Workspace.currentTimeline.cursorFrame;
-                if (Workspace.currentTimeline.selection && Workspace.currentTimeline.selection.selectedClipId >= 0) {
+                if (Workspace.currentTimeline.selection?.selectedClipId >= 0) {
                     Workspace.currentTimeline.splitClip(Workspace.currentTimeline.selection.selectedClipId, f);
                 } else {
-                    if (Workspace.currentTimeline.selection && Workspace.currentTimeline.selection.selectedClipIds.length > 0) {
+                    if (Workspace.currentTimeline.selection?.selectedClipIds?.length > 0) {
                         for (var i = 0; i < Workspace.currentTimeline.selection.selectedClipIds.length; i++) {
                             Workspace.currentTimeline.splitClip(Workspace.currentTimeline.selection.selectedClipIds[i], f);
                         }
@@ -316,7 +316,7 @@ ApplicationWindow {
 
         text: qsTr("現在のシーンを削除")
         onTriggered: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.currentSceneId !== 0)
+            if (Workspace.currentTimeline?.currentSceneId !== 0)
                 Workspace.currentTimeline.removeScene(Workspace.currentTimeline.currentSceneId);
 
         }
@@ -404,7 +404,7 @@ ApplicationWindow {
 
         text: qsTr("貼り付け")
         onTriggered: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport) {
+            if (Workspace.currentTimeline?.transport) {
                 var f = Workspace.currentTimeline.cursorFrame;
                 var l = Workspace.currentTimeline.selectedLayer !== undefined ? Workspace.currentTimeline.selectedLayer : 0;
                 Workspace.currentTimeline.pasteClip(f, l);
@@ -435,7 +435,7 @@ ApplicationWindow {
 
         text: qsTr("1フレーム進む")
         onTriggered: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+            if (Workspace.currentTimeline?.transport)
                 Workspace.currentTimeline.transport.stepForward();
         }
     }
@@ -447,7 +447,7 @@ ApplicationWindow {
 
         text: qsTr("1フレーム戻る")
         onTriggered: {
-            if (Workspace.currentTimeline && Workspace.currentTimeline.transport)
+            if (Workspace.currentTimeline?.transport)
                 Workspace.currentTimeline.transport.stepBackward();
         }
     }

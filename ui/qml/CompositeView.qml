@@ -10,9 +10,9 @@ Item {
     property var layerStates: ({
     })
     property var clipModel: []
-    property int projectWidth: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : DefaultWidth
-    property int projectHeight: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : DefaultHeight
-    property int currentFrame: (Workspace.currentTimeline && Workspace.currentTimeline.transport) ? Workspace.currentTimeline.transport.currentFrame : 0
+    property int projectWidth: Workspace.currentTimeline?.project?.width ?? DefaultWidth
+    property int projectHeight: Workspace.currentTimeline?.project?.height ?? DefaultHeight
+    property int currentFrame: Workspace.currentTimeline?.transport?.currentFrame ?? 0
     property int sceneId: -1
     property var sceneStack: sceneId >= 0 ? [sceneId] : []
     readonly property int hiddenZ: -9999
@@ -160,7 +160,7 @@ Item {
         anchors.centerIn: parent
         focus: true
         Keys.onSpacePressed: {
-            if (!_isInputFocused && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                if (!_isInputFocused && Workspace.currentTimeline?.transport)
                 Workspace.currentTimeline.transport.togglePlay();
         }
 
@@ -279,7 +279,7 @@ Item {
 
                     var out = {
                     };
-                    var fps = (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60;
+                var fps = Workspace.currentTimeline?.project?.fps ?? 60;
                     var relFrame = root.currentFrame - clipStartFrameRole;
                     var keys = ["x", "y", "z", "rotationX", "rotationY", "rotationZ", "scale", "aspect", "opacity"];
                     for (var k = 0; k < keys.length; k++) {

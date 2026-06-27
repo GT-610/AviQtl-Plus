@@ -70,7 +70,7 @@ Node {
     property int currentFrame: 0
     // Will be overridden by CompositeView
     readonly property int relFrame: currentFrame - clipStartFrame
-    readonly property real projectFps: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60
+    readonly property real projectFps: Workspace.currentTimeline?.project?.fps ?? 60
     property var rawEffectModels: []
     // フィルタ系エフェクト（transform/object以外）
     readonly property var filterModels: {
@@ -228,8 +228,8 @@ Node {
         }
         readonly property real fbOpacityValue: 1
 
-        width: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : DefaultWidth
-        height: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : DefaultHeight
+        width: Workspace.currentTimeline?.project?.width ?? DefaultWidth
+        height: Workspace.currentTimeline?.project?.height ?? DefaultHeight
         visible: true // SceneGraph に残すため true (opacity は renderHost 側で 0)
 
         Item {

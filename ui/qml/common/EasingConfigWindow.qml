@@ -376,7 +376,7 @@ ApplicationWindow {
         previewOffsetY = 0;
         {
             const _clipDur = Workspace.currentTimeline ? Workspace.currentTimeline.clipDurationFrames : 100;
-            const _fps = (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.fps : 60;
+            const _fps = Workspace.currentTimeline?.project?.fps ?? 60;
             const _endFrame = _clipDur;
             const _track = effectModel.keyframeListForUi(paramName) || [];
             const _hasKfAtEnd = _track.some(function(kf) {

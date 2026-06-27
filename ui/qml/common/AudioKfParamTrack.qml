@@ -122,7 +122,7 @@ ColumnLayout {
                     cursorShape: parent.isEndpoint ? Qt.ArrowCursor : Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: function(mouse) {
-                        if (mouse.button === Qt.LeftButton && Workspace.currentTimeline && Workspace.currentTimeline.transport)
+                        if (mouse.button === Qt.LeftButton && Workspace.currentTimeline?.transport)
                             Workspace.currentTimeline.transport.setCurrentFrame_seek(Workspace.currentTimeline.clipStartFrame + parent.kfFrame);
                         else if (mouse.button === Qt.RightButton && !parent.isEndpoint && Workspace.currentTimeline)
                             Workspace.currentTimeline.removeKeyframe(targetClipId, root.audioEffectIndex(), track.paramName, parent.kfFrame);

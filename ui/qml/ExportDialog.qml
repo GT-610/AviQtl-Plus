@@ -112,7 +112,7 @@ Common.AviQtlWindow {
 
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.75)
-        visible: Workspace.currentTimeline && Workspace.currentTimeline.isExporting
+        visible: Workspace.currentTimeline?.isExporting
         z: 100
 
         ColumnLayout {
@@ -633,14 +633,14 @@ Common.AviQtlWindow {
                     value: DefaultTotalFrames
                     editable: true
                     Component.onCompleted: {
-                        if (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0)
+                        if (Workspace.currentTimeline?.timelineDuration > 0)
                             value = Workspace.currentTimeline.timelineDuration;
 
                     }
 
                     Connections {
                         function onClipsChanged() {
-                            if (Workspace.currentTimeline && Workspace.currentTimeline.timelineDuration > 0)
+                            if (Workspace.currentTimeline?.timelineDuration > 0)
                                 endFrameSpin.value = Workspace.currentTimeline.timelineDuration;
 
                         }

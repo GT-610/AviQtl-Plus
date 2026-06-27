@@ -87,8 +87,8 @@ Common.BaseObject {
     Item {
         id: flattenHost
 
-        width: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.width : DefaultWidth
-        height: (Workspace.currentTimeline && Workspace.currentTimeline.project) ? Workspace.currentTimeline.project.height : DefaultHeight
+        width: Workspace.currentTimeline?.project?.width ?? DefaultWidth
+        height: Workspace.currentTimeline?.project?.height ?? DefaultHeight
         visible: true // SceneGraph に残す (renderHost 側の opacity:0 で非表示にする)
 
         // ダミーの透明背景
