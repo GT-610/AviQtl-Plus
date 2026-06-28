@@ -1,11 +1,12 @@
 {
-    "id": "cross_fade",
-    "name": "クロスフェード",
-    "qml": "CrossFade.qml",
+    "id": "push",
+    "name": "プッシュ",
+    "qml": "Push.qml",
     "params": {
         "duration": 30,
         "easing": "linear",
-        "reverse": false
+        "reverse": false,
+        "direction": "left"
     },
     "ui": {
         "group": "transition",
@@ -28,6 +29,12 @@
                 "type": "bool",
                 "param": "reverse",
                 "label": "反転"
+            },
+            {
+                "type": "enum",
+                "param": "direction",
+                "label": "方向",
+                "options": ["left", "right", "up", "down"]
             }
         ]
     },
@@ -35,7 +42,7 @@
     "kind": "transition",
     "color": "#9C27B0",
     "categories": [
-        "基本",
-        "フェード"
+        "スライド",
+        "基本"
     ]
 }

@@ -1,12 +1,11 @@
 {
-    "id": "slide",
-    "name": "スライド",
-    "qml": "Slide.qml",
+    "id": "dissolve",
+    "name": "ディゾルブ",
+    "qml": "Dissolve.qml",
     "params": {
         "duration": 30,
         "easing": "linear",
-        "reverse": false,
-        "direction": "left"
+        "reverse": false
     },
     "ui": {
         "group": "transition",
@@ -29,12 +28,6 @@
                 "type": "bool",
                 "param": "reverse",
                 "label": "反転"
-            },
-            {
-                "type": "enum",
-                "param": "direction",
-                "label": "方向",
-                "options": ["left", "right", "up", "down"]
             }
         ]
     },
@@ -42,7 +35,7 @@
     "kind": "transition",
     "color": "#9C27B0",
     "categories": [
-        "スライド",
+        "フェード",
         "基本"
     ]
 }
