@@ -1775,22 +1775,22 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Removal complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1050"/>
+        <location filename="../core/src/package_manager.cpp" line="1065"/>
         <source>No packages to upgrade.</source>
         <translation>No packages to upgrade.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1052"/>
+        <location filename="../core/src/package_manager.cpp" line="1067"/>
         <source>Upgrading all packages...</source>
         <translation>Upgrading all packages...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1059"/>
+        <location filename="../core/src/package_manager.cpp" line="1074"/>
         <source>All upgrades complete.</source>
         <translation>All upgrades complete.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1064"/>
+        <location filename="../core/src/package_manager.cpp" line="1079"/>
         <source>Upgrading package: %1</source>
         <translation>Upgrading package: %1</translation>
     </message>
@@ -3153,6 +3153,44 @@ Save before continuing?</translation>
     </message>
 </context>
 <context>
+    <name>PackageListView</name>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="26"/>
+        <source>このカテゴリにパッケージがありません。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="82"/>
+        <source>インストール済み: </source>
+        <translation type="unfinished">Installed: </translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="89"/>
+        <source>アップデートあり: </source>
+        <translation type="unfinished">Update available: </translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="96"/>
+        <source>権限</source>
+        <translation type="unfinished">Permissions</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="103"/>
+        <source>削除</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="110"/>
+        <source>アップデート</source>
+        <translation type="unfinished">Update</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="110"/>
+        <source>インストール</source>
+        <translation type="unfinished">Install</translation>
+    </message>
+</context>
+<context>
     <name>PackageManagerWindow</name>
     <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="12"/>
@@ -3160,12 +3198,12 @@ Save before continuing?</translation>
         <translation>Package Manager</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="24"/>
         <source>AviQtl Plus アップデート</source>
         <translation>AviQtl Plus Update</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="26"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="25"/>
         <source>新しいバージョンのAviQtl Plus (%1) が利用可能です。
 ダウンロードURL: %2
 
@@ -3176,84 +3214,115 @@ Download URL: %2
 Please restart the application to apply the update.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="34"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="32"/>
         <source>パッケージマネージャーエラー</source>
         <translation>Package Manager Error</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="69"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="57"/>
         <source>ダウンロードするファイルを選択</source>
         <translation>Select file to download</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="99"/>
         <source>リポジトリ設定</source>
-        <translation>Repository Settings</translation>
+        <translation type="vanished">Repository Settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="121"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="233"/>
         <source>追加</source>
         <translation>Add</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="184"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="150"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="308"/>
         <source>リポジトリを同期</source>
         <translation>Sync Repository</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="191"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="127"/>
+        <source>エフェクト</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="128"/>
+        <source>オブジェクト</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="129"/>
+        <source>トランジション</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="131"/>
+        <source>インストール済み</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="132"/>
+        <source>アプリケーション</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="133"/>
+        <source>リポジトリ</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="217"/>
+        <source>リポジトリを追加</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="244"/>
+        <source>設定済みリポジトリ</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="315"/>
         <source>すべてアップグレード</source>
         <translation>Upgrade All</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="205"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="145"/>
         <source>検索...</source>
         <translation>Search...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="231"/>
         <source>検索結果がありません。</source>
-        <translation>No search results.</translation>
+        <translation type="vanished">No search results.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="231"/>
         <source>パッケージリストが空です。リポジトリを同期して最新情報を取得してください。</source>
-        <translation>The package list is empty. Please sync the repository to get the latest information.</translation>
+        <translation type="vanished">The package list is empty. Please sync the repository to get the latest information.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="290"/>
         <source>最新バージョン: </source>
-        <translation>Latest version: </translation>
+        <translation type="vanished">Latest version: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="308"/>
         <source>インストール済み: </source>
-        <translation>Installed: </translation>
+        <translation type="vanished">Installed: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="315"/>
         <source>アップデートあり: </source>
-        <translation>Update available: </translation>
+        <translation type="vanished">Update available: </translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="322"/>
         <source>権限</source>
-        <translation>Permissions</translation>
+        <translation type="vanished">Permissions</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="333"/>
         <source>削除</source>
-        <translation>Uninstall</translation>
+        <translation type="vanished">Uninstall</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="340"/>
         <source>アップデート</source>
-        <translation>Update</translation>
+        <translation type="vanished">Update</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="340"/>
         <source>インストール</source>
-        <translation>Install</translation>
+        <translation type="vanished">Install</translation>
     </message>
 </context>
 <context>

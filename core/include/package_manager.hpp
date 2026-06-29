@@ -41,6 +41,7 @@ class PackageManager : public QObject {
     Q_INVOKABLE void upgradeAllPackages();
     Q_INVOKABLE void removePackage(const QString &packageId);
     Q_INVOKABLE QVariantList searchPackages(const QString &query) const;
+    Q_INVOKABLE QVariantList getPackagesByType(const QString &type) const;
     Q_INVOKABLE QVariantList getInstalledPackages() const;
 
   signals:

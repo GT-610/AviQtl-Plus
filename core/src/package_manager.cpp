@@ -1024,6 +1024,21 @@ QVariantList PackageManager::searchPackages(const QString &query) const {
     return filtered;
 }
 
+QVariantList PackageManager::getPackagesByType(const QString &type) const {
+    QVariantList result;
+    for (const auto &p : m_packageList) {
+        QVariantMap pkg = p.toMap();
+        if (type == QStringLiteral("installed")) {
+            if (!pkg.value(QStringLiteral("installed_version")).toString().isEmpty())
+                result.append(pkg);
+        } else {
+            if (pkg.value(QStringLiteral("type")).toString() == type)
+                result.append(pkg);
+        }
+    }
+    return result;
+}
+
 QVariantList PackageManager::getInstalledPackages() const {
     QVariantList list;
     QVariantMap installed = loadInstalledPackagesFromFile();
