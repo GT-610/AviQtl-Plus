@@ -13,6 +13,7 @@ class TestPackageDeploy : public QObject {
     void deployModType();
     void deployEffectType();
     void deployObjectType();
+    void deployTransitionType();
     void unknownTypeDefaultsToPlugins();
 };
 
@@ -71,6 +72,24 @@ void TestPackageDeploy::deployObjectType() {
     jsonFile.close();
 
     QVERIFY(QFile::exists(sourceDir.path() + QStringLiteral("/test_object.json")));
+}
+
+void TestPackageDeploy::deployTransitionType() {
+    QTemporaryDir sourceDir;
+    QVERIFY(sourceDir.isValid());
+
+    QFile jsonFile(sourceDir.path() + QStringLiteral("/test_transition.json"));
+    QVERIFY(jsonFile.open(QIODevice::WriteOnly));
+    jsonFile.write("{\"id\":\"test_transition\",\"name\":\"Test Transition\",\"type\":\"transition\"}");
+    jsonFile.close();
+
+    QFile fragFile(sourceDir.path() + QStringLiteral("/TestTransition.frag"));
+    QVERIFY(fragFile.open(QIODevice::WriteOnly));
+    fragFile.write("// transition shader");
+    fragFile.close();
+
+    QVERIFY(QFile::exists(sourceDir.path() + QStringLiteral("/test_transition.json")));
+    QVERIFY(QFile::exists(sourceDir.path() + QStringLiteral("/TestTransition.frag")));
 }
 
 void TestPackageDeploy::unknownTypeDefaultsToPlugins() {
