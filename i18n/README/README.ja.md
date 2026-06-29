@@ -66,7 +66,7 @@
 ## インストール手順
 
 1. Linuxの場合、以下の依存関係をインストールします：
-   - Qt6全般、LuaJIT、Vulkan実装（Mesa等）、FFmpeg、Carla、libc++
+   - Qt6全般、LuaJIT、Vulkan実装（Mesa等）、FFmpeg、Carla、clang（libc++を提供）
 2. [リリースページ](https://github.com/GT-610/AviQtl-Plus/releases)からお使いのPCに最適なビルドをダウンロードします。
 3. ファイルを展開し、`AviQtl` に実行権限を付与して実行します。
 
@@ -248,7 +248,7 @@ AviQtl-Plusは構造的な弱点を根本的に解決します：
 
 **次（0.4.x-0.5.0）：**
 - エフェクト・オブジェクトプラグインエコシステムの拡大（プラグインサンプルの追加）
-- 自動CI/CDを伴う初期パブリックアルファリリース
+- CI/CDとリリース自動化の継続的強化
 
 **長期：**
 - AviUtlの代替として十分なフル機能動画編集ソフトへ

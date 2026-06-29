@@ -66,7 +66,7 @@ A project to develop a video editor that inherits the operability of **AviUtl 1.
 ## Installation
 
 1. On Linux, install the following dependencies:
-   - Qt6, LuaJIT, Vulkan implementation (e.g. Mesa), FFmpeg, Carla, libc++
+   - Qt6, LuaJIT, Vulkan implementation (e.g. Mesa), FFmpeg, Carla, clang (provides libc++)
 2. Download the optimal build for your system from the [Releases page](https://github.com/GT-610/AviQtl-Plus/releases).
 3. Extract the archive, grant execute permission to `AviQtl`, and run it.
 
@@ -231,7 +231,7 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 
 **Next (0.4.x-0.5.0):**
 - Expand effect and object plugin ecosystem (more example plugins)
-- Initial public alpha releases with automated CI/CD
+- Continue hardening CI/CD and release automation
 
 **Long-term:**
 - Full-featured video editor suitable as an AviUtl replacement

@@ -66,7 +66,7 @@
 ## 安装步骤
 
 1. 在 Linux 上，安装以下依赖：
-   - Qt6 全套、LuaJIT、Vulkan 实现（如 Mesa）、FFmpeg、Carla、libc++
+   - Qt6 全套、LuaJIT、Vulkan 实现（如 Mesa）、FFmpeg、Carla、clang（提供 libc++）
 2. 从[发行版页面](https://github.com/GT-610/AviQtl-Plus/releases)下载适合您系统的构建版本。
 3. 解压文件，为 `AviQtl` 添加执行权限后运行。
 
@@ -249,7 +249,7 @@ AviQtl-Plus 从根本上解决结构性弱点：
 
 **下一步（0.4.x-0.5.0）：**
 - 扩展特效和对象插件生态（更多示例插件）
-- 配备自动化 CI/CD 的初期公开 Alpha 版本发布
+- 持续强化 CI/CD 和发布自动化
 
 **长期：**
 - 成为足以替代 AviUtl 的全功能视频编辑器
