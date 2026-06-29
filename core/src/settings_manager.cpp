@@ -63,7 +63,12 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"pluginPathsObjects", getDefaultPluginPaths(QStringLiteral("objects"), {QStringLiteral("AVIQTL_OBJECTS_PATH")}, {})},
         {"pluginEnableTransitions", true},
         {"pluginPathsTransitions", getDefaultPluginPaths(QStringLiteral("transitions"), {QStringLiteral("AVIQTL_TRANSITIONS_PATH")}, {})},
-        {"packageRepositoryUrls", QStringList{QStringLiteral("https://codeberg.org/taisho-guy/AviQtl/raw/branch/main/repos/AviQtl.json")}},
+        {"packageRepositories", QVariantList{QVariantMap{
+            {QStringLiteral("url"), QStringLiteral("https://raw.githubusercontent.com/GT-610/AviQtl-Plus/main/repos/repo.json")},
+            {QStringLiteral("name"), QStringLiteral("AviQtl Official")},
+            {QStringLiteral("enabled"), true},
+            {QStringLiteral("priority"), 10}
+        }}},
         {"maxImageSize", 8192},
         {"cacheSize", 512},
         {"undoCount", 32},
@@ -225,6 +230,26 @@ void SettingsManager::load() {
             }
             m_settings.insert(it.key(), it.value());
         }
+        // Migration: legacy packageRepositoryUrls → packageRepositories
+        if (loaded.contains(QStringLiteral("packageRepositoryUrls"))) {
+            if (!loaded.contains(QStringLiteral("packageRepositories"))) {
+                QStringList oldUrls = loaded.value(QStringLiteral("packageRepositoryUrls")).toStringList();
+                QVariantList newRepos;
+                for (const QString &oldUrl : oldUrls) {
+                    QVariantMap repo;
+                    repo[QStringLiteral("url")] = oldUrl;
+                    repo[QStringLiteral("name")] = oldUrl;
+                    repo[QStringLiteral("enabled")] = true;
+                    repo[QStringLiteral("priority")] = 10;
+                    newRepos.append(repo);
+                }
+                m_settings.insert(QStringLiteral("packageRepositories"), newRepos);
+                qCInfo(lcSettings) << "Migrated packageRepositoryUrls to packageRepositories";
+            }
+            m_settings.remove(QStringLiteral("packageRepositoryUrls"));
+            save();
+        }
+
         emit settingsChanged();
         qCInfo(lcSettings) << "Settings loaded:" << path;
     }
