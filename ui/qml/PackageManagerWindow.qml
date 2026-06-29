@@ -161,7 +161,7 @@ Common.AviQtlWindow {
             Layout.fillHeight: true
 
             // Page 0: Effect
-            PackageListView {
+            Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(0)
@@ -169,7 +169,7 @@ Common.AviQtlWindow {
             }
 
             // Page 1: Object
-            PackageListView {
+            Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(1)
@@ -177,7 +177,7 @@ Common.AviQtlWindow {
             }
 
             // Page 2: Transition
-            PackageListView {
+            Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(2)
@@ -185,7 +185,7 @@ Common.AviQtlWindow {
             }
 
             // Page 3: MOD
-            PackageListView {
+            Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(3)
@@ -193,7 +193,7 @@ Common.AviQtlWindow {
             }
 
             // Page 4: Installed
-            PackageListView {
+            Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(4)
@@ -202,7 +202,7 @@ Common.AviQtlWindow {
             }
 
             // Page 5: Application
-            PackageListView {
+            Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(5)
