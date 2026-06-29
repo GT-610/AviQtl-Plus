@@ -287,6 +287,7 @@ set(QML_FILES
     ui/qml/common/Icons.js
     ui/qml/common/Logger.js
     ui/qml/common/BlendModeUtils.js
+    ui/qml/common/TimelineHelper.js
 )
 
 qt_add_qml_module(AviQtl_UI
