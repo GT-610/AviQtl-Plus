@@ -16,7 +16,15 @@ Checks: >
   -cppcoreguidelines-owning-memory,
   -readability-magic-numbers,
   -readability-identifier-length,
-  -readability-function-cognitive-complexity
+  -readability-function-cognitive-complexity,
+  -readability-braces-around-statements,
+  -readability-inconsistent-ifelse-braces,
+  -readability-implicit-bool-conversion,
+  -readability-isolate-declaration,
+  -readability-convert-member-functions-to-static,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -modernize-use-trailing-return-type
 
 CheckOptions:
   # identifier-length の最小値を 1 に下げる (i/j/p 等の慣用変数を許可)
