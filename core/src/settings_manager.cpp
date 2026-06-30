@@ -257,15 +257,35 @@ void SettingsManager::load() {
 
 void SettingsManager::save() {
     QString path = getSettingsFilePath();
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Failed to save settings:" << path;
+    QString tmpPath = path + QStringLiteral(".tmp");
+
+    QFile file(tmpPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "Failed to save settings (cannot open tmp file):" << tmpPath;
         return;
     }
 
     QJsonObject obj = QJsonObject::fromVariantMap(m_settings);
     QJsonDocument doc(obj);
-    file.write(doc.toJson());
+    qint64 written = file.write(doc.toJson());
+    file.close();
+
+    if (written < 0) {
+        qWarning() << "Failed to write settings to tmp file:" << tmpPath;
+        QFile::remove(tmpPath);
+        return;
+    }
+
+    // Atomic overwrite: rename tmp file to the real path
+    if (QFile::exists(path)) {
+        QFile::remove(path);
+    }
+    if (!QFile::rename(tmpPath, path)) {
+        qWarning() << "Failed to rename tmp settings file to:" << path;
+        QFile::remove(tmpPath);
+        return;
+    }
+
     qCInfo(lcSettings) << "Settings saved:" << path;
 }
 

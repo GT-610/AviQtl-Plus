@@ -4,6 +4,7 @@
 #include <QLoggingCategory>
 #include <math.h>
 #include <algorithm>
+#include <mutex>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -78,93 +79,94 @@ VideoEncoder::~VideoEncoder() { close(); }
 QStringList VideoEncoder::availableVideoEncoders() {
     // Cache the result to avoid expensive HW device probing on every call
     static QStringList cachedResult;
-    static bool initialized = false;
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+        QStringList result;
+        const QStringList allEncoders = {
+            QStringLiteral("libx264"),
+            QStringLiteral("h264_nvenc"),
+            QStringLiteral("h264_amf"),
+            QStringLiteral("h264_qsv"),
+            QStringLiteral("h264_vaapi"),
+            QStringLiteral("libx265"),
+            QStringLiteral("hevc_nvenc"),
+            QStringLiteral("hevc_amf"),
+            QStringLiteral("hevc_qsv"),
+            QStringLiteral("hevc_vaapi"),
+            QStringLiteral("libaom-av1"),
+            QStringLiteral("av1_nvenc"),
+            QStringLiteral("av1_amf"),
+            QStringLiteral("av1_vaapi"),
+        };
 
-    if (initialized) {
-        return cachedResult;
-    }
+        for (const auto &name : allEncoders) {
+            const AVCodec *codec = avcodec_find_encoder_by_name(name.toStdString().c_str());
+            if (codec == nullptr) {
+                continue;
+            }
 
-    QStringList result;
-    const QStringList allEncoders = {
-        QStringLiteral("libx264"),
-        QStringLiteral("h264_nvenc"),
-        QStringLiteral("h264_amf"),
-        QStringLiteral("h264_qsv"),
-        QStringLiteral("h264_vaapi"),
-        QStringLiteral("libx265"),
-        QStringLiteral("hevc_nvenc"),
-        QStringLiteral("hevc_amf"),
-        QStringLiteral("hevc_qsv"),
-        QStringLiteral("hevc_vaapi"),
-        QStringLiteral("libaom-av1"),
-        QStringLiteral("av1_nvenc"),
-        QStringLiteral("av1_amf"),
-        QStringLiteral("av1_vaapi"),
-    };
+            // AMF encoders don't need HW device context probing (managed internally by AMD SDK)
+            if (name.contains(QLatin1String("amf"))) {
+                result.append(name);
+                continue;
+            }
 
-    for (const auto &name : allEncoders) {
-        const AVCodec *codec = avcodec_find_encoder_by_name(name.toStdString().c_str());
-        if (codec == nullptr) {
-            continue;
-        }
+            // For other hardware encoders, test if the device can be created
+            if (name.contains(QLatin1String("nvenc")) || name.contains(QLatin1String("vaapi")) ||
+                name.contains(QLatin1String("qsv"))) {
+                AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
+                if (name.contains(QLatin1String("nvenc"))) {
+                    type = AV_HWDEVICE_TYPE_CUDA;
+                } else if (name.contains(QLatin1String("vaapi"))) {
+                    type = AV_HWDEVICE_TYPE_VAAPI;
+                } else if (name.contains(QLatin1String("qsv"))) {
+                    type = AV_HWDEVICE_TYPE_QSV;
+                }
 
-        // AMF encoders don't need HW device context probing (managed internally by AMD SDK)
-        if (name.contains(QLatin1String("amf"))) {
+                AVBufferRef *hwDeviceCtx = nullptr;
+                int err = av_hwdevice_ctx_create(&hwDeviceCtx, type, nullptr, nullptr, 0);
+                if (err < 0) {
+                    continue;
+                }
+                av_buffer_unref(&hwDeviceCtx);
+            }
+
             result.append(name);
-            continue;
         }
 
-        // For other hardware encoders, test if the device can be created
-        if (name.contains(QLatin1String("nvenc")) || name.contains(QLatin1String("vaapi")) ||
-            name.contains(QLatin1String("qsv"))) {
-            AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
-            if (name.contains(QLatin1String("nvenc"))) {
-                type = AV_HWDEVICE_TYPE_CUDA;
-            } else if (name.contains(QLatin1String("vaapi"))) {
-                type = AV_HWDEVICE_TYPE_VAAPI;
-            } else if (name.contains(QLatin1String("qsv"))) {
-                type = AV_HWDEVICE_TYPE_QSV;
-            }
-
-            AVBufferRef *hwDeviceCtx = nullptr;
-            int err = av_hwdevice_ctx_create(&hwDeviceCtx, type, nullptr, nullptr, 0);
-            if (err < 0) {
-                continue; // Hardware not available
-            }
-            av_buffer_unref(&hwDeviceCtx);
+        // Always ensure software fallbacks are present
+        if (!result.contains(QStringLiteral("libx264"))) {
+            result.prepend(QStringLiteral("libx264"));
         }
 
-        result.append(name);
-    }
-
-    // Always ensure software fallbacks are present
-    if (!result.contains(QStringLiteral("libx264"))) {
-        result.prepend(QStringLiteral("libx264"));
-    }
-
-    cachedResult = result;
-    initialized = true;
-    return result;
+        cachedResult = result;
+    });
+    return cachedResult;
 }
 
 QStringList VideoEncoder::availableAudioEncoders() {
-    QStringList result;
-    const QStringList allEncoders = {
-        QStringLiteral("aac"),
-        QStringLiteral("libopus"),
-        QStringLiteral("libmp3lame"),
-        QStringLiteral("flac"),
-        QStringLiteral("pcm_s16le"),
-    };
+    static QStringList cachedResult;
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+        QStringList result;
+        const QStringList allEncoders = {
+            QStringLiteral("aac"),
+            QStringLiteral("libopus"),
+            QStringLiteral("libmp3lame"),
+            QStringLiteral("flac"),
+            QStringLiteral("pcm_s16le"),
+        };
 
-    for (const auto &name : allEncoders) {
-        const AVCodec *codec = avcodec_find_encoder_by_name(name.toStdString().c_str());
-        if (codec != nullptr) {
-            result.append(name);
+        for (const auto &name : allEncoders) {
+            const AVCodec *codec = avcodec_find_encoder_by_name(name.toStdString().c_str());
+            if (codec != nullptr) {
+                result.append(name);
+            }
         }
-    }
 
-    return result;
+        cachedResult = result;
+    });
+    return cachedResult;
 }
 
 QString VideoEncoder::fallbackEncoder(const QString &hwEncoder) {

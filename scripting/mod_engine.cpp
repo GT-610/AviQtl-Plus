@@ -5,12 +5,13 @@
 #include "../core/include/permission_manager.hpp"
 #include <QCoreApplication>
 #include <QDebug>
+#include <QPointer>
 #include <QVariant>
 
 namespace AviQtl::Scripting {
 
-// Lua から参照できるグローバルポインタ
-static AviQtl::UI::TimelineController *g_ctrl = nullptr;
+// Lua から参照できるグローバルポインタ (QPointer で lifetime 安全に監視)
+static QPointer<AviQtl::UI::TimelineController> g_ctrl;
 
 // C API Wrappers (used by Lua bindings)
 extern "C" {
@@ -90,8 +91,8 @@ bool ModEngine::checkPermission(const char *apiName) const {
         }
     }
 
-    // Default: allow if no specific permission required
-    return true;
+    // Default: deny unknown APIs to enforce explicit permission grants
+    return false;
 }
 
 // ヘルパー
@@ -487,7 +488,7 @@ void ModEngine::initialize(void *ecsPtr) {
 }
 
 void ModEngine::registerController(void *controller) {
-    g_ctrl = static_cast<AviQtl::UI::TimelineController *>(controller);
+    g_ctrl = qobject_cast<AviQtl::UI::TimelineController *>(static_cast<QObject *>(controller));
     if (L != nullptr && !m_apiRegistered) {
         registerAviQtlAPI();
         m_apiRegistered = true;

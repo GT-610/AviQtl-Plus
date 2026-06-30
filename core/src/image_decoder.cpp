@@ -55,42 +55,42 @@ void ImageDecoder::decodeImage(const QString &path) {
         qWarning() << "[ImageDecoder] avformat_open_input failed:" << path;
         return;
     }
+    auto fmtGuard = qScopeGuard([&fmtCtx]() { avformat_close_input(&fmtCtx); });
+
     if (avformat_find_stream_info(fmtCtx, nullptr) < 0) {
-        avformat_close_input(&fmtCtx);
         return;
     }
 
     int streamIdx = av_find_best_stream(fmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (streamIdx < 0) {
-        avformat_close_input(&fmtCtx);
         return;
     }
 
     AVStream *stream = fmtCtx->streams[streamIdx];
     const AVCodec *codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (codec == nullptr) {
-        avformat_close_input(&fmtCtx);
         return;
     }
 
     AVCodecContext *decCtx = avcodec_alloc_context3(codec);
     if (decCtx == nullptr) {
-        avformat_close_input(&fmtCtx);
         return;
     }
+    auto decCtxGuard = qScopeGuard([&decCtx]() { avcodec_free_context(&decCtx); });
+
     if (avcodec_parameters_to_context(decCtx, stream->codecpar) < 0) {
-        avcodec_free_context(&decCtx);
-        avformat_close_input(&fmtCtx);
         return;
     }
     if (avcodec_open2(decCtx, codec, nullptr) < 0) {
-        avcodec_free_context(&decCtx);
-        avformat_close_input(&fmtCtx);
         return;
     }
 
     AVPacket *pkt = av_packet_alloc();
+    auto pktGuard = qScopeGuard([&pkt]() { av_packet_free(&pkt); });
+
     AVFrame *srcFrame = av_frame_alloc();
+    auto srcFrameGuard = qScopeGuard([&srcFrame]() { av_frame_free(&srcFrame); });
+
     bool decoded = false;
 
     bool eof = (av_read_frame(fmtCtx, pkt) < 0);
@@ -102,14 +102,13 @@ void ImageDecoder::decodeImage(const QString &path) {
         }
         if (!eof) {
             av_packet_unref(pkt);
-            eof = true; // 1回読んだら次はFlush
+            eof = true;
         } else if (!decoded) {
-            break; // Flushしても出なければ終了
+            break;
         }
     }
 
     if (decoded) {
-        // 実データも 8bit RGBA に揃える。
         AVPixelFormat targetFmt = AV_PIX_FMT_RGBA;
         AVFrame *rgbaFrame = av_frame_alloc();
         rgbaFrame->format = targetFmt;
@@ -117,27 +116,18 @@ void ImageDecoder::decodeImage(const QString &path) {
         rgbaFrame->height = srcFrame->height;
         if (av_frame_get_buffer(rgbaFrame, 0) < 0) {
             av_frame_free(&rgbaFrame);
-            av_frame_free(&srcFrame);
-            av_packet_free(&pkt);
-            avcodec_free_context(&decCtx);
-            avformat_close_input(&fmtCtx);
             return;
         }
+        auto rgbaGuard = qScopeGuard([&rgbaFrame]() { av_frame_free(&rgbaFrame); });
 
         SwsContext *swsCtx = sws_getContext(srcFrame->width, srcFrame->height, static_cast<AVPixelFormat>(srcFrame->format), rgbaFrame->width, rgbaFrame->height, targetFmt, SWS_BILINEAR, nullptr, nullptr, nullptr);
         if (swsCtx == nullptr) {
-            av_frame_free(&rgbaFrame);
-            av_frame_free(&srcFrame);
-            av_packet_free(&pkt);
-            avcodec_free_context(&decCtx);
-            avformat_close_input(&fmtCtx);
             return;
         }
+        auto swsGuard = qScopeGuard([&swsCtx]() { sws_freeContext(swsCtx); });
 
         sws_scale(swsCtx, srcFrame->data, srcFrame->linesize, 0, srcFrame->height, rgbaFrame->data, rgbaFrame->linesize);
-        sws_freeContext(swsCtx);
 
-        // QQuickImageProvider 用に QImage としても保存する
         QImage img(rgbaFrame->data[0], rgbaFrame->width, rgbaFrame->height, rgbaFrame->linesize[0], QImage::Format_RGBA8888);
         m_cachedImage = img.copy();
         const QString &clipIdStr = clipIdString();
@@ -151,17 +141,13 @@ void ImageDecoder::decodeImage(const QString &path) {
 #pragma clang diagnostic pop
         m_cachedVideoFrame = vf;
 
-        // FFmpegVideoBuffer が av_frame_ref 済みなので解放可能
+        // FFmpegVideoBuffer has av_frame_ref'd, safe to free here
         av_frame_free(&rgbaFrame);
+        rgbaGuard.dismiss();
 
         m_store->setVideoFrameSafe(clipIdStr, m_cachedVideoFrame);
         QMetaObject::invokeMethod(this, [this]() -> void { emit ready(); }, Qt::QueuedConnection);
     }
-
-    av_frame_free(&srcFrame);
-    av_packet_free(&pkt);
-    avcodec_free_context(&decCtx);
-    avformat_close_input(&fmtCtx);
 }
 
 } // namespace AviQtl::Core

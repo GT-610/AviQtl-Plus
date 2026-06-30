@@ -166,13 +166,29 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     QJsonObject root = doc.object();
 
     const int version = root.value(QStringLiteral("version")).toInt(1);
+    if (version < 1 || version > 100) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Unsupported project version: %1").arg(version);
+        }
+        return false;
+    }
     const QString projectDir = QFileInfo(path).absolutePath();
 
     QJsonObject s = root.value(QStringLiteral("settings")).toObject();
-    project->setWidth(s.value(QStringLiteral("width")).toInt(AviQtl::kDefaultWidth));
-    project->setHeight(s.value(QStringLiteral("height")).toInt(AviQtl::kDefaultHeight));
-    project->setFps(s.value(QStringLiteral("fps")).toDouble(AviQtl::kDefaultFps));
-    project->setSampleRate(s.value(QStringLiteral("sampleRate")).toInt(AviQtl::kDefaultSampleRate));
+    int w = s.value(QStringLiteral("width")).toInt(AviQtl::kDefaultWidth);
+    int h = s.value(QStringLiteral("height")).toInt(AviQtl::kDefaultHeight);
+    double fps = s.value(QStringLiteral("fps")).toDouble(AviQtl::kDefaultFps);
+    int sampleRate = s.value(QStringLiteral("sampleRate")).toInt(AviQtl::kDefaultSampleRate);
+
+    if (w <= 0 || w > 32768) w = AviQtl::kDefaultWidth;
+    if (h <= 0 || h > 32768) h = AviQtl::kDefaultHeight;
+    if (fps <= 0.0 || fps > 1000.0) fps = AviQtl::kDefaultFps;
+    if (sampleRate <= 0 || sampleRate > 192000) sampleRate = AviQtl::kDefaultSampleRate;
+
+    project->setWidth(w);
+    project->setHeight(h);
+    project->setFps(fps);
+    project->setSampleRate(sampleRate);
 
     QList<UI::SceneData> tempScenes;
     int maxSceneId = 0;
@@ -205,7 +221,7 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         }
         clip.startFrame = c.value(QStringLiteral("start")).toInt();
         clip.durationFrames = c.value(QStringLiteral("duration")).toInt();
-        clip.layer = c.value(QStringLiteral("layer")).toInt();
+        clip.layer = std::clamp(c.value(QStringLiteral("layer")).toInt(), 0, 127);
         clip.clipByUpperObject = c.value(QStringLiteral("clipByUpperObject")).toBool(false);
         clip.params = c.value(QStringLiteral("params")).toObject().toVariantMap();
 
