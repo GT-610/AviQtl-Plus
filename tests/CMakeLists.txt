@@ -236,3 +236,6 @@ aviqtl_add_test(
     SOURCES test_transition_effects.cpp
     LINKS AviQtl_Core
 )
+target_compile_definitions(AviQtl_Test_transition_effects PRIVATE
+    AVIQTL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)

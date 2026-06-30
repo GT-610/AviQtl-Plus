@@ -1068,6 +1068,9 @@ bool PackageManager::deployPackageFiles(const QString &packageId, const QString 
         if (fi.isDir()) { sourceDir.cd(entries.first()); entries = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot); }
     }
 
+    // Ensure the base directory exists before creating the staging directory.
+    QDir().mkpath(deployBase);
+
     // Stage new contents into a temporary sibling directory so we can roll
     // back if copying fails and avoid leaving stale files behind on upgrade.
     QTemporaryDir stagingDir(deployBase + QStringLiteral("/.staging_XXXXXX"));

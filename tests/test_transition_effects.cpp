@@ -28,16 +28,27 @@ QString TestTransitionEffects::transitionsDir() const {
     QString srcDir = qgetenv("SRCDIR");
     if (!srcDir.isEmpty()) {
         QDir d(srcDir);
+        if (d.exists(QStringLiteral("ui/qml/transitions")))
+            return d.filePath(QStringLiteral("ui/qml/transitions"));
         if (d.exists(QStringLiteral("../../ui/qml/transitions")))
             return d.filePath(QStringLiteral("../../ui/qml/transitions"));
     }
+#ifdef AVIQTL_SOURCE_DIR
+    {
+        QDir d(QStringLiteral(AVIQTL_SOURCE_DIR));
+        if (d.exists(QStringLiteral("ui/qml/transitions")))
+            return d.filePath(QStringLiteral("ui/qml/transitions"));
+    }
+#endif
     QString appDir = QCoreApplication::applicationDirPath();
     QDir d(appDir);
     if (d.exists(QStringLiteral("../../ui/qml/transitions")))
         return d.filePath(QStringLiteral("../../ui/qml/transitions"));
     if (d.exists(QStringLiteral("../../../ui/qml/transitions")))
         return d.filePath(QStringLiteral("../../../ui/qml/transitions"));
-    return QStringLiteral("%1/../../../ui/qml/transitions").arg(appDir);
+    if (d.exists(QStringLiteral("../../../../ui/qml/transitions")))
+        return d.filePath(QStringLiteral("../../../../ui/qml/transitions"));
+    return QStringLiteral("%1/../../../../ui/qml/transitions").arg(appDir);
 }
 
 QJsonObject TestTransitionEffects::loadJson(const QString &fileName) const {
