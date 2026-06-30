@@ -247,6 +247,13 @@ AviQtl-Plus 从根本上解决结构性弱点：
 - BorderBlur O(n²) → O(2n)，边缘检测混合与宽高比控制
 - 3 pass 以上多 pass ping-pong 的正确性
 
+**已完成（未发布）：**
+- 4 个新转场效果：Dissolve、Push、Zoom、Wipe（共 7 个）
+- Wipe 转场现在能正确合成前/后场景
+- Push 转场反向定位修复
+- CONTRIBUTING.md 和 CHANGELOG.md
+- CI：构建工作流中 macOS 和 Windows 的测试步骤
+
 **下一步（0.4.x-0.5.0）：**
 - 扩展特效和对象插件生态（更多示例插件）
 - 持续强化 CI/CD 和发布自动化

@@ -224,10 +224,33 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 <details>
 <summary>What is the roadmap for AviQtl-Plus?</summary>
 
+**Completed (0.3.0):**
+- LuaJIT plugin system with lifecycle hooks, declarative parameters, and fine-grained permission control
+- Package manager for installing/updating plugins, effects, and objects from remote repositories
+- 24 unit tests covering core, engine, scripting, and plugin subsystems
+- CI via GitHub Actions (build + static analysis)
+
+**Completed (0.3.1-0.3.2):**
+- Thread-safe audio processing with lock-free shared pointers and keyframe evaluation optimization
+- HDR output, opacity, and multi-pass dispatch for Compute Shader effects
+- Transition effects (CrossFade, Slide, WipeCircle)
+- Audio plugin keyframe editing and mixer panel UI
+- Effect schema documentation and sepia effect example
+- Hardcoded constant extraction and log standardization
+- Object JSON/QML naming consistency alignment
+- macOS build and packaging fixes (atomic shared_ptr, carla-discovery-native RPATH)
+
 **Completed (0.4.0):**
 - GPU compute shader optimizations: SRB pre-allocation, fine-grained dirty flags, separable blur, bitonic sort
 - BorderBlur O(n²) → O(2n) with edge-detect blend and aspect ratio control
 - Multi-pass ping-pong correctness for 3+ pass dispatches
+
+**Completed (unreleased):**
+- 4 new transitions: Dissolve, Push, Zoom, Wipe (7 total)
+- Wipe transition now properly composites previous/next scenes
+- Push transition reverse direction positioning
+- CONTRIBUTING.md and CHANGELOG.md
+- CI: test steps for macOS and Windows in build workflow
 
 **Next (0.4.x-0.5.0):**
 - Expand effect and object plugin ecosystem (more example plugins)
