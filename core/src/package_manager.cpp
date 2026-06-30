@@ -7,6 +7,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <algorithm>
+#include <limits>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -420,6 +421,7 @@ void PackageManager::onCatalogFetched(const QVariantMap &repoInfo, const QByteAr
 void PackageManager::mergeCatalogPackage(const QVariantMap &pkg, const QVariantMap &repoInfo, const QVariantMap &installed) {
     const QString id = pkg.value(QStringLiteral("id")).toString();
     const QString repoUrl = repoInfo.value(QStringLiteral("url")).toString();
+    const int repoPriority = repoInfo.value(QStringLiteral("priority"), 10).toInt();
 
     // Find existing entry for this ID
     int existingIdx = -1;
@@ -468,21 +470,40 @@ void PackageManager::mergeCatalogPackage(const QVariantMap &pkg, const QVariantM
             existingSources.insert(it.key(), it.value());
         existing[QStringLiteral("_sources")] = existingSources;
 
+        // Determine the priority of the currently-stored primary repo so we
+        // can make precedence explicit instead of relying on arrival order.
+        const QString existingPrimaryRepo = existing.value(QStringLiteral("_primary_repo")).toString();
+        int existingPriority = std::numeric_limits<int>::max();
+        for (const auto &r : repositories()) {
+            QVariantMap rm = r.toMap();
+            if (rm.value(QStringLiteral("url")).toString() == existingPrimaryRepo) {
+                existingPriority = rm.value(QStringLiteral("priority"), 10).toInt();
+                break;
+            }
+        }
+
         // Take highest version as latest; on ties prefer the higher-priority
-        // repo (lower priority number). repos are synced in priority order so
-        // the existing _primary_repo already belongs to the higher-priority repo.
+        // repo (lower priority number wins).
         QString existingLatest = existing.value(QStringLiteral("latest_version")).toString();
         QString newVersion = pkg.value(QStringLiteral("version")).toString();
         int cmp = compareVersions(newVersion, existingLatest);
         if (cmp > 0) {
+            // Newer version: adopt the winning package's metadata fields so the
+            // merged record stays consistent with the chosen source.
             existing[QStringLiteral("latest_version")] = newVersion;
             existing[QStringLiteral("version")] = newVersion;
             existing[QStringLiteral("_primary_repo")] = repoUrl;
+            existing[QStringLiteral("metadata_url")] = pkg.value(QStringLiteral("metadata_url"));
+            existing[QStringLiteral("metadata_sha256")] = pkg.value(QStringLiteral("metadata_sha256"));
         } else if (cmp == 0) {
             // Same version: keep the higher-priority repo as _primary_repo.
-            // Only switch if the existing primary repo is unknown/empty.
-            if (existing.value(QStringLiteral("_primary_repo")).toString().isEmpty())
+            if (repoPriority < existingPriority) {
                 existing[QStringLiteral("_primary_repo")] = repoUrl;
+                existing[QStringLiteral("metadata_url")] = pkg.value(QStringLiteral("metadata_url"));
+                existing[QStringLiteral("metadata_sha256")] = pkg.value(QStringLiteral("metadata_sha256"));
+            } else if (existingPrimaryRepo.isEmpty()) {
+                existing[QStringLiteral("_primary_repo")] = repoUrl;
+            }
         }
         m_packageList[existingIdx] = existing;
     } else {
@@ -561,11 +582,12 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
         emit errorOccurred(tr("No metadata URL for package: %1").arg(packageId));
         return;
     }
+    const QString expectedMetadataSha256 = catalogEntry.value(QStringLiteral("metadata_sha256")).toString();
 
     setStatus(tr("Fetching package details: %1").arg(packageId));
     QUrl url(metadataUrl);
     QNetworkReply *reply = m_networkManager->get(QNetworkRequest(url));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, packageId, sourceRepo, metadataUrl, cacheKey]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, packageId, sourceRepo, metadataUrl, cacheKey, expectedMetadataSha256]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             emit errorOccurred(tr("Failed to fetch package metadata (%1): %2").arg(packageId, reply->errorString()));
@@ -573,6 +595,19 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
         }
 
         QByteArray body = reply->readAll();
+
+        // Verify metadata checksum if the catalog provided one, so a
+        // tampered payload cannot be trusted or cached.
+        if (!expectedMetadataSha256.isEmpty()) {
+            const QString actualSha256 = QString::fromLatin1(
+                QCryptographicHash::hash(body, QCryptographicHash::Sha256).toHex());
+            if (actualSha256 != expectedMetadataSha256) {
+                emit errorOccurred(tr("Metadata checksum mismatch for package %1: expected %2, got %3")
+                                       .arg(packageId, expectedMetadataSha256, actualSha256));
+                return;
+            }
+        }
+
         QJsonDocument doc = QJsonDocument::fromJson(body);
         if (!doc.isObject()) {
             emit errorOccurred(tr("Invalid metadata format for package: %1").arg(packageId));
@@ -610,13 +645,34 @@ void PackageManager::fetchPackageMetadataForInstall(const QString &packageId, co
     }
 
     QMetaObject::Connection *conn = new QMetaObject::Connection();
+    QMetaObject::Connection *errConn = new QMetaObject::Connection();
+
     *conn = connect(this, &PackageManager::packageDetailReady, this,
-        [this, conn, packageId, sourceRepo, version](const QString &readyId, const QString &readyRepo, const QVariantMap &detail) {
+        [this, conn, errConn, packageId, sourceRepo, version](const QString &readyId, const QString &readyRepo, const QVariantMap &detail) {
             if (readyId == packageId && readyRepo == sourceRepo) {
-                disconnect(*conn);
+                if (*conn) { disconnect(*conn); *conn = {}; }
+                if (*errConn) { disconnect(*errConn); *errConn = {}; }
                 delete conn;
+                delete errConn;
                 if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId)
                     continueInstallWithMetadata(packageId, sourceRepo, version, detail);
+            }
+        });
+
+    // Clean up and abort the install flow when metadata fetch fails so the
+    // pending install/upgrade queue is not left silently waiting.
+    *errConn = connect(this, &PackageManager::errorOccurred, this,
+        [this, conn, errConn, packageId](const QString &message) {
+            Q_UNUSED(message)
+            if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId) {
+                if (*conn) { disconnect(*conn); *conn = {}; }
+                if (*errConn) { disconnect(*errConn); *errConn = {}; }
+                delete conn;
+                delete errConn;
+                setBusy(false);
+                // Advance the upgrade queue if we were in an upgrade flow
+                if (!m_upgradeQueue.isEmpty())
+                    processUpgradeQueue();
             }
         });
 
@@ -907,9 +963,23 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     installed[packageId] = info;
 
     QFile installedFile(getInstalledPackagesPath());
-    if (installedFile.open(QIODevice::WriteOnly)) {
-        installedFile.write(QJsonDocument::fromVariant(installed).toJson(QJsonDocument::Indented));
-        installedFile.close();
+    if (!installedFile.open(QIODevice::WriteOnly)) {
+        qWarning() << "[PackageManager] Failed to open installed.json for writing.";
+        setBusy(false);
+        emit errorOccurred(tr("Failed to save installation state (cannot write installed.json)."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
+        return;
+    }
+    qint64 written = installedFile.write(QJsonDocument::fromVariant(installed).toJson(QJsonDocument::Indented));
+    installedFile.close();
+    if (written < 0) {
+        qWarning() << "[PackageManager] Failed to write installed.json.";
+        setBusy(false);
+        emit errorOccurred(tr("Failed to save installation state (cannot write installed.json)."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
+        return;
     }
 
     // Reload registry for effect/object/transition
@@ -989,21 +1059,57 @@ bool PackageManager::deployPackageFiles(const QString &packageId, const QString 
     const QString deployBase = getPackageDeployDir(packageType);
     if (deployBase.isEmpty()) return false;
     const QString packageDir = deployBase + QStringLiteral("/") + packageId;
-    QDir().mkpath(packageDir);
 
+    // Resolve the source directory (handle single-subdir wrapper archives)
     QDir sourceDir(extractDir);
     QStringList entries = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     if (entries.size() == 1) {
         QFileInfo fi(sourceDir.absoluteFilePath(entries.first()));
         if (fi.isDir()) { sourceDir.cd(entries.first()); entries = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot); }
     }
+
+    // Stage new contents into a temporary sibling directory so we can roll
+    // back if copying fails and avoid leaving stale files behind on upgrade.
+    QTemporaryDir stagingDir(deployBase + QStringLiteral("/.staging_XXXXXX"));
+    if (!stagingDir.isValid()) {
+        qWarning() << "[PackageManager] Failed to create staging directory for deployment.";
+        return false;
+    }
+    const QString stagingPath = stagingDir.path();
     for (const QString &entry : std::as_const(entries)) {
         const QString srcPath = sourceDir.absoluteFilePath(entry);
-        const QString destPath = packageDir + QStringLiteral("/") + entry;
+        const QString destPath = stagingPath + QStringLiteral("/") + entry;
         QFileInfo srcInfo(srcPath);
         if (srcInfo.isDir()) { if (!copyDirectory(srcPath, destPath)) return false; }
         else { if (QFile::exists(destPath)) QFile::remove(destPath); if (!QFile::copy(srcPath, destPath)) return false; }
     }
+
+    // Remove the old package directory and replace it with the staged contents.
+    // Keep the staging dir alive until the swap succeeds so we can roll back.
+    const QString backupDir = deployBase + QStringLiteral("/.backup_") + packageId;
+    bool hadOld = QDir(packageDir).exists();
+    if (hadOld) {
+        if (QDir(backupDir).exists())
+            QDir(backupDir).removeRecursively();
+        if (!QDir().rename(packageDir, backupDir)) {
+            qWarning() << "[PackageManager] Failed to back up old package directory for atomic swap.";
+            return false;
+        }
+    }
+
+    QDir().mkpath(deployBase);
+    if (!QDir().rename(stagingPath, packageDir)) {
+        // Roll back: restore the backup if the move failed
+        qWarning() << "[PackageManager] Failed to move staged package into place.";
+        if (hadOld)
+            QDir().rename(backupDir, packageDir);
+        return false;
+    }
+
+    // Success: clean up the backup
+    if (hadOld)
+        QDir(backupDir).removeRecursively();
+    stagingDir.setAutoRemove(false);
     return true;
 }
 
@@ -1027,7 +1133,15 @@ void PackageManager::removePackage(const QString &packageId) {
     }
     setBusy(true);
     setStatus(tr("Removing package: %1").arg(packageId));
-    const QString packageType = pkg.value(QStringLiteral("type")).toString();
+    QString packageType = pkg.value(QStringLiteral("type")).toString();
+    // Fallback to installed metadata when the package is no longer in the
+    // catalog (e.g. after a cache change) so the deploy directory resolves
+    // correctly and deployed files are still deleted.
+    if (packageType.isEmpty()) {
+        QVariantMap installedMeta = loadInstalledPackagesFromFile();
+        if (installedMeta.contains(packageId))
+            packageType = installedMeta.value(packageId).toMap().value(QStringLiteral("type")).toString();
+    }
     const QString deployDir = getPackageDeployDir(packageType);
     const QString packageDir = deployDir + QStringLiteral("/") + packageId;
     if (QDir(packageDir).exists()) QDir(packageDir).removeRecursively();

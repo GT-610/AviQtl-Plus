@@ -1602,88 +1602,93 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="149"/>
+        <location filename="../core/src/package_manager.cpp" line="150"/>
         <source>Idle</source>
         <translation>Idle</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="204"/>
+        <location filename="../core/src/package_manager.cpp" line="205"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>Packages loaded from cache (Press Sync to check for updates)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="296"/>
+        <location filename="../core/src/package_manager.cpp" line="297"/>
         <source>Syncing repository...</source>
         <translation>Syncing repository...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="500"/>
+        <location filename="../core/src/package_manager.cpp" line="521"/>
         <source>Sync complete</source>
         <translation>Sync complete</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="555"/>
-        <location filename="../core/src/package_manager.cpp" line="705"/>
+        <location filename="../core/src/package_manager.cpp" line="576"/>
+        <location filename="../core/src/package_manager.cpp" line="761"/>
         <source>Package not found: %1</source>
         <translation>Package not found: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="561"/>
+        <location filename="../core/src/package_manager.cpp" line="582"/>
         <source>No metadata URL for package: %1</source>
         <translation>No metadata URL for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="565"/>
+        <location filename="../core/src/package_manager.cpp" line="587"/>
         <source>Fetching package details: %1</source>
         <translation>Fetching package details: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="571"/>
+        <location filename="../core/src/package_manager.cpp" line="593"/>
         <source>Failed to fetch package metadata (%1): %2</source>
         <translation>Failed to fetch package metadata (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="578"/>
+        <location filename="../core/src/package_manager.cpp" line="605"/>
+        <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="613"/>
         <source>Invalid metadata format for package: %1</source>
         <translation>Invalid metadata format for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="675"/>
+        <location filename="../core/src/package_manager.cpp" line="731"/>
         <source>No download URL found for package %1 version %2</source>
         <translation>No download URL found for package %1 version %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="682"/>
+        <location filename="../core/src/package_manager.cpp" line="738"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
         <translation>Package %1 requires AviQtl %2 or newer (current: %3)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="719"/>
+        <location filename="../core/src/package_manager.cpp" line="775"/>
         <source>Could not determine repository URL for the package.</source>
         <translation>Could not determine repository URL for the package.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="724"/>
+        <location filename="../core/src/package_manager.cpp" line="780"/>
         <source>Searching for available files...</source>
         <translation>Searching for available files...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="732"/>
+        <location filename="../core/src/package_manager.cpp" line="788"/>
         <source>Repository URL is not in a valid format.</source>
         <translation>Repository URL is not in a valid format.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="740"/>
+        <location filename="../core/src/package_manager.cpp" line="796"/>
         <source>Unsupported repository host.</source>
         <translation>Unsupported repository host.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="747"/>
+        <location filename="../core/src/package_manager.cpp" line="803"/>
         <source>Failed to fetch release info (%1): %2</source>
         <translation>Failed to fetch release info (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="785"/>
+        <location filename="../core/src/package_manager.cpp" line="841"/>
         <source>No downloadable files found.</source>
         <translation>No downloadable files found.</translation>
     </message>
@@ -1696,27 +1701,27 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation type="vanished">Installing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="924"/>
+        <location filename="../core/src/package_manager.cpp" line="994"/>
         <source>Installation complete: %1</source>
         <translation>Installation complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="799"/>
+        <location filename="../core/src/package_manager.cpp" line="855"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl update available. Restart to apply.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="815"/>
+        <location filename="../core/src/package_manager.cpp" line="871"/>
         <source>Downloading package: %1</source>
         <translation>Downloading package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="827"/>
+        <location filename="../core/src/package_manager.cpp" line="883"/>
         <source>Download failed: %1</source>
         <translation>Download failed: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="834"/>
+        <location filename="../core/src/package_manager.cpp" line="890"/>
         <source>Failed to create temporary directory.</source>
         <translation>Failed to create temporary directory.</translation>
     </message>
@@ -1725,72 +1730,78 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation type="vanished">Invalid download URL.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="844"/>
+        <location filename="../core/src/package_manager.cpp" line="900"/>
         <source>Failed to save downloaded file.</source>
         <translation>Failed to save downloaded file.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="856"/>
+        <location filename="../core/src/package_manager.cpp" line="912"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
         <translation>Checksum mismatch for %1: expected %2, got %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="861"/>
+        <location filename="../core/src/package_manager.cpp" line="917"/>
         <source>Extracting package...</source>
         <translation>Extracting package...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="872"/>
+        <location filename="../core/src/package_manager.cpp" line="928"/>
         <source>Failed to create extraction directory.</source>
         <translation>Failed to create extraction directory.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="878"/>
+        <location filename="../core/src/package_manager.cpp" line="934"/>
         <source>Failed to extract package archive.</source>
         <translation>Failed to extract package archive.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="882"/>
+        <location filename="../core/src/package_manager.cpp" line="938"/>
         <source>Deploying package files...</source>
         <translation>Deploying package files...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="887"/>
+        <location filename="../core/src/package_manager.cpp" line="943"/>
         <source>Failed to deploy package files.</source>
         <translation>Failed to deploy package files.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1026"/>
+        <location filename="../core/src/package_manager.cpp" line="969"/>
+        <location filename="../core/src/package_manager.cpp" line="979"/>
+        <source>Failed to save installation state (cannot write installed.json).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="1132"/>
         <source>Invalid package ID.</source>
         <translation>Invalid package ID.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1029"/>
+        <location filename="../core/src/package_manager.cpp" line="1135"/>
         <source>Removing package: %1</source>
         <translation>Removing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1053"/>
+        <location filename="../core/src/package_manager.cpp" line="1167"/>
         <source>Removal complete: %1</source>
         <translation>Removal complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1107"/>
+        <location filename="../core/src/package_manager.cpp" line="1221"/>
         <source>No packages to upgrade.</source>
         <translation>No packages to upgrade.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1109"/>
+        <location filename="../core/src/package_manager.cpp" line="1223"/>
         <source>Upgrading all packages...</source>
         <translation>Upgrading all packages...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1116"/>
+        <location filename="../core/src/package_manager.cpp" line="1230"/>
         <source>All upgrades complete.</source>
         <translation>All upgrades complete.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1121"/>
+        <location filename="../core/src/package_manager.cpp" line="1235"/>
         <source>Upgrading package: %1</source>
         <translation>Upgrading package: %1</translation>
     </message>
@@ -3162,7 +3173,7 @@ Save before continuing?</translation>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="74"/>
         <source>Author: </source>
-        <translation type="unfinished"></translation>
+        <translation>Author: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="82"/>

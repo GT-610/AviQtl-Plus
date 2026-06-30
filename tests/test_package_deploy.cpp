@@ -101,6 +101,15 @@ void TestPackageDeploy::deployTransitionType() {
     if (QDir(packageDir).exists())
         QDir(packageDir).removeRecursively();
 
+    // Register a scoped cleanup guard immediately so the real transition
+    // deploy directory is always removed even if QVERIFY/QCOMPARE below fail
+    // (QVERIFY returns from the function on failure, skipping the tail cleanup).
+    struct ScopedCleanup {
+        QString dir;
+        ~ScopedCleanup() { if (QDir(dir).exists()) QDir(dir).removeRecursively(); }
+    } cleanupGuard;
+    cleanupGuard.dir = packageDir;
+
     // Exercise the real deployment helper used in production
     QVERIFY(pm.deployPackageFiles(packageId, sourceDir.path(), QStringLiteral("transition")));
 
@@ -113,7 +122,7 @@ void TestPackageDeploy::deployTransitionType() {
     // (exercises the metadata/registry reload path used after deployment)
     EffectRegistry::instance().loadEffectsFromDirectory(deployDir);
 
-    // Cleanup
+    // Cleanup (also handled by cleanupGuard destructor on scope exit)
     QDir(packageDir).removeRecursively();
 }
 
