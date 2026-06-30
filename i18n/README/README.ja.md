@@ -14,11 +14,11 @@
 </p>
 
 > [!IMPORTANT]
-> このリポジトリは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkです。2026年5月末、原作者は開発を**リセット**することを決定しました。現在の`main`ブランチは **Qt Widgets + SDL3 + bgfx** をベースとした新しいNeoUtlが置かれ、Qt Quickベースの旧バージョンは`legacy`ブランチ（**NeoUtl Legacy**）に移動されました。元プロジェクトの初期コアコントリビューターであった[GT610](https://github.com/GT-610)がQt Quick路線を継続し、**AviQtl-Plus**として開発を進めます。
+> このリポジトリは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkです。2026年5月末、原作者は開発を**リセット**することを決定しました。現在の`main`ブランチは **Rust + Slint + wgpu** をベースとした新しいNeoUtlが置かれ、Qt Quickベースの旧バージョンは`aviqtl`ブランチ（**AviQtl**）に移動されました。元プロジェクトの初期コアコントリビューターであった[GT610](https://github.com/GT-610)がQt Quick路線を継続し、**AviQtl-Plus**として開発を進めます。
 >
 > これにより、3つのNeoUtl関連プロジェクトが並行して存在することになりました：
-> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — 新しい技術スタックで再構築された元プロジェクト
-> - **[NeoUtl Legacy](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy)** — 元のQt Quick版。今后更新されません
+> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — Rust + Slint + wgpu で再構築された元プロジェクト
+> - **[AviQtl](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl)** — 元のQt Quick版。「AviQtl」として継続
 > - **AviQtl-Plus（このプロジェクト）** — Qt Quick + QRhi + ECS アプローチを継続するfork
 
 ### 元プロジェクトの開発休止理由
@@ -41,9 +41,9 @@
 
 ### 原作者の新しい方向性
 
-原作者はすでに計画を実行に移しています。新しい`main`ブランチは **Qt Widgets + SDL3 + bgfx** でゼロから再構築されており、Compute Shaderを重視する将来のビジョンにはQt Quickは適さないという確信に基づいています。コア実装フェーズ中はPRを受け付けないとのことです。
+原作者はすでに計画を実行に移しています。新しい`main`ブランチは **Rust + Slint + wgpu** でゼロから再構築されており、Compute Shaderを重視する将来のビジョンにはQt Quickは適さないという確信に基づいています。コア実装フェーズ中はPRを受け付けないとのことです。
 
-旧Qt Quickソースコードは引き続き[`legacy`ブランチ](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy)で入手可能であり、原作者はQt Quickアプローチを好むユーザーに[明示的にAviQtl-Plusを推奨](https://codeberg.org/taisho-guy/NeoUtl)しています。
+旧Qt Quickソースコードは引き続き[`aviqtl`ブランチ](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl)で入手可能であり、原作者はQt Quickアプローチを好むユーザーに[明示的にAviQtl-Plusを推奨](https://codeberg.org/taisho-guy/NeoUtl)しています。
 
 ### 新しいNeoUtlとの関係
 
@@ -284,8 +284,8 @@ AviQtl-Plusは、多くの素晴らしいプロジェクトの上に成り立っ
 | プロジェクト | ライセンス | 役割 |
 | :--- | :--- | :--- |
 | AviUtl | 非自由 | リスペクト元 |
-| NeoUtl (Legacy) | AGPLv3 | 元のQt Quick版プロジェクト；上流の`legacy`ブランチ |
-| NeoUtl | AGPLv3 | 原作者によるQt Widgets + bgfx版 |
+| AviQtl | AGPLv3 | 元のQt Quick版プロジェクト；上流の`aviqtl`ブランチ |
+| NeoUtl | AGPLv3 | 原作者によるRust + Slint + wgpu版 |
 | AviQtl-Plus | AGPLv3 | このプロジェクト — Qt Quick + QRhi + ECS 開発の継続 |
 | Carla | GPLv2+ | 音声エフェクト（VST3/LV2等）のホスト |
 | FFmpeg | GPLv2+ | 動画・音声のデコード / エンコード |

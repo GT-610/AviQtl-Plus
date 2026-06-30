@@ -14,11 +14,11 @@
 </p>
 
 > [!IMPORTANT]
-> 本仓库是 [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) 的 fork。2026 年 5 月底，原作者决定**重置开发**——现在的 `main` 分支已更换为基于 **Qt Widgets + SDL3 + bgfx** 的新 NeoUtl，而原 Qt Quick 版本已移至 `legacy` 分支（称为 **NeoUtl Legacy**）。我（[GT610](https://github.com/GT-610)）作为原项目的早期核心贡献者，将继续 Qt Quick 路线，以 **AviQtl-Plus** 的名义继续开发。
+> 本仓库是 [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) 的 fork。2026 年 5 月底，原作者决定**重置开发**——现在的 `main` 分支已更换为基于 **Rust + Slint + wgpu** 的新 NeoUtl，而原 Qt Quick 版本已移至 `aviqtl` 分支（称为 **AviQtl**）。我（[GT610](https://github.com/GT-610)）作为原项目的早期核心贡献者，将继续 Qt Quick 路线，以 **AviQtl-Plus** 的名义继续开发。
 >
 > 因此，目前有三个 NeoUtl 相关项目并行存在：
-> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — 使用新技术栈重建的原项目
-> - **[NeoUtl Legacy](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy)** — 原 Qt Quick 版本，不再更新
+> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — 使用 Rust + Slint + wgpu 重建的原项目
+> - **[AviQtl](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl)** — 原 Qt Quick 版本，继续作为"AviQtl"
 > - **AviQtl-Plus（本项目）** — 继续发展 Qt Quick + QRhi + ECS 路线的 fork
 
 ### 原项目暂停开发的原因
@@ -41,9 +41,9 @@
 
 ### 原作者的新方向
 
-原作者已经将计划付诸实践——新的 `main` 分支正在以 **Qt Widgets + SDL3 + bgfx** 为基础从零重建，这反映了他们坚信 Qt Quick 不适合他们未来以 Compute Shader 为核心的技术愿景。他们已经声明在核心实现阶段不接受 PR。
+原作者已经将计划付诸实践——新的 `main` 分支正在以 **Rust + Slint + wgpu** 为基础从零重建，这反映了他们坚信 Qt Quick 不适合他们未来以 Compute Shader 为核心的技术愿景。他们已经声明在核心实现阶段不接受 PR。
 
-旧的 Qt Quick 源代码仍在 [`legacy` 分支](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy) 可用，原作者也[明确推荐](https://codeberg.org/taisho-guy/NeoUtl)喜欢 Qt Quick 路线的用户使用 AviQtl-Plus。
+旧的 Qt Quick 源代码仍在 [`aviqtl` 分支](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl) 可用，原作者也[明确推荐](https://codeberg.org/taisho-guy/NeoUtl)喜欢 Qt Quick 路线的用户使用 AviQtl-Plus。
 
 ### 与新版 NeoUtl 的关系
 
@@ -285,8 +285,8 @@ AviQtl-Plus 站在众多优秀项目的肩膀上。
 | 项目 | 许可证 | 角色 |
 | :--- | :--- | :--- |
 | AviUtl | 非自由 | 致敬的原型 |
-| NeoUtl (Legacy) | AGPLv3 | 原 Qt Quick 版本；上游的 `legacy` 分支 |
-| NeoUtl | AGPLv3 | 原作者的新 Qt Widgets + bgfx 版本 |
+| AviQtl | AGPLv3 | 原 Qt Quick 版本；上游的 `aviqtl` 分支 |
+| NeoUtl | AGPLv3 | 原作者的新 Rust + Slint + wgpu 版本 |
 | AviQtl-Plus | AGPLv3 | 本项目 — 继续 Qt Quick + QRhi + ECS 开发 |
 | Carla | GPLv2+ | 音频特效宿主（VST3/LV2等） |
 | FFmpeg | GPLv2+ | 视频/音频编解码 |

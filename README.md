@@ -14,11 +14,11 @@
 </p>
 
 > [!IMPORTANT]
-> This repository is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl). In late May 2026, the original author decided to **reset development** — the `main` branch now hosts a new NeoUtl built on **Qt Widgets + SDL3 + bgfx**, while the Qt Quick-based version was moved to the `legacy` branch (referred to as **NeoUtl Legacy**). I ([GT610](https://github.com/GT-610)), an early core contributor to the original project, continue the Qt Quick path here as **AviQtl-Plus**.
+> This repository is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl). In late May 2026, the original author decided to **reset development** — the `main` branch now hosts a new NeoUtl built on **Rust + Slint + wgpu**, while the Qt Quick-based version was moved to the `aviqtl` branch (referred to as **AviQtl**). I ([GT610](https://github.com/GT-610)), an early core contributor to the original project, continue the Qt Quick path here as **AviQtl-Plus**.
 >
 > As a result, three NeoUtl-related projects now exist in parallel:
-> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — the original project rebuilt with a new technology stack
-> - **[NeoUtl Legacy](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy)** — the original Qt Quick-based version, no longer updated
+> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — the original project rebuilt with Rust + Slint + wgpu
+> - **[AviQtl](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl)** — the original Qt Quick-based version, continues as "AviQtl"
 > - **AviQtl-Plus (this project)** — a fork continuing development of the Qt Quick + QRhi + ECS approach
 
 ### Why the original project paused
@@ -28,6 +28,8 @@ The original author identified these fundamental issues with Qt Quick:
 - Qt Quick's resource management is incompatible with Compute Shaders, making implementation difficult
 - Similarly, it conflicts with ECS architecture, hindering optimization
 - Performance concerns for real-time processing
+
+The original author has now moved to a new technology stack using **Rust + Slint + wgpu**, abandoning the Qt Widgets + SDL3 + bgfx approach that was initially planned.
 
 ### How AviQtl-Plus addresses them
 
@@ -41,13 +43,13 @@ The vision remains unchanged: **a video editor that inherits and surpasses AviUt
 
 ### Original author's new direction
 
-The original author has already acted on their plan — the new `main` branch is being rebuilt from scratch with **Qt Widgets + SDL3 + bgfx**, reflecting their conviction that Qt Quick is not the right foundation for the compute-shader-heavy future they envision. They have stated that PRs will not be accepted during the initial core implementation phase.
+The original author has already acted on their plan — the new `main` branch is being rebuilt from scratch with **Rust + Slint + wgpu**, reflecting their conviction that Qt Quick is not the right foundation for the compute-shader-heavy future they envision. They have stated that PRs will not be accepted during the initial core implementation phase.
 
-The old Qt Quick source code remains available on the [`legacy` branch](https://codeberg.org/taisho-guy/NeoUtl/src/branch/legacy), and the original author [explicitly recommends](https://codeberg.org/taisho-guy/NeoUtl) AviQtl-Plus to users who prefer the Qt Quick approach.
+The old Qt Quick source code remains available on the [`aviqtl` branch](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl), and the original author [explicitly recommends](https://codeberg.org/taisho-guy/NeoUtl) AviQtl-Plus to users who prefer the Qt Quick approach.
 
 ### Our relationship with the new NeoUtl
 
-The original author and I maintain a friendly relationship. If any of our contributions from AviQtl-Plus prove applicable to the new NeoUtl, I will gladly submit them upstream. Similarly, I hope that innovations from both projects can cross-pollinate over time — ultimately benefiting all users who seek a modern, powerful, and intuitive AviUtl successor.
+The original author and I maintain a friendly relationship. If any of our contributions from AviQtl-Plus prove applicable to the new NeoUtl (Rust + Slint + wgpu), I will gladly submit them upstream. Similarly, I hope that innovations from both projects can cross-pollinate over time — ultimately benefiting all users who seek a modern, powerful, and intuitive AviUtl successor.
 
 ## What is [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)?
 
@@ -283,8 +285,8 @@ AviQtl-Plus stands on the shoulders of many wonderful projects.
 | Project | License | Role |
 | :--- | :--- | :--- |
 | AviUtl | Non-free | Respected origin |
-| NeoUtl (Legacy) | AGPLv3 | Original Qt Quick project; `legacy` branch of the upstream |
-| NeoUtl | AGPLv3 | New Qt Widgets + bgfx version by the original author |
+| AviQtl | AGPLv3 | Original Qt Quick project; `aviqtl` branch of the upstream |
+| NeoUtl | AGPLv3 | New Rust + Slint + wgpu version by the original author |
 | AviQtl-Plus | AGPLv3 | This project — continued Qt Quick + QRhi + ECS development |
 | Carla | GPLv2+ | Audio effect host (VST3/LV2 etc.) |
 | FFmpeg | GPLv2+ | Video/audio decoding & encoding |
