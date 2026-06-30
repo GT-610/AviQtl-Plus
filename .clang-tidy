@@ -32,7 +32,10 @@ Checks: >
   -modernize-use-ranges,
   -modernize-use-transparent-functors,
   -modernize-use-designated-initializers,
-  -modernize-loop-convert
+  -modernize-loop-convert,
+  -readability-uppercase-literal-suffix,
+  -misc-include-cleaner,
+  -modernize-use-using
 
 CheckOptions:
   # identifier-length の最小値を 1 に下げる (i/j/p 等の慣用変数を許可)

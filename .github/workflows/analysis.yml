@@ -40,6 +40,8 @@ jobs:
 
       - name: Run clang-tidy
         run: |
+          # Remove GCC-specific flags not recognized by clang-tidy
+          sed -i 's/"-mno-direct-extern-access"//g' build/compile_commands.json
           run-clang-tidy -p build -quiet \
             core/src/*.cpp \
             engine/**/*.cpp \
