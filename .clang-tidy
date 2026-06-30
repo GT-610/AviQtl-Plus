@@ -14,6 +14,9 @@ Checks: >
   -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-special-member-functions,
   -readability-magic-numbers,
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
@@ -22,9 +25,14 @@ Checks: >
   -readability-implicit-bool-conversion,
   -readability-isolate-declaration,
   -readability-convert-member-functions-to-static,
+  -readability-inconsistent-declaration-parameter-name,
   -bugprone-easily-swappable-parameters,
   -bugprone-narrowing-conversions,
-  -modernize-use-trailing-return-type
+  -modernize-use-trailing-return-type,
+  -modernize-use-ranges,
+  -modernize-use-transparent-functors,
+  -modernize-use-designated-initializers,
+  -modernize-loop-convert
 
 CheckOptions:
   # identifier-length の最小値を 1 に下げる (i/j/p 等の慣用変数を許可)
