@@ -235,7 +235,7 @@ AviQtl-Plus 从根本上解决结构性弱点：
 **已完成（0.3.1-0.3.2）：**
 - 无锁共享指针实现的线程安全音频处理及关键帧评估优化
 - Compute Shader 特效的 HDR 输出、不透明度和多 pass 调度
-- 转场特效（CrossFade、Slide、WipeCircle）
+- 转场特效（Dissolve、Slide、WipeCircle）
 - 音频插件关键帧编辑和混音面板 UI
 - 特效 schema 文档和 sepia 特效示例
 - 硬编码常量提取和日志标准化

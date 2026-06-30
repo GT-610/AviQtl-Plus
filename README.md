@@ -233,7 +233,7 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 **Completed (0.3.1-0.3.2):**
 - Thread-safe audio processing with lock-free shared pointers and keyframe evaluation optimization
 - HDR output, opacity, and multi-pass dispatch for Compute Shader effects
-- Transition effects (CrossFade, Slide, WipeCircle)
+- Transition effects (Dissolve, Slide, WipeCircle)
 - Audio plugin keyframe editing and mixer panel UI
 - Effect schema documentation and sepia effect example
 - Hardcoded constant extraction and log standardization

@@ -46,4 +46,4 @@ jobs:
             scripting/*.cpp \
             ui/src/*.cpp \
             ui/src/**/*.cpp
-        continue-on-error: true
+        continue-on-error: false

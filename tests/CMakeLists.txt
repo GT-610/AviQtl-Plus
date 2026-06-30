@@ -119,6 +119,24 @@ aviqtl_add_test(
     LINKS AviQtl_UI
 )
 
+aviqtl_add_test(
+    NAME audio_decoder
+    SOURCES test_audio_decoder.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME video_decoder
+    SOURCES test_video_decoder.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
+    NAME video_frame_store
+    SOURCES test_video_frame_store.cpp
+    LINKS AviQtl_UI
+)
+
 # --- Engine Tests ---
 aviqtl_add_test(
     NAME dense_component_map
@@ -169,6 +187,12 @@ aviqtl_add_test(
     LINKS AviQtl_Scripting AviQtl_UI
 )
 
+aviqtl_add_test(
+    NAME mod_engine
+    SOURCES test_mod_engine.cpp
+    LINKS AviQtl_Scripting
+)
+
 # --- Plugin System Tests ---
 aviqtl_add_test(
     NAME permission_manager
@@ -205,4 +229,10 @@ aviqtl_add_test(
     NAME clip_by_upper_object
     SOURCES test_clip_by_upper_object.cpp
     LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
+    NAME transition_effects
+    SOURCES test_transition_effects.cpp
+    LINKS AviQtl_Core
 )
