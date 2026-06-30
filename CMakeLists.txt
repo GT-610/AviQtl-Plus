@@ -257,6 +257,7 @@ set(QML_FILES
     ui/qml/common/IconMenuItem.qml
     ui/qml/common/NodeLoader.qml
     ui/qml/common/ObjectRenderer.qml
+    ui/qml/common/PackageListView.qml
     ui/qml/common/ParamControl.qml
     ui/qml/CompositeView.qml
     ui/qml/ExportDialog.qml

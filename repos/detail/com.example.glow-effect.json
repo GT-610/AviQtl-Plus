@@ -1,0 +1,22 @@
+{
+  "id": "com.example.glow-effect",
+  "display_name": "Glow Effect",
+  "short_description": {
+    "en": "A beautiful glow effect for your video",
+    "ja": "美しいグローエフェクト"
+  },
+  "type": "effect",
+  "author": "Community",
+  "categories": ["glow", "bloom"],
+  "min_app_version": "0.4.0",
+  "versions": [
+    {
+      "version": "1.0.0",
+      "download_url": "https://github.com/example/glow-effect/releases/download/v1.0.0/glow-effect.zip",
+      "download_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "min_app_version": "0.4.0",
+      "release_notes": "Initial release",
+      "release_date": "2025-01-15"
+    }
+  ]
+}

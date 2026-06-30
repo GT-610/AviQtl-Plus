@@ -10,12 +10,11 @@ Common.AviQtlWindow {
     property string searchQuery: ""
 
     title: qsTr("パッケージマネージャー")
-    width: 600
-    height: 400
+    width: 650
+    height: 450
     minimumWidth: 500
-    minimumHeight: 300
+    minimumHeight: 350
 
-    // AviQtl本体のアップデート通知ダイアログ
     MessageDialog {
         id: selfUpdateDialog
 
@@ -27,7 +26,6 @@ Common.AviQtlWindow {
         buttons: MessageDialog.Ok
     }
 
-    // エラー通知用ダイアログ
     MessageDialog {
         id: errorDialog
 
@@ -47,10 +45,6 @@ Common.AviQtlWindow {
             selfUpdateDialog.open();
         }
 
-        target: PackageManager
-    }
-
-    Connections {
         function onAssetsReady(packageId, assets) {
             assetSelectionDialog.packageId = packageId;
             assetSelectionDialog.assets = assets;
@@ -85,285 +79,265 @@ Common.AviQtlWindow {
                     assetSelectionDialog.close();
                 }
             }
-
         }
+    }
 
+    function packageTypeForTab(index) {
+        var types = ["effect", "object", "transition", "mod", "installed", "application"];
+        if (index < types.length)
+            return types[index];
+        return "";
+    }
+
+    function filteredPackages(tabIndex) {
+        if (!PackageManager) return [];
+        var tabType = packageTypeForTab(tabIndex);
+        if (tabType === "") return [];
+        var _ = PackageManager.packageList;
+        var all;
+        if (tabType === "installed")
+            all = PackageManager.getPackagesByType("installed");
+        else
+            all = PackageManager.getPackagesByType(tabType);
+        if (root.searchQuery === "")
+            return all;
+        var result = [];
+        for (var i = 0; i < all.length; i++) {
+            var p = all[i];
+            var name = p.display_name || "";
+            var id = p.id || "";
+            if (name.toLowerCase().indexOf(root.searchQuery.toLowerCase()) !== -1 ||
+                id.toLowerCase().indexOf(root.searchQuery.toLowerCase()) !== -1)
+                result.push(p);
+        }
+        return result;
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.margins: 12
+        spacing: 0
 
-        GroupBox {
-            title: qsTr("リポジトリ設定")
+        TabBar {
+            id: tabBar
+
             Layout.fillWidth: true
+            Layout.bottomMargin: 12
+            currentIndex: 0
 
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-
-                    TextField {
-                        id: repoUrlField
-
-                        Layout.fillWidth: true
-                        placeholderText: "https://example.com/repo.json"
-                        selectByMouse: true
-                        onAccepted: addRepoBtn.clicked()
-                    }
-
-                    Button {
-                        id: addRepoBtn
-
-                        text: qsTr("追加")
-                        enabled: repoUrlField.text.length > 0
-                        onClicked: {
-                            PackageManager.addRepository(repoUrlField.text);
-                            repoUrlField.text = "";
-                        }
-                    }
-
-                }
-
-                ListView {
-                    id: repoListView
-
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: Math.min(contentHeight, 80)
-                    clip: true
-                    model: PackageManager ? PackageManager.repositories : []
-
-                    delegate: ItemDelegate {
-                        width: repoListView.width
-                        height: 32
-                        padding: 0
-
-                        contentItem: RowLayout {
-                            Label {
-                                text: modelData
-                                Layout.fillWidth: true
-                                elide: Text.ElideRight
-                                font.pixelSize: 11
-                                verticalAlignment: Text.AlignVCenter
-                                leftPadding: 8
-                            }
-
-                            Button {
-                                flat: true
-                                Layout.preferredWidth: 32
-                                Layout.fillHeight: true
-                                onClicked: PackageManager.removeRepository(modelData)
-
-                                contentItem: Common.AviQtlIcon {
-                                    iconName: "delete_bin_line"
-                                    size: 14
-                                    color: parent.hovered ? "red" : palette.text
-                                }
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
+            onCurrentIndexChanged: {
+                root.searchQuery = "";
+                searchField.text = "";
             }
 
+            TabButton { text: qsTr("エフェクト") }
+            TabButton { text: qsTr("オブジェクト") }
+            TabButton { text: qsTr("トランジション") }
+            TabButton { text: "MOD" }
+            TabButton { text: qsTr("インストール済み") }
+            TabButton { text: qsTr("アプリケーション") }
+            TabButton { text: qsTr("リポジトリ") }
         }
 
         RowLayout {
-            // スペーサー
-
             Layout.fillWidth: true
+            Layout.bottomMargin: 8
+            spacing: 8
+            visible: tabBar.currentIndex < 6
+
+            TextField {
+                id: searchField
+                Layout.fillWidth: true
+                placeholderText: qsTr("検索...")
+                onTextChanged: root.searchQuery = text
+            }
 
             Button {
                 text: qsTr("リポジトリを同期")
                 icon.name: "refresh-line"
                 enabled: PackageManager && !PackageManager.isBusy
                 onClicked: PackageManager.refreshRepositories()
+                visible: tabBar.currentIndex < 4
             }
-
-            Button {
-                text: qsTr("すべてアップグレード")
-                icon.name: "upload-cloud-line"
-                highlighted: true
-                enabled: PackageManager && !PackageManager.isBusy && PackageManager.hasUpdatesAvailable
-                onClicked: PackageManager.upgradeAllPackages()
-            }
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            TextField {
-                id: searchField
-
-                placeholderText: qsTr("検索...")
-                Layout.preferredWidth: 200
-                onTextChanged: root.searchQuery = text
-            }
-
         }
 
-        ListView {
-            id: packageListView
-
+        StackLayout {
+            currentIndex: tabBar.currentIndex
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
-            spacing: 8
-            model: {
-                if (!PackageManager)
-                    return [];
 
-                // packageList プロパティへの依存関係を作成し、同期完了時に再評価を促す
-                var _ = PackageManager.packageList;
-                return PackageManager.searchPackages(root.searchQuery);
+            // Page 0: Effect
+            Common.PackageListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                packages: root.filteredPackages(0)
+                onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
             }
 
-            Label {
-                anchors.centerIn: parent
-                visible: packageListView.count === 0 && !PackageManager.isBusy
-                text: root.searchQuery === "" ? qsTr("パッケージリストが空です。リポジトリを同期して最新情報を取得してください。") : qsTr("検索結果がありません。")
-                color: palette.mid
+            // Page 1: Object
+            Common.PackageListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                packages: root.filteredPackages(1)
+                onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
             }
 
-            BusyIndicator {
-                anchors.centerIn: parent
-                running: PackageManager && PackageManager.isBusy
-                visible: running
+            // Page 2: Transition
+            Common.PackageListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                packages: root.filteredPackages(2)
+                onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
             }
 
-            delegate: Frame {
-                readonly property string installedVer: modelData.installed_version || ""
-                readonly property string latestVer: modelData.latest_version || ""
-                readonly property bool hasUpdate: installedVer !== "" && latestVer !== "" && installedVer !== latestVer
+            // Page 3: MOD
+            Common.PackageListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                packages: root.filteredPackages(3)
+                onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
+            }
 
-                width: packageListView.width
-                padding: 12
+            // Page 4: Installed
+            Common.PackageListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                packages: root.filteredPackages(4)
+                showInstallButton: false
+                onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
+            }
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 4
+            // Page 5: Application
+            Common.PackageListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                packages: root.filteredPackages(5)
+                showInstallButton: false
+            }
+
+            // Page 6: Repository Management
+            ColumnLayout {
+                spacing: 12
+
+                GroupBox {
+                    title: qsTr("リポジトリを追加")
+                    Layout.fillWidth: true
 
                     RowLayout {
-                        Layout.fillWidth: true
+                        anchors.fill: parent
 
-                        Label {
-                            text: modelData.display_name || modelData.id
-                            font.bold: true
-                            font.pixelSize: 14
+                        TextField {
+                            id: repoUrlField
                             Layout.fillWidth: true
-                            elide: Text.ElideRight
-                        }
-
-                        Label {
-                            text: modelData.type || "unknown"
-                            font.pixelSize: 10
-                            color: "white"
-                            padding: 4
-
-                            background: Rectangle {
-                                color: palette.highlight
-                                radius: 4
-                            }
-
-                        }
-
-                    }
-
-                    Label {
-                        text: modelData.description || ""
-                        Layout.fillWidth: true
-                        wrapMode: Text.WordWrap
-                        font.pixelSize: 12
-                        color: palette.text
-                        opacity: 0.8
-                        visible: text !== ""
-                    }
-
-                    Label {
-                        text: qsTr("最新バージョン: ") + (latestVer || "---")
-                        font.pixelSize: 11
-                        color: palette.mid
-                        visible: latestVer !== ""
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Label {
-                            text: modelData.author ? "Author: " + modelData.author : ""
-                            font.pixelSize: 11
-                            color: palette.mid
-                            Layout.fillWidth: true
-                            visible: modelData.author !== undefined
-                        }
-
-                        Label {
-                            text: qsTr("インストール済み: ") + installedVer
-                            font.pixelSize: 11
-                            color: "#44cc88"
-                            visible: installedVer !== "" && !hasUpdate
-                        }
-
-                        Label {
-                            text: qsTr("アップデートあり: ") + latestVer
-                            font.pixelSize: 11
-                            color: palette.highlight
-                            visible: hasUpdate
+                            placeholderText: "https://example.com/repo.json"
+                            selectByMouse: true
+                            onAccepted: addRepoBtn.clicked()
                         }
 
                         Button {
-                            text: qsTr("権限")
-                            visible: installedVer !== "" && modelData.type === "mod"
-                            enabled: !PackageManager.isBusy
+                            id: addRepoBtn
+                            text: qsTr("追加")
+                            enabled: repoUrlField.text.length > 0
                             onClicked: {
-                                permissionDialog.pluginId = modelData.id;
-                                permissionDialog.pluginName = modelData.display_name || modelData.id;
-                                permissionDialog.open();
+                                PackageManager.addRepository(repoUrlField.text);
+                                repoUrlField.text = "";
                             }
                         }
-
-                        Button {
-                            text: qsTr("削除")
-                            visible: installedVer !== "" && modelData.id !== "org.aviqtl.app"
-                            enabled: !PackageManager.isBusy
-                            onClicked: PackageManager.removePackage(modelData.id)
-                        }
-
-                        Button {
-                            text: hasUpdate ? qsTr("アップデート") : qsTr("インストール")
-                            highlighted: true
-                            // 同期前（latestVerが空）の場合はボタンを無効化
-                            enabled: !PackageManager.isBusy && (installedVer === "" || hasUpdate) && latestVer !== ""
-                            visible: installedVer === "" || hasUpdate
-                            onClicked: PackageManager.fetchAssets(modelData.id)
-                        }
-
                     }
-
                 }
 
-            }
+                GroupBox {
+                    title: qsTr("設定済みリポジトリ")
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
+                    ListView {
+                        anchors.fill: parent
+                        clip: true
+                        model: PackageManager ? PackageManager.repositories : []
+
+                        delegate: ItemDelegate {
+                            width: parent.width
+                            height: 48
+                            padding: 0
+
+                            contentItem: RowLayout {
+                                spacing: 8
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+
+                                    Label {
+                                        text: modelData.name || modelData.url
+                                        font.bold: true
+                                        font.pixelSize: 13
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Label {
+                                        text: modelData.url
+                                        font.pixelSize: 11
+                                        color: palette.mid
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                    }
+                                }
+
+                                Switch {
+                                    checked: modelData.enabled !== false
+                                    onToggled: PackageManager.setRepositoryEnabled(modelData.url, checked)
+                                }
+
+                                Button {
+                                    flat: true
+                                    Layout.preferredWidth: 32
+                                    Layout.fillHeight: true
+                                    onClicked: PackageManager.removeRepository(modelData.url)
+
+                                    contentItem: Common.AviQtlIcon {
+                                        iconName: "delete_bin_line"
+                                        size: 14
+                                        color: parent.hovered ? "red" : palette.text
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Button {
+                        text: qsTr("リポジトリを同期")
+                        icon.name: "refresh-line"
+                        enabled: PackageManager && !PackageManager.isBusy
+                        onClicked: PackageManager.refreshRepositories()
+                    }
+
+                    Button {
+                        text: qsTr("すべてアップグレード")
+                        icon.name: "upload-cloud-line"
+                        highlighted: true
+                        enabled: PackageManager && !PackageManager.isBusy && PackageManager.hasUpdatesAvailable
+                        onClicked: PackageManager.upgradeAllPackages()
+                    }
+                }
+            }
         }
 
         ProgressBar {
             Layout.fillWidth: true
+            Layout.topMargin: 8
             visible: PackageManager && PackageManager.isBusy
             value: PackageManager ? PackageManager.progress : 0
         }
-
     }
 
     PluginPermissionDialog {
         id: permissionDialog
         anchors.centerIn: parent
     }
-
 }

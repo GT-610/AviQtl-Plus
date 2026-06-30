@@ -1,0 +1,19 @@
+{
+  "id": "com.example.vhs-effect",
+  "display_name": "VHS Effect",
+  "short_description": "Retro VHS tape distortion effect",
+  "type": "effect",
+  "author": "Community",
+  "categories": ["retro", "distortion"],
+  "min_app_version": "0.4.0",
+  "versions": [
+    {
+      "version": "0.9.0",
+      "download_url": "https://github.com/example/vhs-effect/releases/download/v0.9.0/vhs-effect.zip",
+      "download_sha256": "",
+      "min_app_version": "0.4.0",
+      "release_notes": "Initial release",
+      "release_date": "2025-01-15"
+    }
+  ]
+}

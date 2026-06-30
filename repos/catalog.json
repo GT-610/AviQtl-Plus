@@ -1,0 +1,44 @@
+{
+  "repo_name": "AviQtl Official",
+  "packages": [
+    {
+      "id": "org.aviqtl.app",
+      "display_name": "AviQtl-Plus",
+      "short_description": "AviQtl-Plus video editor",
+      "type": "application",
+      "version": "0.4.0",
+      "author": "GT-610",
+      "categories": ["editor"],
+      "min_app_version": "0.4.0",
+      "metadata_url": "https://raw.githubusercontent.com/GT-610/AviQtl-Plus/main/repos/detail/org.aviqtl.app.json",
+      "metadata_sha256": ""
+    },
+    {
+      "id": "com.example.glow-effect",
+      "display_name": "Glow Effect",
+      "short_description": {
+        "en": "A beautiful glow effect for your video",
+        "ja": "美しいグローエフェクト"
+      },
+      "type": "effect",
+      "version": "1.0.0",
+      "author": "Community",
+      "categories": ["glow", "bloom"],
+      "min_app_version": "0.4.0",
+      "metadata_url": "https://raw.githubusercontent.com/GT-610/AviQtl-Plus/main/repos/detail/com.example.glow-effect.json",
+      "metadata_sha256": ""
+    },
+    {
+      "id": "com.example.vhs-effect",
+      "display_name": "VHS Effect",
+      "short_description": "Retro VHS tape distortion effect",
+      "type": "effect",
+      "version": "0.9.0",
+      "author": "Community",
+      "categories": ["retro", "distortion"],
+      "min_app_version": "0.4.0",
+      "metadata_url": "https://raw.githubusercontent.com/GT-610/AviQtl-Plus/main/repos/detail/com.example.vhs-effect.json",
+      "metadata_sha256": ""
+    }
+  ]
+}
