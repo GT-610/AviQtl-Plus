@@ -45,6 +45,12 @@ Common.AviQtlWindow {
             selfUpdateDialog.open();
         }
 
+        function onAssetsReady(packageId, assets) {
+            assetSelectionDialog.packageId = packageId;
+            assetSelectionDialog.assets = assets;
+            assetSelectionDialog.open();
+        }
+
         target: PackageManager
     }
 

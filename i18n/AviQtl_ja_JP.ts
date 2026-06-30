@@ -1602,88 +1602,88 @@
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="148"/>
+        <location filename="../core/src/package_manager.cpp" line="149"/>
         <source>Idle</source>
         <translation>待機中</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="203"/>
+        <location filename="../core/src/package_manager.cpp" line="204"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>キャッシュからパッケージをロードしました（同期を押して更新を確認）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="295"/>
+        <location filename="../core/src/package_manager.cpp" line="296"/>
         <source>Syncing repository...</source>
         <translation>リポジトリを同期中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="477"/>
+        <location filename="../core/src/package_manager.cpp" line="500"/>
         <source>Sync complete</source>
         <translation>同期完了</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="514"/>
-        <location filename="../core/src/package_manager.cpp" line="662"/>
+        <location filename="../core/src/package_manager.cpp" line="555"/>
+        <location filename="../core/src/package_manager.cpp" line="705"/>
         <source>Package not found: %1</source>
         <translation>パッケージが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="520"/>
+        <location filename="../core/src/package_manager.cpp" line="561"/>
         <source>No metadata URL for package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージのメタデータURLがありません: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="524"/>
+        <location filename="../core/src/package_manager.cpp" line="565"/>
         <source>Fetching package details: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージ詳細を取得中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="530"/>
+        <location filename="../core/src/package_manager.cpp" line="571"/>
         <source>Failed to fetch package metadata (%1): %2</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージメタデータの取得に失敗しました (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="536"/>
+        <location filename="../core/src/package_manager.cpp" line="578"/>
         <source>Invalid metadata format for package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージのメタデータ形式が不正です: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="632"/>
+        <location filename="../core/src/package_manager.cpp" line="675"/>
         <source>No download URL found for package %1 version %2</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージ %1 バージョン %2 のダウンロードURLが見つかりません</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="639"/>
+        <location filename="../core/src/package_manager.cpp" line="682"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージ %1 は AviQtl %2 以降が必要です (現在: %3)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="676"/>
+        <location filename="../core/src/package_manager.cpp" line="719"/>
         <source>Could not determine repository URL for the package.</source>
         <translation>パッケージのリポジトリURLを特定できません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="681"/>
+        <location filename="../core/src/package_manager.cpp" line="724"/>
         <source>Searching for available files...</source>
         <translation>利用可能なファイルを検索中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="689"/>
+        <location filename="../core/src/package_manager.cpp" line="732"/>
         <source>Repository URL is not in a valid format.</source>
         <translation>リポジトリURLの形式が正しくありません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="697"/>
+        <location filename="../core/src/package_manager.cpp" line="740"/>
         <source>Unsupported repository host.</source>
         <translation>サポートされていないリポジトリホストです。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="704"/>
+        <location filename="../core/src/package_manager.cpp" line="747"/>
         <source>Failed to fetch release info (%1): %2</source>
         <translation>リリース情報の取得に失敗しました (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="742"/>
+        <location filename="../core/src/package_manager.cpp" line="785"/>
         <source>No downloadable files found.</source>
         <translation>ダウンロード可能なファイルが見つかりませんでした。</translation>
     </message>
@@ -1696,27 +1696,27 @@
         <translation type="vanished">パッケージのインストール中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="882"/>
+        <location filename="../core/src/package_manager.cpp" line="924"/>
         <source>Installation complete: %1</source>
         <translation>インストール完了: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="756"/>
+        <location filename="../core/src/package_manager.cpp" line="799"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtlのアップデートが利用可能です。再起動して適用してください。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="772"/>
+        <location filename="../core/src/package_manager.cpp" line="815"/>
         <source>Downloading package: %1</source>
         <translation>パッケージをダウンロード中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="784"/>
+        <location filename="../core/src/package_manager.cpp" line="827"/>
         <source>Download failed: %1</source>
         <translation>ダウンロード失敗: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="791"/>
+        <location filename="../core/src/package_manager.cpp" line="834"/>
         <source>Failed to create temporary directory.</source>
         <translation>一時ディレクトリの作成に失敗しました。</translation>
     </message>
@@ -1725,72 +1725,72 @@
         <translation type="vanished">無効なダウンロードURLです。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="801"/>
+        <location filename="../core/src/package_manager.cpp" line="844"/>
         <source>Failed to save downloaded file.</source>
         <translation>ダウンロードファイルの保存に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="813"/>
+        <location filename="../core/src/package_manager.cpp" line="856"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
-        <translation type="unfinished"></translation>
+        <translation>チェックサム不一致 %1: 期待値 %2、実際 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="818"/>
+        <location filename="../core/src/package_manager.cpp" line="861"/>
         <source>Extracting package...</source>
         <translation>パッケージを展開中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="829"/>
+        <location filename="../core/src/package_manager.cpp" line="872"/>
         <source>Failed to create extraction directory.</source>
         <translation>展開先ディレクトリの作成に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="835"/>
+        <location filename="../core/src/package_manager.cpp" line="878"/>
         <source>Failed to extract package archive.</source>
         <translation>パッケージアーカイブの展開に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="839"/>
+        <location filename="../core/src/package_manager.cpp" line="882"/>
         <source>Deploying package files...</source>
         <translation>パッケージファイルを配置中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="844"/>
+        <location filename="../core/src/package_manager.cpp" line="887"/>
         <source>Failed to deploy package files.</source>
         <translation>パッケージファイルの配置に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="984"/>
+        <location filename="../core/src/package_manager.cpp" line="1026"/>
         <source>Invalid package ID.</source>
         <translation>無効なパッケージIDです。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="987"/>
+        <location filename="../core/src/package_manager.cpp" line="1029"/>
         <source>Removing package: %1</source>
         <translation>パッケージを削除中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1011"/>
+        <location filename="../core/src/package_manager.cpp" line="1053"/>
         <source>Removal complete: %1</source>
         <translation>削除完了: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1065"/>
+        <location filename="../core/src/package_manager.cpp" line="1107"/>
         <source>No packages to upgrade.</source>
         <translation>アップグレード可能なパッケージはありません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1067"/>
+        <location filename="../core/src/package_manager.cpp" line="1109"/>
         <source>Upgrading all packages...</source>
         <translation>すべてのパッケージをアップグレード中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1074"/>
+        <location filename="../core/src/package_manager.cpp" line="1116"/>
         <source>All upgrades complete.</source>
         <translation>すべてのアップグレードが完了しました</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1079"/>
+        <location filename="../core/src/package_manager.cpp" line="1121"/>
         <source>Upgrading package: %1</source>
         <translation>パッケージをアップグレード中: %1</translation>
     </message>
@@ -3157,37 +3157,42 @@
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="26"/>
         <source>このカテゴリにパッケージがありません。</source>
+        <translation>このカテゴリにパッケージがありません。</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="74"/>
+        <source>Author: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="82"/>
         <source>インストール済み: </source>
-        <translation type="unfinished">インストール済み: </translation>
+        <translation>インストール済み: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="89"/>
         <source>アップデートあり: </source>
-        <translation type="unfinished">アップデートあり: </translation>
+        <translation>アップデートあり: </translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="96"/>
         <source>権限</source>
-        <translation type="unfinished">権限</translation>
+        <translation>権限</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="103"/>
         <source>削除</source>
-        <translation type="unfinished">削除</translation>
+        <translation>削除</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="110"/>
         <source>アップデート</source>
-        <translation type="unfinished">アップデート</translation>
+        <translation>アップデート</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="110"/>
         <source>インストール</source>
-        <translation type="unfinished">インストール</translation>
+        <translation>インストール</translation>
     </message>
 </context>
 <context>
@@ -3219,7 +3224,7 @@
         <translation>パッケージマネージャーエラー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="57"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="63"/>
         <source>ダウンロードするファイルを選択</source>
         <translation>ダウンロードするファイルを選択</translation>
     </message>
@@ -3228,63 +3233,63 @@
         <translation type="vanished">リポジトリ設定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="233"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="239"/>
         <source>追加</source>
         <translation>追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="150"/>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="308"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="156"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="314"/>
         <source>リポジトリを同期</source>
         <translation>リポジトリを同期</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="127"/>
-        <source>エフェクト</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="128"/>
-        <source>オブジェクト</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="129"/>
-        <source>トランジション</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="131"/>
-        <source>インストール済み</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="132"/>
-        <source>アプリケーション</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="133"/>
+        <source>エフェクト</source>
+        <translation>エフェクト</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="134"/>
+        <source>オブジェクト</source>
+        <translation>オブジェクト</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="135"/>
+        <source>トランジション</source>
+        <translation>トランジション</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="137"/>
+        <source>インストール済み</source>
+        <translation>インストール済み</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="138"/>
+        <source>アプリケーション</source>
+        <translation>アプリケーション</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="139"/>
         <source>リポジトリ</source>
-        <translation type="unfinished"></translation>
+        <translation>リポジトリ</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="217"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="223"/>
         <source>リポジトリを追加</source>
-        <translation type="unfinished"></translation>
+        <translation>リポジトリを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="244"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="250"/>
         <source>設定済みリポジトリ</source>
-        <translation type="unfinished"></translation>
+        <translation>設定済みリポジトリ</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="315"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="321"/>
         <source>すべてアップグレード</source>
         <translation>すべてアップグレード</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="145"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="151"/>
         <source>検索...</source>
         <translation>検索...</translation>
     </message>

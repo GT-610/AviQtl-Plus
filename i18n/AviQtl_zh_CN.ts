@@ -1602,88 +1602,88 @@
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="148"/>
+        <location filename="../core/src/package_manager.cpp" line="149"/>
         <source>Idle</source>
         <translation>空闲</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="203"/>
+        <location filename="../core/src/package_manager.cpp" line="204"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>已从缓存加载软件包（按「同步」检查更新）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="295"/>
+        <location filename="../core/src/package_manager.cpp" line="296"/>
         <source>Syncing repository...</source>
         <translation>正在同步仓库...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="477"/>
+        <location filename="../core/src/package_manager.cpp" line="500"/>
         <source>Sync complete</source>
         <translation>同步完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="514"/>
-        <location filename="../core/src/package_manager.cpp" line="662"/>
+        <location filename="../core/src/package_manager.cpp" line="555"/>
+        <location filename="../core/src/package_manager.cpp" line="705"/>
         <source>Package not found: %1</source>
         <translation>未找到软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="520"/>
+        <location filename="../core/src/package_manager.cpp" line="561"/>
         <source>No metadata URL for package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>软件包没有元数据 URL：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="524"/>
+        <location filename="../core/src/package_manager.cpp" line="565"/>
         <source>Fetching package details: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>正在获取软件包详情：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="530"/>
+        <location filename="../core/src/package_manager.cpp" line="571"/>
         <source>Failed to fetch package metadata (%1): %2</source>
-        <translation type="unfinished"></translation>
+        <translation>获取软件包元数据失败 (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="536"/>
+        <location filename="../core/src/package_manager.cpp" line="578"/>
         <source>Invalid metadata format for package: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>软件包的元数据格式无效：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="632"/>
+        <location filename="../core/src/package_manager.cpp" line="675"/>
         <source>No download URL found for package %1 version %2</source>
-        <translation type="unfinished"></translation>
+        <translation>未找到软件包 %1 版本 %2 的下载 URL</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="639"/>
+        <location filename="../core/src/package_manager.cpp" line="682"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
-        <translation type="unfinished"></translation>
+        <translation>软件包 %1 需要 AviQtl %2 或更新版本（当前：%3）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="676"/>
+        <location filename="../core/src/package_manager.cpp" line="719"/>
         <source>Could not determine repository URL for the package.</source>
         <translation>无法识别软件包的仓库 URL。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="681"/>
+        <location filename="../core/src/package_manager.cpp" line="724"/>
         <source>Searching for available files...</source>
         <translation>正在搜索可用文件...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="689"/>
+        <location filename="../core/src/package_manager.cpp" line="732"/>
         <source>Repository URL is not in a valid format.</source>
         <translation>仓库 URL 格式不正确。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="697"/>
+        <location filename="../core/src/package_manager.cpp" line="740"/>
         <source>Unsupported repository host.</source>
         <translation>不受支持的仓库主机。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="704"/>
+        <location filename="../core/src/package_manager.cpp" line="747"/>
         <source>Failed to fetch release info (%1): %2</source>
         <translation>发布信息获取失败 (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="742"/>
+        <location filename="../core/src/package_manager.cpp" line="785"/>
         <source>No downloadable files found.</source>
         <translation>未找到可下载的文件。</translation>
     </message>
@@ -1696,27 +1696,27 @@
         <translation type="vanished">正在安装软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="882"/>
+        <location filename="../core/src/package_manager.cpp" line="924"/>
         <source>Installation complete: %1</source>
         <translation>安装完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="756"/>
+        <location filename="../core/src/package_manager.cpp" line="799"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl 有可用更新。请重启以应用。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="772"/>
+        <location filename="../core/src/package_manager.cpp" line="815"/>
         <source>Downloading package: %1</source>
         <translation>正在下载软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="784"/>
+        <location filename="../core/src/package_manager.cpp" line="827"/>
         <source>Download failed: %1</source>
         <translation>下载失败：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="791"/>
+        <location filename="../core/src/package_manager.cpp" line="834"/>
         <source>Failed to create temporary directory.</source>
         <translation>创建临时目录失败。</translation>
     </message>
@@ -1725,72 +1725,72 @@
         <translation type="vanished">无效的下载URL。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="801"/>
+        <location filename="../core/src/package_manager.cpp" line="844"/>
         <source>Failed to save downloaded file.</source>
         <translation>保存下载文件失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="813"/>
+        <location filename="../core/src/package_manager.cpp" line="856"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
-        <translation type="unfinished"></translation>
+        <translation>校验和不一致 %1：期望 %2，实际 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="818"/>
+        <location filename="../core/src/package_manager.cpp" line="861"/>
         <source>Extracting package...</source>
         <translation>正在解压软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="829"/>
+        <location filename="../core/src/package_manager.cpp" line="872"/>
         <source>Failed to create extraction directory.</source>
         <translation>创建解压目录失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="835"/>
+        <location filename="../core/src/package_manager.cpp" line="878"/>
         <source>Failed to extract package archive.</source>
         <translation>解压软件包归档失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="839"/>
+        <location filename="../core/src/package_manager.cpp" line="882"/>
         <source>Deploying package files...</source>
         <translation>正在部署软件包文件...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="844"/>
+        <location filename="../core/src/package_manager.cpp" line="887"/>
         <source>Failed to deploy package files.</source>
         <translation>部署软件包文件失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="984"/>
+        <location filename="../core/src/package_manager.cpp" line="1026"/>
         <source>Invalid package ID.</source>
         <translation>无效的软件包ID。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="987"/>
+        <location filename="../core/src/package_manager.cpp" line="1029"/>
         <source>Removing package: %1</source>
         <translation>正在删除软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1011"/>
+        <location filename="../core/src/package_manager.cpp" line="1053"/>
         <source>Removal complete: %1</source>
         <translation>删除完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1065"/>
+        <location filename="../core/src/package_manager.cpp" line="1107"/>
         <source>No packages to upgrade.</source>
         <translation>没有可升级的软件包。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1067"/>
+        <location filename="../core/src/package_manager.cpp" line="1109"/>
         <source>Upgrading all packages...</source>
         <translation>正在升级所有软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1074"/>
+        <location filename="../core/src/package_manager.cpp" line="1116"/>
         <source>All upgrades complete.</source>
         <translation>所有升级已完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1079"/>
+        <location filename="../core/src/package_manager.cpp" line="1121"/>
         <source>Upgrading package: %1</source>
         <translation>正在升级软件包：%1</translation>
     </message>
@@ -3157,37 +3157,42 @@
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="26"/>
         <source>このカテゴリにパッケージがありません。</source>
+        <translation>此分类下没有软件包。</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/PackageListView.qml" line="74"/>
+        <source>Author: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="82"/>
         <source>インストール済み: </source>
-        <translation type="unfinished">已安装：</translation>
+        <translation>已安装：</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="89"/>
         <source>アップデートあり: </source>
-        <translation type="unfinished">有更新：</translation>
+        <translation>有更新：</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="96"/>
         <source>権限</source>
-        <translation type="unfinished">权限</translation>
+        <translation>权限</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="103"/>
         <source>削除</source>
-        <translation type="unfinished"></translation>
+        <translation>卸载</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="110"/>
         <source>アップデート</source>
-        <translation type="unfinished">更新</translation>
+        <translation>更新</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/PackageListView.qml" line="110"/>
         <source>インストール</source>
-        <translation type="unfinished">安装</translation>
+        <translation>安装</translation>
     </message>
 </context>
 <context>
@@ -3219,7 +3224,7 @@
         <translation>软件包管理器错误</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="57"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="63"/>
         <source>ダウンロードするファイルを選択</source>
         <translation>选择要下载的文件</translation>
     </message>
@@ -3228,63 +3233,63 @@
         <translation type="vanished">仓库设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="233"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="239"/>
         <source>追加</source>
         <translation>添加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="150"/>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="308"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="156"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="314"/>
         <source>リポジトリを同期</source>
         <translation>同步仓库</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="127"/>
-        <source>エフェクト</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="128"/>
-        <source>オブジェクト</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="129"/>
-        <source>トランジション</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="131"/>
-        <source>インストール済み</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="132"/>
-        <source>アプリケーション</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="133"/>
+        <source>エフェクト</source>
+        <translation>特效</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="134"/>
+        <source>オブジェクト</source>
+        <translation>对象</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="135"/>
+        <source>トランジション</source>
+        <translation>转场</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="137"/>
+        <source>インストール済み</source>
+        <translation>已安装</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="138"/>
+        <source>アプリケーション</source>
+        <translation>应用程序</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="139"/>
         <source>リポジトリ</source>
-        <translation type="unfinished"></translation>
+        <translation>仓库</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="217"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="223"/>
         <source>リポジトリを追加</source>
-        <translation type="unfinished"></translation>
+        <translation>添加仓库</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="244"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="250"/>
         <source>設定済みリポジトリ</source>
-        <translation type="unfinished"></translation>
+        <translation>已配置的仓库</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="315"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="321"/>
         <source>すべてアップグレード</source>
         <translation>全部升级</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="145"/>
+        <location filename="../ui/qml/PackageManagerWindow.qml" line="151"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>

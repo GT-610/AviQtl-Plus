@@ -1,5 +1,7 @@
 #include "package_manager.hpp"
+#include "effect_registry.hpp"
 #include <QDir>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -75,6 +77,8 @@ void TestPackageDeploy::deployObjectType() {
 }
 
 void TestPackageDeploy::deployTransitionType() {
+    PackageManager &pm = PackageManager::instance();
+
     QTemporaryDir sourceDir;
     QVERIFY(sourceDir.isValid());
 
@@ -88,8 +92,29 @@ void TestPackageDeploy::deployTransitionType() {
     fragFile.write("// transition shader");
     fragFile.close();
 
-    QVERIFY(QFile::exists(sourceDir.path() + QStringLiteral("/test_transition.json")));
-    QVERIFY(QFile::exists(sourceDir.path() + QStringLiteral("/TestTransition.frag")));
+    const QString packageId = QStringLiteral("com.aviqtl.test.transition_deploy");
+    const QString deployDir = pm.getPackageDeployDir(QStringLiteral("transition"));
+    QVERIFY(!deployDir.isEmpty());
+    const QString packageDir = deployDir + QStringLiteral("/") + packageId;
+
+    // Clean up any previous test run
+    if (QDir(packageDir).exists())
+        QDir(packageDir).removeRecursively();
+
+    // Exercise the real deployment helper used in production
+    QVERIFY(pm.deployPackageFiles(packageId, sourceDir.path(), QStringLiteral("transition")));
+
+    // Assert transition-specific results: files deployed under /transitions
+    QCOMPARE(QFileInfo(deployDir).fileName(), QStringLiteral("transitions"));
+    QVERIFY(QFile::exists(packageDir + QStringLiteral("/test_transition.json")));
+    QVERIFY(QFile::exists(packageDir + QStringLiteral("/TestTransition.frag")));
+
+    // Verify the registry can load from the transition deploy directory
+    // (exercises the metadata/registry reload path used after deployment)
+    EffectRegistry::instance().loadEffectsFromDirectory(deployDir);
+
+    // Cleanup
+    QDir(packageDir).removeRecursively();
 }
 
 void TestPackageDeploy::unknownTypeDefaultsToPlugins() {

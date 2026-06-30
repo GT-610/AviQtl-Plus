@@ -6,6 +6,7 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <algorithm>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -296,6 +297,12 @@ void PackageManager::refreshRepositories() {
     setProgress(0.0);
 
     QVariantList repos = repositories();
+    // Sort by ascending priority so higher-priority repos are synced first
+    // and win tie-breaks in mergeCatalogPackage.
+    std::sort(repos.begin(), repos.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value(QStringLiteral("priority"), 10).toInt()
+             < b.toMap().value(QStringLiteral("priority"), 10).toInt();
+    });
     int enabledCount = 0;
     for (const auto &r : repos) {
         if (r.toMap().value(QStringLiteral("enabled"), true).toBool())
@@ -341,7 +348,8 @@ void PackageManager::refreshRepositories() {
             m_pendingRequests--;
 
             if (reply->error() == QNetworkReply::NoError) {
-                QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+                QByteArray body = reply->readAll();
+                QJsonDocument doc = QJsonDocument::fromJson(body);
                 if (doc.isObject()) {
                     QJsonObject repoObj = doc.object();
                     ctx->repoInfo[QStringLiteral("name")] = repoObj.value(QStringLiteral("repo_name")).toString();
@@ -360,7 +368,14 @@ void PackageManager::refreshRepositories() {
                             m_pendingRequests--;
                             if (catReply->error() == QNetworkReply::NoError) {
                                 ctx->catalogData = catReply->readAll();
-                                // Cache catalog
+                                // Cache catalog with repo URL so loadCachedPackages can restore provenance
+                                QJsonObject cacheObj;
+                                cacheObj[QStringLiteral("_repo_url")] = ctx->repoInfo.value(QStringLiteral("url")).toString();
+                                QJsonDocument catDoc = QJsonDocument::fromJson(ctx->catalogData);
+                                if (catDoc.isObject())
+                                    cacheObj[QStringLiteral("packages")] = catDoc.object().value(QStringLiteral("packages"));
+                                else
+                                    cacheObj[QStringLiteral("packages")] = QJsonArray();
                                 QString cacheName = QStringLiteral("catalog_") +
                                     QString::fromLatin1(QCryptographicHash::hash(
                                         ctx->repoInfo.value(QStringLiteral("url")).toString().toUtf8(),
@@ -368,7 +383,7 @@ void PackageManager::refreshRepositories() {
                                     QStringLiteral(".json");
                                 QFile cf(getReposCachePath() + QStringLiteral("/") + cacheName);
                                 if (cf.open(QIODevice::WriteOnly)) {
-                                    cf.write(ctx->catalogData);
+                                    cf.write(QJsonDocument(cacheObj).toJson());
                                     cf.close();
                                 }
                             }
@@ -376,7 +391,7 @@ void PackageManager::refreshRepositories() {
                         });
                     } else {
                         // Old format: treat repo.json itself as a flat packages list
-                        onCatalogFetched(ctx->repoInfo, reply->readAll(), installed);
+                        onCatalogFetched(ctx->repoInfo, body, installed);
                     }
                 }
             }
@@ -453,13 +468,21 @@ void PackageManager::mergeCatalogPackage(const QVariantMap &pkg, const QVariantM
             existingSources.insert(it.key(), it.value());
         existing[QStringLiteral("_sources")] = existingSources;
 
-        // Take highest version as latest
+        // Take highest version as latest; on ties prefer the higher-priority
+        // repo (lower priority number). repos are synced in priority order so
+        // the existing _primary_repo already belongs to the higher-priority repo.
         QString existingLatest = existing.value(QStringLiteral("latest_version")).toString();
         QString newVersion = pkg.value(QStringLiteral("version")).toString();
-        if (compareVersions(newVersion, existingLatest) > 0) {
+        int cmp = compareVersions(newVersion, existingLatest);
+        if (cmp > 0) {
             existing[QStringLiteral("latest_version")] = newVersion;
             existing[QStringLiteral("version")] = newVersion;
             existing[QStringLiteral("_primary_repo")] = repoUrl;
+        } else if (cmp == 0) {
+            // Same version: keep the higher-priority repo as _primary_repo.
+            // Only switch if the existing primary repo is unknown/empty.
+            if (existing.value(QStringLiteral("_primary_repo")).toString().isEmpty())
+                existing[QStringLiteral("_primary_repo")] = repoUrl;
         }
         m_packageList[existingIdx] = existing;
     } else {
@@ -495,19 +518,37 @@ void PackageManager::updateUpdateState() {
 
 // --- Metadata Fetching ---
 
+QString PackageManager::detailCacheKey(const QString &packageId, const QString &sourceRepo) {
+    // Key metadata by both sourceRepo and packageId so same-ID packages from
+    // different repositories don't mix up their cached details.
+    return sourceRepo.isEmpty() ? packageId : sourceRepo + QStringLiteral("|") + packageId;
+}
+
 void PackageManager::fetchPackageMetadata(const QString &packageId, const QString &sourceRepo) {
-    Q_UNUSED(sourceRepo)
-    if (m_packageDetails.contains(packageId)) {
-        emit packageDetailReady(packageId, m_packageDetails[packageId]);
+    const QString cacheKey = detailCacheKey(packageId, sourceRepo);
+    if (m_packageDetails.contains(cacheKey)) {
+        emit packageDetailReady(packageId, sourceRepo, m_packageDetails[cacheKey]);
         return;
     }
 
-    // Find catalog entry to get metadata_url
+    // Find catalog entry to get metadata_url; prefer the entry whose
+    // _primary_repo matches sourceRepo when disambiguating same-ID packages.
     QVariantMap catalogEntry;
     for (const auto &p : std::as_const(m_packageList)) {
-        if (p.toMap().value(QStringLiteral("id")).toString() == packageId) {
-            catalogEntry = p.toMap();
-            break;
+        QVariantMap pm = p.toMap();
+        if (pm.value(QStringLiteral("id")).toString() == packageId) {
+            if (!sourceRepo.isEmpty()) {
+                if (pm.value(QStringLiteral("_primary_repo")).toString() == sourceRepo) {
+                    catalogEntry = pm;
+                    break;
+                }
+                // Keep looking for a repo match, but fall back to first hit.
+                if (catalogEntry.isEmpty())
+                    catalogEntry = pm;
+            } else {
+                catalogEntry = pm;
+                break;
+            }
         }
     }
     if (catalogEntry.isEmpty()) {
@@ -524,21 +565,22 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
     setStatus(tr("Fetching package details: %1").arg(packageId));
     QUrl url(metadataUrl);
     QNetworkReply *reply = m_networkManager->get(QNetworkRequest(url));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, packageId, metadataUrl]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, packageId, sourceRepo, metadataUrl, cacheKey]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             emit errorOccurred(tr("Failed to fetch package metadata (%1): %2").arg(packageId, reply->errorString()));
             return;
         }
 
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QByteArray body = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(body);
         if (!doc.isObject()) {
             emit errorOccurred(tr("Invalid metadata format for package: %1").arg(packageId));
             return;
         }
 
         QVariantMap detail = doc.object().toVariantMap();
-        m_packageDetails[packageId] = detail;
+        m_packageDetails[cacheKey] = detail;
 
         // Cache to repos directory
         QString cacheName = QStringLiteral("detail_") +
@@ -546,11 +588,11 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
             QStringLiteral(".json");
         QFile cf(getReposCachePath() + QStringLiteral("/") + cacheName);
         if (cf.open(QIODevice::WriteOnly)) {
-            cf.write(reply->readAll());
+            cf.write(body);
             cf.close();
         }
 
-        emit packageDetailReady(packageId, detail);
+        emit packageDetailReady(packageId, sourceRepo, detail);
     });
 }
 
@@ -561,15 +603,16 @@ void PackageManager::fetchPackageMetadataForInstall(const QString &packageId, co
         {QStringLiteral("version"), version}
     };
 
-    if (m_packageDetails.contains(packageId)) {
-        continueInstallWithMetadata(packageId, sourceRepo, version, m_packageDetails[packageId]);
+    const QString cacheKey = detailCacheKey(packageId, sourceRepo);
+    if (m_packageDetails.contains(cacheKey)) {
+        continueInstallWithMetadata(packageId, sourceRepo, version, m_packageDetails[cacheKey]);
         return;
     }
 
     QMetaObject::Connection *conn = new QMetaObject::Connection();
     *conn = connect(this, &PackageManager::packageDetailReady, this,
-        [this, conn, packageId, sourceRepo, version](const QString &readyId, const QVariantMap &detail) {
-            if (readyId == packageId) {
+        [this, conn, packageId, sourceRepo, version](const QString &readyId, const QString &readyRepo, const QVariantMap &detail) {
+            if (readyId == packageId && readyRepo == sourceRepo) {
                 disconnect(*conn);
                 delete conn;
                 if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId)
@@ -860,8 +903,7 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     info[QStringLiteral("installed_at")] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
     info[QStringLiteral("installed_from_repo")] = sourceRepo;
     info[QStringLiteral("installed_from_url")] = downloadUrl;
-    info[QStringLiteral("sha256")] = QString::fromLatin1(QCryptographicHash::hash(
-        QFile(archivePath).exists() ? QFile(archivePath).readAll() : QByteArray(), QCryptographicHash::Sha256).toHex());
+    info[QStringLiteral("sha256")] = sha256OfFile(archivePath);
     installed[packageId] = info;
 
     QFile installedFile(getInstalledPackagesPath());
@@ -1077,7 +1119,16 @@ void PackageManager::processUpgradeQueue() {
     }
     QString nextPackageId = m_upgradeQueue.dequeue();
     setStatus(tr("Upgrading package: %1").arg(nextPackageId));
-    installPackage(nextPackageId);
+    // Drive the install pipeline directly: upgradeAllPackages already set
+    // m_isBusy, so we must bypass installPackage's busy guard to keep the
+    // queue advancing through the existing m_pendingInstall flow.
+    setProgress(0.0);
+    m_pendingInstall = {
+        {QStringLiteral("id"), nextPackageId},
+        {QStringLiteral("sourceRepo"), QString()},
+        {QStringLiteral("version"), QString()}
+    };
+    fetchPackageMetadataForInstall(nextPackageId, QString(), QString());
 }
 
 void PackageManager::updatePackageLatestVersion(const QString &id, const QString &version) {

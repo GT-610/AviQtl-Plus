@@ -44,6 +44,10 @@ class PackageManager : public QObject {
     Q_INVOKABLE QVariantList getPackagesByType(const QString &type) const;
     Q_INVOKABLE QVariantList getInstalledPackages() const;
 
+    // Package deployment helpers (public for testing)
+    QString getPackageDeployDir(const QString &packageType) const;
+    bool deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType);
+
   signals:
     void isBusyChanged();
     void statusTextChanged();
@@ -53,7 +57,7 @@ class PackageManager : public QObject {
     void hasUpdatesAvailableChanged();
     void repositoriesChanged();
     void assetsReady(const QString &packageId, const QVariantList &assets);
-    void packageDetailReady(const QString &packageId, const QVariantMap &detail);
+    void packageDetailReady(const QString &packageId, const QString &sourceRepo, const QVariantMap &detail);
     void packageInstalled(const QString &packageId);
     void packageRemoved(const QString &packageId);
     void errorOccurred(const QString &message);
@@ -77,13 +81,12 @@ class PackageManager : public QObject {
     void updateUpdateState();
     void fetchPackageMetadataForInstall(const QString &packageId, const QString &sourceRepo, const QString &version);
     void continueInstallWithMetadata(const QString &packageId, const QString &sourceRepo, const QString &version, const QVariantMap &detail);
+    static QString detailCacheKey(const QString &packageId, const QString &sourceRepo);
 
     // Package installation pipeline
     void downloadPackage(const QString &packageId, const QUrl &url, const QString &expectedSha256, const QString &packageType, const QString &version, const QString &sourceRepo);
     void extractAndDeploy(const QString &packageId, const QString &archivePath, const QString &packageType, const QString &version = {}, const QString &downloadUrl = {}, const QString &sourceRepo = {});
     bool extractZip(const QString &archivePath, const QString &destDir);
-    bool deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType);
-    QString getPackageDeployDir(const QString &packageType) const;
     void compileShadersInDirectory(const QString &directory);
 
     bool m_isBusy = false;

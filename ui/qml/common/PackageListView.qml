@@ -71,11 +71,11 @@ ListView {
                 Layout.fillWidth: true
 
                 Label {
-                    text: modelData.author ? "Author: " + modelData.author : ""
+                    text: modelData.author ? qsTr("Author: ") + modelData.author : ""
                     font.pixelSize: 11
                     color: palette.mid
                     Layout.fillWidth: true
-                    visible: modelData.author !== undefined
+                    visible: modelData.author !== undefined && modelData.author !== ""
                 }
 
                 Label {
