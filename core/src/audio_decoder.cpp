@@ -180,7 +180,7 @@ void AudioDecoder::startDecoding() {
             return;
         }
 
-        qCInfo(lcAudioDecoder) << "clip" << m_clipId << "decoded. total samples:" << audioData->size();
+        qCInfo(lcAudioDecoder) << "clip" << m_clipId << "decoded. total samples:" << m_fullAudioData->size();
         m_isReady = true;
         emit ready();
     });

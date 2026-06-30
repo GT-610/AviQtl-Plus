@@ -502,7 +502,6 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
     }
 
     const auto &targetEntry = m_index[targetFrame];
-    int64_t targetPts = targetEntry.pts;
     bool needSeek = true;
 
     int keyIndex = m_prevKeyframe[targetFrame];

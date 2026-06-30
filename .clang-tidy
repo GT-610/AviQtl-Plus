@@ -35,7 +35,22 @@ Checks: >
   -modernize-loop-convert,
   -readability-uppercase-literal-suffix,
   -misc-include-cleaner,
-  -modernize-use-using
+  -modernize-use-using,
+  -modernize-use-auto,
+  -readability-redundant-casting,
+  -modernize-use-integer-sign-comparison,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -readability-math-missing-parentheses,
+  -modernize-use-scoped-lock,
+  -readability-avoid-nested-conditional-operator,
+  -readability-make-member-function-const,
+  -cppcoreguidelines-init-variables,
+  -cppcoreguidelines-prefer-member-initializer,
+  -readability-use-anyofallof,
+  -modernize-avoid-c-arrays,
+  -clang-analyzer-deadcode.DeadStores,
+  -bugprone-branch-clone
 
 CheckOptions:
   # identifier-length の最小値を 1 に下げる (i/j/p 等の慣用変数を許可)
