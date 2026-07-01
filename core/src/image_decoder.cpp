@@ -104,10 +104,11 @@ void ImageDecoder::decodeImage(const QString &path) {
     while (!decoded && ret >= 0) {
         ret = av_read_frame(fmtCtx, pkt);
         if (ret < 0) {
-            // Real EOF or error: send flush packet
+            // Real EOF or error: flush decoder
             avcodec_send_packet(decCtx, nullptr);
-            if (avcodec_receive_frame(decCtx, srcFrame) == 0) {
+            while (avcodec_receive_frame(decCtx, srcFrame) == 0) {
                 decoded = true;
+                break;
             }
             break;
         }
@@ -115,11 +116,30 @@ void ImageDecoder::decodeImage(const QString &path) {
             av_packet_unref(pkt);
             continue;
         }
-        if (avcodec_send_packet(decCtx, pkt) == 0) {
-            while (avcodec_receive_frame(decCtx, srcFrame) == 0) {
-                decoded = true;
+
+        // Send packet; on EAGAIN, drain frames then retry
+        while (true) {
+            int sendRet = avcodec_send_packet(decCtx, pkt);
+            if (sendRet == 0) {
                 break;
             }
+            if (sendRet == AVERROR(EAGAIN)) {
+                while (avcodec_receive_frame(decCtx, srcFrame) == 0) {
+                    decoded = true;
+                    break;
+                }
+                if (decoded) {
+                    break;
+                }
+                continue; // retry send after draining
+            }
+            break; // fatal error, discard packet
+        }
+
+        // Drain available frames after send
+        while (avcodec_receive_frame(decCtx, srcFrame) == 0) {
+            decoded = true;
+            break;
         }
         av_packet_unref(pkt);
     }

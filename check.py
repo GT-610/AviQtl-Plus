@@ -76,7 +76,7 @@ def load_suppress_file(path: Path) -> list[str]:
             lines.append(line)
     return lines
 
-def run_formatting(root: Path) -> None:
+def run_formatting(root: Path) -> int:
     print(f"{BOLD}{YELLOW}--- Code Formatting ---{RESET}")
     
     # C++ / HPP files
@@ -373,8 +373,9 @@ def main() -> int:
     print(f"  Level       : {args.level}")
 
     # 0. Formatting (unified process)
+    total_errors = 0
     if not args.skip_format:
-        run_formatting(root)
+        total_errors += run_formatting(root)
 
     # Collect files
     cpp_files    = find_cpp_files(root)
@@ -388,8 +389,6 @@ def main() -> int:
     if suppress:
         print(f"  Suppressions : {len(suppress)}")
     print()
-
-    total_errors = 0
 
     # 1 & 2. QML Lint (QQmlSA)
     if not args.skip_qml:

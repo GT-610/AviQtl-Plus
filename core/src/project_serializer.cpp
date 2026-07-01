@@ -18,6 +18,22 @@ namespace AviQtl::Core {
 
 inline constexpr int PROJECT_VERSION = 2;
 
+namespace {
+constexpr int kMaxDimension = 32768;
+constexpr double kMaxFps = 1000.0;
+constexpr int kMaxSampleRate = 192000;
+
+int clampDimension(int value, int fallback) {
+    return (value <= 0 || value > kMaxDimension) ? fallback : value;
+}
+double clampFps(double value, double fallback) {
+    return (value <= 0.0 || value > kMaxFps) ? fallback : value;
+}
+int clampSampleRate(int value, int fallback) {
+    return (value <= 0 || value > kMaxSampleRate) ? fallback : value;
+}
+} // namespace
+
 static QString toRelativePath(const QString &absolutePath, const QString &baseDir) {
     if (absolutePath.isEmpty()) {
         return absolutePath;
@@ -180,10 +196,10 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     double fps = s.value(QStringLiteral("fps")).toDouble(AviQtl::kDefaultFps);
     int sampleRate = s.value(QStringLiteral("sampleRate")).toInt(AviQtl::kDefaultSampleRate);
 
-    if (w <= 0 || w > 32768) w = AviQtl::kDefaultWidth;
-    if (h <= 0 || h > 32768) h = AviQtl::kDefaultHeight;
-    if (fps <= 0.0 || fps > 1000.0) fps = AviQtl::kDefaultFps;
-    if (sampleRate <= 0 || sampleRate > 192000) sampleRate = AviQtl::kDefaultSampleRate;
+    w = clampDimension(w, AviQtl::kDefaultWidth);
+    h = clampDimension(h, AviQtl::kDefaultHeight);
+    fps = clampFps(fps, AviQtl::kDefaultFps);
+    sampleRate = clampSampleRate(sampleRate, AviQtl::kDefaultSampleRate);
 
     project->setWidth(w);
     project->setHeight(h);
@@ -198,12 +214,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         UI::SceneData scene;
         scene.id = sobj.value(QStringLiteral("id")).toInt();
         scene.name = sobj.value(QStringLiteral("name")).toString();
-        scene.width = sobj.value(QStringLiteral("width")).toInt(project->width());
-        scene.height = sobj.value(QStringLiteral("height")).toInt(project->height());
-        scene.fps = sobj.value(QStringLiteral("fps")).toDouble(project->fps());
-        if (scene.width <= 0 || scene.width > 32768) scene.width = project->width();
-        if (scene.height <= 0 || scene.height > 32768) scene.height = project->height();
-        if (scene.fps <= 0.0 || scene.fps > 1000.0) scene.fps = project->fps();
+        scene.width = clampDimension(sobj.value(QStringLiteral("width")).toInt(project->width()), project->width());
+        scene.height = clampDimension(sobj.value(QStringLiteral("height")).toInt(project->height()), project->height());
+        scene.fps = clampFps(sobj.value(QStringLiteral("fps")).toDouble(project->fps()), project->fps());
         scene.startFrame = sobj.value(QStringLiteral("start")).toInt(0);
         scene.durationFrames = sobj.value(QStringLiteral("duration")).toInt(0);
         tempScenes.append(scene);
