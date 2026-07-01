@@ -166,9 +166,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     QJsonObject root = doc.object();
 
     const int version = root.value(QStringLiteral("version")).toInt(1);
-    if (version < 1 || version > 100) {
+    if (version < 1 || version > PROJECT_VERSION) {
         if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Unsupported project version: %1").arg(version);
+            *errorMessage = QStringLiteral("Unsupported project version: %1 (supported: 1-%2)").arg(version).arg(PROJECT_VERSION);
         }
         return false;
     }
@@ -201,6 +201,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         scene.width = sobj.value(QStringLiteral("width")).toInt(project->width());
         scene.height = sobj.value(QStringLiteral("height")).toInt(project->height());
         scene.fps = sobj.value(QStringLiteral("fps")).toDouble(project->fps());
+        if (scene.width <= 0 || scene.width > 32768) scene.width = project->width();
+        if (scene.height <= 0 || scene.height > 32768) scene.height = project->height();
+        if (scene.fps <= 0.0 || scene.fps > 1000.0) scene.fps = project->fps();
         scene.startFrame = sobj.value(QStringLiteral("start")).toInt(0);
         scene.durationFrames = sobj.value(QStringLiteral("duration")).toInt(0);
         tempScenes.append(scene);

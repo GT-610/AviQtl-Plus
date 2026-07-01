@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStandardPaths>
 
 Q_LOGGING_CATEGORY(lcSettings, "aviqtl.settings")
@@ -257,32 +258,25 @@ void SettingsManager::load() {
 
 void SettingsManager::save() {
     QString path = getSettingsFilePath();
-    QString tmpPath = path + QStringLiteral(".tmp");
 
-    QFile file(tmpPath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        qWarning() << "Failed to save settings (cannot open tmp file):" << tmpPath;
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        qWarning() << "Failed to save settings (cannot open file):" << path;
         return;
     }
 
     QJsonObject obj = QJsonObject::fromVariantMap(m_settings);
     QJsonDocument doc(obj);
     qint64 written = file.write(doc.toJson());
-    file.close();
 
     if (written < 0) {
-        qWarning() << "Failed to write settings to tmp file:" << tmpPath;
-        QFile::remove(tmpPath);
+        qWarning() << "Failed to write settings:" << path;
+        file.cancelWriting();
         return;
     }
 
-    // Atomic overwrite: rename tmp file to the real path
-    if (QFile::exists(path)) {
-        QFile::remove(path);
-    }
-    if (!QFile::rename(tmpPath, path)) {
-        qWarning() << "Failed to rename tmp settings file to:" << path;
-        QFile::remove(tmpPath);
+    if (!file.commit()) {
+        qWarning() << "Failed to commit settings:" << path;
         return;
     }
 

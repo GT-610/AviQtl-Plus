@@ -54,12 +54,17 @@ bool ModEngine::checkPermission(const char *apiName) const {
 
     // Map API names to permissions
     struct ApiPermMap {
-        const char *prefix;
+        const char *name;
         AviQtl::Core::PluginPermission permission;
     };
 
     static const ApiPermMap apiPermMap[] = {
-        {"transport", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_play", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_pause", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_toggle", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_seek", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_get_frame", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_is_playing", AviQtl::Core::PluginPermission::TransportControl},
         {"clip_list", AviQtl::Core::PluginPermission::ClipRead},
         {"clip_create", AviQtl::Core::PluginPermission::ClipModify},
         {"clip_delete", AviQtl::Core::PluginPermission::ClipModify},
@@ -86,7 +91,7 @@ bool ModEngine::checkPermission(const char *apiName) const {
     };
 
     for (const auto &entry : apiPermMap) {
-        if (strncmp(apiName, entry.prefix, strlen(entry.prefix)) == 0) {
+        if (strcmp(apiName, entry.name) == 0) {
             return permMgr.hasPermission(m_currentPluginId, entry.permission);
         }
     }
@@ -487,8 +492,8 @@ void ModEngine::initialize(void *ecsPtr) {
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
 }
 
-void ModEngine::registerController(void *controller) {
-    g_ctrl = qobject_cast<AviQtl::UI::TimelineController *>(static_cast<QObject *>(controller));
+void ModEngine::registerController(AviQtl::UI::TimelineController *controller) {
+    g_ctrl = controller;
     if (L != nullptr && !m_apiRegistered) {
         registerAviQtlAPI();
         m_apiRegistered = true;

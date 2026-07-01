@@ -94,7 +94,7 @@ def run_formatting(root: Path) -> None:
     errors = 0
     if cpp_hpp_files and shutil.which("clang-format"):
         print(f"  Formatting C++/HPP ({len(cpp_hpp_files)} files)...")
-        result = subprocess.run(["clang-format", "-i"] + [str(f) for f in cpp_hpp_files], cwd=root, stderr=subprocess.STDOUT)
+        result = subprocess.run(["clang-format", "-i", "--"] + [str(f) for f in cpp_hpp_files], cwd=root, stderr=subprocess.STDOUT)
         if result.returncode != 0:
             errors += 1
     elif not shutil.which("clang-format"):
@@ -104,7 +104,7 @@ def run_formatting(root: Path) -> None:
     qml_files = find_qml_files(root)
     if qml_files and shutil.which("qmlformat"):
         print(f"  Formatting QML ({len(qml_files)} files)...")
-        result = subprocess.run(["qmlformat", "-i"] + [str(f) for f in qml_files], cwd=root, stderr=subprocess.STDOUT)
+        result = subprocess.run(["qmlformat", "-i", "--"] + [str(f) for f in qml_files], cwd=root, stderr=subprocess.STDOUT)
         if result.returncode != 0:
             errors += 1
     elif not shutil.which("qmlformat"):

@@ -86,31 +86,51 @@ void ImageDecoder::decodeImage(const QString &path) {
     }
 
     AVPacket *pkt = av_packet_alloc();
+    if (pkt == nullptr) {
+        qWarning() << "[ImageDecoder] av_packet_alloc failed";
+        return;
+    }
     auto pktGuard = qScopeGuard([&pkt]() { av_packet_free(&pkt); });
 
     AVFrame *srcFrame = av_frame_alloc();
+    if (srcFrame == nullptr) {
+        qWarning() << "[ImageDecoder] av_frame_alloc failed";
+        return;
+    }
     auto srcFrameGuard = qScopeGuard([&srcFrame]() { av_frame_free(&srcFrame); });
 
     bool decoded = false;
-
-    bool eof = (av_read_frame(fmtCtx, pkt) < 0);
-    while (!decoded) {
-        if (avcodec_send_packet(decCtx, eof ? nullptr : pkt) == 0) {
+    int ret = 0;
+    while (!decoded && ret >= 0) {
+        ret = av_read_frame(fmtCtx, pkt);
+        if (ret < 0) {
+            // Real EOF or error: send flush packet
+            avcodec_send_packet(decCtx, nullptr);
             if (avcodec_receive_frame(decCtx, srcFrame) == 0) {
                 decoded = true;
             }
-        }
-        if (!eof) {
-            av_packet_unref(pkt);
-            eof = true;
-        } else if (!decoded) {
             break;
         }
+        if (pkt->stream_index != streamIdx) {
+            av_packet_unref(pkt);
+            continue;
+        }
+        if (avcodec_send_packet(decCtx, pkt) == 0) {
+            while (avcodec_receive_frame(decCtx, srcFrame) == 0) {
+                decoded = true;
+                break;
+            }
+        }
+        av_packet_unref(pkt);
     }
 
     if (decoded) {
         AVPixelFormat targetFmt = AV_PIX_FMT_RGBA;
         AVFrame *rgbaFrame = av_frame_alloc();
+        if (rgbaFrame == nullptr) {
+            qWarning() << "[ImageDecoder] av_frame_alloc (rgba) failed";
+            return;
+        }
         rgbaFrame->format = targetFmt;
         rgbaFrame->width = srcFrame->width;
         rgbaFrame->height = srcFrame->height;
