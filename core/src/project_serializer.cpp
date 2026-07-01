@@ -18,6 +18,22 @@ namespace AviQtl::Core {
 
 inline constexpr int PROJECT_VERSION = 2;
 
+namespace {
+constexpr int kMaxDimension = 32768;
+constexpr double kMaxFps = 1000.0;
+constexpr int kMaxSampleRate = 192000;
+
+int clampDimension(int value, int fallback) {
+    return (value <= 0 || value > kMaxDimension) ? fallback : value;
+}
+double clampFps(double value, double fallback) {
+    return (value <= 0.0 || value > kMaxFps) ? fallback : value;
+}
+int clampSampleRate(int value, int fallback) {
+    return (value <= 0 || value > kMaxSampleRate) ? fallback : value;
+}
+} // namespace
+
 static QString toRelativePath(const QString &absolutePath, const QString &baseDir) {
     if (absolutePath.isEmpty()) {
         return absolutePath;
@@ -166,13 +182,29 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     QJsonObject root = doc.object();
 
     const int version = root.value(QStringLiteral("version")).toInt(1);
+    if (version < 1 || version > PROJECT_VERSION) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Unsupported project version: %1 (supported: 1-%2)").arg(version).arg(PROJECT_VERSION);
+        }
+        return false;
+    }
     const QString projectDir = QFileInfo(path).absolutePath();
 
     QJsonObject s = root.value(QStringLiteral("settings")).toObject();
-    project->setWidth(s.value(QStringLiteral("width")).toInt(AviQtl::kDefaultWidth));
-    project->setHeight(s.value(QStringLiteral("height")).toInt(AviQtl::kDefaultHeight));
-    project->setFps(s.value(QStringLiteral("fps")).toDouble(AviQtl::kDefaultFps));
-    project->setSampleRate(s.value(QStringLiteral("sampleRate")).toInt(AviQtl::kDefaultSampleRate));
+    int w = s.value(QStringLiteral("width")).toInt(AviQtl::kDefaultWidth);
+    int h = s.value(QStringLiteral("height")).toInt(AviQtl::kDefaultHeight);
+    double fps = s.value(QStringLiteral("fps")).toDouble(AviQtl::kDefaultFps);
+    int sampleRate = s.value(QStringLiteral("sampleRate")).toInt(AviQtl::kDefaultSampleRate);
+
+    w = clampDimension(w, AviQtl::kDefaultWidth);
+    h = clampDimension(h, AviQtl::kDefaultHeight);
+    fps = clampFps(fps, AviQtl::kDefaultFps);
+    sampleRate = clampSampleRate(sampleRate, AviQtl::kDefaultSampleRate);
+
+    project->setWidth(w);
+    project->setHeight(h);
+    project->setFps(fps);
+    project->setSampleRate(sampleRate);
 
     QList<UI::SceneData> tempScenes;
     int maxSceneId = 0;
@@ -182,9 +214,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         UI::SceneData scene;
         scene.id = sobj.value(QStringLiteral("id")).toInt();
         scene.name = sobj.value(QStringLiteral("name")).toString();
-        scene.width = sobj.value(QStringLiteral("width")).toInt(project->width());
-        scene.height = sobj.value(QStringLiteral("height")).toInt(project->height());
-        scene.fps = sobj.value(QStringLiteral("fps")).toDouble(project->fps());
+        scene.width = clampDimension(sobj.value(QStringLiteral("width")).toInt(project->width()), project->width());
+        scene.height = clampDimension(sobj.value(QStringLiteral("height")).toInt(project->height()), project->height());
+        scene.fps = clampFps(sobj.value(QStringLiteral("fps")).toDouble(project->fps()), project->fps());
         scene.startFrame = sobj.value(QStringLiteral("start")).toInt(0);
         scene.durationFrames = sobj.value(QStringLiteral("duration")).toInt(0);
         tempScenes.append(scene);
@@ -205,7 +237,7 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         }
         clip.startFrame = c.value(QStringLiteral("start")).toInt();
         clip.durationFrames = c.value(QStringLiteral("duration")).toInt();
-        clip.layer = c.value(QStringLiteral("layer")).toInt();
+        clip.layer = std::clamp(c.value(QStringLiteral("layer")).toInt(), 0, 127);
         clip.clipByUpperObject = c.value(QStringLiteral("clipByUpperObject")).toBool(false);
         clip.params = c.value(QStringLiteral("params")).toObject().toVariantMap();
 

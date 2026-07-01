@@ -5,12 +5,13 @@
 #include "../core/include/permission_manager.hpp"
 #include <QCoreApplication>
 #include <QDebug>
+#include <QPointer>
 #include <QVariant>
 
 namespace AviQtl::Scripting {
 
-// Lua から参照できるグローバルポインタ
-static AviQtl::UI::TimelineController *g_ctrl = nullptr;
+// Lua から参照できるグローバルポインタ (QPointer で lifetime 安全に監視)
+static QPointer<AviQtl::UI::TimelineController> g_ctrl;
 
 // C API Wrappers (used by Lua bindings)
 extern "C" {
@@ -53,12 +54,17 @@ bool ModEngine::checkPermission(const char *apiName) const {
 
     // Map API names to permissions
     struct ApiPermMap {
-        const char *prefix;
+        const char *name;
         AviQtl::Core::PluginPermission permission;
     };
 
     static const ApiPermMap apiPermMap[] = {
-        {"transport", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_play", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_pause", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_toggle", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_seek", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_get_frame", AviQtl::Core::PluginPermission::TransportControl},
+        {"transport_is_playing", AviQtl::Core::PluginPermission::TransportControl},
         {"clip_list", AviQtl::Core::PluginPermission::ClipRead},
         {"clip_create", AviQtl::Core::PluginPermission::ClipModify},
         {"clip_delete", AviQtl::Core::PluginPermission::ClipModify},
@@ -85,13 +91,13 @@ bool ModEngine::checkPermission(const char *apiName) const {
     };
 
     for (const auto &entry : apiPermMap) {
-        if (strncmp(apiName, entry.prefix, strlen(entry.prefix)) == 0) {
+        if (strcmp(apiName, entry.name) == 0) {
             return permMgr.hasPermission(m_currentPluginId, entry.permission);
         }
     }
 
-    // Default: allow if no specific permission required
-    return true;
+    // Default: deny unknown APIs to enforce explicit permission grants
+    return false;
 }
 
 // ヘルパー
@@ -486,8 +492,8 @@ void ModEngine::initialize(void *ecsPtr) {
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
 }
 
-void ModEngine::registerController(void *controller) {
-    g_ctrl = static_cast<AviQtl::UI::TimelineController *>(controller);
+void ModEngine::registerController(AviQtl::UI::TimelineController *controller) {
+    g_ctrl = controller;
     if (L != nullptr && !m_apiRegistered) {
         registerAviQtlAPI();
         m_apiRegistered = true;

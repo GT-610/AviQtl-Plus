@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStandardPaths>
 
 Q_LOGGING_CATEGORY(lcSettings, "aviqtl.settings")
@@ -257,15 +258,29 @@ void SettingsManager::load() {
 
 void SettingsManager::save() {
     QString path = getSettingsFilePath();
-    QFile file(path);
+
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Failed to save settings:" << path;
+        qWarning() << "Failed to save settings (cannot open file):" << path;
         return;
     }
 
     QJsonObject obj = QJsonObject::fromVariantMap(m_settings);
     QJsonDocument doc(obj);
-    file.write(doc.toJson());
+    const QByteArray payload = doc.toJson();
+    qint64 written = file.write(payload);
+
+    if (written != payload.size()) {
+        qWarning() << "Failed to write settings:" << path;
+        file.cancelWriting();
+        return;
+    }
+
+    if (!file.commit()) {
+        qWarning() << "Failed to commit settings:" << path;
+        return;
+    }
+
     qCInfo(lcSettings) << "Settings saved:" << path;
 }
 

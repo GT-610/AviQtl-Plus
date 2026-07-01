@@ -167,7 +167,9 @@ PluginPermission PermissionManager::permissionFromName(const QString &name) {
         return PluginPermission::ClipboardAccess;
     if (name == QStringLiteral("log.output"))
         return PluginPermission::LogOutput;
-    return PluginPermission::LogOutput; // Default fallback
+    // Return a clearly invalid value instead of silently defaulting to LogOutput.
+    // Callers must check via allPermissionNames() before using this function.
+    return static_cast<PluginPermission>(-1);
 }
 
 QStringList PermissionManager::allPermissionNames() {

@@ -12,6 +12,10 @@ namespace AviQtl::Core {
 class PermissionManager;
 }
 
+namespace AviQtl::UI {
+class TimelineController;
+}
+
 namespace AviQtl::Scripting {
 
 class PluginFileWatcher : public QObject {
@@ -63,7 +67,7 @@ class ModEngine {
 
     void initialize(void *ecsPtr);
     // TimelineController を登録 (main.cpp の QML登録後に呼ぶ)
-    void registerController(void *controller);
+    void registerController(AviQtl::UI::TimelineController *controller);
     void loadPlugins();
     void onUpdate();
 

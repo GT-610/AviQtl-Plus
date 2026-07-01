@@ -29,7 +29,6 @@ void TimelineService::setLayerStateInternal(int sceneId, int layer, bool value, 
             it->hiddenLayers.remove(layer);
         }
     }
-    emit clipsChanged();
     emit layerStateChanged(layer);
 }
 

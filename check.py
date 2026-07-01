@@ -76,7 +76,7 @@ def load_suppress_file(path: Path) -> list[str]:
             lines.append(line)
     return lines
 
-def run_formatting(root: Path) -> None:
+def run_formatting(root: Path) -> int:
     print(f"{BOLD}{YELLOW}--- Code Formatting ---{RESET}")
     
     # C++ / HPP files
@@ -91,9 +91,12 @@ def run_formatting(root: Path) -> None:
                 continue
             cpp_hpp_files.append(path)
     
+    errors = 0
     if cpp_hpp_files and shutil.which("clang-format"):
         print(f"  Formatting C++/HPP ({len(cpp_hpp_files)} files)...")
-        subprocess.run(["clang-format", "-i"] + [str(f) for f in cpp_hpp_files], cwd=root, stderr=subprocess.STDOUT)
+        result = subprocess.run(["clang-format", "-i", "--"] + [str(f) for f in cpp_hpp_files], cwd=root, stderr=subprocess.STDOUT)
+        if result.returncode != 0:
+            errors += 1
     elif not shutil.which("clang-format"):
         print(f"{RED}Warning: clang-format not found.{RESET}")
 
@@ -101,12 +104,17 @@ def run_formatting(root: Path) -> None:
     qml_files = find_qml_files(root)
     if qml_files and shutil.which("qmlformat"):
         print(f"  Formatting QML ({len(qml_files)} files)...")
-        # Pass all at once and execute
-        subprocess.run(["qmlformat", "-i"] + [str(f) for f in qml_files], cwd=root, stderr=subprocess.STDOUT)
+        result = subprocess.run(["qmlformat", "-i", "--"] + [str(f) for f in qml_files], cwd=root, stderr=subprocess.STDOUT)
+        if result.returncode != 0:
+            errors += 1
     elif not shutil.which("qmlformat"):
         print(f"{RED}Warning: qmlformat not found.{RESET}")
     
-    print(f"{GREEN}  Formatting complete{RESET}\n")
+    if errors == 0:
+        print(f"{GREEN}  Formatting complete{RESET}\n")
+    else:
+        print(f"{YELLOW}  Formatting completed with {errors} error(s){RESET}\n")
+    return errors
 
 def run_cppcheck(
     files: list[Path],
@@ -114,7 +122,7 @@ def run_cppcheck(
     suppress_list: list[str],
     args: argparse.Namespace,
     root: Path
-) -> list[str]:
+) -> int:
     cmd = ["cppcheck"]
 
     # Number of parallel jobs
@@ -365,8 +373,9 @@ def main() -> int:
     print(f"  Level       : {args.level}")
 
     # 0. Formatting (unified process)
+    total_errors = 0
     if not args.skip_format:
-        run_formatting(root)
+        total_errors += run_formatting(root)
 
     # Collect files
     cpp_files    = find_cpp_files(root)
@@ -380,8 +389,6 @@ def main() -> int:
     if suppress:
         print(f"  Suppressions : {len(suppress)}")
     print()
-
-    total_errors = 0
 
     # 1 & 2. QML Lint (QQmlSA)
     if not args.skip_qml:

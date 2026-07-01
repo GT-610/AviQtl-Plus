@@ -17,11 +17,7 @@ auto TimelineService::currentScene() -> SceneData * {
             return &scene;
         }
     }
-    if (m_scenes.isEmpty()) {
-        // Emergency fallback: should never happen as constructor ensures m_scenes is non-empty
-        thread_local SceneData dummy;
-        return &dummy;
-    }
+    Q_ASSERT(!m_scenes.isEmpty());
     return m_scenes.data();
 }
 
@@ -31,11 +27,7 @@ auto TimelineService::currentScene() const -> const SceneData * {
             return &scene;
         }
     }
-    if (m_scenes.isEmpty()) {
-        // Emergency fallback: should never happen as constructor ensures m_scenes is non-empty
-        thread_local SceneData dummy;
-        return &dummy;
-    }
+    Q_ASSERT(!m_scenes.isEmpty());
     return m_scenes.data();
 }
 
