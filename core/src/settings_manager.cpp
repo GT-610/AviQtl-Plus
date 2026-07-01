@@ -267,9 +267,10 @@ void SettingsManager::save() {
 
     QJsonObject obj = QJsonObject::fromVariantMap(m_settings);
     QJsonDocument doc(obj);
-    qint64 written = file.write(doc.toJson());
+    const QByteArray payload = doc.toJson();
+    qint64 written = file.write(payload);
 
-    if (written < 0) {
+    if (written != payload.size()) {
         qWarning() << "Failed to write settings:" << path;
         file.cancelWriting();
         return;
