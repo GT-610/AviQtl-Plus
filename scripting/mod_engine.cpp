@@ -25,7 +25,7 @@ static void api_log(const char *msg) {
 }
 
 // Settings API (scoped to current plugin)
-static char g_settings_buf[4096]; // Buffer for returning strings
+static thread_local char g_settings_buf[4096]; // Buffer for returning strings (thread_local for safety)
 static void api_settings_set(const char *key, const char *value) {
     const QString &pluginId = ModEngine::instance().currentPluginId();
     QString scopedKey = pluginId.isEmpty() ? QString::fromUtf8(key) : QStringLiteral("plugin.%1.%2").arg(pluginId, QString::fromUtf8(key));
@@ -723,19 +723,18 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
         return manifest;
     }
 
-    // Use existing Lua state or create a temporary one for parsing
-    bool tempLua = (L == nullptr);
-    lua_State *ls = L;
-    if (tempLua) {
-        ls = luaL_newstate();
-        if (!ls) return manifest;
+    // Always use an isolated Lua state for manifest parsing to prevent
+    // manifest.lua from calling registered AviQtl APIs or accessing main state
+    lua_State *ls = luaL_newstate();
+    if (ls == nullptr) {
+        return manifest;
     }
 
     // Load and execute manifest.lua to get the manifest table
     if (luaL_dofile(ls, manifestPath.toUtf8().constData()) != LUA_OK) {
         qWarning() << "[ModEngine] Failed to load manifest:" << lua_tostring(ls, -1);
         lua_pop(ls, 1);
-        if (tempLua) lua_close(ls);
+        lua_close(ls);
         return manifest;
     }
 
@@ -743,7 +742,7 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
     if (!lua_istable(ls, -1)) {
         qWarning() << "[ModEngine] Manifest must return a table";
         lua_pop(ls, 1);
-        if (tempLua) lua_close(ls);
+        lua_close(ls);
         return manifest;
     }
 
@@ -764,7 +763,7 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
     manifest.minAppVersion = getString("min_app_version");
 
     lua_pop(ls, 1); // Pop the table
-    if (tempLua) lua_close(ls);
+    lua_close(ls);
     return manifest;
 }
 
