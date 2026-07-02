@@ -311,6 +311,8 @@ class CarlaHostedPlugin final : public IAudioPlugin {
             out.defaultValue = ranges->def;
             out.min = ranges->min;
             out.max = ranges->max;
+        } else {
+            out.defaultValue = carla_get_default_parameter_value(m_hostHandle, m_pluginId, pid);
         }
         return out;
     }

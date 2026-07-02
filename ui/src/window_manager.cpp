@@ -154,6 +154,8 @@ void WindowManager::spawnWindow(QQmlEngine *engine, const QString &id, const QSt
         } else {
             qWarning() << "WindowManager: Component for" << id << "is neither QQuickWindow nor QQuickItem";
             delete obj;
+            delete window;
+            return;
         }
         if (maximized) {
             window->setVisibility(QWindow::Maximized);
