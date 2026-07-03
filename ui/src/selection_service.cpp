@@ -53,11 +53,13 @@ void SelectionService::toggleSelection(int id, const QVariantMap &data) {
             if (m_selectedClipIds.isEmpty()) {
                 updatePrimarySelection(-1, QVariantMap());
             } else {
-                // Promote next clip without clearing data; TimelineService
-                // will call refreshSelectionData() to sync the new primary's data
+                // Promote next clip: update ID and clear stale data together
+                // refreshSelectionData() will repopulate data synchronously
                 if (m_selectedClipId != m_selectedClipIds.first()) {
                     m_selectedClipId = m_selectedClipIds.first();
+                    m_selectedClipData.clear();
                     emit selectedClipIdChanged();
+                    emit selectedClipDataChanged();
                 }
             }
         }
