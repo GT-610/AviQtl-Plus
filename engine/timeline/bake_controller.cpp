@@ -147,7 +147,13 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             entry.effectIndex = effectIdx;
 
             const QByteArray nameBytes = key.toUtf8();
-            const auto copyLen = static_cast<std::size_t>(std::min<qsizetype>(nameBytes.size(), 19));
+            auto copyLen = static_cast<std::size_t>(std::min<qsizetype>(nameBytes.size(), 19));
+            // Avoid truncating in the middle of a multi-byte UTF-8 character
+            // Only check when we actually truncated (copyLen < nameBytes.size())
+            while (copyLen > 0 && copyLen < static_cast<std::size_t>(nameBytes.size()) &&
+                   (static_cast<unsigned char>(nameBytes[static_cast<int>(copyLen)]) & 0xC0) == 0x80) {
+                --copyLen;
+            }
             std::memcpy(entry.paramName, nameBytes.constData(), copyLen);
             entry.paramName[copyLen] = '\0';
 

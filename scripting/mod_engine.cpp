@@ -813,31 +813,31 @@ void ModEngine::setupFileWatcher() {
         }
     }
 
-    QObject::connect(m_fileWatcher, &PluginFileWatcher::directoryChanged, [this](const QString &path) {
-        qInfo() << "[ModEngine] Plugin directory changed:" << path;
-        onPluginDirectoryChanged(path);
-    });
+    static bool watcherConnectionsInitialized = false;
+    if (!watcherConnectionsInitialized) {
+        QObject::connect(m_fileWatcher, &PluginFileWatcher::directoryChanged, [this](const QString &path) {
+            qInfo() << "[ModEngine] Plugin directory changed:" << path;
+            onPluginDirectoryChanged(path);
+        });
+
+        m_reloadDebounceTimer.setSingleShot(true);
+        m_reloadDebounceTimer.setInterval(500);
+        QObject::connect(&m_reloadDebounceTimer, &QTimer::timeout, [this]() {
+            m_loadedPlugins.clear();
+            m_pluginInfos.clear();
+            m_lastLoadedPluginId.clear();
+            loadPlugins();
+            onLoad();
+            qInfo() << "[ModEngine] Plugins reloaded due to file changes";
+        });
+        watcherConnectionsInitialized = true;
+    }
 }
 
 void ModEngine::onPluginDirectoryChanged(const QString &path) {
     qInfo() << "[ModEngine] Plugin directory changed:" << path;
-
-    // Simple approach: reload all plugins
-    // A more sophisticated approach would track which plugin changed
-    // and only reload that specific plugin
-
-    // Clear current plugins
-    m_loadedPlugins.clear();
-    m_pluginInfos.clear();
-    m_lastLoadedPluginId.clear();
-
-    // Reload all plugins
-    loadPlugins();
-
-    // Re-call onLoad hook
-    onLoad();
-
-    qInfo() << "[ModEngine] Plugins reloaded due to file changes";
+    // Debounce: delay reload to coalesce rapid file change events
+    m_reloadDebounceTimer.start(500);
 }
 
 void ModEngine::onUpdate() {

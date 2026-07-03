@@ -8,9 +8,22 @@ namespace AviQtl::Core {
 
 VideoFrameStore::VideoFrameStore(QObject *parent) : QObject(parent) {}
 
+void VideoFrameStore::evictIfNeeded() {
+    while (m_frames.size() > kMaxCachedFrames && !m_frameOrder.isEmpty()) {
+        m_frames.remove(m_frameOrder.takeFirst());
+    }
+    while (m_lastVideoFrames.size() > kMaxCachedFrames && !m_videoFrameOrder.isEmpty()) {
+        m_lastVideoFrames.remove(m_videoFrameOrder.takeFirst());
+    }
+}
+
 void VideoFrameStore::setFrame(const QString &key, const QImage &frame) {
     QMutexLocker locker(&m_mutex);
+    if (!m_frames.contains(key)) {
+        m_frameOrder.append(key);
+    }
     m_frames.insert(key, frame);
+    evictIfNeeded();
 }
 
 void VideoFrameStore::setFrameSafe(const QString &key, const QImage &frame) {
@@ -28,7 +41,11 @@ void VideoFrameStore::setVideoFrameSafe(const QString &key, const QVideoFrame &f
     QPointer<QVideoSink> sink;
     {
         QMutexLocker locker(&m_mutex);
+        if (!m_lastVideoFrames.contains(key)) {
+            m_videoFrameOrder.append(key);
+        }
         m_lastVideoFrames.insert(key, frame);
+        evictIfNeeded();
 
         auto it = m_sinks.find(key);
         if (it != m_sinks.end() && !it.value().isNull()) {
@@ -99,7 +116,9 @@ void VideoFrameStore::invalidateFrame(const QString &key) {
     }
     QMutexLocker locker(&m_mutex);
     m_frames.remove(key);
+    m_frameOrder.removeAll(key);
     m_lastVideoFrames.remove(key);
+    m_videoFrameOrder.removeAll(key);
 }
 
 void VideoFrameStore::invalidateScene(int sceneId) {
@@ -113,6 +132,7 @@ void VideoFrameStore::invalidateScene(int sceneId) {
 
     for (auto it = m_frames.begin(); it != m_frames.end();) {
         if (it.key().startsWith(prefix)) {
+            m_frameOrder.removeAll(it.key());
             it = m_frames.erase(it);
         } else {
             ++it;
@@ -121,6 +141,7 @@ void VideoFrameStore::invalidateScene(int sceneId) {
 
     for (auto it = m_lastVideoFrames.begin(); it != m_lastVideoFrames.end();) {
         if (it.key().startsWith(prefix)) {
+            m_videoFrameOrder.removeAll(it.key());
             it = m_lastVideoFrames.erase(it);
         } else {
             ++it;
@@ -135,7 +156,9 @@ void VideoFrameStore::clear() {
     }
     QMutexLocker locker(&m_mutex);
     m_frames.clear();
+    m_frameOrder.clear();
     m_lastVideoFrames.clear();
+    m_videoFrameOrder.clear();
 }
 
 auto VideoFrameStore::frame(const QString &key) const -> QImage {

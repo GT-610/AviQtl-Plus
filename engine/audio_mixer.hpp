@@ -6,6 +6,7 @@
 #include <QIODevice>
 #include <QLoggingCategory>
 #include <QObject>
+#include <QPointer>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
@@ -51,7 +52,7 @@ class AudioMixer : public QObject {
     std::unique_ptr<QAudioSink> m_audioSink;
     QIODevice *m_audioOutput = nullptr;
     QAudioFormat m_format;
-    std::unordered_map<int, AviQtl::Core::AudioDecoder *> m_decoders;
+    QHash<int, QPointer<AviQtl::Core::AudioDecoder>> m_decoders;
     QHash<int, std::shared_ptr<Plugin::AudioPluginChain>> m_chains;
     int m_lastFrame = -1;
     double m_playbackSpeed = 1.0;
