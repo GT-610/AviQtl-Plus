@@ -125,6 +125,7 @@ auto AudioMixer::isReady() const -> bool {
 auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const std::vector<float> & { // NOLINT(bugprone-easily-swappable-parameters)
     if (fps <= 0.0) {
         m_masterBuffer.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
+        m_lastSamplesPerFrame = samplesPerFrame;
         return m_masterBuffer;
     }
     std::size_t newSize = static_cast<std::size_t>(samplesPerFrame) * 2;

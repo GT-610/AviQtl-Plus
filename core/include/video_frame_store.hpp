@@ -2,9 +2,11 @@
 
 #include <QHash>
 #include <QImage>
+#include <QList>
 #include <QMutex>
 #include <QObject>
 #include <QPointer>
+#include <QString>
 #include <QVideoFrame>
 #include <QVideoSink>
 
@@ -36,6 +38,9 @@ class VideoFrameStore : public QObject {
     QHash<QString, QImage> m_frames;
     QHash<QString, QVideoFrame> m_lastVideoFrames;
     QHash<QString, QPointer<QVideoSink>> m_sinks;
+
+    QList<QString> m_frameOrder;
+    QList<QString> m_videoFrameOrder;
 
     static constexpr int kMaxCachedFrames = 256;
     void evictIfNeeded();

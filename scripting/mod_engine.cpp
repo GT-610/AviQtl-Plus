@@ -813,21 +813,25 @@ void ModEngine::setupFileWatcher() {
         }
     }
 
-    QObject::connect(m_fileWatcher, &PluginFileWatcher::directoryChanged, [this](const QString &path) {
-        qInfo() << "[ModEngine] Plugin directory changed:" << path;
-        onPluginDirectoryChanged(path);
-    });
+    static bool watcherConnectionsInitialized = false;
+    if (!watcherConnectionsInitialized) {
+        QObject::connect(m_fileWatcher, &PluginFileWatcher::directoryChanged, [this](const QString &path) {
+            qInfo() << "[ModEngine] Plugin directory changed:" << path;
+            onPluginDirectoryChanged(path);
+        });
 
-    m_reloadDebounceTimer.setSingleShot(true);
-    m_reloadDebounceTimer.setInterval(500);
-    QObject::connect(&m_reloadDebounceTimer, &QTimer::timeout, [this]() {
-        m_loadedPlugins.clear();
-        m_pluginInfos.clear();
-        m_lastLoadedPluginId.clear();
-        loadPlugins();
-        onLoad();
-        qInfo() << "[ModEngine] Plugins reloaded due to file changes";
-    });
+        m_reloadDebounceTimer.setSingleShot(true);
+        m_reloadDebounceTimer.setInterval(500);
+        QObject::connect(&m_reloadDebounceTimer, &QTimer::timeout, [this]() {
+            m_loadedPlugins.clear();
+            m_pluginInfos.clear();
+            m_lastLoadedPluginId.clear();
+            loadPlugins();
+            onLoad();
+            qInfo() << "[ModEngine] Plugins reloaded due to file changes";
+        });
+        watcherConnectionsInitialized = true;
+    }
 }
 
 void ModEngine::onPluginDirectoryChanged(const QString &path) {
