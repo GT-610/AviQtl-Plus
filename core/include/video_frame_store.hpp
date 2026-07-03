@@ -36,6 +36,9 @@ class VideoFrameStore : public QObject {
     QHash<QString, QImage> m_frames;
     QHash<QString, QVideoFrame> m_lastVideoFrames;
     QHash<QString, QPointer<QVideoSink>> m_sinks;
+
+    static constexpr int kMaxCachedFrames = 256;
+    void evictIfNeeded();
 };
 
 } // namespace AviQtl::Core

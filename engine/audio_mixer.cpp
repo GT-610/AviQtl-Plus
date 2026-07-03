@@ -109,13 +109,13 @@ void AudioMixer::registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder
 
 void AudioMixer::unregisterDecoder(int clipId) {
     std::unique_lock lock(m_mutex);
-    m_decoders.erase(clipId);
+    m_decoders.remove(clipId);
 }
 
 auto AudioMixer::isReady() const -> bool {
     std::shared_lock lock(m_mutex);
-    for (const auto &[id, decoder] : m_decoders) {
-        if ((decoder == nullptr) || !decoder->isReady()) {
+    for (auto it = m_decoders.constBegin(); it != m_decoders.constEnd(); ++it) {
+        if (it.value().isNull() || !it.value()->isReady()) {
             return false;
         }
     }
@@ -123,6 +123,10 @@ auto AudioMixer::isReady() const -> bool {
 }
 
 auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const std::vector<float> & { // NOLINT(bugprone-easily-swappable-parameters)
+    if (fps <= 0.0) {
+        m_masterBuffer.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
+        return m_masterBuffer;
+    }
     std::size_t newSize = static_cast<std::size_t>(samplesPerFrame) * 2;
     if (newSize != static_cast<std::size_t>(m_lastSamplesPerFrame) * 2) {
         m_masterBuffer.assign(newSize, 0.0F);
@@ -155,7 +159,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
             continue;
         }
         auto decIt = m_decoders.find(clipId);
-        if (decIt == m_decoders.end()) {
+        if (decIt == m_decoders.end() || decIt.value().isNull()) {
             continue;
         }
 
@@ -178,7 +182,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
         }
         m_clipLastFrame[clipId] = currentFrame;
 
-        auto *decoder = decIt->second;
+        auto *decoder = decIt.value().data();
 
         if (std::abs(sourceRate - 1.0) > 0.01) {
             // リサンプリングが必要な場合
@@ -287,7 +291,7 @@ void AudioMixer::processFrame(int currentFrame, double fps, int samplesPerFrame)
 
     int outputSamples = samplesPerFrame;
     if (m_playbackSpeed > 0.0) {
-        outputSamples = static_cast<int>(samplesPerFrame / m_playbackSpeed);
+        outputSamples = static_cast<int>(std::clamp(samplesPerFrame / m_playbackSpeed, 1.0, static_cast<double>(samplesPerFrame) * 16.0));
     }
 
     std::vector<float> buffer = mix(currentFrame, fps, outputSamples);

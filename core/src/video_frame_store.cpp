@@ -8,9 +8,19 @@ namespace AviQtl::Core {
 
 VideoFrameStore::VideoFrameStore(QObject *parent) : QObject(parent) {}
 
+void VideoFrameStore::evictIfNeeded() {
+    while (m_frames.size() > kMaxCachedFrames) {
+        m_frames.erase(m_frames.begin());
+    }
+    while (m_lastVideoFrames.size() > kMaxCachedFrames) {
+        m_lastVideoFrames.erase(m_lastVideoFrames.begin());
+    }
+}
+
 void VideoFrameStore::setFrame(const QString &key, const QImage &frame) {
     QMutexLocker locker(&m_mutex);
     m_frames.insert(key, frame);
+    evictIfNeeded();
 }
 
 void VideoFrameStore::setFrameSafe(const QString &key, const QImage &frame) {
@@ -29,6 +39,7 @@ void VideoFrameStore::setVideoFrameSafe(const QString &key, const QVideoFrame &f
     {
         QMutexLocker locker(&m_mutex);
         m_lastVideoFrames.insert(key, frame);
+        evictIfNeeded();
 
         auto it = m_sinks.find(key);
         if (it != m_sinks.end() && !it.value().isNull()) {

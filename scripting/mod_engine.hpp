@@ -2,7 +2,9 @@
 #include <QDir>
 #include <QFileSystemWatcher>
 #include <QObject>
+#include <QPointer>
 #include <QString>
+#include <QTimer>
 #include <QVariantMap>
 #include <lua.hpp>
 
@@ -117,6 +119,7 @@ class ModEngine {
     QList<PluginManifest> m_loadedPlugins;
     QList<PluginInfo> m_pluginInfos;
     PluginFileWatcher *m_fileWatcher = nullptr;
+    QTimer m_reloadDebounceTimer;
     bool m_hotReloadEnabled = false;
     QString m_currentPluginId;
     QString m_lastLoadedPluginId; // context for hook dispatch
