@@ -286,7 +286,14 @@ class CarlaHostedPlugin final : public IAudioPlugin {
         if (!m_loaded || m_hostHandle == nullptr || i < 0) {
             return;
         }
-        carla_set_parameter_value(m_hostHandle, m_pluginId, static_cast<uint32_t>(i), clamp01(v));
+        const auto pid = static_cast<uint32_t>(i);
+        const ParameterRanges *ranges = carla_get_parameter_ranges(m_hostHandle, m_pluginId, pid);
+        if (ranges != nullptr) {
+            v = std::clamp(v, ranges->min, ranges->max);
+        } else {
+            v = clamp01(v);
+        }
+        carla_set_parameter_value(m_hostHandle, m_pluginId, pid, v);
     }
 
     [[nodiscard]] auto getParamInfo(int i) const -> ParamInfo override {
@@ -299,9 +306,14 @@ class CarlaHostedPlugin final : public IAudioPlugin {
         if (info != nullptr) {
             out.name = safeQString(info->name);
         }
-        out.defaultValue = carla_get_default_parameter_value(m_hostHandle, m_pluginId, pid);
-        out.min = 0.0F;
-        out.max = 1.0F;
+        const ParameterRanges *ranges = carla_get_parameter_ranges(m_hostHandle, m_pluginId, pid);
+        if (ranges != nullptr) {
+            out.defaultValue = ranges->def;
+            out.min = ranges->min;
+            out.max = ranges->max;
+        } else {
+            out.defaultValue = carla_get_default_parameter_value(m_hostHandle, m_pluginId, pid);
+        }
         return out;
     }
 

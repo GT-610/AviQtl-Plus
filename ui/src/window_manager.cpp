@@ -138,6 +138,10 @@ void WindowManager::spawnWindow(QQmlEngine *engine, const QString &id, const QSt
         }
     } else {
         // QQuickWindowではなかった場合
+        if (obj == nullptr) {
+            qWarning() << "WindowManager: Failed to create QML component for" << id;
+            return;
+        }
         auto *window = new QQuickWindow();
         window->setTitle(title);
         window->resize(w, h);
@@ -147,6 +151,11 @@ void WindowManager::spawnWindow(QQmlEngine *engine, const QString &id, const QSt
         auto *item = qobject_cast<QQuickItem *>(obj);
         if (item != nullptr) {
             item->setParentItem(window->contentItem());
+        } else {
+            qWarning() << "WindowManager: Component for" << id << "is neither QQuickWindow nor QQuickItem";
+            delete obj;
+            delete window;
+            return;
         }
         if (maximized) {
             window->setVisibility(QWindow::Maximized);

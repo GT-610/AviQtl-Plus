@@ -53,10 +53,8 @@ void SelectionService::toggleSelection(int id, const QVariantMap &data) {
             if (m_selectedClipIds.isEmpty()) {
                 updatePrimarySelection(-1, QVariantMap());
             } else {
-                // 他に選択がある場合は、データの完全性を保つために単純なクリアは行わない
-                // (TimelineService側での再同期を待機)
-                m_selectedClipId = m_selectedClipIds.first();
-                emit selectedClipIdChanged();
+                // Promote next clip; data will be repopulated by refreshSelectionData()
+                updatePrimarySelection(m_selectedClipIds.first(), QVariantMap());
             }
         }
     } else {

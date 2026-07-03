@@ -74,6 +74,7 @@ void AudioMixer::setPlaybackSpeed(double speed) {
 }
 
 void AudioMixer::setSampleRate(int sampleRate) {
+    std::unique_lock lock(m_mutex);
     if (m_format.sampleRate() == sampleRate) {
         return;
     }

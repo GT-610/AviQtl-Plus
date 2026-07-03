@@ -906,11 +906,12 @@ ApplicationWindow {
                     Accessible.description: qsTr("タイムライン上の現在位置をドラッグして再生位置を変更します")
                     onPressedChanged: {
                         if (Workspace.currentTimeline?.transport) {
-                            Workspace.currentTimeline.transport.isScrubbing = pressed;
                             if (pressed)
                                 Workspace.currentTimeline.transport.beginScrub();
-                            else
+                            else {
                                 Workspace.currentTimeline.transport.setCurrentFrame_seek(Math.floor(value));
+                                Workspace.currentTimeline.transport.endScrub();
+                            }
                         }
                     }
                     onMoved: {
