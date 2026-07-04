@@ -342,7 +342,10 @@ auto AudioDecoder::decodeChunk(int64_t chunkIdx) -> bool {
                 return false;
             }
 
-            const int outSamples = static_cast<int>(av_rescale_rnd(m_frame->nb_samples, m_sampleRate, m_decCtx->sample_rate, AV_ROUND_UP));
+            int outSamples = swr_get_out_samples(m_swrCtx, m_frame->nb_samples);
+            if (outSamples < 0) {
+                outSamples = static_cast<int>(av_rescale_rnd(m_frame->nb_samples, m_sampleRate, m_decCtx->sample_rate, AV_ROUND_UP));
+            }
             convertBuf.resize(static_cast<std::size_t>(std::max(outSamples, 0)) * 2);
             auto *outPtr = reinterpret_cast<uint8_t *>(convertBuf.data());
             const int converted = swr_convert(m_swrCtx, &outPtr, outSamples, const_cast<const uint8_t **>(m_frame->data), m_frame->nb_samples);
