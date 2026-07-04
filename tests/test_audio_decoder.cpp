@@ -81,6 +81,8 @@ class TestAudioDecoder : public QObject {
     void lastError();
     void readyAndGetSamplesIntoReadsAcrossChunks();
     void getSamplesPadsPastEnd();
+    void getPeaksBuildsWaveform();
+    void getPeaksHighZoomReadsSamples();
 };
 
 void TestAudioDecoder::constructor() {
@@ -143,6 +145,35 @@ void TestAudioDecoder::getSamplesPadsPastEnd() {
     QVERIFY(written > 0);
     QVERIFY(written < count);
     QVERIFY(std::all_of(samples.begin() + written, samples.end(), [](float value) { return value == 0.0F; }));
+}
+
+void TestAudioDecoder::getPeaksBuildsWaveform() {
+    QTemporaryDir dir;
+    AudioDecoder decoder(1, createTestWav(dir));
+    QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
+
+    decoder.scheduleStart();
+    QTRY_COMPARE(readySpy.count(), 1);
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        [&decoder]() {
+            const std::vector<float> peaks = decoder.getPeaks(0.0, 6.0, 120);
+            return peaks.size() == 240 && std::any_of(peaks.begin(), peaks.end(), [](float value) { return std::abs(value) > 0.001F; });
+        }(),
+        5000);
+}
+
+void TestAudioDecoder::getPeaksHighZoomReadsSamples() {
+    QTemporaryDir dir;
+    AudioDecoder decoder(1, createTestWav(dir));
+    QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
+
+    decoder.scheduleStart();
+    QTRY_COMPARE(readySpy.count(), 1);
+
+    const std::vector<float> peaks = decoder.getPeaks(0.1, 0.001, 20);
+    QCOMPARE(peaks.size(), static_cast<std::size_t>(40));
+    QVERIFY(std::any_of(peaks.begin(), peaks.end(), [](float value) { return std::abs(value) > 0.001F; }));
 }
 
 #include "test_audio_decoder.moc"

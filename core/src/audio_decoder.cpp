@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 Q_LOGGING_CATEGORY(lcAudioDecoder, "aviqtl.audio_decoder")
 
@@ -71,6 +72,9 @@ void AudioDecoder::startDecoding() {
 
         if (!m_closing.load(std::memory_order_acquire)) {
             decodeChunk(0);
+        }
+        if (!m_closing.load(std::memory_order_acquire)) {
+            m_peakFuture = QtConcurrent::run([this] { buildPeakCache(); });
         }
     });
 }
@@ -219,6 +223,7 @@ void AudioDecoder::closeFFmpeg() {
     m_chunkOrder.clear();
     m_peakPyramid.clear();
     m_peakBuildData.reset();
+    m_peakGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_totalDurationSec = 0.0;
 }
 
@@ -244,14 +249,23 @@ void AudioDecoder::setSampleRate(int sampleRate) {
     m_chunkOrder.clear();
     m_peakPyramid.clear();
     m_peakBuildData.reset();
+    m_peakGeneration.fetch_add(1, std::memory_order_acq_rel);
 }
 
 void AudioDecoder::seek(qint64 ms) {
     m_seekTargetMs.store(ms, std::memory_order_release);
+    const auto targetChunk = static_cast<int64_t>((static_cast<double>(std::max<qint64>(0, ms)) / 1000.0) / kChunkDurationSec);
     {
         QMutexLocker locker(&m_mutex);
         m_chunkCache.clear();
         m_chunkOrder.clear();
+        if (!m_prefetchFuture.isRunning()) {
+            m_prefetchFuture = QtConcurrent::run([this, targetChunk] {
+                if (!m_closing.load(std::memory_order_acquire)) {
+                    decodeChunk(targetChunk);
+                }
+            });
+        }
     }
     emit seekRequested(ms);
 }
@@ -491,24 +505,220 @@ auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float>
     return result;
 }
 
+auto AudioDecoder::buildBasePeaks(const std::vector<float> &samples) const -> std::vector<PeakEntry> {
+    std::vector<PeakEntry> peaks;
+    if (samples.empty()) {
+        return peaks;
+    }
+
+    const int frameCount = static_cast<int>(samples.size() / 2);
+    peaks.reserve(static_cast<std::size_t>(frameCount / 32) + 1);
+    for (int frame = 0; frame < frameCount; frame += 32) {
+        float pMin = 0.0F;
+        float pMax = 0.0F;
+        const int frameEnd = std::min(frame + 32, frameCount);
+        for (int i = frame; i < frameEnd; ++i) {
+            const auto leftIdx = static_cast<std::size_t>(i) * 2;
+            const float left = samples[leftIdx];
+            const float right = samples[leftIdx + 1];
+            pMin = std::min({pMin, left, right});
+            pMax = std::max({pMax, left, right});
+        }
+        peaks.push_back({.min = pMin, .max = pMax});
+    }
+
+    return peaks;
+}
+
+auto AudioDecoder::silentBasePeaksForChunk(int64_t chunkIdx, double totalDurationSec) const -> std::vector<PeakEntry> {
+    const double chunkStartSec = static_cast<double>(chunkIdx) * kChunkDurationSec;
+    const double chunkEndSec = std::min(chunkStartSec + kChunkDurationSec, totalDurationSec);
+    if (chunkEndSec <= chunkStartSec || m_sampleRate <= 0) {
+        return {};
+    }
+
+    const int frameCount = static_cast<int>(std::ceil((chunkEndSec - chunkStartSec) * static_cast<double>(m_sampleRate)));
+    const int peakCount = std::max(0, (frameCount + 31) / 32);
+    return std::vector<PeakEntry>(static_cast<std::size_t>(peakCount), PeakEntry{.min = 0.0F, .max = 0.0F});
+}
+
+void AudioDecoder::rebuildPeakPyramidFromBase() {
+    if (m_peakPyramid.empty()) {
+        return;
+    }
+
+    while (m_peakPyramid.size() > 1) {
+        m_peakPyramid.pop_back();
+    }
+
+    for (int level = 0; level < 5; ++level) {
+        const auto &prev = m_peakPyramid.back();
+        if (prev.peaks.size() < 8) {
+            break;
+        }
+
+        PeakLevel next;
+        next.samplesPerEntry = prev.samplesPerEntry * 8;
+        next.peaks.reserve((prev.peaks.size() / 8) + 1);
+
+        for (std::size_t i = 0; i < prev.peaks.size(); i += 8) {
+            float pMin = 0.0F;
+            float pMax = 0.0F;
+            const std::size_t end = std::min(i + 8, prev.peaks.size());
+            for (std::size_t j = i; j < end; ++j) {
+                pMin = std::min(pMin, prev.peaks[j].min);
+                pMax = std::max(pMax, prev.peaks[j].max);
+            }
+            next.peaks.push_back({.min = pMin, .max = pMax});
+        }
+        m_peakPyramid.push_back(std::move(next));
+    }
+}
+
 void AudioDecoder::buildPeakCache() {
+    const int generation = m_peakGeneration.load(std::memory_order_acquire);
+    const double duration = totalDurationSec();
+    if (duration <= 0.0 || m_sampleRate <= 0) {
+        QMutexLocker locker(&m_mutex);
+        if (generation == m_peakGeneration.load(std::memory_order_acquire)) {
+            m_peakPyramid.clear();
+        }
+        return;
+    }
+
+    const auto chunkCount = static_cast<int64_t>(std::ceil(duration / kChunkDurationSec));
+    {
+        QMutexLocker locker(&m_mutex);
+        if (generation != m_peakGeneration.load(std::memory_order_acquire)) {
+            return;
+        }
+        m_peakPyramid.clear();
+        m_peakPyramid.push_back(PeakLevel{.samplesPerEntry = 32, .peaks = {}});
+        m_peakPyramid.front().peaks.reserve(static_cast<std::size_t>((duration * static_cast<double>(m_sampleRate)) / 32.0) + 1);
+    }
+
+    for (int64_t chunkIdx = 0; chunkIdx < chunkCount && !m_closing.load(std::memory_order_acquire); ++chunkIdx) {
+        if (generation != m_peakGeneration.load(std::memory_order_acquire)) {
+            return;
+        }
+        std::vector<PeakEntry> peaks;
+        if (ensureChunk(chunkIdx)) {
+            AudioChunk chunkCopy;
+            {
+                QMutexLocker locker(&m_mutex);
+                auto it = m_chunkCache.find(chunkIdx);
+                if (it != m_chunkCache.end()) {
+                    chunkCopy = it.value();
+                }
+            }
+            peaks = buildBasePeaks(chunkCopy.data);
+        }
+        if (peaks.empty()) {
+            peaks = silentBasePeaksForChunk(chunkIdx, duration);
+        }
+
+        {
+            QMutexLocker locker(&m_mutex);
+            if (generation != m_peakGeneration.load(std::memory_order_acquire) || m_peakPyramid.empty()) {
+                return;
+            }
+            auto &base = m_peakPyramid.front().peaks;
+            base.insert(base.end(), peaks.begin(), peaks.end());
+        }
+    }
+
     QMutexLocker locker(&m_mutex);
-    m_peakPyramid.clear();
+    if (generation == m_peakGeneration.load(std::memory_order_acquire)) {
+        rebuildPeakPyramidFromBase();
+    }
 }
 
 auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth) -> std::vector<float> {
-    Q_UNUSED(startSec);
-    Q_UNUSED(durationSec);
     if (pixelWidth <= 0) {
         return {};
     }
 
-    QMutexLocker locker(&m_mutex);
-    if (m_peakPyramid.empty()) {
+    if (durationSec <= 0.0 || m_sampleRate <= 0) {
         return std::vector<float>(static_cast<std::size_t>(pixelWidth) * 2, 0.0F);
     }
 
-    return std::vector<float>(static_cast<std::size_t>(pixelWidth) * 2, 0.0F);
+    {
+        QMutexLocker locker(&m_mutex);
+        if (m_peakPyramid.empty() && !m_peakFuture.isRunning() && m_isReady.load(std::memory_order_acquire)) {
+            m_peakFuture = QtConcurrent::run([this] { buildPeakCache(); });
+        }
+    }
+
+    startSec = std::max(startSec, 0.0);
+    const double samplesPerPixel = (durationSec * static_cast<double>(m_sampleRate)) / static_cast<double>(pixelWidth);
+    std::vector<float> result;
+    result.reserve(static_cast<std::size_t>(pixelWidth) * 2);
+
+    if (samplesPerPixel < 32.0) {
+        for (int pixel = 0; pixel < pixelWidth; ++pixel) {
+            const double pixelStart = startSec + (durationSec * static_cast<double>(pixel) / static_cast<double>(pixelWidth));
+            const double pixelEnd = startSec + (durationSec * static_cast<double>(pixel + 1) / static_cast<double>(pixelWidth));
+            const auto startFrame = static_cast<int64_t>(std::floor(pixelStart * static_cast<double>(m_sampleRate)));
+            const auto endFrame = std::max<int64_t>(startFrame + 1, static_cast<int64_t>(std::ceil(pixelEnd * static_cast<double>(m_sampleRate))));
+            const int sampleCount = static_cast<int>(std::min<int64_t>((endFrame - startFrame) * 2, std::numeric_limits<int>::max()));
+
+            std::vector<float> samples(static_cast<std::size_t>(sampleCount), 0.0F);
+            const int written = getSamplesInto(pixelStart, sampleCount, samples.data());
+
+            float pMin = 0.0F;
+            float pMax = 0.0F;
+            for (int i = 0; i + 1 < written; i += 2) {
+                pMin = std::min({pMin, samples[static_cast<std::size_t>(i)], samples[static_cast<std::size_t>(i + 1)]});
+                pMax = std::max({pMax, samples[static_cast<std::size_t>(i)], samples[static_cast<std::size_t>(i + 1)]});
+            }
+            result.push_back(pMin);
+            result.push_back(pMax);
+        }
+        return result;
+    }
+
+    PeakLevel levelCopy;
+    {
+        QMutexLocker locker(&m_mutex);
+        if (m_peakPyramid.empty()) {
+            return std::vector<float>(static_cast<std::size_t>(pixelWidth) * 2, 0.0F);
+        }
+
+        std::size_t levelIdx = 0;
+        for (std::size_t i = 0; i < m_peakPyramid.size(); ++i) {
+            if (m_peakPyramid[i].samplesPerEntry <= samplesPerPixel) {
+                levelIdx = i;
+            } else {
+                break;
+            }
+        }
+        levelCopy = m_peakPyramid[levelIdx];
+    }
+
+    if (levelCopy.peaks.empty()) {
+        return std::vector<float>(static_cast<std::size_t>(pixelWidth) * 2, 0.0F);
+    }
+
+    for (int pixel = 0; pixel < pixelWidth; ++pixel) {
+        const double pixelStart = startSec + (durationSec * static_cast<double>(pixel) / static_cast<double>(pixelWidth));
+        const double pixelEnd = startSec + (durationSec * static_cast<double>(pixel + 1) / static_cast<double>(pixelWidth));
+        const auto entryStart = static_cast<std::size_t>(std::max(0.0, std::floor((pixelStart * static_cast<double>(m_sampleRate)) / static_cast<double>(levelCopy.samplesPerEntry))));
+        const auto entryEnd = static_cast<std::size_t>(std::max(0.0, std::ceil((pixelEnd * static_cast<double>(m_sampleRate)) / static_cast<double>(levelCopy.samplesPerEntry))));
+
+        float pMin = 0.0F;
+        float pMax = 0.0F;
+        const std::size_t end = std::min(std::max(entryStart + 1, entryEnd), levelCopy.peaks.size());
+        if (entryStart < levelCopy.peaks.size()) {
+            for (std::size_t i = entryStart; i < end; ++i) {
+                pMin = std::min(pMin, levelCopy.peaks[i].min);
+                pMax = std::max(pMax, levelCopy.peaks[i].max);
+            }
+        }
+        result.push_back(pMin);
+        result.push_back(pMax);
+    }
+
+    return result;
 }
 
 auto AudioDecoder::totalDurationSec() const -> double {

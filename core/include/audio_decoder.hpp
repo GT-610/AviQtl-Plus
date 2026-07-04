@@ -71,6 +71,10 @@ class AudioDecoder : public MediaDecoder {
         std::vector<PeakEntry> peaks;
     };
 
+    std::vector<PeakEntry> buildBasePeaks(const std::vector<float> &samples) const;
+    std::vector<PeakEntry> silentBasePeaksForChunk(int64_t chunkIdx, double totalDurationSec) const;
+    void rebuildPeakPyramidFromBase();
+
     // FFmpeg contexts (protected by m_ffmpegMutex during decode)
     AVFormatContext *m_fmtCtx = nullptr;
     AVCodecContext *m_decCtx = nullptr;
@@ -95,6 +99,7 @@ class AudioDecoder : public MediaDecoder {
     QFuture<void> m_peakFuture;
     QFuture<void> m_prefetchFuture;
     std::atomic<bool> m_closing{false};
+    std::atomic<int> m_peakGeneration{0};
     QString m_lastError;
 
     // Separate mutex for FFmpeg seek/decode operations
