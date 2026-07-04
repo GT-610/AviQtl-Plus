@@ -189,7 +189,8 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
             // リサンプリングが必要な場合
             // 必要ソースサンプル数を計算（補間用に2サンプル余分に要求）
             int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * sourceRate)) + 2;
-            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
+            m_rawSamples.resize(static_cast<std::size_t>(neededSamples) * 2);
+            decoder->getSamplesInto(startTime, neededSamples * 2, m_rawSamples.data()); // Stereo
 
             if (!m_rawSamples.empty()) {
                 m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
@@ -225,7 +226,8 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
         } else {
             // 1倍速の場合はそのまま取得
             int neededSamples = samplesPerFrame;
-            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2);
+            m_rawSamples.resize(static_cast<std::size_t>(neededSamples) * 2);
+            decoder->getSamplesInto(startTime, neededSamples * 2, m_rawSamples.data());
             m_clipSamples.swap(m_rawSamples);
             m_clipPhase[clipId] = startTime + (static_cast<double>(samplesPerFrame) / m_format.sampleRate());
         }
