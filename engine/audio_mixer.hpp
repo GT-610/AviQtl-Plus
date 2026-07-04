@@ -49,6 +49,8 @@ class AudioMixer : public QObject {
     void audioMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);
 
   private:
+    void fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double startTime, int sampleCount);
+
     std::unique_ptr<QAudioSink> m_audioSink;
     QIODevice *m_audioOutput = nullptr;
     QAudioFormat m_format;

@@ -112,6 +112,13 @@ void AudioMixer::unregisterDecoder(int clipId) {
     m_decoders.remove(clipId);
 }
 
+void AudioMixer::fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double startTime, int sampleCount) {
+    m_rawSamples.resize(static_cast<std::size_t>(std::max(sampleCount, 0)));
+    if (sampleCount > 0) {
+        decoder->getSamplesInto(startTime, sampleCount, m_rawSamples.data());
+    }
+}
+
 auto AudioMixer::isReady() const -> bool {
     std::shared_lock lock(m_mutex);
     for (auto it = m_decoders.constBegin(); it != m_decoders.constEnd(); ++it) {
@@ -189,43 +196,39 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
             // リサンプリングが必要な場合
             // 必要ソースサンプル数を計算（補間用に2サンプル余分に要求）
             int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * sourceRate)) + 2;
-            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2); // Stereo
+            fetchRawSamples(decoder, startTime, neededSamples * 2); // Stereo
 
-            if (!m_rawSamples.empty()) {
-                m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
-                int availableSrcSamples = static_cast<int>(m_rawSamples.size() / 2);
+            m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
+            int availableSrcSamples = static_cast<int>(m_rawSamples.size() / 2);
 
-                for (int i = 0; i < samplesPerFrame; ++i) {
-                    double srcIdx = i * sourceRate;
-                    int idx0 = static_cast<int>(srcIdx);
-                    int idx1 = idx0 + 1;
+            for (int i = 0; i < samplesPerFrame; ++i) {
+                double srcIdx = i * sourceRate;
+                int idx0 = static_cast<int>(srcIdx);
+                int idx1 = idx0 + 1;
 
-                    // クランプして範囲外アクセス（SIGSEGV）を防止
-                    if (idx0 >= availableSrcSamples) {
-                        idx0 = availableSrcSamples - 1;
-                    }
-                    if (idx1 >= availableSrcSamples) {
-                        idx1 = availableSrcSamples - 1;
-                    }
-                    idx0 = std::max(idx0, 0);
-                    idx1 = std::max(idx1, 0);
-
-                    double t = srcIdx - idx0;
-
-                    // L ch
-                    m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((m_rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (m_rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
-                    // R ch
-                    m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((m_rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (m_rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
+                // クランプして範囲外アクセス（SIGSEGV）を防止
+                if (idx0 >= availableSrcSamples) {
+                    idx0 = availableSrcSamples - 1;
                 }
-            } else {
-                m_clipSamples.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
+                if (idx1 >= availableSrcSamples) {
+                    idx1 = availableSrcSamples - 1;
+                }
+                idx0 = std::max(idx0, 0);
+                idx1 = std::max(idx1, 0);
+
+                double t = srcIdx - idx0;
+
+                // L ch
+                m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((m_rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (m_rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
+                // R ch
+                m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((m_rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (m_rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
             }
             // 次のフレームのための開始位置を進める（m_playbackSpeed 分の秒数）
             m_clipPhase[clipId] = startTime + ((static_cast<double>(samplesPerFrame) / m_format.sampleRate()) * sourceRate);
         } else {
             // 1倍速の場合はそのまま取得
             int neededSamples = samplesPerFrame;
-            m_rawSamples = decoder->getSamples(startTime, neededSamples * 2);
+            fetchRawSamples(decoder, startTime, neededSamples * 2);
             m_clipSamples.swap(m_rawSamples);
             m_clipPhase[clipId] = startTime + (static_cast<double>(samplesPerFrame) / m_format.sampleRate());
         }
