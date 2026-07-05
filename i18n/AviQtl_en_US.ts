@@ -1840,17 +1840,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="344"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="339"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="362"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="357"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="525"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="521"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1860,17 +1860,17 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="318"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="313"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="308"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="303"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="377"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="372"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -2365,253 +2365,253 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>ExportDialog</name>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="102"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="118"/>
         <source>メディアの書き出し</source>
         <translation>Export Media</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="125"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="141"/>
         <source>書き出し中...</source>
         <translation>Exporting...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="144"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="160"/>
         <source>0 / 0 フレーム</source>
         <translation>0 / 0 frames</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="151"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="691"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="167"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="701"/>
         <source>キャンセル</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="168"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="184"/>
         <source> (残り %1時間%2分)</source>
         <translation> (remaining %1h %2m)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="172"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="188"/>
         <source> (残り %1分%2秒)</source>
         <translation> (remaining %1m %2s)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="174"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="190"/>
         <source> (残り %1秒)</source>
         <translation> (remaining %1s)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="176"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="192"/>
         <source>%1 / %2 フレーム%3</source>
         <translation>%1 / %2 frames%3</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="178"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="194"/>
         <source>%1 / %2 フレーム</source>
         <translation>%1 / %2 frames</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="198"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="214"/>
         <source>完了</source>
         <translation>Complete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="198"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="214"/>
         <source>エラー</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="220"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="236"/>
         <source>形式:</source>
         <translation>Format:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="225"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="241"/>
         <source>動画ファイル</source>
         <translation>Video File</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="225"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="241"/>
         <source>画像シーケンス</source>
         <translation>Image Sequence</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="240"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="256"/>
         <source>保存先ファイルパス...</source>
         <translation>Destination file path...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="240"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="256"/>
         <source>保存先フォルダ...</source>
         <translation>Destination folder...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="244"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="260"/>
         <source>参照...</source>
         <translation>Browse...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="252"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="268"/>
         <source>映像</source>
         <translation>Video</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="263"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="279"/>
         <source>解像度:</source>
         <translation>Resolution:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="273"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="289"/>
         <source>FPS:</source>
         <translation>FPS:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="283"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="520"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="299"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="536"/>
         <source>コーデック:</source>
         <translation>Codec:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="347"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="363"/>
         <source>品質モード:</source>
         <translation>Quality mode:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="357"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="373"/>
         <source>CRF</source>
         <translation>CRF</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="363"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="379"/>
         <source>ビットレート</source>
         <translation>Bitrate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="373"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="389"/>
         <source>CRF:</source>
         <translation>CRF:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="398"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="414"/>
         <source>高品質</source>
         <translation>High quality</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="398"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="414"/>
         <source>標準</source>
         <translation>Standard</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="398"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="414"/>
         <source>低品質</source>
         <translation>Low quality</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="407"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="568"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="423"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="578"/>
         <source>ビットレート:</source>
         <translation>Bitrate:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="424"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="440"/>
         <source>%1 Mbps</source>
         <translation>%1 Mbps</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="435"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="451"/>
         <source>プリセット:</source>
         <translation>Preset:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="455"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="471"/>
         <source>最速 (ultrafast)</source>
         <translation>Fastest (ultrafast)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="446"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="458"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="462"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="474"/>
         <source>高速 (fast)</source>
         <translation>Fast (fast)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="449"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="461"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="465"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="477"/>
         <source>標準 (medium)</source>
         <translation>Standard (medium)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="452"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="464"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="468"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="480"/>
         <source>高品質 (slow)</source>
         <translation>High quality (slow)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="467"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="483"/>
         <source>最高品質 (veryslow)</source>
         <translation>Highest quality (veryslow)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="476"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="492"/>
         <source>プロファイル:</source>
         <translation>Profile:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="487"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="503"/>
         <source>自動</source>
         <translation>Auto</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="509"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="525"/>
         <source>音声</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="595"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="605"/>
         <source>範囲</source>
         <translation>Range</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="605"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="615"/>
         <source>タイムライン全体</source>
         <translation>Entire timeline</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="610"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="620"/>
         <source>開始:</source>
         <translation>Start:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="624"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="634"/>
         <source>終了:</source>
         <translation>End:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="668"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="678"/>
         <source>(%1 フレーム / %2 秒)</source>
         <translation>(%1 frames / %2 seconds)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="696"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="706"/>
         <source>書き出し開始</source>
         <translation>Start Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="740"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="750"/>
         <source>保存先を指定</source>
         <translation>Specify Destination</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="752"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="762"/>
         <source>保存先フォルダを指定</source>
         <translation>Specify Destination Folder</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="762"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="772"/>
         <source>書き出しキャンセル</source>
         <translation>Cancel Export</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="769"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="779"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
         <translation>Cancel the export?
@@ -2870,29 +2870,29 @@ Progress will be lost.</translation>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="111"/>
+        <location filename="../ui/qml/MainWindow.qml" line="125"/>
         <source>新規プロジェクト</source>
         <translation>New Project</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="123"/>
+        <location filename="../ui/qml/MainWindow.qml" line="137"/>
         <source>プロジェクトの上書き保存</source>
         <translation>Save Project</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="140"/>
-        <location filename="../ui/qml/MainWindow.qml" line="705"/>
+        <location filename="../ui/qml/MainWindow.qml" line="154"/>
+        <location filename="../ui/qml/MainWindow.qml" line="723"/>
         <source>プロジェクトを開く</source>
         <translation>Open Project</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="151"/>
+        <location filename="../ui/qml/MainWindow.qml" line="165"/>
         <source>プロジェクトを名前を付けて保存...</source>
         <translation>Save Project As...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="173"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1335"/>
+        <location filename="../ui/qml/MainWindow.qml" line="187"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1353"/>
         <source>終了</source>
         <translation>Exit</translation>
     </message>
@@ -2901,256 +2901,256 @@ Progress will be lost.</translation>
         <translation type="vanished">Show Mixer</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="240"/>
+        <location filename="../ui/qml/MainWindow.qml" line="254"/>
         <source>新規シーン作成</source>
         <translation>Create New Scene</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="245"/>
+        <location filename="../ui/qml/MainWindow.qml" line="259"/>
         <source>シーン %1</source>
         <translation>Scene %1</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="255"/>
+        <location filename="../ui/qml/MainWindow.qml" line="269"/>
         <source>元に戻す</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="268"/>
+        <location filename="../ui/qml/MainWindow.qml" line="282"/>
         <source>やり直す</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="281"/>
+        <location filename="../ui/qml/MainWindow.qml" line="295"/>
         <source>再生 / 一時停止</source>
         <translation>Play / Pause</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="294"/>
+        <location filename="../ui/qml/MainWindow.qml" line="308"/>
         <source>クリップを分割</source>
         <translation>Split Clip</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="316"/>
+        <location filename="../ui/qml/MainWindow.qml" line="330"/>
         <source>現在のシーン設定...</source>
         <translation>Current Scene Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="333"/>
+        <location filename="../ui/qml/MainWindow.qml" line="347"/>
         <source>現在のシーンを削除</source>
         <translation>Delete Current Scene</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="346"/>
+        <location filename="../ui/qml/MainWindow.qml" line="360"/>
         <source>レイヤーロック切替</source>
         <translation>Toggle Layer Lock</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="364"/>
+        <location filename="../ui/qml/MainWindow.qml" line="378"/>
         <source>レイヤー表示切替</source>
         <translation>Toggle Layer Visibility</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="382"/>
+        <location filename="../ui/qml/MainWindow.qml" line="396"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="395"/>
+        <location filename="../ui/qml/MainWindow.qml" line="409"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="408"/>
+        <location filename="../ui/qml/MainWindow.qml" line="422"/>
         <source>カット</source>
         <translation>Cut</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="421"/>
+        <location filename="../ui/qml/MainWindow.qml" line="435"/>
         <source>貼り付け</source>
         <translation>Paste</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="436"/>
+        <location filename="../ui/qml/MainWindow.qml" line="452"/>
         <source>複製</source>
         <translation>Duplicate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="452"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1019"/>
+        <location filename="../ui/qml/MainWindow.qml" line="470"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1037"/>
         <source>1フレーム進む</source>
         <translation>Forward 1 Frame</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="464"/>
-        <location filename="../ui/qml/MainWindow.qml" line="979"/>
+        <location filename="../ui/qml/MainWindow.qml" line="482"/>
+        <location filename="../ui/qml/MainWindow.qml" line="997"/>
         <source>1フレーム戻る</source>
         <translation>Back 1 Frame</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="476"/>
+        <location filename="../ui/qml/MainWindow.qml" line="494"/>
         <source>先頭へ移動</source>
         <translation>Go to Start</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="489"/>
+        <location filename="../ui/qml/MainWindow.qml" line="507"/>
         <source>末尾へ移動</source>
         <translation>Go to End</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="502"/>
+        <location filename="../ui/qml/MainWindow.qml" line="520"/>
         <source>ズームイン</source>
         <translation>Zoom In</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="519"/>
+        <location filename="../ui/qml/MainWindow.qml" line="537"/>
         <source>ズームアウト</source>
         <translation>Zoom Out</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="536"/>
+        <location filename="../ui/qml/MainWindow.qml" line="554"/>
         <source>レイヤーを上へ移動</source>
         <translation>Move Layer Up</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="549"/>
+        <location filename="../ui/qml/MainWindow.qml" line="567"/>
         <source>レイヤーを下へ移動</source>
         <translation>Move Layer Down</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="562"/>
+        <location filename="../ui/qml/MainWindow.qml" line="580"/>
         <source>1フレーム左へ移動</source>
         <translation>Move Left 1 Frame</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="575"/>
+        <location filename="../ui/qml/MainWindow.qml" line="593"/>
         <source>1フレーム右へ移動</source>
         <translation>Move Right 1 Frame</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="586"/>
+        <location filename="../ui/qml/MainWindow.qml" line="604"/>
         <source>エラー</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="595"/>
+        <location filename="../ui/qml/MainWindow.qml" line="613"/>
         <source>保存の確認</source>
         <translation>Confirm Save</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="629"/>
+        <location filename="../ui/qml/MainWindow.qml" line="647"/>
         <source>プロジェクトに保存されていない変更があります。
 続行する前に保存しますか？</source>
         <translation>The project has unsaved changes.
 Save before continuing?</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="684"/>
+        <location filename="../ui/qml/MainWindow.qml" line="702"/>
         <source>名前を付けて保存</source>
         <translation>Save As</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="921"/>
+        <location filename="../ui/qml/MainWindow.qml" line="939"/>
         <source>シークバー</source>
         <translation>Seek Bar</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="922"/>
+        <location filename="../ui/qml/MainWindow.qml" line="940"/>
         <source>タイムライン上の現在位置をドラッグして再生位置を変更します</source>
         <translation>Drag to change playback position on the timeline</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="980"/>
+        <location filename="../ui/qml/MainWindow.qml" line="998"/>
         <source>再生位置を1フレーム前に移動します</source>
         <translation>Move playback position 1 frame back</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="999"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1017"/>
         <source>一時停止</source>
         <translation>Pause</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="999"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1017"/>
         <source>再生</source>
         <translation>Play</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1000"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1018"/>
         <source>再生を開始または一時停止します</source>
         <translation>Start or pause playback</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1020"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1038"/>
         <source>再生位置を1フレーム後に移動します</source>
         <translation>Move playback position 1 frame forward</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1042"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1060"/>
         <source>速度</source>
         <translation>Speed</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1298"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1316"/>
         <source>ファイル</source>
         <translation>File</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="160"/>
+        <location filename="../ui/qml/MainWindow.qml" line="174"/>
         <source>メディアの書き出し...</source>
         <translation>Export Media...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="201"/>
+        <location filename="../ui/qml/MainWindow.qml" line="215"/>
         <source>プロジェクト設定</source>
         <translation>Project Settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="188"/>
+        <location filename="../ui/qml/MainWindow.qml" line="202"/>
         <source>環境設定</source>
         <translation>Preferences</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="86"/>
+        <location filename="../ui/qml/MainWindow.qml" line="100"/>
         <source>AviQtl Plus - プレビュー</source>
         <translation>AviQtl Plus - Preview</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1391"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1409"/>
         <source>ツール</source>
         <translation>Tools</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1394"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1412"/>
         <source>パッケージマネージャー</source>
         <translation>Package Manager</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1358"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1376"/>
         <source>設定</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1343"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1361"/>
         <source>編集</source>
         <translation>Edit</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1376"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1394"/>
         <source>表示</source>
         <translation>View</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="214"/>
+        <location filename="../ui/qml/MainWindow.qml" line="228"/>
         <source>タイムラインの表示</source>
         <translation>Show Timeline</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="227"/>
+        <location filename="../ui/qml/MainWindow.qml" line="241"/>
         <source>設定ダイアログの表示</source>
         <translation>Show Settings Dialog</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1413"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1431"/>
         <source>バージョン情報</source>
         <translation>About</translation>
     </message>
@@ -3956,7 +3956,7 @@ Please restart the application to apply the update.</translation>
         <translation>Split multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="842"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="841"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>Paste multiple clips: %1</translation>
     </message>
@@ -4739,97 +4739,96 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="40"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="39"/>
         <source>操作</source>
         <translation>Controls</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="48"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="47"/>
         <source>時間表示</source>
         <translation>Time Display</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="60"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="59"/>
         <source>タイムラインスキミングを有効にする</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="66"/>
         <source>分割時にカーソル位置を使う</source>
-        <translation>Use cursor position when splitting</translation>
+        <translation type="vanished">Use cursor position when splitting</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="72"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="65"/>
         <source>レイヤー範囲を表示する</source>
         <translation>Show layer ranges</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="82"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="75"/>
         <source>見た目と寸法</source>
         <translation>Appearance and Dimensions</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="92"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="85"/>
         <source>トラックの高さ</source>
         <translation>Track height</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="103"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="96"/>
         <source>ヘッダーの高さ</source>
         <translation>Header height</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="114"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="107"/>
         <source>設定サイドバーを右に配置</source>
         <translation>Place settings sidebar on the right</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="123"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="116"/>
         <source>ルーラーの高さ</source>
         <translation>Ruler height</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="134"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="127"/>
         <source>最大レイヤー数</source>
         <translation>Maximum layer count</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="145"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="138"/>
         <source>レイヤーヘッダー幅</source>
         <translation>Layer header width</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="156"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="149"/>
         <source>時間表示欄の幅</source>
         <translation>Time display field width</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="167"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="160"/>
         <source>クリップ端のつかみ幅</source>
         <translation>Clip edge handle width</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="182"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="175"/>
         <source>編集制約とズーム</source>
         <translation>Editing Constraints and Zoom</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="192"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="185"/>
         <source>最小クリップ長</source>
         <translation>Minimum clip length</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="203"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="196"/>
         <source>ズーム最小値</source>
         <translation>Minimum zoom value</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="214"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="207"/>
         <source>ズーム最大値</source>
         <translation>Maximum zoom value</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="225"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="218"/>
         <source>ズーム刻み</source>
         <translation>Zoom step</translation>
     </message>
@@ -4837,87 +4836,87 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="980"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1001"/>
         <source>オブジェクトを追加</source>
         <translation>Add Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="995"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1016"/>
         <source>トランジションを追加</source>
         <translation>Add Transition</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1007"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1028"/>
         <source>元に戻す</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1008"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1029"/>
         <source>やり直す</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1009"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1030"/>
         <source>貼り付け</source>
         <translation>Paste</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1011"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1032"/>
         <source>シーン設定...</source>
         <translation>Scene Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1012"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1033"/>
         <source>プロジェクト設定...</source>
         <translation>Project Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1013"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1034"/>
         <source>環境設定...</source>
         <translation>Preferences...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1015"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1036"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1016"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1037"/>
         <source>分割</source>
         <translation>Split</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1017"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1038"/>
         <source>複製</source>
         <translation>Duplicate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1019"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1040"/>
         <source>切り取り</source>
         <translation>Cut</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1020"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1041"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1024"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1045"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1036"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1057"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1060"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1081"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>Search effects/objects...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="586"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="603"/>
         <source>ここにドロップ</source>
         <translation>Drop here</translation>
     </message>
@@ -4925,12 +4924,12 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineWindow</name>
     <message>
-        <location filename="../ui/qml/TimelineWindow.qml" line="113"/>
+        <location filename="../ui/qml/TimelineWindow.qml" line="111"/>
         <source>タイムライン</source>
         <translation>Timeline</translation>
     </message>
     <message>
-        <location filename="../ui/qml/TimelineWindow.qml" line="243"/>
+        <location filename="../ui/qml/TimelineWindow.qml" line="241"/>
         <source>シーン %1</source>
         <translation>Scene %1</translation>
     </message>
