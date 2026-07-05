@@ -2,7 +2,6 @@ import "../common" as Common
 import "../common/Logger.js" as Logger
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 
 Item {
     id: timelineViewRoot
@@ -18,6 +17,16 @@ Item {
     }
     property int contextClickFrame: 0
     property int contextClickLayer: 0
+    property bool skimmingEnabled: SettingsManager?.settings?.enableTimelineSkimming ?? true
+    property bool skimmerVisible: false
+    property int skimmerFrame: 0
+    property int skimmerLayer: 0
+    readonly property color skimmerColor: "#ff5a3d"
+    onSkimmingEnabledChanged: {
+        if (!skimmingEnabled)
+            hideSkimmer();
+
+    }
     property bool boxSelecting: false
     property point boxSelectionStart: Qt.point(0, 0)
     property point boxSelectionCurrent: Qt.point(0, 0)
@@ -100,6 +109,59 @@ Item {
         dragAutoScrollCallback = null;
     }
 
+    function updateSkimmerFromContentPosition(x, y, modifiers) {
+        if (!Workspace.currentTimeline || !skimmingEnabled) {
+            hideSkimmer();
+            return ;
+        }
+
+        var scale = Workspace.currentTimeline.timelineScale;
+        if (scale <= 0) {
+            hideSkimmer();
+            return ;
+        }
+
+        skimmerFrame = snapFrame(x / scale, modifiers & Qt.ShiftModifier);
+        skimmerLayer = clamp(Math.floor(y / layerHeight), 0, layerCount - 1);
+        skimmerVisible = true;
+    }
+
+    function hideSkimmer() {
+        skimmerVisible = false;
+    }
+
+    // Keyboard/menu edit commands target the skimmer when visible, otherwise the playhead.
+    function editTargetFrame() {
+        if (skimmingEnabled && skimmerVisible)
+            return skimmerFrame;
+
+        return Workspace.currentTimeline?.transport?.currentFrame ?? 0;
+    }
+
+    function editTargetLayer() {
+        if (skimmingEnabled && skimmerVisible)
+            return skimmerLayer;
+
+        return Workspace.currentTimeline?.selectedLayer ?? 0;
+    }
+
+    function advanceEditTarget(frame, layer) {
+        if (!Workspace.currentTimeline || frame === undefined || frame === null)
+            return ;
+
+        var targetFrame = Math.max(0, Math.round(frame));
+        var targetLayer = clamp(Math.round(layer ?? editTargetLayer()), 0, layerCount - 1);
+        if (skimmingEnabled && skimmerVisible) {
+            skimmerFrame = targetFrame;
+            skimmerLayer = targetLayer;
+        } else {
+            if (Workspace.currentTimeline.transport)
+                Workspace.currentTimeline.transport.setCurrentFrame_seek(targetFrame);
+
+            Workspace.currentTimeline.selectedLayer = targetLayer;
+        }
+    }
+
     function syncBoxSelectionPreview() {
         if (!Workspace.currentTimeline)
             return ;
@@ -170,13 +232,12 @@ Item {
     clip: true
 
     Flickable {
-        // unified loop handles viewport updates now
         id: timelineFlickable
 
         anchors.fill: parent
         clip: true
-        contentWidth: timelineLengthFrames * (Workspace.currentTimeline?.timelineScale ?? 1)
-        contentHeight: layerCount * layerHeight
+        contentWidth: Math.max(timelineLengthFrames * (Workspace.currentTimeline?.timelineScale ?? 1), width)
+        contentHeight: Math.max(layerCount * layerHeight, height)
         interactive: false
 
         Timer {
@@ -184,13 +245,10 @@ Item {
 
             interval: 16
             repeat: true
-            running: true // Unified render loop
+            running: (Workspace.currentTimeline?.transport?.isPlaying ?? false) || timelineViewRoot.dragAutoScrollActive
             onTriggered: {
                 if (!Workspace.currentTimeline)
                     return ;
-
-                if (typeof Workspace.currentTimeline.updateViewport === "function")
-                    Workspace.currentTimeline.updateViewport(timelineFlickable.contentX, timelineFlickable.contentY);
 
                 // スクロールバーへの接触（ホバー含む）または操作を検知して自動スクロールを一時停止
                 // activeが AsNeeded 条件 (size < 1.0) と連動しているため、非表示時は判定されない
@@ -260,20 +318,6 @@ Item {
             z: -2
         }
 
-        // 編集カーソル（マウス追従ガイド）
-        Rectangle {
-            id: editCursorLine
-
-            visible: Workspace.currentTimeline !== null
-            x: (Workspace.currentTimeline?.cursorFrame ?? 0) * (Workspace.currentTimeline?.timelineScale ?? 1)
-            y: 0
-            width: 1
-            height: timelineFlickable.contentHeight
-            color: palette.highlight
-            opacity: 0.5
-            z: 90
-        }
-
         Item {
             // 描画位置をピクセルにスナップさせてサブピクセル描画によるゴミを防ぐ
             x: Math.floor(timelineFlickable.contentX)
@@ -294,7 +338,6 @@ Item {
                 layerCount: timelineViewRoot.layerCount
                 layerHeight: timelineViewRoot.layerHeight
                 gridSettings: timelineViewRoot.gridSettings
-                timelineDuration: timelineViewRoot.timelineLengthFrames
             }
 
         }
@@ -380,13 +423,10 @@ Item {
             preventStealing: true
             hoverEnabled: true
             onPositionChanged: (mouse) => {
-                if (pressed && Workspace.currentTimeline)
-                    Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
-
+                updateSkimmerFromContentPosition(mouse.x, mouse.y, mouse.modifiers);
             }
             onPressed: (mouse) => {
-                if (Workspace.currentTimeline)
-                    Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(mouse.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
+                updateSkimmerFromContentPosition(mouse.x, mouse.y, mouse.modifiers);
 
                 var l = Math.floor(mouse.y / layerHeight);
                 if (Workspace.currentTimeline && l >= 0 && l < layerCount) {
@@ -413,10 +453,7 @@ Item {
                     // クリックされた位置のレイヤー番号を計算
                     var l = Math.floor(boxSelectionStart.y / layerHeight);
                     if (l >= 0 && l < layerCount) {
-                        // 選択中のレイヤーと異なるレイヤーを右クリックした場合は、編集カーソルもそのフレーム位置へ移動させる
-                        if (Workspace.currentTimeline.selectedLayer !== l)
-                            Workspace.currentTimeline.cursorFrame = timelineViewRoot.snapFrame(boxSelectionStart.x / Workspace.currentTimeline.timelineScale, (mouse.modifiers & Qt.ShiftModifier));
-
+                        updateSkimmerFromContentPosition(boxSelectionStart.x, boxSelectionStart.y, mouse.modifiers);
                         Workspace.currentTimeline.selectedLayer = l;
                     }
                 }
@@ -470,6 +507,34 @@ Item {
             height: Math.abs(boxSelectionCurrent.y - boxSelectionStart.y)
         }
 
+        HoverHandler {
+            id: skimmerHover
+
+            enabled: timelineViewRoot.skimmingEnabled
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onPointChanged: {
+                timelineViewRoot.updateSkimmerFromContentPosition(point.position.x, point.position.y, 0);
+            }
+            onHoveredChanged: {
+                if (!hovered)
+                    timelineViewRoot.hideSkimmer();
+
+            }
+        }
+
+        Rectangle {
+            id: skimmerLine
+
+            visible: Workspace.currentTimeline !== null && skimmingEnabled && skimmerVisible
+            x: skimmerFrame * (Workspace.currentTimeline?.timelineScale ?? 1)
+            y: 0
+            width: 1
+            height: parent.height
+            color: skimmerColor
+            opacity: 0.85
+            z: 90
+        }
+
         Rectangle {
             id: playhead
 
@@ -514,7 +579,12 @@ Item {
             frame = timelineViewRoot.snapFrame(frame, drop.modifiers & Qt.ShiftModifier);
 
             for (var i = 0; i < drop.urls.length; i++) {
-                Workspace.currentTimeline.importMediaFile(drop.urls[i], frame, targetLayer);
+                var result = Workspace.currentTimeline.importMediaFile(drop.urls[i], frame, targetLayer);
+                if (result?.ok) {
+                    frame = result.nextFrame;
+                    targetLayer = result.layer;
+                    advanceEditTarget(result.nextFrame, result.layer);
+                }
             }
             drop.acceptProposedAction();
         }
@@ -679,7 +749,7 @@ Item {
                 return ;
 
             if (cmd.startsWith("add.")) {
-                Workspace.currentTimeline.createObject(cmd.substring(4), Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+                Workspace.currentTimeline.createObject(cmd.substring(4), contextClickFrame, contextClickLayer);
                 return ;
             }
             switch (cmd) {
@@ -696,11 +766,13 @@ Item {
                     Workspace.currentTimeline.deleteClip(targetClipId);
                 break;
             case "clip.split":
-                Workspace.currentTimeline.splitClip(targetClipId, Workspace.currentTimeline.cursorFrame);
+                Workspace.currentTimeline.splitClip(targetClipId, contextClickFrame);
                 break;
             case "clip.duplicate":
                 Workspace.currentTimeline.copySelectedClips();
-                Workspace.currentTimeline.pasteClip(Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+                var duplicateResult = Workspace.currentTimeline.pasteClip(contextClickFrame, contextClickLayer);
+                if (duplicateResult?.ok)
+                    advanceEditTarget(duplicateResult.nextFrame, duplicateResult.layer);
                 break;
             case "clip.cut":
                 if (shouldApplyToSelection())
@@ -715,7 +787,9 @@ Item {
                     Workspace.currentTimeline.copyClip(targetClipId);
                 break;
             case "edit.paste":
-                Workspace.currentTimeline.pasteClip(Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+                var pasteResult = Workspace.currentTimeline.pasteClip(contextClickFrame, contextClickLayer);
+                if (pasteResult?.ok)
+                    advanceEditTarget(pasteResult.nextFrame, pasteResult.layer);
                 break;
             case "view.scenesettings":
                 var win = WindowManager.getWindow("sceneSettings");
@@ -776,7 +850,7 @@ Item {
                                 if (isEffect)
                                     Workspace.currentTimeline.addEffect(targetClipId, nodeId);
                                 else
-                                    Workspace.currentTimeline.createObject(nodeId, Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+                                    Workspace.currentTimeline.createObject(nodeId, contextClickFrame, contextClickLayer);
                             });
                         })(node.id);
                         contextMenu.addItem(item);
@@ -850,7 +924,7 @@ Item {
                         });
                         (function(id) {
                             transItem.triggered.connect(() => {
-                                Workspace.currentTimeline.createTransition(id, Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+                                Workspace.currentTimeline.createTransition(id, contextClickFrame, contextClickLayer);
                             });
                         })(node.id);
                         parentMenu.addItem(transItem);

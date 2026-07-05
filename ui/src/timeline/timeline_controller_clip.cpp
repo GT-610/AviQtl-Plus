@@ -243,23 +243,14 @@ auto TimelineController::activeObjectType() const -> QString { return m_selectio
 
 void TimelineController::createObject(const QString &type, int startFrame, int layer) {
     if (m_timeline != nullptr) {
-        int actualFrame = m_timeline->createClip(type, startFrame, layer);
-        int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
-        setCursorFrame(actualFrame + duration);
+        m_timeline->createClip(type, startFrame, layer);
     }
 }
 
 void TimelineController::createTransition(const QString &type, int startFrame, int layer) {
     if (m_timeline != nullptr) {
         // トランジションは通常のオブジェクトとして作成
-        int actualFrame = m_timeline->createClip(type, startFrame, layer);
-        // トランジションのデフォルト持続時間を取得
-        auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(type);
-        int duration = 30; // デフォルト30フレーム
-        if (meta.defaultParams.contains(QStringLiteral("duration"))) {
-            duration = meta.defaultParams.value(QStringLiteral("duration")).toInt();
-        }
-        setCursorFrame(actualFrame + duration);
+        m_timeline->createClip(type, startFrame, layer);
     }
 }
 
@@ -292,9 +283,13 @@ double TimelineController::getSceneFps() const {
     return AviQtl::kDefaultFps;
 }
 
-void TimelineController::importMediaFile(const QString &fileUrl, int startFrame, int layer) {
+auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame, int layer) -> QVariantMap {
+    auto editResult = [](int frame, int targetLayer, int duration) -> QVariantMap {
+        return {{QStringLiteral("ok"), true}, {QStringLiteral("frame"), frame}, {QStringLiteral("layer"), targetLayer}, {QStringLiteral("duration"), duration}, {QStringLiteral("nextFrame"), frame + duration}};
+    };
+
     if (m_timeline == nullptr) {
-        return;
+        return {{QStringLiteral("ok"), false}};
     }
 
     QUrl url(fileUrl);
@@ -306,7 +301,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     QFileInfo fileInfo(filePath);
     if (!fileInfo.exists()) {
         emit errorOccurred(tr("ファイルが見つかりません: %1").arg(filePath));
-        return;
+        return {{QStringLiteral("ok"), false}};
     }
 
     QString suffix = fileInfo.suffix().toLower();
@@ -339,7 +334,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + importDuration);
+        return editResult(startFrame, layer, importDuration);
     } else if (audioExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
 
@@ -357,7 +352,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + importDuration);
+        return editResult(startFrame, layer, importDuration);
     } else if (imageExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
 
@@ -372,9 +367,10 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + importDuration);
+        return editResult(startFrame, layer, importDuration);
     } else {
         emit errorOccurred(tr("サポートされていないファイル形式です: %1").arg(suffix));
+        return {{QStringLiteral("ok"), false}};
     }
 }
 
@@ -1211,11 +1207,19 @@ void TimelineController::copyClip(int clipId) { m_timeline->copyClip(clipId); }
 
 void TimelineController::cutClip(int clipId) { m_timeline->cutClip(clipId); }
 
-void TimelineController::pasteClip(int frame, int layer) {
-    int duration = m_timeline->getClipboardDuration();
-    int actualFrame = m_timeline->pasteClip(frame, layer);
-    if (duration > 0)
-        setCursorFrame(actualFrame + duration);
+auto TimelineController::pasteClip(int frame, int layer) -> QVariantMap {
+    if (m_timeline == nullptr) {
+        return {{QStringLiteral("ok"), false}};
+    }
+
+    const int duration = m_timeline->getClipboardDuration();
+    if (duration <= 0) {
+        return {{QStringLiteral("ok"), false}};
+    }
+
+    const int actualFrame = m_timeline->pasteClip(frame, layer);
+    const int actualLayer = std::max(layer, 0);
+    return {{QStringLiteral("ok"), true}, {QStringLiteral("frame"), actualFrame}, {QStringLiteral("layer"), actualLayer}, {QStringLiteral("duration"), duration}, {QStringLiteral("nextFrame"), actualFrame + duration}};
 }
 
 void TimelineController::copySelectedClips() {

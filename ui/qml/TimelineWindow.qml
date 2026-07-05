@@ -78,6 +78,18 @@ Common.AviQtlWindow {
         return 100 + ((scale - 1) * 300 / 9);
     }
 
+    function editTargetFrame() {
+        return timelineView.editTargetFrame();
+    }
+
+    function editTargetLayer() {
+        return timelineView.editTargetLayer();
+    }
+
+    function advanceEditTarget(frame, layer) {
+        timelineView.advanceEditTarget(frame, layer);
+    }
+
     function setTimelineZoomPercent(percent, anchorMode) {
         if (!Workspace.currentTimeline)
             return ;
@@ -245,7 +257,6 @@ Common.AviQtlWindow {
             rulerHeight: timelineWindow.rulerHeight
             timeWidth: timelineWindow.headerWidth
             fps: Workspace.currentTimeline?.project?.fps ?? 60
-            timelineDuration: timelineView.timelineLengthFrames
             Layout.preferredHeight: timelineWindow.rulerHeight
             Layout.minimumHeight: timelineWindow.rulerHeight
             Layout.maximumHeight: timelineWindow.rulerHeight
@@ -350,7 +361,7 @@ Common.AviQtlWindow {
         sequence: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["timeline.split"]) || "S"
         context: Qt.WindowShortcut
         enabled: !_isInputFocused && Workspace.currentTimeline
-        onActivated: Workspace.currentTimeline.splitSelectedClips(Workspace.currentTimeline.cursorFrame)
+        onActivated: Workspace.currentTimeline.splitSelectedClips(timelineWindow.editTargetFrame())
     }
 
     Shortcut {
@@ -371,7 +382,11 @@ Common.AviQtlWindow {
         sequence: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["edit.paste"]) || "Ctrl+V"
         context: Qt.WindowShortcut
         enabled: !_isInputFocused && Workspace.currentTimeline
-        onActivated: Workspace.currentTimeline.pasteClip(Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer)
+        onActivated: {
+            var result = Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer());
+            if (result?.ok)
+                timelineWindow.advanceEditTarget(result.nextFrame, result.layer);
+        }
     }
 
     Shortcut {
@@ -380,7 +395,9 @@ Common.AviQtlWindow {
         enabled: !_isInputFocused && Workspace.currentTimeline
         onActivated: {
             Workspace.currentTimeline.copySelectedClips();
-            Workspace.currentTimeline.pasteClip(Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+            var result = Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer());
+            if (result?.ok)
+                timelineWindow.advanceEditTarget(result.nextFrame, result.layer);
         }
     }
 

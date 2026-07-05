@@ -1,4 +1,3 @@
-import "../common" as Common
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -12,7 +11,6 @@ Rectangle {
     property int timeWidth: 60
     property double fps: 60
     property alias canvas: rulerCanvas
-    property int timelineDuration: 0
 
     signal zoomRequested(int percent)
 
@@ -222,7 +220,6 @@ Rectangle {
 
             }
 
-            // ルーラー上の編集カーソル表示
             Rectangle {
                 id: rulerPlayhead
 
@@ -232,19 +229,6 @@ Rectangle {
                 height: parent.height
                 color: palette.highlight
                 z: 10
-            }
-
-            Rectangle {
-                id: rulerEditCursor
-
-                visible: Workspace.currentTimeline !== null
-                x: Math.round(((Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0) * (Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1)) - (targetFlickable ? targetFlickable.contentX : 0))
-                y: rulerRoot.height * 0.6
-                width: 1
-                height: rulerRoot.height * 0.4
-                color: palette.highlight
-                opacity: 0.7
-                z: 5
             }
 
             // マウス操作（スクラブ & ズーム）

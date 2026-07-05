@@ -804,11 +804,10 @@ int TimelineService::pasteClip(int frame, int layer) {
         return frame;
     }
 
-    int safeFrame = findVacantFrameForClipboard(frame, layer);
     frame = std::max(frame, 0);
     layer = std::max(layer, 0);
+    int safeFrame = findVacantFrameForClipboard(frame, layer);
 
-    auto &currentClips = clipsMutable();
     auto overlaps = [](int s1, int d1, int s2, int d2) -> bool { return (s1 < (s2 + d2)) && (s2 < (s1 + d1)); };
 
     int baseFrame = m_clipboard.first().startFrame;
