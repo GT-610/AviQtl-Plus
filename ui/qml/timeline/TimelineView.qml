@@ -220,7 +220,7 @@ Item {
 
         anchors.fill: parent
         clip: true
-        contentWidth: timelineLengthFrames * (Workspace.currentTimeline?.timelineScale ?? 1)
+        contentWidth: Math.max(timelineLengthFrames * (Workspace.currentTimeline?.timelineScale ?? 1), width)
         contentHeight: layerCount * layerHeight
         interactive: false
 
