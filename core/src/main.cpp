@@ -51,6 +51,7 @@ static void aviqtl_ffmpeg_log_callback(void *ptr, int level, const char *fmt, va
 }
 
 void setupQmlEngine(QQmlApplicationEngine &engine) {
+    QQuickStyle::setStyle(QStringLiteral("Fusion"));
     QQuickStyle::setFallbackStyle(QStringLiteral("Fusion"));
 
     // 型登録

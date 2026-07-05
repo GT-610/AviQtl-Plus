@@ -17,7 +17,7 @@ import json
 import stat
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Type
+from typing import Callable, ClassVar, List, Optional, Type
 
 
 @dataclass
@@ -66,14 +66,11 @@ class Logger:
 
 
 class PlatformBuilder:
-    CARLA_DLL_PATTERNS = (
+    CARLA_DLL_PATTERNS: ClassVar[tuple[str, ...]] = (
         "carla*.dll",
         "libcarla*.dll",
         "CarlaVst*.dll",
     )
-    CARLA_DLL_ALIASES = {
-        "libcarla_native-plugin.dll": "CarlaNativePlugin.dll",
-    }
 
     def __init__(self, config: BuildConfig, logger: Logger):
         self.config = config
@@ -543,8 +540,8 @@ class Msys2Builder(PlatformBuilder):
             raise FileNotFoundError(f"Executable not found: {src_bin}")
         shutil.copy2(src_bin, dest_bin)
         self.copy_assets(self.config.output_dir)
-        self.copy_carla_runtime()
         self.copy_carla_link_dlls()
+        self.copy_carla_discovery_tool()
         self.copy_msys2_runtime_dlls()
 
 
@@ -573,22 +570,11 @@ class Msys2Builder(PlatformBuilder):
             str(dest_bin),
             "--dir", str(self.config.output_dir),
         ])
+        self.cleanup_qt_quick_control_styles()
         self.copy_msys2_dependency_dlls()
         with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
             f.write("[Paths]\nPlugins = .\n")
         self.logger.log(f"Executable: {dest_bin}")
-
-    def copy_carla_runtime(self):
-        """Bundle the Carla runtime (runtime/ directory) into the package"""
-        carla_runtime = self.config.source_dir / "vendor" / "carla" / "runtime"
-        if not carla_runtime.exists():
-            self.logger.log("Carla runtime/ not found. Not bundling Carla")
-            return
-        dest = self.config.output_dir / "Carla"
-        if dest.exists():
-            self.remove_tree(dest)
-        shutil.copytree(str(carla_runtime), str(dest))
-        self.logger.log(f"Bundled Carla runtime: {dest}")
 
     def get_msys2_bin_dirs(self) -> List[Path]:
         dirs: List[Path] = []
@@ -752,11 +738,60 @@ class Msys2Builder(PlatformBuilder):
                 shutil.copy2(dll, self.config.output_dir / dll.name)
                 copied.add(dll.name)
                 self.logger.log(f"Bundled Carla link DLL: {dll.name}")
-                if dll.name in self.CARLA_DLL_ALIASES:
-                    alias = self.CARLA_DLL_ALIASES[dll.name]
-                    shutil.copy2(dll, self.config.output_dir / alias)
-                    copied.add(alias)
-                    self.logger.log(f"Bundled Carla link DLL alias: {alias}")
+
+    def copy_carla_discovery_tool(self):
+        discovery = self.find_carla_discovery_tool()
+        if not discovery:
+            self.logger.log("carla-discovery-native.exe not found. Audio plugin discovery will rely on PATH.")
+            return
+        shutil.copy2(discovery, self.config.output_dir / "carla-discovery-native.exe")
+        self.logger.log(f"Bundled Carla discovery tool: {discovery}")
+
+    def find_carla_discovery_tool(self) -> Path | None:
+        carla_root = self.config.source_dir / "vendor" / "carla"
+        candidates = [
+            carla_root / "carla-discovery-native.exe",
+            carla_root / "runtime" / "carla-discovery-native.exe",
+            carla_root / "Carla" / "carla-discovery-native.exe",
+        ]
+        candidates.extend(carla_root.glob("**/Carla/carla-discovery-native.exe"))
+        candidates.extend(carla_root.glob("**/carla-discovery-native.exe"))
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def cleanup_qt_quick_control_styles(self):
+        """Keep only the Qt Quick Controls styles used by the packaged app."""
+        qml_controls_dir = self.config.output_dir / "qml" / "QtQuick" / "Controls"
+        unused_style_dirs = [
+            "FluentWinUI3",
+            "Imagine",
+            "Material",
+            "Universal",
+            "Windows",
+        ]
+        for name in unused_style_dirs:
+            target = qml_controls_dir / name
+            if target.exists():
+                self.remove_tree(target)
+                self.logger.log(f"Removed unused Qt Quick Controls style: {name}")
+
+        unused_style_dlls = [
+            "Qt6QuickControls2FluentWinUI3StyleImpl.dll",
+            "Qt6QuickControls2Imagine.dll",
+            "Qt6QuickControls2ImagineStyleImpl.dll",
+            "Qt6QuickControls2Material.dll",
+            "Qt6QuickControls2MaterialStyleImpl.dll",
+            "Qt6QuickControls2Universal.dll",
+            "Qt6QuickControls2UniversalStyleImpl.dll",
+            "Qt6QuickControls2WindowsStyleImpl.dll",
+        ]
+        for name in unused_style_dlls:
+            target = self.config.output_dir / name
+            if target.exists():
+                target.unlink()
+                self.logger.log(f"Removed unused Qt Quick Controls DLL: {name}")
 
     def get_archive_name(self) -> str:
         return "AviQtl-MSYS2-UCRT64-x86_64"
@@ -1241,7 +1276,7 @@ class MsvcBuilder(PlatformBuilder):
             raise FileNotFoundError(f"Executable not found: {src_bin}")
         shutil.copy2(src_bin, dest_bin)
         self.copy_assets(self.config.output_dir)
-        self.copy_carla_runtime()
+        self.copy_carla_support_files()
 
         deployqt = self.find_windeployqt()
         if not deployqt:
@@ -1262,7 +1297,7 @@ class MsvcBuilder(PlatformBuilder):
     def get_archive_name(self) -> str:
         return "AviQtl-MSVC-x86_64"
 
-    def copy_carla_runtime(self):
+    def copy_carla_support_files(self):
         carla_lib = self.config.source_dir / "vendor" / "carla" / "lib"
         if not carla_lib.exists():
             return
@@ -1273,10 +1308,6 @@ class MsvcBuilder(PlatformBuilder):
                     continue
                 shutil.copy2(dll, self.config.output_dir / dll.name)
                 copied.add(dll.name)
-                if dll.name in self.CARLA_DLL_ALIASES:
-                    alias = self.CARLA_DLL_ALIASES[dll.name]
-                    shutil.copy2(dll, self.config.output_dir / alias)
-                    copied.add(alias)
         discovery = self.find_carla_discovery_tool()
         if discovery:
             shutil.copy2(discovery, self.config.output_dir / "carla-discovery-native.exe")
