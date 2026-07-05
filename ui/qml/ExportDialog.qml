@@ -22,7 +22,28 @@ Common.AviQtlWindow {
 
     property var availableVideoCodecs: []
     property var availableAudioCodecs: []
-    property string selectedCodecValue: codecCombo.currentIndex >= 0 && codecCombo.currentIndex < codecCombo.model.length ? codecCombo.model[codecCombo.currentIndex].value : "libx264"
+    property string selectedCodecValue: comboValue(codecCombo, "libx264")
+
+    function modelLength(combo) {
+        return combo && combo.model && typeof combo.model.length === "number" ? combo.model.length : 0;
+    }
+
+    function comboValue(combo, fallback) {
+        var count = modelLength(combo);
+        if (count === 0 || combo.currentIndex < 0 || combo.currentIndex >= count)
+            return fallback;
+        var item = combo.model[combo.currentIndex];
+        return item && item.value !== undefined ? item.value : fallback;
+    }
+
+    function findValueIndex(combo, value) {
+        var count = modelLength(combo);
+        for (var i = 0; i < count; i++) {
+            if (combo.model[i].value === value)
+                return i;
+        }
+        return -1;
+    }
 
     function show() {
         refreshAvailableCodecs();
@@ -43,17 +64,11 @@ Common.AviQtlWindow {
     }
 
     function updateCodecIndex() {
-        var idx = -1;
-        for (var i = 0; i < codecCombo.model.length; i++) {
-            if (codecCombo.model[i].value === root.defaultCodec) {
-                idx = i;
-                break;
-            }
-        }
+        var idx = findValueIndex(codecCombo, root.defaultCodec);
         if (idx >= 0)
             codecCombo.currentIndex = idx;
         else
-            codecCombo.currentIndex = 0;
+            codecCombo.currentIndex = modelLength(codecCombo) > 0 ? 0 : -1;
     }
 
     function isCodecAvailable(codecValue) {
@@ -65,11 +80,12 @@ Common.AviQtlWindow {
     }
 
     function isSoftwareCodec(codecValue) {
-        return codecValue.startsWith("lib") || codecValue === "libaom-av1";
+        var value = String(codecValue || "");
+        return value.indexOf("lib") === 0 || value === "libaom-av1";
     }
 
     function isNvidiaCodec(codecValue) {
-        return codecValue.contains("nvenc");
+        return String(codecValue || "").indexOf("nvenc") >= 0;
     }
 
     function isValidExportPath(path) {
@@ -468,7 +484,7 @@ Common.AviQtlWindow {
                         "value": "veryslow"
                     }]
                     textRole: "text"
-                    currentIndex: model.length > 2 ? 2 : 1
+                    currentIndex: root.modelLength(presetCombo) > 2 ? 2 : (root.modelLength(presetCombo) > 1 ? 1 : 0)
                 }
 
                 // H.264/H.265プロファイル (software encoders only)
@@ -550,17 +566,11 @@ Common.AviQtlWindow {
                     }
                     textRole: "text"
                     Component.onCompleted: {
-                        var idx = -1;
-                        for (var i = 0; i < model.length; i++) {
-                            if (model[i].value === root.defaultAudioCodec) {
-                                idx = i;
-                                break;
-                            }
-                        }
+                        var idx = root.findValueIndex(audioCodecCombo, root.defaultAudioCodec);
                         if (idx >= 0)
                             currentIndex = idx;
                         else
-                            currentIndex = 0;
+                            currentIndex = root.modelLength(audioCodecCombo) > 0 ? 0 : -1;
                     }
                 }
 
@@ -702,13 +712,13 @@ Common.AviQtlWindow {
                         var ef = fullRangeCheck.checked ? -1 : endFrameSpin.value;
                         Workspace.currentTimeline.exportImageSequence(filePathField.text, 100, root.imageFormat, sf, ef);
                     } else {
-                        var codec = codecCombo.model[codecCombo.currentIndex].value;
-                        var audioCodec = audioCodecCombo.model[audioCodecCombo.currentIndex].value;
+                        var codec = root.comboValue(codecCombo, "libx264");
+                        var audioCodec = root.comboValue(audioCodecCombo, "aac");
                         var preset = "";
                         var profile = "";
                         if (root.isSoftwareCodec(codec)) {
-                            preset = presetCombo.model[presetCombo.currentIndex].value;
-                            profile = profileCombo.model[profileCombo.currentIndex].value;
+                            preset = root.comboValue(presetCombo, "medium");
+                            profile = root.comboValue(profileCombo, "");
                         }
                         Workspace.currentTimeline.exportVideoAsync({
                             "width": (project ? project.width : DefaultWidth),
