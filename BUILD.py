@@ -571,6 +571,7 @@ class Msys2Builder(PlatformBuilder):
             str(dest_bin),
             "--dir", str(self.config.output_dir),
         ])
+        self.cleanup_qt_quick_control_styles()
         self.copy_msys2_dependency_dlls()
         with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
             f.write("[Paths]\nPlugins = .\n")
@@ -777,6 +778,38 @@ class Msys2Builder(PlatformBuilder):
             if candidate.exists():
                 return candidate
         return None
+
+    def cleanup_qt_quick_control_styles(self):
+        """Keep only the Qt Quick Controls styles used by the packaged app."""
+        qml_controls_dir = self.config.output_dir / "qml" / "QtQuick" / "Controls"
+        unused_style_dirs = [
+            "FluentWinUI3",
+            "Imagine",
+            "Material",
+            "Universal",
+            "Windows",
+        ]
+        for name in unused_style_dirs:
+            target = qml_controls_dir / name
+            if target.exists():
+                self.remove_tree(target)
+                self.logger.log(f"Removed unused Qt Quick Controls style: {name}")
+
+        unused_style_dlls = [
+            "Qt6QuickControls2FluentWinUI3StyleImpl.dll",
+            "Qt6QuickControls2Imagine.dll",
+            "Qt6QuickControls2ImagineStyleImpl.dll",
+            "Qt6QuickControls2Material.dll",
+            "Qt6QuickControls2MaterialStyleImpl.dll",
+            "Qt6QuickControls2Universal.dll",
+            "Qt6QuickControls2UniversalStyleImpl.dll",
+            "Qt6QuickControls2WindowsStyleImpl.dll",
+        ]
+        for name in unused_style_dlls:
+            target = self.config.output_dir / name
+            if target.exists():
+                target.unlink()
+                self.logger.log(f"Removed unused Qt Quick Controls DLL: {name}")
 
     def get_archive_name(self) -> str:
         return "AviQtl-MSYS2-UCRT64-x86_64"
