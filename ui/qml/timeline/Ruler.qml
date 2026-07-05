@@ -1,4 +1,3 @@
-import "../common" as Common
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -12,7 +11,6 @@ Rectangle {
     property int timeWidth: 60
     property double fps: 60
     property alias canvas: rulerCanvas
-    property int timelineDuration: 0
 
     signal zoomRequested(int percent)
 

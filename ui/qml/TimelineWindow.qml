@@ -259,7 +259,6 @@ Common.AviQtlWindow {
             rulerHeight: timelineWindow.rulerHeight
             timeWidth: timelineWindow.headerWidth
             fps: Workspace.currentTimeline?.project?.fps ?? 60
-            timelineDuration: timelineView.timelineLengthFrames
             Layout.preferredHeight: timelineWindow.rulerHeight
             Layout.minimumHeight: timelineWindow.rulerHeight
             Layout.maximumHeight: timelineWindow.rulerHeight

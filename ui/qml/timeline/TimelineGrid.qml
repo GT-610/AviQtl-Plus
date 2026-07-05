@@ -9,7 +9,6 @@ Canvas {
     property int layerCount: 128
     property int layerHeight: 30
     property real scale: Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1
-    property int timelineDuration: 0
     property var gridSettings: ({
         "mode": "Auto",
         "bpm": 120,

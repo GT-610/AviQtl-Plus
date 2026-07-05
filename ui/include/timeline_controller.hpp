@@ -179,7 +179,6 @@ class TimelineController : public QObject {
     Q_INVOKABLE void requestVideoFrame(int clipId, int relFrame);
     Q_INVOKABLE void requestImageLoad(int clipId, const QString &path);
 
-    Q_INVOKABLE static void updateViewport(double x, double y);
     Q_INVOKABLE QPoint resolveDragPosition(int clipId, int targetLayer, int proposedStartFrame, const QVariantList &batchIds = QVariantList());
 
     // プロジェクトI/O

@@ -93,11 +93,4 @@ auto TimelineController::getSceneDuration(int sceneId) const -> int {
     return 0;
 }
 
-void TimelineController::updateViewport(double x, double y) {
-    // このメソッドは、QMLのレンダリングタイマーから呼び出され、現在の表示範囲をC++側に通知します。
-    // 将来的に、描画範囲外のクリップのレンダリング計算をスキップする等の最適化に使用できます。
-    Q_UNUSED(x)
-    Q_UNUSED(y)
-}
-
 } // namespace AviQtl::UI

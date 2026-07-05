@@ -243,23 +243,14 @@ auto TimelineController::activeObjectType() const -> QString { return m_selectio
 
 void TimelineController::createObject(const QString &type, int startFrame, int layer) {
     if (m_timeline != nullptr) {
-        int actualFrame = m_timeline->createClip(type, startFrame, layer);
-        int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
-        setCursorFrame(actualFrame + duration);
+        m_timeline->createClip(type, startFrame, layer);
     }
 }
 
 void TimelineController::createTransition(const QString &type, int startFrame, int layer) {
     if (m_timeline != nullptr) {
         // トランジションは通常のオブジェクトとして作成
-        int actualFrame = m_timeline->createClip(type, startFrame, layer);
-        // トランジションのデフォルト持続時間を取得
-        auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(type);
-        int duration = 30; // デフォルト30フレーム
-        if (meta.defaultParams.contains(QStringLiteral("duration"))) {
-            duration = meta.defaultParams.value(QStringLiteral("duration")).toInt();
-        }
-        setCursorFrame(actualFrame + duration);
+        m_timeline->createClip(type, startFrame, layer);
     }
 }
 
@@ -339,7 +330,6 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + importDuration);
     } else if (audioExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
 
@@ -357,7 +347,6 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + importDuration);
     } else if (imageExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
 
@@ -372,7 +361,6 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
-        setCursorFrame(startFrame + importDuration);
     } else {
         emit errorOccurred(tr("サポートされていないファイル形式です: %1").arg(suffix));
     }
@@ -1212,10 +1200,7 @@ void TimelineController::copyClip(int clipId) { m_timeline->copyClip(clipId); }
 void TimelineController::cutClip(int clipId) { m_timeline->cutClip(clipId); }
 
 void TimelineController::pasteClip(int frame, int layer) {
-    int duration = m_timeline->getClipboardDuration();
-    int actualFrame = m_timeline->pasteClip(frame, layer);
-    if (duration > 0)
-        setCursorFrame(actualFrame + duration);
+    m_timeline->pasteClip(frame, layer);
 }
 
 void TimelineController::copySelectedClips() {

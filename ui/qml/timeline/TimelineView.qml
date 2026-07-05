@@ -2,7 +2,6 @@ import "../common" as Common
 import "../common/Logger.js" as Logger
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 
 Item {
     id: timelineViewRoot
@@ -234,9 +233,6 @@ Item {
                 if (!Workspace.currentTimeline)
                     return ;
 
-                if (typeof Workspace.currentTimeline.updateViewport === "function")
-                    Workspace.currentTimeline.updateViewport(timelineFlickable.contentX, timelineFlickable.contentY);
-
                 // スクロールバーへの接触（ホバー含む）または操作を検知して自動スクロールを一時停止
                 // activeが AsNeeded 条件 (size < 1.0) と連動しているため、非表示時は判定されない
                 if (horizontalScrollBar.active && (horizontalScrollBar.pressed || horizontalScrollBar.hovered))
@@ -325,7 +321,6 @@ Item {
                 layerCount: timelineViewRoot.layerCount
                 layerHeight: timelineViewRoot.layerHeight
                 gridSettings: timelineViewRoot.gridSettings
-                timelineDuration: timelineViewRoot.timelineLengthFrames
             }
 
         }
