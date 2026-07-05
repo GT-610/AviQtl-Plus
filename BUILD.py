@@ -71,9 +71,7 @@ class PlatformBuilder:
         "libcarla*.dll",
         "CarlaVst*.dll",
     )
-    CARLA_DLL_ALIASES = {
-        "libcarla_native-plugin.dll": "CarlaNativePlugin.dll",
-    }
+    CARLA_DLL_ALIASES = {}
 
     def __init__(self, config: BuildConfig, logger: Logger):
         self.config = config
