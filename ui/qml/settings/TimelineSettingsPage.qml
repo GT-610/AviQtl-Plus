@@ -57,6 +57,12 @@ ScrollView {
                 }
 
                 CheckBox {
+                    text: qsTr("タイムラインスキミングを有効にする")
+                    checked: root.valueOr("enableTimelineSkimming", true)
+                    onToggled: root.setValue("enableTimelineSkimming", checked)
+                }
+
+                CheckBox {
                     text: qsTr("分割時にカーソル位置を使う")
                     checked: root.valueOr("splitAtCursor", true)
                     onToggled: root.setValue("splitAtCursor", checked)

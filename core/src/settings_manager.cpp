@@ -86,6 +86,7 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"defaultClipDuration", AviQtl::kDefaultClipDuration},
         {"timeUnit", "frame"},
         {"enableSnap", true},
+        {"enableTimelineSkimming", true},
         {"splitAtCursor", true},
         {"showLayerRange", true},
         {"timelineTrackHeight", 30},

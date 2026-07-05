@@ -78,6 +78,20 @@ Common.AviQtlWindow {
         return 100 + ((scale - 1) * 300 / 9);
     }
 
+    function editTargetFrame() {
+        if (timelineView)
+            return timelineView.editTargetFrame();
+
+        return Workspace.currentTimeline?.transport?.currentFrame ?? 0;
+    }
+
+    function editTargetLayer() {
+        if (timelineView)
+            return timelineView.editTargetLayer();
+
+        return Workspace.currentTimeline?.selectedLayer ?? 0;
+    }
+
     function setTimelineZoomPercent(percent, anchorMode) {
         if (!Workspace.currentTimeline)
             return ;
@@ -350,7 +364,7 @@ Common.AviQtlWindow {
         sequence: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["timeline.split"]) || "S"
         context: Qt.WindowShortcut
         enabled: !_isInputFocused && Workspace.currentTimeline
-        onActivated: Workspace.currentTimeline.splitSelectedClips(Workspace.currentTimeline.cursorFrame)
+        onActivated: Workspace.currentTimeline.splitSelectedClips(timelineWindow.editTargetFrame())
     }
 
     Shortcut {
@@ -371,7 +385,7 @@ Common.AviQtlWindow {
         sequence: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["edit.paste"]) || "Ctrl+V"
         context: Qt.WindowShortcut
         enabled: !_isInputFocused && Workspace.currentTimeline
-        onActivated: Workspace.currentTimeline.pasteClip(Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer)
+        onActivated: Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer())
     }
 
     Shortcut {
@@ -380,7 +394,7 @@ Common.AviQtlWindow {
         enabled: !_isInputFocused && Workspace.currentTimeline
         onActivated: {
             Workspace.currentTimeline.copySelectedClips();
-            Workspace.currentTimeline.pasteClip(Workspace.currentTimeline.cursorFrame, Workspace.currentTimeline.selectedLayer);
+            Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer());
         }
     }
 

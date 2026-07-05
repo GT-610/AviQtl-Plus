@@ -26,6 +26,22 @@ ApplicationWindow {
 
     }
 
+    function editTargetFrame() {
+        var win = WindowManager ? WindowManager.getWindow("timeline") : null;
+        if (win && typeof win.editTargetFrame === "function")
+            return win.editTargetFrame();
+
+        return Workspace.currentTimeline?.transport?.currentFrame ?? 0;
+    }
+
+    function editTargetLayer() {
+        var win = WindowManager ? WindowManager.getWindow("timeline") : null;
+        if (win && typeof win.editTargetLayer === "function")
+            return win.editTargetLayer();
+
+        return Workspace.currentTimeline?.selectedLayer ?? 0;
+    }
+
     // 全タブ横断で未保存確認し、全て処理済みになってから finalAction を実行
     function checkAllUnsavedAndExecute(finalAction) {
         if (!Workspace || !Workspace.tabs) {
@@ -278,7 +294,7 @@ ApplicationWindow {
         text: qsTr("クリップを分割")
         onTriggered: {
             if (Workspace.currentTimeline?.transport) {
-                var f = Workspace.currentTimeline.cursorFrame;
+                var f = mainWin.editTargetFrame();
                 if (Workspace.currentTimeline.selection?.selectedClipId >= 0) {
                     Workspace.currentTimeline.splitClip(Workspace.currentTimeline.selection.selectedClipId, f);
                 } else {
@@ -405,8 +421,8 @@ ApplicationWindow {
         text: qsTr("貼り付け")
         onTriggered: {
             if (Workspace.currentTimeline?.transport) {
-                var f = Workspace.currentTimeline.cursorFrame;
-                var l = Workspace.currentTimeline.selectedLayer !== undefined ? Workspace.currentTimeline.selectedLayer : 0;
+                var f = mainWin.editTargetFrame();
+                var l = mainWin.editTargetLayer();
                 Workspace.currentTimeline.pasteClip(f, l);
             }
         }
@@ -421,8 +437,8 @@ ApplicationWindow {
         onTriggered: {
             if (Workspace.currentTimeline) {
                 Workspace.currentTimeline.copySelectedClips();
-                var f = Workspace.currentTimeline ? Workspace.currentTimeline.cursorFrame : 0;
-                var l = Workspace.currentTimeline.selectedLayer !== undefined ? Workspace.currentTimeline.selectedLayer : 0;
+                var f = mainWin.editTargetFrame();
+                var l = mainWin.editTargetLayer();
                 Workspace.currentTimeline.pasteClip(f, l);
             }
         }
