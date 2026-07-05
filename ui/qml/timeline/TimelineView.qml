@@ -145,6 +145,23 @@ Item {
         return Workspace.currentTimeline?.selectedLayer ?? 0;
     }
 
+    function advanceEditTarget(frame, layer) {
+        if (!Workspace.currentTimeline || frame === undefined || frame === null)
+            return ;
+
+        var targetFrame = Math.max(0, Math.round(frame));
+        var targetLayer = clamp(Math.round(layer ?? editTargetLayer()), 0, layerCount - 1);
+        if (skimmingEnabled && skimmerVisible) {
+            skimmerFrame = targetFrame;
+            skimmerLayer = targetLayer;
+        } else {
+            if (Workspace.currentTimeline.transport)
+                Workspace.currentTimeline.transport.setCurrentFrame_seek(targetFrame);
+
+            Workspace.currentTimeline.selectedLayer = targetLayer;
+        }
+    }
+
     function syncBoxSelectionPreview() {
         if (!Workspace.currentTimeline)
             return ;
@@ -220,7 +237,7 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: Math.max(timelineLengthFrames * (Workspace.currentTimeline?.timelineScale ?? 1), width)
-        contentHeight: layerCount * layerHeight
+        contentHeight: Math.max(layerCount * layerHeight, height)
         interactive: false
 
         Timer {
@@ -562,7 +579,12 @@ Item {
             frame = timelineViewRoot.snapFrame(frame, drop.modifiers & Qt.ShiftModifier);
 
             for (var i = 0; i < drop.urls.length; i++) {
-                Workspace.currentTimeline.importMediaFile(drop.urls[i], frame, targetLayer);
+                var result = Workspace.currentTimeline.importMediaFile(drop.urls[i], frame, targetLayer);
+                if (result?.ok) {
+                    frame = result.nextFrame;
+                    targetLayer = result.layer;
+                    advanceEditTarget(result.nextFrame, result.layer);
+                }
             }
             drop.acceptProposedAction();
         }
@@ -748,7 +770,9 @@ Item {
                 break;
             case "clip.duplicate":
                 Workspace.currentTimeline.copySelectedClips();
-                Workspace.currentTimeline.pasteClip(contextClickFrame, contextClickLayer);
+                var duplicateResult = Workspace.currentTimeline.pasteClip(contextClickFrame, contextClickLayer);
+                if (duplicateResult?.ok)
+                    advanceEditTarget(duplicateResult.nextFrame, duplicateResult.layer);
                 break;
             case "clip.cut":
                 if (shouldApplyToSelection())
@@ -763,7 +787,9 @@ Item {
                     Workspace.currentTimeline.copyClip(targetClipId);
                 break;
             case "edit.paste":
-                Workspace.currentTimeline.pasteClip(contextClickFrame, contextClickLayer);
+                var pasteResult = Workspace.currentTimeline.pasteClip(contextClickFrame, contextClickLayer);
+                if (pasteResult?.ok)
+                    advanceEditTarget(pasteResult.nextFrame, pasteResult.layer);
                 break;
             case "view.scenesettings":
                 var win = WindowManager.getWindow("sceneSettings");

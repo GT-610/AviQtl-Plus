@@ -79,17 +79,15 @@ Common.AviQtlWindow {
     }
 
     function editTargetFrame() {
-        if (timelineView)
-            return timelineView.editTargetFrame();
-
-        return Workspace.currentTimeline?.transport?.currentFrame ?? 0;
+        return timelineView.editTargetFrame();
     }
 
     function editTargetLayer() {
-        if (timelineView)
-            return timelineView.editTargetLayer();
+        return timelineView.editTargetLayer();
+    }
 
-        return Workspace.currentTimeline?.selectedLayer ?? 0;
+    function advanceEditTarget(frame, layer) {
+        timelineView.advanceEditTarget(frame, layer);
     }
 
     function setTimelineZoomPercent(percent, anchorMode) {
@@ -384,7 +382,11 @@ Common.AviQtlWindow {
         sequence: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["edit.paste"]) || "Ctrl+V"
         context: Qt.WindowShortcut
         enabled: !_isInputFocused && Workspace.currentTimeline
-        onActivated: Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer())
+        onActivated: {
+            var result = Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer());
+            if (result?.ok)
+                timelineWindow.advanceEditTarget(result.nextFrame, result.layer);
+        }
     }
 
     Shortcut {
@@ -393,7 +395,9 @@ Common.AviQtlWindow {
         enabled: !_isInputFocused && Workspace.currentTimeline
         onActivated: {
             Workspace.currentTimeline.copySelectedClips();
-            Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer());
+            var result = Workspace.currentTimeline.pasteClip(timelineWindow.editTargetFrame(), timelineWindow.editTargetLayer());
+            if (result?.ok)
+                timelineWindow.advanceEditTarget(result.nextFrame, result.layer);
         }
     }
 

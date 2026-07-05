@@ -283,9 +283,13 @@ double TimelineController::getSceneFps() const {
     return AviQtl::kDefaultFps;
 }
 
-void TimelineController::importMediaFile(const QString &fileUrl, int startFrame, int layer) {
+auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame, int layer) -> QVariantMap {
+    auto editResult = [](int frame, int targetLayer, int duration) -> QVariantMap {
+        return {{QStringLiteral("ok"), true}, {QStringLiteral("frame"), frame}, {QStringLiteral("layer"), targetLayer}, {QStringLiteral("duration"), duration}, {QStringLiteral("nextFrame"), frame + duration}};
+    };
+
     if (m_timeline == nullptr) {
-        return;
+        return {{QStringLiteral("ok"), false}};
     }
 
     QUrl url(fileUrl);
@@ -297,7 +301,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     QFileInfo fileInfo(filePath);
     if (!fileInfo.exists()) {
         emit errorOccurred(tr("ファイルが見つかりません: %1").arg(filePath));
-        return;
+        return {{QStringLiteral("ok"), false}};
     }
 
     QString suffix = fileInfo.suffix().toLower();
@@ -330,6 +334,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
+        return editResult(startFrame, layer, importDuration);
     } else if (audioExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
 
@@ -347,6 +352,7 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
+        return editResult(startFrame, layer, importDuration);
     } else if (imageExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
 
@@ -361,8 +367,10 @@ void TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         m_timeline->undoStack()->endMacro();
         emit m_timeline->clipsChanged();
+        return editResult(startFrame, layer, importDuration);
     } else {
         emit errorOccurred(tr("サポートされていないファイル形式です: %1").arg(suffix));
+        return {{QStringLiteral("ok"), false}};
     }
 }
 
@@ -1199,8 +1207,19 @@ void TimelineController::copyClip(int clipId) { m_timeline->copyClip(clipId); }
 
 void TimelineController::cutClip(int clipId) { m_timeline->cutClip(clipId); }
 
-void TimelineController::pasteClip(int frame, int layer) {
-    m_timeline->pasteClip(frame, layer);
+auto TimelineController::pasteClip(int frame, int layer) -> QVariantMap {
+    if (m_timeline == nullptr) {
+        return {{QStringLiteral("ok"), false}};
+    }
+
+    const int duration = m_timeline->getClipboardDuration();
+    if (duration <= 0) {
+        return {{QStringLiteral("ok"), false}};
+    }
+
+    const int actualFrame = m_timeline->pasteClip(frame, layer);
+    const int actualLayer = std::max(layer, 0);
+    return {{QStringLiteral("ok"), true}, {QStringLiteral("frame"), actualFrame}, {QStringLiteral("layer"), actualLayer}, {QStringLiteral("duration"), duration}, {QStringLiteral("nextFrame"), actualFrame + duration}};
 }
 
 void TimelineController::copySelectedClips() {

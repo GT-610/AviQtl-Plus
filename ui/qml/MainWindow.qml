@@ -42,6 +42,20 @@ ApplicationWindow {
         return Workspace.currentTimeline?.selectedLayer ?? 0;
     }
 
+    function advanceEditTarget(frame, layer) {
+        var win = WindowManager ? WindowManager.getWindow("timeline") : null;
+        if (win && typeof win.advanceEditTarget === "function") {
+            win.advanceEditTarget(frame, layer);
+            return ;
+        }
+
+        if (Workspace.currentTimeline?.transport && frame !== undefined && frame !== null)
+            Workspace.currentTimeline.transport.setCurrentFrame_seek(Math.max(0, Math.round(frame)));
+
+        if (Workspace.currentTimeline && layer !== undefined && layer !== null)
+            Workspace.currentTimeline.selectedLayer = Math.max(0, Math.round(layer));
+    }
+
     // 全タブ横断で未保存確認し、全て処理済みになってから finalAction を実行
     function checkAllUnsavedAndExecute(finalAction) {
         if (!Workspace || !Workspace.tabs) {
@@ -423,7 +437,9 @@ ApplicationWindow {
             if (Workspace.currentTimeline?.transport) {
                 var f = mainWin.editTargetFrame();
                 var l = mainWin.editTargetLayer();
-                Workspace.currentTimeline.pasteClip(f, l);
+                var result = Workspace.currentTimeline.pasteClip(f, l);
+                if (result?.ok)
+                    mainWin.advanceEditTarget(result.nextFrame, result.layer);
             }
         }
     }
@@ -439,7 +455,9 @@ ApplicationWindow {
                 Workspace.currentTimeline.copySelectedClips();
                 var f = mainWin.editTargetFrame();
                 var l = mainWin.editTargetLayer();
-                Workspace.currentTimeline.pasteClip(f, l);
+                var result = Workspace.currentTimeline.pasteClip(f, l);
+                if (result?.ok)
+                    mainWin.advanceEditTarget(result.nextFrame, result.layer);
             }
         }
     }

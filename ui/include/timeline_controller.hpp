@@ -13,6 +13,7 @@
 #include <QPointer>
 #include <QQuickItem>
 #include <QVariant>
+#include <QVariantMap>
 #include <memory>
 #include <vector>
 
@@ -87,7 +88,7 @@ class TimelineController : public QObject {
 
     Q_INVOKABLE void createObject(const QString &type, int startFrame, int layer);
     Q_INVOKABLE void createTransition(const QString &type, int startFrame, int layer);
-    Q_INVOKABLE void importMediaFile(const QString &fileUrl, int startFrame, int layer);
+    Q_INVOKABLE QVariantMap importMediaFile(const QString &fileUrl, int startFrame, int layer);
     QString activeObjectType() const;
 
     Q_INVOKABLE static void log(const QString &msg);
@@ -217,7 +218,7 @@ class TimelineController : public QObject {
     Q_INVOKABLE void splitSelectedClips(int frame);
     Q_INVOKABLE void copyClip(int clipId);
     Q_INVOKABLE void cutClip(int clipId);
-    Q_INVOKABLE void pasteClip(int frame, int layer);
+    Q_INVOKABLE QVariantMap pasteClip(int frame, int layer);
     Q_INVOKABLE void deleteSelectedClips();
     Q_INVOKABLE void copySelectedClips();
     Q_INVOKABLE void cutSelectedClips();
