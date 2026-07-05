@@ -215,7 +215,6 @@ Item {
     clip: true
 
     Flickable {
-        // unified loop handles viewport updates now
         id: timelineFlickable
 
         anchors.fill: parent
@@ -229,7 +228,7 @@ Item {
 
             interval: 16
             repeat: true
-            running: true // Unified render loop
+            running: (Workspace.currentTimeline?.transport?.isPlaying ?? false) || timelineViewRoot.dragAutoScrollActive
             onTriggered: {
                 if (!Workspace.currentTimeline)
                     return ;
