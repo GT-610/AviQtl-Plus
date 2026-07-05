@@ -130,6 +130,7 @@ Item {
         skimmerVisible = false;
     }
 
+    // Keyboard/menu edit commands target the skimmer when visible, otherwise the playhead.
     function editTargetFrame() {
         if (skimmingEnabled && skimmerVisible)
             return skimmerFrame;

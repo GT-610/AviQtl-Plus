@@ -87,7 +87,6 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"timeUnit", "frame"},
         {"enableSnap", true},
         {"enableTimelineSkimming", true},
-        {"splitAtCursor", true},
         {"showLayerRange", true},
         {"timelineTrackHeight", 30},
         {"timelineHeaderHeight", 28},
