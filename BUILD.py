@@ -17,7 +17,7 @@ import json
 import stat
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Type
+from typing import Callable, ClassVar, List, Optional, Type
 
 
 @dataclass
@@ -66,12 +66,11 @@ class Logger:
 
 
 class PlatformBuilder:
-    CARLA_DLL_PATTERNS = (
+    CARLA_DLL_PATTERNS: ClassVar[tuple[str, ...]] = (
         "carla*.dll",
         "libcarla*.dll",
         "CarlaVst*.dll",
     )
-    CARLA_DLL_ALIASES = {}
 
     def __init__(self, config: BuildConfig, logger: Logger):
         self.config = config
@@ -577,18 +576,6 @@ class Msys2Builder(PlatformBuilder):
             f.write("[Paths]\nPlugins = .\n")
         self.logger.log(f"Executable: {dest_bin}")
 
-    def copy_carla_runtime(self):
-        """Bundle the Carla runtime (runtime/ directory) into the package"""
-        carla_runtime = self.config.source_dir / "vendor" / "carla" / "runtime"
-        if not carla_runtime.exists():
-            self.logger.log("Carla runtime/ not found. Not bundling Carla")
-            return
-        dest = self.config.output_dir / "Carla"
-        if dest.exists():
-            self.remove_tree(dest)
-        shutil.copytree(str(carla_runtime), str(dest))
-        self.logger.log(f"Bundled Carla runtime: {dest}")
-
     def get_msys2_bin_dirs(self) -> List[Path]:
         dirs: List[Path] = []
         for env_name in ("MINGW_PREFIX", "MSYSTEM_PREFIX"):
@@ -751,11 +738,6 @@ class Msys2Builder(PlatformBuilder):
                 shutil.copy2(dll, self.config.output_dir / dll.name)
                 copied.add(dll.name)
                 self.logger.log(f"Bundled Carla link DLL: {dll.name}")
-                if dll.name in self.CARLA_DLL_ALIASES:
-                    alias = self.CARLA_DLL_ALIASES[dll.name]
-                    shutil.copy2(dll, self.config.output_dir / alias)
-                    copied.add(alias)
-                    self.logger.log(f"Bundled Carla link DLL alias: {alias}")
 
     def copy_carla_discovery_tool(self):
         discovery = self.find_carla_discovery_tool()
@@ -1294,7 +1276,7 @@ class MsvcBuilder(PlatformBuilder):
             raise FileNotFoundError(f"Executable not found: {src_bin}")
         shutil.copy2(src_bin, dest_bin)
         self.copy_assets(self.config.output_dir)
-        self.copy_carla_runtime()
+        self.copy_carla_support_files()
 
         deployqt = self.find_windeployqt()
         if not deployqt:
@@ -1315,7 +1297,7 @@ class MsvcBuilder(PlatformBuilder):
     def get_archive_name(self) -> str:
         return "AviQtl-MSVC-x86_64"
 
-    def copy_carla_runtime(self):
+    def copy_carla_support_files(self):
         carla_lib = self.config.source_dir / "vendor" / "carla" / "lib"
         if not carla_lib.exists():
             return
@@ -1326,10 +1308,6 @@ class MsvcBuilder(PlatformBuilder):
                     continue
                 shutil.copy2(dll, self.config.output_dir / dll.name)
                 copied.add(dll.name)
-                if dll.name in self.CARLA_DLL_ALIASES:
-                    alias = self.CARLA_DLL_ALIASES[dll.name]
-                    shutil.copy2(dll, self.config.output_dir / alias)
-                    copied.add(alias)
         discovery = self.find_carla_discovery_tool()
         if discovery:
             shutil.copy2(discovery, self.config.output_dir / "carla-discovery-native.exe")
