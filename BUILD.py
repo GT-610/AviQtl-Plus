@@ -1398,6 +1398,8 @@ class XcodeBuilder(PlatformBuilder):
                 self.remove_tree(d)
                 self.logger.log(f"  Removing: {d}")
 
+        self.cleanup_qt_quick_control_styles(dest_app)
+
         # Bundle carla-discovery-native binary
         self.logger.log("Bundling carla-discovery-native...")
         try:
@@ -1418,6 +1420,60 @@ class XcodeBuilder(PlatformBuilder):
         self.logger.log("Running codesign...")
         self.run_cmd(["codesign", "--deep", "--force", "--sign", "-", str(dest_app)])
         self.logger.log(f"App bundle: {dest_app}")
+
+    def cleanup_qt_quick_control_styles(self, app_bundle: Path):
+        """Keep only the Qt Quick Controls styles used by the packaged app."""
+        self.logger.log("Cleaning up unused Qt Quick Controls styles...")
+
+        qml_controls_dir = app_bundle / "Contents/Resources/qml/QtQuick/Controls"
+        unused_style_dirs = [
+            "FluentWinUI3",
+            "Imagine",
+            "Material",
+            "Universal",
+            "iOS",
+        ]
+        for name in unused_style_dirs:
+            target = qml_controls_dir / name
+            if target.exists():
+                self.remove_tree(target)
+                self.logger.log(f"  Removed QML style: {name}")
+
+        frameworks_dir = app_bundle / "Contents/Frameworks"
+        unused_frameworks = [
+            "QtQuickControls2FluentWinUI3StyleImpl.framework",
+            "QtQuickControls2Imagine.framework",
+            "QtQuickControls2ImagineStyleImpl.framework",
+            "QtQuickControls2Material.framework",
+            "QtQuickControls2MaterialStyleImpl.framework",
+            "QtQuickControls2Universal.framework",
+            "QtQuickControls2UniversalStyleImpl.framework",
+            "QtQuickControls2IOSStyleImpl.framework",
+        ]
+        for name in unused_frameworks:
+            target = frameworks_dir / name
+            if target.exists():
+                self.remove_tree(target)
+                self.logger.log(f"  Removed framework: {name}")
+
+        quick_plugins_dir = app_bundle / "Contents/PlugIns/quick"
+        unused_plugins = [
+            "libqtquickcontrols2fluentwinui3styleplugin.dylib",
+            "libqtquickcontrols2fluentwinui3styleimplplugin.dylib",
+            "libqtquickcontrols2imaginestyleplugin.dylib",
+            "libqtquickcontrols2imaginestyleimplplugin.dylib",
+            "libqtquickcontrols2materialstyleplugin.dylib",
+            "libqtquickcontrols2materialstyleimplplugin.dylib",
+            "libqtquickcontrols2universalstyleplugin.dylib",
+            "libqtquickcontrols2universalstyleimplplugin.dylib",
+            "libqtquickcontrols2iosstyleplugin.dylib",
+            "libqtquickcontrols2iosstyleimplplugin.dylib",
+        ]
+        for name in unused_plugins:
+            target = quick_plugins_dir / name
+            if target.exists() or target.is_symlink():
+                target.unlink()
+                self.logger.log(f"  Removed QML plugin: {name}")
 
     def fix_bundled_binary_rpaths(self, binary: Path, frameworks_dir: Path):
         """Fix hardcoded Homebrew absolute paths in a copied binary to use @executable_path/../Frameworks/."""
