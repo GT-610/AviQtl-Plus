@@ -1458,10 +1458,18 @@ class XcodeBuilder(PlatformBuilder):
         return "AviQtl-macOS-Xcode-Universal"
 
     def create_zip(self, archive_name: str):
-        shutil.make_archive(
-            str(self.config.dist_dir / archive_name), "zip",
-            root_dir=self.config.output_dir, base_dir="AviQtl.app",
-        )
+        archive_path = self.config.dist_dir / f"{archive_name}.zip"
+        if archive_path.exists():
+            archive_path.unlink()
+        self.run_cmd([
+            "ditto",
+            "-c",
+            "-k",
+            "--sequesterRsrc",
+            "--keepParent",
+            str(self.config.output_dir / "AviQtl.app"),
+            str(archive_path),
+        ], force_host=True)
 
 
 BUILDERS: dict[str, Type[PlatformBuilder]] = {
