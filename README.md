@@ -57,6 +57,8 @@ The original author and I maintain a friendly relationship. If any of our contri
 
 A project to develop a video editor that inherits the operability of **AviUtl 1.10** & **ExEdit 0.92** while delivering **performance that surpasses AviUtl**.
 
+See [AviUtl Operability Targets](docs/OPERABILITY_TARGETS.md) for the editing-model compatibility goals that guide AviQtl-Plus development.
+
 ### Key Features
 
 - UI closely resembling AviUtl
