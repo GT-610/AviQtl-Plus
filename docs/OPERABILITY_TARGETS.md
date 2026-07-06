@@ -239,7 +239,8 @@ Use this checklist for changes that affect editing behavior:
 
 ## Suggested Roadmap Order
 
-1. Document and verify the end-to-end daily editing path: create a project,
+1. Document and verify the
+   [end-to-end daily editing path](DAILY_EDITING_WORKFLOW.md): create a project,
    import media, place objects, adjust parameters, add keyframes, preview, export,
    save, and reopen.
 2. Harden timeline ergonomics: selection, skimming/edit targets, snapping,

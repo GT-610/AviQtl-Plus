@@ -232,6 +232,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME daily_editing_workflow
+    SOURCES test_daily_editing_workflow.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME transition_effects
     SOURCES test_transition_effects.cpp
     LINKS AviQtl_Core
