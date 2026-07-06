@@ -100,18 +100,26 @@ void TestDailyEditingWorkflow::saveAndReopenDailyEdit() {
     image.fill(QColor(QStringLiteral("#336699")));
     QVERIFY(image.save(imagePath));
 
-    TimelineController controller;
-    controller.project()->setWidth(1280);
-    controller.project()->setHeight(720);
-    controller.project()->setFps(30.0);
-    controller.project()->setSampleRate(48000);
+    constexpr int baselineWidth = 1280;
+    constexpr int baselineHeight = 720;
+    constexpr double baselineFps = 30.0;
+    constexpr int baselineSampleRate = 48000;
+    constexpr int baselineTotalFrames = 240;
 
+    TimelineController controller;
+    controller.project()->setWidth(baselineWidth);
+    controller.project()->setHeight(baselineHeight);
+    controller.project()->setFps(baselineFps);
+    controller.project()->setSampleRate(baselineSampleRate);
+    controller.updateSceneSettings(controller.currentSceneId(), QStringLiteral("Daily Workflow"), baselineWidth, baselineHeight, baselineFps, baselineTotalFrames, QStringLiteral("Auto"), 120.0, 0.0, 10, 4, true, 10);
+    QCOMPARE(controller.getSceneDuration(controller.currentSceneId()), baselineTotalFrames);
+
+    const int imageClipId = controller.timeline()->nextClipId();
     QVariantMap importResult = controller.importMediaFile(QUrl::fromLocalFile(imagePath).toString(), 0, 0);
     QVERIFY(importResult.value(QStringLiteral("ok")).toBool());
     QCOMPARE(importResult.value(QStringLiteral("frame")).toInt(), 0);
     QCOMPARE(importResult.value(QStringLiteral("layer")).toInt(), 0);
 
-    const int imageClipId = 1;
     const auto *imageClipPtr = findClip(controller, imageClipId);
     QVERIFY2(imageClipPtr != nullptr, qPrintable(QStringLiteral("Missing image clip %1").arg(imageClipId)));
     ClipData imageClip = controller.timeline()->deepCopyClip(*imageClipPtr);
@@ -176,10 +184,11 @@ void TestDailyEditingWorkflow::saveAndReopenDailyEdit() {
 
     TimelineController loaded;
     QVERIFY(loaded.loadProject(projectPath));
-    QCOMPARE(loaded.project()->width(), 1280);
-    QCOMPARE(loaded.project()->height(), 720);
-    QCOMPARE(loaded.project()->fps(), 30.0);
-    QCOMPARE(loaded.project()->sampleRate(), 48000);
+    QCOMPARE(loaded.project()->width(), baselineWidth);
+    QCOMPARE(loaded.project()->height(), baselineHeight);
+    QCOMPARE(loaded.project()->fps(), baselineFps);
+    QCOMPARE(loaded.project()->sampleRate(), baselineSampleRate);
+    QCOMPARE(loaded.getSceneDuration(loaded.currentSceneId()), baselineTotalFrames);
 
     const auto *loadedImageClipPtr = findClip(loaded, imageClipId);
     QVERIFY2(loadedImageClipPtr != nullptr, qPrintable(QStringLiteral("Missing loaded image clip %1").arg(imageClipId)));

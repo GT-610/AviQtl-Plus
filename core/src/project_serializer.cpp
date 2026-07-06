@@ -102,7 +102,7 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
         sObj.insert(QStringLiteral("height"), scene.height);
         sObj.insert(QStringLiteral("fps"), scene.fps);
         sObj.insert(QStringLiteral("start"), scene.startFrame);
-        sObj.insert(QStringLiteral("duration"), scene.durationFrames);
+        sObj.insert(QStringLiteral("duration"), scene.totalFrames);
         scenesArray.append(sObj);
     }
     root.insert(QStringLiteral("scenes"), scenesArray);
@@ -218,7 +218,8 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         scene.height = clampDimension(sobj.value(QStringLiteral("height")).toInt(project->height()), project->height());
         scene.fps = clampFps(sobj.value(QStringLiteral("fps")).toDouble(project->fps()), project->fps());
         scene.startFrame = sobj.value(QStringLiteral("start")).toInt(0);
-        scene.durationFrames = sobj.value(QStringLiteral("duration")).toInt(0);
+        const int totalFrames = sobj.value(QStringLiteral("duration")).toInt(AviQtl::kDefaultTotalFrames);
+        scene.totalFrames = totalFrames > 0 ? totalFrames : AviQtl::kDefaultTotalFrames;
         tempScenes.append(scene);
         maxSceneId = std::max(scene.id, maxSceneId);
     }
