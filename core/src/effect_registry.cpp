@@ -154,10 +154,13 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         meta.defaultParams = params;
         meta.uiDefinition = localizeUiMetadataValue(uiDef).toMap();
         meta.color = obj.value(QStringLiteral("color")).toString();
+        meta.packageId = obj.value(QStringLiteral("packageId")).toString();
 
         // qrc: で始まる場合は絶対パスとしてそのまま使用
         if (qmlFileName.startsWith(QStringLiteral("qrc:"))) {
             meta.qmlSource = qmlFileName;
+            meta.source = obj.value(QStringLiteral("source")).toString(QStringLiteral("built-in"));
+            meta.sourcePath = file.fileName();
             registerEffect(meta);
             loadedCount++;
             continue;
@@ -181,6 +184,12 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
 
         if (QFile::exists(absoluteQmlPath)) {
             meta.qmlSource = QUrl::fromLocalFile(absoluteQmlPath).toString();
+            meta.source = obj.value(QStringLiteral("source")).toString(QStringLiteral("package"));
+            meta.sourcePath = file.fileName();
+            if (meta.packageId.isEmpty()) {
+                const QString relativePath = QDir(path).relativeFilePath(jsonInfo.absolutePath());
+                meta.packageId = relativePath.section(QLatin1Char('/'), 0, 0);
+            }
 
             // Ensure shaders in the same directory are compiled
             const QStringList shaderExtensions = {QStringLiteral("*.frag"), QStringLiteral("*.comp"), QStringLiteral("*.vert")};

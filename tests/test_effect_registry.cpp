@@ -31,6 +31,9 @@ void TestEffectRegistry::registerAndRetrieve() {
     meta.kind = QStringLiteral("effect");
     meta.categories = {QStringLiteral("Test")};
     meta.qmlSource = QStringLiteral("test.qml");
+    meta.source = QStringLiteral("built-in");
+    meta.packageId = QStringLiteral("core");
+    meta.sourcePath = QStringLiteral(":/effects/test.json");
 
     reg.registerEffect(meta);
 
@@ -40,6 +43,9 @@ void TestEffectRegistry::registerAndRetrieve() {
     QCOMPARE(fetched.version, QStringLiteral("1.0.0"));
     QCOMPARE(fetched.kind, QStringLiteral("effect"));
     QCOMPARE(fetched.qmlSource, QStringLiteral("test.qml"));
+    QCOMPARE(fetched.source, QStringLiteral("built-in"));
+    QCOMPARE(fetched.packageId, QStringLiteral("core"));
+    QCOMPARE(fetched.sourcePath, QStringLiteral(":/effects/test.json"));
     QCOMPARE(fetched.categories.size(), 1);
     QCOMPARE(fetched.categories[0], QStringLiteral("Test"));
 }
