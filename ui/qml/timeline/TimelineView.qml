@@ -2,6 +2,7 @@ import "../common" as Common
 import "../common/Logger.js" as Logger
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 
 Item {
     id: timelineViewRoot
@@ -130,16 +131,24 @@ Item {
         skimmerVisible = false;
     }
 
-    // Keyboard/menu edit commands target the skimmer when visible, otherwise the playhead.
+    function skimmerTargetsCommands() {
+        if (!skimmingEnabled || !skimmerVisible)
+            return false;
+
+        var win = Window.window;
+        return win !== null && win.active;
+    }
+
+    // Keyboard/menu clip edit commands target the active skimmer, otherwise the playhead.
     function editTargetFrame() {
-        if (skimmingEnabled && skimmerVisible)
+        if (skimmerTargetsCommands())
             return skimmerFrame;
 
         return Workspace.currentTimeline?.transport?.currentFrame ?? 0;
     }
 
     function editTargetLayer() {
-        if (skimmingEnabled && skimmerVisible)
+        if (skimmerTargetsCommands())
             return skimmerLayer;
 
         return Workspace.currentTimeline?.selectedLayer ?? 0;
@@ -151,7 +160,7 @@ Item {
 
         var targetFrame = Math.max(0, Math.round(frame));
         var targetLayer = clamp(Math.round(layer ?? editTargetLayer()), 0, layerCount - 1);
-        if (skimmingEnabled && skimmerVisible) {
+        if (skimmerTargetsCommands()) {
             skimmerFrame = targetFrame;
             skimmerLayer = targetLayer;
         } else {
