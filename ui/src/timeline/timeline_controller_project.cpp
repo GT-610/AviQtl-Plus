@@ -106,6 +106,19 @@ auto TimelineController::loadProject(const QString &fileUrl) -> bool {
 }
 
 namespace {
+auto catalogItemFromMetadata(const AviQtl::Core::EffectMetadata &meta) -> QVariantMap {
+    QVariantMap item;
+    item.insert(QStringLiteral("id"), meta.id);
+    item.insert(QStringLiteral("name"), meta.name);
+    item.insert(QStringLiteral("kind"), meta.kind);
+    item.insert(QStringLiteral("version"), meta.version);
+    item.insert(QStringLiteral("categories"), meta.categories);
+    item.insert(QStringLiteral("source"), meta.source.isEmpty() ? QStringLiteral("built-in") : meta.source);
+    item.insert(QStringLiteral("packageId"), meta.packageId);
+    item.insert(QStringLiteral("sourcePath"), meta.sourcePath);
+    return item;
+}
+
 void insertIntoCategoryTree(QVariantList &list, const QStringList &path, const QVariantMap &item) {
     if (path.isEmpty()) {
         list.append(item);
@@ -150,9 +163,7 @@ auto TimelineController::getAvailableEffects() -> QVariantList {
         if (meta.kind != "effect") {
             continue;
         }
-        QVariantMap m;
-        m.insert(QStringLiteral("id"), meta.id);
-        m.insert(QStringLiteral("name"), meta.name);
+        QVariantMap m = catalogItemFromMetadata(meta);
 
         for (const QString &categoryPath : meta.categories) {
             QStringList pathTokens = categoryPath.split(QStringLiteral("/"), Qt::SkipEmptyParts);
@@ -181,8 +192,7 @@ auto TimelineController::getAvailableObjects() -> QVariantList {
         if (it == objectsById.cend()) {
             return item;
         }
-        item.insert(QStringLiteral("id"), it->id);
-        item.insert(QStringLiteral("name"), it->name);
+        item = catalogItemFromMetadata(*it);
         return item;
     };
 
@@ -227,9 +237,7 @@ auto TimelineController::getAvailableObjects() -> QVariantList {
         if (meta.kind != "object" || handledIds.contains(meta.id)) {
             continue;
         }
-        QVariantMap m;
-        m.insert(QStringLiteral("id"), meta.id);
-        m.insert(QStringLiteral("name"), meta.name);
+        QVariantMap m = catalogItemFromMetadata(meta);
 
         for (const QString &categoryPath : meta.categories) {
             QStringList pathTokens = categoryPath.split(QStringLiteral("/"), Qt::SkipEmptyParts);
@@ -249,9 +257,7 @@ auto TimelineController::getAvailableTransitions() -> QVariantList {
         if (meta.kind != "transition") {
             continue;
         }
-        QVariantMap m;
-        m.insert(QStringLiteral("id"), meta.id);
-        m.insert(QStringLiteral("name"), meta.name);
+        QVariantMap m = catalogItemFromMetadata(meta);
 
         for (const QString &categoryPath : meta.categories) {
             QStringList pathTokens = categoryPath.split(QStringLiteral("/"), Qt::SkipEmptyParts);

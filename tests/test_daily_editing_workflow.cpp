@@ -5,6 +5,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrl>
+#include <functional>
 
 using namespace AviQtl::Core;
 using namespace AviQtl::UI;
@@ -17,6 +18,7 @@ class TestDailyEditingWorkflow : public QObject {
 
     void saveAndReopenDailyEdit();
     void pasteReportsResolvedClipEditTarget();
+    void catalogItemsExposeProductMetadata();
 
   private:
     static void registerWorkflowEffects();
@@ -263,6 +265,35 @@ void TestDailyEditingWorkflow::pasteReportsResolvedClipEditTarget() {
     const ClipData pastedClip = controller.timeline()->deepCopyClip(*pastedClipPtr);
     QCOMPARE(pastedClip.startFrame, pasteResult.value(QStringLiteral("frame")).toInt());
     QCOMPARE(pastedClip.layer, requestedLayer);
+}
+
+void TestDailyEditingWorkflow::catalogItemsExposeProductMetadata() {
+    const QVariantList objects = TimelineController::getAvailableObjects();
+
+    QVariantMap textItem;
+    std::function<bool(const QVariantList &)> findText = [&](const QVariantList &nodes) -> bool {
+        for (const QVariant &entry : nodes) {
+            const QVariantMap node = entry.toMap();
+            if (node.value(QStringLiteral("isCategory")).toBool()) {
+                if (findText(node.value(QStringLiteral("children")).toList())) {
+                    return true;
+                }
+                continue;
+            }
+            if (node.value(QStringLiteral("id")).toString() == QStringLiteral("text")) {
+                textItem = node;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    QVERIFY(findText(objects));
+    QCOMPARE(textItem.value(QStringLiteral("name")).toString(), QStringLiteral("Text"));
+    QCOMPARE(textItem.value(QStringLiteral("kind")).toString(), QStringLiteral("object"));
+    QCOMPARE(textItem.value(QStringLiteral("version")).toString(), QStringLiteral("1.0.0"));
+    QCOMPARE(textItem.value(QStringLiteral("source")).toString(), QStringLiteral("built-in"));
+    QVERIFY(textItem.value(QStringLiteral("categories")).toStringList().contains(QStringLiteral("Text")));
 }
 
 QTEST_MAIN(TestDailyEditingWorkflow)

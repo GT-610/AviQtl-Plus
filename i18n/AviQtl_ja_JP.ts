@@ -4808,87 +4808,87 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1001"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1030"/>
         <source>オブジェクトを追加</source>
         <translation>オブジェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1016"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1045"/>
         <source>トランジションを追加</source>
         <translation>トランジションを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1028"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1057"/>
         <source>元に戻す</source>
         <translation>元に戻す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1029"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1058"/>
         <source>やり直す</source>
         <translation>やり直す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1030"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1059"/>
         <source>貼り付け</source>
         <translation>貼り付け</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1032"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1061"/>
         <source>シーン設定...</source>
         <translation>シーン設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1033"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
         <source>プロジェクト設定...</source>
         <translation>プロジェクト設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1034"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1063"/>
         <source>環境設定...</source>
         <translation>環境設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1036"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1065"/>
         <source>削除</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1037"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1066"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1038"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1067"/>
         <source>複製</source>
         <translation>複製</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1040"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1069"/>
         <source>切り取り</source>
         <translation>切り取り</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1041"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1070"/>
         <source>コピー</source>
         <translation>コピー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1045"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1074"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>上のオブジェクトでクリッピング</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1057"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1086"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1081"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1110"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>エフェクト/オブジェクトを検索...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="603"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="612"/>
         <source>ここにドロップ</source>
         <translation>ここにドロップ</translation>
     </message>

@@ -90,6 +90,9 @@ void TestEffectPackage::loadEffectFromSubdirectory() {
     const auto &meta = reg.getEffect("pkg.test.glitch");
     QCOMPARE(meta.id, QStringLiteral("pkg.test.glitch"));
     QCOMPARE(meta.kind, QStringLiteral("effect"));
+    QCOMPARE(meta.source, QStringLiteral("package"));
+    QCOMPARE(meta.packageId, QStringLiteral("stylize-effects"));
+    QVERIFY(meta.sourcePath.endsWith(QStringLiteral("stylize-effects/glitch/glitch.json")));
     QVERIFY(!meta.qmlSource.isEmpty());
 }
 

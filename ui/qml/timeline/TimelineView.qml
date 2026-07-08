@@ -843,15 +843,35 @@ Item {
         }
 
         function rebuildMenu() {
+            function catalogItemText(node) {
+                if (!node)
+                    return "";
+
+                return node.name;
+            }
+
+            function catalogNodeMatches(node, filter) {
+                var fields = [node.name, node.id, node.version, node.source, node.packageId, node.sourcePath];
+                if (node.categories) {
+                    for (var c = 0; c < node.categories.length; c++)
+                        fields.push(node.categories[c]);
+                }
+                for (var i = 0; i < fields.length; i++) {
+                    if (fields[i] && String(fields[i]).toLowerCase().indexOf(filter) !== -1)
+                        return true;
+                }
+                return false;
+            }
+
             function buildFilteredItems(items, isEffect) {
                 var filter = contextMenu.searchText.toLowerCase();
                 for (var i = 0; i < items.length; ++i) {
                     var node = items[i];
                     if (node.isCategory) {
                         buildFilteredItems(node.children, isEffect);
-                    } else if (node.name.toLowerCase().indexOf(filter) !== -1) {
+                    } else if (catalogNodeMatches(node, filter)) {
                         var item = menuItemComp.createObject(timelineViewRoot, {
-                            "text": node.name,
+                            "text": catalogItemText(node),
                             "iconName": isEffect ? "magic_line" : "shape_line"
                         });
                         (function(nodeId) {
@@ -880,7 +900,7 @@ Item {
                         parentMenu.addMenu(subMenu);
                     } else {
                         var objItem = menuItemComp.createObject(timelineViewRoot, {
-                            "text": node.name,
+                            "text": catalogItemText(node),
                             "iconName": "shape_line"
                         });
                         (function(id) {
@@ -904,7 +924,7 @@ Item {
                         parentMenu.addMenu(subMenu);
                     } else {
                         var effItem = menuItemComp.createObject(timelineViewRoot, {
-                            "text": node.name,
+                            "text": catalogItemText(node),
                             "iconName": "magic_line"
                         });
                         (function(id) {
@@ -928,7 +948,7 @@ Item {
                         parentMenu.addMenu(subMenu);
                     } else {
                         var transItem = menuItemComp.createObject(timelineViewRoot, {
-                            "text": node.name,
+                            "text": catalogItemText(node),
                             "iconName": "shape_line"
                         });
                         (function(id) {
