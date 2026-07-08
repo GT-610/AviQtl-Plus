@@ -20,6 +20,16 @@ namespace {
 constexpr int kDefaultGrabTimeoutMs = 2000;
 constexpr int kFrameSettleWaitMs = 8;
 
+QPointer<QQuickItem> captureTargetForView(QPointer<QQuickItem> view) {
+    if (!view) {
+        return {};
+    }
+    if (auto *v3d = view->property("view3D").value<QQuickItem *>()) {
+        return v3d;
+    }
+    return view;
+}
+
 // RAII helper that ensures exportMode is reset on the GUI item.
 class ExportModeGuard {
 public:
@@ -58,6 +68,13 @@ void TimelineExportManager::exportVideoAsync(const AviQtl::Core::VideoEncoder::C
     if (m_exporting.load()) {
         return;
     }
+
+    const QPointer<QQuickItem> view = m_controller->compositeView();
+    if (!captureTargetForView(view)) {
+        emit exportFinished(false, tr("Frame capture error: no preview view is available"));
+        return;
+    }
+
     m_cancelRequested = false;
 
     m_exportThread = QThread::create([this, config]() -> void { runExport(config); });
@@ -71,7 +88,13 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     m_exporting = true;
 
     QPointer<QQuickItem> view = m_controller->compositeView();
+    QPointer<QQuickItem> targetItem = captureTargetForView(view);
     auto exportingGuard = qScopeGuard([this]() -> void { m_exporting = false; });
+
+    if (!targetItem) {
+        emit exportFinished(false, tr("Frame capture error: no preview view is available"));
+        return;
+    }
 
     if (view) {
         QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
@@ -80,7 +103,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     AviQtl::Core::VideoEncoder encoder;
     if (!encoder.open(config)) {
-        emit exportFinished(false, tr("Encoder initialization failed"));
+        emit exportFinished(false, tr("Encoder error: initialization failed"));
         return;
     }
 
@@ -96,20 +119,6 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     emit exportStarted(totalFrames);
 
-    QPointer<QQuickItem> targetItem;
-    if (view) {
-        if (auto *v3d = view->property("view3D").value<QQuickItem *>()) {
-            targetItem = v3d;
-        } else {
-            targetItem = view.data();
-        }
-    }
-
-    if (!targetItem) {
-        emit exportFinished(false, tr("Failed to capture frame %1").arg(startFrame));
-        return;
-    }
-
     const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
     const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
 
@@ -123,7 +132,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
-            emit exportFinished(false, tr("Cancelled"));
+            emit exportFinished(false, tr("Export cancelled"));
             return;
         }
 
@@ -172,18 +181,10 @@ bool TimelineExportManager::exportImageSequence(const QString &dir, int quality,
         return false;
     }
 
-    QDir outputDir(dir);
-    if (!outputDir.exists() && !outputDir.mkpath(QStringLiteral("."))) {
-        emit exportFinished(false, tr("Cannot create output directory"));
-        return false;
-    }
-
-    if (endFrame < 0) {
-        endFrame = m_controller->timelineDuration();
-    }
-    startFrame = std::max(0, startFrame);
-    if (startFrame >= endFrame) {
-        return false;
+    const QPointer<QQuickItem> view = m_controller->compositeView();
+    if (!captureTargetForView(view)) {
+        emit exportFinished(false, tr("Frame capture error: no preview view is available"));
+        return true;
     }
 
     m_exporting = true;
@@ -236,17 +237,15 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
     emit exportStarted(totalFrames);
 
     QPointer<QQuickItem> view = m_controller->compositeView();
-    QPointer<QQuickItem> targetItem;
-    if (view) {
-        if (auto *v3d = view->property("view3D").value<QQuickItem *>()) {
-            targetItem = v3d;
-        } else {
-            targetItem = view.data();
-        }
-    }
+    QPointer<QQuickItem> targetItem = captureTargetForView(view);
 
     if (!targetItem) {
-        emit exportFinished(false, tr("Failed to capture frame %1").arg(startFrame));
+        emit exportFinished(false, tr("Frame capture error: no preview view is available"));
+        return;
+    }
+
+    if (!outputDir.exists() && !outputDir.mkpath(QStringLiteral("."))) {
+        emit exportFinished(false, tr("Output error: cannot create output directory"));
         return;
     }
 
@@ -265,7 +264,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
-            emit exportFinished(false, tr("Cancelled"));
+            emit exportFinished(false, tr("Export cancelled"));
             return;
         }
 
@@ -290,7 +289,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             const QString filePath = outputDir.filePath(filename);
             if (!img.save(filePath, fmt, saveQuality)) {
                 qWarning() << "Failed to save frame" << frame << "to" << filePath;
-                emit exportFinished(false, tr("Failed to save frame %1").arg(frame));
+                emit exportFinished(false, tr("Output error: failed to save frame %1").arg(frame));
                 return;
             }
         }
