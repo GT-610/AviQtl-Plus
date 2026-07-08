@@ -847,13 +847,7 @@ Item {
                 if (!node)
                     return "";
 
-                var suffix = "";
-                if (node.source && node.source !== "built-in")
-                    suffix = node.packageId ? node.packageId : node.source;
-                else if (node.version)
-                    suffix = "v" + node.version;
-
-                return suffix ? (node.name + "  ·  " + suffix) : node.name;
+                return node.name;
             }
 
             function catalogNodeMatches(node, filter) {
