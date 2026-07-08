@@ -62,7 +62,9 @@ void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
         return;
     }
 
-    m_exportManager->exportVideoAsync(c);
+    if (!m_exportManager->exportVideoAsync(c)) {
+        emit exportFinished(false, configurationError(tr("export is already running")));
+    }
 }
 
 void TimelineController::exportImageSequence(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {

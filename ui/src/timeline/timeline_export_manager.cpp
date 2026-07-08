@@ -64,15 +64,15 @@ TimelineExportManager::~TimelineExportManager() {
     }
 }
 
-void TimelineExportManager::exportVideoAsync(const AviQtl::Core::VideoEncoder::Config &config) {
+bool TimelineExportManager::exportVideoAsync(const AviQtl::Core::VideoEncoder::Config &config) {
     if (m_exporting.load()) {
-        return;
+        return false;
     }
 
     const QPointer<QQuickItem> view = m_controller->compositeView();
     if (!captureTargetForView(view)) {
         emit exportFinished(false, tr("Frame capture error: no preview view is available"));
-        return;
+        return true;
     }
 
     m_cancelRequested = false;
@@ -80,6 +80,7 @@ void TimelineExportManager::exportVideoAsync(const AviQtl::Core::VideoEncoder::C
     m_exportThread = QThread::create([this, config]() -> void { runExport(config); });
     connect(m_exportThread, &QThread::finished, m_exportThread, &QObject::deleteLater);
     m_exportThread->start();
+    return true;
 }
 
 void TimelineExportManager::cancelExport() { m_cancelRequested = true; }
