@@ -108,7 +108,7 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"videoDecoderIndexReserve", 108000},
         {"videoDecoderMinCacheMB", 64},
         {"hwFramePoolSize", 32},
-        {"exportDefaultCodec", "h264_vaapi"},
+        {"exportDefaultCodec", "libx264"},
         {"exportDefaultBitrateMbps", 15},
         {"exportDefaultCrf", 20},
         {"exportDefaultAudioCodec", "aac"},

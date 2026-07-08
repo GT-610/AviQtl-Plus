@@ -57,7 +57,7 @@ ScrollView {
 
                 ComboBox {
                     model: videoCodecLabels
-                    currentIndex: root.indexOfValue(videoCodecValues, root.valueOr("exportDefaultCodec", "h264_vaapi"), 0)
+                    currentIndex: root.indexOfValue(videoCodecValues, root.valueOr("exportDefaultCodec", "libx264"), 0)
                     onActivated: root.setValue("exportDefaultCodec", videoCodecValues[currentIndex])
                 }
 

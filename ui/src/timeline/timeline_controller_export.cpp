@@ -6,6 +6,12 @@
 
 namespace AviQtl::UI {
 
+namespace {
+QString configurationError(const QString &reason) { return QObject::tr("Configuration error: %1").arg(reason); }
+
+int resolvedEndFrame(int requestedEndFrame, int timelineDuration) { return requestedEndFrame >= 0 ? requestedEndFrame : timelineDuration; }
+} // namespace
+
 QStringList TimelineController::availableVideoEncoders() const {
     return AviQtl::Core::VideoEncoder::availableVideoEncoders();
 }
@@ -31,31 +37,50 @@ void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     c.preset = cfg.value(QStringLiteral("preset")).toString();
     c.profile = cfg.value(QStringLiteral("profile")).toString();
 
-    if (c.outputUrl.isEmpty() || c.width <= 0 || c.height <= 0 || c.fps_den <= 0) {
-        emit exportFinished(false, tr("Invalid export configuration"));
+    if (c.outputUrl.trimmed().isEmpty()) {
+        emit exportFinished(false, configurationError(tr("missing output path")));
         return;
     }
-    if (c.endFrame >= 0 && c.endFrame <= c.startFrame) {
-        emit exportFinished(false, tr("Export end frame must be after start frame"));
+    if (c.width <= 0 || c.height <= 0) {
+        emit exportFinished(false, configurationError(tr("invalid output size")));
+        return;
+    }
+    if (c.fps_num <= 0 || c.fps_den <= 0) {
+        emit exportFinished(false, configurationError(tr("invalid FPS")));
+        return;
+    }
+
+    c.endFrame = resolvedEndFrame(c.endFrame, timelineDuration());
+    if (c.startFrame < 0 || c.endFrame <= c.startFrame) {
+        emit exportFinished(false, configurationError(tr("export end frame must be after start frame")));
         return;
     }
 
     const double projectFps = project()->fps();
     if (projectFps <= 0.0 || std::abs((c.fps_num / static_cast<double>(c.fps_den)) - projectFps) > 0.001) {
-        emit exportFinished(false, tr("Export FPS does not match project FPS"));
+        emit exportFinished(false, configurationError(tr("export FPS does not match project FPS")));
         return;
     }
 
-    m_exportManager->exportVideoAsync(c);
+    if (!m_exportManager->exportVideoAsync(c)) {
+        emit exportFinished(false, configurationError(tr("export is already running")));
+    }
 }
 
 void TimelineController::exportImageSequence(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
-    if (dir.isEmpty()) {
-        emit exportFinished(false, tr("Invalid export configuration"));
+    if (dir.trimmed().isEmpty()) {
+        emit exportFinished(false, configurationError(tr("missing output path")));
         return;
     }
-    if (!m_exportManager->exportImageSequence(dir, quality, format, startFrame, endFrame)) {
-        emit exportFinished(false, tr("Failed to start image sequence export"));
+
+    const int resolvedEnd = resolvedEndFrame(endFrame, timelineDuration());
+    if (startFrame < 0 || resolvedEnd <= startFrame) {
+        emit exportFinished(false, configurationError(tr("export end frame must be after start frame")));
+        return;
+    }
+
+    if (!m_exportManager->exportImageSequence(dir, quality, format, startFrame, resolvedEnd)) {
+        emit exportFinished(false, configurationError(tr("export is already running")));
     }
 }
 

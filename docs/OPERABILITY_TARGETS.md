@@ -250,7 +250,7 @@ Use this checklist for changes that affect editing behavior:
 3. Productize the object/effect catalog: categories, search, presets, defaults,
    localization, and package provenance.
 4. Add workflow-level tests around project serialization, import, keyframes,
-   export configuration, and reopen behavior.
+   export configuration/failure stages, and reopen behavior.
 5. Treat performance work as measured scenarios with named project sizes and
    media durations.
 
