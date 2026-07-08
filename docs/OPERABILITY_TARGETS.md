@@ -86,7 +86,8 @@ Acceptance targets:
   split, and property inspection.
 - Snapping should be visible, overridable, and configurable per scene or project.
 - The playhead and skimmer/edit target should have clear rules so menu commands
-  create or paste at the expected frame and layer.
+  create or paste at the expected frame and layer. See
+  [Timeline Edit Target Rules](TIMELINE_EDIT_TARGETS.md).
 - Large timelines must remain scrollable and zoomable without forcing users to
   change editing style.
 
@@ -243,8 +244,9 @@ Use this checklist for changes that affect editing behavior:
    [end-to-end daily editing path](DAILY_EDITING_WORKFLOW.md): create a project,
    import media, place objects, adjust parameters, add keyframes, preview, export,
    save, and reopen.
-2. Harden timeline ergonomics: selection, skimming/edit targets, snapping,
-   multi-object operations, and large-project interaction.
+2. Harden timeline ergonomics: selection,
+   [skimming/edit targets](TIMELINE_EDIT_TARGETS.md), snapping, multi-object
+   operations, and large-project interaction.
 3. Productize the object/effect catalog: categories, search, presets, defaults,
    localization, and package provenance.
 4. Add workflow-level tests around project serialization, import, keyframes,

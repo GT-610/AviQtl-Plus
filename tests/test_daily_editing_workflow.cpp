@@ -16,6 +16,7 @@ class TestDailyEditingWorkflow : public QObject {
     void initTestCase() { registerWorkflowEffects(); }
 
     void saveAndReopenDailyEdit();
+    void pasteReportsResolvedClipEditTarget();
 
   private:
     static void registerWorkflowEffects();
@@ -233,6 +234,35 @@ void TestDailyEditingWorkflow::saveAndReopenDailyEdit() {
     QCOMPARE(loadedPastedTextClip.startFrame, 150);
     QCOMPARE(loadedPastedTextClip.layer, 2);
     QCOMPARE(loadedPastedTextClip.effects.at(1)->params().value(QStringLiteral("text")).toString(), QStringLiteral("Daily Edit"));
+}
+
+void TestDailyEditingWorkflow::pasteReportsResolvedClipEditTarget() {
+    TimelineController controller;
+
+    const int sourceClipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("text"), 0, 1);
+
+    const auto *sourceClipPtr = findClip(controller, sourceClipId);
+    QVERIFY2(sourceClipPtr != nullptr, qPrintable(QStringLiteral("Missing source text clip %1").arg(sourceClipId)));
+    const ClipData sourceClip = controller.timeline()->deepCopyClip(*sourceClipPtr);
+    QVERIFY(sourceClip.durationFrames > 0);
+
+    controller.copyClip(sourceClipId);
+    const int requestedFrame = sourceClip.startFrame + (sourceClip.durationFrames / 2);
+    const int requestedLayer = sourceClip.layer;
+    const QVariantMap pasteResult = controller.pasteClip(requestedFrame, requestedLayer);
+    QVERIFY(pasteResult.value(QStringLiteral("ok")).toBool());
+    QCOMPARE(pasteResult.value(QStringLiteral("frame")).toInt(), sourceClip.startFrame + sourceClip.durationFrames);
+    QCOMPARE(pasteResult.value(QStringLiteral("layer")).toInt(), requestedLayer);
+    QCOMPARE(pasteResult.value(QStringLiteral("duration")).toInt(), sourceClip.durationFrames);
+    QCOMPARE(pasteResult.value(QStringLiteral("nextFrame")).toInt(), sourceClip.startFrame + (sourceClip.durationFrames * 2));
+
+    const int pastedClipId = controller.timeline()->nextClipId() - 1;
+    const auto *pastedClipPtr = findClip(controller, pastedClipId);
+    QVERIFY2(pastedClipPtr != nullptr, qPrintable(QStringLiteral("Missing pasted text clip %1").arg(pastedClipId)));
+    const ClipData pastedClip = controller.timeline()->deepCopyClip(*pastedClipPtr);
+    QCOMPARE(pastedClip.startFrame, pasteResult.value(QStringLiteral("frame")).toInt());
+    QCOMPARE(pastedClip.layer, requestedLayer);
 }
 
 QTEST_MAIN(TestDailyEditingWorkflow)
