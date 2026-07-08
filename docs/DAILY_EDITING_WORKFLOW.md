@@ -58,9 +58,17 @@ QML `CompositeView` rendering path.
 
 ## Manual Export Acceptance
 
-Export is part of the daily workflow, but automated coverage is deferred until
-there is a renderer-level test harness that can capture frames without a live QML
-view.
+Export is part of the daily workflow. Configuration and service-level failure
+paths are automated, while rendered-frame correctness remains manual until there
+is a renderer-level test harness that can capture frames without a live QML view.
+
+Automated export acceptance covers:
+
+- Empty output paths and invalid frame ranges fail as configuration errors.
+- Export FPS must match the project FPS.
+- Missing preview capture surfaces fail as frame-capture errors before creating
+  encoder output files or image-sequence frames.
+- Output-directory and frame-save failures are reported as output errors.
 
 For manual acceptance:
 
@@ -88,3 +96,11 @@ The `daily_editing_workflow` CTest covers the model-level path:
 This test intentionally does not automate QML preview capture or video export.
 Those should be added as a later workflow layer rather than hidden inside a
 model-level serializer test.
+
+The `export_workflow` CTest covers the service-level export path:
+
+- Video and image-sequence export configuration is validated before export work
+  starts.
+- Missing QML capture surfaces fail before partial output is produced.
+- Failure messages identify configuration, frame-capture, encoder, output, or
+  cancellation stages.
