@@ -88,6 +88,7 @@ void TimelineController::setupConnections() {
     });
     // 引数付きのシグナルを QML へ転送
     connect(m_timeline, &TimelineService::effectParamChanged, this, &TimelineController::effectParamChanged);
+    connect(m_timeline, &TimelineService::clipsChanged, this, &TimelineController::refreshMissingMedia);
     connect(m_timeline, &TimelineService::effectParamChanged, this, [this]() {
         m_syncDirty = true;
         m_mediaManager->onCurrentFrameChanged();

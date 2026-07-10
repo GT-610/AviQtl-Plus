@@ -2,6 +2,7 @@
 #include "engine/plugin/audio_plugin_manager.hpp"
 #include "project_serializer.hpp"
 #include "project_service.hpp"
+#include "media_utils.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
@@ -99,10 +100,65 @@ auto TimelineController::loadProject(const QString &fileUrl) -> bool {
 
         // Call onProjectOpen hook
         AviQtl::Scripting::ModEngine::instance().onProjectOpen(fileUrl);
+        refreshMissingMedia();
     } else {
         emit errorOccurred(error);
     }
     return result;
+}
+
+void TimelineController::refreshMissingMedia() {
+    QVariantList missing;
+    for (const auto &scene : m_timeline->getAllScenes()) {
+        for (const auto &clip : scene.clips) {
+            const bool audio = clip.type == QStringLiteral("audio");
+            if (!audio && clip.type != QStringLiteral("image") && clip.type != QStringLiteral("video"))
+                continue;
+            for (int index = 0; index < clip.effects.size(); ++index) {
+                const auto *effect = clip.effects.at(index);
+                if (effect == nullptr || effect->id() != clip.type)
+                    continue;
+                const QString key = audio ? QStringLiteral("source") : QStringLiteral("path");
+                const QString path = effect->params().value(key).toString();
+                if (!path.isEmpty() && !QFileInfo::exists(path)) {
+                    QVariantMap item;
+                    item.insert(QStringLiteral("clipId"), clip.id);
+                    item.insert(QStringLiteral("sceneId"), scene.id);
+                    item.insert(QStringLiteral("layer"), clip.layer);
+                    item.insert(QStringLiteral("type"), clip.type);
+                    item.insert(QStringLiteral("path"), path);
+                    item.insert(QStringLiteral("name"), QFileInfo(path).fileName());
+                    missing.append(item);
+                }
+                break;
+            }
+        }
+    }
+    if (m_missingMedia != missing) {
+        m_missingMedia = missing;
+        emit missingMediaChanged();
+    }
+}
+
+bool TimelineController::relinkMedia(int clipId, const QString &fileUrl) {
+    const auto *clip = m_timeline->findClipById(clipId);
+    if (clip == nullptr)
+        return false;
+    QString path = QUrl(fileUrl).toLocalFile();
+    if (path.isEmpty()) path = fileUrl;
+    const QFileInfo info(path);
+    if (!info.exists() || !info.isFile()) return false;
+    const QString suffix = info.suffix().toLower();
+    const QSet<QString> audioExts = {QStringLiteral("wav"), QStringLiteral("mp3"), QStringLiteral("aac"), QStringLiteral("m4a"), QStringLiteral("flac"), QStringLiteral("ogg")};
+    const QSet<QString> imageExts = {QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("bmp"), QStringLiteral("gif"), QStringLiteral("webp"), QStringLiteral("svg")};
+    if ((clip->type == QStringLiteral("audio") && !audioExts.contains(suffix)) || (clip->type == QStringLiteral("image") && !imageExts.contains(suffix)) || (clip->type == QStringLiteral("video") && !AviQtl::Core::MediaUtils::isVideoFile(path))) return false;
+    for (int i = 0; i < clip->effects.size(); ++i) {
+        if (clip->effects.at(i) != nullptr && clip->effects.at(i)->id() == clip->type) {
+            updateClipEffectParam(clipId, i, clip->type == QStringLiteral("audio") ? QStringLiteral("source") : QStringLiteral("path"), path);
+            return true;
+        }
+    }
+    return false;
 }
 
 namespace {

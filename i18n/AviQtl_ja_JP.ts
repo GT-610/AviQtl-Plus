@@ -1855,7 +1855,7 @@
         <translation>複数クリップリサイズ: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="65"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="66"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>保存先のファイルパスが不明です</translation>
     </message>
@@ -2931,7 +2931,7 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="154"/>
-        <location filename="../ui/qml/MainWindow.qml" line="723"/>
+        <location filename="../ui/qml/MainWindow.qml" line="774"/>
         <source>プロジェクトを開く</source>
         <translation>プロジェクトを開く</translation>
     </message>
@@ -2942,7 +2942,7 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="187"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1353"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1411"/>
         <source>終了</source>
         <translation>終了</translation>
     </message>
@@ -3027,13 +3027,13 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="470"/>
-        <location filename="../ui/qml/MainWindow.qml" line="1037"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1088"/>
         <source>1フレーム進む</source>
         <translation>1フレーム進む</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="482"/>
-        <location filename="../ui/qml/MainWindow.qml" line="997"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1048"/>
         <source>1フレーム戻る</source>
         <translation>1フレーム戻る</translation>
     </message>
@@ -3083,64 +3083,89 @@
         <translation>エラー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="613"/>
+        <location filename="../ui/qml/MainWindow.qml" line="610"/>
+        <source>Missing Media</source>
+        <translation>不足しているメディア</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="627"/>
+        <source>Replace</source>
+        <translation>置換</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="634"/>
+        <source>Replace Missing Media</source>
+        <translation>不足しているメディアを置換</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="654"/>
+        <source>%1 missing media files</source>
+        <translation>%1 個のメディアファイルが見つかりません</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="655"/>
+        <source>Manage</source>
+        <translation>管理</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="664"/>
         <source>保存の確認</source>
         <translation>保存の確認</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="647"/>
+        <location filename="../ui/qml/MainWindow.qml" line="698"/>
         <source>プロジェクトに保存されていない変更があります。
 続行する前に保存しますか？</source>
         <translation>プロジェクトに保存されていない変更があります。
 続行する前に保存しますか？</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="702"/>
+        <location filename="../ui/qml/MainWindow.qml" line="753"/>
         <source>名前を付けて保存</source>
         <translation>名前を付けて保存</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="939"/>
+        <location filename="../ui/qml/MainWindow.qml" line="990"/>
         <source>シークバー</source>
         <translation>シークバー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="940"/>
+        <location filename="../ui/qml/MainWindow.qml" line="991"/>
         <source>タイムライン上の現在位置をドラッグして再生位置を変更します</source>
         <translation>タイムライン上の現在位置をドラッグして再生位置を変更します</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="998"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1049"/>
         <source>再生位置を1フレーム前に移動します</source>
         <translation>再生位置を1フレーム前に移動します</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1017"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1068"/>
         <source>一時停止</source>
         <translation>一時停止</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1017"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1068"/>
         <source>再生</source>
         <translation>再生</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1018"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1069"/>
         <source>再生を開始または一時停止します</source>
         <translation>再生を開始または一時停止します</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1038"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1089"/>
         <source>再生位置を1フレーム後に移動します</source>
         <translation>再生位置を1フレーム後に移動します</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1060"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1111"/>
         <source>速度</source>
         <translation>速度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1316"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1367"/>
         <source>ファイル</source>
         <translation>ファイル</translation>
     </message>
@@ -3165,27 +3190,32 @@
         <translation>AviQtl Plus - プレビュー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1409"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1393"/>
+        <source>Manage Missing Media</source>
+        <translation>不足しているメディアを管理</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/MainWindow.qml" line="1467"/>
         <source>ツール</source>
         <translation>ツール</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1412"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1470"/>
         <source>パッケージマネージャー</source>
         <translation>パッケージマネージャー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1376"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1434"/>
         <source>設定</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1361"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1419"/>
         <source>編集</source>
         <translation>編集</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1394"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1452"/>
         <source>表示</source>
         <translation>表示</translation>
     </message>
@@ -3200,7 +3230,7 @@
         <translation>設定ダイアログの表示</translation>
     </message>
     <message>
-        <location filename="../ui/qml/MainWindow.qml" line="1431"/>
+        <location filename="../ui/qml/MainWindow.qml" line="1489"/>
         <source>バージョン情報</source>
         <translation>バージョン情報</translation>
     </message>
@@ -4863,87 +4893,87 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1033"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1029"/>
         <source>オブジェクトを追加</source>
         <translation>オブジェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1048"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1044"/>
         <source>トランジションを追加</source>
         <translation>トランジションを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1060"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1056"/>
         <source>元に戻す</source>
         <translation>元に戻す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1061"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1057"/>
         <source>やり直す</source>
         <translation>やり直す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1058"/>
         <source>貼り付け</source>
         <translation>貼り付け</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1064"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1060"/>
         <source>シーン設定...</source>
         <translation>シーン設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1065"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1061"/>
         <source>プロジェクト設定...</source>
         <translation>プロジェクト設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1066"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
         <source>環境設定...</source>
         <translation>環境設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1068"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1064"/>
         <source>削除</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1069"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1065"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1070"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1066"/>
         <source>複製</source>
         <translation>複製</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1072"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1068"/>
         <source>切り取り</source>
         <translation>切り取り</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1073"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1069"/>
         <source>コピー</source>
         <translation>コピー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1077"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1073"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>上のオブジェクトでクリッピング</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1089"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1085"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1113"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1109"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>エフェクト/オブジェクトを検索...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="615"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="611"/>
         <source>ここにドロップ</source>
         <translation>ここにドロップ</translation>
     </message>

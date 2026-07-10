@@ -606,6 +606,57 @@ ApplicationWindow {
     }
 
     Dialog {
+        id: missingMediaDialog
+        title: qsTr("Missing Media")
+        parent: Overlay.overlay
+        modal: false
+        width: Math.min(mainWin.width - 40, 560)
+        height: Math.min(mainWin.height - 40, 360)
+        x: (mainWin.width - width) / 2
+        y: (mainWin.height - height) / 2
+        property int selectedClipId: -1
+        standardButtons: Dialog.Close
+
+        ListView {
+            anchors.fill: parent
+            clip: true
+            model: Workspace.currentTimeline?.missingMedia ?? []
+            delegate: RowLayout {
+                width: ListView.view.width
+                Label { text: modelData.type + ": " + modelData.path; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                Button { text: qsTr("Replace"); onClicked: { missingMediaDialog.selectedClipId = modelData.clipId; relinkDialog.open() } }
+            }
+        }
+    }
+
+    Platform.FileDialog {
+        id: relinkDialog
+        title: qsTr("Replace Missing Media")
+        onAccepted: {
+            if (Workspace.currentTimeline && missingMediaDialog.selectedClipId >= 0)
+                Workspace.currentTimeline.relinkMedia(missingMediaDialog.selectedClipId, file)
+        }
+    }
+
+    Rectangle {
+        visible: (Workspace.currentTimeline?.missingMedia?.length ?? 0) > 0
+        z: 1000
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 12
+        color: palette.mid
+        radius: 4
+        width: missingMediaNotice.implicitWidth + 20
+        height: missingMediaNotice.implicitHeight + 12
+        RowLayout {
+            id: missingMediaNotice
+            anchors.centerIn: parent
+            Label { text: qsTr("%1 missing media files").arg(Workspace.currentTimeline?.missingMedia?.length ?? 0) }
+            Button { text: qsTr("Manage"); onClicked: missingMediaDialog.open() }
+        }
+    }
+
+    Dialog {
         id: saveConfirmDialog
 
         property var pendingAction: null
@@ -1336,6 +1387,13 @@ ApplicationWindow {
             Common.IconMenuItem {
                 action: saveAsProjectAction
                 iconName: "save_3_line"
+            }
+
+            Common.IconMenuItem {
+                text: qsTr("Manage Missing Media")
+                enabled: (Workspace.currentTimeline?.missingMedia?.length ?? 0) > 0
+                iconName: "folder_line"
+                onTriggered: missingMediaDialog.open()
             }
 
             MenuSeparator {

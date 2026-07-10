@@ -43,6 +43,18 @@ them after saving and reopening the project.
 10. Confirm project settings, clip timing, layer placement, media path, text
     parameters, effect order, enabled state, and keyframes match the saved edit.
 
+## Missing Media Recovery
+
+A project with moved or deleted image, video, or audio files must still open.
+The editor shows a non-blocking missing-media notice; use **File > Manage Missing
+Media** (or its **Manage** button) to replace each item with a file of the same
+media type. Save the project after relinking.
+
+For manual acceptance, remove one imported media file after saving, reopen the
+project, verify that the missing item is listed without blocking the project,
+replace it, then use one undo and redo to confirm the old missing path and the
+replacement path are both restored correctly.
+
 ## Manual Preview Acceptance
 
 After the edit is created:
@@ -91,6 +103,8 @@ The `daily_editing_workflow` CTest covers the model-level path:
   editing APIs.
 - The project is saved through `saveProject`, reopened through `loadProject`,
   and checked for preserved project and timeline state.
+- The `missing_media` CTest covers detection after a saved project's media files
+  are removed, type-safe per-item relinking, and undo/redo of a relink.
 
 This test intentionally does not automate QML preview capture or video export.
 Those should be added as a later workflow layer rather than hidden inside a
