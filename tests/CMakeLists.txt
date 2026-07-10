@@ -226,6 +226,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME timeline_batch_move
+    SOURCES test_timeline_batch_move.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME clip_by_upper_object
     SOURCES test_clip_by_upper_object.cpp
     LINKS AviQtl_UI

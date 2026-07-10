@@ -1645,7 +1645,7 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="605"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
-        <translation type="unfinished"></translation>
+        <translation>软件包 %1 的元数据校验和不匹配：预期为 %2，实际为 %3</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="613"/>
@@ -1768,7 +1768,7 @@
         <location filename="../core/src/package_manager.cpp" line="969"/>
         <location filename="../core/src/package_manager.cpp" line="979"/>
         <source>Failed to save installation state (cannot write installed.json).</source>
-        <translation type="unfinished"></translation>
+        <translation>无法保存安装状态（无法写入 installed.json）。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="1135"/>
@@ -1875,61 +1875,111 @@
         <translation>不支持的文件格式：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="35"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="54"/>
         <source>Invalid export configuration</source>
-        <translation>导出配置无效</translation>
+        <translation type="vanished">导出配置无效</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="39"/>
         <source>Export end frame must be after start frame</source>
-        <translation>导出结束帧必须晚于起始帧</translation>
+        <translation type="vanished">导出结束帧必须晚于起始帧</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="58"/>
         <source>Failed to start image sequence export</source>
-        <translation>无法开始图像序列导出</translation>
+        <translation type="vanished">无法开始图像序列导出</translation>
+    </message>
+    <message>
+        <source>Export FPS does not match project FPS</source>
+        <translation type="vanished">导出帧率与项目帧率不匹配</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="41"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="72"/>
+        <source>missing output path</source>
+        <translation>缺少输出路径</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="45"/>
-        <source>Export FPS does not match project FPS</source>
+        <source>invalid output size</source>
+        <translation>输出尺寸无效</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="49"/>
+        <source>invalid FPS</source>
+        <translation>帧率无效</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="55"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="78"/>
+        <source>export end frame must be after start frame</source>
+        <translation>导出结束帧必须晚于起始帧</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="61"/>
+        <source>export FPS does not match project FPS</source>
         <translation>导出帧率与项目帧率不匹配</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="66"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="83"/>
+        <source>export is already running</source>
+        <translation>导出已在进行中</translation>
     </message>
 </context>
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="83"/>
         <source>Encoder initialization failed</source>
-        <translation>编码器初始化失败</translation>
+        <translation type="vanished">编码器初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="126"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
         <source>Cancelled</source>
-        <translation>已取消</translation>
+        <translation type="vanished">已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="74"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="96"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="244"/>
+        <source>Frame capture error: no preview view is available</source>
+        <translation>帧捕获错误：没有可用的预览视图</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
+        <source>Encoder error: initialization failed</source>
+        <translation>编码器错误：初始化失败</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="136"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
+        <source>Export cancelled</source>
+        <translation>导出已取消</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="177"/>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="308"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="177"/>
-        <source>Cannot create output directory</source>
-        <translation>无法创建输出目录</translation>
-    </message>
-    <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="109"/>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="249"/>
-        <source>Failed to capture frame %1</source>
-        <translation>捕获帧 %1 失败</translation>
+        <source>Output error: cannot create output directory</source>
+        <translation>输出错误：无法创建输出目录</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="293"/>
+        <source>Output error: failed to save frame %1</source>
+        <translation>输出错误：无法保存帧 %1</translation>
+    </message>
+    <message>
+        <source>Cannot create output directory</source>
+        <translation type="vanished">无法创建输出目录</translation>
+    </message>
+    <message>
+        <source>Failed to capture frame %1</source>
+        <translation type="vanished">捕获帧 %1 失败</translation>
+    </message>
+    <message>
         <source>Failed to save frame %1</source>
-        <translation>保存帧 %1 失败</translation>
+        <translation type="vanished">保存帧 %1 失败</translation>
     </message>
 </context>
 <context>
@@ -3926,37 +3976,37 @@
         <translation>根</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="213"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="225"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>绝对移动多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="269"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="281"/>
         <source>複数クリップ移動: %1</source>
         <translation>移动多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="328"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="340"/>
         <source>複数クリップ変形: %1</source>
         <translation>变换多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="635"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="658"/>
         <source>クリップ削除</source>
         <translation>删除片段</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="635"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="658"/>
         <source>複数クリップ削除: %1</source>
         <translation>删除多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="795"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="818"/>
         <source>複数クリップ分割: %1</source>
         <translation>分割多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="841"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="864"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>粘贴多个片段：%1</translation>
     </message>
@@ -4067,6 +4117,11 @@
         <location filename="../core/src/permission_manager.cpp" line="222"/>
         <source>不明な権限</source>
         <translation>未知权限</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="10"/>
+        <source>Configuration error: %1</source>
+        <translation>配置错误：%1</translation>
     </message>
 </context>
 <context>
@@ -4836,87 +4891,87 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1030"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1033"/>
         <source>オブジェクトを追加</source>
         <translation>添加对象</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1045"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1048"/>
         <source>トランジションを追加</source>
         <translation>添加转场</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1057"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1060"/>
         <source>元に戻す</source>
         <translation>撤销</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1058"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1061"/>
         <source>やり直す</source>
         <translation>重做</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1059"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
         <source>貼り付け</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1061"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1064"/>
         <source>シーン設定...</source>
         <translation>场景设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1065"/>
         <source>プロジェクト設定...</source>
         <translation>项目设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1063"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1066"/>
         <source>環境設定...</source>
         <translation>首选项...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1065"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1068"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1066"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1069"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1067"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1070"/>
         <source>複製</source>
         <translation>复制副本</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1069"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1072"/>
         <source>切り取り</source>
         <translation>剪切</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1070"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1073"/>
         <source>コピー</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1074"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1077"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>用上方对象裁剪</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1086"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1089"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1110"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1113"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>搜索效果/对象...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="612"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="615"/>
         <source>ここにドロップ</source>
         <translation>拖放到此处</translation>
     </message>

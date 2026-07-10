@@ -186,6 +186,18 @@ void TimelineService::applyClipBatchMove(const QVariantList &moves) {
         }
     }
 
+    if (pending.isEmpty()) {
+        m_batchExcludes.clear();
+        return;
+    }
+
+    for (const PendingOp &op : std::as_const(pending)) {
+        if (isLayerLocked(op.oldLayer) || isLayerLocked(op.targetLayer)) {
+            m_batchExcludes.clear();
+            return;
+        }
+    }
+
     int maxPush = 0;
     bool needsPush = true;
     int loopCount = 0;
@@ -354,6 +366,17 @@ auto TimelineService::resolveDragPosition(int clipId, int targetLayer, int propo
         }
     } else {
         movingIds.insert(clipId);
+    }
+
+    for (int id : std::as_const(movingIds)) {
+        const auto *clip = findClipById(id);
+        if (clip == nullptr) {
+            continue;
+        }
+        const int destinationLayer = std::clamp(clip->layer + deltaLayer, 0, 127);
+        if (isLayerLocked(clip->layer) || isLayerLocked(destinationLayer)) {
+            return {movingClip->startFrame, movingClip->layer};
+        }
     }
 
     int maxPush = 0;

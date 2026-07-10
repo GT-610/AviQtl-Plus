@@ -1645,7 +1645,7 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="605"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
-        <translation type="unfinished"></translation>
+        <translation>パッケージ %1 のメタデータチェックサムが一致しません: 期待値 %2、実際値 %3</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="613"/>
@@ -1768,7 +1768,7 @@
         <location filename="../core/src/package_manager.cpp" line="969"/>
         <location filename="../core/src/package_manager.cpp" line="979"/>
         <source>Failed to save installation state (cannot write installed.json).</source>
-        <translation type="unfinished"></translation>
+        <translation>インストール状態を保存できませんでした（installed.json に書き込めません）。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="1135"/>
@@ -1875,61 +1875,111 @@
         <translation>サポートされていないファイル形式です: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="35"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="54"/>
         <source>Invalid export configuration</source>
-        <translation>エクスポート設定が無効です</translation>
+        <translation type="vanished">エクスポート設定が無効です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="39"/>
         <source>Export end frame must be after start frame</source>
-        <translation>エクスポート終了フレームは開始フレームより後にする必要があります</translation>
+        <translation type="vanished">エクスポート終了フレームは開始フレームより後にする必要があります</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="58"/>
         <source>Failed to start image sequence export</source>
-        <translation>画像シーケンスのエクスポートを開始できませんでした</translation>
+        <translation type="vanished">画像シーケンスのエクスポートを開始できませんでした</translation>
+    </message>
+    <message>
+        <source>Export FPS does not match project FPS</source>
+        <translation type="vanished">エクスポートFPSがプロジェクトFPSと一致しません</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="41"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="72"/>
+        <source>missing output path</source>
+        <translation>出力パスが指定されていません</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="45"/>
-        <source>Export FPS does not match project FPS</source>
-        <translation>エクスポートFPSがプロジェクトFPSと一致しません</translation>
+        <source>invalid output size</source>
+        <translation>出力サイズが無効です</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="49"/>
+        <source>invalid FPS</source>
+        <translation>FPS が無効です</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="55"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="78"/>
+        <source>export end frame must be after start frame</source>
+        <translation>エクスポート終了フレームは開始フレームより後にする必要があります</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="61"/>
+        <source>export FPS does not match project FPS</source>
+        <translation>エクスポート FPS がプロジェクト FPS と一致しません</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="66"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="83"/>
+        <source>export is already running</source>
+        <translation>エクスポートはすでに実行中です</translation>
     </message>
 </context>
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="83"/>
         <source>Encoder initialization failed</source>
-        <translation>エンコーダーの初期化に失敗しました</translation>
+        <translation type="vanished">エンコーダーの初期化に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="126"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
         <source>Cancelled</source>
-        <translation>キャンセルされました</translation>
+        <translation type="vanished">キャンセルされました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="167"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="74"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="96"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="244"/>
+        <source>Frame capture error: no preview view is available</source>
+        <translation>フレーム取得エラー: プレビュー表示を利用できません</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
+        <source>Encoder error: initialization failed</source>
+        <translation>エンコーダーエラー: 初期化に失敗しました</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="136"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
+        <source>Export cancelled</source>
+        <translation>エクスポートをキャンセルしました</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="177"/>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="308"/>
         <source>Export complete</source>
         <translation>書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="177"/>
-        <source>Cannot create output directory</source>
-        <translation>出力ディレクトリを作成できません</translation>
-    </message>
-    <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="109"/>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="249"/>
-        <source>Failed to capture frame %1</source>
-        <translation>フレーム %1 の取得に失敗しました</translation>
+        <source>Output error: cannot create output directory</source>
+        <translation>出力エラー: 出力ディレクトリを作成できません</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="293"/>
+        <source>Output error: failed to save frame %1</source>
+        <translation>出力エラー: フレーム %1 を保存できません</translation>
+    </message>
+    <message>
+        <source>Cannot create output directory</source>
+        <translation type="vanished">出力ディレクトリを作成できません</translation>
+    </message>
+    <message>
+        <source>Failed to capture frame %1</source>
+        <translation type="vanished">フレーム %1 の取得に失敗しました</translation>
+    </message>
+    <message>
         <source>Failed to save frame %1</source>
-        <translation>フレーム %1 の保存に失敗しました</translation>
+        <translation type="vanished">フレーム %1 の保存に失敗しました</translation>
     </message>
 </context>
 <context>
@@ -3926,37 +3976,37 @@
         <translation>ルート</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="213"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="225"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>複数クリップ絶対移動: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="269"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="281"/>
         <source>複数クリップ移動: %1</source>
         <translation>複数クリップ移動: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="328"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="340"/>
         <source>複数クリップ変形: %1</source>
         <translation>複数クリップ変形: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="635"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="658"/>
         <source>クリップ削除</source>
         <translation>クリップ削除</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="635"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="658"/>
         <source>複数クリップ削除: %1</source>
         <translation>複数クリップ削除: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="795"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="818"/>
         <source>複数クリップ分割: %1</source>
         <translation>複数クリップ分割: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="841"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="864"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>複数クリップ貼り付け: %1</translation>
     </message>
@@ -4039,6 +4089,11 @@
         <location filename="../core/src/permission_manager.cpp" line="222"/>
         <source>不明な権限</source>
         <translation>不明な権限</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="10"/>
+        <source>Configuration error: %1</source>
+        <translation>設定エラー: %1</translation>
     </message>
 </context>
 <context>
@@ -4808,87 +4863,87 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1030"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1033"/>
         <source>オブジェクトを追加</source>
         <translation>オブジェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1045"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1048"/>
         <source>トランジションを追加</source>
         <translation>トランジションを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1057"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1060"/>
         <source>元に戻す</source>
         <translation>元に戻す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1058"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1061"/>
         <source>やり直す</source>
         <translation>やり直す</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1059"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
         <source>貼り付け</source>
         <translation>貼り付け</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1061"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1064"/>
         <source>シーン設定...</source>
         <translation>シーン設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1065"/>
         <source>プロジェクト設定...</source>
         <translation>プロジェクト設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1063"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1066"/>
         <source>環境設定...</source>
         <translation>環境設定...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1065"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1068"/>
         <source>削除</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1066"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1069"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1067"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1070"/>
         <source>複製</source>
         <translation>複製</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1069"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1072"/>
         <source>切り取り</source>
         <translation>切り取り</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1070"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1073"/>
         <source>コピー</source>
         <translation>コピー</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1074"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1077"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>上のオブジェクトでクリッピング</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1086"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1089"/>
         <source>エフェクトを追加</source>
         <translation>エフェクトを追加</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1110"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1113"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>エフェクト/オブジェクトを検索...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="612"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="615"/>
         <source>ここにドロップ</source>
         <translation>ここにドロップ</translation>
     </message>

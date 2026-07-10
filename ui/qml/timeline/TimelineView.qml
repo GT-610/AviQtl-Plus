@@ -229,13 +229,12 @@ Item {
     }
 
     function snapFrame(frame, ignoreSnap) {
-        if (!enableSnap || ignoreSnap)
-            return Math.max(0, Math.round(frame));
+        if (Workspace.currentTimeline)
+            return Workspace.currentTimeline.snapFrame(frame, !!ignoreSnap);
+
+        return Math.max(0, Math.round(frame));
 
         // グリッド無視時は整数丸めのみ
-        var step = getGridInterval();
-        var offset = gridSettings.mode === "BPM" ? gridSettings.offset * (Workspace.currentTimeline.project?.fps ?? 0) : 0;
-        return Math.max(0, Math.round((Math.round((frame - offset) / step) * step) + offset));
     }
 
     clip: true
