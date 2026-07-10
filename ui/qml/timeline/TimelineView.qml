@@ -229,6 +229,9 @@ Item {
     }
 
     function snapFrame(frame, ignoreSnap) {
+        if (Workspace.currentTimeline)
+            return Workspace.currentTimeline.snapFrame(frame, !!ignoreSnap);
+
         if (!enableSnap || ignoreSnap)
             return Math.max(0, Math.round(frame));
 

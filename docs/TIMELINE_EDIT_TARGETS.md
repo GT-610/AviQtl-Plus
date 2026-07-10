@@ -37,6 +37,18 @@ edited", while edit targets answer "where the edit happens".
   the selected clip. Hovering elsewhere in the timeline must not silently move
   the animation edit point.
 
+## Batch Move and Snap Rules
+
+- A multi-clip drag preserves the selected clips' relative frame and layer
+  offsets.
+- The proposed frame is snapped before collision resolution. Collision avoidance
+  then moves the complete selection forward by one shared amount, so the preview
+  and final placement agree.
+- Dragging left or up clamps the complete selection at frame `0` and layer `0`.
+- A locked source layer or locked destination layer rejects the whole batch move;
+  no selected clip moves.
+- One completed batch move is one undo/redo action.
+
 ## Manual Acceptance
 
 - Right-click an empty layer and add an object: it appears at the clicked frame
@@ -51,3 +63,11 @@ edited", while edit targets answer "where the edit happens".
   the playhead and selected layer, not the stale skimmer.
 - Add or edit a keyframe while the pointer hovers elsewhere: the keyframe uses
   the playhead-relative frame.
+- Box-select clips on different layers and drag them: their relative spacing is
+  preserved after snapping and after collision avoidance.
+- Drag the same selection toward frame `0` or layer `0`: the entire selection
+  stops at the boundary.
+- Lock either a selected source layer or a destination layer and drag: none of
+  the selected clips move.
+- Undo and redo a successful batch move once: all selected clips return to, then
+  restore, their exact positions together.

@@ -252,6 +252,8 @@ Item {
                 var deltaFrame = Math.round(dX / clipDelegate.scale);
                 var deltaLayer = Math.round(dY / layerHeight);
                 var ignoreSnap = (modifiers & Qt.ShiftModifier);
+                if (!ignoreSnap)
+                    deltaFrame = snapFrameFunc(initialFrame + deltaFrame, false) - initialFrame;
                 if (typeof Workspace.currentTimeline?.resolveDragDelta === "function") {
                     var activeIds = (timelineViewRoot && timelineViewRoot.selectionVisualLatchIds) || [];
                     if (activeIds.length === 0)
@@ -260,9 +262,6 @@ Item {
                     var res = Workspace.currentTimeline.resolveDragDelta(modelData.id, deltaFrame, deltaLayer, activeIds, timelineViewRoot.selectionMinFrame, timelineViewRoot.selectionMinLayer, timelineViewRoot.selectionMaxLayer, timelineViewRoot.layerCount);
                     var dF = res.x;
                     var dL = res.y;
-                    if (!ignoreSnap)
-                        dF = snapFrameFunc(initialFrame + dF, false) - initialFrame;
-
                     if (dF === timelineViewRoot.activeDragDeltaFrame && dL === timelineViewRoot.activeDragDeltaLayer)
                         return ;
 

@@ -7,6 +7,9 @@
 #include <QLoggingCategory>
 #include <QSet>
 #include <QSignalBlocker>
+#include <algorithm>
+#include <cmath>
+#include <ranges>
 
 Q_LOGGING_CATEGORY(lcTimeline, "aviqtl.timeline")
 
@@ -179,6 +182,37 @@ void TimelineController::invalidateTimelineDuration() {
 }
 
 void TimelineController::log(const QString &msg) { qCDebug(lcTimeline) << "[Bridge]" << msg; }
+
+auto TimelineController::snapFrame(double frame, bool ignoreSnap) const -> int {
+    const auto scenes = m_timeline->getAllScenes();
+    const auto sceneIt = std::ranges::find_if(scenes, [this](const SceneData &scene) { return scene.id == currentSceneId(); });
+    if (sceneIt == scenes.end() || ignoreSnap || !sceneIt->enableSnap) {
+        return std::max(0, static_cast<int>(std::round(frame)));
+    }
+
+    const SceneData &scene = *sceneIt;
+    const double fps = std::max(1.0, scene.fps);
+    const double scale = timelineScale();
+    double step = 1.0;
+    double offset = 0.0;
+
+    if (scene.gridMode == QLatin1String("BPM")) {
+        const double bpm = std::max(1.0, scene.gridBpm);
+        const int subdivision = scale > 3.0 ? 4 : (scale > 1.5 ? 2 : 1);
+        step = (fps / (bpm / 60.0)) / subdivision;
+        offset = scene.gridOffset * fps;
+    } else if (scene.gridMode == QLatin1String("Frame")) {
+        step = std::max(1, scene.gridInterval);
+    } else if (scale < 0.5) {
+        step = std::ceil(fps);
+    } else if (scale < 1.5) {
+        step = 10.0;
+    } else if (scale < 3.0) {
+        step = 5.0;
+    }
+
+    return std::max(0, static_cast<int>(std::round(std::round((frame - offset) / step) * step + offset)));
+}
 
 auto TimelineController::resolveDragPosition(int clipId, int targetLayer, int proposedStartFrame, const QVariantList &batchIds) -> QPoint { return m_timeline->resolveDragPosition(clipId, targetLayer, proposedStartFrame, batchIds); }
 
