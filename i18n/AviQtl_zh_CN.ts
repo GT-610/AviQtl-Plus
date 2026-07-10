@@ -1645,7 +1645,7 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="605"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
-        <translation>缺少输出路径</translation>
+        <translation>软件包 %1 的元数据校验和不匹配：预期为 %2，实际为 %3</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="613"/>
@@ -1768,7 +1768,7 @@
         <location filename="../core/src/package_manager.cpp" line="969"/>
         <location filename="../core/src/package_manager.cpp" line="979"/>
         <source>Failed to save installation state (cannot write installed.json).</source>
-        <translation>输出尺寸无效</translation>
+        <translation>无法保存安装状态（无法写入 installed.json）。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="1135"/>

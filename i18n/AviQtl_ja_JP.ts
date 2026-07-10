@@ -1645,7 +1645,7 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="605"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
-        <translation>出力パスが指定されていません</translation>
+        <translation>パッケージ %1 のメタデータチェックサムが一致しません: 期待値 %2、実際値 %3</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="613"/>
@@ -1768,7 +1768,7 @@
         <location filename="../core/src/package_manager.cpp" line="969"/>
         <location filename="../core/src/package_manager.cpp" line="979"/>
         <source>Failed to save installation state (cannot write installed.json).</source>
-        <translation>出力サイズが無効です</translation>
+        <translation>インストール状態を保存できませんでした（installed.json に書き込めません）。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="1135"/>
