@@ -72,6 +72,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME project_serializer
+    SOURCES test_project_serializer.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME settings_manager
     SOURCES test_settings_manager.cpp
     LINKS AviQtl_Core

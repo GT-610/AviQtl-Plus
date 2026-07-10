@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QUrl>
 #include <algorithm>
 
@@ -152,14 +153,30 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
     }
     root.insert(QStringLiteral("clips"), clipsArray);
 
-    QFile file(path);
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
         if (errorMessage != nullptr) {
             *errorMessage = file.errorString();
         }
         return false;
     }
-    file.write(QJsonDocument(root).toJson());
+
+    const QByteArray document = QJsonDocument(root).toJson();
+    if (file.write(document) != document.size()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = file.errorString();
+        }
+        file.cancelWriting();
+        return false;
+    }
+
+    if (!file.commit()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = file.errorString();
+        }
+        return false;
+    }
+
     return true;
 }
 
