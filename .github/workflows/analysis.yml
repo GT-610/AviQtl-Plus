@@ -25,7 +25,7 @@ jobs:
             qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
             qt6-svg qt6-5compat qt6-tools qt6-wayland \
             ffmpeg luajit carla extra-cmake-modules \
-            sudo ccache vulkan-headers vulkan-icd-loader
+            sudo ccache vulkan-headers vulkan-icd-loader gdb
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -36,7 +36,13 @@ jobs:
       - name: Run Tests
         run: cd build && ctest --output-on-failure
         env:
-          QT_QPA_PLATFORM: minimal
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Capture test crash backtrace
+        if: failure()
+        run: gdb --batch -ex run -ex "thread apply all bt" --args build/bin/AviQtl_Test_effect_registry || true
+        env:
+          QT_QPA_PLATFORM: offscreen
 
       - name: Run clang-tidy
         run: |

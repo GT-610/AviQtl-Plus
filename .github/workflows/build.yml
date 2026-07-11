@@ -31,7 +31,7 @@ jobs:
             qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
             qt6-svg qt6-5compat qt6-tools qt6-wayland \
             ffmpeg luajit carla extra-cmake-modules \
-            sudo ccache vulkan-headers vulkan-icd-loader
+            sudo ccache vulkan-headers vulkan-icd-loader gdb
 
       - name: Run Tests
         run: |
@@ -39,7 +39,13 @@ jobs:
           cmake --build build
           cd build && ctest --output-on-failure
         env:
-          QT_QPA_PLATFORM: minimal
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Capture test crash backtrace
+        if: failure()
+        run: gdb --batch -ex run -ex "thread apply all bt" --args build/bin/AviQtl_Test_effect_registry || true
+        env:
+          QT_QPA_PLATFORM: offscreen
 
   build:
     name: Build ${{ matrix.platform }}
@@ -80,7 +86,7 @@ jobs:
             qt6-base qt6-wayland qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
             qt6-svg qt6-5compat qt6-tools lilv ladspa carla openmp \
             extra-cmake-modules libc++ fluidsynth spirv-tools \
-            sudo ccache
+            sudo ccache gdb
 
       - name: Install Dependencies (macOS)
         if: matrix.platform == 'macos'
@@ -129,7 +135,13 @@ jobs:
         if: matrix.platform == 'linux'
         run: cd build && ctest --output-on-failure
         env:
-          QT_QPA_PLATFORM: minimal
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Capture test crash backtrace (Linux)
+        if: failure() && matrix.platform == 'linux'
+        run: gdb --batch -ex run -ex "thread apply all bt" --args build/bin/AviQtl_Test_effect_registry || true
+        env:
+          QT_QPA_PLATFORM: offscreen
 
       - name: Build (macOS)
         if: matrix.platform == 'macos'
