@@ -67,6 +67,7 @@ void TestMissingMedia::loadDetectsMissingMediaByType() {
         {QStringLiteral("video"), videoPath},
         {QStringLiteral("audio"), audioPath},
     };
+    int imageClipId = -1;
     for (int layer = 0; layer < media.size(); ++layer) {
         const int clipId = controller.timeline()->nextClipId();
         controller.createObject(media.at(layer).first, 0, layer);
@@ -77,6 +78,8 @@ void TestMissingMedia::loadDetectsMissingMediaByType() {
         controller.updateClipEffectParam(clipId, index,
                                          media.at(layer).first == QStringLiteral("audio") ? QStringLiteral("source") : QStringLiteral("path"),
                                          media.at(layer).second);
+        if (media.at(layer).first == QStringLiteral("image"))
+            imageClipId = clipId;
     }
 
     const QString projectPath = directory.filePath(QStringLiteral("missing-media.aviqtl"));
@@ -93,9 +96,13 @@ void TestMissingMedia::loadDetectsMissingMediaByType() {
     QCOMPARE(missing.at(1).toMap().value(QStringLiteral("type")).toString(), QStringLiteral("video"));
     QCOMPARE(missing.at(2).toMap().value(QStringLiteral("type")).toString(), QStringLiteral("audio"));
 
-    const int imageEffect = effectIndex(*loaded.timeline()->findClipById(1), QStringLiteral("image"));
-    loaded.updateClipEffectParam(1, imageEffect, QStringLiteral("path"), QString());
-    QCOMPARE(loaded.missingMedia().size(), 2);
+    QVERIFY(imageClipId >= 0);
+    const ClipData *imageClip = loaded.timeline()->findClipById(imageClipId);
+    QVERIFY(imageClip != nullptr);
+    const int imageEffect = effectIndex(*imageClip, QStringLiteral("image"));
+    QVERIFY(imageEffect >= 0);
+    loaded.updateClipEffectParam(imageClipId, imageEffect, QStringLiteral("path"), QString());
+    QTRY_COMPARE(loaded.missingMedia().size(), 2);
 }
 
 void TestMissingMedia::relinkIsTypeSafeAndUndoable() {
@@ -132,9 +139,9 @@ void TestMissingMedia::relinkIsTypeSafeAndUndoable() {
     QCOMPARE(loaded.timeline()->findClipById(clipId)->effects.at(index)->params().value(QStringLiteral("path")).toString(), replacementPath);
 
     loaded.timeline()->undoStack()->undo();
-    QCOMPARE(loaded.missingMedia().size(), 1);
+    QTRY_COMPARE(loaded.missingMedia().size(), 1);
     loaded.timeline()->undoStack()->redo();
-    QCOMPARE(loaded.missingMedia().size(), 0);
+    QTRY_COMPARE(loaded.missingMedia().size(), 0);
 }
 
 QTEST_MAIN(TestMissingMedia)

@@ -1855,9 +1855,29 @@
         <translation>调整多个片段大小：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="66"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="89"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>保存目标文件路径未知</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="162"/>
+        <source>クリップが見つかりません: %1</source>
+        <translation>找不到片段：%1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="166"/>
+        <source>再リンクできないメディアタイプです: %1</source>
+        <translation>无法重新链接的媒体类型：%1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="177"/>
+        <source>有効なファイルではありません: %1</source>
+        <translation>不是有效文件：%1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="189"/>
+        <source>メディアエフェクトが見つかりません: %1</source>
+        <translation>找不到媒体效果：%1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="313"/>
@@ -1866,11 +1886,13 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="303"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="173"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>找不到文件：%1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="372"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="184"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>
@@ -3084,27 +3106,27 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="610"/>
-        <source>Missing Media</source>
+        <source>不足しているメディア</source>
         <translation>缺失媒体</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="627"/>
-        <source>Replace</source>
+        <source>置換</source>
         <translation>替换</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="634"/>
-        <source>Replace Missing Media</source>
+        <source>不足しているメディアを置換</source>
         <translation>替换缺失媒体</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="654"/>
-        <source>%1 missing media files</source>
+        <source>%1 個のメディアファイルが見つかりません</source>
         <translation>缺失 %1 个媒体文件</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="655"/>
-        <source>Manage</source>
+        <source>管理</source>
         <translation>管理</translation>
     </message>
     <message>
@@ -3191,7 +3213,7 @@
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="1393"/>
-        <source>Manage Missing Media</source>
+        <source>不足しているメディアを管理</source>
         <translation>管理缺失媒体</translation>
     </message>
     <message>

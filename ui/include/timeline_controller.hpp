@@ -306,6 +306,8 @@ class TimelineController : public QObject {
     // clipsChanged / sceneChanged 時に再計算される
     mutable int m_cachedTimelineDuration = AviQtl::kDefaultTotalFrames;
     QVariantList m_missingMedia;
+    bool m_missingMediaRefreshPending = false;
+    void scheduleMissingMediaRefresh();
     void refreshMissingMedia();
 
     // Dirty flag for incremental sync

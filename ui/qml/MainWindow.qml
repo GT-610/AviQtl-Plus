@@ -607,7 +607,7 @@ ApplicationWindow {
 
     Dialog {
         id: missingMediaDialog
-        title: qsTr("Missing Media")
+        title: qsTr("不足しているメディア")
         parent: Overlay.overlay
         modal: false
         width: Math.min(mainWin.width - 40, 560)
@@ -624,14 +624,14 @@ ApplicationWindow {
             delegate: RowLayout {
                 width: ListView.view.width
                 Label { text: modelData.type + ": " + modelData.path; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                Button { text: qsTr("Replace"); onClicked: { missingMediaDialog.selectedClipId = modelData.clipId; relinkDialog.open() } }
+                Button { text: qsTr("置換"); onClicked: { missingMediaDialog.selectedClipId = modelData.clipId; relinkDialog.open() } }
             }
         }
     }
 
     Platform.FileDialog {
         id: relinkDialog
-        title: qsTr("Replace Missing Media")
+        title: qsTr("不足しているメディアを置換")
         onAccepted: {
             if (Workspace.currentTimeline && missingMediaDialog.selectedClipId >= 0)
                 Workspace.currentTimeline.relinkMedia(missingMediaDialog.selectedClipId, file)
@@ -651,8 +651,8 @@ ApplicationWindow {
         RowLayout {
             id: missingMediaNotice
             anchors.centerIn: parent
-            Label { text: qsTr("%1 missing media files").arg(Workspace.currentTimeline?.missingMedia?.length ?? 0) }
-            Button { text: qsTr("Manage"); onClicked: missingMediaDialog.open() }
+            Label { text: qsTr("%1 個のメディアファイルが見つかりません").arg(Workspace.currentTimeline?.missingMedia?.length ?? 0) }
+            Button { text: qsTr("管理"); onClicked: missingMediaDialog.open() }
         }
     }
 
@@ -1390,7 +1390,7 @@ ApplicationWindow {
             }
 
             Common.IconMenuItem {
-                text: qsTr("Manage Missing Media")
+                text: qsTr("不足しているメディアを管理")
                 enabled: (Workspace.currentTimeline?.missingMedia?.length ?? 0) > 0
                 iconName: "folder_line"
                 onTriggered: missingMediaDialog.open()
