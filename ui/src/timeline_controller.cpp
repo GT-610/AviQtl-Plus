@@ -7,6 +7,7 @@
 #include <QLoggingCategory>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QTimer>
 #include <algorithm>
 #include <cmath>
 #include <ranges>
@@ -74,6 +75,7 @@ void TimelineController::setupConnections() {
         invalidateTimelineDuration();
         AviQtl::Engine::Timeline::BakeController::instance().bake(currentSceneId(), m_transport->currentFrame());
         ECSRenderBridge::instance().notifyFrameReady();
+        scheduleMissingMediaRefresh();
         emit scenesChanged();
     });
     connect(m_timeline, &TimelineService::currentSceneIdChanged, this, [this]() {
@@ -88,6 +90,7 @@ void TimelineController::setupConnections() {
     });
     // 引数付きのシグナルを QML へ転送
     connect(m_timeline, &TimelineService::effectParamChanged, this, &TimelineController::effectParamChanged);
+    connect(m_timeline, &TimelineService::clipsChanged, this, &TimelineController::scheduleMissingMediaRefresh);
     connect(m_timeline, &TimelineService::effectParamChanged, this, [this]() {
         m_syncDirty = true;
         m_mediaManager->onCurrentFrameChanged();
@@ -120,6 +123,17 @@ void TimelineController::setupConnections() {
     connect(this, &TimelineController::imageLoadRequested, m_mediaManager, &TimelineMediaManager::requestImageLoad);
 
     connect(m_timeline->undoStack(), &QUndoStack::cleanChanged, this, [this](bool) { emit hasUnsavedChangesChanged(); });
+}
+
+void TimelineController::scheduleMissingMediaRefresh() {
+    if (m_missingMediaRefreshPending)
+        return;
+
+    m_missingMediaRefreshPending = true;
+    QTimer::singleShot(0, this, [this]() {
+        m_missingMediaRefreshPending = false;
+        refreshMissingMedia();
+    });
 }
 
 void TimelineController::onPlayingChanged() { m_mediaManager->onPlayingChanged(); }

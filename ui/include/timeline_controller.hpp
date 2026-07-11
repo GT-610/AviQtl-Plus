@@ -46,6 +46,7 @@ class TimelineController : public QObject {
     Q_PROPERTY(QString currentProjectUrl READ currentProjectUrl NOTIFY currentProjectUrlChanged)
     Q_PROPERTY(bool hasUnsavedChanges READ hasUnsavedChanges NOTIFY hasUnsavedChangesChanged)
     Q_PROPERTY(QVariantList previewSelectionIds READ previewSelectionIds NOTIFY previewSelectionIdsChanged)
+    Q_PROPERTY(QVariantList missingMedia READ missingMedia NOTIFY missingMediaChanged)
 
   public:
     explicit TimelineController(QObject *parent = nullptr);
@@ -89,6 +90,8 @@ class TimelineController : public QObject {
     Q_INVOKABLE void createObject(const QString &type, int startFrame, int layer);
     Q_INVOKABLE void createTransition(const QString &type, int startFrame, int layer);
     Q_INVOKABLE QVariantMap importMediaFile(const QString &fileUrl, int startFrame, int layer);
+    Q_INVOKABLE bool relinkMedia(int clipId, const QString &fileUrl);
+    QVariantList missingMedia() const { return m_missingMedia; }
     QString activeObjectType() const;
 
     Q_INVOKABLE static void log(const QString &msg);
@@ -254,6 +257,7 @@ class TimelineController : public QObject {
     void previewSelectionIdsChanged();
     void selectedLayerChanged();
     void errorOccurred(const QString &message);
+    void missingMediaChanged();
     void exportStarted(int totalFrames);
     void exportProgressChanged(int progress, int currentFrame, int totalFrames, int etaSeconds);
     void exportFinished(bool success, const QString &message);
@@ -301,6 +305,10 @@ class TimelineController : public QObject {
     // キャッシュ: タイムラインの長さ（最大クリップ末尾フレーム）
     // clipsChanged / sceneChanged 時に再計算される
     mutable int m_cachedTimelineDuration = AviQtl::kDefaultTotalFrames;
+    QVariantList m_missingMedia;
+    bool m_missingMediaRefreshPending = false;
+    void scheduleMissingMediaRefresh();
+    void refreshMissingMedia();
 
     // Dirty flag for incremental sync
     bool m_syncDirty = false;

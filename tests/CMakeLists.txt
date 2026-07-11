@@ -250,6 +250,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME missing_media
+    SOURCES test_missing_media.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME export_workflow
     SOURCES test_export_workflow.cpp
     LINKS AviQtl_UI
