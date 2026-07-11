@@ -39,7 +39,7 @@ jobs:
           cmake --build build
           cd build && ctest --output-on-failure
         env:
-          QT_QPA_PLATFORM: offscreen
+          QT_QPA_PLATFORM: minimal
 
   build:
     name: Build ${{ matrix.platform }}
@@ -129,7 +129,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: cd build && ctest --output-on-failure
         env:
-          QT_QPA_PLATFORM: offscreen
+          QT_QPA_PLATFORM: minimal
 
       - name: Build (macOS)
         if: matrix.platform == 'macos'

@@ -36,7 +36,7 @@ jobs:
       - name: Run Tests
         run: cd build && ctest --output-on-failure
         env:
-          QT_QPA_PLATFORM: offscreen
+          QT_QPA_PLATFORM: minimal
 
       - name: Run clang-tidy
         run: |
