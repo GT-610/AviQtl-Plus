@@ -19,21 +19,13 @@ jobs:
         run: |
           pacman-key --init
           pacman-key --populate archlinux
-          pacman -Sy --noconfirm archlinux-keyring
+          pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
             base-devel git cmake ninja clang mold \
             qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
             qt6-svg qt6-5compat qt6-tools qt6-wayland \
             ffmpeg luajit carla extra-cmake-modules \
-            sudo ccache vulkan-headers vulkan-icd-loader gdb
-
-      - name: Pin GCC runtime
-        run: |
-          pacman -U --noconfirm \
-            https://archive.archlinux.org/packages/g/gcc/gcc-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
-            https://archive.archlinux.org/packages/g/gcc-libs/gcc-libs-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
-            https://archive.archlinux.org/packages/l/libgcc/libgcc-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
-            https://archive.archlinux.org/packages/l/libstdc%2B%2B/libstdc%2B%2B-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst
+            sudo ccache vulkan-headers vulkan-icd-loader
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -43,12 +35,6 @@ jobs:
 
       - name: Run Tests
         run: cd build && ctest --output-on-failure
-        env:
-          QT_QPA_PLATFORM: offscreen
-
-      - name: Capture test crash backtrace
-        if: failure()
-        run: gdb --batch -ex run -ex "thread apply all bt" --args build/bin/AviQtl_Test_effect_registry || true
         env:
           QT_QPA_PLATFORM: offscreen
 
