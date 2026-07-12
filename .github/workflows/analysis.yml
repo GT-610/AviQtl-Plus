@@ -19,7 +19,6 @@ jobs:
         run: |
           pacman-key --init
           pacman-key --populate archlinux
-          printf 'Server = https://archive.archlinux.org/repos/2026/07/10/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
             base-devel git cmake ninja clang mold \
