@@ -12,7 +12,6 @@ private slots:
     // --- isDirectAudioMode ---
     void isDirectAudioMode_true() {
         QVERIFY(isDirectAudioMode(QStringLiteral("直接")));
-        QVERIFY(isDirectAudioMode(QStringLiteral("鐩存帴")));
         QVERIFY(isDirectAudioMode(QStringLiteral("モード: 直接")));
     }
 

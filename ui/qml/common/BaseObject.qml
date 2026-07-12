@@ -205,13 +205,13 @@ Node {
     Loader {
         id: transformLoader
 
-        source: (root.transformModel && root.transformModel.qmlSource) ? root.transformModel.qmlSource : ""
+        source: (base.transformModel && base.transformModel.qmlSource) ? base.transformModel.qmlSource : ""
         // BaseEffectのプロパティを注入
         onLoaded: {
             item.source = null; // Transformはsourceを持たない
-            item.params = root.transformModel.params;
-            item.effectModel = root.transformModel;
-            item.frame = root.relFrame;
+            item.params = base.transformModel.params;
+            item.effectModel = base.transformModel;
+            item.frame = base.relFrame;
         }
     }
 

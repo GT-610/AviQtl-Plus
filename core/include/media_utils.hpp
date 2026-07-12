@@ -6,7 +6,7 @@
 namespace AviQtl::Core::MediaUtils {
 
 inline bool isDirectAudioMode(QStringView playMode) {
-    return playMode.contains(QStringLiteral("直接")) || playMode.contains(QStringLiteral("鐩存帴"));
+    return playMode.contains(QStringLiteral("直接"));
 }
 
 inline bool isVideoFile(QStringView path) {

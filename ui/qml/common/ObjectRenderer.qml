@@ -32,12 +32,11 @@ Item {
             id: effectLoader
 
             property Item inputSource: {
-                if (index === 0)
-                    return renderer.originalSource;
-
-                var prev = effectChain.itemAt(index - 1);
-                if (prev && prev.status === Loader.Ready)
-                    return prev.item;
+                for (var i = index - 1; i >= 0; --i) {
+                    var prev = effectChain.itemAt(i);
+                    if (prev && prev.active && prev.status === Loader.Ready && prev.item)
+                        return prev.item;
+                }
 
                 return renderer.originalSource;
             }
