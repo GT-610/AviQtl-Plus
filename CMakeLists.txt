@@ -470,12 +470,8 @@ target_link_options(AviQtl PRIVATE
 )
 
 # --- Linker selection ---
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT DEFINED CMAKE_LINKER_TYPE)
-    find_program(MOLD_LINKER mold)
-    if(MOLD_LINKER)
-        set(CMAKE_LINKER_TYPE MOLD CACHE STRING "" FORCE)
-    endif()
-endif()
+# Respect the toolchain default.  mold remains available as an explicit opt-in
+# through -DCMAKE_LINKER_TYPE=MOLD.
 
 # --- Tests ---
 enable_testing()
