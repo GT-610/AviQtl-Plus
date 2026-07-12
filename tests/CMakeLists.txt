@@ -266,6 +266,9 @@ aviqtl_add_test(
     SOURCES test_qml_composite_capture.cpp
     LINKS AviQtl_UI
 )
+target_compile_definitions(AviQtl_Test_qml_composite_capture PRIVATE
+    AVIQTL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
 
 aviqtl_add_test(
     NAME transition_effects
