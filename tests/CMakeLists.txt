@@ -262,6 +262,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME qml_composite_capture
+    SOURCES test_qml_composite_capture.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME transition_effects
     SOURCES test_transition_effects.cpp
     LINKS AviQtl_Core
