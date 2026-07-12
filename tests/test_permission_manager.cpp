@@ -8,6 +8,8 @@ class TestPermissionManager : public QObject {
     Q_OBJECT
 
   private slots:
+    void initTestCase();
+    void cleanupTestCase();
     void singletonInstance();
     void grantAndCheckPermission();
     void revokePermission();
@@ -20,6 +22,31 @@ class TestPermissionManager : public QObject {
     void pluginAuthorization();
     void permissionPersistence();
 };
+
+namespace {
+const QStringList &testPluginIds() {
+    static const QStringList ids = {
+        QStringLiteral("test.grant"),
+        QStringLiteral("test.revoke"),
+        QStringLiteral("test.grantall"),
+        QStringLiteral("test.revokeall"),
+        QStringLiteral("test.auth"),
+        QStringLiteral("test.persist"),
+    };
+    return ids;
+}
+
+void clearTestPermissions() {
+    PermissionManager &pm = PermissionManager::instance();
+    for (const QString &pluginId : testPluginIds()) {
+        pm.revokeAllPermissions(pluginId);
+    }
+}
+} // namespace
+
+void TestPermissionManager::initTestCase() { clearTestPermissions(); }
+
+void TestPermissionManager::cleanupTestCase() { clearTestPermissions(); }
 
 void TestPermissionManager::singletonInstance() {
     PermissionManager &p1 = PermissionManager::instance();

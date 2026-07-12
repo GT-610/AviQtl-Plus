@@ -1957,37 +1957,63 @@
         <translation type="vanished">キャンセルされました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="74"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="96"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="244"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="84"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="106"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="217"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="280"/>
         <source>Frame capture error: no preview view is available</source>
         <translation>フレーム取得エラー: プレビュー表示を利用できません</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="107"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="117"/>
         <source>Encoder error: initialization failed</source>
         <translation>エンコーダーエラー: 初期化に失敗しました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="136"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="128"/>
+        <source>Encoder error: audio stream initialization failed</source>
+        <translation>エンコーダーエラー: 音声ストリームの初期化に失敗しました</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="155"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="333"/>
         <source>Export cancelled</source>
         <translation>エクスポートをキャンセルしました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="177"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="308"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="347"/>
+        <source>Frame capture error: failed to capture frame %1</source>
+        <translation>フレーム取得エラー: フレーム %1 を取得できませんでした</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="176"/>
+        <source>Encoder error: failed to queue video frame %1</source>
+        <translation>エンコーダーエラー: 映像フレーム %1 をキューに追加できませんでした</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="191"/>
+        <source>Encoder error: failed to queue audio for frame %1</source>
+        <translation>エンコーダーエラー: フレーム %1 の音声をキューに追加できませんでした</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="373"/>
         <source>Export complete</source>
         <translation>書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="249"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="287"/>
         <source>Output error: cannot create output directory</source>
         <translation>出力エラー: 出力ディレクトリを作成できません</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="293"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="312"/>
+        <source>Output error: output file already exists: %1</source>
+        <translation>出力エラー: 出力ファイルは既に存在します: %1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="357"/>
         <source>Output error: failed to save frame %1</source>
         <translation>出力エラー: フレーム %1 を保存できません</translation>
     </message>

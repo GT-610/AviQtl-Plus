@@ -737,7 +737,7 @@ auto VideoEncoder::processVideo(const QImage &img, int64_t pts) -> bool {
     return true;
 }
 
-auto VideoEncoder::pushAudio(const float *samples, int sampleCount) -> bool {
+auto VideoEncoder::pushAudio(const float *samples, int interleavedSampleCount) -> bool {
     if (m_errorOccurred) {
         return false;
     }
@@ -751,7 +751,7 @@ auto VideoEncoder::pushAudio(const float *samples, int sampleCount) -> bool {
 
     EncodeTask task;
     task.type = EncodeTask::Audio;
-    task.audioSamples.assign(samples, samples + sampleCount);
+    task.audioSamples.assign(samples, samples + interleavedSampleCount);
     m_taskQueue.push(task);
     lock.unlock();
     m_queueCv.notify_one();

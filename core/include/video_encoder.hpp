@@ -61,7 +61,8 @@ class VideoEncoder : public QObject {
     bool open(const Config &config);
     bool pushFrame(const QImage &img, int64_t pts); // CPU -> HW Upload
     bool addAudioStream(int sampleRate = AviQtl::kDefaultSampleRate, int channels = 2);
-    bool pushAudio(const float *samples, int sampleCount);
+    // interleavedSampleCount is the total number of interleaved float samples across all channels.
+    bool pushAudio(const float *samples, int interleavedSampleCount);
     void close();
 
   private:
