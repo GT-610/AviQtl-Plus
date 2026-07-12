@@ -1,6 +1,8 @@
 #include "timeline_controller.hpp"
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QQuickItem>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -16,9 +18,12 @@ class TestExportWorkflow : public QObject {
     void videoExportRejectsInvalidRange();
     void videoExportRejectsMismatchedFps();
     void videoExportWithoutCompositeViewFailsBeforeCreatingOutput();
+    void videoExportCaptureFailureRemovesPartialOutput();
     void imageSequenceRejectsEmptyPath();
     void imageSequenceRejectsInvalidRange();
     void imageSequenceWithoutCompositeViewFailsBeforeCreatingFrames();
+    void imageSequenceCaptureFailureRemovesPartialOutput();
+    void imageSequenceRefusesToOverwriteExistingFrames();
 
   private:
     static QVariantMap validVideoConfig(const TimelineController &controller, const QString &outputPath);
@@ -104,6 +109,29 @@ void TestExportWorkflow::videoExportWithoutCompositeViewFailsBeforeCreatingOutpu
     QVERIFY(!QFileInfo::exists(outputPath));
 }
 
+void TestExportWorkflow::videoExportCaptureFailureRemovesPartialOutput() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString outputPath = dir.filePath(QStringLiteral("capture-failure.mp4"));
+    TimelineController controller;
+    QQuickItem captureItem;
+    captureItem.setSize(QSizeF(64, 64));
+    controller.setCompositeView(&captureItem);
+    QSignalSpy spy(&controller, &TimelineController::exportFinished);
+
+    QVariantMap cfg = validVideoConfig(controller, outputPath);
+    cfg.insert(QStringLiteral("width"), 64);
+    cfg.insert(QStringLiteral("height"), 64);
+    cfg.insert(QStringLiteral("endFrame"), 1);
+    cfg.insert(QStringLiteral("preset"), QStringLiteral("ultrafast"));
+    controller.exportVideoAsync(cfg);
+
+    QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
+    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 0"));
+    QVERIFY(!QFileInfo::exists(outputPath));
+}
+
 void TestExportWorkflow::imageSequenceRejectsEmptyPath() {
     TimelineController controller;
     QSignalSpy spy(&controller, &TimelineController::exportFinished);
@@ -137,6 +165,52 @@ void TestExportWorkflow::imageSequenceWithoutCompositeViewFailsBeforeCreatingFra
 
     expectExportFailure(spy, QStringLiteral("Frame capture error: no preview view is available"));
     QVERIFY(!QDir(outputDir).exists());
+}
+
+void TestExportWorkflow::imageSequenceCaptureFailureRemovesPartialOutput() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString outputDir = dir.filePath(QStringLiteral("capture-failure-sequence"));
+    TimelineController controller;
+    QQuickItem captureItem;
+    captureItem.setSize(QSizeF(64, 64));
+    controller.setCompositeView(&captureItem);
+    QSignalSpy spy(&controller, &TimelineController::exportFinished);
+
+    controller.exportImageSequence(outputDir, 95, QStringLiteral("PNG"), 0, 2);
+
+    QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
+    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 0"));
+    QVERIFY(!QDir(outputDir).exists());
+}
+
+void TestExportWorkflow::imageSequenceRefusesToOverwriteExistingFrames() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString outputDir = dir.filePath(QStringLiteral("existing-sequence"));
+    QVERIFY(QDir().mkpath(outputDir));
+    const QString existingFrame = QDir(outputDir).filePath(QStringLiteral("frame_0.png"));
+    QFile sentinel(existingFrame);
+    QVERIFY(sentinel.open(QIODevice::WriteOnly));
+    const QByteArray sentinelData("existing frame data");
+    QCOMPARE(sentinel.write(sentinelData), sentinelData.size());
+    sentinel.close();
+
+    TimelineController controller;
+    QQuickItem captureItem;
+    captureItem.setSize(QSizeF(64, 64));
+    controller.setCompositeView(&captureItem);
+    QSignalSpy spy(&controller, &TimelineController::exportFinished);
+
+    controller.exportImageSequence(outputDir, 95, QStringLiteral("PNG"), 0, 2);
+
+    QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
+    expectExportFailure(spy, QStringLiteral("Output error: output file already exists: %1").arg(existingFrame));
+    QFile preservedFrame(existingFrame);
+    QVERIFY(preservedFrame.open(QIODevice::ReadOnly));
+    QCOMPARE(preservedFrame.readAll(), sentinelData);
 }
 
 QTEST_MAIN(TestExportWorkflow)

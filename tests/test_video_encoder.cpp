@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QTemporaryDir>
 #include <QTest>
+#include <cmath>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -51,13 +52,16 @@ class TestVideoEncoder : public QObject {
         QVERIFY(encoder.open(c));
         QVERIFY(encoder.addAudioStream(48000, 2));
 
-        for (int i = 0; i < 5; ++i) {
+        constexpr int frameCount = 30;
+        constexpr int sampleRate = 48'000;
+        constexpr int channelCount = 2;
+        for (int i = 0; i < frameCount; ++i) {
             QImage img(320, 240, QImage::Format_RGBA8888);
-            img.fill(Qt::black);
+            img.fill(QColor::fromRgb(i * 8, 0, 255 - (i * 8)));
             QVERIFY(encoder.pushFrame(img, i));
 
-            const int samples = 48000 / 30;
-            std::vector<float> audio(samples * 2, 0.0F);
+            const int samples = sampleRate / 30;
+            std::vector<float> audio(samples * channelCount, 0.0F);
             QVERIFY(encoder.pushAudio(audio.data(), static_cast<int>(audio.size())));
         }
 
@@ -72,25 +76,64 @@ class TestVideoEncoder : public QObject {
         if (openRet >= 0) {
             QVERIFY(avformat_find_stream_info(fmtCtx, nullptr) >= 0);
             int videoStreamIndex = -1;
+            int audioStreamIndex = -1;
             for (unsigned int i = 0; i < fmtCtx->nb_streams; ++i) {
                 if (fmtCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
                     videoStreamIndex = static_cast<int>(i);
-                    break;
+                } else if (fmtCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+                    audioStreamIndex = static_cast<int>(i);
                 }
             }
             QVERIFY(videoStreamIndex >= 0);
+            QVERIFY(audioStreamIndex >= 0);
 
-            int frameCount = 0;
+            const AVStream *videoStream = fmtCtx->streams[videoStreamIndex];
+            QCOMPARE(videoStream->codecpar->width, 320);
+            QCOMPARE(videoStream->codecpar->height, 240);
+            QVERIFY(std::abs(av_q2d(videoStream->avg_frame_rate) - 30.0) < 0.01);
+
+            const AVStream *audioStream = fmtCtx->streams[audioStreamIndex];
+            QCOMPARE(audioStream->codecpar->sample_rate, sampleRate);
+            QCOMPARE(audioStream->codecpar->ch_layout.nb_channels, channelCount);
+
+            const AVCodec *audioCodec = avcodec_find_decoder(audioStream->codecpar->codec_id);
+            QVERIFY(audioCodec != nullptr);
+            AVCodecContext *audioCodecContext = avcodec_alloc_context3(audioCodec);
+            QVERIFY(audioCodecContext != nullptr);
+            QVERIFY(avcodec_parameters_to_context(audioCodecContext, audioStream->codecpar) >= 0);
+            QVERIFY(avcodec_open2(audioCodecContext, audioCodec, nullptr) >= 0);
+
+            int videoPackets = 0;
+            int decodedAudioSamples = 0;
             AVPacket *pkt = av_packet_alloc();
+            AVFrame *audioFrame = av_frame_alloc();
+            QVERIFY(pkt != nullptr);
+            QVERIFY(audioFrame != nullptr);
             while (av_read_frame(fmtCtx, pkt) >= 0) {
                 if (pkt->stream_index == videoStreamIndex) {
-                    ++frameCount;
+                    ++videoPackets;
+                } else if (pkt->stream_index == audioStreamIndex) {
+                    QVERIFY(avcodec_send_packet(audioCodecContext, pkt) >= 0);
+                    while (avcodec_receive_frame(audioCodecContext, audioFrame) >= 0) {
+                        decodedAudioSamples += audioFrame->nb_samples;
+                        av_frame_unref(audioFrame);
+                    }
                 }
                 av_packet_unref(pkt);
             }
+            QVERIFY(avcodec_send_packet(audioCodecContext, nullptr) >= 0);
+            while (avcodec_receive_frame(audioCodecContext, audioFrame) >= 0) {
+                decodedAudioSamples += audioFrame->nb_samples;
+                av_frame_unref(audioFrame);
+            }
+
+            av_frame_free(&audioFrame);
             av_packet_free(&pkt);
+            avcodec_free_context(&audioCodecContext);
             avformat_close_input(&fmtCtx);
-            QCOMPARE(frameCount, 5);
+            QCOMPARE(videoPackets, frameCount);
+            QVERIFY(decodedAudioSamples >= 47'000);
+            QVERIFY(decodedAudioSamples <= 50'500);
         }
     }
 

@@ -80,6 +80,9 @@ Automated export acceptance covers:
 - Export FPS must match the project FPS.
 - Missing preview capture surfaces fail as frame-capture errors before creating
   encoder output files or image-sequence frames.
+- Preview items that cannot produce a frame fail explicitly instead of silently
+  substituting black frames, and partial video or image-sequence output is removed.
+- Image-sequence export refuses to overwrite an existing frame file.
 
 For manual acceptance:
 

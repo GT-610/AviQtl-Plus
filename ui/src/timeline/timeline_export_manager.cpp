@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QEventLoop>
+#include <QFile>
 #include <QImage>
 #include <QPointer>
 #include <QQuickItem>
@@ -19,6 +20,11 @@
 namespace {
 constexpr int kDefaultGrabTimeoutMs = 2000;
 constexpr int kFrameSettleWaitMs = 8;
+constexpr int kExportAudioChannels = 2;
+
+QString imageSequenceFileName(int frame, int padDigits, const QString &extension) {
+    return QStringLiteral("frame_") + QString::number(frame).rightJustified(padDigits, QChar::fromLatin1('0')) + extension;
+}
 
 QPointer<QQuickItem> captureTargetForView(QPointer<QQuickItem> view) {
     if (!view) {
@@ -110,8 +116,14 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
     const int sr = std::max(1, settings.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toInt());
-    const int ch = std::max(1, settings.value(QStringLiteral("audioChannels"), 2).toInt());
-    encoder.addAudioStream(sr, ch);
+    // AudioMixer currently produces stereo interleaved samples regardless of the
+    // playback-device channel layout. Keep the export stream consistent with it.
+    if (!encoder.addAudioStream(sr, kExportAudioChannels)) {
+        encoder.close();
+        QFile::remove(config.outputUrl);
+        emit exportFinished(false, tr("Encoder error: audio stream initialization failed"));
+        return;
+    }
 
     const double fps = m_controller->project()->fps();
     const int startFrame = config.startFrame;
@@ -133,6 +145,8 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
+            encoder.close();
+            QFile::remove(config.outputUrl);
             emit exportFinished(false, tr("Export cancelled"));
             return;
         }
@@ -144,12 +158,19 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
         QImage img = grabFrame(targetItem, QSize(config.width, config.height), grabTimeout);
         if (img.isNull()) {
-            qWarning() << "Frame grab returned null image for frame" << frame << "- substituting black frame";
-            img = QImage(config.width, config.height, QImage::Format_RGBA8888);
-            img.fill(Qt::black);
+            qWarning() << "Frame grab failed for frame" << frame;
+            encoder.close();
+            QFile::remove(config.outputUrl);
+            emit exportFinished(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+            return;
         }
 
-        encoder.pushFrame(img, frame - startFrame);
+        if (!encoder.pushFrame(img, frame - startFrame)) {
+            encoder.close();
+            QFile::remove(config.outputUrl);
+            emit exportFinished(false, tr("Encoder error: failed to queue video frame %1").arg(frame));
+            return;
+        }
 
         // Calculate audio samples for this frame using fractional accumulation to prevent A/V drift.
         // Keep the denominator as a scaled integer to preserve fractional frame rates.
@@ -159,8 +180,13 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         audioSampleAccumulator = nextAudioSample;
 
         if (samplesNeeded > 0) {
-            auto audio = m_controller->mediaManager()->audioMixer()->mix(frame, fps, samplesNeeded);
-            encoder.pushAudio(audio.data(), samplesNeeded);
+            const auto &audio = m_controller->mediaManager()->audioMixer()->mix(frame, fps, samplesNeeded);
+            if (!encoder.pushAudio(audio.data(), static_cast<int>(audio.size()))) {
+                encoder.close();
+                QFile::remove(config.outputUrl);
+                emit exportFinished(false, tr("Encoder error: failed to queue audio for frame %1").arg(frame));
+                return;
+            }
         }
 
         const int done = frame - startFrame + 1;
@@ -234,6 +260,9 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
     QDir outputDir(dir);
     const int totalFrames = endFrame - startFrame;
     const int padDigits = static_cast<int>(QString::number(endFrame).length());
+    const QString extension = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
+    const QByteArray imageFormat = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
+    const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : std::clamp(quality / 11, 0, 9);
 
     emit exportStarted(totalFrames);
 
@@ -245,9 +274,30 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         return;
     }
 
-    if (!outputDir.exists() && !outputDir.mkpath(QStringLiteral("."))) {
-        emit exportFinished(false, tr("Output error: cannot create output directory"));
-        return;
+    const bool createdOutputDir = !outputDir.exists();
+    if (createdOutputDir) {
+        if (!outputDir.mkpath(QStringLiteral("."))) {
+            emit exportFinished(false, tr("Output error: cannot create output directory"));
+            return;
+        }
+    }
+    QStringList writtenFiles;
+    const auto cleanupPartialOutput = [&outputDir, &writtenFiles, createdOutputDir]() {
+        for (const QString &filePath : writtenFiles) {
+            QFile::remove(filePath);
+        }
+        if (createdOutputDir) {
+            outputDir.rmdir(QStringLiteral("."));
+        }
+    };
+
+    for (int frame = startFrame; frame < endFrame; ++frame) {
+        const QString filePath = outputDir.filePath(imageSequenceFileName(frame, padDigits, extension));
+        if (QFile::exists(filePath)) {
+            cleanupPartialOutput();
+            emit exportFinished(false, tr("Output error: output file already exists: %1").arg(filePath));
+            return;
+        }
     }
 
     if (view) {
@@ -265,6 +315,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
+            cleanupPartialOutput();
             emit exportFinished(false, tr("Export cancelled"));
             return;
         }
@@ -277,22 +328,23 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         QImage img = grabFrame(targetItem, QSize(), grabTimeout);
 
         if (img.isNull()) {
-            qWarning() << "Frame grab returned null image for frame" << frame << "- substituting black frame";
-            img = QImage(static_cast<int>(targetItem->width()), static_cast<int>(targetItem->height()), QImage::Format_RGBA8888);
-            img.fill(Qt::black);
+            qWarning() << "Frame grab failed for frame" << frame;
+            cleanupPartialOutput();
+            emit exportFinished(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+            return;
         }
 
         {
-            const QString ext = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
-            const QByteArray fmt = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
-            const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : std::clamp(quality / 11, 0, 9);
-            const QString filename = QStringLiteral("frame_") + QString::number(frame).rightJustified(padDigits, QChar::fromLatin1('0')) + ext;
+            const QString filename = imageSequenceFileName(frame, padDigits, extension);
             const QString filePath = outputDir.filePath(filename);
-            if (!img.save(filePath, fmt, saveQuality)) {
+            if (!img.save(filePath, imageFormat, saveQuality)) {
                 qWarning() << "Failed to save frame" << frame << "to" << filePath;
+                QFile::remove(filePath);
+                cleanupPartialOutput();
                 emit exportFinished(false, tr("Output error: failed to save frame %1").arg(frame));
                 return;
             }
+            writtenFiles.push_back(filePath);
         }
 
         const int done = frame - startFrame + 1;
