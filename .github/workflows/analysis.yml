@@ -19,7 +19,6 @@ jobs:
         run: |
           pacman-key --init
           pacman-key --populate archlinux
-          printf 'Server = https://archive.archlinux.org/repos/2026/07/10/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
             base-devel git cmake ninja clang mold \
@@ -33,6 +32,34 @@ jobs:
 
       - name: Build Tests
         run: cmake --build build
+
+      - name: Diagnose Linux C++ startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_bin=build/bin/AviQtl_Test_effect_registry
+
+          echo '=== Toolchain and runtime packages ==='
+          pacman -Q gcc libgcc libstdc++ glibc mold qt6-base
+          c++ --version
+
+          echo '=== Minimal iostream program ==='
+          printf '%s\n' '#include <iostream>' 'int main() { std::cout << "ok" << std::endl; }' \
+            | c++ -x c++ - -o /tmp/aviqtl-iostream-smoke
+          /tmp/aviqtl-iostream-smoke
+
+          echo '=== Test executable dynamic section ==='
+          readelf -d "$test_bin"
+          echo '=== Test executable library resolution ==='
+          ldd "$test_bin"
+
+          echo '=== Dynamic loader trace for test executable ==='
+          set +e
+          LD_DEBUG=libs,reloc "$test_bin" > /tmp/aviqtl-loader-debug.log 2>&1
+          status=$?
+          set -e
+          echo "Test executable exit status: $status"
+          tail -n 300 /tmp/aviqtl-loader-debug.log
 
       - name: Run Tests
         run: cd build && ctest --output-on-failure
