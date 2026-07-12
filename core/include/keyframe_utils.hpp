@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <numbers>
 #include <vector>
 
 namespace AviQtl::Core::KeyframeUtils {
@@ -211,10 +212,10 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
 
     static const QHash<QString, EasingFunction> funcs = {
         {QStringLiteral("linear"), [](double t, const auto &, const auto &) { return t; }},
-        {QStringLiteral("ease_in_sine"), [](double t, const auto &, const auto &) { return 1.0 - std::cos(t * M_PI / 2.0); }},
-        {QStringLiteral("ease_out_sine"), [](double t, const auto &, const auto &) { return std::sin(t * M_PI / 2.0); }},
-        {QStringLiteral("ease_in_out_sine"), [](double t, const auto &, const auto &) { return -(std::cos(M_PI * t) - 1.0) / 2.0; }},
-        {QStringLiteral("ease_out_in_sine"), [](double t, const auto &, const auto &) { return t < 0.5 ? std::sin(t * M_PI) / 2.0 : (1.0 - std::cos((t * 2.0 - 1.0) * M_PI / 2.0)) / 2.0 + 0.5; }},
+        {QStringLiteral("ease_in_sine"), [](double t, const auto &, const auto &) { return 1.0 - std::cos(t * std::numbers::pi / 2.0); }},
+        {QStringLiteral("ease_out_sine"), [](double t, const auto &, const auto &) { return std::sin(t * std::numbers::pi / 2.0); }},
+        {QStringLiteral("ease_in_out_sine"), [](double t, const auto &, const auto &) { return -(std::cos(std::numbers::pi * t) - 1.0) / 2.0; }},
+        {QStringLiteral("ease_out_in_sine"), [](double t, const auto &, const auto &) { return t < 0.5 ? std::sin(t * std::numbers::pi) / 2.0 : (1.0 - std::cos((t * 2.0 - 1.0) * std::numbers::pi / 2.0)) / 2.0 + 0.5; }},
         {QStringLiteral("ease_in_quad"), [](double t, const auto &, const auto &) { return t * t; }},
         {QStringLiteral("ease_out_quad"), [](double t, const auto &, const auto &) { return 1.0 - (1.0 - t) * (1.0 - t); }},
         {QStringLiteral("ease_in_out_quad"), [](double t, const auto &, const auto &) { return t < 0.5 ? 2.0 * t * t : 1.0 - ((-2.0 * t + 2.0) * (-2.0 * t + 2.0)) / 2.0; }},
@@ -271,7 +272,7 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
         {QStringLiteral("ease_in_elastic"), [](double t, const auto &, const auto &p) {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble();
-            double c4 = (2.0 * M_PI) / period;
+            double c4 = (2.0 * std::numbers::pi) / period;
             if (t == 0.0) return 0.0;
             if (t == 1.0) return 1.0;
             return -a * std::pow(2.0, 10.0 * t - 10.0) * std::sin((t - 1.0 - period / 4.0) * c4);
@@ -279,7 +280,7 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
         {QStringLiteral("ease_out_elastic"), [](double t, const auto &, const auto &p) {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble();
-            double c4 = (2.0 * M_PI) / period;
+            double c4 = (2.0 * std::numbers::pi) / period;
             if (t == 0.0) return 0.0;
             if (t == 1.0) return 1.0;
             return a * std::pow(2.0, -10.0 * t) * std::sin((t - period / 4.0) * c4) + 1.0;
@@ -287,7 +288,7 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
         {QStringLiteral("ease_in_out_elastic"), [](double t, const auto &, const auto &p) {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble() * 1.5;
-            double c5 = (2.0 * M_PI) / period;
+            double c5 = (2.0 * std::numbers::pi) / period;
             if (t == 0.0) return 0.0;
             if (t == 1.0) return 1.0;
             return t < 0.5
@@ -297,7 +298,7 @@ inline const QHash<QString, EasingFunction> &easingFunctions() {
         {QStringLiteral("ease_out_in_elastic"), [](double t, const auto &, const auto &p) {
             double a = p.value("amplitude", 1.0).toDouble();
             double period = p.value("period", 0.3).toDouble();
-            double c4 = (2.0 * M_PI) / period;
+            double c4 = (2.0 * std::numbers::pi) / period;
             if (t == 0.0) return 0.0;
             if (t == 1.0) return 1.0;
             auto eout = [&](double u) { return a * std::pow(2.0, -10.0 * u) * std::sin((u - period / 4.0) * c4) + 1.0; };

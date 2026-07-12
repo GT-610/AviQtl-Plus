@@ -294,11 +294,16 @@ void AudioMixer::processFrame(int currentFrame, double fps, int samplesPerFrame)
     m_lastFrame = currentFrame;
 
     int outputSamples = samplesPerFrame;
-    if (m_playbackSpeed > 0.0) {
-        outputSamples = static_cast<int>(std::clamp(samplesPerFrame / m_playbackSpeed, 1.0, static_cast<double>(samplesPerFrame) * 16.0));
+    double playbackSpeed = 1.0;
+    {
+        std::shared_lock lock(m_mutex);
+        playbackSpeed = m_playbackSpeed;
+    }
+    if (playbackSpeed > 0.0) {
+        outputSamples = static_cast<int>(std::clamp(samplesPerFrame / playbackSpeed, 1.0, static_cast<double>(samplesPerFrame) * 16.0));
     }
 
-    std::vector<float> buffer = mix(currentFrame, fps, outputSamples);
+    const auto &buffer = mix(currentFrame, fps, outputSamples);
     m_audioOutput->write(reinterpret_cast<const char *>(buffer.data()), static_cast<qint64>(buffer.size() * sizeof(float)));
 }
 
