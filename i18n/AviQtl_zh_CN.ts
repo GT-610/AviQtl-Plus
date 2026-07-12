@@ -1975,19 +1975,19 @@
         <translation>编码器错误：音频流初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="154"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="330"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="155"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="333"/>
         <source>Export cancelled</source>
         <translation>导出已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="168"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="344"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="347"/>
         <source>Frame capture error: failed to capture frame %1</source>
         <translation>帧捕获错误：无法捕获第 %1 帧</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="175"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="176"/>
         <source>Encoder error: failed to queue video frame %1</source>
         <translation>编码器错误：无法将第 %1 帧视频加入队列</translation>
     </message>
@@ -1998,7 +1998,7 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="371"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="373"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
@@ -2008,12 +2008,12 @@
         <translation>输出错误：无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="309"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="312"/>
         <source>Output error: output file already exists: %1</source>
         <translation>输出错误：输出文件已存在：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="355"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="357"/>
         <source>Output error: failed to save frame %1</source>
         <translation>输出错误：无法保存帧 %1</translation>
     </message>

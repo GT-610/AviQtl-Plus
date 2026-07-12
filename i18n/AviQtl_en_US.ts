@@ -1975,19 +1975,19 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Encoder error: audio stream initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="154"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="330"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="155"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="333"/>
         <source>Export cancelled</source>
         <translation>Export cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="168"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="344"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="169"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="347"/>
         <source>Frame capture error: failed to capture frame %1</source>
         <translation>Frame capture error: failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="175"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="176"/>
         <source>Encoder error: failed to queue video frame %1</source>
         <translation>Encoder error: failed to queue video frame %1</translation>
     </message>
@@ -1998,7 +1998,7 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="371"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="373"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
@@ -2008,12 +2008,12 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Output error: cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="309"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="312"/>
         <source>Output error: output file already exists: %1</source>
         <translation>Output error: output file already exists: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="355"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="357"/>
         <source>Output error: failed to save frame %1</source>
         <translation>Output error: failed to save frame %1</translation>
     </message>

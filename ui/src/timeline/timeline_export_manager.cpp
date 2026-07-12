@@ -142,6 +142,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     // Accumulate audio sample time with integer numerators to avoid drift.
     int64_t audioSampleAccumulator = 0;
     const int64_t audioSampleNum = sr;
+    const int64_t scaledFpsDen = static_cast<int64_t>(fps * 1000.0);
 
     QElapsedTimer timer;
     timer.start();
@@ -178,7 +179,6 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
         // Calculate audio samples for this frame using fractional accumulation to prevent A/V drift.
         // Keep the denominator as a scaled integer to preserve fractional frame rates.
-        const int64_t scaledFpsDen = static_cast<int64_t>(fps * 1000.0);
         const int64_t nextAudioSample = ((frame - startFrame + 1LL) * audioSampleNum * 1000LL) / scaledFpsDen;
         const int samplesNeeded = static_cast<int>(nextAudioSample - audioSampleAccumulator);
         audioSampleAccumulator = nextAudioSample;
@@ -301,9 +301,12 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             }
         }
     };
+    const auto outputPathForFrame = [&outputDir, padDigits, &extension](int frame) {
+        return outputDir.filePath(imageSequenceFileName(frame, padDigits, extension));
+    };
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
-        const QString filePath = outputDir.filePath(imageSequenceFileName(frame, padDigits, extension));
+        const QString filePath = outputPathForFrame(frame);
         if (QFile::exists(filePath)) {
             cleanupPartialOutput();
             emit exportFinished(false, tr("Output error: output file already exists: %1").arg(filePath));
@@ -346,8 +349,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         }
 
         {
-            const QString filename = imageSequenceFileName(frame, padDigits, extension);
-            const QString filePath = outputDir.filePath(filename);
+            const QString filePath = outputPathForFrame(frame);
             if (!img.save(filePath, imageFormat, saveQuality)) {
                 qWarning() << "Failed to save frame" << frame << "to" << filePath;
                 QFile::remove(filePath);
