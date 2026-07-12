@@ -1,4 +1,5 @@
 #include "timeline_controller.hpp"
+#include "timeline_export_manager.hpp"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -9,6 +10,7 @@
 #include <cmath>
 
 using namespace AviQtl::UI;
+using AviQtl::Core::VideoEncoder;
 
 class TestExportWorkflow : public QObject {
     Q_OBJECT
@@ -27,6 +29,7 @@ class TestExportWorkflow : public QObject {
 
   private:
     static QVariantMap validVideoConfig(const TimelineController &controller, const QString &outputPath);
+    static VideoEncoder::Config validEncoderConfig(const TimelineController &controller, const QString &outputPath);
     static void expectExportFailure(QSignalSpy &spy, const QString &expectedMessage);
 };
 
@@ -46,6 +49,23 @@ QVariantMap TestExportWorkflow::validVideoConfig(const TimelineController &contr
         {QStringLiteral("startFrame"), 0},
         {QStringLiteral("endFrame"), 30},
     };
+}
+
+VideoEncoder::Config TestExportWorkflow::validEncoderConfig(const TimelineController &controller, const QString &outputPath) {
+    VideoEncoder::Config config;
+    const double fps = controller.project()->fps();
+    config.width = 64;
+    config.height = 64;
+    config.fps_num = fps == std::floor(fps) ? static_cast<int>(fps * 1000.0) : static_cast<int>(std::round(fps * 1001.0));
+    config.fps_den = fps == std::floor(fps) ? 1000 : 1001;
+    config.crf = 20;
+    config.codecName = QStringLiteral("libx264");
+    config.audioCodecName = QStringLiteral("aac");
+    config.outputUrl = outputPath;
+    config.startFrame = 0;
+    config.endFrame = 2;
+    config.preset = QStringLiteral("ultrafast");
+    return config;
 }
 
 void TestExportWorkflow::expectExportFailure(QSignalSpy &spy, const QString &expectedMessage) {
@@ -118,17 +138,27 @@ void TestExportWorkflow::videoExportCaptureFailureRemovesPartialOutput() {
     QQuickItem captureItem;
     captureItem.setSize(QSizeF(64, 64));
     controller.setCompositeView(&captureItem);
-    QSignalSpy spy(&controller, &TimelineController::exportFinished);
+    int captureCount = 0;
+    bool firstFrameReachedEncoder = false;
+    TimelineExportManager exportManager(&controller, [&](const QSize &size, int) {
+        ++captureCount;
+        if (captureCount == 1) {
+            QImage image(size, QImage::Format_RGBA8888);
+            image.fill(Qt::red);
+            return image;
+        }
+        firstFrameReachedEncoder = QFileInfo::exists(outputPath);
+        return QImage();
+    });
+    QSignalSpy spy(&exportManager, &TimelineExportManager::exportFinished);
 
-    QVariantMap cfg = validVideoConfig(controller, outputPath);
-    cfg.insert(QStringLiteral("width"), 64);
-    cfg.insert(QStringLiteral("height"), 64);
-    cfg.insert(QStringLiteral("endFrame"), 1);
-    cfg.insert(QStringLiteral("preset"), QStringLiteral("ultrafast"));
-    controller.exportVideoAsync(cfg);
+    QVERIFY(exportManager.exportVideoAsync(validEncoderConfig(controller, outputPath)));
 
     QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
-    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 0"));
+    QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 10'000);
+    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 1"));
+    QCOMPARE(captureCount, 2);
+    QVERIFY(firstFrameReachedEncoder);
     QVERIFY(!QFileInfo::exists(outputPath));
 }
 
@@ -176,12 +206,30 @@ void TestExportWorkflow::imageSequenceCaptureFailureRemovesPartialOutput() {
     QQuickItem captureItem;
     captureItem.setSize(QSizeF(64, 64));
     controller.setCompositeView(&captureItem);
-    QSignalSpy spy(&controller, &TimelineController::exportFinished);
+    const QString firstFramePath = QDir(outputDir).filePath(QStringLiteral("frame_0.png"));
+    int captureCount = 0;
+    bool firstFrameWasWritten = false;
+    TimelineExportManager exportManager(&controller, [&](const QSize &requestedSize, int) {
+        ++captureCount;
+        if (captureCount == 1) {
+            const QSize imageSize = requestedSize.isValid() ? requestedSize : QSize(64, 64);
+            QImage image(imageSize, QImage::Format_RGBA8888);
+            image.fill(Qt::green);
+            return image;
+        }
+        firstFrameWasWritten = QFileInfo::exists(firstFramePath);
+        return QImage();
+    });
+    QSignalSpy spy(&exportManager, &TimelineExportManager::exportFinished);
 
-    controller.exportImageSequence(outputDir, 95, QStringLiteral("PNG"), 0, 2);
+    QVERIFY(exportManager.exportImageSequence(outputDir, 95, QStringLiteral("PNG"), 0, 2));
 
     QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
-    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 0"));
+    QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 10'000);
+    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 1"));
+    QCOMPARE(captureCount, 2);
+    QVERIFY(firstFrameWasWritten);
+    QVERIFY(!QFileInfo::exists(firstFramePath));
     QVERIFY(!QDir(outputDir).exists());
 }
 

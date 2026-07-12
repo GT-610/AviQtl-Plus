@@ -7,6 +7,7 @@
 #include <QString>
 #include <QThread>
 #include <atomic>
+#include <functional>
 
 namespace AviQtl::Core {
 class VideoEncoder;
@@ -18,7 +19,10 @@ class TimelineController;
 class TimelineExportManager : public QObject {
     Q_OBJECT
   public:
+    using FrameGrabber = std::function<QImage(const QSize &, int)>;
+
     explicit TimelineExportManager(TimelineController *controller, QObject *parent = nullptr);
+    TimelineExportManager(TimelineController *controller, FrameGrabber frameGrabber, QObject *parent = nullptr);
 
     ~TimelineExportManager() override;
 
@@ -37,6 +41,7 @@ class TimelineExportManager : public QObject {
     void runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame);
     QImage grabFrame(QPointer<QQuickItem> targetItem, const QSize &size, int timeoutMs) const;
     TimelineController *m_controller;
+    FrameGrabber m_frameGrabber;
     QPointer<QThread> m_exportThread;
     std::atomic<bool> m_exporting{false};
     std::atomic<bool> m_cancelRequested{false};

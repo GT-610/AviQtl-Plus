@@ -1957,63 +1957,63 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation type="vanished">Cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="80"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="102"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="213"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="273"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="84"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="106"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="217"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="280"/>
         <source>Frame capture error: no preview view is available</source>
         <translation>Frame capture error: no preview view is available</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="113"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="117"/>
         <source>Encoder error: initialization failed</source>
         <translation>Encoder error: initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="124"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="128"/>
         <source>Encoder error: audio stream initialization failed</source>
         <translation>Encoder error: audio stream initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="150"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="319"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="154"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="330"/>
         <source>Export cancelled</source>
         <translation>Export cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="164"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="333"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="168"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="344"/>
         <source>Frame capture error: failed to capture frame %1</source>
         <translation>Frame capture error: failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="175"/>
         <source>Encoder error: failed to queue video frame %1</source>
         <translation>Encoder error: failed to queue video frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="187"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="191"/>
         <source>Encoder error: failed to queue audio for frame %1</source>
         <translation>Encoder error: failed to queue audio for frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="203"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="360"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="371"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="280"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="287"/>
         <source>Output error: cannot create output directory</source>
         <translation>Output error: cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="298"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="309"/>
         <source>Output error: output file already exists: %1</source>
         <translation>Output error: output file already exists: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="344"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="355"/>
         <source>Output error: failed to save frame %1</source>
         <translation>Output error: failed to save frame %1</translation>
     </message>

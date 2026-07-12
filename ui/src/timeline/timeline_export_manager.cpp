@@ -16,6 +16,7 @@
 #include <QScopeGuard>
 #include <QTimer>
 #include <algorithm>
+#include <utility>
 
 namespace {
 constexpr int kDefaultGrabTimeoutMs = 2000;
@@ -62,6 +63,9 @@ private:
 namespace AviQtl::UI {
 
 TimelineExportManager::TimelineExportManager(TimelineController *controller, QObject *parent) : QObject(parent), m_controller(controller) {}
+
+TimelineExportManager::TimelineExportManager(TimelineController *controller, FrameGrabber frameGrabber, QObject *parent)
+    : QObject(parent), m_controller(controller), m_frameGrabber(std::move(frameGrabber)) {}
 
 TimelineExportManager::~TimelineExportManager() {
     if (m_exportThread) {
@@ -228,6 +232,9 @@ QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const Q
     if (!targetItem) {
         return img;
     }
+    if (m_frameGrabber) {
+        return m_frameGrabber(size, timeoutMs);
+    }
 
     QSharedPointer<QQuickItemGrabResult> grab;
     QMetaObject::invokeMethod(targetItem.data(), [targetItem, &grab, size]() -> void {
@@ -262,7 +269,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
     const int padDigits = static_cast<int>(QString::number(endFrame).length());
     const QString extension = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
     const QByteArray imageFormat = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
-    const int saveQuality = (format == QStringLiteral("JPEG")) ? quality : std::clamp(quality / 11, 0, 9);
+    const int saveQuality = quality;
 
     emit exportStarted(totalFrames);
 
@@ -287,7 +294,11 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             QFile::remove(filePath);
         }
         if (createdOutputDir) {
-            outputDir.rmdir(QStringLiteral("."));
+            QDir parentDir(outputDir.absolutePath());
+            const QString outputDirName = parentDir.dirName();
+            if (parentDir.cdUp()) {
+                parentDir.rmdir(outputDirName);
+            }
         }
     };
 
