@@ -60,7 +60,7 @@ jobs:
 
           echo '=== Dynamic loader trace for test executable ==='
           set +e
-          LD_DEBUG=libs,reloc "$test_bin" > /tmp/aviqtl-loader-debug.log 2>&1
+          QT_QPA_PLATFORM=offscreen LD_DEBUG=libs,reloc "$test_bin" > /tmp/aviqtl-loader-debug.log 2>&1
           status=$?
           set -e
           echo "Test executable exit status: $status"
@@ -72,7 +72,7 @@ jobs:
           cmake --build build-default-linker --target AviQtl_Test_effect_registry
           ninja -C build-default-linker -t commands AviQtl_Test_effect_registry | tail -n 1
           set +e
-          build-default-linker/bin/AviQtl_Test_effect_registry
+          QT_QPA_PLATFORM=offscreen build-default-linker/bin/AviQtl_Test_effect_registry
           default_linker_status=$?
           set -e
           echo "Default-linker executable exit status: $default_linker_status"
