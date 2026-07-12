@@ -177,12 +177,16 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
     compositeView->setProperty("sceneId", controller->currentSceneId());
     window.show();
     QTRY_VERIFY_WITH_TIMEOUT(window.isExposed(), 5'000);
+    // The offscreen platform can expose a window while using the software scene
+    // graph, where Qt Quick 3D intentionally renders no View3D content.
     if (!QSGRendererInterface::isApiRhiBased(window.rendererInterface()->graphicsApi()))
         QSKIP("Qt Quick 3D rendering requires an RHI-based graphics API");
     QTest::qWait(200);
 
     auto *view3D = compositeView->property("view3D").value<QQuickItem *>();
     QVERIFY(view3D != nullptr);
+    // CompositeView normally receives this map from its SceneRenderer/MainWindow
+    // owner. The standalone fixture must mirror that integration step explicitly.
     const auto syncEcsRenderData = [compositeView] {
         QVariantMap renderData;
         for (const QVariant &state : ECSRenderBridge::instance().renderStates()) {
@@ -192,6 +196,8 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
         compositeView->setProperty("ecsRenderData", renderData);
         return renderData;
     };
+    // Transport starts at frame 0, so seeking directly to 0 would not emit a
+    // frame change or rebake the completed fixture state.
     controller->transport()->setCurrentFrame_seek(1);
     controller->transport()->setCurrentFrame_seek(0);
     const QVariantMap firstRenderData = syncEcsRenderData();
