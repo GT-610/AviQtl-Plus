@@ -129,7 +129,10 @@ auto AudioMixer::isReady() const -> bool {
     return true;
 }
 
-auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const std::vector<float> & { // NOLINT(bugprone-easily-swappable-parameters)
+auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::optional<double> playbackSpeed) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
+    // Protect the reusable buffers and per-clip playback state for the entire mix.
+    std::unique_lock lock(m_mutex);
+    const double mixerPlaybackSpeed = playbackSpeed.value_or(m_playbackSpeed);
     if (fps <= 0.0) {
         m_masterBuffer.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
         m_lastSamplesPerFrame = samplesPerFrame;
@@ -157,9 +160,6 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
         }
     }
 
-    // Take unique lock because we modify m_clipPhase and m_clipLastFrame
-    std::unique_lock lock(m_mutex);
-
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
         if (audio.mute || (hasSolo && !audio.solo)) {
@@ -177,7 +177,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame) -> const
 
         const double relTime = static_cast<double>(currentFrame - audio.startFrame) / fps;
         double startTime = audio.directMode ? static_cast<double>(audio.directTime) : static_cast<double>(audio.sourceStartTime) + (relTime * static_cast<double>(audio.playbackSpeed));
-        const double sourceRate = std::max(0.0, m_playbackSpeed * (audio.directMode ? 1.0 : static_cast<double>(audio.playbackSpeed)));
+        const double sourceRate = std::max(0.0, mixerPlaybackSpeed * (audio.directMode ? 1.0 : static_cast<double>(audio.playbackSpeed)));
         auto lastFrameIt = m_clipLastFrame.find(clipId);
         if (!audio.directMode && lastFrameIt != m_clipLastFrame.end() && currentFrame == lastFrameIt.value() + 1) {
             auto phaseIt = m_clipPhase.find(clipId);
@@ -303,7 +303,7 @@ void AudioMixer::processFrame(int currentFrame, double fps, int samplesPerFrame)
         outputSamples = static_cast<int>(std::clamp(samplesPerFrame / playbackSpeed, 1.0, static_cast<double>(samplesPerFrame) * 16.0));
     }
 
-    const auto &buffer = mix(currentFrame, fps, outputSamples);
+    const std::vector<float> buffer = mix(currentFrame, fps, outputSamples, playbackSpeed);
     m_audioOutput->write(reinterpret_cast<const char *>(buffer.data()), static_cast<qint64>(buffer.size() * sizeof(float)));
 }
 

@@ -9,6 +9,7 @@
 #include <QPointer>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 
 Q_DECLARE_LOGGING_CATEGORY(lcAudioMixer)
@@ -35,7 +36,7 @@ class AudioMixer : public QObject {
     void reset();
 
     // エクスポート用に生データを取得するメソッド
-    const std::vector<float> &mix(int currentFrame, double fps, int samplesPerFrame);
+    std::vector<float> mix(int currentFrame, double fps, int samplesPerFrame, std::optional<double> playbackSpeed = std::nullopt);
 
     // クリップID → プラグインチェーン
     std::shared_ptr<Plugin::AudioPluginChain> getChain(int clipId);
