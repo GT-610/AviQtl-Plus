@@ -33,6 +33,14 @@ jobs:
             ffmpeg luajit carla extra-cmake-modules \
             sudo ccache vulkan-headers vulkan-icd-loader gdb
 
+      - name: Pin GCC runtime
+        run: |
+          pacman -U --noconfirm \
+            https://archive.archlinux.org/packages/g/gcc/gcc-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
+            https://archive.archlinux.org/packages/g/gcc-libs/gcc-libs-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
+            https://archive.archlinux.org/packages/l/libgcc/libgcc-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
+            https://archive.archlinux.org/packages/l/libstdc%2B%2B/libstdc%2B%2B-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst
+
       - name: Run Tests
         run: |
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
@@ -87,6 +95,15 @@ jobs:
             qt6-svg qt6-5compat qt6-tools lilv ladspa carla openmp \
             extra-cmake-modules libc++ fluidsynth spirv-tools \
             sudo ccache gdb
+
+      - name: Pin GCC runtime (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          pacman -U --noconfirm \
+            https://archive.archlinux.org/packages/g/gcc/gcc-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
+            https://archive.archlinux.org/packages/g/gcc-libs/gcc-libs-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
+            https://archive.archlinux.org/packages/l/libgcc/libgcc-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst \
+            https://archive.archlinux.org/packages/l/libstdc%2B%2B/libstdc%2B%2B-16.1.1+r346+g4e03491b401d-1-x86_64.pkg.tar.zst
 
       - name: Install Dependencies (macOS)
         if: matrix.platform == 'macos'
