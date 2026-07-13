@@ -3,15 +3,56 @@
 #include "../ui/include/timeline_controller.hpp"
 #include "../core/include/settings_manager.hpp"
 #include "../core/include/permission_manager.hpp"
+#include "../core/include/version.hpp"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QPointer>
+#include <QStringList>
 #include <QVariant>
 
 namespace AviQtl::Scripting {
 
 // Lua から参照できるグローバルポインタ (QPointer で lifetime 安全に監視)
 static QPointer<AviQtl::UI::TimelineController> g_ctrl;
+
+// Compare dotted version strings (e.g. "1.2.0"). Returns <0, 0, >0.
+static int compareVersions(const QString &v1, const QString &v2) {
+    if (v1 == v2)
+        return 0;
+    auto sanitize = [](QString v) {
+        if (v.startsWith(QLatin1Char('v')))
+            v.remove(0, 1);
+        return v;
+    };
+    const QStringList parts1 = sanitize(v1).split(QLatin1Char('.'));
+    const QStringList parts2 = sanitize(v2).split(QLatin1Char('.'));
+    int i = 0;
+    while (i < parts1.size() && i < parts2.size()) {
+        bool ok1 = false;
+        bool ok2 = false;
+        const int num1 = parts1[i].toInt(&ok1);
+        const int num2 = parts2[i].toInt(&ok2);
+        if (ok1 && ok2) {
+            if (num1 < num2) return -1;
+            if (num1 > num2) return 1;
+        } else {
+            if (parts1[i] < parts2[i]) return -1;
+            if (parts1[i] > parts2[i]) return 1;
+        }
+        i++;
+    }
+    if (parts1.size() > parts2.size()) return 1;
+    if (parts1.size() < parts2.size()) return -1;
+    return 0;
+}
+
+// A plugin is compatible unless it demands a newer app version than we run.
+static bool isPluginCompatible(const PluginManifest &manifest) {
+    if (manifest.minAppVersion.isEmpty())
+        return true;
+    const QString appVersion = QString::fromUtf8(AviQtl::VERSION_STRING);
+    return compareVersions(appVersion, manifest.minAppVersion) >= 0;
+}
 
 // C API Wrappers (used by Lua bindings)
 extern "C" {
@@ -622,6 +663,12 @@ void ModEngine::loadPlugins() {
         QString pluginDir = pluginsPath + QStringLiteral("/") + subdir;
         PluginManifest manifest = loadManifest(pluginDir);
         if (manifest.isValid()) {
+            if (!isPluginCompatible(manifest)) {
+                qWarning() << "[ModEngine] Skipping plugin" << manifest.name << "(" << manifest.id
+                           << "): requires AviQtl" << manifest.minAppVersion << "or newer (current:"
+                           << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
+                continue;
+            }
             qInfo() << "[ModEngine] Found plugin:" << manifest.name << "v" << manifest.version << "(" << manifest.id << ")";
             m_loadedPlugins.append(manifest);
         }
@@ -689,6 +736,11 @@ void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &plugin
 
     QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
     PluginManifest m = loadManifest(manifestDir);
+    if (m.isValid() && !isPluginCompatible(m)) {
+        qWarning() << "[ModEngine] Skipping plugin" << subdir << ": requires AviQtl" << m.minAppVersion
+                   << "or newer (current:" << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
+        return;
+    }
     if (m.isValid()) {
         info.manifest = m;
         setCurrentPluginId(m.id);
