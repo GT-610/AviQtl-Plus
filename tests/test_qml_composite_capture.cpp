@@ -12,6 +12,7 @@
 #include <QQuickItemGrabResult>
 #include <QQuickWindow>
 #include <QSGRendererInterface>
+#include <QElapsedTimer>
 #include <QSignalSpy>
 #include <QTest>
 #include <QUrl>
@@ -30,6 +31,7 @@ class TestQmlCompositeCapture : public QObject {
 
   private:
     static QImage grabView3D(QQuickItem *view3D);
+    static QImage grabView3DUntilBright(QQuickItem *view3D, int timeoutMs = 5'000);
     static double brightPixelCenterX(const QImage &image);
 };
 
@@ -63,6 +65,21 @@ QImage TestQmlCompositeCapture::grabView3D(QQuickItem *view3D) {
     if (!grab) return {};
     QSignalSpy readySpy(grab.get(), &QQuickItemGrabResult::ready);
     return readySpy.wait(5'000) ? grab->image() : QImage();
+}
+
+QImage TestQmlCompositeCapture::grabView3DUntilBright(QQuickItem *view3D, int timeoutMs) {
+    QElapsedTimer timer;
+    timer.start();
+    QImage image;
+    do {
+        image = grabView3D(view3D);
+        if (!image.isNull() && brightPixelCenterX(image) >= 0.0)
+            return image;
+        QTest::qWait(50);
+        if (view3D->window())
+            view3D->window()->update();
+    } while (timer.elapsed() < timeoutMs);
+    return image;
 }
 
 double TestQmlCompositeCapture::brightPixelCenterX(const QImage &image) {
@@ -206,7 +223,7 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
     QTRY_COMPARE_WITH_TIMEOUT(compositeView->property("currentFrame").toInt(), 0, 5'000);
     window.update();
     QTest::qWait(150);
-    const QImage firstFrame = grabView3D(view3D);
+    const QImage firstFrame = grabView3DUntilBright(view3D);
     QSignalSpy frameSpy(controller->transport(), &TransportService::currentFrameChanged);
     controller->transport()->setCurrentFrame_seek(30);
     const QVariantMap lastRenderData = syncEcsRenderData();
@@ -215,7 +232,7 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
     QTRY_COMPARE_WITH_TIMEOUT(compositeView->property("currentFrame").toInt(), 30, 5'000);
     window.update();
     QTest::qWait(250);
-    const QImage lastFrame = grabView3D(view3D);
+    const QImage lastFrame = grabView3DUntilBright(view3D);
 
     QVERIFY(!firstFrame.isNull());
     QVERIFY(!lastFrame.isNull());
