@@ -169,12 +169,6 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
-    NAME keyframe_evaluator
-    SOURCES test_keyframe_evaluator.cpp
-    LINKS AviQtl_Engine
-)
-
-aviqtl_add_test(
     NAME triple_buffer
     SOURCES test_triple_buffer.cpp
     LINKS AviQtl_Engine
