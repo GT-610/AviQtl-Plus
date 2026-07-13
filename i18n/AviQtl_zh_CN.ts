@@ -21,12 +21,12 @@
 <context>
     <name>AppearanceSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/AppearanceSettingsPage.qml" line="38"/>
+        <location filename="../ui/qml/settings/AppearanceSettingsPage.qml" line="32"/>
         <source>表示</source>
         <translation>显示</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/AppearanceSettingsPage.qml" line="48"/>
+        <location filename="../ui/qml/settings/AppearanceSettingsPage.qml" line="42"/>
         <source>文字余白係数</source>
         <translation>文字边距系数</translation>
     </message>
@@ -1602,265 +1602,210 @@
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="205"/>
+        <location filename="../core/src/package_manager.cpp" line="198"/>
         <source>Idle</source>
         <translation>空闲</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="260"/>
+        <location filename="../core/src/package_manager.cpp" line="253"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>已从缓存加载软件包（按「同步」检查更新）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="352"/>
+        <location filename="../core/src/package_manager.cpp" line="345"/>
         <source>Syncing repository...</source>
         <translation>正在同步仓库...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="403"/>
+        <location filename="../core/src/package_manager.cpp" line="396"/>
         <source>Repository URL must use HTTPS: %1</source>
         <translation>软件源 URL 必须使用 HTTPS：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="428"/>
+        <location filename="../core/src/package_manager.cpp" line="421"/>
         <source>Catalog URL must use HTTPS: %1</source>
         <translation>目录 URL 必须使用 HTTPS：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="588"/>
+        <location filename="../core/src/package_manager.cpp" line="581"/>
         <source>Sync complete</source>
         <translation>同步完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="643"/>
+        <location filename="../core/src/package_manager.cpp" line="636"/>
         <source>Package not found: %1</source>
         <translation>未找到软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="649"/>
+        <location filename="../core/src/package_manager.cpp" line="642"/>
         <source>No metadata URL for package: %1</source>
         <translation>软件包没有元数据 URL：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="654"/>
+        <location filename="../core/src/package_manager.cpp" line="647"/>
         <source>Fetching package details: %1</source>
         <translation>正在获取软件包详情：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="657"/>
+        <location filename="../core/src/package_manager.cpp" line="650"/>
         <source>Invalid or insecure metadata URL for package: %1</source>
         <translation>软件包元数据 URL 无效或不安全：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="665"/>
+        <location filename="../core/src/package_manager.cpp" line="658"/>
         <source>Failed to fetch package metadata (%1): %2</source>
         <translation>获取软件包元数据失败 (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="677"/>
+        <location filename="../core/src/package_manager.cpp" line="670"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
         <translation>软件包 %1 的元数据校验和不匹配：预期为 %2，实际为 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="685"/>
+        <location filename="../core/src/package_manager.cpp" line="678"/>
         <source>Invalid metadata format for package: %1</source>
         <translation>软件包的元数据格式无效：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="799"/>
+        <location filename="../core/src/package_manager.cpp" line="792"/>
         <source>No download URL found for package %1 version %2</source>
         <translation>未找到软件包 %1 版本 %2 的下载 URL</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="806"/>
+        <location filename="../core/src/package_manager.cpp" line="799"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
         <translation>软件包 %1 需要 AviQtl %2 或更新版本（当前：%3）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="950"/>
+        <location filename="../core/src/package_manager.cpp" line="943"/>
         <source>Package deployment failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>软件包部署失败且自动回滚未能完成，备份已保留。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="952"/>
+        <location filename="../core/src/package_manager.cpp" line="945"/>
         <source>Failed to deploy package; the previous installation was restored.</source>
         <translation>软件包部署失败，已恢复先前安装。</translation>
     </message>
     <message>
-        <source>Could not determine repository URL for the package.</source>
-        <translation type="vanished">无法识别软件包的仓库 URL。</translation>
-    </message>
-    <message>
-        <source>Searching for available files...</source>
-        <translation type="vanished">正在搜索可用文件...</translation>
-    </message>
-    <message>
-        <source>Repository URL is not in a valid format.</source>
-        <translation type="vanished">仓库 URL 格式不正确。</translation>
-    </message>
-    <message>
-        <source>Unsupported repository host.</source>
-        <translation type="vanished">不受支持的仓库主机。</translation>
-    </message>
-    <message>
-        <source>Failed to fetch release info (%1): %2</source>
-        <translation type="vanished">发布信息获取失败 (%1): %2</translation>
-    </message>
-    <message>
-        <source>No downloadable files found.</source>
-        <translation type="vanished">未找到可下载的文件。</translation>
-    </message>
-    <message>
-        <source>Download URL not specified. Please fetch asset information.</source>
-        <translation type="vanished">未指定下载 URL。请先获取资产信息。</translation>
-    </message>
-    <message>
-        <source>Installing package: %1</source>
-        <translation type="vanished">正在安装软件包：%1</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="974"/>
+        <location filename="../core/src/package_manager.cpp" line="967"/>
         <source>Installation complete: %1</source>
         <translation>安装完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="826"/>
+        <location filename="../core/src/package_manager.cpp" line="819"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl 有可用更新。请重启以应用。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="844"/>
+        <location filename="../core/src/package_manager.cpp" line="837"/>
         <source>Invalid package ID or type.</source>
         <translation>软件包 ID 或类型无效。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="849"/>
+        <location filename="../core/src/package_manager.cpp" line="842"/>
         <source>Invalid or insecure package download URL.</source>
         <translation>软件包下载 URL 无效或不安全。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="852"/>
+        <location filename="../core/src/package_manager.cpp" line="845"/>
         <source>Downloading package: %1</source>
         <translation>正在下载软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="868"/>
+        <location filename="../core/src/package_manager.cpp" line="861"/>
         <source>Download failed: %1</source>
         <translation>下载失败：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="875"/>
+        <location filename="../core/src/package_manager.cpp" line="868"/>
         <source>Failed to create temporary directory.</source>
         <translation>创建临时目录失败。</translation>
     </message>
     <message>
-        <source>Invalid download URL.</source>
-        <translation type="vanished">无效的下载URL。</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="885"/>
+        <location filename="../core/src/package_manager.cpp" line="878"/>
         <source>Failed to save downloaded file.</source>
         <translation>保存下载文件失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="866"/>
-        <location filename="../core/src/package_manager.cpp" line="891"/>
+        <location filename="../core/src/package_manager.cpp" line="859"/>
+        <location filename="../core/src/package_manager.cpp" line="884"/>
         <source>Package archive exceeds the maximum allowed size.</source>
         <translation>软件包归档超过允许的最大大小。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="902"/>
+        <location filename="../core/src/package_manager.cpp" line="895"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
         <translation>校验和不一致 %1：期望 %2，实际 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="907"/>
+        <location filename="../core/src/package_manager.cpp" line="900"/>
         <source>Extracting package...</source>
         <translation>正在解压软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="918"/>
+        <location filename="../core/src/package_manager.cpp" line="911"/>
         <source>Failed to create extraction directory.</source>
         <translation>创建解压目录失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="924"/>
+        <location filename="../core/src/package_manager.cpp" line="917"/>
         <source>Failed to extract package archive.</source>
         <translation>解压软件包归档失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="941"/>
+        <location filename="../core/src/package_manager.cpp" line="934"/>
         <source>Deploying package files...</source>
         <translation>正在部署软件包文件...</translation>
     </message>
     <message>
-        <source>Failed to deploy package files.</source>
-        <translation type="vanished">部署软件包文件失败。</translation>
-    </message>
-    <message>
-        <source>Failed to save installation state (cannot write installed.json).</source>
-        <translation type="vanished">无法保存安装状态（无法写入 installed.json）。</translation>
-    </message>
-    <message>
-        <location filename="../core/src/package_manager.cpp" line="1148"/>
+        <location filename="../core/src/package_manager.cpp" line="1138"/>
         <source>Invalid package ID.</source>
         <translation>无效的软件包ID。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1154"/>
+        <location filename="../core/src/package_manager.cpp" line="1144"/>
         <source>Cannot remove package because its installed type is missing or invalid.</source>
         <translation>已安装软件包的类型缺失或无效，无法删除。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1158"/>
+        <location filename="../core/src/package_manager.cpp" line="1148"/>
         <source>Removing package: %1</source>
         <translation>正在删除软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1167"/>
+        <location filename="../core/src/package_manager.cpp" line="1157"/>
         <source>Package removal failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>软件包删除失败且自动回滚未能完成，备份已保留。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1169"/>
+        <location filename="../core/src/package_manager.cpp" line="1159"/>
         <source>Failed to remove package; the installed state and files were restored.</source>
         <translation>软件包删除失败，已恢复安装状态和文件。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1182"/>
+        <location filename="../core/src/package_manager.cpp" line="1172"/>
         <source>Removal complete: %1</source>
         <translation>删除完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1236"/>
+        <location filename="../core/src/package_manager.cpp" line="1201"/>
         <source>No packages to upgrade.</source>
         <translation>没有可升级的软件包。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1238"/>
+        <location filename="../core/src/package_manager.cpp" line="1203"/>
         <source>Upgrading all packages...</source>
         <translation>正在升级所有软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1245"/>
+        <location filename="../core/src/package_manager.cpp" line="1210"/>
         <source>All upgrades complete.</source>
         <translation>所有升级已完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1250"/>
+        <location filename="../core/src/package_manager.cpp" line="1215"/>
         <source>Upgrading package: %1</source>
         <translation>正在升级软件包：%1</translation>
-    </message>
-</context>
-<context>
-    <name>AviQtl::UI</name>
-    <message>
-        <source>Cancelled</source>
-        <translation type="obsolete">已取消</translation>
-    </message>
-    <message>
-        <source>Export complete</source>
-        <translation type="obsolete">导出完成</translation>
     </message>
 </context>
 <context>
@@ -1943,22 +1888,6 @@
         <translation>不支持的文件格式：%1</translation>
     </message>
     <message>
-        <source>Invalid export configuration</source>
-        <translation type="vanished">导出配置无效</translation>
-    </message>
-    <message>
-        <source>Export end frame must be after start frame</source>
-        <translation type="vanished">导出结束帧必须晚于起始帧</translation>
-    </message>
-    <message>
-        <source>Failed to start image sequence export</source>
-        <translation type="vanished">无法开始图像序列导出</translation>
-    </message>
-    <message>
-        <source>Export FPS does not match project FPS</source>
-        <translation type="vanished">导出帧率与项目帧率不匹配</translation>
-    </message>
-    <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="41"/>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="72"/>
         <source>missing output path</source>
@@ -1994,14 +1923,6 @@
 </context>
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
-    <message>
-        <source>Encoder initialization failed</source>
-        <translation type="vanished">编码器初始化失败</translation>
-    </message>
-    <message>
-        <source>Cancelled</source>
-        <translation type="vanished">已取消</translation>
-    </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="84"/>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="106"/>
@@ -2062,18 +1983,6 @@
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="357"/>
         <source>Output error: failed to save frame %1</source>
         <translation>输出错误：无法保存帧 %1</translation>
-    </message>
-    <message>
-        <source>Cannot create output directory</source>
-        <translation type="vanished">无法创建输出目录</translation>
-    </message>
-    <message>
-        <source>Failed to capture frame %1</source>
-        <translation type="vanished">捕获帧 %1 失败</translation>
-    </message>
-    <message>
-        <source>Failed to save frame %1</source>
-        <translation type="vanished">保存帧 %1 失败</translation>
     </message>
 </context>
 <context>
@@ -2137,10 +2046,6 @@
         <translation>场景设置</translation>
     </message>
     <message>
-        <source>メディアの書き出し</source>
-        <translation type="vanished">导出媒体</translation>
-    </message>
-    <message>
         <location filename="../ui/src/window_manager.cpp" line="51"/>
         <source>補間設定</source>
         <translation>插值设置</translation>
@@ -2149,10 +2054,6 @@
         <location filename="../ui/src/window_manager.cpp" line="53"/>
         <source>パッケージマネージャー</source>
         <translation>软件包管理器</translation>
-    </message>
-    <message>
-        <source>ミキサー</source>
-        <translation type="vanished">混音器</translation>
     </message>
 </context>
 <context>
@@ -2235,37 +2136,37 @@
         <translation>参数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="365"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="338"/>
         <source>開始色 (f%1)</source>
         <translation>起始颜色 (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="365"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="338"/>
         <source>色を選択</source>
         <translation>选择颜色</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="454"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="427"/>
         <source>終了色 (f%1)</source>
         <translation>结束颜色 (f%1)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="500"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="473"/>
         <source>ファイルを選択</source>
         <translation>选择文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="647"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="620"/>
         <source>設定</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="739"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="712"/>
         <source>フォントを選択</source>
         <translation>选择字体</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="755"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="728"/>
         <source>デフォルト</source>
         <translation>默认</translation>
     </message>
@@ -2273,47 +2174,47 @@
 <context>
     <name>DecodeAudioSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="42"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="37"/>
         <source>映像デコード</source>
         <translation>视频解码</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="52"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="47"/>
         <source>インデックス予約数</source>
         <translation>索引预留数量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="64"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="59"/>
         <source>最小キャッシュ量</source>
         <translation>最小缓存量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="76"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="71"/>
         <source>ハードウェアフレームプール数</source>
         <translation>硬件帧池数量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="91"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="86"/>
         <source>音声</source>
         <translation>音频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="101"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="96"/>
         <source>音声チャンネル数</source>
         <translation>音频声道数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="111"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="106"/>
         <source>プラグイン最大ブロックサイズ</source>
         <translation>插件最大块大小</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="121"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="116"/>
         <source>Lua フック間隔</source>
         <translation>Lua 钩子间隔</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="137"/>
+        <location filename="../ui/qml/settings/DecodeAudioSettingsPage.qml" line="132"/>
         <source>デコードと音声関連の設定は再起動後に反映されます</source>
         <translation>解码和音频相关设置将在重启后生效</translation>
     </message>
@@ -2509,253 +2410,253 @@
 <context>
     <name>ExportDialog</name>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="118"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="110"/>
         <source>メディアの書き出し</source>
         <translation>导出媒体</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="141"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="133"/>
         <source>書き出し中...</source>
         <translation>正在导出...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="160"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="152"/>
         <source>0 / 0 フレーム</source>
         <translation>0 / 0 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="167"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="701"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="159"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="693"/>
         <source>キャンセル</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="184"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="176"/>
         <source> (残り %1時間%2分)</source>
         <translation> (剩余 %1小时%2分)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="188"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="180"/>
         <source> (残り %1分%2秒)</source>
         <translation> (剩余 %1分%2秒)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="190"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="182"/>
         <source> (残り %1秒)</source>
         <translation> (剩余 %1秒)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="192"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="184"/>
         <source>%1 / %2 フレーム%3</source>
         <translation>%1 / %2 帧%3</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="194"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="186"/>
         <source>%1 / %2 フレーム</source>
         <translation>%1 / %2 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="214"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="206"/>
         <source>完了</source>
         <translation>完成</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="214"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="206"/>
         <source>エラー</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="236"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="228"/>
         <source>形式:</source>
         <translation>格式：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="241"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="233"/>
         <source>動画ファイル</source>
         <translation>视频文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="241"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="233"/>
         <source>画像シーケンス</source>
         <translation>图片序列</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="256"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="248"/>
         <source>保存先ファイルパス...</source>
         <translation>保存目标文件路径...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="256"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="248"/>
         <source>保存先フォルダ...</source>
         <translation>保存目标文件夹...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="260"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="252"/>
         <source>参照...</source>
         <translation>浏览...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="268"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="260"/>
         <source>映像</source>
         <translation>视频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="279"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="271"/>
         <source>解像度:</source>
         <translation>分辨率：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="289"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="281"/>
         <source>FPS:</source>
         <translation>FPS：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="299"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="536"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="291"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="528"/>
         <source>コーデック:</source>
         <translation>编解码器：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="363"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="355"/>
         <source>品質モード:</source>
         <translation>质量模式：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="373"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="365"/>
         <source>CRF</source>
         <translation>CRF</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="379"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="371"/>
         <source>ビットレート</source>
         <translation>比特率</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="389"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="381"/>
         <source>CRF:</source>
         <translation>CRF：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="414"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="406"/>
         <source>高品質</source>
         <translation>高质量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="414"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="406"/>
         <source>標準</source>
         <translation>标准</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="414"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="406"/>
         <source>低品質</source>
         <translation>低质量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="423"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="578"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="415"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="570"/>
         <source>ビットレート:</source>
         <translation>比特率：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="440"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="432"/>
         <source>%1 Mbps</source>
         <translation>%1 Mbps</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="451"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="443"/>
         <source>プリセット:</source>
         <translation>预设：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="471"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="463"/>
         <source>最速 (ultrafast)</source>
         <translation>最快 (ultrafast)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="462"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="474"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="454"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="466"/>
         <source>高速 (fast)</source>
         <translation>快速 (fast)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="465"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="477"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="457"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="469"/>
         <source>標準 (medium)</source>
         <translation>标准 (medium)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="468"/>
-        <location filename="../ui/qml/ExportDialog.qml" line="480"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="460"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="472"/>
         <source>高品質 (slow)</source>
         <translation>高质量 (slow)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="483"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="475"/>
         <source>最高品質 (veryslow)</source>
         <translation>最高质量 (veryslow)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="492"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="484"/>
         <source>プロファイル:</source>
         <translation>配置文件：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="503"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="495"/>
         <source>自動</source>
         <translation>自动</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="525"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="517"/>
         <source>音声</source>
         <translation>音频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="605"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="597"/>
         <source>範囲</source>
         <translation>范围</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="615"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="607"/>
         <source>タイムライン全体</source>
         <translation>整个时间线</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="620"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="612"/>
         <source>開始:</source>
         <translation>开始：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="634"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="626"/>
         <source>終了:</source>
         <translation>结束：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="678"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="670"/>
         <source>(%1 フレーム / %2 秒)</source>
         <translation>（%1 帧 / %2 秒）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="706"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="698"/>
         <source>書き出し開始</source>
         <translation>开始导出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="750"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="742"/>
         <source>保存先を指定</source>
         <translation>指定保存目标</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="762"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="754"/>
         <source>保存先フォルダを指定</source>
         <translation>指定保存目标文件夹</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="772"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="764"/>
         <source>書き出しキャンセル</source>
         <translation>取消导出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/ExportDialog.qml" line="779"/>
+        <location filename="../ui/qml/ExportDialog.qml" line="771"/>
         <source>書き出しをキャンセルしますか？
 進捗は失われます。</source>
         <translation>确定要取消导出吗？
@@ -2765,57 +2666,57 @@
 <context>
     <name>ExportSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="45"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="40"/>
         <source>映像</source>
         <translation>视频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="55"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="50"/>
         <source>既定の映像コーデック</source>
         <translation>默认视频编解码器</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="65"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="60"/>
         <source>既定ビットレート</source>
         <translation>默认比特率</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="76"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="71"/>
         <source>既定CRF</source>
         <translation>默认 CRF</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="87"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="82"/>
         <source>静止画品質</source>
         <translation>静态图像质量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="98"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="93"/>
         <source>連番桁数</source>
         <translation>序列编号位数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="113"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="108"/>
         <source>音声と進行表示</source>
         <translation>音频与进度显示</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="123"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="118"/>
         <source>既定の音声コーデック</source>
         <translation>默认音频编解码器</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="133"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="128"/>
         <source>音声ビットレート</source>
         <translation>音频比特率</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="145"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="140"/>
         <source>フレーム取得待ち時間</source>
         <translation>帧获取等待时间</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="157"/>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="152"/>
         <source>進捗更新間隔</source>
         <translation>进度更新间隔</translation>
     </message>
@@ -2823,72 +2724,72 @@
 <context>
     <name>GeneralSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="39"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="33"/>
         <source>ファイル</source>
         <translation>文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="46"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="40"/>
         <source>終了時に確認ダイアログを表示する</source>
         <translation>退出时显示确认对话框</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="52"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="46"/>
         <source>自動バックアップを有効にする</source>
         <translation>启用自动备份</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="61"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="55"/>
         <source>バックアップ間隔</source>
         <translation>备份间隔</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="72"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="66"/>
         <source>分</source>
         <translation>分钟</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="79"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="73"/>
         <source>最近使ったプロジェクトの保持数</source>
         <translation>最近使用项目的保留数量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="90"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="84"/>
         <source>件</source>
         <translation>项</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="100"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="94"/>
         <source>編集</source>
         <translation>编辑</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="108"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="102"/>
         <source>元に戻す回数</source>
         <translation>撤销次数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="121"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="115"/>
         <source>回数を増やすとメモリ使用量が増えます</source>
         <translation>增加次数会提高内存使用量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="131"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="125"/>
         <source>起動</source>
         <translation>启动</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="141"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="135"/>
         <source>スプラッシュ表示時間</source>
         <translation>启动画面显示时间</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="153"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="147"/>
         <source>スプラッシュ画像サイズ</source>
         <translation>启动画面图像大小</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="165"/>
+        <location filename="../ui/qml/settings/GeneralSettingsPage.qml" line="159"/>
         <source>起動後の遅延時間</source>
         <translation>启动后的延迟时间</translation>
     </message>
@@ -3039,10 +2940,6 @@
         <location filename="../ui/qml/MainWindow.qml" line="1411"/>
         <source>終了</source>
         <translation>退出</translation>
-    </message>
-    <message>
-        <source>ミキサーの表示</source>
-        <translation type="vanished">显示混音器</translation>
     </message>
     <message>
         <location filename="../ui/qml/MainWindow.qml" line="254"/>
@@ -3409,14 +3306,6 @@
         <translation>软件包管理器错误</translation>
     </message>
     <message>
-        <source>ダウンロードするファイルを選択</source>
-        <translation type="vanished">选择要下载的文件</translation>
-    </message>
-    <message>
-        <source>リポジトリ設定</source>
-        <translation type="vanished">仓库设置</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="205"/>
         <source>追加</source>
         <translation>添加</translation>
@@ -3477,42 +3366,6 @@
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>
-    <message>
-        <source>検索結果がありません。</source>
-        <translation type="vanished">没有搜索结果。</translation>
-    </message>
-    <message>
-        <source>パッケージリストが空です。リポジトリを同期して最新情報を取得してください。</source>
-        <translation type="vanished">软件包列表为空。请同步仓库以获取最新信息。</translation>
-    </message>
-    <message>
-        <source>最新バージョン: </source>
-        <translation type="vanished">最新版本：</translation>
-    </message>
-    <message>
-        <source>インストール済み: </source>
-        <translation type="vanished">已安装：</translation>
-    </message>
-    <message>
-        <source>アップデートあり: </source>
-        <translation type="vanished">有更新：</translation>
-    </message>
-    <message>
-        <source>権限</source>
-        <translation type="vanished">权限</translation>
-    </message>
-    <message>
-        <source>削除</source>
-        <translation type="vanished">卸载</translation>
-    </message>
-    <message>
-        <source>アップデート</source>
-        <translation type="vanished">更新</translation>
-    </message>
-    <message>
-        <source>インストール</source>
-        <translation type="vanished">安装</translation>
-    </message>
 </context>
 <context>
     <name>ParamControl</name>
@@ -3565,37 +3418,37 @@
 <context>
     <name>PerformanceSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="41"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="36"/>
         <source>メモリとキャッシュ</source>
         <translation>内存与缓存</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="51"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="46"/>
         <source>最大画像サイズ</source>
         <translation>最大图像尺寸</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="63"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="58"/>
         <source>キャッシュ容量</source>
         <translation>缓存容量</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="75"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="70"/>
         <source>描画スレッド数</source>
         <translation>绘制线程数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="89"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="84"/>
         <source>補足</source>
         <translation>补充说明</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="96"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="91"/>
         <source>描画スレッド数が自動のときは実行環境に応じて決定します</source>
         <translation>绘制线程数设为自动时会根据运行环境决定</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="102"/>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="97"/>
         <source>ご使用の実行環境に合わせて、まずは自動設定で動作を確認してください</source>
         <translation>请先使用自动设置，根据您的运行环境确认其工作情况</translation>
     </message>
@@ -3756,37 +3609,37 @@
 <context>
     <name>PluginSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="53"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="47"/>
         <source>各形式ごとに有効化と検索パスを設定できます</source>
         <translation>可为每种格式设置是否启用及搜索路径</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="59"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="53"/>
         <source>Lua プラグイン</source>
         <translation>Lua 插件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="67"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="61"/>
         <source>ホットリロードを有効にする</source>
         <translation>启用热重载</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="73"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="67"/>
         <source>有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします</source>
         <translation>启用后，检测到 plugins 文件夹变更时将自动重新加载插件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="95"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="89"/>
         <source>%1 を読み込む</source>
         <translation>加载 %1</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="101"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="95"/>
         <source>検索パス</source>
         <translation>搜索路径</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="126"/>
+        <location filename="../ui/qml/settings/PluginSettingsPage.qml" line="120"/>
         <source>1行に1パスを入力します</source>
         <translation>每行输入一个路径</translation>
     </message>
@@ -3857,37 +3710,37 @@
 <context>
     <name>ProjectSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="38"/>
+        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="32"/>
         <source>既定値</source>
         <translation>默认值</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="48"/>
+        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="42"/>
         <source>幅</source>
         <translation>宽度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="59"/>
+        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="53"/>
         <source>高さ</source>
         <translation>高度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="70"/>
+        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="64"/>
         <source>フレームレート</source>
         <translation>帧率</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="88"/>
+        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="82"/>
         <source>総フレーム数</source>
         <translation>总帧数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="99"/>
+        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="93"/>
         <source>サンプリング周波数</source>
         <translation>采样频率</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="111"/>
+        <location filename="../ui/qml/settings/ProjectSettingsPage.qml" line="105"/>
         <source>既定クリップ長</source>
         <translation>默认片段长度</translation>
     </message>
@@ -4142,34 +3995,6 @@
         <location filename="../ui/src/timeline/timeline_effect.cpp" line="367"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>更改效果顺序（%1 项）</translation>
-    </message>
-    <message>
-        <source>プロジェクト設定</source>
-        <translation type="obsolete">项目设置</translation>
-    </message>
-    <message>
-        <source>オブジェクト設定</source>
-        <translation type="obsolete">对象设置</translation>
-    </message>
-    <message>
-        <source>AviQtlについて</source>
-        <translation type="obsolete">关于 AviQtl</translation>
-    </message>
-    <message>
-        <source>シーン設定</source>
-        <translation type="obsolete">场景设置</translation>
-    </message>
-    <message>
-        <source>メディアの書き出し</source>
-        <translation type="obsolete">导出媒体</translation>
-    </message>
-    <message>
-        <source>補間設定</source>
-        <translation type="obsolete">插值设置</translation>
-    </message>
-    <message>
-        <source>パッケージマネージャー</source>
-        <translation type="obsolete">软件包管理器</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="196"/>
@@ -4465,26 +4290,6 @@
         <translation>限幅</translation>
     </message>
     <message>
-        <source>VOL</source>
-        <translation type="vanished">音量</translation>
-    </message>
-    <message>
-        <source>MASTER</source>
-        <translation type="vanished">主音量</translation>
-    </message>
-    <message>
-        <source>PAN</source>
-        <translation type="vanished">声像</translation>
-    </message>
-    <message>
-        <source>FADE IN</source>
-        <translation type="vanished">淡入</translation>
-    </message>
-    <message>
-        <source>FADE OUT</source>
-        <translation type="vanished">淡出</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/SettingDialog.qml" line="1199"/>
         <source>MUTE</source>
         <translation>静音</translation>
@@ -4493,34 +4298,6 @@
         <location filename="../ui/qml/SettingDialog.qml" line="1207"/>
         <source>SOLO</source>
         <translation>独奏</translation>
-    </message>
-    <message>
-        <source>再生モード</source>
-        <translation type="obsolete">播放模式</translation>
-    </message>
-    <message>
-        <source>開始時間</source>
-        <translation type="obsolete">开始时间</translation>
-    </message>
-    <message>
-        <source>再生速度</source>
-        <translation type="obsolete">播放速度</translation>
-    </message>
-    <message>
-        <source>指定時間</source>
-        <translation type="obsolete">指定时间</translation>
-    </message>
-    <message>
-        <source>音量</source>
-        <translation type="obsolete">音量</translation>
-    </message>
-    <message>
-        <source>パン</source>
-        <translation type="obsolete">声像</translation>
-    </message>
-    <message>
-        <source>ミュート</source>
-        <translation type="obsolete">静音</translation>
     </message>
     <message>
         <location filename="../ui/qml/SettingDialog.qml" line="1232"/>
@@ -4581,17 +4358,17 @@
 <context>
     <name>ShortcutSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="47"/>
+        <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="41"/>
         <source>キーボードショートカット</source>
         <translation>键盘快捷键</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="53"/>
+        <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="47"/>
         <source>「Ctrl+S」や「Alt+Shift+N」の形式で入力してください</source>
         <translation>请以“Ctrl+S”或“Alt+Shift+N”的格式输入</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="80"/>
+        <location filename="../ui/qml/settings/ShortcutSettingsPage.qml" line="74"/>
         <source>未設定</source>
         <translation>未设置</translation>
     </message>
@@ -4655,7 +4432,7 @@
     </message>
     <message>
         <location filename="../ui/qml/SystemSettingsWindow.qml" line="30"/>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="250"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="241"/>
         <source>新規プロジェクト</source>
         <translation>新建项目</translation>
     </message>
@@ -4686,7 +4463,7 @@
     </message>
     <message>
         <location filename="../ui/qml/SystemSettingsWindow.qml" line="48"/>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="215"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="206"/>
         <source>環境設定</source>
         <translation>首选项</translation>
     </message>
@@ -4826,187 +4603,160 @@
         <translation>显示/隐藏当前图层</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="234"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="225"/>
         <source>一般</source>
         <translation>常规</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="238"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="229"/>
         <source>性能</source>
         <translation>性能</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="242"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="233"/>
         <source>タイムライン</source>
         <translation>时间线</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="246"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="237"/>
         <source>外観</source>
         <translation>外观</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="254"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="245"/>
         <source>書き出し</source>
         <translation>导出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="258"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="249"/>
         <source>デコードと音声</source>
         <translation>解码与音频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="262"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="253"/>
         <source>プラグイン</source>
         <translation>插件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="266"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="257"/>
         <source>ショートカット</source>
         <translation>快捷键</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="373"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="364"/>
         <source>設定は「適用」または「OK」で保存されます</source>
         <translation>设置会在点击“应用”或“OK”后保存</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="379"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="370"/>
         <source>再読込</source>
         <translation>重新加载</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="384"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="375"/>
         <source>適用</source>
         <translation>应用</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="389"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="380"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="398"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="389"/>
         <source>閉じる</source>
         <translation>关闭</translation>
     </message>
 </context>
 <context>
-    <name>TimelineExportManager</name>
-    <message>
-        <source>Cannot create output directory</source>
-        <translation type="obsolete">无法创建输出目录</translation>
-    </message>
-    <message>
-        <source>Failed to capture frame %1</source>
-        <translation type="obsolete">捕获帧 %1 失败</translation>
-    </message>
-    <message>
-        <source>Cancelled</source>
-        <translation type="obsolete">已取消</translation>
-    </message>
-    <message>
-        <source>Failed to save frame %1</source>
-        <translation type="obsolete">保存帧 %1 失败</translation>
-    </message>
-    <message>
-        <source>Export complete</source>
-        <translation type="obsolete">导出完成</translation>
-    </message>
-</context>
-<context>
     <name>TimelineSettingsPage</name>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="39"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="34"/>
         <source>操作</source>
         <translation>操作</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="47"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="42"/>
         <source>時間表示</source>
         <translation>时间显示</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="59"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="54"/>
         <source>タイムラインスキミングを有効にする</source>
         <translation>启用时间线掠过预览</translation>
     </message>
     <message>
-        <source>分割時にカーソル位置を使う</source>
-        <translation type="vanished">分割时使用光标位置</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="65"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="60"/>
         <source>レイヤー範囲を表示する</source>
         <translation>显示图层范围</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="75"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="70"/>
         <source>見た目と寸法</source>
         <translation>外观与尺寸</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="85"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="80"/>
         <source>トラックの高さ</source>
         <translation>轨道高度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="96"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="91"/>
         <source>ヘッダーの高さ</source>
         <translation>标题栏高度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="107"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="102"/>
         <source>設定サイドバーを右に配置</source>
         <translation>将设置侧边栏放在右侧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="116"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="111"/>
         <source>ルーラーの高さ</source>
         <translation>标尺高度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="127"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="122"/>
         <source>最大レイヤー数</source>
         <translation>最大图层数</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="138"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="133"/>
         <source>レイヤーヘッダー幅</source>
         <translation>图层标题宽度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="149"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="144"/>
         <source>時間表示欄の幅</source>
         <translation>时间显示栏宽度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="160"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="155"/>
         <source>クリップ端のつかみ幅</source>
         <translation>片段边缘拖拽宽度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="175"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="170"/>
         <source>編集制約とズーム</source>
         <translation>编辑限制与缩放</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="185"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="180"/>
         <source>最小クリップ長</source>
         <translation>最小片段长度</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="196"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="191"/>
         <source>ズーム最小値</source>
         <translation>最小缩放值</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="207"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="202"/>
         <source>ズーム最大値</source>
         <translation>最大缩放值</translation>
     </message>
     <message>
-        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="218"/>
+        <location filename="../ui/qml/settings/TimelineSettingsPage.qml" line="213"/>
         <source>ズーム刻み</source>
         <translation>缩放步进</translation>
     </message>
