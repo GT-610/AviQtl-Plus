@@ -455,6 +455,7 @@ void PackageManager::refreshRepositories() {
                                                     QJsonDocument(cacheObj));
                             }
                             onCatalogFetched(ctx->repoInfo, ctx->catalogData, installed);
+                            tryFinishSyncLegacy(installed);
                         });
                     } else {
                         // Old format: treat repo.json itself as a flat packages list
@@ -939,12 +940,16 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
 
     setStatus(tr("Deploying package files..."));
     setProgress(0.8);
-    if (!deployPackageFiles(packageId, extractDir.path(), packageType, [installed]() {
+    const FileOperationResult deployResult = deployPackageFiles(packageId, extractDir.path(), packageType, [installed]() {
             return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(installed));
-        })) {
+        });
+    if (deployResult != FileOperationResult::Success) {
         qWarning() << "[PackageManager] Failed to deploy package or atomically save installation state.";
         setBusy(false);
-        emit errorOccurred(tr("Failed to deploy package; the previous installation was restored."));
+        if (deployResult == FileOperationResult::RollbackFailed)
+            emit errorOccurred(tr("Package deployment failed and automatic rollback was incomplete; the backup was preserved."));
+        else
+            emit errorOccurred(tr("Failed to deploy package; the previous installation was restored."));
         if (!m_upgradeQueue.isEmpty())
             processUpgradeQueue();
         return;
@@ -1021,14 +1026,15 @@ bool PackageManager::isSafeArchivePath(const QString &path) {
            !normalized.contains(QStringLiteral("/../"));
 }
 
-bool PackageManager::deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType,
-                                        const std::function<bool()> &commitState) {
+PackageManager::FileOperationResult PackageManager::deployPackageFiles(
+    const QString &packageId, const QString &extractDir, const QString &packageType,
+    const std::function<bool()> &commitState) {
     if (!isValidPackageId(packageId) || !isValidPackageType(packageType)) {
         qWarning() << "[PackageManager] Invalid package ID or type:" << packageId << packageType;
-        return false;
+        return FileOperationResult::Failed;
     }
     const QString deployBase = getPackageDeployDir(packageType);
-    if (deployBase.isEmpty()) return false;
+    if (deployBase.isEmpty()) return FileOperationResult::Failed;
     const QString packageDir = deployBase + QStringLiteral("/") + packageId;
 
     // Resolve the source directory (handle single-subdir wrapper archives)
@@ -1047,15 +1053,15 @@ bool PackageManager::deployPackageFiles(const QString &packageId, const QString 
     QTemporaryDir stagingDir(deployBase + QStringLiteral("/.staging_XXXXXX"));
     if (!stagingDir.isValid()) {
         qWarning() << "[PackageManager] Failed to create staging directory for deployment.";
-        return false;
+        return FileOperationResult::Failed;
     }
     const QString stagingPath = stagingDir.path();
     for (const QString &entry : std::as_const(entries)) {
         const QString srcPath = sourceDir.absoluteFilePath(entry);
         const QString destPath = stagingPath + QStringLiteral("/") + entry;
         QFileInfo srcInfo(srcPath);
-        if (srcInfo.isDir()) { if (!copyDirectory(srcPath, destPath)) return false; }
-        else { if (QFile::exists(destPath)) QFile::remove(destPath); if (!QFile::copy(srcPath, destPath)) return false; }
+        if (srcInfo.isDir()) { if (!copyDirectory(srcPath, destPath)) return FileOperationResult::Failed; }
+        else { if (QFile::exists(destPath)) QFile::remove(destPath); if (!QFile::copy(srcPath, destPath)) return FileOperationResult::Failed; }
     }
 
     // Remove the old package directory and replace it with the staged contents.
@@ -1067,7 +1073,7 @@ bool PackageManager::deployPackageFiles(const QString &packageId, const QString 
             QDir(backupDir).removeRecursively();
         if (!QDir().rename(packageDir, backupDir)) {
             qWarning() << "[PackageManager] Failed to back up old package directory for atomic swap.";
-            return false;
+            return FileOperationResult::Failed;
         }
     }
 
@@ -1077,22 +1083,54 @@ bool PackageManager::deployPackageFiles(const QString &packageId, const QString 
         qWarning() << "[PackageManager] Failed to move staged package into place.";
         if (hadOld)
             QDir().rename(backupDir, packageDir);
-        return false;
+        return FileOperationResult::Failed;
     }
 
     if (commitState && !commitState()) {
         qWarning() << "[PackageManager] State commit failed; rolling back deployed package.";
-        QDir(packageDir).removeRecursively();
-        if (hadOld && !QDir().rename(backupDir, packageDir))
+        const bool removedNewPackage = QDir(packageDir).removeRecursively();
+        const bool restoredBackup = !hadOld || (removedNewPackage && QDir().rename(backupDir, packageDir));
+        if (!removedNewPackage || !restoredBackup) {
             qCritical() << "[PackageManager] Failed to restore package backup after state commit failure.";
-        return false;
+            return FileOperationResult::RollbackFailed;
+        }
+        return FileOperationResult::StateCommitFailed;
     }
 
     // Success: clean up the backup
     if (hadOld)
         QDir(backupDir).removeRecursively();
     stagingDir.setAutoRemove(false);
-    return true;
+    return FileOperationResult::Success;
+}
+
+PackageManager::FileOperationResult PackageManager::removePackageFiles(
+    const QString &packageId, const QString &packageType, const std::function<bool()> &commitState) {
+    if (!isValidPackageId(packageId) || !isValidPackageType(packageType) || !commitState)
+        return FileOperationResult::Failed;
+    const QString deployDir = getPackageDeployDir(packageType);
+    if (deployDir.isEmpty())
+        return FileOperationResult::Failed;
+
+    const QString packageDir = deployDir + QLatin1Char('/') + packageId;
+    const QString backupDir = deployDir + QStringLiteral("/.remove_backup_") + packageId;
+    const bool hadPackageFiles = QDir(packageDir).exists();
+    if (hadPackageFiles) {
+        if (QDir(backupDir).exists() && !QDir(backupDir).removeRecursively())
+            return FileOperationResult::Failed;
+        if (!QDir().rename(packageDir, backupDir))
+            return FileOperationResult::Failed;
+    }
+
+    if (!commitState()) {
+        if (hadPackageFiles && !QDir().rename(backupDir, packageDir))
+            return FileOperationResult::RollbackFailed;
+        return FileOperationResult::StateCommitFailed;
+    }
+
+    if (hadPackageFiles && !QDir(backupDir).removeRecursively())
+        qWarning() << "[PackageManager] Removed package state but could not delete backup:" << backupDir;
+    return FileOperationResult::Success;
 }
 
 QString PackageManager::getPackageDeployDir(const QString &packageType) const {
@@ -1106,31 +1144,30 @@ QString PackageManager::getPackageDeployDir(const QString &packageType) const {
 
 void PackageManager::removePackage(const QString &packageId) {
     if (m_isBusy || packageId == QStringLiteral("org.aviqtl.app")) return;
-    QVariantMap pkg;
-    for (const auto &p : std::as_const(m_packageList)) {
-        if (p.toMap().value(QStringLiteral("id")).toString() == packageId) { pkg = p.toMap(); break; }
-    }
-    if (packageId.contains(QStringLiteral("..")) || packageId.contains('/') || packageId.contains('\\')) {
+    if (!isValidPackageId(packageId)) {
         emit errorOccurred(tr("Invalid package ID.")); return;
+    }
+    const QVariantMap currentInstalled = loadInstalledPackagesFromFile();
+    const QVariantMap installedPackage = currentInstalled.value(packageId).toMap();
+    const QString packageType = installedPackage.value(QStringLiteral("type")).toString();
+    if (!currentInstalled.contains(packageId) || !isValidPackageType(packageType)) {
+        emit errorOccurred(tr("Cannot remove package because its installed type is missing or invalid."));
+        return;
     }
     setBusy(true);
     setStatus(tr("Removing package: %1").arg(packageId));
-    QString packageType = pkg.value(QStringLiteral("type")).toString();
-    // Fallback to installed metadata when the package is no longer in the
-    // catalog (e.g. after a cache change) so the deploy directory resolves
-    // correctly and deployed files are still deleted.
-    if (packageType.isEmpty()) {
-        QVariantMap installedMeta = loadInstalledPackagesFromFile();
-        if (installedMeta.contains(packageId))
-            packageType = installedMeta.value(packageId).toMap().value(QStringLiteral("type")).toString();
-    }
-    const QString deployDir = getPackageDeployDir(packageType);
-    const QString packageDir = deployDir + QStringLiteral("/") + packageId;
-    if (QDir(packageDir).exists()) QDir(packageDir).removeRecursively();
-
-    QVariantMap installed = loadInstalledPackagesFromFile();
-    if (installed.remove(packageId)) {
-        writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(installed));
+    QVariantMap updatedInstalled = currentInstalled;
+    updatedInstalled.remove(packageId);
+    const FileOperationResult removalResult = removePackageFiles(packageId, packageType, [updatedInstalled]() {
+        return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(updatedInstalled));
+    });
+    if (removalResult != FileOperationResult::Success) {
+        setBusy(false);
+        if (removalResult == FileOperationResult::RollbackFailed)
+            emit errorOccurred(tr("Package removal failed and automatic rollback was incomplete; the backup was preserved."));
+        else
+            emit errorOccurred(tr("Failed to remove package; the installed state and files were restored."));
+        return;
     }
     for (int i = 0; i < m_packageList.size(); ++i) {
         QVariantMap item = m_packageList[i].toMap();

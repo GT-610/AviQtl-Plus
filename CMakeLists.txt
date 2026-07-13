@@ -21,7 +21,9 @@ find_package(Qt6 REQUIRED COMPONENTS
     ShaderTools ShaderToolsPrivate LinguistTools Network Test ${EXTRA_QT_COMPONENTS}
 )
 
-qt_policy(SET QTP0004 NEW)
+if(Qt6_VERSION VERSION_GREATER_EQUAL "6.8")
+    qt_policy(SET QTP0004 NEW)
+endif()
 
 if(APPLE)
     find_package(Vulkan)

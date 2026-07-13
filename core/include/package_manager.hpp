@@ -21,6 +21,13 @@ class PackageManager : public QObject {
     Q_PROPERTY(QVariantList repositories READ repositories NOTIFY repositoriesChanged)
 
   public:
+    enum class FileOperationResult {
+        Success,
+        Failed,
+        StateCommitFailed,
+        RollbackFailed,
+    };
+
     static PackageManager &instance();
 
     bool isBusy() const { return m_isBusy; }
@@ -46,8 +53,10 @@ class PackageManager : public QObject {
 
     // Package deployment helpers (public for testing)
     QString getPackageDeployDir(const QString &packageType) const;
-    bool deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType,
-                            const std::function<bool()> &commitState = {});
+    FileOperationResult deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType,
+                                           const std::function<bool()> &commitState = {});
+    FileOperationResult removePackageFiles(const QString &packageId, const QString &packageType,
+                                           const std::function<bool()> &commitState);
     bool extractPackageArchive(const QString &archivePath, const QString &destDir);
     static bool isSafeArchivePath(const QString &path);
 

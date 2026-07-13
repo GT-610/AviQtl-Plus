@@ -45,7 +45,7 @@ NON_BLOCKING_WARNINGS: dict[str, int] = {}
 
 
 def is_excluded(path: Path) -> bool:
-    excluded_names = {".git", ".vscode", ".venv", "venv", "dist", ".cache", "vendor", "vcpkg", "vcpkg_installed"}
+    excluded_names = {".git", ".vscode", ".venv", "venv", "dist", ".cache", "vendor", "vcpkg", "vcpkg_installed", "clap", "vst3sdk"}
     return any(part in excluded_names or part == ".build_tmp" or part == "build" or part.startswith("build-")
                for part in path.parts)
 
@@ -100,7 +100,7 @@ def run_formatting(root: Path) -> int:
     cpp_hpp_files = []
     for pattern in cpp_hpp_patterns:
         for path in root.rglob(pattern):
-            if is_excluded(path) or "clap" in path.parts or "vst3sdk" in path.parts:
+            if is_excluded(path):
                 continue
             if path.name.startswith(("moc_", "qrc_")):
                 continue
@@ -235,10 +235,10 @@ def run_qmllint(files: list[Path], args: argparse.Namespace, root: Path) -> int:
     return result.returncode
 
 def run_clazy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
-    print(f"{BOLD}{YELLOW}--- Clazy (Qt Anti-Patterns) ---{RESET}")
     executable = shutil.which("clazy-standalone") or shutil.which("clazy")
     if not executable:
         return skip_tool("Clazy", "executable not found")
+    print(f"{BOLD}{YELLOW}--- Clazy (Qt Anti-Patterns) ---{RESET}")
 
     if not args.build_dir:
         print(f"{RED}Error: --build-dir is required to run Clazy.{RESET}")
@@ -277,9 +277,9 @@ def _invoke_tidy(file_path: str, build_dir: str, checks: str, fix: bool) -> int:
     return res.returncode
 
 def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
-    print(f"{BOLD}{YELLOW}--- Clang-Tidy (General & Static Analyzer) ---{RESET}")
     if not shutil.which("clang-tidy"):
         return skip_tool("Clang-Tidy", "executable not found")
+    print(f"{BOLD}{YELLOW}--- Clang-Tidy (General & Static Analyzer) ---{RESET}")
 
     if not args.build_dir:
         print(f"{RED}Error: --build-dir is required to run Clang-Tidy.{RESET}")
