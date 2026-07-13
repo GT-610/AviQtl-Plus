@@ -12,7 +12,7 @@ Common.BaseEffect {
     ShaderEffect {
         id: blurPass
 
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real angle: root.angle
         property real len: root.range
         property real targetWidth: root.width
@@ -33,8 +33,8 @@ Common.BaseEffect {
     }
 
     ShaderEffect {
-        property variant source: blurProxy
-        property variant maskSource: root.sourceProxy
+        property var source: blurProxy
+        property var maskSource: root.sourceProxy
 
         anchors.fill: parent
         visible: root.fixedSize

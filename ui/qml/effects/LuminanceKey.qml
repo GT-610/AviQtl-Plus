@@ -9,7 +9,7 @@ Common.BaseEffect {
     property bool invert: root.evalParam("invert", false)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real threshold: root.threshold / 100.0
         property real blend: root.blend / 100.0
         property real invert: root.invert ? 1.0 : 0.0

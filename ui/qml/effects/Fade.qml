@@ -25,7 +25,7 @@ Common.BaseEffect {
     }
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real opacityMultiplier: root.opacityValue
 
         anchors.fill: parent

@@ -12,7 +12,7 @@ Common.BaseEffect {
     property real blueY: root.evalNumber("blueY", 0)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property vector2d redOffset: Qt.vector2d(root.redX, root.redY)
         property vector2d greenOffset: Qt.vector2d(root.greenX, root.greenY)
         property vector2d blueOffset: Qt.vector2d(root.blueX, root.blueY)

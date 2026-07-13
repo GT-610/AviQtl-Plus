@@ -12,7 +12,7 @@ Common.BaseEffect {
     property bool saturate: root.evalParam("saturate", false)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real brightness: root.brightness
         property real contrast: root.contrast
         property real hue: root.hue

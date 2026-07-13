@@ -351,10 +351,6 @@ Item {
                     };
                 }
 
-                function dbg(msg) {
-                    Logger.log("[CompositeView][clipId=" + clipIdRole + "][type=" + clipTypeRole + "] " + msg, Workspace.currentTimeline);
-                }
-
                 function isClipActiveAtCurrentFrame(node) {
                     if (!node || node.clipStartFrameRole === undefined || node.clipDurationFramesRole === undefined)
                         return false;
@@ -477,8 +473,8 @@ Item {
                         ShaderEffect {
                             id: clipByUpperEffect
 
-                            property variant source
-                            property variant maskSource
+                            property var source
+                            property var maskSource
 
                             anchors.fill: parent
                             fragmentShader: AviQtlAssetUrl + "/effects/clip_by_upper_object.frag.qsb"

@@ -12,7 +12,7 @@ Common.BaseEffect {
     property real value: Math.max(0, Math.min(200, root.evalNumber("value", 100))) / 100
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real red: root.red
         property real green: root.green
         property real blue: root.blue

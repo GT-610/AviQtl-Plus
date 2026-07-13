@@ -10,7 +10,7 @@ Common.BaseEffect {
     property int type: Math.max(0, Math.min(2, Math.round(root.evalNumber("type", 0))))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real intensity: root.intensity / 100.0
         property real speed: root.speed / 100.0
         property color flashColor: root.flashColor

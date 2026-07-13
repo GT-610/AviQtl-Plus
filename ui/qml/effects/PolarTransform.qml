@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real angleOffset: Math.max(0, Math.min(360, root.evalNumber("angleOffset", 0)))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real centerX: root.centerX / 100.0
         property real centerY: root.centerY / 100.0
         property real scale: root.scale / 100.0

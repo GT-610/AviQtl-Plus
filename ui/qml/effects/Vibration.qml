@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real randomSeed: root.evalNumber("seed", 0)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real xStrength: root.xStrength
         property real yStrength: root.yStrength
         property real time: root.frame * (root.speed / 10) + root.randomSeed

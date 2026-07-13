@@ -11,7 +11,7 @@ Common.BaseEffect {
     property string color: root.evalColor("color", "#000000")
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real offsetX: root.x
         property real offsetY: root.y
         property real shadowOpacity: root.shadowOpacity

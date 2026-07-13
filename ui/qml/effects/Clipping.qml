@@ -11,7 +11,7 @@ Common.BaseEffect {
     property bool centerVal: root.evalParam("center", false)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real topVal: root.topVal
         property real bottomVal: root.bottomVal
         property real leftVal: root.leftVal

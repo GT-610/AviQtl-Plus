@@ -11,7 +11,7 @@ Common.BaseEffect {
     property real invert: root.evalParam("invert", false) ? 1 : 0
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real hue: root.hue / 360
         property real hueRange: root.hueRange
         property real similarity: root.similarity

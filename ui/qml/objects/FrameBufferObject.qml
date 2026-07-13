@@ -148,8 +148,8 @@ Common.BaseObject {
             ShaderEffect {
                 id: effect
 
-                property variant background
-                property variant source
+                property var background
+                property var source
                 // 前景（レイヤー）が公開しているブレンドパラメータを注入
                 property int blendMode: foregroundItem ? (foregroundItem.fbBlendMode || 0) : 0
                 property real opacityValue: foregroundItem ? (foregroundItem.fbOpacityValue !== undefined ? foregroundItem.fbOpacityValue : 1) : 1

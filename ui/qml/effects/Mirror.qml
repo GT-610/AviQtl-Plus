@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real centerOffset: root.evalNumber("centerOffset", 0) / 100
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real transparency: root.transparency
         property real decay: root.decay
         property int direction: root.direction

@@ -9,7 +9,7 @@ Common.BaseEffect {
     property real maskStrength: Math.max(0, Math.min(100, root.evalNumber("maskStrength", 100)))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property int maskType: root.maskType
         property real invertMask: root.invertMask ? 1.0 : 0.0
         property real maskStrength: root.maskStrength / 100.0

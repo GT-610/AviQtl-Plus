@@ -12,7 +12,7 @@ Common.BaseEffect {
     property color lightColor: root.evalColor("color", "#ffffff")
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property int lightType: root.lightType
         property real intensity: root.intensity / 100.0
         property real radius: root.radius / 100.0

@@ -9,7 +9,7 @@ Common.BaseEffect {
     property real preserveLuma: root.evalParam("preserveLuma", true) ? 1 : 0
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real strength: root.strength
         property vector3d monoColor: {
             var c = Qt.colorConvert(root.color || "#ffffff", "rgba");

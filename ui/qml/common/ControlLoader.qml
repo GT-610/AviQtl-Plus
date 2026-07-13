@@ -138,33 +138,6 @@ Loader {
         return true;
     }
 
-    // キーフレーム区間探索（共通ロジック）
-    function _findKeyframeInterval(kfs, cur, total) {
-        var s = 0, e = total;
-        if (!kfs || kfs.length === 0)
-            return {
-            "start": s,
-            "end": e
-        };
-
-        var found = false;
-        for (var i = kfs.length - 1; i >= 0; i--) {
-            if (kfs[i].frame <= cur) {
-                s = kfs[i].frame;
-                e = (i + 1 < kfs.length) ? kfs[i + 1].frame : total;
-                found = true;
-                break;
-            }
-        }
-        if (!found)
-            e = kfs[0].frame;
-
-        return {
-            "start": s,
-            "end": e
-        };
-    }
-
     sourceComponent: {
         if (!definition)
             return unknownComponent;
