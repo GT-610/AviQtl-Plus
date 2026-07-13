@@ -1,4 +1,6 @@
 // ui/qml/common/BlendModeUtils.js
+.pragma library
+
 // Shared blend mode string→int mapping used by Transform.qml and BaseObject.qml.
 // The int IDs must match the GLSL dispatch in blend_layer.frag / blend.glsl.
 //
