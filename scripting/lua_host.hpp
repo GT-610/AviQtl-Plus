@@ -20,8 +20,6 @@ class LuaHost {
 
   private:
     LuaHost();
-    void initialize();
-    lua_State *L;
 
     // コピーを無効化
     LuaHost(const LuaHost &) = delete;

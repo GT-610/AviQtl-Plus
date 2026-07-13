@@ -13,18 +13,9 @@ auto LuaHost::instance() -> LuaHost & {
     return inst;
 }
 
-LuaHost::LuaHost() : L(nullptr) {
-    // メインスレッド用インスタンスの初期化（後方互換性のため）
-    // 実際の評価はスレッドローカルなステートを使用する
-    initialize();
-}
+LuaHost::LuaHost() = default;
 
-LuaHost::~LuaHost() {
-    if (L != nullptr) {
-        lua_close(L);
-        L = nullptr;
-    }
-}
+LuaHost::~LuaHost() = default;
 
 void LuaHost::setupSafeLuaState(lua_State *L) {
     if (L == nullptr) return;
@@ -66,15 +57,6 @@ void LuaHost::setupSafeLuaState(lua_State *L) {
         qWarning() << "[LuaHost] Thread-local Lua state init failed:" << lua_tostring(L, -1);
         lua_pop(L, 1);
     }
-}
-
-void LuaHost::initialize() {
-    if (L != nullptr) {
-        lua_close(L);
-    }
-    L = luaL_newstate();
-    setupSafeLuaState(L);
-    qCInfo(lcScripting) << "LuaJIT engine initialized (Main Thread)";
 }
 
 struct ThreadLocalLua {

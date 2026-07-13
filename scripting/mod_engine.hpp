@@ -87,7 +87,6 @@ class ModEngine {
 
     // Hot reload
     void enableHotReload(bool enable);
-    bool isHotReloadEnabled() const { return m_hotReloadEnabled; }
 
     // Permission checking
     bool checkPermission(const char *apiName) const;
