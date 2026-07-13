@@ -164,7 +164,7 @@ class TestBakeController : public QObject {
         }
 
         // Now remove the clip and rebake
-        DocumentModel::instance().removeClip(5, 30);
+        DocumentModel::instance().setClips(5, {});
         BakeController::instance().bake(5, 0);
 
         {
@@ -205,7 +205,11 @@ class TestBakeController : public QObject {
         c2.startFrame = 10;
         c2.durationFrames = 50;
         c2.type = QStringLiteral("video");
-        DocumentModel::instance().addClip(6, c2);
+        {
+            SceneSettings scene = *DocumentModel::instance().findScene(6);
+            scene.clips.push_back(c2);
+            DocumentModel::instance().setClips(6, std::move(scene.clips));
+        }
 
         // Ensure rebake happened by checking ECS now has both clips
         auto &state = ECS::instance().editState();

@@ -118,30 +118,4 @@ bool PresetManager::deletePreset(const QString &effectId, const QString &name) {
     return ok;
 }
 
-bool PresetManager::renamePreset(const QString &effectId, const QString &oldName, const QString &newName) {
-    const QString oldPath = presetPath(effectId, oldName);
-    const QString newPath = presetPath(effectId, newName);
-    if (oldPath.isEmpty() || newPath.isEmpty())
-        return false;
-
-    QFile f(oldPath);
-    if (!f.exists())
-        return false;
-
-    if (!f.rename(newPath))
-        return false;
-
-    QVariantMap preset = loadPreset(effectId, newName);
-    if (!preset.isEmpty()) {
-        preset[QStringLiteral("name")] = newName;
-        QFile wf(newPath);
-        if (wf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            wf.write(QJsonDocument(QJsonObject::fromVariantMap(preset)).toJson(QJsonDocument::Compact));
-        }
-    }
-
-    emit presetsChanged(effectId);
-    return true;
-}
-
 } // namespace AviQtl::Core

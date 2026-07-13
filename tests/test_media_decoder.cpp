@@ -43,11 +43,6 @@ class TestMediaDecoder : public QObject {
         QVERIFY(!decoder.isReady());
     }
 
-    void getSamplesDefaultEmpty() {
-        MockMediaDecoder decoder(1, QUrl(QStringLiteral("x.mp4")));
-        std::vector<float> samples = decoder.getSamples(0.0, 10);
-        QVERIFY(samples.empty());
-    }
 };
 
 QTEST_MAIN(TestMediaDecoder)

@@ -92,11 +92,6 @@ class DocumentModel : public QObject {
     void updateSceneSettings(const SceneSettings &settings);
     void setClips(int sceneId, std::vector<Clip> &&clips);
 
-    // クリップ操作
-    const Clip *findClip(int sceneId, int clipId) const;
-    void addClip(int sceneId, const Clip &clip);
-    void removeClip(int sceneId, int clipId);
-
     // Undo / Redo スタックの提供
     QUndoStack *undoStack() { return &m_undoStack; }
 

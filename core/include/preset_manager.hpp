@@ -16,7 +16,6 @@ public:
     Q_INVOKABLE QVariantMap loadPreset(const QString &effectId, const QString &name) const;
     Q_INVOKABLE bool savePreset(const QString &effectId, const QString &name, const QVariantMap &params, const QVariantMap &keyframes, bool enabled);
     Q_INVOKABLE bool deletePreset(const QString &effectId, const QString &name);
-    Q_INVOKABLE bool renamePreset(const QString &effectId, const QString &oldName, const QString &newName);
 
 signals:
     void presetsChanged(const QString &effectId);

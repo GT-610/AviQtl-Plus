@@ -104,11 +104,6 @@ void VideoFrameStore::registerSink(const QString &key, QVideoSink *sink) {
     }
 }
 
-auto VideoFrameStore::hasFrame(const QString &key) const -> bool {
-    QMutexLocker locker(&m_mutex);
-    return m_frames.contains(key) || m_sinks.contains(key);
-}
-
 void VideoFrameStore::invalidateFrame(const QString &key) {
     if (QThread::currentThread() != thread()) {
         QMetaObject::invokeMethod(this, [this, key]() -> void { invalidateFrame(key); }, Qt::QueuedConnection);
@@ -119,46 +114,6 @@ void VideoFrameStore::invalidateFrame(const QString &key) {
     m_frameOrder.removeAll(key);
     m_lastVideoFrames.remove(key);
     m_videoFrameOrder.removeAll(key);
-}
-
-void VideoFrameStore::invalidateScene(int sceneId) {
-    if (QThread::currentThread() != thread()) {
-        QMetaObject::invokeMethod(this, [this, sceneId]() -> void { invalidateScene(sceneId); }, Qt::QueuedConnection);
-        return;
-    }
-
-    QMutexLocker locker(&m_mutex);
-    QString prefix = QString::number(sceneId) + QLatin1String("_");
-
-    for (auto it = m_frames.begin(); it != m_frames.end();) {
-        if (it.key().startsWith(prefix)) {
-            m_frameOrder.removeAll(it.key());
-            it = m_frames.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    for (auto it = m_lastVideoFrames.begin(); it != m_lastVideoFrames.end();) {
-        if (it.key().startsWith(prefix)) {
-            m_videoFrameOrder.removeAll(it.key());
-            it = m_lastVideoFrames.erase(it);
-        } else {
-            ++it;
-        }
-    }
-}
-
-void VideoFrameStore::clear() {
-    if (QThread::currentThread() != thread()) {
-        QMetaObject::invokeMethod(this, [this]() -> void { clear(); }, Qt::QueuedConnection);
-        return;
-    }
-    QMutexLocker locker(&m_mutex);
-    m_frames.clear();
-    m_frameOrder.clear();
-    m_lastVideoFrames.clear();
-    m_videoFrameOrder.clear();
 }
 
 auto VideoFrameStore::frame(const QString &key) const -> QImage {
