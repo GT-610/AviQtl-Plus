@@ -209,7 +209,7 @@ aviqtl_add_test(
 aviqtl_add_test(
     NAME package_deploy
     SOURCES test_package_deploy.cpp
-    LINKS AviQtl_Core
+    LINKS AviQtl_Core Qt6::CorePrivate
 )
 
 # --- UI Tests ---

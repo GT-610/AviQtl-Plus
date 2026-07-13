@@ -111,7 +111,7 @@ ListView {
                     highlighted: true
                     enabled: PackageManager && !PackageManager.isBusy && (installedVer === "" || hasUpdate) && latestVer !== ""
                     visible: root.showInstallButton && (installedVer === "" || hasUpdate)
-                    onClicked: PackageManager.fetchAssets(modelData.id)
+                    onClicked: PackageManager.installPackage(modelData.id, modelData._primary_repo || "")
                 }
             }
         }
