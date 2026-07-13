@@ -1064,44 +1064,16 @@ PackageManager::FileOperationResult PackageManager::deployPackageFiles(
         else { if (QFile::exists(destPath)) QFile::remove(destPath); if (!QFile::copy(srcPath, destPath)) return FileOperationResult::Failed; }
     }
 
-    // Remove the old package directory and replace it with the staged contents.
-    // Keep the staging dir alive until the swap succeeds so we can roll back.
     const QString backupDir = deployBase + QStringLiteral("/.backup_") + packageId;
-    bool hadOld = QDir(packageDir).exists();
-    if (hadOld) {
-        if (QDir(backupDir).exists())
-            QDir(backupDir).removeRecursively();
-        if (!QDir().rename(packageDir, backupDir)) {
-            qWarning() << "[PackageManager] Failed to back up old package directory for atomic swap.";
-            return FileOperationResult::Failed;
-        }
-    }
-
     QDir().mkpath(deployBase);
-    if (!QDir().rename(stagingPath, packageDir)) {
-        // Roll back: restore the backup if the move failed
-        qWarning() << "[PackageManager] Failed to move staged package into place.";
-        if (hadOld)
-            QDir().rename(backupDir, packageDir);
-        return FileOperationResult::Failed;
-    }
-
-    if (commitState && !commitState()) {
-        qWarning() << "[PackageManager] State commit failed; rolling back deployed package.";
-        const bool removedNewPackage = QDir(packageDir).removeRecursively();
-        const bool restoredBackup = !hadOld || (removedNewPackage && QDir().rename(backupDir, packageDir));
-        if (!removedNewPackage || !restoredBackup) {
-            qCritical() << "[PackageManager] Failed to restore package backup after state commit failure.";
-            return FileOperationResult::RollbackFailed;
-        }
-        return FileOperationResult::StateCommitFailed;
-    }
-
-    // Success: clean up the backup
-    if (hadOld)
-        QDir(backupDir).removeRecursively();
-    stagingDir.setAutoRemove(false);
-    return FileOperationResult::Success;
+    const FileOperationResult result = runFileTransaction(
+        packageDir, backupDir,
+        [stagingPath, packageDir] { return QDir().rename(stagingPath, packageDir); },
+        [packageDir] { return !QDir(packageDir).exists() || QDir(packageDir).removeRecursively(); },
+        commitState, "deploy");
+    if (result == FileOperationResult::Success)
+        stagingDir.setAutoRemove(false);
+    return result;
 }
 
 PackageManager::FileOperationResult PackageManager::removePackageFiles(
@@ -1114,22 +1086,47 @@ PackageManager::FileOperationResult PackageManager::removePackageFiles(
 
     const QString packageDir = deployDir + QLatin1Char('/') + packageId;
     const QString backupDir = deployDir + QStringLiteral("/.remove_backup_") + packageId;
-    const bool hadPackageFiles = QDir(packageDir).exists();
-    if (hadPackageFiles) {
-        if (QDir(backupDir).exists() && !QDir(backupDir).removeRecursively())
+    return runFileTransaction(packageDir, backupDir, [] { return true; }, [] { return true; }, commitState, "remove");
+}
+
+PackageManager::FileOperationResult PackageManager::runFileTransaction(
+    const QString &targetDir, const QString &backupDir,
+    const std::function<bool()> &applyMutation, const std::function<bool()> &revertMutation,
+    const std::function<bool()> &commitState, const char *operationName) {
+    const bool hadExisting = QDir(targetDir).exists();
+    if (hadExisting) {
+        if (QDir(backupDir).exists() && !QDir(backupDir).removeRecursively()) {
+            qWarning() << "[PackageManager] Could not remove stale backup before" << operationName << ':' << backupDir;
             return FileOperationResult::Failed;
-        if (!QDir().rename(packageDir, backupDir))
+        }
+        if (!QDir().rename(targetDir, backupDir)) {
+            qWarning() << "[PackageManager] Could not create backup before" << operationName << ':' << targetDir;
             return FileOperationResult::Failed;
+        }
     }
 
-    if (!commitState()) {
-        if (hadPackageFiles && !QDir().rename(backupDir, packageDir))
+    if (!applyMutation()) {
+        qWarning() << "[PackageManager] File mutation failed during" << operationName;
+        if (hadExisting && !QDir().rename(backupDir, targetDir)) {
+            qCritical() << "[PackageManager] Could not restore backup after mutation failure:" << backupDir;
             return FileOperationResult::RollbackFailed;
+        }
+        return FileOperationResult::Failed;
+    }
+
+    if (commitState && !commitState()) {
+        qWarning() << "[PackageManager] State commit failed during" << operationName << "; rolling back.";
+        const bool reverted = revertMutation();
+        const bool restored = !hadExisting || (reverted && QDir().rename(backupDir, targetDir));
+        if (!reverted || !restored) {
+            qCritical() << "[PackageManager] Could not restore backup after state commit failure:" << backupDir;
+            return FileOperationResult::RollbackFailed;
+        }
         return FileOperationResult::StateCommitFailed;
     }
 
-    if (hadPackageFiles && !QDir(backupDir).removeRecursively())
-        qWarning() << "[PackageManager] Removed package state but could not delete backup:" << backupDir;
+    if (hadExisting && !QDir(backupDir).removeRecursively())
+        qWarning() << "[PackageManager] Operation succeeded but backup cleanup failed:" << backupDir;
     return FileOperationResult::Success;
 }
 

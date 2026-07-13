@@ -92,6 +92,11 @@ class PackageManager : public QObject {
     void fetchPackageMetadataForInstall(const QString &packageId, const QString &sourceRepo, const QString &version);
     void continueInstallWithMetadata(const QString &packageId, const QString &sourceRepo, const QString &version, const QVariantMap &detail);
     static QString detailCacheKey(const QString &packageId, const QString &sourceRepo);
+    FileOperationResult runFileTransaction(const QString &targetDir, const QString &backupDir,
+                                           const std::function<bool()> &applyMutation,
+                                           const std::function<bool()> &revertMutation,
+                                           const std::function<bool()> &commitState,
+                                           const char *operationName);
 
     // Package installation pipeline
     void downloadPackage(const QString &packageId, const QUrl &url, const QString &expectedSha256, const QString &packageType, const QString &version, const QString &sourceRepo);
