@@ -1,3 +1,5 @@
+.pragma library
+
 function prop(obj, name, fallback) {
     if (obj == null)
         return fallback;

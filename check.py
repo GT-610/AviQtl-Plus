@@ -11,7 +11,8 @@ Options:
     --fix           Auto-fix fixable warnings (experimental)
     --suppress FILE Specify suppress list file (default: .cppcheck_suppress)
     --build-dir DIR Build directory containing compile_commands.json
-    --full          Ultimate analysis mode (max level for all tools + auto-fix)
+    --full          Run the broadest checks (still read-only unless --fix is passed)
+    --format        Format source files before analysis
     --clazy-level L Clazy check level (1-3, default: 1)
     --import-path P QML import path (can be specified multiple times)
     --skip-qml      Skip QML checks
@@ -20,6 +21,8 @@ Options:
     --skip-tidy     Skip Clang-Tidy
     --skip-format   Skip code formatting
 """
+
+from __future__ import annotations
 
 import argparse
 import concurrent.futures
@@ -37,11 +40,25 @@ GREEN  = "\033[32m"
 CYAN   = "\033[36m"
 BOLD   = "\033[1m"
 
+SKIPPED_TOOLS: list[str] = []
+NON_BLOCKING_WARNINGS: dict[str, int] = {}
+
+
+def is_excluded(path: Path) -> bool:
+    excluded_names = {".git", ".vscode", ".venv", "venv", "dist", ".cache", "vendor", "vcpkg", "vcpkg_installed", "clap", "vst3sdk"}
+    return any(part in excluded_names or part == ".build_tmp" or part == "build" or part.startswith("build-")
+               for part in path.parts)
+
+
+def skip_tool(name: str, reason: str) -> int:
+    SKIPPED_TOOLS.append(name)
+    print(f"{YELLOW}Skipping {name}: {reason}{RESET}")
+    return 0
+
 def find_cpp_files(root: Path) -> list[Path]:
-    exclude_dirs = {".git", ".build_tmp", "build", "dist", ".cache"}
     result = []
     for path in root.rglob("*.cpp"):
-        if any(p in exclude_dirs for p in path.parts):
+        if is_excluded(path):
             continue
         # Exclude Qt auto-generated files
         if path.name.startswith("moc_") or path.name.startswith("qrc_"):
@@ -50,10 +67,9 @@ def find_cpp_files(root: Path) -> list[Path]:
     return sorted(result)
 
 def find_qml_files(root: Path) -> list[Path]:
-    exclude_dirs = {".git", ".build_tmp", "build", "dist", ".cache"}
     result = []
     for path in root.rglob("*.qml"):
-        if any(p in exclude_dirs for p in path.parts):
+        if is_excluded(path):
             continue
         result.append(path)
     return sorted(result)
@@ -61,7 +77,7 @@ def find_qml_files(root: Path) -> list[Path]:
 def find_include_dirs(root: Path) -> list[Path]:
     dirs = set()
     for path in root.rglob("*.hpp"):
-        if any(p in {".git", ".build_tmp", "build"} for p in path.parts):
+        if is_excluded(path):
             continue
         dirs.add(path.parent)
     return sorted(dirs)
@@ -81,11 +97,10 @@ def run_formatting(root: Path) -> int:
     
     # C++ / HPP files
     cpp_hpp_patterns = ["*.cpp", "*.hpp"]
-    exclude_dirs = {".git", ".build_tmp", "build", "dist", ".cache", "clap", "vst3sdk"}
     cpp_hpp_files = []
     for pattern in cpp_hpp_patterns:
         for path in root.rglob(pattern):
-            if any(p in exclude_dirs for p in path.parts):
+            if is_excluded(path):
                 continue
             if path.name.startswith(("moc_", "qrc_")):
                 continue
@@ -123,6 +138,8 @@ def run_cppcheck(
     args: argparse.Namespace,
     root: Path
 ) -> int:
+    if not shutil.which("cppcheck"):
+        return skip_tool("Cppcheck", "executable not found")
     cmd = ["cppcheck"]
 
     # Number of parallel jobs
@@ -187,8 +204,7 @@ def run_qmllint(files: list[Path], args: argparse.Namespace, root: Path) -> int:
         return 0
     print(f"{BOLD}{YELLOW}--- qmllint (including QQmlSA) ---{RESET}")
     if not shutil.which("qmllint"):
-        print(f"{RED}Warning: qmllint not found. Skipping.{RESET}")
-        return 0
+        return skip_tool("qmllint", "executable not found")
     
     cmd = ["qmllint"]
     
@@ -204,15 +220,25 @@ def run_qmllint(files: list[Path], args: argparse.Namespace, root: Path) -> int:
                 cmd += ["-I", str(qml_path)]
 
     cmd += [str(f) for f in files]
-    result = subprocess.run(cmd, cwd=root, stderr=subprocess.STDOUT)
+    result = subprocess.run(cmd, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    output = result.stdout or ""
+    warning_count = sum(1 for line in output.splitlines() if line.startswith("Warning:"))
+    if warning_count:
+        NON_BLOCKING_WARNINGS["qmllint"] = warning_count
+    lines = output.splitlines()
+    max_lines = 500
+    if len(lines) > max_lines:
+        print("\n".join(lines[:max_lines]))
+        print(f"{YELLOW}qmllint output truncated: showing {max_lines} of {len(lines)} lines.{RESET}")
+    elif output:
+        print(output, end="" if output.endswith("\n") else "\n")
     return result.returncode
 
 def run_clazy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
-    print(f"{BOLD}{YELLOW}--- Clazy (Qt Anti-Patterns) ---{RESET}")
     executable = shutil.which("clazy-standalone") or shutil.which("clazy")
     if not executable:
-        print(f"{RED}Warning: clazy not found. Skipping.{RESET}")
-        return 0
+        return skip_tool("Clazy", "executable not found")
+    print(f"{BOLD}{YELLOW}--- Clazy (Qt Anti-Patterns) ---{RESET}")
 
     if not args.build_dir:
         print(f"{RED}Error: --build-dir is required to run Clazy.{RESET}")
@@ -251,10 +277,9 @@ def _invoke_tidy(file_path: str, build_dir: str, checks: str, fix: bool) -> int:
     return res.returncode
 
 def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
-    print(f"{BOLD}{YELLOW}--- Clang-Tidy (General & Static Analyzer) ---{RESET}")
     if not shutil.which("clang-tidy"):
-        print(f"{RED}Warning: clang-tidy not found. Skipping.{RESET}")
-        return 0
+        return skip_tool("Clang-Tidy", "executable not found")
+    print(f"{BOLD}{YELLOW}--- Clang-Tidy (General & Static Analyzer) ---{RESET}")
 
     if not args.build_dir:
         print(f"{RED}Error: --build-dir is required to run Clang-Tidy.{RESET}")
@@ -287,9 +312,17 @@ def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> i
 def print_summary(returncode: int, xml_path: Path | None) -> None:
     print()
     if returncode == 0:
-        print(f"{BOLD}{GREEN}✔  cppcheck complete: No issues{RESET}")
+        if NON_BLOCKING_WARNINGS:
+            print(f"{BOLD}{GREEN}✔  Quality checks complete: No blocking errors{RESET}")
+        else:
+            print(f"{BOLD}{GREEN}✔  Quality checks complete: No reported issues{RESET}")
     else:
-        print(f"{BOLD}{RED}✘  cppcheck complete: Warnings/errors found (exit code {returncode}){RESET}")
+        print(f"{BOLD}{RED}✘  Quality checks complete: Warnings/errors found (count {returncode}){RESET}")
+    if SKIPPED_TOOLS:
+        print(f"{YELLOW}   Skipped: {', '.join(SKIPPED_TOOLS)}{RESET}")
+    if NON_BLOCKING_WARNINGS:
+        details = ", ".join(f"{name}={count}" for name, count in NON_BLOCKING_WARNINGS.items())
+        print(f"{YELLOW}   Non-blocking warnings: {details}{RESET}")
     if xml_path and xml_path.exists():
         print(f"{CYAN}   XML Report: {xml_path}{RESET}")
 
@@ -321,7 +354,7 @@ def main() -> int:
         help="Build directory containing compile_commands.json"
     )
     parser.add_argument(
-        "--full", action="store_true", help="Ultimate analysis mode (max level for all tools + auto-fix)"
+        "--full", action="store_true", help="Run the broadest checks without modifying source files"
     )
     parser.add_argument(
         "--clazy-level", type=int, choices=[1, 2], default=1,
@@ -345,6 +378,9 @@ def main() -> int:
         "--skip-tidy", action="store_true", help="Skip Clang-Tidy"
     )
     parser.add_argument(
+        "--format", action="store_true", help="Format source files before analysis"
+    )
+    parser.add_argument(
         "--skip-format", action="store_true", help="Skip code formatting"
     )
     parser.add_argument(
@@ -357,13 +393,6 @@ def main() -> int:
     if args.full:
         args.level = "all"
         args.clazy_level = 2
-        args.fix = True
-
-    # Check if cppcheck is available
-    if not shutil.which("cppcheck"):
-        print(f"{RED}Error: cppcheck not found.{RESET}")
-        print("  CachyOS: sudo pacman -S cppcheck")
-        return 1
 
     root = Path(__file__).parent.resolve()
 
@@ -374,7 +403,7 @@ def main() -> int:
 
     # 0. Formatting (unified process)
     total_errors = 0
-    if not args.skip_format:
+    if args.format and not args.skip_format:
         total_errors += run_formatting(root)
 
     # Collect files

@@ -16,14 +16,69 @@
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
-#include <QProcess>
+#include <QSaveFile>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QXmlStreamReader>
+#include <QtCore/private/qzipreader_p.h>
 
 namespace AviQtl::Core {
 
 namespace {
+constexpr qint64 kMaxPackageDownloadBytes = 256LL * 1024LL * 1024LL;
+constexpr qint64 kMaxRepositoryResponseBytes = 16LL * 1024LL * 1024LL;
+constexpr qint64 kMaxPackageExtractedBytes = 1024LL * 1024LL * 1024LL;
+constexpr qsizetype kMaxPackageArchiveEntries = 10000;
+constexpr int kNetworkTransferTimeoutMs = 30000;
+
+bool isValidPackageId(const QString &packageId) {
+    if (packageId.isEmpty() || packageId == QStringLiteral(".") || packageId == QStringLiteral(".."))
+        return false;
+    for (const QChar ch : packageId) {
+        if (!ch.isLetterOrNumber() && ch != QLatin1Char('.') && ch != QLatin1Char('-') && ch != QLatin1Char('_'))
+            return false;
+    }
+    return true;
+}
+
+bool isValidPackageType(const QString &packageType) {
+    return packageType == QStringLiteral("mod") || packageType == QStringLiteral("effect") ||
+           packageType == QStringLiteral("object") || packageType == QStringLiteral("transition");
+}
+
+bool isSecureNetworkUrl(const QUrl &url) {
+    return url.isValid() && url.scheme() == QStringLiteral("https") && !url.host().isEmpty();
+}
+
+bool writeJsonAtomically(const QString &path, const QJsonDocument &document) {
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly))
+        return false;
+    if (file.write(document.toJson(QJsonDocument::Indented)) < 0)
+        return false;
+    return file.commit();
+}
+
+QNetworkRequest packageNetworkRequest(const QUrl &url) {
+    QNetworkRequest request(url);
+    request.setTransferTimeout(kNetworkTransferTimeoutMs);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    return request;
+}
+
+void enforceReplySizeLimit(QNetworkReply *reply, qint64 maxBytes) {
+    const auto abortIfTooLarge = [reply, maxBytes](qint64 received, qint64 total) {
+        if (received > maxBytes || total > maxBytes) {
+            reply->setProperty("aviqtlSizeLimitExceeded", true);
+            reply->abort();
+        }
+    };
+    QObject::connect(reply, &QNetworkReply::metaDataChanged, reply, [reply, abortIfTooLarge]() {
+        abortIfTooLarge(reply->bytesAvailable(), reply->header(QNetworkRequest::ContentLengthHeader).toLongLong());
+    });
+    QObject::connect(reply, &QNetworkReply::downloadProgress, reply, abortIfTooLarge);
+}
+
 const QString &appVersionString() {
     static const QString cached = QString::fromUtf8(AviQtl::VERSION_STRING);
     return cached;
@@ -224,7 +279,7 @@ void PackageManager::saveRepositories(const QVariantList &repos) {
 }
 
 void PackageManager::addRepository(const QString &url, bool enabled, int priority) {
-    if (url.isEmpty())
+    if (!isSecureNetworkUrl(QUrl(url)))
         return;
     QVariantList repos = repositories();
     for (const auto &r : repos) {
@@ -343,7 +398,14 @@ void PackageManager::refreshRepositories() {
         if (!fetchUrl.path().endsWith(QStringLiteral("/repo.json")))
             fetchUrl.setPath(fetchUrl.path() + (fetchUrl.path().endsWith('/') ? QStringLiteral("repo.json") : QStringLiteral("/repo.json")));
 
-        QNetworkReply *reply = m_networkManager->get(QNetworkRequest(fetchUrl));
+        if (!isSecureNetworkUrl(fetchUrl)) {
+            m_pendingRequests--;
+            emit errorOccurred(tr("Repository URL must use HTTPS: %1").arg(repoUrl));
+            tryFinishSyncLegacy(installed);
+            continue;
+        }
+        QNetworkReply *reply = m_networkManager->get(packageNetworkRequest(fetchUrl));
+        enforceReplySizeLimit(reply, kMaxRepositoryResponseBytes);
         connect(reply, &QNetworkReply::finished, this, [this, reply, fetchUrl, repoUrl, basePath, ctx, installed]() {
             reply->deleteLater();
             m_pendingRequests--;
@@ -362,7 +424,14 @@ void PackageManager::refreshRepositories() {
                         else
                             absUrl = QUrl(basePath + QStringLiteral("/") + catalogUrl);
 
-                        QNetworkReply *catReply = m_networkManager->get(QNetworkRequest(absUrl));
+                        if (!isSecureNetworkUrl(absUrl)) {
+                            emit errorOccurred(tr("Catalog URL must use HTTPS: %1").arg(absUrl.toString()));
+                            onCatalogFetched(ctx->repoInfo, {}, installed);
+                            tryFinishSyncLegacy(installed);
+                            return;
+                        }
+                        QNetworkReply *catReply = m_networkManager->get(packageNetworkRequest(absUrl));
+                        enforceReplySizeLimit(catReply, kMaxRepositoryResponseBytes);
                         m_pendingRequests++;
                         connect(catReply, &QNetworkReply::finished, this, [this, catReply, ctx, absUrl, installed]() {
                             catReply->deleteLater();
@@ -382,13 +451,11 @@ void PackageManager::refreshRepositories() {
                                         ctx->repoInfo.value(QStringLiteral("url")).toString().toUtf8(),
                                         QCryptographicHash::Sha256).toHex()) +
                                     QStringLiteral(".json");
-                                QFile cf(getReposCachePath() + QStringLiteral("/") + cacheName);
-                                if (cf.open(QIODevice::WriteOnly)) {
-                                    cf.write(QJsonDocument(cacheObj).toJson());
-                                    cf.close();
-                                }
+                                writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName,
+                                                    QJsonDocument(cacheObj));
                             }
                             onCatalogFetched(ctx->repoInfo, ctx->catalogData, installed);
+                            tryFinishSyncLegacy(installed);
                         });
                     } else {
                         // Old format: treat repo.json itself as a flat packages list
@@ -586,7 +653,12 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
 
     setStatus(tr("Fetching package details: %1").arg(packageId));
     QUrl url(metadataUrl);
-    QNetworkReply *reply = m_networkManager->get(QNetworkRequest(url));
+    if (!isSecureNetworkUrl(url)) {
+        emit errorOccurred(tr("Invalid or insecure metadata URL for package: %1").arg(packageId));
+        return;
+    }
+    QNetworkReply *reply = m_networkManager->get(packageNetworkRequest(url));
+    enforceReplySizeLimit(reply, kMaxRepositoryResponseBytes);
     connect(reply, &QNetworkReply::finished, this, [this, reply, packageId, sourceRepo, metadataUrl, cacheKey, expectedMetadataSha256]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
@@ -621,11 +693,7 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
         QString cacheName = QStringLiteral("detail_") +
             QString::fromLatin1(QCryptographicHash::hash(metadataUrl.toUtf8(), QCryptographicHash::Sha256).toHex()) +
             QStringLiteral(".json");
-        QFile cf(getReposCachePath() + QStringLiteral("/") + cacheName);
-        if (cf.open(QIODevice::WriteOnly)) {
-            cf.write(body);
-            cf.close();
-        }
+        writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName, doc);
 
         emit packageDetailReady(packageId, sourceRepo, detail);
     });
@@ -747,103 +815,6 @@ void PackageManager::continueInstallWithMetadata(const QString &packageId, const
 
 // --- Package Installation ---
 
-void PackageManager::fetchAssets(const QString &packageId) {
-    // Legacy method: hit GitHub/Codeberg API to list release assets.
-    // Kept for backward compatibility until QML is updated to use the new flow.
-    QVariantMap pkg;
-    for (const auto &p : std::as_const(m_packageList)) {
-        if (p.toMap().value(QStringLiteral("id")).toString() == packageId) {
-            pkg = p.toMap();
-            break;
-        }
-    }
-    if (pkg.isEmpty()) {
-        emit errorOccurred(tr("Package not found: %1").arg(packageId));
-        return;
-    }
-
-    QString repoUrl = pkg.value(QStringLiteral("repository_url")).toString();
-    if (repoUrl.isEmpty()) {
-        QString feed = pkg.value(QStringLiteral("release_feed")).toString();
-        if (!feed.isEmpty()) {
-            int idx = feed.indexOf(QStringLiteral("/releases"));
-            if (idx != -1)
-                repoUrl = feed.left(idx);
-        }
-    }
-    if (repoUrl.isEmpty()) {
-        emit errorOccurred(tr("Could not determine repository URL for the package."));
-        return;
-    }
-
-    setBusy(true);
-    setStatus(tr("Searching for available files..."));
-
-    QUrl apiUrl;
-    bool isGitHub = repoUrl.contains(QStringLiteral("github.com"));
-    bool isCodeberg = repoUrl.contains(QStringLiteral("codeberg.org"));
-    QString path = QUrl(repoUrl).path();
-    if (path.startsWith('/')) path.remove(0, 1);
-    QStringList parts = path.split('/');
-    if (parts.size() < 2) { setBusy(false); emit errorOccurred(tr("Repository URL is not in a valid format.")); return; }
-    QString owner = parts[0], repo = parts[1];
-    if (repo.endsWith(".git")) repo.chop(4);
-
-    if (isGitHub)
-        apiUrl = QStringLiteral("https://api.github.com/repos/%1/%2/releases/latest").arg(owner, repo);
-    else if (isCodeberg)
-        apiUrl = QStringLiteral("https://codeberg.org/api/v1/repos/%1/%2/releases?limit=1").arg(owner, repo);
-    else { setBusy(false); emit errorOccurred(tr("Unsupported repository host.")); return; }
-
-    QNetworkReply *reply = m_networkManager->get(QNetworkRequest(apiUrl));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, packageId]() {
-        reply->deleteLater();
-        setBusy(false);
-        if (reply->error() != QNetworkReply::NoError) {
-            emit errorOccurred(tr("Failed to fetch release info (%1): %2").arg(packageId, reply->errorString()));
-            return;
-        }
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-        QVariantList assetsList;
-        QJsonObject releaseObj;
-        if (doc.isArray() && !doc.array().isEmpty())
-            releaseObj = doc.array().at(0).toObject();
-        else if (doc.isObject())
-            releaseObj = doc.object();
-
-        if (!releaseObj.isEmpty()) {
-            QString body = releaseObj.value(QStringLiteral("body")).toString();
-            QString author;
-            QJsonObject authorObj = releaseObj.value(QStringLiteral("author")).toObject();
-            author = authorObj.value(QStringLiteral("login")).toString();
-            if (author.isEmpty()) author = authorObj.value(QStringLiteral("username")).toString();
-            for (int i = 0; i < m_packageList.size(); ++i) {
-                QVariantMap item = m_packageList[i].toMap();
-                if (item.value(QStringLiteral("id")).toString() == packageId) {
-                    if (!author.isEmpty()) item[QStringLiteral("author")] = author;
-                    if (!body.isEmpty()) item[QStringLiteral("description")] = body.left(200).trimmed() + (body.size() > 200 ? QStringLiteral("...") : QString());
-                    m_packageList[i] = item;
-                    emit packageListChanged();
-                    break;
-                }
-            }
-            QJsonArray assetsArr = releaseObj.value(QStringLiteral("assets")).toArray();
-            for (const auto &aVal : assetsArr) {
-                QJsonObject aObj = aVal.toObject();
-                QVariantMap asset;
-                asset[QStringLiteral("name")] = aObj.value(QStringLiteral("name")).toString();
-                asset[QStringLiteral("size")] = aObj.value(QStringLiteral("size")).toVariant();
-                asset[QStringLiteral("url")] = aObj.value(QStringLiteral("browser_download_url")).toString();
-                assetsList.append(asset);
-            }
-        }
-        if (assetsList.isEmpty())
-            emit errorOccurred(tr("No downloadable files found."));
-        else
-            emit assetsReady(packageId, assetsList);
-    });
-}
-
 void PackageManager::installPackage(const QString &packageId, const QString &sourceRepo, const QString &version) {
     if (m_isBusy)
         return;
@@ -868,11 +839,22 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
 }
 
 void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, const QString &expectedSha256, const QString &packageType, const QString &version, const QString &sourceRepo) {
+    if (!isValidPackageId(packageId) || !isValidPackageType(packageType)) {
+        setBusy(false);
+        emit errorOccurred(tr("Invalid package ID or type."));
+        return;
+    }
+    if (!isSecureNetworkUrl(url)) {
+        setBusy(false);
+        emit errorOccurred(tr("Invalid or insecure package download URL."));
+        return;
+    }
     setStatus(tr("Downloading package: %1").arg(packageId));
     setProgress(0.0);
 
-    QNetworkReply *reply = m_networkManager->get(QNetworkRequest(url));
-    connect(reply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+    QNetworkReply *reply = m_networkManager->get(packageNetworkRequest(url));
+    enforceReplySizeLimit(reply, kMaxPackageDownloadBytes);
+    connect(reply, &QNetworkReply::downloadProgress, this, [this, reply](qint64 received, qint64 total) {
         if (total > 0)
             setProgress(static_cast<double>(received) / total * 0.5);
     });
@@ -880,7 +862,10 @@ void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, 
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             setBusy(false);
-            emit errorOccurred(tr("Download failed: %1").arg(reply->errorString()));
+            if (reply->property("aviqtlSizeLimitExceeded").toBool())
+                emit errorOccurred(tr("Package archive exceeds the maximum allowed size."));
+            else
+                emit errorOccurred(tr("Download failed: %1").arg(reply->errorString()));
             return;
         }
 
@@ -901,6 +886,11 @@ void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, 
             return;
         }
         QByteArray data = reply->readAll();
+        if (data.size() > kMaxPackageDownloadBytes) {
+            setBusy(false);
+            emit errorOccurred(tr("Package archive exceeds the maximum allowed size."));
+            return;
+        }
         file.write(data);
         file.close();
 
@@ -929,29 +919,15 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
         return;
     }
 
-    if (!extractZip(archivePath, extractDir.path())) {
+    if (!extractPackageArchive(archivePath, extractDir.path())) {
         setBusy(false);
         emit errorOccurred(tr("Failed to extract package archive."));
         return;
     }
 
-    setStatus(tr("Deploying package files..."));
-    setProgress(0.8);
-
-    if (!deployPackageFiles(packageId, extractDir.path(), packageType)) {
-        setBusy(false);
-        emit errorOccurred(tr("Failed to deploy package files."));
-        return;
-    }
-
-    // Compile shaders for effect/object/transition packages
-    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object") || packageType == QStringLiteral("transition")) {
-        const QString deployDir = getPackageDeployDir(packageType);
-        const QString packageDir = deployDir + QStringLiteral("/") + packageId;
-        compileShadersInDirectory(packageDir);
-    }
-
-    // Save installed info
+    // Prepare installation state before deployment. The deployment helper
+    // commits it only after the staged files are in place and rolls the files
+    // back if the atomic state write fails.
     QVariantMap installed = loadInstalledPackagesFromFile();
     QVariantMap info;
     info[QStringLiteral("version")] = version;
@@ -962,24 +938,28 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     info[QStringLiteral("sha256")] = sha256OfFile(archivePath);
     installed[packageId] = info;
 
-    QFile installedFile(getInstalledPackagesPath());
-    if (!installedFile.open(QIODevice::WriteOnly)) {
-        qWarning() << "[PackageManager] Failed to open installed.json for writing.";
+    setStatus(tr("Deploying package files..."));
+    setProgress(0.8);
+    const FileOperationResult deployResult = deployPackageFiles(packageId, extractDir.path(), packageType, [installed]() {
+            return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(installed));
+        });
+    if (deployResult != FileOperationResult::Success) {
+        qWarning() << "[PackageManager] Failed to deploy package or atomically save installation state.";
         setBusy(false);
-        emit errorOccurred(tr("Failed to save installation state (cannot write installed.json)."));
+        if (deployResult == FileOperationResult::RollbackFailed)
+            emit errorOccurred(tr("Package deployment failed and automatic rollback was incomplete; the backup was preserved."));
+        else
+            emit errorOccurred(tr("Failed to deploy package; the previous installation was restored."));
         if (!m_upgradeQueue.isEmpty())
             processUpgradeQueue();
         return;
     }
-    qint64 written = installedFile.write(QJsonDocument::fromVariant(installed).toJson(QJsonDocument::Indented));
-    installedFile.close();
-    if (written < 0) {
-        qWarning() << "[PackageManager] Failed to write installed.json.";
-        setBusy(false);
-        emit errorOccurred(tr("Failed to save installation state (cannot write installed.json)."));
-        if (!m_upgradeQueue.isEmpty())
-            processUpgradeQueue();
-        return;
+
+    // Compile shaders for effect/object/transition packages
+    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object") || packageType == QStringLiteral("transition")) {
+        const QString deployDir = getPackageDeployDir(packageType);
+        const QString packageDir = deployDir + QStringLiteral("/") + packageId;
+        compileShadersInDirectory(packageDir);
     }
 
     // Reload registry for effect/object/transition
@@ -1012,52 +992,49 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
         processUpgradeQueue();
 }
 
-bool PackageManager::extractZip(const QString &archivePath, const QString &destDir) {
-    QProcess process;
-#ifdef Q_OS_WIN
-    QString escapedPath = archivePath;
-    escapedPath.replace(QLatin1Char('\''), QStringLiteral("''"));
-    QString escapedDest = destDir;
-    escapedDest.replace(QLatin1Char('\''), QStringLiteral("''"));
-    process.start(QStringLiteral("powershell"), {
-        QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"),
-        QStringLiteral("-Command"),
-        QStringLiteral("Expand-Archive -Path '%1' -DestinationPath '%2' -Force").arg(escapedPath, escapedDest)
-    });
-#else
-    process.start(QStringLiteral("unzip"), {QStringLiteral("-o"), archivePath, QStringLiteral("-d"), destDir});
-#endif
-    process.waitForFinished(30000);
-    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        qWarning() << "[PackageManager] Extraction failed:" << process.errorString();
+bool PackageManager::extractPackageArchive(const QString &archivePath, const QString &destDir) {
+    QZipReader reader(archivePath);
+    if (!reader.exists() || !reader.isReadable() || reader.status() != QZipReader::NoError) {
+        qWarning() << "[PackageManager] Package archive is not a readable ZIP file.";
         return false;
     }
-    // Zip Slip detection
-    const QDir destDirObj(destDir);
-    const QString canonicalDest = destDirObj.canonicalPath();
-    QDirIterator it(destDirObj.path(), QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        it.next();
-        const QString canonicalPath = QFileInfo(it.filePath()).canonicalFilePath();
-        if (canonicalPath.isEmpty()) { qWarning() << "[PackageManager] Path disappeared:" << it.filePath(); return false; }
-        if (!canonicalPath.startsWith(canonicalDest + QLatin1Char('/'))) {
-            qWarning() << "[PackageManager] Zip Slip detected:" << it.filePath();
-            if (it.fileInfo().isDir()) QDir(it.filePath()).removeRecursively();
-            else QFile::remove(it.filePath());
+
+    const QList<QZipReader::FileInfo> entries = reader.fileInfoList();
+    if (entries.size() > kMaxPackageArchiveEntries)
+        return false;
+
+    qint64 extractedBytes = 0;
+    for (const QZipReader::FileInfo &entry : entries) {
+        if (!entry.isValid() || entry.isSymLink || !isSafeArchivePath(entry.filePath) || entry.size < 0 ||
+            extractedBytes > kMaxPackageExtractedBytes - entry.size) {
+            qWarning() << "[PackageManager] Unsafe package archive entry:" << entry.filePath;
             return false;
         }
+        extractedBytes += entry.size;
     }
+
+    if (!QDir().mkpath(destDir) || !reader.extractAll(destDir))
+        return false;
     return true;
 }
 
-bool PackageManager::deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType) {
-    Q_UNUSED(packageType)
-    if (packageId.contains(QStringLiteral("..")) || packageId.contains('/') || packageId.contains('\\')) {
-        qWarning() << "[PackageManager] Invalid package ID (path traversal):" << packageId;
+bool PackageManager::isSafeArchivePath(const QString &path) {
+    if (path.isEmpty() || QDir::isAbsolutePath(path) || path.contains(QLatin1Char('\\')))
         return false;
+    const QString normalized = QDir::cleanPath(path);
+    return normalized != QStringLiteral("..") && !normalized.startsWith(QStringLiteral("../")) &&
+           !normalized.contains(QStringLiteral("/../"));
+}
+
+PackageManager::FileOperationResult PackageManager::deployPackageFiles(
+    const QString &packageId, const QString &extractDir, const QString &packageType,
+    const std::function<bool()> &commitState) {
+    if (!isValidPackageId(packageId) || !isValidPackageType(packageType)) {
+        qWarning() << "[PackageManager] Invalid package ID or type:" << packageId << packageType;
+        return FileOperationResult::Failed;
     }
     const QString deployBase = getPackageDeployDir(packageType);
-    if (deployBase.isEmpty()) return false;
+    if (deployBase.isEmpty()) return FileOperationResult::Failed;
     const QString packageDir = deployBase + QStringLiteral("/") + packageId;
 
     // Resolve the source directory (handle single-subdir wrapper archives)
@@ -1076,44 +1053,81 @@ bool PackageManager::deployPackageFiles(const QString &packageId, const QString 
     QTemporaryDir stagingDir(deployBase + QStringLiteral("/.staging_XXXXXX"));
     if (!stagingDir.isValid()) {
         qWarning() << "[PackageManager] Failed to create staging directory for deployment.";
-        return false;
+        return FileOperationResult::Failed;
     }
     const QString stagingPath = stagingDir.path();
     for (const QString &entry : std::as_const(entries)) {
         const QString srcPath = sourceDir.absoluteFilePath(entry);
         const QString destPath = stagingPath + QStringLiteral("/") + entry;
         QFileInfo srcInfo(srcPath);
-        if (srcInfo.isDir()) { if (!copyDirectory(srcPath, destPath)) return false; }
-        else { if (QFile::exists(destPath)) QFile::remove(destPath); if (!QFile::copy(srcPath, destPath)) return false; }
+        if (srcInfo.isDir()) { if (!copyDirectory(srcPath, destPath)) return FileOperationResult::Failed; }
+        else { if (QFile::exists(destPath)) QFile::remove(destPath); if (!QFile::copy(srcPath, destPath)) return FileOperationResult::Failed; }
     }
 
-    // Remove the old package directory and replace it with the staged contents.
-    // Keep the staging dir alive until the swap succeeds so we can roll back.
     const QString backupDir = deployBase + QStringLiteral("/.backup_") + packageId;
-    bool hadOld = QDir(packageDir).exists();
-    if (hadOld) {
-        if (QDir(backupDir).exists())
-            QDir(backupDir).removeRecursively();
-        if (!QDir().rename(packageDir, backupDir)) {
-            qWarning() << "[PackageManager] Failed to back up old package directory for atomic swap.";
-            return false;
+    QDir().mkpath(deployBase);
+    const FileOperationResult result = runFileTransaction(
+        packageDir, backupDir,
+        [stagingPath, packageDir] { return QDir().rename(stagingPath, packageDir); },
+        [packageDir] { return !QDir(packageDir).exists() || QDir(packageDir).removeRecursively(); },
+        commitState, "deploy");
+    if (result == FileOperationResult::Success)
+        stagingDir.setAutoRemove(false);
+    return result;
+}
+
+PackageManager::FileOperationResult PackageManager::removePackageFiles(
+    const QString &packageId, const QString &packageType, const std::function<bool()> &commitState) {
+    if (!isValidPackageId(packageId) || !isValidPackageType(packageType) || !commitState)
+        return FileOperationResult::Failed;
+    const QString deployDir = getPackageDeployDir(packageType);
+    if (deployDir.isEmpty())
+        return FileOperationResult::Failed;
+
+    const QString packageDir = deployDir + QLatin1Char('/') + packageId;
+    const QString backupDir = deployDir + QStringLiteral("/.remove_backup_") + packageId;
+    return runFileTransaction(packageDir, backupDir, [] { return true; }, [] { return true; }, commitState, "remove");
+}
+
+PackageManager::FileOperationResult PackageManager::runFileTransaction(
+    const QString &targetDir, const QString &backupDir,
+    const std::function<bool()> &applyMutation, const std::function<bool()> &revertMutation,
+    const std::function<bool()> &commitState, const char *operationName) {
+    const bool hadExisting = QDir(targetDir).exists();
+    if (hadExisting) {
+        if (QDir(backupDir).exists() && !QDir(backupDir).removeRecursively()) {
+            qWarning() << "[PackageManager] Could not remove stale backup before" << operationName << ':' << backupDir;
+            return FileOperationResult::Failed;
+        }
+        if (!QDir().rename(targetDir, backupDir)) {
+            qWarning() << "[PackageManager] Could not create backup before" << operationName << ':' << targetDir;
+            return FileOperationResult::Failed;
         }
     }
 
-    QDir().mkpath(deployBase);
-    if (!QDir().rename(stagingPath, packageDir)) {
-        // Roll back: restore the backup if the move failed
-        qWarning() << "[PackageManager] Failed to move staged package into place.";
-        if (hadOld)
-            QDir().rename(backupDir, packageDir);
-        return false;
+    if (!applyMutation()) {
+        qWarning() << "[PackageManager] File mutation failed during" << operationName;
+        if (hadExisting && !QDir().rename(backupDir, targetDir)) {
+            qCritical() << "[PackageManager] Could not restore backup after mutation failure:" << backupDir;
+            return FileOperationResult::RollbackFailed;
+        }
+        return FileOperationResult::Failed;
     }
 
-    // Success: clean up the backup
-    if (hadOld)
-        QDir(backupDir).removeRecursively();
-    stagingDir.setAutoRemove(false);
-    return true;
+    if (commitState && !commitState()) {
+        qWarning() << "[PackageManager] State commit failed during" << operationName << "; rolling back.";
+        const bool reverted = revertMutation();
+        const bool restored = !hadExisting || (reverted && QDir().rename(backupDir, targetDir));
+        if (!reverted || !restored) {
+            qCritical() << "[PackageManager] Could not restore backup after state commit failure:" << backupDir;
+            return FileOperationResult::RollbackFailed;
+        }
+        return FileOperationResult::StateCommitFailed;
+    }
+
+    if (hadExisting && !QDir(backupDir).removeRecursively())
+        qWarning() << "[PackageManager] Operation succeeded but backup cleanup failed:" << backupDir;
+    return FileOperationResult::Success;
 }
 
 QString PackageManager::getPackageDeployDir(const QString &packageType) const {
@@ -1122,40 +1136,35 @@ QString PackageManager::getPackageDeployDir(const QString &packageType) const {
     if (packageType == QStringLiteral("effect")) return appDir + QStringLiteral("/effects");
     if (packageType == QStringLiteral("object")) return appDir + QStringLiteral("/objects");
     if (packageType == QStringLiteral("transition")) return appDir + QStringLiteral("/transitions");
-    return appDir + QStringLiteral("/plugins");
+    return {};
 }
 
 void PackageManager::removePackage(const QString &packageId) {
     if (m_isBusy || packageId == QStringLiteral("org.aviqtl.app")) return;
-    QVariantMap pkg;
-    for (const auto &p : std::as_const(m_packageList)) {
-        if (p.toMap().value(QStringLiteral("id")).toString() == packageId) { pkg = p.toMap(); break; }
-    }
-    if (packageId.contains(QStringLiteral("..")) || packageId.contains('/') || packageId.contains('\\')) {
+    if (!isValidPackageId(packageId)) {
         emit errorOccurred(tr("Invalid package ID.")); return;
+    }
+    const QVariantMap currentInstalled = loadInstalledPackagesFromFile();
+    const QVariantMap installedPackage = currentInstalled.value(packageId).toMap();
+    const QString packageType = installedPackage.value(QStringLiteral("type")).toString();
+    if (!currentInstalled.contains(packageId) || !isValidPackageType(packageType)) {
+        emit errorOccurred(tr("Cannot remove package because its installed type is missing or invalid."));
+        return;
     }
     setBusy(true);
     setStatus(tr("Removing package: %1").arg(packageId));
-    QString packageType = pkg.value(QStringLiteral("type")).toString();
-    // Fallback to installed metadata when the package is no longer in the
-    // catalog (e.g. after a cache change) so the deploy directory resolves
-    // correctly and deployed files are still deleted.
-    if (packageType.isEmpty()) {
-        QVariantMap installedMeta = loadInstalledPackagesFromFile();
-        if (installedMeta.contains(packageId))
-            packageType = installedMeta.value(packageId).toMap().value(QStringLiteral("type")).toString();
-    }
-    const QString deployDir = getPackageDeployDir(packageType);
-    const QString packageDir = deployDir + QStringLiteral("/") + packageId;
-    if (QDir(packageDir).exists()) QDir(packageDir).removeRecursively();
-
-    QVariantMap installed = loadInstalledPackagesFromFile();
-    if (installed.remove(packageId)) {
-        QFile file(getInstalledPackagesPath());
-        if (file.open(QIODevice::WriteOnly)) {
-            file.write(QJsonDocument::fromVariant(installed).toJson());
-            file.close();
-        }
+    QVariantMap updatedInstalled = currentInstalled;
+    updatedInstalled.remove(packageId);
+    const FileOperationResult removalResult = removePackageFiles(packageId, packageType, [updatedInstalled]() {
+        return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(updatedInstalled));
+    });
+    if (removalResult != FileOperationResult::Success) {
+        setBusy(false);
+        if (removalResult == FileOperationResult::RollbackFailed)
+            emit errorOccurred(tr("Package removal failed and automatic rollback was incomplete; the backup was preserved."));
+        else
+            emit errorOccurred(tr("Failed to remove package; the installed state and files were restored."));
+        return;
     }
     for (int i = 0; i < m_packageList.size(); ++i) {
         QVariantMap item = m_packageList[i].toMap();
@@ -1246,25 +1255,6 @@ void PackageManager::processUpgradeQueue() {
         {QStringLiteral("version"), QString()}
     };
     fetchPackageMetadataForInstall(nextPackageId, QString(), QString());
-}
-
-void PackageManager::updatePackageLatestVersion(const QString &id, const QString &version) {
-    // Legacy helper for old-style RSS feed-based version detection
-    for (int i = 0; i < m_packageList.size(); ++i) {
-        QVariantMap item = m_packageList[i].toMap();
-        if (item.value(QStringLiteral("id")).toString() == id) {
-            QString latest = version;
-            if (latest.startsWith('v')) latest.remove(0, 1);
-            if (id == QStringLiteral("org.aviqtl.app") && compareVersions(latest, appVersionString()) <= 0)
-                latest = appVersionString();
-            if (item.value(QStringLiteral("latest_version")).toString() != latest) {
-                item[QStringLiteral("latest_version")] = latest;
-                m_packageList[i] = item;
-                emit packageListChanged();
-            }
-            break;
-        }
-    }
 }
 
 void PackageManager::compileShadersInDirectory(const QString &directory) {

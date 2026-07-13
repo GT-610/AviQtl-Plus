@@ -1,9 +1,14 @@
 #include "package_manager.hpp"
 #include "effect_registry.hpp"
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QtCore/private/qzipwriter_p.h>
 
 using namespace AviQtl::Core;
 
@@ -17,15 +22,21 @@ class TestPackageDeploy : public QObject {
     void deployObjectType();
     void deployTransitionType();
     void unknownTypeDefaultsToPlugins();
+    void rejectsInvalidPackageIds();
+    void extractsSafeArchive();
+    void rejectsTraversalArchive();
+    void rejectsSymlinkArchive();
+    void rollsBackWhenStateCommitFails();
+    void removesPackageTransactionally();
+    void rejectsRemovalWithUnknownType();
 };
 
 void TestPackageDeploy::deployDirectoryCreation() {
     // Test that getPackageDeployDir returns valid paths
     PackageManager &pm = PackageManager::instance();
 
-    // We can't directly call private methods, but we can test the behavior
-    // through the public API. For now, verify the singleton exists.
-    QVERIFY(&pm != nullptr);
+    // Verify that the singleton was initialized.
+    QVERIFY(!pm.statusText().isNull());
 }
 
 void TestPackageDeploy::deployModType() {
@@ -111,7 +122,8 @@ void TestPackageDeploy::deployTransitionType() {
     cleanupGuard.dir = packageDir;
 
     // Exercise the real deployment helper used in production
-    QVERIFY(pm.deployPackageFiles(packageId, sourceDir.path(), QStringLiteral("transition")));
+    QCOMPARE(pm.deployPackageFiles(packageId, sourceDir.path(), QStringLiteral("transition")),
+             PackageManager::FileOperationResult::Success);
 
     // Assert transition-specific results: files deployed under /transitions
     QCOMPARE(QFileInfo(deployDir).fileName(), QStringLiteral("transitions"));
@@ -127,9 +139,155 @@ void TestPackageDeploy::deployTransitionType() {
 }
 
 void TestPackageDeploy::unknownTypeDefaultsToPlugins() {
-    // Unknown package types should default to plugins directory
-    // This is tested indirectly through the deploy logic
-    QVERIFY(true); // Placeholder
+    PackageManager &pm = PackageManager::instance();
+    QVERIFY(pm.getPackageDeployDir(QStringLiteral("unknown")).isEmpty());
+
+    QTemporaryDir sourceDir;
+    QVERIFY(sourceDir.isValid());
+    QCOMPARE(pm.deployPackageFiles(QStringLiteral("org.aviqtl.invalid"), sourceDir.path(), QStringLiteral("unknown")),
+             PackageManager::FileOperationResult::Failed);
+}
+
+void TestPackageDeploy::rejectsInvalidPackageIds() {
+    PackageManager &pm = PackageManager::instance();
+    QTemporaryDir sourceDir;
+    QVERIFY(sourceDir.isValid());
+
+    QCOMPARE(pm.deployPackageFiles(QStringLiteral("../escape"), sourceDir.path(), QStringLiteral("effect")), PackageManager::FileOperationResult::Failed);
+    QCOMPARE(pm.deployPackageFiles(QStringLiteral("contains/slash"), sourceDir.path(), QStringLiteral("effect")), PackageManager::FileOperationResult::Failed);
+    QCOMPARE(pm.deployPackageFiles(QStringLiteral("contains\\slash"), sourceDir.path(), QStringLiteral("effect")), PackageManager::FileOperationResult::Failed);
+    QCOMPARE(pm.deployPackageFiles(QString(), sourceDir.path(), QStringLiteral("effect")), PackageManager::FileOperationResult::Failed);
+}
+
+void TestPackageDeploy::extractsSafeArchive() {
+    PackageManager &pm = PackageManager::instance();
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString archivePath = dir.filePath(QStringLiteral("safe.zip"));
+    QZipWriter writer(archivePath);
+    writer.addFile(QStringLiteral("package/metadata.json"), QByteArrayLiteral("{}"));
+    writer.close();
+    QCOMPARE(writer.status(), QZipWriter::NoError);
+
+    const QString destination = dir.filePath(QStringLiteral("safe-output"));
+    QVERIFY(pm.extractPackageArchive(archivePath, destination));
+    QVERIFY(QFile::exists(destination + QStringLiteral("/package/metadata.json")));
+}
+
+void TestPackageDeploy::rejectsTraversalArchive() {
+    QVERIFY(!PackageManager::isSafeArchivePath(QStringLiteral("../escaped.txt")));
+    QVERIFY(!PackageManager::isSafeArchivePath(QStringLiteral("folder/../../escaped.txt")));
+    QVERIFY(!PackageManager::isSafeArchivePath(QStringLiteral("/absolute/path")));
+    QVERIFY(!PackageManager::isSafeArchivePath(QStringLiteral("folder\\escaped.txt")));
+    QVERIFY(PackageManager::isSafeArchivePath(QStringLiteral("package/metadata.json")));
+}
+
+void TestPackageDeploy::rejectsSymlinkArchive() {
+    PackageManager &pm = PackageManager::instance();
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString archivePath = dir.filePath(QStringLiteral("symlink.zip"));
+    QZipWriter writer(archivePath);
+    writer.addSymLink(QStringLiteral("package/link"), QStringLiteral("../../outside"));
+    writer.close();
+    QCOMPARE(writer.status(), QZipWriter::NoError);
+
+    QVERIFY(!pm.extractPackageArchive(archivePath, dir.filePath(QStringLiteral("symlink-output"))));
+}
+
+void TestPackageDeploy::rollsBackWhenStateCommitFails() {
+    PackageManager &pm = PackageManager::instance();
+    QTemporaryDir sourceDir;
+    QVERIFY(sourceDir.isValid());
+    QFile newFile(sourceDir.filePath(QStringLiteral("content.txt")));
+    QVERIFY(newFile.open(QIODevice::WriteOnly));
+    QCOMPARE(newFile.write("new"), 3);
+    newFile.close();
+
+    const QString packageId = QStringLiteral("org.aviqtl.test.rollback");
+    const QString packageDir = pm.getPackageDeployDir(QStringLiteral("effect")) + QLatin1Char('/') + packageId;
+    QDir(packageDir).removeRecursively();
+    QVERIFY(QDir().mkpath(packageDir));
+    QFile oldFile(packageDir + QStringLiteral("/content.txt"));
+    QVERIFY(oldFile.open(QIODevice::WriteOnly));
+    QCOMPARE(oldFile.write("old"), 3);
+    oldFile.close();
+
+    struct ScopedCleanup {
+        QString dir;
+        ~ScopedCleanup() { QDir(dir).removeRecursively(); }
+    } cleanup{packageDir};
+
+    QCOMPARE(pm.deployPackageFiles(packageId, sourceDir.path(), QStringLiteral("effect"), [] { return false; }),
+             PackageManager::FileOperationResult::StateCommitFailed);
+    QFile restored(packageDir + QStringLiteral("/content.txt"));
+    QVERIFY(restored.open(QIODevice::ReadOnly));
+    QCOMPARE(restored.readAll(), QByteArrayLiteral("old"));
+}
+
+void TestPackageDeploy::removesPackageTransactionally() {
+    PackageManager &pm = PackageManager::instance();
+    const QString packageId = QStringLiteral("org.aviqtl.test.remove_rollback");
+    const QString packageDir = pm.getPackageDeployDir(QStringLiteral("effect")) + QLatin1Char('/') + packageId;
+    QDir(packageDir).removeRecursively();
+    QVERIFY(QDir().mkpath(packageDir));
+    QFile file(packageDir + QStringLiteral("/content.txt"));
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("old");
+    file.close();
+
+    QCOMPARE(pm.removePackageFiles(packageId, QStringLiteral("effect"), [] { return false; }),
+             PackageManager::FileOperationResult::StateCommitFailed);
+    QVERIFY(QFile::exists(packageDir + QStringLiteral("/content.txt")));
+    QDir(packageDir).removeRecursively();
+}
+
+void TestPackageDeploy::rejectsRemovalWithUnknownType() {
+    PackageManager &pm = PackageManager::instance();
+    const QString installedPath = QCoreApplication::applicationDirPath() + QStringLiteral("/repos/installed.json");
+    QDir().mkpath(QFileInfo(installedPath).absolutePath());
+    QFile originalFile(installedPath);
+    const bool hadOriginal = originalFile.exists();
+    QByteArray originalData;
+    if (hadOriginal) {
+        QVERIFY(originalFile.open(QIODevice::ReadOnly));
+        originalData = originalFile.readAll();
+        originalFile.close();
+    }
+    struct RestoreFile {
+        QString path;
+        bool existed;
+        QByteArray data;
+        ~RestoreFile() {
+            if (!existed) {
+                QFile::remove(path);
+                return;
+            }
+            QFile file(path);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                file.write(data);
+        }
+    } restore{installedPath, hadOriginal, originalData};
+
+    const QString packageId = QStringLiteral("org.aviqtl.test.unknown");
+    QJsonObject installed;
+    installed.insert(packageId, QJsonObject{{QStringLiteral("type"), QStringLiteral("unknown")}});
+    QFile installedFile(installedPath);
+    QVERIFY(installedFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    installedFile.write(QJsonDocument(installed).toJson());
+    installedFile.close();
+
+    QSignalSpy errorSpy(&pm, &PackageManager::errorOccurred);
+    QSignalSpy removedSpy(&pm, &PackageManager::packageRemoved);
+    pm.removePackage(packageId);
+    QCOMPARE(errorSpy.count(), 1);
+    QCOMPARE(removedSpy.count(), 0);
+
+    QFile unchanged(installedPath);
+    QVERIFY(unchanged.open(QIODevice::ReadOnly));
+    QVERIFY(QJsonDocument::fromJson(unchanged.readAll()).object().contains(packageId));
 }
 
 QTEST_MAIN(TestPackageDeploy)

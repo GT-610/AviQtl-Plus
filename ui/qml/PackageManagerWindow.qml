@@ -45,41 +45,7 @@ Common.AviQtlWindow {
             selfUpdateDialog.open();
         }
 
-        function onAssetsReady(packageId, assets) {
-            assetSelectionDialog.packageId = packageId;
-            assetSelectionDialog.assets = assets;
-            assetSelectionDialog.open();
-        }
-
         target: PackageManager
-    }
-
-    Dialog {
-        id: assetSelectionDialog
-
-        property string packageId: ""
-        property var assets: []
-
-        title: qsTr("ダウンロードするファイルを選択")
-        modal: true
-        anchors.centerIn: parent
-        standardButtons: Dialog.Cancel
-
-        ListView {
-            implicitWidth: 400
-            implicitHeight: Math.min(300, contentHeight)
-            model: assetSelectionDialog.assets
-            clip: true
-
-            delegate: ItemDelegate {
-                width: parent.width
-                text: modelData.name + " (" + (modelData.size / 1024 / 1024).toFixed(2) + " MB)"
-                onClicked: {
-                    PackageManager.installPackage(assetSelectionDialog.packageId, modelData.url);
-                    assetSelectionDialog.close();
-                }
-            }
-        }
     }
 
     function packageTypeForTab(index) {

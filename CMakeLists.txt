@@ -9,10 +9,6 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(POLICY QTP0004)
-    qt_policy(SET QTP0004 NEW)
-endif()
-
 # --- Dependencies ---
 set(EXTRA_QT_COMPONENTS "")
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -20,10 +16,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS
-    Core Gui GuiPrivate Quick QuickControls2 Quick3D
+    Core CorePrivate Gui GuiPrivate Quick QuickControls2 Quick3D
     Widgets Core5Compat Sql Svg Multimedia Concurrent
     ShaderTools ShaderToolsPrivate LinguistTools Network Test ${EXTRA_QT_COMPONENTS}
 )
+
+if(Qt6_VERSION VERSION_GREATER_EQUAL "6.8")
+    qt_policy(SET QTP0004 NEW)
+endif()
 
 if(APPLE)
     find_package(Vulkan)
@@ -120,7 +120,7 @@ set(CORE_SOURCES
 add_library(AviQtl_Core STATIC ${CORE_SOURCES})
 target_include_directories(AviQtl_Core PUBLIC core/include ${CMAKE_SOURCE_DIR})
 target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
-target_link_libraries(AviQtl_Core PRIVATE Qt6::ShaderToolsPrivate)
+target_link_libraries(AviQtl_Core PRIVATE Qt6::CorePrivate Qt6::ShaderToolsPrivate)
 aviqtl_target_warning_flags(AviQtl_Core)
 
 # Define version macros for AviQtl_Core
