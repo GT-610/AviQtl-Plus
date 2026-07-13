@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick3D
-import "qrc:/qt/qml/AviQtl/ui/qml/common" as Common
 
 // CameraControlObject は BaseObject を継承しない。
 // 理由: BaseObject は adopt2D() で sourceItem/renderer を offscreenRenderHost

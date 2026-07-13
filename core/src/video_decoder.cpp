@@ -296,32 +296,6 @@ bool VideoDecoder::getFrameFromGopCache(int frameIndex, QVideoFrame &outFrame) {
     return true;
 }
 
-void VideoDecoder::putGopCacheBlock(GopCacheBlock &&block) {
-    std::lock_guard<std::mutex> locker(m_gopCacheMutex);
-    GopCacheBlock *alt = (m_currentGopCache == m_gopCacheA) ? m_gopCacheB : m_gopCacheA;
-    int j = 0;
-
-    // 重複除外
-    for (int i = 0; i < m_gopCacheCount; ++i) {
-        if (m_currentGopCache[i].keyframeIndex != block.keyframeIndex) {
-            alt[j++] = std::move(m_currentGopCache[i]);
-        }
-    }
-
-    if (j >= MAX_GOP_CACHE_SIZE) {
-        // 最古を破棄
-        alt[0].frames.clear();
-        for (int i = 1; i < j; ++i) {
-            alt[i - 1] = std::move(alt[i]);
-        }
-        j = MAX_GOP_CACHE_SIZE - 1;
-    }
-
-    alt[j++] = std::move(block);
-    m_currentGopCache = alt;
-    m_gopCacheCount = j;
-}
-
 int VideoDecoder::findGopEndIndex(int startFrame) const {
     if (m_index.empty())
         return 0;

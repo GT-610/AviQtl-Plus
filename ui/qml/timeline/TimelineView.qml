@@ -726,12 +726,6 @@ Item {
             return item;
         }
 
-        function createSubMenu(label) {
-            return subMenuComp.createObject(timelineViewRoot, {
-                "title": label
-            });
-        }
-
         function addSeparator() {
             contextMenu.addItem(menuSeparatorComp.createObject(timelineViewRoot));
         }

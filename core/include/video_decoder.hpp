@@ -93,7 +93,6 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     GopCacheBlock m_gopCacheB[MAX_GOP_CACHE_SIZE];
     GopCacheBlock *m_currentGopCache = m_gopCacheA;
     bool getFrameFromGopCache(int frameIndex, QVideoFrame &outFrame);
-    void putGopCacheBlock(GopCacheBlock &&block);
 
     std::atomic<bool> m_isDecoding{false};
     QFuture<void> m_initFuture;

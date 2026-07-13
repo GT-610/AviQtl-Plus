@@ -578,59 +578,6 @@ void TimelineService::applySelectionIds(const QVariantList &ids) {
     m_selection->replaceSelection(newSelectedIds, primaryId, primaryData);
 }
 
-void TimelineService::selectClipsInRange(int frameA, int frameB, int layerA, int layerB, bool additive) { // NOLINT(bugprone-easily-swappable-parameters)
-    const int minFrame = std::min(frameA, frameB);
-    const int maxFrame = std::max(frameA, frameB);
-    const int minLayer = std::min(layerA, layerB);
-    const int maxLayer = std::max(layerA, layerB);
-
-    QVariantList ids;
-    int primaryId = -1;
-    QVariantMap primaryData;
-
-    for (const auto &clip : clips()) {
-        const int clipStart = clip.startFrame;
-        const int clipEnd = clip.startFrame + clip.durationFrames;
-        const bool frameOverlap = clipStart < maxFrame && minFrame < clipEnd;
-        const bool layerMatch = clip.layer >= minLayer && clip.layer <= maxLayer;
-        if (!frameOverlap || !layerMatch) {
-            continue;
-        }
-
-        ids.append(clip.id);
-
-        if (primaryId == -1) {
-            primaryId = clip.id;
-            for (auto *eff : std::as_const(clip.effects)) {
-                QVariantMap params = eff->params();
-                for (auto it = params.begin(); it != params.end(); ++it) {
-                    primaryData.insert(it.key(), it.value());
-                }
-            }
-            primaryData.insert(QStringLiteral("startFrame"), clip.startFrame);
-            primaryData.insert(QStringLiteral("durationFrames"), clip.durationFrames);
-            primaryData.insert(QStringLiteral("layer"), clip.layer);
-            primaryData.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
-            primaryData.insert(QStringLiteral("type"), clip.type);
-        }
-    }
-
-    if (additive) {
-        QVariantList merged = m_selection->selectedClipIds();
-        for (const QVariant &id : std::as_const(ids)) {
-            if (!merged.contains(id)) {
-                merged.append(id);
-            }
-        }
-        if (primaryId == -1 && !merged.isEmpty()) {
-            primaryId = merged.first().toInt();
-        }
-        m_selection->replaceSelection(merged, primaryId, primaryData);
-        return;
-    }
-    m_selection->replaceSelection(ids, primaryId, primaryData);
-}
-
 void TimelineService::deleteSelectedClips() {
     if (m_selection == nullptr) {
         return;
