@@ -1,4 +1,3 @@
-import "../common" as Common
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts

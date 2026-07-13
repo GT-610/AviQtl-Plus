@@ -2,7 +2,6 @@ import QtQml
 import QtQuick
 import QtQuick3D
 import "common" as Common
-import "common/Logger.js" as Logger
 
 Item {
     id: root

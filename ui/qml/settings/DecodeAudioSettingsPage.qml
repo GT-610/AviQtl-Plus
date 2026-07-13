@@ -1,4 +1,3 @@
-import "../common" as Common
 import "../common/SettingsHelper.js" as SettingsHelper
 import QtQuick
 import QtQuick.Controls

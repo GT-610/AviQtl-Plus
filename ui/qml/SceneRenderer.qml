@@ -1,6 +1,5 @@
 import QtQuick
 import AviQtl.UI 1.0
-import "common" as Common
 
 Item {
     id: root
