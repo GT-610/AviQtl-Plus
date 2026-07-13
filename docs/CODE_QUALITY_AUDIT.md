@@ -1,0 +1,51 @@
+# Code Quality Audit
+
+This audit records the quality-hardening baseline established in July 2026.
+It separates issues fixed in the hardening branch from larger work that needs
+dedicated design, fixtures, or performance measurements.
+
+## Resolved in the hardening pass
+
+- Package archives are inspected before extraction. Absolute paths, parent
+  traversal, symbolic links, excessive entry counts, and excessive expanded
+  sizes are rejected.
+- Package downloads require HTTPS, use bounded transfer time and size, and
+  continue to verify catalog-provided SHA-256 hashes.
+- Package IDs and types are validated before deployment. Unknown types no
+  longer fall back to the plugin directory.
+- Package deployment uses a staged directory and restores the previous package
+  if the atomic installation-state commit fails.
+- Package metadata and installed-package state use atomic file replacement.
+- The obsolete release-asset selection path was removed; the UI now uses the
+  metadata-driven, versioned installation flow directly.
+- `check.py` is read-only by default, supports Python 3.9 and later, excludes
+  generated and virtual-environment trees, and reports skipped tools and
+  non-blocking QML warnings explicitly.
+
+## Remaining priorities
+
+1. **QML static-analysis baseline.** `qmllint` reports a large inherited set of
+   unqualified-access and external-package import warnings. Establish module
+   metadata for external effects first, then reduce application warnings in
+   behavior-preserving batches before making warnings fatal in CI.
+2. **Rendered-effect fixtures.** The current composite capture test verifies
+   scene and animated-text movement, but not representative fragment/compute
+   effects or transition pixels.
+3. **Encoded-output fixtures.** Export failure handling is covered, while
+   decoded verification of produced video/audio streams remains manual.
+4. **Measured large-project performance.** Add repeatable fixtures for timeline
+   scrolling, seek latency, frame-cache pressure, long-audio decoding, and
+   plugin scanning before changing cache or concurrency policy.
+5. **Private Qt API reduction.** ZIP handling, QRhi integration, and shader
+   tooling currently require Qt private modules. Builds must use matching Qt
+   patch versions until stable replacements are practical.
+
+## Verification expectations
+
+- Run configuration, builds, CTest, and quality tools from a fresh build
+  directory after dependency upgrades.
+- Treat skipped analysis tools as missing coverage, not as a clean result.
+- Require a regression test for security, serialization, deployment, timeline,
+  or export behavior changes.
+- Keep performance changes only when a named fixture demonstrates a meaningful
+  improvement without correctness regressions.

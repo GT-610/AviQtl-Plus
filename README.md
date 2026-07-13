@@ -81,6 +81,11 @@ See [AviUtl Operability Targets](docs/OPERABILITY_TARGETS.md) for the editing-mo
 
 `BUILD.py` automatically detects the build target from the current OS and installs all dependencies. Normally `python3 BUILD.py` alone suffices.
 
+The build currently uses Qt private modules (`CorePrivate`, `GuiPrivate`, and
+`ShaderToolsPrivate`) for ZIP handling, QRhi integration, and shader tooling.
+Build and runtime Qt patch versions must therefore match; distributors should
+rebuild AviQtl-Plus whenever their Qt packages are upgraded.
+
 ```bash
 git clone https://github.com/GT-610/AviQtl-Plus.git
 cd AviQtl-Plus
