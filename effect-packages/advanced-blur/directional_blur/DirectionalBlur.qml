@@ -38,7 +38,7 @@ Common.BaseEffect {
 
         anchors.fill: parent
         visible: root.fixedSize
-        fragmentShader: "mask.frag.qsb"
+        fragmentShader: "../../../effects/mask.frag.qsb"
     }
 
 }

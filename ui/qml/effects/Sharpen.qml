@@ -8,7 +8,7 @@ Common.BaseEffect {
     property real range: root.evalNumber("range", 100) / 100
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real strength: root.strength
         property real range: root.range
         property real texelW: root.source ? 1.0 / root.source.width : 0

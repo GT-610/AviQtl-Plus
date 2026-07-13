@@ -71,14 +71,6 @@ Common.AviQtlWindow {
             codecCombo.currentIndex = modelLength(codecCombo) > 0 ? 0 : -1;
     }
 
-    function isCodecAvailable(codecValue) {
-        return availableVideoCodecs.length === 0 || availableVideoCodecs.indexOf(codecValue) >= 0;
-    }
-
-    function isAudioCodecAvailable(codecValue) {
-        return availableAudioCodecs.length === 0 || availableAudioCodecs.indexOf(codecValue) >= 0;
-    }
-
     function isSoftwareCodec(codecValue) {
         var value = String(codecValue || "");
         return value.indexOf("lib") === 0 || value === "libaom-av1";

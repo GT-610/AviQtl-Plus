@@ -31,7 +31,6 @@ class AudioDecoder : public MediaDecoder {
     void seek(qint64 ms) override;
     void setPlaying(bool playing) override;
 
-    std::vector<float> getSamples(double startTime, int count) override;
     int getSamplesInto(double startTime, int count, float *out) override;
     std::vector<float> getPeaks(double startSec, double durationSec, int pixelWidth);
     double totalDurationSec() const;

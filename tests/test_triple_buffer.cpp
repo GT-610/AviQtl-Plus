@@ -7,11 +7,7 @@ using namespace AviQtl::Engine::Timeline;
 class TestTripleBuffer : public QObject {
     Q_OBJECT
 
-private slots:
-    void init() {
-        ECS::instance().cleanup();
-    }
-
+  private slots:
     void commitAndGetSnapshot_basic() {
         auto &e = ECS::instance();
         e.clearEffectParams();
@@ -81,7 +77,7 @@ private slots:
         entry.paramType = ParamType::Float;
         qstrncpy(entry.paramName, "x", sizeof(entry.paramName));
         entry.value[0] = 42.0f;
-        e.addEffectParam(entry);
+        e.editState().effectParams.entries.push_back(entry);
 
         e.commit();
 

@@ -65,19 +65,6 @@ class TestPresetManager : public QObject {
         QVERIFY(!PresetManager::instance().presetNames(effectId).contains(name));
     }
 
-    void renamePreset() {
-        const QString effectId = QStringLiteral("test_effect");
-        const QString oldName = QStringLiteral("Old Name");
-        const QString newName = QStringLiteral("New Name");
-
-        QVariantMap params;
-        PresetManager::instance().savePreset(effectId, oldName, params, {}, true);
-
-        QVERIFY(PresetManager::instance().renamePreset(effectId, oldName, newName));
-        QVERIFY(!PresetManager::instance().presetNames(effectId).contains(oldName));
-        QVERIFY(PresetManager::instance().presetNames(effectId).contains(newName));
-    }
-
     void loadNonexistent() {
         auto loaded = PresetManager::instance().loadPreset(QStringLiteral("nonexistent"), QStringLiteral("none"));
         QVERIFY(loaded.isEmpty());

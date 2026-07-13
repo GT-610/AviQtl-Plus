@@ -11,7 +11,7 @@ Common.BaseEffect {
     property bool fixedSize: root.evalParam("fixedSize", false)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real strength: root.strength
         property real diffusion: root.diffusion
         property real threshold: root.threshold

@@ -36,12 +36,10 @@ advanced-blur/
 ├── lens_blur/                 # Effect ID: "lens_blur"
 │   ├── lens_blur.json         # Effect definition
 │   ├── LensBlur.qml           # QML component
-│   ├── lensblur.frag          # Fragment shader (fallback)
 │   └── lensblur_compute.comp  # Compute shader (primary)
 ├── radial_blur/               # Effect ID: "radial_blur"
 │   ├── radial_blur.json
 │   ├── RadialBlur.qml
-│   ├── radialblur.frag
 │   └── radialblur_compute.comp
 ├── directional_blur/          # Effect ID: "directional_blur"
 │   ├── directional_blur.json

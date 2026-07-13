@@ -19,10 +19,7 @@ class VideoFrameStore : public QObject {
 
     Q_INVOKABLE void setFrame(const QString &key, const QImage &img);
     Q_INVOKABLE void setFrameSafe(const QString &key, const QImage &img);
-    Q_INVOKABLE bool hasFrame(const QString &key) const;
     Q_INVOKABLE void invalidateFrame(const QString &key);
-    Q_INVOKABLE void invalidateScene(int sceneId);
-    Q_INVOKABLE void clear();
 
     QImage frame(const QString &key) const;
 

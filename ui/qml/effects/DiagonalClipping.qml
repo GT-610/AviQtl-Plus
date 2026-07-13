@@ -11,7 +11,7 @@ Common.BaseEffect {
     property real blur: Math.max(0, root.evalNumber("blur", 0))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real centerX: root.centerX
         property real centerY: root.centerY
         property real angle: root.angle

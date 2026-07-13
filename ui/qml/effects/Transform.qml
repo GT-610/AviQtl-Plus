@@ -37,7 +37,7 @@ Common.BaseEffect {
     readonly property int blendModeInt: BlendModeUtils.blendModeToInt(evalParam("blendMode", "通常"))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         // アフィン変換 uniform バインド
         property real translationX: 0
         property real translationY: 0

@@ -13,7 +13,7 @@ Common.BaseEffect {
     property real velY: root.evalNumber("velY", 0)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real quality: root.quality
         property real shutterSpeed: root.interval
         property real velX: root.velX

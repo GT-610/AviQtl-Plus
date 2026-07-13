@@ -53,32 +53,4 @@ void DocumentModel::setClips(int sceneId, std::vector<Clip> &&clips) {
     }
 }
 
-const Clip *DocumentModel::findClip(int sceneId, int clipId) const {
-    const SceneSettings *scene = findScene(sceneId);
-    if (!scene)
-        return nullptr;
-
-    auto it = std::find_if(scene->clips.begin(), scene->clips.end(), [clipId](const Clip &c) { return c.id == clipId; });
-    return (it != scene->clips.end()) ? &(*it) : nullptr;
-}
-
-void DocumentModel::addClip(int sceneId, const Clip &clip) {
-    auto it = std::find_if(m_scenes.begin(), m_scenes.end(), [sceneId](const SceneSettings &s) { return s.id == sceneId; });
-    if (it != m_scenes.end()) {
-        it->clips.push_back(clip);
-        emit structureChanged();
-    }
-}
-
-void DocumentModel::removeClip(int sceneId, int clipId) {
-    auto itScene = std::find_if(m_scenes.begin(), m_scenes.end(), [sceneId](const SceneSettings &s) { return s.id == sceneId; });
-    if (itScene != m_scenes.end()) {
-        auto itClip = std::remove_if(itScene->clips.begin(), itScene->clips.end(), [clipId](const Clip &c) { return c.id == clipId; });
-        if (itClip != itScene->clips.end()) {
-            itScene->clips.erase(itClip, itScene->clips.end());
-            emit structureChanged();
-        }
-    }
-}
-
 } // namespace AviQtl::Core

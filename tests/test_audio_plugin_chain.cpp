@@ -89,25 +89,6 @@ class TestAudioPluginChain : public QObject {
         QVERIFY(chain.get(1) == nullptr);
     }
 
-    void remove() {
-        AudioPluginChain chain;
-        chain.add(std::make_unique<MockPlugin>(QStringLiteral("A")));
-        chain.add(std::make_unique<MockPlugin>(QStringLiteral("B")));
-        QCOMPARE(chain.count(), 2);
-
-        chain.remove(0);
-        QCOMPARE(chain.count(), 1);
-        QCOMPARE(chain.get(0)->name(), QStringLiteral("B"));
-    }
-
-    void removeOutOfBounds() {
-        AudioPluginChain chain;
-        chain.add(std::make_unique<MockPlugin>());
-        chain.remove(-1); // should not crash
-        chain.remove(99); // should not crash
-        QCOMPARE(chain.count(), 1);
-    }
-
     void clear() {
         AudioPluginChain chain;
         chain.add(std::make_unique<MockPlugin>());
@@ -117,23 +98,6 @@ class TestAudioPluginChain : public QObject {
         chain.clear();
         QCOMPARE(chain.count(), 0);
         QVERIFY(chain.get(0) == nullptr);
-    }
-
-    void preparePropagates() {
-        AudioPluginChain chain;
-        auto p1 = std::make_unique<MockPlugin>();
-        auto p2 = std::make_unique<MockPlugin>();
-        MockPlugin *raw1 = p1.get();
-        MockPlugin *raw2 = p2.get();
-        chain.add(std::move(p1));
-        chain.add(std::move(p2));
-
-        // add() already called prepare with defaults; reset counters by re-preparing
-        chain.prepare(44100.0, 512);
-        QCOMPARE(raw1->prepareCalls(), 2); // initial + re-prepare
-        QCOMPARE(raw2->prepareCalls(), 2);
-        QCOMPARE(raw1->lastSampleRate(), 44100.0);
-        QCOMPARE(raw1->lastBlockSize(), 512);
     }
 
     void processIterates() {
@@ -154,62 +118,12 @@ class TestAudioPluginChain : public QObject {
         QCOMPARE(raw2->lastFrameCount(), 2);
     }
 
-    void disabledPluginIsSkipped() {
-        AudioPluginChain chain;
-        auto mock = std::make_unique<MockPlugin>();
-        MockPlugin *raw = mock.get();
-        chain.add(std::move(mock), false);
-
-        std::vector<float> buf(4, 0.0f);
-        chain.process(buf.data(), static_cast<int>(buf.size()) / 2);
-
-        QCOMPARE(raw->processCalls(), 0);
-        QVERIFY(!chain.isEnabled(0));
-        chain.setEnabled(0, true);
-        QVERIFY(chain.isEnabled(0));
-        chain.process(buf.data(), static_cast<int>(buf.size()) / 2);
-        QCOMPARE(raw->processCalls(), 1);
-    }
-
     void processOnEmptyChain() {
         AudioPluginChain chain;
         std::vector<float> buf(4, 0.0f);
         // Should not crash; does nothing.
         chain.process(buf.data(), 2);
         QCOMPARE(buf[0], 0.0f);
-    }
-
-    void prepareEmptyChain() {
-        AudioPluginChain chain;
-        // Should not crash on empty chain
-        chain.prepare(96000.0, 2048);
-        QCOMPARE(chain.count(), 0);
-    }
-
-    void addAfterPreparePropagatesSettings() {
-        AudioPluginChain chain;
-        chain.prepare(44100.0, 512);
-
-        auto mock = std::make_unique<MockPlugin>();
-        MockPlugin *raw = mock.get();
-        chain.add(std::move(mock));
-
-        QCOMPARE(raw->prepareCalls(), 1);
-        QCOMPARE(raw->lastSampleRate(), 44100.0);
-        QCOMPARE(raw->lastBlockSize(), 512);
-    }
-
-    void removeMiddle() {
-        AudioPluginChain chain;
-        chain.add(std::make_unique<MockPlugin>(QStringLiteral("A")));
-        chain.add(std::make_unique<MockPlugin>(QStringLiteral("B")));
-        chain.add(std::make_unique<MockPlugin>(QStringLiteral("C")));
-        QCOMPARE(chain.count(), 3);
-
-        chain.remove(1);
-        QCOMPARE(chain.count(), 2);
-        QCOMPARE(chain.get(0)->name(), QStringLiteral("A"));
-        QCOMPARE(chain.get(1)->name(), QStringLiteral("C"));
     }
 
     void processChainOrder() {

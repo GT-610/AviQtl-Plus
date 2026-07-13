@@ -187,13 +187,6 @@ QString sha256OfFile(const QString &path) {
     return {};
 }
 
-// Future GPG signature verification placeholder
-// When package signing is implemented, resolveSignature() will validate
-// against a trusted keyring. Currently unused; reserved for future use.
-// static bool verifySignature(const QByteArray & /* data */,
-//                              const QByteArray & /* signature */,
-//                              const QString & /* keyId */) { return true; }
-
 } // namespace
 
 PackageManager &PackageManager::instance() {
@@ -1180,18 +1173,6 @@ void PackageManager::removePackage(const QString &packageId) {
     emit packageRemoved(packageId);
 }
 
-QVariantList PackageManager::searchPackages(const QString &query) const {
-    if (query.isEmpty()) return m_packageList;
-    QVariantList filtered;
-    for (const auto &p : m_packageList) {
-        QVariantMap map = p.toMap();
-        if (map.value(QStringLiteral("display_name")).toString().contains(query, Qt::CaseInsensitive) ||
-            map.value(QStringLiteral("id")).toString().contains(query, Qt::CaseInsensitive))
-            filtered.append(p);
-    }
-    return filtered;
-}
-
 QVariantList PackageManager::getPackagesByType(const QString &type) const {
     QVariantList result;
     for (const auto &p : m_packageList) {
@@ -1205,19 +1186,6 @@ QVariantList PackageManager::getPackagesByType(const QString &type) const {
         }
     }
     return result;
-}
-
-QVariantList PackageManager::getInstalledPackages() const {
-    QVariantList list;
-    QVariantMap installed = loadInstalledPackagesFromFile();
-    installed.insert(QStringLiteral("org.aviqtl.app"), QVariantMap{{QStringLiteral("version"), appVersionString()}});
-    for (auto it = installed.begin(); it != installed.end(); ++it) {
-        QVariantMap pkg;
-        pkg.insert(QStringLiteral("id"), it.key());
-        pkg.insert(QStringLiteral("version"), it.value().toMap().value(QStringLiteral("version")));
-        list.append(pkg);
-    }
-    return list;
 }
 
 void PackageManager::upgradeAllPackages() {

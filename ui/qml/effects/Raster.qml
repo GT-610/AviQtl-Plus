@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real angle: Math.max(0, Math.min(360, root.evalNumber("angle", 0)))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real rasterW: root.rasterW
         property real rasterH: root.rasterH
         property real speed: root.speed

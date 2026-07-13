@@ -7,7 +7,7 @@ Common.BaseEffect {
     property real size: Math.max(1, root.evalNumber("size", 10))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real size: root.size
         property real targetWidth: root.width
         property real targetHeight: root.height

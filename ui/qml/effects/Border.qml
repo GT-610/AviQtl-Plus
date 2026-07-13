@@ -9,7 +9,7 @@ Common.BaseEffect {
     property string color: root.evalColor("color", "#ff0000")
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real size: root.size
         property real blur: root.blur
         property vector3d borderColor: {

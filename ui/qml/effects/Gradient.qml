@@ -14,7 +14,7 @@ Common.BaseEffect {
     property string endColor: root.evalColor("endColor", "#ffffffff")
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real strength: root.strength
         property vector2d center: Qt.vector2d(root.centerX, root.centerY)
         property real angle: root.angle

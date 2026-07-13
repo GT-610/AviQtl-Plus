@@ -38,12 +38,6 @@ class IAudioPlugin {
     virtual float getParam(int i) const = 0;
     virtual void setParam(int i, float v) = 0;
     virtual ParamInfo getParamInfo(int i) const { return {paramName(i)}; }
-
-    // GUI
-    virtual bool hasEditor() const { return false; }
-    virtual void openEditor(qintptr parentId) {}
-    virtual void closeEditor() {}
-    virtual void onEditorIdle() {}
 };
 
 } // namespace AviQtl::Engine::Plugin

@@ -502,12 +502,6 @@ auto AudioDecoder::getSamplesInto(double startTime, int count, float *out) -> in
     return written;
 }
 
-auto AudioDecoder::getSamples(double startTime, int count) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
-    std::vector<float> result(static_cast<std::size_t>(std::max(count, 0)), 0.0F);
-    getSamplesInto(startTime, count, result.data());
-    return result;
-}
-
 auto AudioDecoder::buildBasePeaks(const std::vector<float> &samples) const -> std::vector<PeakEntry> {
     std::vector<PeakEntry> peaks;
     if (samples.empty()) {

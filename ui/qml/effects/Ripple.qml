@@ -11,7 +11,7 @@ Common.BaseEffect {
     property real centerY: Math.max(0, Math.min(100, root.evalNumber("centerY", 50)))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real amplitude: root.amplitude / 100.0
         property real frequency: root.frequency
         property real speed: root.speed

@@ -99,7 +99,6 @@ set(CORE_SOURCES
     core/src/theme_controller.cpp
     core/src/video_encoder.cpp
     core/include/audio_decoder.hpp
-    core/include/aviqtl_context.hpp
     core/include/document_model.hpp
     core/include/effect_registry.hpp
     core/include/ffmpeg_video_buffer.hpp
@@ -150,7 +149,6 @@ set(ENGINE_SOURCES
     engine/plugin/audio_plugin_manager.cpp
     engine/timeline/bake_controller.cpp
     engine/timeline/ecs_system.cpp
-    engine/timeline/keyframe_evaluator.cpp
     engine/audio_mixer.hpp
     engine/plugin/audio_plugin_chain.hpp
     engine/plugin/audio_plugin_host.hpp
@@ -158,7 +156,6 @@ set(ENGINE_SOURCES
     engine/timeline/bake_controller.hpp
     engine/timeline/ecs.hpp
     engine/timeline/ecs_profiler.hpp
-    engine/timeline/keyframe_evaluator.hpp
 )
 
 add_library(AviQtl_Engine STATIC ${ENGINE_SOURCES})
@@ -245,7 +242,6 @@ aviqtl_target_warning_flags(AviQtl_UI)
 set(QML_FILES
     ui/qml/AboutWindow.qml
     ui/qml/common/AudioKfParamTrack.qml
-    ui/qml/common/AudioPluginMenu.qml
     ui/qml/common/AviQtlIcon.qml
     ui/qml/common/AviQtlWindow.qml
     ui/qml/common/BaseComputeEffect.qml
@@ -289,6 +285,7 @@ set(QML_FILES
     ui/qml/common/Logger.js
     ui/qml/common/BlendModeUtils.js
     ui/qml/common/TimelineHelper.js
+    ui/qml/common/SettingsHelper.js
 )
 
 qt_add_qml_module(AviQtl_UI

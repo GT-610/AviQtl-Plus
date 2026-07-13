@@ -40,7 +40,6 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
 
   protected:
     void startDecoding() override;
-    std::vector<float> getSamples(double startTime, int count) override { return {}; }
 
   private:
     bool buildIndex();

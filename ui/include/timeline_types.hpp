@@ -8,14 +8,6 @@
 
 namespace AviQtl::UI {
 
-using ClipID = int;
-
-struct Keyframe {
-    int frame;
-    float value;
-    int interpolationType; // 0: 線形
-};
-
 struct AudioPluginState {
     QString id;
     bool enabled = true;

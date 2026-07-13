@@ -11,7 +11,7 @@ Common.BaseEffect {
     property bool mirror: root.evalParam("mirror", false)
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real countX: root.countX
         property real countY: root.countY
         property real intervalX: root.intervalX

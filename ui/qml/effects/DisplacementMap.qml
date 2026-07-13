@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real scaleY: Math.max(10, Math.min(200, root.evalNumber("scaleY", 100)))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real intensity: root.intensity / 100.0
         property int mapType: root.mapType
         property real scaleX: root.scaleX / 100.0

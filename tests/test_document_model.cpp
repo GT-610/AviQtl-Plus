@@ -97,55 +97,6 @@ class TestDocumentModel : public QObject {
         QVERIFY(model.findScene(99999) == nullptr);
     }
 
-    void addAndFindClip() {
-        DocumentModel &model = DocumentModel::instance();
-        SceneSettings scene;
-        scene.id = 10;
-        model.addScene(scene);
-
-        Clip clip;
-        clip.id = 101;
-        clip.type = QStringLiteral("video");
-        clip.layer = 2;
-        clip.startFrame = 30;
-        clip.durationFrames = 120;
-        clip.sceneId = 10;
-
-        model.addClip(10, clip);
-        const Clip *found = model.findClip(10, 101);
-        QVERIFY(found != nullptr);
-        QCOMPARE(found->type, QStringLiteral("video"));
-        QCOMPARE(found->layer, 2);
-        QCOMPARE(found->startFrame, 30);
-        QCOMPARE(found->durationFrames, 120);
-    }
-
-    void removeClip() {
-        DocumentModel &model = DocumentModel::instance();
-        SceneSettings scene;
-        scene.id = 11;
-        model.addScene(scene);
-
-        Clip clip;
-        clip.id = 201;
-        model.addClip(11, clip);
-        QVERIFY(model.findClip(11, 201) != nullptr);
-
-        model.removeClip(11, 201);
-        QVERIFY(model.findClip(11, 201) == nullptr);
-    }
-
-    void removeClipNonExistent() {
-        DocumentModel &model = DocumentModel::instance();
-        SceneSettings scene;
-        scene.id = 12;
-        model.addScene(scene);
-
-        QSignalSpy spy(&model, &DocumentModel::structureChanged);
-        model.removeClip(12, 99999);
-        QCOMPARE(spy.count(), 0);
-    }
-
     void clear() {
         DocumentModel &model = DocumentModel::instance();
         SceneSettings scene;

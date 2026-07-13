@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real strength: Math.max(0, Math.min(100, root.evalNumber("strength", 100)))
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real targetHue: root.targetHue / 360.0
         property real hueRange: root.hueRange / 360.0
         property color targetColor: root.targetColor

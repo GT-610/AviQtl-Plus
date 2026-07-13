@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real strength: root.evalNumber("strength", 100) / 100
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real width: root.width
         property real height: root.height
         property real angle: root.angle

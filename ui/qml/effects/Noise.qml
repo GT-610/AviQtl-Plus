@@ -10,7 +10,7 @@ Common.BaseEffect {
     property real time: root.frame
 
     ShaderEffect {
-        property variant source: root.sourceProxy
+        property var source: root.sourceProxy
         property real strength: root.strength
         property real seed: root.seed
         property real time: root.time * root.speed * 0.01

@@ -23,12 +23,6 @@ ScrollView {
         return draftSettings[key] !== undefined ? draftSettings[key] : fb;
     }
 
-    function indexOfValue(values, target, fallback) {
-        for (var i = 0; i < values.length; ++i) if (values[i] === target) {
-            return i;
-        }
-        return fallback;
-    }
 
     // シグナルを emit するブリッジ関数
     // （CheckBox / TextArea から root.xxx() 形式で呼ばれるため実装が必要）

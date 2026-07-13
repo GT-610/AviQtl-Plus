@@ -177,18 +177,12 @@ class ECS {
     void updateAudioClipState(int clipId, const AudioComponent &audio);
     void updateRenderState(int clipId, const RenderComponent &render);
     void clearEffectParams();
-    void addEffectParam(const EffectParamEntry &entry);
 
     void commit();
-
-    void cleanup();
 
     ECSState &editState() { return m_buffers[m_editIndex]; }
 
     const ECSState *getSnapshot() const;
-
-    bool isRenderGraphDirty() const;
-    void markRenderGraphClean();
 
   private:
     ECS();
@@ -200,8 +194,6 @@ class ECS {
     mutable ::std::atomic<int> m_pendingIndex{-1};
 
     ::std::array<DirtyFlags, 3> m_dirtyFlags;
-
-    uint64_t m_lastAckedGeneration = 0;
 };
 
 } // namespace AviQtl::Engine::Timeline
