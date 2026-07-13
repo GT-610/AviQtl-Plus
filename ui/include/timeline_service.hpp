@@ -45,7 +45,6 @@ class TimelineService : public QObject {
     void splitSelectedClips(int frame);
     Q_INVOKABLE QPoint resolveDragPosition(int clipId, int targetLayer, int proposedStartFrame, const QVariantList &batchIds = QVariantList());
     void selectClip(int id);
-    void selectClipsInRange(int frameA, int frameB, int layerA, int layerB, bool additive = false);
     void toggleSelection(int id, const QVariantMap &data);
     void applySelectionIds(const QVariantList &ids);
 

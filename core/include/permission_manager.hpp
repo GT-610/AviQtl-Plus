@@ -41,7 +41,6 @@ class PermissionManager : public QObject {
     Q_INVOKABLE void revokeAllPermissions(const QString &pluginId);
 
     // Bulk operations
-    void setPluginPermissions(const QString &pluginId, const QSet<PluginPermission> &permissions);
     Q_INVOKABLE QVariantList getPluginPermissions(const QString &pluginId) const;
 
     // Permission name conversion

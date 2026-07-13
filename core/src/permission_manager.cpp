@@ -91,12 +91,6 @@ void PermissionManager::revokeAllPermissions(const QString &pluginId) {
     emit permissionsChanged(pluginId);
 }
 
-void PermissionManager::setPluginPermissions(const QString &pluginId, const QSet<PluginPermission> &permissions) {
-    m_permissions[pluginId] = permissions;
-    savePermissions();
-    emit permissionsChanged(pluginId);
-}
-
 QVariantList PermissionManager::getPluginPermissions(const QString &pluginId) const {
     QVariantList result;
     auto it = m_permissions.constFind(pluginId);
