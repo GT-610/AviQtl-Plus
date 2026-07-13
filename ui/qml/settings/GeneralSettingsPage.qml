@@ -19,12 +19,6 @@ ScrollView {
         return draftSettings[key] !== undefined ? draftSettings[key] : fb;
     }
 
-    function indexOfValue(values, target, fallback) {
-        for (var i = 0; i < values.length; ++i) if (values[i] === target) {
-            return i;
-        }
-        return fallback;
-    }
 
     Layout.fillWidth: true
     Layout.fillHeight: true

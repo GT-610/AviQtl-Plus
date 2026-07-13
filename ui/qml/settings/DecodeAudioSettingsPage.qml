@@ -1,4 +1,5 @@
 import "../common" as Common
+import "../common/SettingsHelper.js" as SettingsHelper
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -22,12 +23,6 @@ ScrollView {
         return draftSettings[key] !== undefined ? draftSettings[key] : fb;
     }
 
-    function indexOfValue(values, target, fallback) {
-        for (var i = 0; i < values.length; ++i) if (values[i] === target) {
-            return i;
-        }
-        return fallback;
-    }
 
     Layout.fillWidth: true
     Layout.fillHeight: true
@@ -103,7 +98,7 @@ ScrollView {
 
                 ComboBox {
                     model: audioChannelLabels
-                    currentIndex: root.indexOfValue(audioChannelValues, root.valueOr("audioChannels", 2), 1)
+                    currentIndex: SettingsHelper.indexOfValue(audioChannelValues, root.valueOr("audioChannels", 2), 1)
                     onActivated: root.setValue("audioChannels", audioChannelValues[currentIndex])
                 }
 
@@ -113,7 +108,7 @@ ScrollView {
 
                 ComboBox {
                     model: blockSizeValues
-                    currentIndex: root.indexOfValue(blockSizeValues, root.valueOr("audioPluginMaxBlockSize", 4096), 4)
+                    currentIndex: SettingsHelper.indexOfValue(blockSizeValues, root.valueOr("audioPluginMaxBlockSize", 4096), 4)
                     onActivated: root.setValue("audioPluginMaxBlockSize", blockSizeValues[currentIndex])
                 }
 

@@ -177,15 +177,6 @@ Common.AviQtlWindow {
         draftSettings = next;
     }
 
-    function indexOfValue(values, targetValue, fallbackIndex) {
-        for (var i = 0; i < values.length; ++i) {
-            if (values[i] === targetValue)
-                return i;
-
-        }
-        return fallbackIndex;
-    }
-
     function pluginPathsText(formatName) {
         var values = draftSettings["pluginPaths" + formatName];
         if (!values)

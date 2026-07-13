@@ -1,4 +1,5 @@
 import "../common" as Common
+import "../common/SettingsHelper.js" as SettingsHelper
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -25,12 +26,6 @@ ScrollView {
         return draftSettings[key] !== undefined ? draftSettings[key] : fb;
     }
 
-    function indexOfValue(values, target, fallback) {
-        for (var i = 0; i < values.length; ++i) if (values[i] === target) {
-            return i;
-        }
-        return fallback;
-    }
 
     Layout.fillWidth: true
     Layout.fillHeight: true
@@ -57,7 +52,7 @@ ScrollView {
 
                 ComboBox {
                     model: videoCodecLabels
-                    currentIndex: root.indexOfValue(videoCodecValues, root.valueOr("exportDefaultCodec", "libx264"), 0)
+                    currentIndex: SettingsHelper.indexOfValue(videoCodecValues, root.valueOr("exportDefaultCodec", "libx264"), 0)
                     onActivated: root.setValue("exportDefaultCodec", videoCodecValues[currentIndex])
                 }
 
@@ -125,7 +120,7 @@ ScrollView {
 
                 ComboBox {
                     model: audioCodecLabels
-                    currentIndex: root.indexOfValue(audioCodecValues, root.valueOr("exportDefaultAudioCodec", "aac"), 0)
+                    currentIndex: SettingsHelper.indexOfValue(audioCodecValues, root.valueOr("exportDefaultAudioCodec", "aac"), 0)
                     onActivated: root.setValue("exportDefaultAudioCodec", audioCodecValues[currentIndex])
                 }
 

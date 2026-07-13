@@ -1,4 +1,5 @@
 import "../common" as Common
+import "../common/SettingsHelper.js" as SettingsHelper
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -21,12 +22,6 @@ ScrollView {
         return draftSettings[key] !== undefined ? draftSettings[key] : fb;
     }
 
-    function indexOfValue(values, target, fallback) {
-        for (var i = 0; i < values.length; ++i) if (values[i] === target) {
-            return i;
-        }
-        return fallback;
-    }
 
     Layout.fillWidth: true
     Layout.fillHeight: true
@@ -77,7 +72,7 @@ ScrollView {
 
                 ComboBox {
                     model: renderThreadLabels
-                    currentIndex: root.indexOfValue(renderThreadValues, root.valueOr("renderThreads", 0), 0)
+                    currentIndex: SettingsHelper.indexOfValue(renderThreadValues, root.valueOr("renderThreads", 0), 0)
                     onActivated: root.setValue("renderThreads", renderThreadValues[currentIndex])
                 }
 
