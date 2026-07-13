@@ -16,12 +16,7 @@ class AudioPluginChain {
     }
 
     void add(std::unique_ptr<IAudioPlugin> plugin, bool enabled = true);
-    void remove(int index);
     void clear();
-    void setEnabled(int index, bool enabled);
-    bool isEnabled(int index) const;
-
-    void prepare(double sampleRate, int maxBlockSize);
     // mix() から呼ばれる：バッファをチェーン内の全プラグインに通す
     void process(float *buf, int frameCount);
 

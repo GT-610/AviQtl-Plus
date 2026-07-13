@@ -29,9 +29,6 @@ class AudioMixer : public QObject {
     void registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder);
     void unregisterDecoder(int clipId);
 
-    // 全てのデコーダーが読み込み完了しているか確認
-    bool isReady() const;
-
     void processFrame(int currentFrame, double fps, int samplesPerFrame);
     void reset();
 
@@ -40,7 +37,6 @@ class AudioMixer : public QObject {
 
     // クリップID → プラグインチェーン
     std::shared_ptr<Plugin::AudioPluginChain> getChain(int clipId);
-    void clearChain(int clipId);
 
     void setPlaybackSpeed(double speed);
     void setSampleRate(int sampleRate);

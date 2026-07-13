@@ -119,16 +119,6 @@ void AudioMixer::fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double sta
     }
 }
 
-auto AudioMixer::isReady() const -> bool {
-    std::shared_lock lock(m_mutex);
-    for (auto it = m_decoders.constBegin(); it != m_decoders.constEnd(); ++it) {
-        if (it.value().isNull() || !it.value()->isReady()) {
-            return false;
-        }
-    }
-    return true;
-}
-
 auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::optional<double> playbackSpeed) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
     // Protect the reusable buffers and per-clip playback state for the entire mix.
     std::unique_lock lock(m_mutex);
@@ -325,11 +315,6 @@ auto AudioMixer::getChain(int clipId) -> std::shared_ptr<Plugin::AudioPluginChai
         it = m_chains.insert(clipId, std::make_shared<Plugin::AudioPluginChain>());
     }
     return it.value();
-}
-
-void AudioMixer::clearChain(int clipId) {
-    std::unique_lock lock(m_mutex);
-    m_chains.remove(clipId);
 }
 
 } // namespace AviQtl::Engine

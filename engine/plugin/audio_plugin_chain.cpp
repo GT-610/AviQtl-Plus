@@ -9,29 +9,7 @@ void AudioPluginChain::add(std::unique_ptr<IAudioPlugin> plugin, bool enabled) {
     m_plugins.push_back({std::move(plugin), enabled});
 }
 
-void AudioPluginChain::remove(int index) {
-    if (index >= 0 && std::cmp_less(index, m_plugins.size())) {
-        m_plugins.erase(m_plugins.begin() + index);
-    }
-}
-
 void AudioPluginChain::clear() { m_plugins.clear(); }
-
-void AudioPluginChain::setEnabled(int index, bool enabled) {
-    if (index >= 0 && std::cmp_less(index, m_plugins.size())) {
-        m_plugins[static_cast<std::size_t>(index)].enabled = enabled;
-    }
-}
-
-auto AudioPluginChain::isEnabled(int index) const -> bool { return (index >= 0 && std::cmp_less(index, m_plugins.size())) ? m_plugins[static_cast<std::size_t>(index)].enabled : false; }
-
-void AudioPluginChain::prepare(double sr, int bs) {
-    m_sampleRate = sr;
-    m_maxBlockSize = bs;
-    for (const auto &p : std::as_const(m_plugins)) {
-        p.plugin->prepare(sr, bs);
-    }
-}
 
 void AudioPluginChain::process(float *buf, int frameCount) {
     for (const auto &p : std::as_const(m_plugins)) {
