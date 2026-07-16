@@ -117,8 +117,9 @@ The `qml_composite_capture` CTest covers the first renderer-level layer: it
 loads the real `CompositeView`, renders its `View3D` at an export-sized logical
 resolution, and captures it through `grabToImage`. It also renders a real Text
 object at two transform keyframes and verifies that the captured pixel content
-moves between frames. Effect rendering and encoded-output fixtures remain later
-layers.
+moves between frames. The same fixture enables a real Monochrome shader effect
+and verifies that red source pixels become neutral grayscale pixels. Encoded-
+output fixtures remain a later layer.
 
 The `export_workflow` CTest covers the service-level export path:
 

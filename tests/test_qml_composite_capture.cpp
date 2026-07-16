@@ -8,6 +8,9 @@
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
 #include <QQuickWindow>
@@ -16,7 +19,9 @@
 #include <QSignalSpy>
 #include <QTest>
 #include <QUrl>
+#include <QVector3D>
 #include <algorithm>
+#include <cmath>
 
 using namespace AviQtl;
 using namespace AviQtl::UI;
@@ -27,12 +32,13 @@ class TestQmlCompositeCapture : public QObject {
   private slots:
     void initTestCase();
     void capturesCompositeView3DOutput();
-    void capturesAnimatedTextAtDistinctPositions();
+    void capturesAnimatedTextAndMonochromeEffect();
 
   private:
     static QImage grabView3D(QQuickItem *view3D);
-    static QImage grabView3DUntilBright(QQuickItem *view3D, int timeoutMs = 5'000);
+    static QImage grabView3DUntilVisible(QQuickItem *view3D, int minimumBrightness = 180, int timeoutMs = 5'000);
     static double brightPixelCenterX(const QImage &image);
+    static QVector3D averageVisibleColor(const QImage &image, int minimumBrightness = 20);
 };
 
 void TestQmlCompositeCapture::initTestCase() {
@@ -58,6 +64,21 @@ void TestQmlCompositeCapture::initTestCase() {
     text.qmlSource = QUrl::fromLocalFile(QStringLiteral(AVIQTL_SOURCE_DIR) + QStringLiteral("/ui/qml/objects/TextObject.qml")).toString();
     text.defaultParams = {{QStringLiteral("text"), QStringLiteral("Text")}, {QStringLiteral("fontSize"), 48.0}, {QStringLiteral("color"), QStringLiteral("#ffffff")}};
     Core::EffectRegistry::instance().registerEffect(text);
+
+    Core::EffectMetadata monochrome;
+    monochrome.id = QStringLiteral("monochrome");
+    monochrome.name = QStringLiteral("Monochrome");
+    monochrome.version = QStringLiteral("1.0.0");
+    monochrome.kind = QStringLiteral("effect");
+    monochrome.categories = {QStringLiteral("Color")};
+    // Built-in effects are deployed beside the executable together with their
+    // compiled shaders; loading from there exercises the production layout.
+    const QString monochromeQmlPath = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("effects/Monochrome.qml"));
+    QVERIFY2(QFileInfo::exists(monochromeQmlPath), qPrintable(QStringLiteral("Missing deployed effect: %1").arg(monochromeQmlPath)));
+    monochrome.qmlSource = QUrl::fromLocalFile(monochromeQmlPath).toString();
+    monochrome.defaultParams = {{QStringLiteral("strength"), 100.0}, {QStringLiteral("color"), QStringLiteral("#ffffff")},
+                                {QStringLiteral("preserveLuma"), true}};
+    Core::EffectRegistry::instance().registerEffect(monochrome);
 }
 
 QImage TestQmlCompositeCapture::grabView3D(QQuickItem *view3D) {
@@ -67,13 +88,13 @@ QImage TestQmlCompositeCapture::grabView3D(QQuickItem *view3D) {
     return readySpy.wait(5'000) ? grab->image() : QImage();
 }
 
-QImage TestQmlCompositeCapture::grabView3DUntilBright(QQuickItem *view3D, int timeoutMs) {
+QImage TestQmlCompositeCapture::grabView3DUntilVisible(QQuickItem *view3D, int minimumBrightness, int timeoutMs) {
     QElapsedTimer timer;
     timer.start();
     QImage image;
     do {
         image = grabView3D(view3D);
-        if (!image.isNull() && brightPixelCenterX(image) >= 0.0)
+        if (!image.isNull() && averageVisibleColor(image, minimumBrightness).x() >= 0.0F)
             return image;
         QTest::qWait(50);
         if (view3D->window())
@@ -96,6 +117,21 @@ double TestQmlCompositeCapture::brightPixelCenterX(const QImage &image) {
         }
     }
     return weight > 0.0 ? weightedX / weight : -1.0;
+}
+
+QVector3D TestQmlCompositeCapture::averageVisibleColor(const QImage &image, int minimumBrightness) {
+    QVector3D sum;
+    int count = 0;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const QColor pixel = image.pixelColor(x, y);
+            if (std::max({pixel.red(), pixel.green(), pixel.blue()}) >= minimumBrightness) {
+                sum += QVector3D(pixel.red(), pixel.green(), pixel.blue());
+                ++count;
+            }
+        }
+    }
+    return count > 0 ? sum / static_cast<float>(count) : QVector3D(-1.0F, -1.0F, -1.0F);
 }
 
 void TestQmlCompositeCapture::capturesCompositeView3DOutput() {
@@ -148,7 +184,7 @@ void TestQmlCompositeCapture::capturesCompositeView3DOutput() {
     QVERIFY(center.blue() <= 20);
 }
 
-void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
+void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
     QQmlEngine engine;
     auto *context = engine.rootContext();
     Workspace workspace;
@@ -163,8 +199,11 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
     controller->createObject(QStringLiteral("text"), 0, 0);
     controller->updateClipEffectParam(textClipId, 1, QStringLiteral("text"), QStringLiteral("Render"));
     controller->updateClipEffectParam(textClipId, 1, QStringLiteral("fontSize"), 40.0);
+    controller->updateClipEffectParam(textClipId, 1, QStringLiteral("color"), QStringLiteral("#ff0000"));
     controller->setKeyframe(textClipId, 0, QStringLiteral("x"), 0, -80.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
     controller->setKeyframe(textClipId, 0, QStringLiteral("x"), 30, 80.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
+    controller->addEffect(textClipId, QStringLiteral("monochrome"));
+    controller->setEffectEnabled(textClipId, 2, false);
     QCOMPARE(controller->evaluateClipParams(textClipId, 0).value(QStringLiteral("x")).toDouble(), -80.0);
     QCOMPARE(controller->evaluateClipParams(textClipId, 30).value(QStringLiteral("x")).toDouble(), 80.0);
 
@@ -223,7 +262,7 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
     QTRY_COMPARE_WITH_TIMEOUT(compositeView->property("currentFrame").toInt(), 0, 5'000);
     window.update();
     QTest::qWait(150);
-    const QImage firstFrame = grabView3DUntilBright(view3D);
+    const QImage firstFrame = grabView3DUntilVisible(view3D);
     QSignalSpy frameSpy(controller->transport(), &TransportService::currentFrameChanged);
     controller->transport()->setCurrentFrame_seek(30);
     const QVariantMap lastRenderData = syncEcsRenderData();
@@ -232,7 +271,7 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
     QTRY_COMPARE_WITH_TIMEOUT(compositeView->property("currentFrame").toInt(), 30, 5'000);
     window.update();
     QTest::qWait(250);
-    const QImage lastFrame = grabView3DUntilBright(view3D);
+    const QImage lastFrame = grabView3DUntilVisible(view3D);
 
     QVERIFY(!firstFrame.isNull());
     QVERIFY(!lastFrame.isNull());
@@ -241,6 +280,25 @@ void TestQmlCompositeCapture::capturesAnimatedTextAtDistinctPositions() {
     QVERIFY(firstCenterX >= 0.0);
     QVERIFY(lastCenterX >= 0.0);
     QVERIFY2(lastCenterX > firstCenterX + 40.0, qPrintable(QStringLiteral("text center did not move: frame 0=%1, frame 30=%2").arg(firstCenterX).arg(lastCenterX)));
+
+    const QVector3D colorBeforeEffect = averageVisibleColor(lastFrame);
+    const QString beforeMessage = QStringLiteral("unexpected source color: r=%1 g=%2 b=%3").arg(colorBeforeEffect.x()).arg(colorBeforeEffect.y()).arg(colorBeforeEffect.z());
+    QVERIFY2(colorBeforeEffect.x() > colorBeforeEffect.y() + 80.0F, qPrintable(beforeMessage));
+    QVERIFY2(colorBeforeEffect.x() > colorBeforeEffect.z() + 80.0F, qPrintable(beforeMessage));
+
+    controller->setEffectEnabled(textClipId, 2, true);
+    controller->transport()->setCurrentFrame_seek(29);
+    controller->transport()->setCurrentFrame_seek(30);
+    syncEcsRenderData();
+    window.update();
+    QTest::qWait(250);
+    const QImage monochromeFrame = grabView3DUntilVisible(view3D, 20);
+    QVERIFY(!monochromeFrame.isNull());
+    const QVector3D colorAfterEffect = averageVisibleColor(monochromeFrame);
+    const QString afterMessage = QStringLiteral("monochrome channels differ: r=%1 g=%2 b=%3").arg(colorAfterEffect.x()).arg(colorAfterEffect.y()).arg(colorAfterEffect.z());
+    QVERIFY(colorAfterEffect.x() >= 0.0F);
+    QVERIFY2(std::abs(colorAfterEffect.x() - colorAfterEffect.y()) < 8.0F, qPrintable(afterMessage));
+    QVERIFY2(std::abs(colorAfterEffect.x() - colorAfterEffect.z()) < 8.0F, qPrintable(afterMessage));
 }
 
 QTEST_MAIN(TestQmlCompositeCapture)
