@@ -240,7 +240,8 @@ TestQmlCompositeCapture::DecodedVideo TestQmlCompositeCapture::decodeVideo(const
         return false;
     };
 
-    while (result.error.isEmpty() && av_read_frame(formatContext, packet) >= 0) {
+    int readResult = 0;
+    while (result.error.isEmpty() && (readResult = av_read_frame(formatContext, packet)) >= 0) {
         if (packet->stream_index == videoStreamIndex && avcodec_send_packet(codecContext, packet) < 0) {
             result.error = QStringLiteral("failed to submit encoded video packet");
         } else if (packet->stream_index == videoStreamIndex) {
@@ -248,8 +249,15 @@ TestQmlCompositeCapture::DecodedVideo TestQmlCompositeCapture::decodeVideo(const
         }
         av_packet_unref(packet);
     }
-    if (result.error.isEmpty() && avcodec_send_packet(codecContext, nullptr) >= 0)
-        receiveFrames();
+    if (result.error.isEmpty() && readResult != AVERROR_EOF) {
+        result.error = QStringLiteral("failed to read encoded video packet");
+    }
+    if (result.error.isEmpty()) {
+        if (avcodec_send_packet(codecContext, nullptr) < 0)
+            result.error = QStringLiteral("failed to flush video decoder");
+        else
+            receiveFrames();
+    }
 
     sws_freeContext(scaleContext);
     av_frame_free(&frame);
