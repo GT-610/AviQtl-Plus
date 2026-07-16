@@ -71,8 +71,9 @@ QML `CompositeView` rendering path.
 ## Manual Export Acceptance
 
 Export is part of the daily workflow. Configuration and missing-preview failure
-paths are automated, while rendered-frame correctness remains manual until there
-is a renderer-level test harness that can capture frames without a live QML view.
+paths are automated, and a compact renderer-level fixture verifies encoded video
+content. Longer projects and representative media combinations remain manual
+acceptance cases.
 
 Automated export acceptance covers:
 
@@ -83,6 +84,8 @@ Automated export acceptance covers:
 - Preview items that cannot produce a frame fail explicitly instead of silently
   substituting black frames, and partial video or image-sequence output is removed.
 - Image-sequence export refuses to overwrite an existing frame file.
+- A real two-frame QML composition exports to MP4, retains its video and audio
+  streams, and preserves the animated Text movement after FFmpeg decoding.
 
 For manual acceptance:
 
@@ -118,8 +121,10 @@ loads the real `CompositeView`, renders its `View3D` at an export-sized logical
 resolution, and captures it through `grabToImage`. It also renders a real Text
 object at two transform keyframes and verifies that the captured pixel content
 moves between frames. The same fixture enables a real Monochrome shader effect
-and verifies that red source pixels become neutral grayscale pixels. Encoded-
-output fixtures remain a later layer.
+and verifies that red source pixels become neutral grayscale pixels. It also
+exports a two-frame animated Text clip through the real `TimelineExportManager`,
+decodes the resulting MP4 with FFmpeg, and verifies the encoded frame count,
+stream metadata, and visible motion between the decoded frames.
 
 The `export_workflow` CTest covers the service-level export path:
 
