@@ -854,10 +854,10 @@ auto TimelineService::findVacantFrame(int layer, int startFrame, int duration, i
     bool isSelected = (m_selection != nullptr) && m_selection->isSelected(excludeClipId);
     QSet<int> selectedIds;
     if (isSelected) {
-        const QVariantList selection = m_selection->selectedClipIds();
+        const QList<int> &selection = m_selection->selectedClipIdsNative();
         selectedIds.reserve(selection.size());
-        for (const QVariant &id : selection) {
-            selectedIds.insert(id.toInt());
+        for (int id : selection) {
+            selectedIds.insert(id);
         }
     }
 

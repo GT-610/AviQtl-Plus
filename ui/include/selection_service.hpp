@@ -17,6 +17,7 @@ class SelectionService : public QObject {
     int selectedClipId() const;
     QVariantMap selectedClipData() const;
     QVariantList selectedClipIds() const;
+    const QList<int> &selectedClipIdsNative() const { return m_selectedClipIds; }
 
     Q_INVOKABLE bool isSelected(int id) const;
     Q_INVOKABLE void clearSelection();

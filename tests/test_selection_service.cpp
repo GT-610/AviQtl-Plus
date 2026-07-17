@@ -121,6 +121,13 @@ class TestSelectionService : public QObject {
         QCOMPARE(svc.selectedClipIds().size(), 2); // 1 and 2
     }
 
+    void nativeSelectionIdsPreserveSelectionOrder() {
+        SelectionService svc;
+        svc.replaceSelection({7, 3, 7}, 7, QVariantMap());
+
+        QCOMPARE(svc.selectedClipIdsNative(), QList<int>({7, 3}));
+    }
+
     void refreshSelectionData() {
         SelectionService svc;
         QVariantMap oldData;
