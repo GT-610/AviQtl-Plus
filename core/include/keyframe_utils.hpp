@@ -459,27 +459,6 @@ inline QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVa
     return out;
 }
 
-inline QVariant evaluateParam(const QVariantMap &params, const QVariantMap &keyframeTracks,
-                              const QString &paramName, int frame, double fps, int durationFrames) {
-    Q_UNUSED(fps);
-    const QVariant fallback = params.value(paramName);
-    auto ktIt = keyframeTracks.find(paramName);
-    if (ktIt == keyframeTracks.end())
-        return fallback;
-
-    const QVariant raw = ktIt.value();
-    QVariantList resolved;
-    if (isStructuredTrack(raw)) {
-        int d = (durationFrames > 0) ? durationFrames : inferredDurationForTrack(raw);
-        QVariantMap normalized = normalizeTrackForDuration(raw, fallback, d);
-        resolved = flattenStructuredTrack(normalized);
-    } else {
-        resolved = sortPoints(raw.toList());
-    }
-
-    return evaluateTrack(resolved, frame, fallback);
-}
-
 // Resolve one track to its flattened evaluation-ready form.
 // This is the expensive step (normalize + flatten) and should be cached
 // when evaluating many frames or many parameters of the same track.

@@ -34,7 +34,6 @@ class AudioDecoder : public MediaDecoder {
     int getSamplesInto(double startTime, int count, float *out) override;
     std::vector<float> getPeaks(double startSec, double durationSec, int pixelWidth);
     double totalDurationSec() const;
-    QString lastError() const;
 
   protected:
     void startDecoding() override;

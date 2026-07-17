@@ -21,9 +21,6 @@ struct Keyframe {
     float bzy1 = 0.0f;
     float bzx2 = 0.66f;
     float bzy2 = 1.0f;
-
-    // カスタム数式 (expression)
-    QString expression;
 };
 
 struct Effect {
