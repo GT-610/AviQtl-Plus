@@ -232,6 +232,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME large_timeline_performance
+    SOURCES test_large_timeline_performance.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME clip_by_upper_object
     SOURCES test_clip_by_upper_object.cpp
     LINKS AviQtl_UI

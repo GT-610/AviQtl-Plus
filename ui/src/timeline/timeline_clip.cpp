@@ -852,7 +852,14 @@ auto TimelineService::findVacantFrame(int layer, int startFrame, int duration, i
     // バッチ移動中は明示的に指定された集合を使い、そうでない場合は選択情報を使う
     bool isBatchMode = !m_batchExcludes.isEmpty();
     bool isSelected = (m_selection != nullptr) && m_selection->isSelected(excludeClipId);
-    QVariantList selectedIds = isSelected ? m_selection->selectedClipIds() : QVariantList();
+    QSet<int> selectedIds;
+    if (isSelected) {
+        const QList<int> &selection = m_selection->selectedClipIdsNative();
+        selectedIds.reserve(selection.size());
+        for (int id : selection) {
+            selectedIds.insert(id);
+        }
+    }
 
     for (const auto &clip : clips()) {
         if (clip.id == excludeClipId) {
@@ -863,17 +870,8 @@ auto TimelineService::findVacantFrame(int layer, int startFrame, int duration, i
             if (m_batchExcludes.contains(clip.id)) {
                 continue;
             }
-        } else if (isSelected) {
-            bool isPeer = false;
-            for (const QVariant &v : std::as_const(selectedIds)) {
-                if (v.toInt() == clip.id) {
-                    isPeer = true;
-                    break;
-                }
-            }
-            if (isPeer) {
-                continue;
-            }
+        } else if (isSelected && selectedIds.contains(clip.id)) {
+            continue;
         }
 
         if (clip.layer == layer) {
