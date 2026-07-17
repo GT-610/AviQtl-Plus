@@ -21,6 +21,11 @@ dedicated design, fixtures, or performance measurements.
 - `check.py` is read-only by default, supports Python 3.9 and later, excludes
   generated and virtual-environment trees, and reports skipped tools and
   non-blocking QML warnings explicitly.
+- Renderer fixtures cover animated Text movement and a representative fragment
+  shader effect through the real QML composition path.
+- A real QML composition is encoded to MP4 and decoded for stream and pixel
+  verification, and the production `VideoDecoder` is exercised through
+  `VideoFrameStore` and `QVideoSink` with generated media.
 
 ## Remaining priorities
 
@@ -28,15 +33,10 @@ dedicated design, fixtures, or performance measurements.
    unqualified-access and external-package import warnings. Establish module
    metadata for external effects first, then reduce application warnings in
    behavior-preserving batches before making warnings fatal in CI.
-2. **Rendered-effect fixtures.** The current composite capture test verifies
-   scene and animated-text movement, but not representative fragment/compute
-   effects or transition pixels.
-3. **Encoded-output fixtures.** Export failure handling is covered, while
-   decoded verification of produced video/audio streams remains manual.
-4. **Measured large-project performance.** Add repeatable fixtures for timeline
+2. **Measured large-project performance.** Add repeatable fixtures for timeline
    scrolling, seek latency, frame-cache pressure, long-audio decoding, and
    plugin scanning before changing cache or concurrency policy.
-5. **Private Qt API reduction.** ZIP handling, QRhi integration, and shader
+3. **Private Qt API reduction.** ZIP handling, QRhi integration, and shader
    tooling currently require Qt private modules. Builds must use matching Qt
    patch versions until stable replacements are practical.
 
