@@ -1,8 +1,18 @@
+#include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
+#include "window_manager.hpp"
+#include "workspace.hpp"
 #include <QElapsedTimer>
+#include <QQmlComponent>
+#include <QQmlContext>
+#include <QQmlEngine>
+#include <QQuickItem>
+#include <QQuickWindow>
+#include <QSet>
 #include <QTest>
 #include <QTextStream>
+#include <memory>
 
 using namespace AviQtl::UI;
 
@@ -39,6 +49,8 @@ class TestLargeTimelinePerformance : public QObject {
 
   private slots:
     void materializesQmlClipSnapshot();
+    void filtersViewportAndRetainsActiveClips();
+    void virtualizesTimelineViewDelegates();
     void findsClipsAcrossLargeTimeline();
     void movesLargeSelectionWithUndoRedo();
 };
@@ -56,6 +68,89 @@ void TestLargeTimelinePerformance::materializesQmlClipSnapshot() {
     QCOMPARE(snapshot.first().toMap().value(QStringLiteral("id")).toInt(), 1);
     QCOMPARE(snapshot.last().toMap().value(QStringLiteral("id")).toInt(), kClipCount);
     QTextStream(stdout) << "large_timeline qml_snapshot clips=" << kClipCount << " elapsed_ms=" << elapsedMs << Qt::endl;
+}
+
+void TestLargeTimelinePerformance::filtersViewportAndRetainsActiveClips() {
+    TimelineController controller;
+    populateLargeTimeline(controller);
+
+    const QVariantList viewport = controller.clipsForViewport(0, 200, 0, 9, {kClipCount});
+    QCOMPARE(viewport.size(), 101);
+
+    QSet<int> ids;
+    for (const QVariant &value : viewport) {
+        ids.insert(value.toMap().value(QStringLiteral("id")).toInt());
+    }
+    QVERIFY(ids.contains(1));
+    QVERIFY(ids.contains(kClipCount));
+
+    const QVariantList retainedVisible = controller.clipsForViewport(0, 200, 0, 9, {1});
+    QCOMPARE(retainedVisible.size(), 100);
+}
+
+void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
+    Workspace workspace;
+    workspace.newProject();
+    TimelineController *controller = workspace.currentTimeline();
+    QVERIFY(controller != nullptr);
+    populateLargeTimeline(*controller);
+    controller->setTimelineScale(1.0);
+
+    QQmlEngine engine;
+    QQmlContext *context = engine.rootContext();
+    context->setContextProperty(QStringLiteral("Workspace"), &workspace);
+    context->setContextProperty(QStringLiteral("SettingsManager"), &AviQtl::Core::SettingsManager::instance());
+    context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
+
+    QElapsedTimer timer;
+    timer.start();
+    QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/timeline/TimelineView.qml")));
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> object(component.create(context));
+    QVERIFY2(object != nullptr, qPrintable(component.errorString()));
+    auto *timelineView = qobject_cast<QQuickItem *>(object.get());
+    QVERIFY(timelineView != nullptr);
+    timelineView->setProperty("layerCount", kLayerCount);
+    timelineView->setSize(QSizeF(1'000, 300));
+
+    QQuickWindow window;
+    window.setGeometry(0, 0, 1'000, 300);
+    timelineView->setParentItem(window.contentItem());
+    window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(window.isExposed(), 5'000);
+    QTRY_VERIFY_WITH_TIMEOUT(timelineView->property("renderedClipCount").toInt() > 0, 5'000);
+
+    const int initialDelegateCount = timelineView->property("renderedClipCount").toInt();
+    QVERIFY(initialDelegateCount < 800);
+    QVERIFY(!timelineView->property("renderedClipIds").toList().contains(kClipCount));
+    const qint64 creationMs = timer.elapsed();
+    QTextStream(stdout) << "large_timeline qml_delegates total_clips=" << kClipCount << " rendered=" << initialDelegateCount << " elapsed_ms=" << creationMs << Qt::endl;
+
+    const int initialLoadedLastFrame = timelineView->property("loadedLastFrame").toInt();
+    const int initialModelRevision = timelineView->property("viewportModelRevision").toInt();
+    timelineView->setProperty("contentX", 80.0);
+    QTest::qWait(20);
+    QCOMPARE(timelineView->property("loadedLastFrame").toInt(), initialLoadedLastFrame);
+    QCOMPARE(timelineView->property("viewportModelRevision").toInt(), initialModelRevision);
+    QCOMPARE(timelineView->property("renderedClipCount").toInt(), initialDelegateCount);
+
+    controller->timeline()->applySelectionIds({kClipCount});
+    QTRY_VERIFY_WITH_TIMEOUT(timelineView->property("renderedClipIds").toList().contains(kClipCount), 5'000);
+    const int retainedDelegateCount = timelineView->property("renderedClipCount").toInt();
+    const int retainedModelRevision = timelineView->property("viewportModelRevision").toInt();
+    timelineView->setProperty("isDraggingMulti", true);
+    QTRY_VERIFY_WITH_TIMEOUT(timelineView->property("renderedClipIds").toList().contains(kClipCount), 5'000);
+    QCOMPARE(timelineView->property("renderedClipCount").toInt(), retainedDelegateCount);
+    QCOMPARE(timelineView->property("viewportModelRevision").toInt(), retainedModelRevision);
+
+    timelineView->setProperty("isDraggingMulti", false);
+    timelineView->setProperty("contentX", 1'500.0);
+    timelineView->setProperty("contentY", 1'200.0);
+    QTRY_VERIFY_WITH_TIMEOUT(timelineView->property("loadedFirstLayer").toInt() > 0, 5'000);
+    QVERIFY(timelineView->property("viewportModelRevision").toInt() > retainedModelRevision);
+    QTRY_VERIFY_WITH_TIMEOUT(timelineView->property("renderedClipIds").toList().contains(kClipCount), 5'000);
+    QVERIFY(!timelineView->property("renderedClipIds").toList().contains(1));
+    QVERIFY(timelineView->property("renderedClipCount").toInt() < 800);
 }
 
 void TestLargeTimelinePerformance::findsClipsAcrossLargeTimeline() {
