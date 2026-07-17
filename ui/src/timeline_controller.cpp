@@ -353,7 +353,6 @@ void TimelineController::syncTimelineToDocumentModel() {
                         kf.bzy1 = static_cast<float>(ptMap.value(QStringLiteral("bzy1"), 0.0).toDouble());
                         kf.bzx2 = static_cast<float>(ptMap.value(QStringLiteral("bzx2"), 0.66).toDouble());
                         kf.bzy2 = static_cast<float>(ptMap.value(QStringLiteral("bzy2"), 1.0).toDouble());
-                        kf.expression = ptMap.value(QStringLiteral("expression")).toString();
                         kfs.push_back(kf);
                     }
 

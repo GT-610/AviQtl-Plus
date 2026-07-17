@@ -729,14 +729,7 @@ void TimelineController::reorderMultipleEffects(int clipId, const QVariantList &
     }
 }
 
-void TimelineController::copyEffect(int clipId, int effectIndex) { m_timeline->copyEffect(clipId, effectIndex); }
-
 void TimelineController::pasteEffect(int clipId, int targetIndex) { m_timeline->pasteEffect(clipId, targetIndex); }
-
-void TimelineController::cutEffect(int clipId, int effectIndex) {
-    m_timeline->copyEffect(clipId, effectIndex);
-    m_timeline->removeEffect(clipId, effectIndex);
-}
 
 void TimelineController::addAudioPlugin(int clipId, const QString &pluginId) {
     auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginId);
@@ -784,88 +777,6 @@ void TimelineController::reorderAudioPlugins(int clipId, int oldIndex, int newIn
 auto TimelineController::isAudioClip(int clipId) const -> bool {
     const auto *clip = m_timeline->findClipById(clipId);
     return (clip != nullptr) && clip->type == QLatin1String("audio");
-}
-
-auto TimelineController::getAllAudioClips() const -> QVariantList {
-    QVariantList list;
-    for (const auto &clip : m_timeline->clips()) {
-        if (clip.type != QLatin1String("audio")) {
-            continue;
-        }
-        QVariantMap info;
-        info.insert(QStringLiteral("id"), clip.id);
-        info.insert(QStringLiteral("layer"), clip.layer);
-        info.insert(QStringLiteral("startFrame"), clip.startFrame);
-        info.insert(QStringLiteral("durationFrames"), clip.durationFrames);
-
-        // Find the audio effect model for this clip
-        for (const auto *effect : clip.effects) {
-            if (effect != nullptr && effect->id() == QLatin1String("audio")) {
-                const QVariantMap params = effect->params();
-                info.insert(QStringLiteral("source"), params.value(QStringLiteral("source")).toString());
-                info.insert(QStringLiteral("volume"), effect->evaluatedParam(QStringLiteral("volume"), 0, m_project->fps()).toDouble());
-                info.insert(QStringLiteral("masterVolume"), effect->evaluatedParam(QStringLiteral("masterVolume"), 0, m_project->fps()).toDouble());
-                info.insert(QStringLiteral("pan"), effect->evaluatedParam(QStringLiteral("pan"), 0, m_project->fps()).toDouble());
-                info.insert(QStringLiteral("mute"), effect->evaluatedParam(QStringLiteral("mute"), 0, m_project->fps()).toBool());
-                info.insert(QStringLiteral("solo"), effect->evaluatedParam(QStringLiteral("solo"), 0, m_project->fps()).toBool());
-                break;
-            }
-        }
-        list.append(info);
-    }
-    return list;
-}
-
-void TimelineController::setAudioClipVolume(int clipId, float volume) {
-    auto *clip = m_timeline->findClipById(clipId);
-    if (clip == nullptr) {
-        return;
-    }
-    for (int i = 0; i < clip->effects.size(); ++i) {
-        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
-            m_timeline->updateEffectParam(clipId, i, QStringLiteral("volume"), static_cast<double>(volume));
-            return;
-        }
-    }
-}
-
-void TimelineController::setAudioClipPan(int clipId, float pan) {
-    auto *clip = m_timeline->findClipById(clipId);
-    if (clip == nullptr) {
-        return;
-    }
-    for (int i = 0; i < clip->effects.size(); ++i) {
-        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
-            m_timeline->updateEffectParam(clipId, i, QStringLiteral("pan"), static_cast<double>(pan));
-            return;
-        }
-    }
-}
-
-void TimelineController::setAudioClipMute(int clipId, bool mute) {
-    auto *clip = m_timeline->findClipById(clipId);
-    if (clip == nullptr) {
-        return;
-    }
-    for (int i = 0; i < clip->effects.size(); ++i) {
-        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
-            m_timeline->updateEffectParam(clipId, i, QStringLiteral("mute"), mute);
-            return;
-        }
-    }
-}
-
-void TimelineController::setAudioClipSolo(int clipId, bool solo) {
-    auto *clip = m_timeline->findClipById(clipId);
-    if (clip == nullptr) {
-        return;
-    }
-    for (int i = 0; i < clip->effects.size(); ++i) {
-        if (clip->effects[i] != nullptr && clip->effects[i]->id() == QLatin1String("audio")) {
-            m_timeline->updateEffectParam(clipId, i, QStringLiteral("solo"), solo);
-            return;
-        }
-    }
 }
 
 auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displayDurationFrames) const -> QVariantList { // NOLINT(bugprone-easily-swappable-parameters)

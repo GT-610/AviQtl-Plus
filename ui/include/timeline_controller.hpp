@@ -122,9 +122,7 @@ class TimelineController : public QObject {
     Q_INVOKABLE void addEffect(int clipId, const QString &effectId);
     Q_INVOKABLE void removeEffect(int clipId, int effectIndex);
     Q_INVOKABLE void removeMultipleEffects(int clipId, const QList<int> &indices);
-    Q_INVOKABLE void copyEffect(int clipId, int effectIndex);
     Q_INVOKABLE void pasteEffect(int clipId, int targetIndex);
-    Q_INVOKABLE void cutEffect(int clipId, int effectIndex);
     Q_INVOKABLE void setEffectEnabled(int clipId, int effectIndex, bool enabled);
     Q_INVOKABLE void reorderEffects(int clipId, int oldIndex, int newIndex);
     Q_INVOKABLE void reorderMultipleEffects(int clipId, const QVariantList &indicesList, int targetIndex);
@@ -144,13 +142,6 @@ class TimelineController : public QObject {
     Q_INVOKABLE static QVariantList getPluginsByCategory(const QString &category);
     Q_INVOKABLE bool isAudioClip(int clipId) const;
     Q_INVOKABLE QVariantList getWaveformPeaks(int clipId, int pixelWidth, int displayDurationFrames) const;
-
-    // Mixer panel support
-    Q_INVOKABLE QVariantList getAllAudioClips() const;
-    Q_INVOKABLE void setAudioClipVolume(int clipId, float volume);
-    Q_INVOKABLE void setAudioClipPan(int clipId, float pan);
-    Q_INVOKABLE void setAudioClipMute(int clipId, bool mute);
-    Q_INVOKABLE void setAudioClipSolo(int clipId, bool solo);
 
     // パラメータ操作用
     Q_INVOKABLE QVariantList getClipEffectStack(int clipId) const;

@@ -485,13 +485,6 @@ void TimelineService::reorderAudioPluginsInternal(int clipId, int oldIndex, int 
     emit clipsChanged();
 }
 
-void TimelineService::copyEffect(int clipId, int effectIndex) { // NOLINT(bugprone-easily-swappable-parameters)
-    auto *clip = findClipById(clipId);
-    if ((clip != nullptr) && effectIndex >= 0 && effectIndex < static_cast<int>(clip->effects.size())) {
-        m_effectClipboard.reset(clip->effects.value(effectIndex)->clone());
-    }
-}
-
 void TimelineService::pasteEffect(int clipId, int targetIndex) {
     if (!m_effectClipboard) {
         return;
