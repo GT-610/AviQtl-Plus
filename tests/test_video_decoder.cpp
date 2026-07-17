@@ -123,17 +123,17 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     QVERIFY2(lastColor.z() > lastColor.x() + 100.0F,
              qPrintable(QStringLiteral("expected blue last frame, got r=%1 g=%2 b=%3").arg(lastColor.x()).arg(lastColor.y()).arg(lastColor.z())));
 
-    // Seeking back exercises the populated GOP/frame cache rather than only
-    // the initial forward decode path.
-    QSignalSpy cachedFrameSpy(&decoder, &MediaDecoder::frameReady);
-    QSignalSpy cachedSinkSpy(&sink, &QVideoSink::videoFrameChanged);
+    // This verifies backward re-seek content through VideoFrameStore and
+    // QVideoSink. It intentionally does not claim which decoder path served it.
+    QSignalSpy backwardReseekFrameSpy(&decoder, &MediaDecoder::frameReady);
+    QSignalSpy backwardReseekSinkSpy(&sink, &QVideoSink::videoFrameChanged);
     decoder.seekToFrame(0, decoder.sourceFps());
-    QTRY_COMPARE_WITH_TIMEOUT(cachedFrameSpy.count(), 1, 10'000);
-    QTRY_VERIFY_WITH_TIMEOUT(cachedSinkSpy.count() >= 1, 10'000);
-    QCOMPARE(cachedFrameSpy.takeFirst().at(0).toInt(), 0);
-    const QVector3D cachedColor = averageColor(sink.videoFrame().toImage());
-    QVERIFY2(cachedColor.x() > cachedColor.z() + 100.0F,
-             qPrintable(QStringLiteral("expected cached red frame, got r=%1 g=%2 b=%3").arg(cachedColor.x()).arg(cachedColor.y()).arg(cachedColor.z())));
+    QTRY_COMPARE_WITH_TIMEOUT(backwardReseekFrameSpy.count(), 1, 10'000);
+    QTRY_VERIFY_WITH_TIMEOUT(backwardReseekSinkSpy.count() >= 1, 10'000);
+    QCOMPARE(backwardReseekFrameSpy.takeFirst().at(0).toInt(), 0);
+    const QVector3D backwardReseekColor = averageColor(sink.videoFrame().toImage());
+    QVERIFY2(backwardReseekColor.x() > backwardReseekColor.z() + 100.0F,
+             qPrintable(QStringLiteral("expected backward re-seek red frame, got r=%1 g=%2 b=%3").arg(backwardReseekColor.x()).arg(backwardReseekColor.y()).arg(backwardReseekColor.z())));
 }
 
 QTEST_MAIN(TestVideoDecoder)
