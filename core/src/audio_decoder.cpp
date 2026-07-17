@@ -227,10 +227,6 @@ void AudioDecoder::closeFFmpeg() {
     m_totalDurationSec = 0.0;
 }
 
-auto AudioDecoder::lastError() const -> QString {
-    return m_lastError;
-}
-
 void AudioDecoder::setSampleRate(int sampleRate) {
     if (sampleRate <= 0 || m_sampleRate == sampleRate) {
         return;

@@ -69,7 +69,6 @@ class TimelineService : public QObject {
     void reorderEffects(int clipId, int oldIndex, int newIndex);
     void reorderMultipleEffects(int clipId, const QVariantList &indicesList, int targetIndex);
     void reorderAudioPlugins(int clipId, int oldIndex, int newIndex);
-    void copyEffect(int clipId, int effectIndex);
     void pasteEffect(int clipId, int targetIndex);
     void updateEffectParam(int clipId, int effectIndex, const QString &paramName, const QVariant &value);
     void setAudioPluginParam(int clipId, int pluginIndex, int paramIndex, float value);

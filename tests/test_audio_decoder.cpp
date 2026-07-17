@@ -78,7 +78,6 @@ class TestAudioDecoder : public QObject {
     void constructor();
     void setSampleRate();
     void totalDurationSec();
-    void lastError();
     void readyAndGetSamplesIntoReadsAcrossChunks();
     void getSamplesPadsPastEnd();
     void getPeaksBuildsWaveform();
@@ -89,7 +88,6 @@ void TestAudioDecoder::constructor() {
     QTemporaryDir dir;
     AudioDecoder decoder(1, createTestWav(dir));
     QCOMPARE(decoder.totalDurationSec(), 0.0);
-    QVERIFY(decoder.lastError().isEmpty());
 }
 
 void TestAudioDecoder::setSampleRate() {
@@ -105,12 +103,6 @@ void TestAudioDecoder::totalDurationSec() {
     AudioDecoder decoder(1, createTestWav(dir));
     // Duration is unknown until decoding starts.
     QCOMPARE(decoder.totalDurationSec(), 0.0);
-}
-
-void TestAudioDecoder::lastError() {
-    AudioDecoder decoder(1, QUrl::fromLocalFile("/nonexistent/file.wav"));
-    // Error should be empty initially
-    QVERIFY(decoder.lastError().isEmpty());
 }
 
 void TestAudioDecoder::readyAndGetSamplesIntoReadsAcrossChunks() {
