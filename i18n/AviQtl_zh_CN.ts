@@ -1811,37 +1811,37 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="129"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="165"/>
         <source>プロパティ変更: %1</source>
         <translation>属性更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="171"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="207"/>
         <source>開始フレーム変更</source>
         <translation>起始帧更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="188"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="224"/>
         <source>長さ変更</source>
         <translation>长度更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="205"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="241"/>
         <source>レイヤー変更</source>
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="339"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="375"/>
         <source>音声をインポート</source>
         <translation>导入音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="357"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="393"/>
         <source>画像をインポート</source>
         <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="521"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="546"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1871,18 +1871,18 @@
         <translation>找不到媒体效果：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="313"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="349"/>
         <source>動画をインポート</source>
         <translation>导入视频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="303"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="339"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="173"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="372"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="408"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="184"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
@@ -4764,87 +4764,87 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1023"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1174"/>
         <source>オブジェクトを追加</source>
         <translation>添加对象</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1038"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1189"/>
         <source>トランジションを追加</source>
         <translation>添加转场</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1050"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1201"/>
         <source>元に戻す</source>
         <translation>撤销</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1051"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1202"/>
         <source>やり直す</source>
         <translation>重做</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1052"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1203"/>
         <source>貼り付け</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1054"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1205"/>
         <source>シーン設定...</source>
         <translation>场景设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1055"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1206"/>
         <source>プロジェクト設定...</source>
         <translation>项目设置...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1056"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1207"/>
         <source>環境設定...</source>
         <translation>首选项...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1058"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1209"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1059"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1210"/>
         <source>分割</source>
         <translation>分割</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1060"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1211"/>
         <source>複製</source>
         <translation>复制副本</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1062"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1213"/>
         <source>切り取り</source>
         <translation>剪切</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1063"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1214"/>
         <source>コピー</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1067"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1218"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>用上方对象裁剪</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1079"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1230"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1103"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1254"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>搜索效果/对象...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="611"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="762"/>
         <source>ここにドロップ</source>
         <translation>拖放到此处</translation>
     </message>
