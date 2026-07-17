@@ -33,9 +33,11 @@ dedicated design, fixtures, or performance measurements.
    unqualified-access and external-package import warnings. Establish module
    metadata for external effects first, then reduce application warnings in
    behavior-preserving batches before making warnings fatal in CI.
-2. **Measured large-project performance.** Add repeatable fixtures for timeline
-   scrolling, seek latency, frame-cache pressure, long-audio decoding, and
-   plugin scanning before changing cache or concurrency policy.
+2. **Measured large-project performance.** A repeatable 5,000-clip model and
+   controller fixture now covers QML snapshot materialization, distributed
+   lookup, and a 100-clip move with undo/redo. Add viewport scrolling and
+   zooming, seek latency, frame-cache pressure, long-audio decoding, and plugin
+   scanning before changing cache or concurrency policy.
 3. **Private Qt API reduction.** ZIP handling, QRhi integration, and shader
    tooling currently require Qt private modules. Builds must use matching Qt
    patch versions until stable replacements are practical.
