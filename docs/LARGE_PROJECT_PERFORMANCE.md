@@ -12,14 +12,16 @@ The `large_timeline_performance` CTest creates a deterministic scene with:
 - 5,000 clips across 50 layers.
 - Ten-frame clips separated by ten-frame gaps on each layer.
 - 10,000 deterministic clip-ID lookups spread across the scene.
-- A 100-clip selection moved as one undoable operation.
+- Selection sizes of 1, 10, 50, 100, 500, and 1,000 clips, each moved as one
+  undoable operation against the same populated scene.
 
 The test records elapsed time for:
 
 - Materializing the complete `TimelineController::clips()` snapshot exposed to
   QML.
 - Looking up clips distributed across the full timeline.
-- Moving the selection and applying undo and redo.
+- Moving each selection size and applying undo and redo, exposing how operation
+  cost changes from ordinary edits through stress-scale batch work.
 
 It also verifies the snapshot contents and the exact move, undo, and redo
 results. Run it directly with verbose output when comparing a performance
