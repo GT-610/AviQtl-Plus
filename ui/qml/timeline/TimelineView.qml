@@ -78,23 +78,168 @@ Item {
         };
     }
     property int tailPaddingFrames: 120
-    readonly property int maxClipEndFrame: {
-        var clips = Workspace.currentTimeline?.clips ?? null;
-        if (!clips)
-            return 0;
-
-        var max = 0;
-        for (var i = 0; i < clips.length; i++) {
-            var end = clips[i].startFrame + clips[i].durationFrames;
-            if (end > max)
-                max = end;
-
-        }
-        return max;
-    }
+    readonly property int maxClipEndFrame: Workspace.currentTimeline?.timelineDuration ?? 0
     readonly property int sceneTotalFrames: currentSceneData?.totalFrames ?? 0
     readonly property int timelineLengthFrames: Math.max(100, sceneTotalFrames, maxClipEndFrame + tailPaddingFrames)
     readonly property int scrollBarThickness: 14
+    property int viewportHorizontalOverscanPixels: 160
+    property int viewportVerticalOverscanLayers: 1
+    property int loadedFirstFrame: -1
+    property int loadedLastFrame: -1
+    property int loadedFirstLayer: -1
+    property int loadedLastLayer: -1
+    property bool viewportForceRefresh: false
+    property int viewportModelRevision: 0
+    property var viewportClips: []
+    readonly property int renderedClipCount: clipRepeater.count
+    readonly property var renderedClipIds: timelineViewRoot.viewportClips.map(function(clip) {
+        return clip.id;
+    })
+
+    // Selection is retained before dragging starts so the Repeater model does
+    // not need to replace the delegate currently handling the pointer grab.
+    function retainedViewportClipIds() {
+        if (!Workspace.currentTimeline)
+            return [];
+
+        var result = [];
+        var seen = ({});
+        var appendIds = function(ids) {
+            if (!ids)
+                return ;
+
+            for (var i = 0; i < ids.length; i++) {
+                var id = Number(ids[i]);
+                if (!seen[id]) {
+                    seen[id] = true;
+                    result.push(id);
+                }
+            }
+        };
+        appendIds(Workspace.currentTimeline.selection?.selectedClipIds ?? []);
+        appendIds(timelineViewRoot.selectionVisualLatchIds);
+        return result;
+    }
+
+    function viewportContainsAll(ids) {
+        if (!ids || ids.length === 0)
+            return true;
+
+        var rendered = ({});
+        for (var i = 0; i < timelineViewRoot.viewportClips.length; i++)
+            rendered[Number(timelineViewRoot.viewportClips[i].id)] = true;
+
+        for (var j = 0; j < ids.length; j++) {
+            if (!rendered[Number(ids[j])])
+                return false;
+
+        }
+        return true;
+    }
+
+    function scheduleViewportRefresh(force) {
+        if (force)
+            timelineViewRoot.viewportForceRefresh = true;
+
+        viewportRefreshTimer.restart();
+    }
+
+    function refreshViewportClips(force) {
+        var timeline = Workspace.currentTimeline;
+        if (!timeline || width <= 0 || height <= 0 || layerHeight <= 0) {
+            viewportClips = [];
+            return ;
+        }
+
+        var scale = Math.max(0.001, timeline.timelineScale);
+        var visibleFirstFrame = Math.max(0, Math.floor(timelineFlickable.contentX / scale));
+        var visibleLastFrame = Math.max(visibleFirstFrame + 1, Math.ceil((timelineFlickable.contentX + timelineFlickable.width) / scale));
+        var visibleFirstLayer = Math.max(0, Math.floor(timelineFlickable.contentY / layerHeight));
+        var visibleLastLayer = Math.min(layerCount - 1, Math.floor((timelineFlickable.contentY + timelineFlickable.height) / layerHeight));
+        if (!force && loadedFirstFrame >= 0 && visibleFirstFrame >= loadedFirstFrame && visibleLastFrame <= loadedLastFrame && visibleFirstLayer >= loadedFirstLayer && visibleLastLayer <= loadedLastLayer)
+            return ;
+
+        loadedFirstFrame = Math.max(0, Math.floor((timelineFlickable.contentX - viewportHorizontalOverscanPixels) / scale));
+        loadedLastFrame = Math.max(loadedFirstFrame + 1, Math.ceil((timelineFlickable.contentX + timelineFlickable.width + viewportHorizontalOverscanPixels) / scale));
+        loadedFirstLayer = Math.max(0, visibleFirstLayer - viewportVerticalOverscanLayers);
+        loadedLastLayer = Math.min(layerCount - 1, visibleLastLayer + viewportVerticalOverscanLayers);
+        viewportClips = timeline.clipsForViewport(loadedFirstFrame, loadedLastFrame, loadedFirstLayer, loadedLastLayer, retainedViewportClipIds());
+        timelineViewRoot.viewportModelRevision++;
+    }
+
+    onWidthChanged: scheduleViewportRefresh(true)
+    onHeightChanged: scheduleViewportRefresh(true)
+    onLayerHeightChanged: scheduleViewportRefresh(true)
+    onLayerCountChanged: scheduleViewportRefresh(true)
+    onIsDraggingMultiChanged: {
+        if (!isDraggingMulti)
+            scheduleViewportRefresh(true);
+
+    }
+    onSelectionVisualLatchIdsChanged: {
+        if (isDraggingMulti)
+            scheduleViewportRefresh(true);
+
+    }
+    Component.onCompleted: scheduleViewportRefresh(true)
+
+    Timer {
+        id: viewportRefreshTimer
+
+        interval: 0
+        repeat: false
+        onTriggered: {
+            var force = timelineViewRoot.viewportForceRefresh;
+            timelineViewRoot.viewportForceRefresh = false;
+            timelineViewRoot.refreshViewportClips(force);
+        }
+    }
+
+    Connections {
+        function onCurrentTimelineChanged() {
+            timelineViewRoot.scheduleViewportRefresh(true);
+        }
+
+        target: Workspace
+    }
+
+    Connections {
+        function onClipsChanged() {
+            timelineViewRoot.scheduleViewportRefresh(true);
+        }
+        function onCurrentSceneIdChanged() {
+            timelineViewRoot.scheduleViewportRefresh(true);
+        }
+        function onTimelineScaleChanged() {
+            timelineViewRoot.scheduleViewportRefresh(true);
+        }
+        function onEffectParamChanged(clipId, effectIndex, paramName, value) {
+            if (paramName === "layerCount")
+                timelineViewRoot.scheduleViewportRefresh(true);
+
+        }
+
+        target: Workspace.currentTimeline ?? null
+    }
+
+    Connections {
+        function onSelectedClipIdsChanged() {
+            // Selection can change inside ClipItem's drag-threshold handler.
+            // Defer the decision until isDraggingMulti reflects that state.
+            Qt.callLater(function() {
+                if (!Workspace.currentTimeline)
+                    return ;
+
+                var selectedIds = Workspace.currentTimeline.selection?.selectedClipIds ?? [];
+                if (!timelineViewRoot.isDraggingMulti || !timelineViewRoot.viewportContainsAll(selectedIds))
+                    timelineViewRoot.scheduleViewportRefresh(true);
+
+            });
+
+        }
+
+        target: Workspace.currentTimeline?.selection ?? null
+    }
 
     function beginDragAutoScroll(callback) {
         dragAutoScrollCallback = callback;
@@ -247,6 +392,8 @@ Item {
         contentWidth: Math.max(timelineLengthFrames * (Workspace.currentTimeline?.timelineScale ?? 1), width)
         contentHeight: Math.max(layerCount * layerHeight, height)
         interactive: false
+        onContentXChanged: timelineViewRoot.scheduleViewportRefresh(false)
+        onContentYChanged: timelineViewRoot.scheduleViewportRefresh(false)
 
         Timer {
             id: renderTimer
@@ -351,7 +498,9 @@ Item {
         }
 
         Repeater {
-            model: Workspace.currentTimeline?.clips ?? []
+            id: clipRepeater
+
+            model: timelineViewRoot.viewportClips
 
             delegate: ClipItem {
                 layerHeight: timelineViewRoot.layerHeight
@@ -366,8 +515,9 @@ Item {
                         var selectedIds = Workspace.currentTimeline?.selection?.selectedClipIds ?? [];
                         if (selectedIds.includes(clipId)) {
                             var moves = [];
-                            for (var i = 0; i < Workspace.currentTimeline.clips.length; i++) {
-                                var c = Workspace.currentTimeline.clips[i];
+                            var allClips = Workspace.currentTimeline.clips;
+                            for (var i = 0; i < allClips.length; i++) {
+                                var c = allClips[i];
                                 if (selectedIds.includes(c.id)) {
                                     var newL = Math.round(Number(c.layer) + Number(deltaLayer));
                                     var newF = Math.round(Number(c.startFrame) + Number(deltaStart));
@@ -481,8 +631,9 @@ Item {
                     var layer = Math.floor(boxSelectionCurrent.y / layerHeight);
                     var clickedClipId = -1;
                     if (Workspace.currentTimeline?.clips) {
-                        for (var i = Workspace.currentTimeline.clips.length - 1; i >= 0; i--) {
-                            var c = Workspace.currentTimeline.clips[i];
+                        var allClips = Workspace.currentTimeline.clips;
+                        for (var i = allClips.length - 1; i >= 0; i--) {
+                            var c = allClips[i];
                             if (c.layer === layer && frame >= c.startFrame && frame < c.startFrame + c.durationFrames) {
                                 clickedClipId = c.id;
                                 break;

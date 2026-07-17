@@ -42,6 +42,42 @@ static int getControlLayerCount(const ClipData &clip) {
     return 0;
 }
 
+static QVariantMap clipToVariantMap(const ClipData &clip) {
+    QVariantMap map;
+    map.insert(QStringLiteral("id"), clip.id);
+    map.insert(QStringLiteral("sceneId"), clip.sceneId);
+    map.insert(QStringLiteral("type"), clip.type);
+    map.insert(QStringLiteral("startFrame"), clip.startFrame);
+    map.insert(QStringLiteral("durationFrames"), clip.durationFrames);
+    map.insert(QStringLiteral("layer"), clip.layer);
+    map.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
+
+    const auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(clip.type);
+    map.insert(QStringLiteral("name"), !meta.name.isEmpty() ? meta.name : clip.type);
+    if (!meta.qmlSource.isEmpty()) {
+        map.insert(QStringLiteral("qmlSource"), meta.qmlSource);
+    }
+
+    QVariantMap params;
+    params.insert(QStringLiteral("layer"), clip.layer);
+    params.insert(QStringLiteral("startFrame"), clip.startFrame);
+    params.insert(QStringLiteral("durationFrames"), clip.durationFrames);
+    params.insert(QStringLiteral("id"), clip.id);
+    map.insert(QStringLiteral("groupLayerCount"), getControlLayerCount(clip));
+
+    QList<QObject *> effectModels;
+    for (auto *effect : clip.effects) {
+        const QVariantMap effectParams = effect->params();
+        for (auto it = effectParams.cbegin(); it != effectParams.cend(); ++it) {
+            params.insert(it.key(), it.value());
+        }
+        effectModels.append(effect);
+    }
+    map.insert(QStringLiteral("params"), params);
+    map.insert(QStringLiteral("effectModels"), QVariant::fromValue(effectModels));
+    return map;
+}
+
 static int findVacantFrameForLinkedMedia(const TimelineService *timeline, int videoLayer, int startFrame, int duration) {
     if (timeline == nullptr) {
         return std::max(0, startFrame);
@@ -419,43 +455,32 @@ auto TimelineController::clips() const -> QVariantList {
     QVariantList list;
     list.reserve(m_timeline->clips().size());
     for (const auto &clip : m_timeline->clips()) {
-        QVariantMap map;
-        map.insert(QStringLiteral("id"), clip.id);
-        map.insert(QStringLiteral("sceneId"), clip.sceneId);
-        map.insert(QStringLiteral("type"), clip.type);
-        map.insert(QStringLiteral("startFrame"), clip.startFrame);
-        map.insert(QStringLiteral("durationFrames"), clip.durationFrames);
-        map.insert(QStringLiteral("layer"), clip.layer);
-        map.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
+        list.append(clipToVariantMap(clip));
+    }
+    return list;
+}
 
-        auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(clip.type);
-        map.insert(QStringLiteral("name"), !meta.name.isEmpty() ? meta.name : clip.type);
-        if (!meta.qmlSource.isEmpty()) {
-            map.insert(QStringLiteral("qmlSource"), meta.qmlSource);
+auto TimelineController::clipsForViewport(int firstFrame, int lastFrame, int firstLayer, int lastLayer, const QVariantList &retainedIds) const -> QVariantList {
+    const int normalizedFirstFrame = std::max(0, std::min(firstFrame, lastFrame));
+    const int normalizedLastFrame = std::max(firstFrame, lastFrame);
+    const int normalizedFirstLayer = std::max(0, std::min(firstLayer, lastLayer));
+    const int normalizedLastLayer = std::max(firstLayer, lastLayer);
+
+    QSet<int> retained;
+    retained.reserve(retainedIds.size());
+    for (const QVariant &id : retainedIds) {
+        retained.insert(id.toInt());
+    }
+
+    QVariantList list;
+    for (const auto &clip : m_timeline->clips()) {
+        const int clipEnd = clip.startFrame + std::max(1, clip.durationFrames);
+        const int clipLastLayer = clip.layer + getControlLayerCount(clip);
+        const bool intersectsFrames = clip.startFrame < normalizedLastFrame && clipEnd > normalizedFirstFrame;
+        const bool intersectsLayers = clip.layer <= normalizedLastLayer && clipLastLayer >= normalizedFirstLayer;
+        if ((intersectsFrames && intersectsLayers) || retained.contains(clip.id)) {
+            list.append(clipToVariantMap(clip));
         }
-
-        QVariantMap params;
-        // 基本情報もparamsに入れておく（QML側での利便性とBaseObjectでの参照用）
-        params.insert(QStringLiteral("layer"), clip.layer);
-        params.insert(QStringLiteral("startFrame"), clip.startFrame);
-        params.insert(QStringLiteral("durationFrames"), clip.durationFrames);
-        params.insert(QStringLiteral("id"), clip.id);
-
-        map.insert(QStringLiteral("groupLayerCount"), getControlLayerCount(clip));
-
-        // エフェクトモデルのポインタリストを直接渡す (QMLでの一貫性のため)
-        QList<QObject *> effList;
-        for (auto *eff : clip.effects) {
-            QVariantMap p = eff->params();
-            for (auto it = p.begin(); it != p.end(); ++it) {
-                params.insert(it.key(), it.value());
-            }
-            effList.append(eff);
-        }
-        map.insert(QStringLiteral("params"), params);
-        map.insert(QStringLiteral("effectModels"), QVariant::fromValue(effList));
-
-        list.append(map);
     }
     return list;
 }

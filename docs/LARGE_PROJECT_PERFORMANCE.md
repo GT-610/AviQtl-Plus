@@ -22,6 +22,8 @@ The test records elapsed time for:
 - Looking up clips distributed across the full timeline.
 - Moving each selection size and applying undo and redo, exposing how operation
   cost changes from ordinary edits through stress-scale batch work.
+- Creating delegates through the real `TimelineView.qml`, scrolling within and
+  beyond its loaded range, and retaining an off-screen clip during a drag.
 
 It also verifies the snapshot contents and the exact move, undo, and redo
 results. Run it directly with verbose output when comparing a performance
@@ -45,13 +47,24 @@ results while reducing the observed redo measurement from 709 ms to a repeated
 
 The complete QML snapshot and distributed ID lookup measurements did not
 materially improve. They remain separate evidence for future snapshot caching,
-indexed lookup, and viewport-model work rather than justification for expanding
-this optimization.
+and indexed lookup rather than justification for expanding the collision-check
+optimization.
+
+## Viewport Virtualization
+
+The timeline now queries clips intersecting the visible frame and layer range,
+plus a 160-pixel horizontal and one-layer vertical buffer. Scrolling inside the
+buffer does not rebuild the delegate model. Selected clips are retained even
+when their positions are outside the loaded range, so beginning a drag does not
+replace the delegate holding the pointer grab.
+
+On the same Windows development build, the 5,000-clip fixture changed from
+creating all 5,000 `ClipItem` delegates in about 5.0 seconds to creating 696 in
+about 1.9 seconds. The exact timings are informational, while the automated test
+requires the delegate count to remain below 800 for its fixed viewport.
 
 ## Next Measurements
 
-The C++ fixture establishes the model/controller baseline. Separate fixtures
-are still needed for viewport scrolling and zooming, QML delegate creation,
-decoder seek/cache pressure, and long-audio decoding. Timeline rendering
-changes should preserve the editing behavior covered here while reducing work
-for clips outside the visible frame and layer range.
+The fixture now covers the model/controller baseline and real QML delegate
+virtualization. Separate measurements are still needed for continuous scroll
+and zoom frame timing, decoder seek/cache pressure, and long-audio decoding.

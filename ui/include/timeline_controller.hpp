@@ -96,6 +96,7 @@ class TimelineController : public QObject {
 
     Q_INVOKABLE static void log(const QString &msg);
     QVariantList clips() const;
+    Q_INVOKABLE QVariantList clipsForViewport(int firstFrame, int lastFrame, int firstLayer, int lastLayer, const QVariantList &retainedIds) const;
 
     // クリップの配置・長さを更新 (ID指定)
     Q_INVOKABLE void updateClip(int id, int layer, int startFrame, int duration);
