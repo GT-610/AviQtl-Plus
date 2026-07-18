@@ -23,7 +23,8 @@ The test records elapsed time for:
 - Moving each selection size and applying undo and redo, exposing how operation
   cost changes from ordinary edits through stress-scale batch work.
 - Creating delegates through the real `TimelineView.qml`, scrolling within and
-  beyond its loaded range, and retaining an off-screen clip during a drag.
+  beyond its loaded range, retaining an off-screen clip during a drag, and
+  repeatedly scrolling and zooming the viewport.
 
 It also verifies the snapshot contents and the exact move, undo, and redo
 results. Run it directly with verbose output when comparing a performance
@@ -63,8 +64,25 @@ creating all 5,000 `ClipItem` delegates in about 5.0 seconds to creating 696 in
 about 1.9 seconds. The exact timings are informational, while the automated test
 requires the delegate count to remain below 800 for its fixed viewport.
 
+## Continuous Interaction
+
+The QML fixture drives 120 incremental horizontal and vertical scroll updates,
+then 120 zoom updates from 100% down to 25% and back. It records elapsed time,
+viewport-model rebuilds, and the peak delegate count while verifying that the
+final visible clip is present and delegate creation stays bounded.
+
+The first zoom measurement rebuilt the viewport model for 118 of 120 scale
+updates because every scale change forced a refresh. Clip geometry already
+tracks the scale through QML bindings, so the model only needs rebuilding when
+the visible range leaves the loaded overscan range. Reusing that range check
+reduced the observed rebuild count from 118 to 6 and the zoom measurement from
+about 33.9 seconds to 7.6 seconds on the same Windows development build.
+Elapsed time remains informational; the deterministic rebuild-count assertion
+protects the intended behavior across different machines.
+
 ## Next Measurements
 
-The fixture now covers the model/controller baseline and real QML delegate
-virtualization. Separate measurements are still needed for continuous scroll
-and zoom frame timing, decoder seek/cache pressure, and long-audio decoding.
+The fixture now covers the model/controller baseline, real QML delegate
+virtualization, and continuous viewport interaction. Separate measurements are
+still needed for decoder seek/cache pressure, long-audio decoding, and plugin
+scanning.

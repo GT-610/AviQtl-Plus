@@ -4,6 +4,7 @@
 #include "window_manager.hpp"
 #include "workspace.hpp"
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -151,6 +152,59 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     QTRY_VERIFY_WITH_TIMEOUT(timelineView->property("renderedClipIds").toList().contains(kClipCount), 5'000);
     QVERIFY(!timelineView->property("renderedClipIds").toList().contains(1));
     QVERIFY(timelineView->property("renderedClipCount").toInt() < 800);
+
+    controller->timeline()->applySelectionIds({});
+    controller->setTimelineScale(1.0);
+    timelineView->setProperty("contentX", 0.0);
+    timelineView->setProperty("contentY", 0.0);
+    QTest::qWait(20);
+
+    constexpr int interactionSteps = 120;
+    constexpr double finalScrollX = 1'000.0;
+    constexpr double finalScrollY = 1'200.0;
+    constexpr int finalScrollFrame = 1'000;
+    constexpr int finalScrollLayer = 40;
+    constexpr int finalScrollClipId = ((finalScrollFrame / kClipSpacing) * kLayerCount) + finalScrollLayer + 1;
+    const int scrollInitialRevision = timelineView->property("viewportModelRevision").toInt();
+    int scrollPeakDelegateCount = timelineView->property("renderedClipCount").toInt();
+    timer.restart();
+    for (int step = 1; step <= interactionSteps; ++step) {
+        const double progress = static_cast<double>(step) / interactionSteps;
+        timelineView->setProperty("contentX", progress * finalScrollX);
+        timelineView->setProperty("contentY", progress * finalScrollY);
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        scrollPeakDelegateCount = std::max(scrollPeakDelegateCount, timelineView->property("renderedClipCount").toInt());
+    }
+    QTest::qWait(20);
+    const qint64 scrollMs = timer.elapsed();
+    const int scrollRevisionCount = timelineView->property("viewportModelRevision").toInt() - scrollInitialRevision;
+
+    QTextStream(stdout) << "large_timeline continuous_scroll steps=" << interactionSteps << " model_refreshes=" << scrollRevisionCount << " peak_rendered=" << scrollPeakDelegateCount << " elapsed_ms=" << scrollMs << Qt::endl;
+    QVERIFY(timelineView->property("renderedClipIds").toList().contains(finalScrollClipId));
+    QVERIFY(scrollPeakDelegateCount < 1'000);
+    QVERIFY(scrollRevisionCount > 0);
+    QVERIFY(scrollRevisionCount < interactionSteps);
+
+    const int zoomInitialRevision = timelineView->property("viewportModelRevision").toInt();
+    int zoomPeakDelegateCount = timelineView->property("renderedClipCount").toInt();
+    timer.restart();
+    for (int step = 0; step < interactionSteps; ++step) {
+        const double phase = static_cast<double>(step) / (interactionSteps - 1);
+        const double scale = phase <= 0.5 ? 1.0 - (phase * 1.5) : 0.25 + ((phase - 0.5) * 1.5);
+        controller->setTimelineScale(scale);
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        zoomPeakDelegateCount = std::max(zoomPeakDelegateCount, timelineView->property("renderedClipCount").toInt());
+    }
+    controller->setTimelineScale(1.0);
+    QTest::qWait(20);
+    const qint64 zoomMs = timer.elapsed();
+    const int zoomRevisionCount = timelineView->property("viewportModelRevision").toInt() - zoomInitialRevision;
+
+    QTextStream(stdout) << "large_timeline continuous_zoom steps=" << interactionSteps << " model_refreshes=" << zoomRevisionCount << " peak_rendered=" << zoomPeakDelegateCount << " elapsed_ms=" << zoomMs << Qt::endl;
+    QVERIFY(timelineView->property("renderedClipIds").toList().contains(finalScrollClipId));
+    QVERIFY(zoomPeakDelegateCount < 1'600);
+    QVERIFY(zoomRevisionCount > 0);
+    QVERIFY(zoomRevisionCount < interactionSteps / 4);
 }
 
 void TestLargeTimelinePerformance::findsClipsAcrossLargeTimeline() {
