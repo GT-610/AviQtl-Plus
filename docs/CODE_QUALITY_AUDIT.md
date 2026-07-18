@@ -36,9 +36,9 @@ dedicated design, fixtures, or performance measurements.
 2. **Measured large-project performance.** A repeatable 5,000-clip model and
    controller fixture now covers QML snapshot materialization, distributed
    lookup, move/undo/redo scaling from 1 to 1,000 selected clips, and bounded
-   delegate creation through the real QML timeline. Add continuous scrolling
-   and zoom frame timing, seek latency, frame-cache pressure, long-audio
-   decoding, and plugin scanning before changing cache or concurrency policy.
+   delegate creation plus continuous scrolling and zooming through the real QML
+   timeline. Add seek latency, frame-cache pressure, long-audio decoding, and
+   plugin scanning before changing cache or concurrency policy.
 3. **Private Qt API reduction.** ZIP handling, QRhi integration, and shader
    tooling currently require Qt private modules. Builds must use matching Qt
    patch versions until stable replacements are practical.

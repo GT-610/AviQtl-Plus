@@ -211,7 +211,7 @@ Item {
             timelineViewRoot.scheduleViewportRefresh(true);
         }
         function onTimelineScaleChanged() {
-            timelineViewRoot.scheduleViewportRefresh(true);
+            timelineViewRoot.scheduleViewportRefresh(false);
         }
         function onEffectParamChanged(clipId, effectIndex, paramName, value) {
             if (paramName === "layerCount")
