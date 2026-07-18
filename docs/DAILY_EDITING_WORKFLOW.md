@@ -126,10 +126,12 @@ exports a two-frame animated Text clip through the real `TimelineExportManager`,
 decodes the resulting MP4 with FFmpeg, and verifies the encoded frame count,
 stream metadata, and visible motion between the decoded frames.
 
-The `video_decoder` CTest generates deterministic H.264 frames with the real
-`VideoEncoder`, opens them through the production `VideoDecoder`, and verifies
-metadata plus first, last, and backward re-seek frames delivered through
-`VideoFrameStore` and `QVideoSink`.
+The `video_decoder` CTest generates 60 deterministic H.264 frames across five
+GOPs with the real `VideoEncoder`, opens them through the production
+`VideoDecoder`, and verifies cold, nearby, cross-GOP, backward, and rapid seek
+results through `VideoFrameStore` and `QVideoSink`. Native cache statistics make
+GOP-cache hits, frame-cache fallback, bounded GOP eviction, decoded-frame count,
+and frame-cache occupancy observable.
 
 The `export_workflow` CTest covers the service-level export path:
 

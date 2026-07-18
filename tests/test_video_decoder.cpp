@@ -1,16 +1,25 @@
 #include "video_decoder.hpp"
 #include "video_encoder.hpp"
 #include "video_frame_store.hpp"
+#include <QElapsedTimer>
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextStream>
 #include <QUrl>
 #include <QVector3D>
 #include <QVideoSink>
+#include <algorithm>
 #include <array>
 
 using namespace AviQtl::Core;
+
+namespace {
+constexpr int kTestFrameCount = 60;
+constexpr int kTestGopSize = 12;
+constexpr int kColdFrame = 48;
+} // namespace
 
 class TestVideoDecoder : public QObject {
     Q_OBJECT
@@ -35,13 +44,14 @@ bool TestVideoDecoder::createTestVideo(const QString &path) {
     config.codecName = QStringLiteral("libx264");
     config.outputUrl = path;
     config.preset = QStringLiteral("ultrafast");
+    config.gopSize = kTestGopSize;
     if (!encoder.open(config))
         return false;
 
     const std::array<QColor, 4> colors = {QColor(Qt::red), QColor(Qt::yellow), QColor(Qt::cyan), QColor(Qt::blue)};
-    for (int frame = 0; frame < static_cast<int>(colors.size()); ++frame) {
+    for (int frame = 0; frame < kTestFrameCount; ++frame) {
         QImage image(config.width, config.height, QImage::Format_RGBA8888);
-        image.fill(colors[frame]);
+        image.fill(colors[static_cast<std::size_t>(frame) % colors.size()]);
         if (!encoder.pushFrame(image, frame)) {
             encoder.close();
             return false;
@@ -93,47 +103,103 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     QTRY_COMPARE_WITH_TIMEOUT(readySpy.count(), 1, 10'000);
     QTRY_COMPARE_WITH_TIMEOUT(metadataSpy.count(), 1, 10'000);
     const QList<QVariant> metadata = metadataSpy.takeFirst();
-    QCOMPARE(metadata.at(0).toInt(), 4);
+    QCOMPARE(metadata.at(0).toInt(), kTestFrameCount);
     QVERIFY(qAbs(metadata.at(1).toDouble() - 30.0) < 0.01);
     QVERIFY(decoder.isReady());
-    QCOMPARE(decoder.totalFrameCount(), 4);
+    QCOMPARE(decoder.totalFrameCount(), kTestFrameCount);
     QVERIFY(qAbs(decoder.sourceFps() - 30.0) < 0.01);
 
-    QSignalSpy firstFrameSpy(&decoder, &MediaDecoder::frameReady);
-    QSignalSpy firstSinkSpy(&sink, &QVideoSink::videoFrameChanged);
-    decoder.seekToFrame(0, decoder.sourceFps());
-    QTRY_COMPARE_WITH_TIMEOUT(firstFrameSpy.count(), 1, 10'000);
-    QTRY_VERIFY_WITH_TIMEOUT(firstSinkSpy.count() >= 1, 10'000);
-    QCOMPARE(firstFrameSpy.takeFirst().at(0).toInt(), 0);
-    const QImage firstImage = sink.videoFrame().toImage();
-    QVERIFY(!firstImage.isNull());
-    const QVector3D firstColor = averageColor(firstImage);
-    QVERIFY2(firstColor.x() > firstColor.z() + 100.0F,
-             qPrintable(QStringLiteral("expected red first frame, got r=%1 g=%2 b=%3").arg(firstColor.x()).arg(firstColor.y()).arg(firstColor.z())));
+    QSignalSpy coldFrameSpy(&decoder, &MediaDecoder::frameReady);
+    QSignalSpy coldSinkSpy(&sink, &QVideoSink::videoFrameChanged);
+    decoder.seekToFrame(kColdFrame, decoder.sourceFps());
+    QTRY_COMPARE_WITH_TIMEOUT(coldFrameSpy.count(), 1, 10'000);
+    QTRY_VERIFY_WITH_TIMEOUT(coldSinkSpy.count() >= 1, 10'000);
+    QCOMPARE(coldFrameSpy.takeFirst().at(0).toInt(), kColdFrame);
+    const QImage coldImage = sink.videoFrame().toImage();
+    QVERIFY(!coldImage.isNull());
+    const QVector3D coldColor = averageColor(coldImage);
+    QVERIFY2(coldColor.x() > coldColor.z() + 100.0F, qPrintable(QStringLiteral("expected red cold frame, got r=%1 g=%2 b=%3").arg(coldColor.x()).arg(coldColor.y()).arg(coldColor.z())));
 
-    QSignalSpy lastFrameSpy(&decoder, &MediaDecoder::frameReady);
-    QSignalSpy lastSinkSpy(&sink, &QVideoSink::videoFrameChanged);
-    decoder.seekToFrame(3, decoder.sourceFps());
-    QTRY_COMPARE_WITH_TIMEOUT(lastFrameSpy.count(), 1, 10'000);
-    QTRY_VERIFY_WITH_TIMEOUT(lastSinkSpy.count() >= 1, 10'000);
-    QCOMPARE(lastFrameSpy.takeFirst().at(0).toInt(), 3);
-    const QImage lastImage = sink.videoFrame().toImage();
-    QVERIFY(!lastImage.isNull());
-    const QVector3D lastColor = averageColor(lastImage);
-    QVERIFY2(lastColor.z() > lastColor.x() + 100.0F,
-             qPrintable(QStringLiteral("expected blue last frame, got r=%1 g=%2 b=%3").arg(lastColor.x()).arg(lastColor.y()).arg(lastColor.z())));
+    const VideoDecoder::CacheStats coldStats = decoder.cacheStats();
+    QTextStream(stdout) << "video_decoder cold_seek misses=" << coldStats.misses << " gop_hits=" << coldStats.gopHits << " frame_hits=" << coldStats.frameHits << " decoded_frames=" << coldStats.decodedFrames << " gop_blocks=" << coldStats.gopBlocks
+                        << Qt::endl;
+    QCOMPARE(coldStats.misses, quint64{1});
+    QCOMPARE(coldStats.decodedFrames, quint64{kTestGopSize});
+    QCOMPARE(coldStats.gopBlocks, 1);
+    QVERIFY(coldStats.frameEntries > 0);
+    QVERIFY(coldStats.frameCost <= coldStats.frameMaxCost);
 
-    // This verifies backward re-seek content through VideoFrameStore and
-    // QVideoSink. It intentionally does not claim which decoder path served it.
-    QSignalSpy backwardReseekFrameSpy(&decoder, &MediaDecoder::frameReady);
-    QSignalSpy backwardReseekSinkSpy(&sink, &QVideoSink::videoFrameChanged);
-    decoder.seekToFrame(0, decoder.sourceFps());
-    QTRY_COMPARE_WITH_TIMEOUT(backwardReseekFrameSpy.count(), 1, 10'000);
-    QTRY_VERIFY_WITH_TIMEOUT(backwardReseekSinkSpy.count() >= 1, 10'000);
-    QCOMPARE(backwardReseekFrameSpy.takeFirst().at(0).toInt(), 0);
-    const QVector3D backwardReseekColor = averageColor(sink.videoFrame().toImage());
-    QVERIFY2(backwardReseekColor.x() > backwardReseekColor.z() + 100.0F,
-             qPrintable(QStringLiteral("expected backward re-seek red frame, got r=%1 g=%2 b=%3").arg(backwardReseekColor.x()).arg(backwardReseekColor.y()).arg(backwardReseekColor.z())));
+    QElapsedTimer seekTimer;
+    QSignalSpy nearbyFrameSpy(&decoder, &MediaDecoder::frameReady);
+    QSignalSpy nearbySinkSpy(&sink, &QVideoSink::videoFrameChanged);
+    seekTimer.start();
+    decoder.seekToFrame(kTestFrameCount - 1, decoder.sourceFps());
+    if (nearbyFrameSpy.isEmpty()) {
+        QVERIFY(nearbyFrameSpy.wait(10'000));
+    }
+    if (nearbySinkSpy.isEmpty()) {
+        QVERIFY(nearbySinkSpy.wait(10'000));
+    }
+    const qint64 nearbySeekMs = seekTimer.elapsed();
+    QCOMPARE(nearbyFrameSpy.count(), 1);
+    QCOMPARE(nearbyFrameSpy.takeFirst().at(0).toInt(), kTestFrameCount - 1);
+    const QVector3D nearbyColor = averageColor(sink.videoFrame().toImage());
+    QVERIFY2(nearbyColor.z() > nearbyColor.x() + 100.0F, qPrintable(QStringLiteral("expected blue nearby frame, got r=%1 g=%2 b=%3").arg(nearbyColor.x()).arg(nearbyColor.y()).arg(nearbyColor.z())));
+    const VideoDecoder::CacheStats nearbyStats = decoder.cacheStats();
+    QTextStream(stdout) << "video_decoder nearby_reseek elapsed_ms=" << nearbySeekMs << " misses=" << nearbyStats.misses << " gop_hits=" << nearbyStats.gopHits << " frame_hits=" << nearbyStats.frameHits << " gop_blocks=" << nearbyStats.gopBlocks
+                        << Qt::endl;
+    QCOMPARE(nearbyStats.misses, quint64{1});
+    QCOMPARE(nearbyStats.gopHits, quint64{1});
+    QCOMPARE(nearbyStats.frameHits, quint64{0});
+
+    auto seekAndMeasure = [&decoder](int frame) -> qint64 {
+        QSignalSpy frameSpy(&decoder, &MediaDecoder::frameReady);
+        QElapsedTimer timer;
+        timer.start();
+        decoder.seekToFrame(frame, decoder.sourceFps());
+        if (frameSpy.isEmpty() && !frameSpy.wait(10'000)) {
+            return -1;
+        }
+        if (frameSpy.count() != 1 || frameSpy.takeFirst().at(0).toInt() != frame) {
+            return -1;
+        }
+        return timer.elapsed();
+    };
+    for (const int frame : {36, 24, 12, 0}) {
+        const qint64 elapsedMs = seekAndMeasure(frame);
+        QVERIFY2(elapsedMs >= 0, qPrintable(QStringLiteral("seek to frame %1 failed").arg(frame)));
+        const VideoDecoder::CacheStats stats = decoder.cacheStats();
+        QTextStream(stdout) << "video_decoder cross_gop frame=" << frame << " elapsed_ms=" << elapsedMs << " misses=" << stats.misses << " gop_hits=" << stats.gopHits << " frame_hits=" << stats.frameHits << " decoded_frames=" << stats.decodedFrames
+                            << " gop_blocks=" << stats.gopBlocks << " gop_evictions=" << stats.gopEvictions << Qt::endl;
+    }
+
+    QSignalSpy hotReseekFrameSpy(&decoder, &MediaDecoder::frameReady);
+    QSignalSpy hotReseekSinkSpy(&sink, &QVideoSink::videoFrameChanged);
+    decoder.seekToFrame(kColdFrame, decoder.sourceFps());
+    QTRY_COMPARE_WITH_TIMEOUT(hotReseekFrameSpy.count(), 1, 10'000);
+    QTRY_VERIFY_WITH_TIMEOUT(hotReseekSinkSpy.count() >= 1, 10'000);
+    QCOMPARE(hotReseekFrameSpy.takeFirst().at(0).toInt(), kColdFrame);
+    const QVector3D hotReseekColor = averageColor(sink.videoFrame().toImage());
+    QVERIFY2(hotReseekColor.x() > hotReseekColor.z() + 100.0F, qPrintable(QStringLiteral("expected hot re-seek red frame, got r=%1 g=%2 b=%3").arg(hotReseekColor.x()).arg(hotReseekColor.y()).arg(hotReseekColor.z())));
+
+    const VideoDecoder::CacheStats finalStats = decoder.cacheStats();
+    QTextStream(stdout) << "video_decoder final_cache misses=" << finalStats.misses << " gop_hits=" << finalStats.gopHits << " frame_hits=" << finalStats.frameHits << " decoded_frames=" << finalStats.decodedFrames << " gop_blocks=" << finalStats.gopBlocks
+                        << " gop_evictions=" << finalStats.gopEvictions << " frame_entries=" << finalStats.frameEntries << " frame_cost=" << finalStats.frameCost << Qt::endl;
+    QCOMPARE(finalStats.misses, quint64{5});
+    QCOMPARE(finalStats.gopHits, quint64{1});
+    QCOMPARE(finalStats.frameHits, quint64{1});
+    QCOMPARE(finalStats.decodedFrames, quint64{kTestFrameCount});
+    QCOMPARE(finalStats.gopBlocks, 3);
+    QCOMPARE(finalStats.gopEvictions, quint64{2});
+    QCOMPARE(finalStats.frameEntries, kTestFrameCount);
+
+    QSignalSpy burstFrameSpy(&decoder, &MediaDecoder::frameReady);
+    decoder.seekToFrame(12, decoder.sourceFps());
+    decoder.seekToFrame(24, decoder.sourceFps());
+    decoder.seekToFrame(36, decoder.sourceFps());
+    QTRY_VERIFY_WITH_TIMEOUT(std::any_of(burstFrameSpy.cbegin(), burstFrameSpy.cend(), [](const QList<QVariant> &arguments) { return arguments.first().toInt() == 36; }), 10'000);
+    QTest::qWait(20);
+    QCOMPARE(burstFrameSpy.last().first().toInt(), 36);
 }
 
 QTEST_MAIN(TestVideoDecoder)

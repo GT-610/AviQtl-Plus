@@ -347,6 +347,9 @@ auto VideoEncoder::open(const Config &config) -> bool {
     m_stream->time_base = m_encCtx->time_base;
     m_stream->avg_frame_rate = {.num = config.fps_num, .den = config.fps_den};
     m_stream->r_frame_rate = m_stream->avg_frame_rate;
+    if (config.gopSize > 0) {
+        m_encCtx->gop_size = config.gopSize;
+    }
 
     // ピクセルフォーマットの自動選択
     if (m_encCtx->hw_frames_ctx != nullptr) {
