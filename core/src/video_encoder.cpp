@@ -349,6 +349,8 @@ auto VideoEncoder::open(const Config &config) -> bool {
     m_stream->r_frame_rate = m_stream->avg_frame_rate;
     if (config.gopSize > 0) {
         m_encCtx->gop_size = config.gopSize;
+        m_encCtx->keyint_min = config.gopSize;
+        av_opt_set_int(m_encCtx->priv_data, "sc_threshold", 0, 0);
     }
 
     // ピクセルフォーマットの自動選択

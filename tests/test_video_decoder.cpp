@@ -12,6 +12,7 @@
 #include <QVideoSink>
 #include <algorithm>
 #include <array>
+#include <utility>
 
 using namespace AviQtl::Core;
 
@@ -152,7 +153,7 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     QCOMPARE(nearbyStats.gopHits, quint64{1});
     QCOMPARE(nearbyStats.frameHits, quint64{0});
 
-    auto seekAndMeasure = [&decoder](int frame) -> qint64 {
+    auto seekAndMeasure = [&decoder, &sink](int frame, QImage &image) -> qint64 {
         QSignalSpy frameSpy(&decoder, &MediaDecoder::frameReady);
         QElapsedTimer timer;
         timer.start();
@@ -163,11 +164,22 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
         if (frameSpy.count() != 1 || frameSpy.takeFirst().at(0).toInt() != frame) {
             return -1;
         }
+        image = sink.videoFrame().toImage();
         return timer.elapsed();
     };
-    for (const int frame : {36, 24, 12, 0}) {
-        const qint64 elapsedMs = seekAndMeasure(frame);
-        QVERIFY2(elapsedMs >= 0, qPrintable(QStringLiteral("seek to frame %1 failed").arg(frame)));
+    const std::array<std::pair<int, QColor>, 4> crossGopTargets = {
+        std::pair{37, QColor(Qt::yellow)},
+        std::pair{26, QColor(Qt::cyan)},
+        std::pair{15, QColor(Qt::blue)},
+        std::pair{0, QColor(Qt::red)},
+    };
+    for (const auto &[frame, expectedColor] : crossGopTargets) {
+        QImage image;
+        const qint64 elapsedMs = seekAndMeasure(frame, image);
+        QVERIFY2(elapsedMs >= 0 && !image.isNull(), qPrintable(QStringLiteral("seek to frame %1 failed").arg(frame)));
+        const QVector3D actualColor = averageColor(image);
+        const QVector3D expectedColorVector(expectedColor.red(), expectedColor.green(), expectedColor.blue());
+        QVERIFY2((actualColor - expectedColorVector).length() < 80.0F, qPrintable(QStringLiteral("unexpected frame %1 color: r=%2 g=%3 b=%4").arg(frame).arg(actualColor.x()).arg(actualColor.y()).arg(actualColor.z())));
         const VideoDecoder::CacheStats stats = decoder.cacheStats();
         QTextStream(stdout) << "video_decoder cross_gop frame=" << frame << " elapsed_ms=" << elapsedMs << " misses=" << stats.misses << " gop_hits=" << stats.gopHits << " frame_hits=" << stats.frameHits << " decoded_frames=" << stats.decodedFrames
                             << " gop_blocks=" << stats.gopBlocks << " gop_evictions=" << stats.gopEvictions << Qt::endl;
