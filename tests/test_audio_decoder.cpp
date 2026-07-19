@@ -75,39 +75,45 @@ class TestAudioDecoder : public QObject {
     Q_OBJECT
 
   private slots:
-    void constructor();
-    void setSampleRate();
-    void totalDurationSec();
+    void initTestCase();
+    void durationUnknownBeforeStart();
+    void sampleRateChangeKeepsDecoderReadable();
     void readyAndGetSamplesIntoReadsAcrossChunks();
     void getSamplesPadsPastEnd();
     void getPeaksBuildsWaveform();
     void getPeaksHighZoomReadsSamples();
+
+  private:
+    QTemporaryDir m_dir;
+    QUrl m_source;
 };
 
-void TestAudioDecoder::constructor() {
-    QTemporaryDir dir;
-    AudioDecoder decoder(1, createTestWav(dir));
+void TestAudioDecoder::initTestCase() {
+    QVERIFY(m_dir.isValid());
+    m_source = createTestWav(m_dir);
+    QVERIFY(m_source.isValid());
+}
+
+void TestAudioDecoder::durationUnknownBeforeStart() {
+    AudioDecoder decoder(1, m_source);
     QCOMPARE(decoder.totalDurationSec(), 0.0);
 }
 
-void TestAudioDecoder::setSampleRate() {
-    QTemporaryDir dir;
-    AudioDecoder decoder(1, createTestWav(dir));
+void TestAudioDecoder::sampleRateChangeKeepsDecoderReadable() {
+    AudioDecoder decoder(1, m_source);
+    QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
+    decoder.scheduleStart();
+    QTRY_COMPARE(readySpy.count(), 1);
+
     decoder.setSampleRate(44100);
-    // No direct way to verify sample rate was set, but it shouldn't crash
-    QVERIFY(true);
-}
-
-void TestAudioDecoder::totalDurationSec() {
-    QTemporaryDir dir;
-    AudioDecoder decoder(1, createTestWav(dir));
-    // Duration is unknown until decoding starts.
-    QCOMPARE(decoder.totalDurationSec(), 0.0);
+    constexpr int sampleCount = 4410 * 2;
+    std::vector<float> samples(sampleCount, 0.0F);
+    QCOMPARE(decoder.getSamplesInto(0.1, sampleCount, samples.data()), sampleCount);
+    QVERIFY(std::any_of(samples.begin(), samples.end(), [](float value) { return std::abs(value) > 0.001F; }));
 }
 
 void TestAudioDecoder::readyAndGetSamplesIntoReadsAcrossChunks() {
-    QTemporaryDir dir;
-    AudioDecoder decoder(1, createTestWav(dir));
+    AudioDecoder decoder(1, m_source);
     QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
 
     decoder.scheduleStart();
@@ -123,8 +129,7 @@ void TestAudioDecoder::readyAndGetSamplesIntoReadsAcrossChunks() {
 }
 
 void TestAudioDecoder::getSamplesPadsPastEnd() {
-    QTemporaryDir dir;
-    AudioDecoder decoder(1, createTestWav(dir));
+    AudioDecoder decoder(1, m_source);
     QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
 
     decoder.scheduleStart();
@@ -140,8 +145,7 @@ void TestAudioDecoder::getSamplesPadsPastEnd() {
 }
 
 void TestAudioDecoder::getPeaksBuildsWaveform() {
-    QTemporaryDir dir;
-    AudioDecoder decoder(1, createTestWav(dir));
+    AudioDecoder decoder(1, m_source);
     QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
 
     decoder.scheduleStart();
@@ -156,8 +160,7 @@ void TestAudioDecoder::getPeaksBuildsWaveform() {
 }
 
 void TestAudioDecoder::getPeaksHighZoomReadsSamples() {
-    QTemporaryDir dir;
-    AudioDecoder decoder(1, createTestWav(dir));
+    AudioDecoder decoder(1, m_source);
     QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
 
     decoder.scheduleStart();

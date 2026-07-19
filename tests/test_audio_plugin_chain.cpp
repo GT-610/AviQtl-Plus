@@ -46,10 +46,8 @@ class TestAudioPluginChain : public QObject {
     Q_OBJECT
 
   private slots:
-    void constructorReadsDefaults() {
+    void constructorStartsEmpty() {
         AudioPluginChain chain;
-        // Just verify it does not crash; defaults come from SettingsManager which is
-        // already tested elsewhere.
         QCOMPARE(chain.count(), 0);
     }
 

@@ -21,7 +21,7 @@ class TestPackageDeploy : public QObject {
     void deployEffectType();
     void deployObjectType();
     void deployTransitionType();
-    void unknownTypeDefaultsToPlugins();
+    void rejectsUnknownPackageType();
     void rejectsInvalidPackageIds();
     void extractsSafeArchive();
     void rejectsTraversalArchive();
@@ -138,7 +138,7 @@ void TestPackageDeploy::deployTransitionType() {
     QDir(packageDir).removeRecursively();
 }
 
-void TestPackageDeploy::unknownTypeDefaultsToPlugins() {
+void TestPackageDeploy::rejectsUnknownPackageType() {
     PackageManager &pm = PackageManager::instance();
     QVERIFY(pm.getPackageDeployDir(QStringLiteral("unknown")).isEmpty());
 
