@@ -350,7 +350,7 @@ auto VideoEncoder::open(const Config &config) -> bool {
     if (config.gopSize > 0) {
         m_encCtx->gop_size = config.gopSize;
         m_encCtx->keyint_min = config.gopSize;
-        int sceneCutResult = AVERROR_OPTION_NOT_FOUND;
+        int sceneCutResult = 0;
         if (m_config.codecName == QLatin1String("libx264")) {
             sceneCutResult = av_opt_set_int(m_encCtx->priv_data, "sc_threshold", 0, 0);
         } else if (m_config.codecName == QLatin1String("libx265")) {
