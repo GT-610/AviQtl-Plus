@@ -296,6 +296,27 @@ bool VideoDecoder::getFrameFromGopCache(int frameIndex, QVideoFrame &outFrame) {
     return true;
 }
 
+void VideoDecoder::storeGopCacheBlock(GopCacheBlock block) {
+    if (block.frames.isEmpty()) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> locker(m_gopCacheMutex);
+    GopCacheBlock *alt = (m_currentGopCache == m_gopCacheA) ? m_gopCacheB : m_gopCacheA;
+    const int sourceStart = m_gopCacheCount == MAX_GOP_CACHE_SIZE ? 1 : 0;
+    if (sourceStart != 0) {
+        m_gopCacheEvictions.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    int nextCount = 0;
+    for (int i = sourceStart; i < m_gopCacheCount; ++i) {
+        alt[nextCount++] = std::move(m_currentGopCache[i]);
+    }
+    alt[nextCount++] = std::move(block);
+    m_currentGopCache = alt;
+    m_gopCacheCount = nextCount;
+}
+
 int VideoDecoder::findGopEndIndex(int startFrame) const {
     if (m_index.empty())
         return 0;
@@ -443,17 +464,20 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
 bool VideoDecoder::tryCacheHit(int targetFrame, const QString &clipKey) {
     QVideoFrame cachedFrame;
     if (getFrameFromGopCache(targetFrame, cachedFrame)) {
+        m_gopCacheHits.fetch_add(1, std::memory_order_relaxed);
         m_store->setVideoFrameSafe(clipKey, cachedFrame);
         QMetaObject::invokeMethod(this, [this, targetFrame]() -> void { emit frameReady(targetFrame); }, Qt::QueuedConnection);
         return true;
     }
 
     if (QVideoFrame *cached = m_frameCache.object(targetFrame)) {
+        m_frameCacheHits.fetch_add(1, std::memory_order_relaxed);
         m_store->setVideoFrameSafe(clipKey, *cached);
         QMetaObject::invokeMethod(this, [this, targetFrame]() { emit frameReady(targetFrame); }, Qt::QueuedConnection);
         return true;
     }
 
+    m_cacheMisses.fetch_add(1, std::memory_order_relaxed);
     return false;
 }
 
@@ -674,6 +698,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                     videoFrame.setEndTime(-1);
 
                     if (videoFrame.isValid()) {
+                        m_decodedFrames.fetch_add(1, std::memory_order_relaxed);
                         // メタデータが8bitでも、実際のメモリ消費(RGBA64)に合わせてコスト計算を行う
                         int bpp = (outputPixFmt == AV_PIX_FMT_RGBA64LE) ? 8 : (qtFmt == QVideoFrameFormat::Format_RGBA8888 ? 4 : 2);
                         int64_t cost = static_cast<int64_t>(videoFrame.width()) * videoFrame.height() * bpp;
@@ -717,6 +742,10 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
     }
     av_packet_unref(m_pkt);
 
+    if (shouldFillGop) {
+        storeGopCacheBlock(std::move(newGopBlock));
+    }
+
     if (!targetDispatched && m_lastGoodFrame.isValid() && !m_closing.load(std::memory_order_acquire)) {
         m_store->setVideoFrameSafe(clipKey, m_lastGoodFrame);
         if (auto *app = qApp) {
@@ -745,6 +774,22 @@ void VideoDecoder::updateCacheSize() {
     int minSizeMB = SettingsManager::instance().value(QStringLiteral("videoDecoderMinCacheMB"), 64).toInt();
     sizeMB = std::max(sizeMB, minSizeMB);
     m_frameCache.setMaxCost(static_cast<qsizetype>(sizeMB) * 1024 * 1024);
+}
+
+auto VideoDecoder::cacheStats() const -> CacheStats {
+    QMutexLocker locker(&m_mutex);
+    std::lock_guard<std::mutex> gopLocker(m_gopCacheMutex);
+    return {
+        .gopHits = m_gopCacheHits.load(std::memory_order_relaxed),
+        .frameHits = m_frameCacheHits.load(std::memory_order_relaxed),
+        .misses = m_cacheMisses.load(std::memory_order_relaxed),
+        .decodedFrames = m_decodedFrames.load(std::memory_order_relaxed),
+        .gopEvictions = m_gopCacheEvictions.load(std::memory_order_relaxed),
+        .gopBlocks = m_gopCacheCount,
+        .frameEntries = m_frameCache.size(),
+        .frameCost = m_frameCache.totalCost(),
+        .frameMaxCost = m_frameCache.maxCost(),
+    };
 }
 
 void VideoDecoder::setPlaying(bool playing) {

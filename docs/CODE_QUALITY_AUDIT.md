@@ -37,8 +37,10 @@ dedicated design, fixtures, or performance measurements.
    controller fixture now covers QML snapshot materialization, distributed
    lookup, move/undo/redo scaling from 1 to 1,000 selected clips, and bounded
    delegate creation plus continuous scrolling and zooming through the real QML
-   timeline. Add seek latency, frame-cache pressure, long-audio decoding, and
-   plugin scanning before changing cache or concurrency policy.
+   timeline. A generated multi-GOP fixture also covers decoder GOP-cache hits,
+   eviction, frame-cache fallback, and rapid seeks. Add representative
+   long-video seek latency and frame-cache memory pressure, long-audio decoding,
+   and plugin scanning before further cache or concurrency policy changes.
 3. **Private Qt API reduction.** ZIP handling, QRhi integration, and shader
    tooling currently require Qt private modules. Builds must use matching Qt
    patch versions until stable replacements are practical.

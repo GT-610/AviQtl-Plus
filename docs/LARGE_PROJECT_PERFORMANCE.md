@@ -80,9 +80,24 @@ about 33.9 seconds to 7.6 seconds on the same Windows development build.
 Elapsed time remains informational; the deterministic rebuild-count assertion
 protects the intended behavior across different machines.
 
+## Decoder Seek and Cache
+
+The `video_decoder` fixture generates 60 frames with a fixed 12-frame GOP size,
+then seeks from the final GOP backward through all five GOPs. It verifies frame
+content, rapid-seek latest-request behavior, cache occupancy, and the exact
+cache path used for nearby and repeated frames.
+
+The first instrumented run decoded all 60 frames but reported zero GOP blocks
+and zero GOP hits. `VideoDecoder` built each `GopCacheBlock` while decoding but
+never inserted the completed block into its three-entry LRU. Restoring the
+missing insertion produced one nearby GOP hit, retained three blocks, evicted
+the two oldest blocks, and served the final repeated frame from the larger
+frame cache. These counts are deterministic assertions; the tiny generated
+media is not used to claim representative seek latency.
+
 ## Next Measurements
 
 The fixture now covers the model/controller baseline, real QML delegate
-virtualization, and continuous viewport interaction. Separate measurements are
-still needed for decoder seek/cache pressure, long-audio decoding, and plugin
-scanning.
+virtualization, continuous viewport interaction, and the decoder GOP-cache
+lifecycle. Separate measurements are still needed for long-video seek latency
+and frame-cache memory eviction, long-audio decoding, and plugin scanning.

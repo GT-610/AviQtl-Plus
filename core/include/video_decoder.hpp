@@ -4,6 +4,7 @@
 #include <QCache>
 #include <QFuture>
 #include <QVideoFrame>
+#include <atomic>
 
 extern "C" {
 struct AVFormatContext;
@@ -34,6 +35,20 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     int totalFrameCount() const;
     void seek(qint64 ms) override;
     void setPlaying(bool playing) override;
+
+    // Native diagnostic snapshot. Counters are cumulative for this decoder.
+    struct CacheStats {
+        quint64 gopHits = 0;
+        quint64 frameHits = 0;
+        quint64 misses = 0;
+        quint64 decodedFrames = 0;
+        quint64 gopEvictions = 0;
+        int gopBlocks = 0;
+        qsizetype frameEntries = 0;
+        qsizetype frameCost = 0;
+        qsizetype frameMaxCost = 0;
+    };
+    CacheStats cacheStats() const;
 
   signals:
     void videoMetaReady(int totalFrameCount, double sourceFps);
@@ -68,7 +83,7 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
         QHash<int, QVideoFrame> frames;
     };
     static constexpr int MAX_GOP_CACHE_SIZE = 3;
-    std::mutex m_gopCacheMutex;
+    mutable std::mutex m_gopCacheMutex;
 
     AVFormatContext *m_fmtCtx = nullptr;
     AVCodecContext *m_decCtx = nullptr;
@@ -93,6 +108,12 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     GopCacheBlock m_gopCacheB[MAX_GOP_CACHE_SIZE];
     GopCacheBlock *m_currentGopCache = m_gopCacheA;
     bool getFrameFromGopCache(int frameIndex, QVideoFrame &outFrame);
+    void storeGopCacheBlock(GopCacheBlock block);
+    std::atomic<quint64> m_gopCacheHits{0};
+    std::atomic<quint64> m_frameCacheHits{0};
+    std::atomic<quint64> m_cacheMisses{0};
+    std::atomic<quint64> m_decodedFrames{0};
+    std::atomic<quint64> m_gopCacheEvictions{0};
 
     std::atomic<bool> m_isDecoding{false};
     QFuture<void> m_initFuture;

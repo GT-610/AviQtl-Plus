@@ -49,6 +49,7 @@ class VideoEncoder : public QObject {
         int endFrame = -1; // -1 = タイムライン末尾まで
         QString preset;   // e.g. ultrafast, fast, medium, slow
         QString profile;  // e.g. baseline, main, high (H.264)
+        int gopSize = 0;  // 0 = encoder default
     };
 
     explicit VideoEncoder(QObject *parent = nullptr);

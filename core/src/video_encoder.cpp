@@ -347,6 +347,25 @@ auto VideoEncoder::open(const Config &config) -> bool {
     m_stream->time_base = m_encCtx->time_base;
     m_stream->avg_frame_rate = {.num = config.fps_num, .den = config.fps_den};
     m_stream->r_frame_rate = m_stream->avg_frame_rate;
+    if (config.gopSize > 0) {
+        m_encCtx->gop_size = config.gopSize;
+        m_encCtx->keyint_min = config.gopSize;
+        int sceneCutResult = 0;
+        if (m_config.codecName == QLatin1String("libx264")) {
+            sceneCutResult = av_opt_set_int(m_encCtx->priv_data, "sc_threshold", 0, 0);
+        } else if (m_config.codecName == QLatin1String("libx265")) {
+            sceneCutResult = av_opt_set(m_encCtx->priv_data, "x265-params", "scenecut=0", 0);
+        } else if (m_config.codecName.contains(QLatin1String("nvenc"))) {
+            sceneCutResult = av_opt_set_int(m_encCtx->priv_data, "no-scenecut", 1, 0);
+        }
+        if (sceneCutResult < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+            av_strerror(sceneCutResult, errbuf, sizeof(errbuf));
+            qWarning() << "Could not configure fixed GOP for codec" << m_config.codecName << ':' << errbuf;
+            cleanup();
+            return false;
+        }
+    }
 
     // ピクセルフォーマットの自動選択
     if (m_encCtx->hw_frames_ctx != nullptr) {
