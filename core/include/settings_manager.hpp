@@ -22,6 +22,7 @@ class SettingsManager : public QObject {
     Q_INVOKABLE void save();
 
     Q_INVOKABLE void setValue(const QString &key, const QVariant &value);
+    void removeValue(const QString &key);
     Q_INVOKABLE QVariant value(const QString &key, const QVariant &defaultValue = QVariant()) const;
     Q_INVOKABLE QVariantMap shortcuts() const;
     Q_INVOKABLE QString shortcut(const QString &actionId, const QString &fallbackValue = QString()) const;

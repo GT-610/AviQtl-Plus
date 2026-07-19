@@ -265,7 +265,15 @@ void SettingsManager::save() {
         return;
     }
 
-    QJsonObject obj = QJsonObject::fromVariantMap(m_settings);
+    QVariantMap persistentSettings = m_settings;
+    for (auto it = persistentSettings.begin(); it != persistentSettings.end();) {
+        if (it.key().startsWith(QStringLiteral("_"))) {
+            it = persistentSettings.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    QJsonObject obj = QJsonObject::fromVariantMap(persistentSettings);
     QJsonDocument doc(obj);
     const QByteArray payload = doc.toJson();
     qint64 written = file.write(payload);
@@ -289,6 +297,15 @@ void SettingsManager::setValue(const QString &key, const QVariant &value) {
         m_settings.insert(key, value);
         emit settingsChanged();
         // Runtime keys starting with "_" are not saved to disk
+        if (!key.startsWith(QStringLiteral("_"))) {
+            save();
+        }
+    }
+}
+
+void SettingsManager::removeValue(const QString &key) {
+    if (m_settings.remove(key) > 0) {
+        emit settingsChanged();
         if (!key.startsWith(QStringLiteral("_"))) {
             save();
         }

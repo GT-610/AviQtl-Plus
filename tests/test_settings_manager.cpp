@@ -1,4 +1,9 @@
 #include "settings_manager.hpp"
+#include <QCoreApplication>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -22,6 +27,57 @@ class TestSettingsManager : public QObject {
         // Use underscore prefix to avoid disk save side-effect
         SettingsManager::instance().setValue(QStringLiteral("_test.integer"), 42);
         QCOMPARE(SettingsManager::instance().value(QStringLiteral("_test.integer")).toInt(), 42);
+    }
+
+    void removeValue() {
+        SettingsManager::instance().setValue(QStringLiteral("_test.removed"), 42);
+        SettingsManager::instance().removeValue(QStringLiteral("_test.removed"));
+        QVERIFY(!SettingsManager::instance().settings().contains(QStringLiteral("_test.removed")));
+    }
+
+    void runtimeValuesAreNeverPersisted() {
+        SettingsManager &settings = SettingsManager::instance();
+        const QVariantMap originalSettings = settings.settings();
+        const QString settingsPath = QCoreApplication::applicationDirPath() + QStringLiteral("/aviqtl_settings.json");
+        QVERIFY(QFileInfo(QCoreApplication::applicationDirPath()).isWritable());
+
+        QFile originalFile(settingsPath);
+        const bool originalFileExisted = originalFile.exists();
+        QByteArray originalPayload;
+        if (originalFileExisted) {
+            QVERIFY(originalFile.open(QIODevice::ReadOnly));
+            originalPayload = originalFile.readAll();
+            originalFile.close();
+        }
+        const auto restoreSettings = qScopeGuard([&settings, originalSettings, settingsPath, originalFileExisted, originalPayload]() -> void {
+            settings.setSettings(originalSettings);
+            if (originalFileExisted) {
+                QFile file(settingsPath);
+                if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                    file.write(originalPayload);
+                }
+            } else {
+                QFile::remove(settingsPath);
+            }
+        });
+
+        const QString runtimeKey = QStringLiteral("_test.runtimeOnly");
+        const QString persistentKey = QStringLiteral("showConfirmOnClose");
+        const bool persistentValue = !settings.value(persistentKey).toBool();
+        settings.setValue(runtimeKey, QStringLiteral("must-not-persist"));
+        settings.setValue(persistentKey, persistentValue);
+
+        QFile persistedFile(settingsPath);
+        QVERIFY(persistedFile.open(QIODevice::ReadOnly));
+        const QJsonDocument persistedDocument = QJsonDocument::fromJson(persistedFile.readAll());
+        QVERIFY(persistedDocument.isObject());
+        QVERIFY(!persistedDocument.object().contains(runtimeKey));
+        QCOMPARE(persistedDocument.object().value(persistentKey).toBool(), persistentValue);
+
+        settings.removeValue(runtimeKey);
+        settings.load();
+        QVERIFY(!settings.settings().contains(runtimeKey));
+        QCOMPARE(settings.value(persistentKey).toBool(), persistentValue);
     }
 
     void valueWithDefault() {

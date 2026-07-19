@@ -1,8 +1,10 @@
+#include "settings_manager.hpp"
 #include "video_decoder.hpp"
 #include "video_encoder.hpp"
 #include "video_frame_store.hpp"
 #include <QElapsedTimer>
 #include <QFile>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -20,6 +22,8 @@ namespace {
 constexpr int kTestFrameCount = 60;
 constexpr int kTestGopSize = 12;
 constexpr int kColdFrame = 48;
+constexpr int kEvictionFrameCount = 240;
+constexpr qsizetype kEvictionCacheBytes = 2 * 1024 * 1024;
 } // namespace
 
 class TestVideoDecoder : public QObject {
@@ -28,13 +32,14 @@ class TestVideoDecoder : public QObject {
   private slots:
     void initialStateIsEmpty();
     void decodesEncodedFramesThroughVideoSink();
+    void frameCacheEvictionStaysWithinBudget();
 
   private:
-    static bool createTestVideo(const QString &path);
+    static bool createTestVideo(const QString &path, int frameCount = kTestFrameCount);
     static QVector3D averageColor(const QImage &image);
 };
 
-bool TestVideoDecoder::createTestVideo(const QString &path) {
+bool TestVideoDecoder::createTestVideo(const QString &path, int frameCount) {
     VideoEncoder encoder;
     VideoEncoder::Config config;
     config.width = 96;
@@ -50,7 +55,7 @@ bool TestVideoDecoder::createTestVideo(const QString &path) {
         return false;
 
     const std::array<QColor, 4> colors = {QColor(Qt::red), QColor(Qt::yellow), QColor(Qt::cyan), QColor(Qt::blue)};
-    for (int frame = 0; frame < kTestFrameCount; ++frame) {
+    for (int frame = 0; frame < frameCount; ++frame) {
         QImage image(config.width, config.height, QImage::Format_RGBA8888);
         image.fill(colors[static_cast<std::size_t>(frame) % colors.size()]);
         if (!encoder.pushFrame(image, frame)) {
@@ -212,6 +217,109 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     QTRY_VERIFY_WITH_TIMEOUT(std::any_of(burstFrameSpy.cbegin(), burstFrameSpy.cend(), [](const QList<QVariant> &arguments) { return arguments.first().toInt() == 36; }), 10'000);
     QTest::qWait(20);
     QCOMPARE(burstFrameSpy.last().first().toInt(), 36);
+}
+
+void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
+    SettingsManager &settings = SettingsManager::instance();
+    const QVariant previousOverride = settings.value(QStringLiteral("_videoDecoderFrameCacheMaxBytes"));
+    settings.setValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"), kEvictionCacheBytes);
+    const auto restoreCacheOverride = qScopeGuard([&settings, previousOverride]() -> void {
+        if (previousOverride.isValid()) {
+            settings.setValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"), previousOverride);
+        } else {
+            settings.removeValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"));
+        }
+    });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString videoPath = dir.filePath(QStringLiteral("decoder-eviction.mp4"));
+    QVERIFY(createTestVideo(videoPath, kEvictionFrameCount));
+
+    constexpr int clipId = 8;
+    VideoFrameStore store;
+    QVideoSink sink;
+    store.registerSink(QString::number(clipId), &sink);
+
+    VideoDecoder decoder(clipId, QUrl::fromLocalFile(videoPath), &store);
+    QSignalSpy readySpy(&decoder, &MediaDecoder::ready);
+    decoder.scheduleStart();
+    QTRY_COMPARE_WITH_TIMEOUT(readySpy.count(), 1, 10'000);
+    QVERIFY(decoder.isReady());
+    QCOMPARE(decoder.totalFrameCount(), kEvictionFrameCount);
+
+    const std::array<QColor, 4> expectedColors = {QColor(Qt::red), QColor(Qt::yellow), QColor(Qt::cyan), QColor(Qt::blue)};
+    auto seekAndVerify = [&decoder, &sink, &expectedColors](int frame) -> qint64 {
+        QSignalSpy frameSpy(&decoder, &MediaDecoder::frameReady);
+        QElapsedTimer timer;
+        timer.start();
+        decoder.seekToFrame(frame, decoder.sourceFps());
+        if (frameSpy.isEmpty() && !frameSpy.wait(10'000)) {
+            return -1;
+        }
+        if (frameSpy.count() != 1 || frameSpy.takeFirst().at(0).toInt() != frame) {
+            return -1;
+        }
+        const QImage image = sink.videoFrame().toImage();
+        if (image.isNull()) {
+            return -1;
+        }
+        const QVector3D actualColor = averageColor(image);
+        const QColor expectedColor = expectedColors[static_cast<std::size_t>(frame) % expectedColors.size()];
+        const QVector3D expectedColorVector(static_cast<float>(expectedColor.red()), static_cast<float>(expectedColor.green()), static_cast<float>(expectedColor.blue()));
+        if ((actualColor - expectedColorVector).length() >= 80.0F) {
+            return -1;
+        }
+        return timer.elapsed();
+    };
+
+    QVector<qint64> coldSeekTimes;
+    constexpr int gopCount = kEvictionFrameCount / kTestGopSize;
+    coldSeekTimes.reserve(gopCount);
+    for (int gop = gopCount - 1; gop >= 0; --gop) {
+        const int frame = (gop * kTestGopSize) + (((gop * 5) + 1) % kTestGopSize);
+        const qint64 elapsedMs = seekAndVerify(frame);
+        QVERIFY2(elapsedMs >= 0, qPrintable(QStringLiteral("cold seek to frame %1 failed").arg(frame)));
+        const int completedSeeks = gopCount - gop;
+        QTRY_COMPARE_WITH_TIMEOUT(decoder.cacheStats().decodedFrames, static_cast<quint64>(completedSeeks * kTestGopSize), 10'000);
+        QTRY_COMPARE_WITH_TIMEOUT(decoder.cacheStats().gopEvictions, static_cast<quint64>(std::max(0, completedSeeks - 3)), 10'000);
+        coldSeekTimes.append(elapsedMs);
+    }
+
+    const VideoDecoder::CacheStats sweepStats = decoder.cacheStats();
+    std::ranges::sort(coldSeekTimes);
+    const qint64 medianColdSeekMs = coldSeekTimes.at(coldSeekTimes.size() / 2);
+    QTextStream(stdout) << "video_decoder eviction_sweep seeks=" << gopCount << " median_ms=" << medianColdSeekMs << " misses=" << sweepStats.misses << " decoded_frames=" << sweepStats.decodedFrames << " gop_blocks=" << sweepStats.gopBlocks
+                        << " gop_evictions=" << sweepStats.gopEvictions << " frame_entries=" << sweepStats.frameEntries << " frame_cost=" << sweepStats.frameCost << " frame_max_cost=" << sweepStats.frameMaxCost << Qt::endl;
+    QCOMPARE(sweepStats.misses, quint64{gopCount});
+    QCOMPARE(sweepStats.decodedFrames, quint64{kEvictionFrameCount});
+    QCOMPARE(sweepStats.gopBlocks, 3);
+    QCOMPARE(sweepStats.gopEvictions, quint64{gopCount - 3});
+    QCOMPARE(sweepStats.frameMaxCost, kEvictionCacheBytes);
+    QVERIFY(sweepStats.frameCost <= sweepStats.frameMaxCost);
+    QVERIFY(sweepStats.frameEntries < kEvictionFrameCount);
+
+    constexpr int frameCacheHitTarget = 47;
+    const qint64 frameCacheHitMs = seekAndVerify(frameCacheHitTarget);
+    QVERIFY(frameCacheHitMs >= 0);
+    const VideoDecoder::CacheStats hitStats = decoder.cacheStats();
+    QTextStream(stdout) << "video_decoder frame_cache_reseek frame=" << frameCacheHitTarget << " elapsed_ms=" << frameCacheHitMs << " misses=" << hitStats.misses << " gop_hits=" << hitStats.gopHits << " frame_hits=" << hitStats.frameHits << " decoded_frames=" << hitStats.decodedFrames << Qt::endl;
+    QCOMPARE(hitStats.misses, sweepStats.misses);
+    QCOMPARE(hitStats.gopHits, sweepStats.gopHits);
+    QCOMPARE(hitStats.frameHits, sweepStats.frameHits + 1);
+    QCOMPARE(hitStats.decodedFrames, sweepStats.decodedFrames);
+
+    constexpr int evictedFrameTarget = kEvictionFrameCount - 1;
+    const qint64 evictedReseekMs = seekAndVerify(evictedFrameTarget);
+    QVERIFY(evictedReseekMs >= 0);
+    QTRY_COMPARE_WITH_TIMEOUT(decoder.cacheStats().decodedFrames, hitStats.decodedFrames + kTestGopSize, 10'000);
+    const VideoDecoder::CacheStats evictionStats = decoder.cacheStats();
+    QTextStream(stdout) << "video_decoder evicted_reseek frame=" << evictedFrameTarget << " elapsed_ms=" << evictedReseekMs << " misses=" << evictionStats.misses << " frame_hits=" << evictionStats.frameHits << " decoded_frames=" << evictionStats.decodedFrames << " frame_entries=" << evictionStats.frameEntries
+                        << " frame_cost=" << evictionStats.frameCost << Qt::endl;
+    QCOMPARE(evictionStats.misses, hitStats.misses + 1);
+    QCOMPARE(evictionStats.frameHits, hitStats.frameHits);
+    QCOMPARE(evictionStats.decodedFrames, hitStats.decodedFrames + kTestGopSize);
+    QVERIFY(evictionStats.frameCost <= evictionStats.frameMaxCost);
 }
 
 QTEST_MAIN(TestVideoDecoder)

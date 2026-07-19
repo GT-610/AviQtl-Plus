@@ -770,6 +770,16 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 }
 
 void VideoDecoder::updateCacheSize() {
+    // Runtime-only diagnostic override for deterministic tests and measurements.
+    // Settings keys prefixed with "_" are intentionally never persisted.
+    const QVariant overrideValue = SettingsManager::instance().value(QStringLiteral("_videoDecoderFrameCacheMaxBytes"));
+    if (overrideValue.isValid()) {
+        const qsizetype overrideBytes = overrideValue.toLongLong();
+        if (overrideBytes > 0) {
+            m_frameCache.setMaxCost(overrideBytes);
+            return;
+        }
+    }
     int sizeMB = SettingsManager::instance().settings().value(QStringLiteral("cacheSize"), 512).toInt();
     int minSizeMB = SettingsManager::instance().value(QStringLiteral("videoDecoderMinCacheMB"), 64).toInt();
     sizeMB = std::max(sizeMB, minSizeMB);

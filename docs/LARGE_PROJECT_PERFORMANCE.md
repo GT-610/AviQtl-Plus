@@ -95,9 +95,24 @@ the two oldest blocks, and served the final repeated frame from the larger
 frame cache. These counts are deterministic assertions; the tiny generated
 media is not used to claim representative seek latency.
 
+## Frame Cache Eviction
+
+The decoder fixture also generates 240 frames across 20 fixed GOPs and applies
+a runtime-only 2 MiB frame-cache budget. Descending seeks fill every GOP while
+forcing the frame cache and three-block GOP LRU beyond capacity. The test
+verifies bounded frame-cache cost, a frame-cache hit for a recent frame no
+longer present in the GOP LRU, and fresh decoding when an early evicted frame is
+requested again.
+
+Cold-seek timings and the two re-seek timings are printed for comparison but do
+not use wall-clock pass/fail limits. The low-resolution generated video makes
+cache lifecycle behavior deterministic; it is not representative evidence for
+seek latency on production media.
+
 ## Next Measurements
 
 The fixture now covers the model/controller baseline, real QML delegate
-virtualization, continuous viewport interaction, and the decoder GOP-cache
-lifecycle. Separate measurements are still needed for long-video seek latency
-and frame-cache memory eviction, long-audio decoding, and plugin scanning.
+virtualization, continuous viewport interaction, the decoder GOP-cache
+lifecycle, and bounded frame-cache eviction. Separate measurements are still
+needed for long-video seek latency with representative media, long-audio
+decoding, and plugin scanning.
