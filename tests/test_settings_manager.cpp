@@ -24,6 +24,12 @@ class TestSettingsManager : public QObject {
         QCOMPARE(SettingsManager::instance().value(QStringLiteral("_test.integer")).toInt(), 42);
     }
 
+    void removeValue() {
+        SettingsManager::instance().setValue(QStringLiteral("_test.removed"), 42);
+        SettingsManager::instance().removeValue(QStringLiteral("_test.removed"));
+        QVERIFY(!SettingsManager::instance().settings().contains(QStringLiteral("_test.removed")));
+    }
+
     void valueWithDefault() {
         QVariant val = SettingsManager::instance().value(QStringLiteral("_test.nonexistent"), QStringLiteral("fallback"));
         QCOMPARE(val.toString(), QStringLiteral("fallback"));

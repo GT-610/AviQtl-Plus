@@ -295,6 +295,15 @@ void SettingsManager::setValue(const QString &key, const QVariant &value) {
     }
 }
 
+void SettingsManager::removeValue(const QString &key) {
+    if (m_settings.remove(key) > 0) {
+        emit settingsChanged();
+        if (!key.startsWith(QStringLiteral("_"))) {
+            save();
+        }
+    }
+}
+
 auto SettingsManager::value(const QString &key, const QVariant &defaultValue) const -> QVariant { return m_settings.value(key, defaultValue); }
 
 auto SettingsManager::shortcuts() const -> QVariantMap { return m_settings.value(QStringLiteral("shortcuts")).toMap(); }

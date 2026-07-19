@@ -223,7 +223,13 @@ void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
     SettingsManager &settings = SettingsManager::instance();
     const QVariant previousOverride = settings.value(QStringLiteral("_videoDecoderFrameCacheMaxBytes"));
     settings.setValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"), kEvictionCacheBytes);
-    const auto restoreCacheOverride = qScopeGuard([&settings, previousOverride]() -> void { settings.setValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"), previousOverride); });
+    const auto restoreCacheOverride = qScopeGuard([&settings, previousOverride]() -> void {
+        if (previousOverride.isValid()) {
+            settings.setValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"), previousOverride);
+        } else {
+            settings.removeValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"));
+        }
+    });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
