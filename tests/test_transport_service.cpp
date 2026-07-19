@@ -63,11 +63,10 @@ class TestTransportService : public QObject {
         QCOMPARE(spy.count(), 1); // no duplicate
     }
 
-    void seekResetsOrigin() {
+    void seekUpdatesCurrentFrame() {
         TransportService svc;
         svc.setCurrentFrame_seek(100);
         QCOMPARE(svc.currentFrame(), 100);
-        // Internal state reset, but we can verify by checking it doesn't crash
     }
 
     void scrub() {

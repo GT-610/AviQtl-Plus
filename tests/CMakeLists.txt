@@ -278,3 +278,33 @@ aviqtl_add_test(
 target_compile_definitions(AviQtl_Test_transition_effects PRIVATE
     AVIQTL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
+
+# Labels keep focused developer runs concise without changing the default suite.
+function(aviqtl_label_tests LABEL)
+    set_property(TEST ${ARGN} APPEND PROPERTY LABELS "${LABEL}")
+endfunction()
+
+aviqtl_label_tests(unit
+    effect_registry shader_compiler document_model settings_manager
+    theme_controller media_decoder media_utils keyframe_utils effect_model
+    video_frame_store dense_component_map audio_plugin_chain triple_buffer
+    lua_host plugin_manifest mod_engine permission_manager selection_service
+    project_service transport_service timeline_batch_move clip_by_upper_object
+    transition_effects
+)
+
+aviqtl_label_tests(integration
+    effect_registry_load effect_package project_serializer preset_manager
+    video_encoder audio_decoder video_decoder bake_controller ecs_render
+    package_deploy large_timeline_performance daily_editing_workflow
+    missing_media export_workflow qml_composite_capture
+)
+
+aviqtl_label_tests(media
+    video_encoder audio_decoder video_decoder video_frame_store
+    audio_plugin_chain bake_controller ecs_render daily_editing_workflow
+    export_workflow qml_composite_capture
+)
+
+aviqtl_label_tests(qml large_timeline_performance qml_composite_capture)
+aviqtl_label_tests(performance large_timeline_performance)
