@@ -28,7 +28,8 @@ them after saving and reopening the project.
 
 1. Create a new project with the baseline settings.
 2. Import an image or video file at frame `0`, layer `0`.
-3. Add a text object at frame `30`, layer `2`.
+3. Open the object/effect catalog from the timeline, search for Text, and add a
+   text object at frame `30`, layer `2`.
 4. Change the text content to a recognizable title such as `Daily Edit`.
 5. Adjust transform parameters on the text object:
    - `x`: `120`
@@ -36,8 +37,9 @@ them after saving and reopening the project.
 6. Add keyframes to the text transform:
    - `x = 0` at frame `0`, linear interpolation
    - `x = 120` at frame `30`, linear interpolation
-7. Add one visual effect such as Blur, set `size` to `12`, and confirm the effect
-   remains enabled in the stack.
+7. Open the shared catalog from the effect settings, filter or search for Blur,
+   add it, set `size` to `12`, and confirm the effect remains enabled in the
+   stack.
 8. Save the project.
 9. Reopen the saved project in a fresh project state.
 10. Confirm project settings, clip timing, layer placement, media path, text
@@ -107,6 +109,9 @@ The `daily_editing_workflow` CTest covers the model-level path:
   UI.
 - Parameters, effect stack state, and keyframes are changed through normal
   editing APIs.
+- Catalog queries are checked across localized names, IDs, categories, package
+  provenance, and object/effect kinds. The reusable QML catalog picker is also
+  instantiated with the production controller and checked for filtered results.
 - The project is saved through `saveProject`, reopened through `loadProject`,
   and checked for preserved project and timeline state.
 - The `missing_media` CTest covers detection after a saved project's media files

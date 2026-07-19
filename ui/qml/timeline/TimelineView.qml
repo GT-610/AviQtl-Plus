@@ -846,6 +846,21 @@ Item {
         }
     }
 
+    Common.CatalogPickerDialog {
+        id: catalogPicker
+        controller: Workspace.currentTimeline
+        onItemChosen: (item) => {
+            if (!Workspace.currentTimeline || !item)
+                return;
+            if (item.kind === "object")
+                Workspace.currentTimeline.createObject(item.id, contextClickFrame, contextClickLayer);
+            else if (item.kind === "transition")
+                Workspace.currentTimeline.createTransition(item.id, contextClickFrame, contextClickLayer);
+            else if (item.kind === "effect" && contextMenu.targetClipId >= 0)
+                Workspace.currentTimeline.addEffect(contextMenu.targetClipId, item.id);
+        }
+    }
+
     Menu {
         // プラットフォーム固有の項目など、破棄不可能なオブジェクトはスキップする
 
@@ -979,6 +994,12 @@ Item {
                     WindowManager.systemSettingsVisible = true;
 
                 break;
+            case "catalog.browse":
+                if (targetType === "timeline")
+                    catalogPicker.openForKinds(["object", "transition"], "object");
+                else if (targetType === "clip" && !Workspace.currentTimeline.isAudioClip(targetClipId))
+                    catalogPicker.openForKinds(["effect"], "effect");
+                break;
             default:
                 // Unknown command: logged via debug channel instead of console.log
                 // so it does not slow down the message handler in production builds.
@@ -994,40 +1015,22 @@ Item {
                 return node.name;
             }
 
-            function catalogNodeMatches(node, filter) {
-                var fields = [node.name, node.id, node.version, node.source, node.packageId, node.sourcePath];
-                if (node.categories) {
-                    for (var c = 0; c < node.categories.length; c++)
-                        fields.push(node.categories[c]);
-                }
-                for (var i = 0; i < fields.length; i++) {
-                    if (fields[i] && String(fields[i]).toLowerCase().indexOf(filter) !== -1)
-                        return true;
-                }
-                return false;
-            }
-
-            function buildFilteredItems(items, isEffect) {
-                var filter = contextMenu.searchText.toLowerCase();
+            function buildFlatItems(items, isEffect) {
                 for (var i = 0; i < items.length; ++i) {
                     var node = items[i];
-                    if (node.isCategory) {
-                        buildFilteredItems(node.children, isEffect);
-                    } else if (catalogNodeMatches(node, filter)) {
-                        var item = menuItemComp.createObject(timelineViewRoot, {
-                            "text": catalogItemText(node),
-                            "iconName": isEffect ? "magic_line" : "shape_line"
+                    var item = menuItemComp.createObject(timelineViewRoot, {
+                        "text": catalogItemText(node),
+                        "iconName": isEffect ? "magic_line" : "shape_line"
+                    });
+                    (function(nodeId) {
+                        item.triggered.connect(() => {
+                            if (isEffect)
+                                Workspace.currentTimeline.addEffect(targetClipId, nodeId);
+                            else
+                                Workspace.currentTimeline.createObject(nodeId, contextClickFrame, contextClickLayer);
                         });
-                        (function(nodeId) {
-                            item.triggered.connect(() => {
-                                if (isEffect)
-                                    Workspace.currentTimeline.addEffect(targetClipId, nodeId);
-                                else
-                                    Workspace.currentTimeline.createObject(nodeId, contextClickFrame, contextClickLayer);
-                            });
-                        })(node.id);
-                        contextMenu.addItem(item);
-                    }
+                    })(node.id);
+                    contextMenu.addItem(item);
                 }
             }
 
@@ -1141,7 +1144,7 @@ Item {
             }
             if (searchText !== "") {
                 if (targetType === "timeline") {
-                    buildFilteredItems(Workspace.currentTimeline.getAvailableObjects(), false);
+                    buildFlatItems(Workspace.currentTimeline.queryCatalog("object", searchText, ""), false);
                 } else if (targetType === "clip") {
                     if (Workspace.currentTimeline.isAudioClip(targetClipId)) {
                         var categories = Workspace.currentTimeline.getPluginCategories();
@@ -1164,12 +1167,14 @@ Item {
                             }
                         }
                     } else {
-                        buildFilteredItems(Workspace.currentTimeline.getAvailableEffects(), true);
+                        buildFlatItems(Workspace.currentTimeline.queryCatalog("effect", searchText, ""), true);
                     }
                 }
                 return ;
             }
             if (targetType === "timeline") {
+                contextMenu.addItem(createMenuItem(qsTr("Browse object and transition catalog..."), "catalog.browse", "apps_line"));
+                addSeparator();
                 var objectMenu = subMenuComp.createObject(contextMenu, {
                     "title": qsTr("オブジェクトを追加")
                 });
@@ -1224,6 +1229,8 @@ Item {
                         Workspace.currentTimeline.setClipByUpperObject(targetClipId, !Workspace.currentTimeline.clipByUpperObject(targetClipId));
                     });
                     contextMenu.addItem(upperClipItem);
+                    addSeparator();
+                    contextMenu.addItem(createMenuItem(qsTr("Browse effect catalog..."), "catalog.browse", "apps_line"));
                     addSeparator();
                 }
                 var addEffSub = subMenuComp.createObject(timelineViewRoot, {

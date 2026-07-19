@@ -2,10 +2,14 @@
 #include "timeline_controller.hpp"
 #include <QColor>
 #include <QImage>
+#include <QQmlComponent>
+#include <QQmlEngine>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrl>
+#include <algorithm>
 #include <functional>
+#include <memory>
 
 using namespace AviQtl::Core;
 using namespace AviQtl::UI;
@@ -19,6 +23,8 @@ class TestDailyEditingWorkflow : public QObject {
     void saveAndReopenDailyEdit();
     void pasteReportsResolvedClipEditTarget();
     void catalogItemsExposeProductMetadata();
+    void catalogQueryFiltersMetadataAndCategories();
+    void catalogPickerLoadsAndFilters();
 
   private:
     static void registerWorkflowEffects();
@@ -294,6 +300,53 @@ void TestDailyEditingWorkflow::catalogItemsExposeProductMetadata() {
     QCOMPARE(textItem.value(QStringLiteral("version")).toString(), QStringLiteral("1.0.0"));
     QCOMPARE(textItem.value(QStringLiteral("source")).toString(), QStringLiteral("built-in"));
     QVERIFY(textItem.value(QStringLiteral("categories")).toStringList().contains(QStringLiteral("Text")));
+}
+
+void TestDailyEditingWorkflow::catalogQueryFiltersMetadataAndCategories() {
+    EffectMetadata packagedGlow;
+    packagedGlow.id = QStringLiteral("workflow.packaged-glow");
+    packagedGlow.name = QStringLiteral("Workflow Glow");
+    packagedGlow.version = QStringLiteral("2.1.0");
+    packagedGlow.kind = QStringLiteral("effect");
+    packagedGlow.categories = {QStringLiteral("Color/Glow")};
+    packagedGlow.source = QStringLiteral("package");
+    packagedGlow.packageId = QStringLiteral("workflow.catalog-pack");
+    packagedGlow.sourcePath = QStringLiteral("packages/workflow/glow.json");
+    EffectRegistry::instance().registerEffect(packagedGlow);
+
+    const QVariantList byName = TimelineController::queryCatalog(QStringLiteral("effect"), QStringLiteral("workflow glow"));
+    QCOMPARE(byName.size(), 1);
+    QCOMPARE(byName.first().toMap().value(QStringLiteral("id")).toString(), packagedGlow.id);
+
+    const QVariantList byPackage = TimelineController::queryCatalog(QStringLiteral("effect"), QStringLiteral("catalog-pack"));
+    QCOMPARE(byPackage.size(), 1);
+    QCOMPARE(byPackage.first().toMap().value(QStringLiteral("source")).toString(), QStringLiteral("package"));
+
+    const QVariantList builtIns = TimelineController::queryCatalog(QStringLiteral("effect"), QStringLiteral("built-in"));
+    QVERIFY(std::ranges::any_of(builtIns, [](const QVariant &entry) { return entry.toMap().value(QStringLiteral("id")).toString() == QStringLiteral("blur"); }));
+
+    const QVariantList byParentCategory = TimelineController::queryCatalog(QStringLiteral("effect"), QString(), QStringLiteral("Color"));
+    QVERIFY(std::ranges::any_of(byParentCategory, [&packagedGlow](const QVariant &entry) { return entry.toMap().value(QStringLiteral("id")).toString() == packagedGlow.id; }));
+    QVERIFY(TimelineController::getCatalogCategories(QStringLiteral("effect")).contains(QStringLiteral("Color/Glow")));
+    QVERIFY(TimelineController::queryCatalog(QStringLiteral("object"), QStringLiteral("workflow glow")).isEmpty());
+}
+
+void TestDailyEditingWorkflow::catalogPickerLoadsAndFilters() {
+    QQmlEngine engine;
+    QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/common/CatalogPickerDialog.qml")));
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> picker(component.create());
+    QVERIFY2(picker != nullptr, qPrintable(component.errorString()));
+
+    TimelineController controller;
+    QVERIFY(picker->setProperty("controller", QVariant::fromValue(static_cast<QObject *>(&controller))));
+    QVERIFY(picker->setProperty("currentKind", QStringLiteral("effect")));
+    QVERIFY(picker->setProperty("searchText", QStringLiteral("blur")));
+    QVERIFY(QMetaObject::invokeMethod(picker.get(), "refresh"));
+
+    const QVariantList items = picker->property("catalogItems").toList();
+    QCOMPARE(items.size(), 1);
+    QCOMPARE(items.first().toMap().value(QStringLiteral("id")).toString(), QStringLiteral("blur"));
 }
 
 QTEST_MAIN(TestDailyEditingWorkflow)

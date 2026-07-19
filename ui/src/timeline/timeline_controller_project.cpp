@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QSet>
 #include <QUrl>
+#include <algorithm>
 #include <optional>
 
 namespace AviQtl::UI {
@@ -208,6 +209,27 @@ auto catalogItemFromMetadata(const AviQtl::Core::EffectMetadata &meta) -> QVaria
     return item;
 }
 
+auto categoryMatches(const QStringList &categories, const QString &category) -> bool {
+    if (category.isEmpty()) {
+        return true;
+    }
+    const QString categoryPrefix = category + QLatin1Char('/');
+    return std::ranges::any_of(categories, [&category, &categoryPrefix](const QString &candidate) {
+        return candidate.compare(category, Qt::CaseInsensitive) == 0 || candidate.startsWith(categoryPrefix, Qt::CaseInsensitive);
+    });
+}
+
+auto catalogMetadataMatches(const AviQtl::Core::EffectMetadata &meta, const QString &query) -> bool {
+    if (query.isEmpty()) {
+        return true;
+    }
+    const QStringList fields = {meta.name, meta.id, meta.version, meta.source.isEmpty() ? QStringLiteral("built-in") : meta.source, meta.packageId, meta.sourcePath};
+    if (std::ranges::any_of(fields, [&query](const QString &field) { return field.contains(query, Qt::CaseInsensitive); })) {
+        return true;
+    }
+    return std::ranges::any_of(meta.categories, [&query](const QString &category) { return category.contains(query, Qt::CaseInsensitive); });
+}
+
 void insertIntoCategoryTree(QVariantList &list, const QStringList &path, const QVariantMap &item) {
     if (path.isEmpty()) {
         list.append(item);
@@ -244,6 +266,36 @@ void insertIntoCategoryTree(QVariantList &list, const QStringList &path, const Q
     }
 }
 } // namespace
+
+auto TimelineController::queryCatalog(const QString &kind, const QString &query, const QString &category) -> QVariantList {
+    QVariantList result;
+    const auto effects = AviQtl::Core::EffectRegistry::instance().getAllEffects();
+    for (const auto &meta : effects) {
+        if (meta.kind != kind || !categoryMatches(meta.categories, category) || !catalogMetadataMatches(meta, query)) {
+            continue;
+        }
+        result.append(catalogItemFromMetadata(meta));
+    }
+    return result;
+}
+
+auto TimelineController::getCatalogCategories(const QString &kind) -> QStringList {
+    QSet<QString> uniqueCategories;
+    const auto effects = AviQtl::Core::EffectRegistry::instance().getAllEffects();
+    for (const auto &meta : effects) {
+        if (meta.kind != kind) {
+            continue;
+        }
+        for (const QString &category : meta.categories) {
+            if (!category.isEmpty()) {
+                uniqueCategories.insert(category);
+            }
+        }
+    }
+    QStringList categories(uniqueCategories.cbegin(), uniqueCategories.cend());
+    categories.sort(Qt::CaseInsensitive);
+    return categories;
+}
 
 auto TimelineController::getAvailableEffects() -> QVariantList {
     QVariantList list;
