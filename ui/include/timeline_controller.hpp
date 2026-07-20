@@ -119,6 +119,8 @@ class TimelineController : public QObject {
     Q_INVOKABLE static QVariantList getAvailableEffects();
     Q_INVOKABLE static QVariantList getAvailableObjects();
     Q_INVOKABLE static QVariantList getAvailableTransitions();
+    Q_INVOKABLE static QVariantList queryCatalog(const QString &kind, const QString &query = QString(), const QString &category = QString());
+    Q_INVOKABLE static QStringList getCatalogCategories(const QString &kind);
     Q_INVOKABLE static QString getClipTypeColor(const QString &type);
     Q_INVOKABLE void addEffect(int clipId, const QString &effectId);
     Q_INVOKABLE void removeEffect(int clipId, int effectIndex);

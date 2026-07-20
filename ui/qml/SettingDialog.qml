@@ -28,6 +28,16 @@ Common.AviQtlWindow {
     property int _audioKfRev: 0
     readonly property int _audioClipDur: Workspace.currentTimeline?.clipDurationFrames ?? 100
     readonly property int _audioRelFrame: Math.max(0, (Workspace.currentTimeline?.transport?.currentFrame ?? 0) - (Workspace.currentTimeline?.clipStartFrame ?? 0))
+
+    Common.CatalogPickerDialog {
+        id: effectCatalogPicker
+        controller: Workspace.currentTimeline
+        onItemChosen: (item) => {
+            if (Workspace.currentTimeline && targetClipId >= 0 && item)
+                Workspace.currentTimeline.addEffect(targetClipId, item.id);
+            filterMenu._lastBuiltClipId = -2;
+        }
+    }
     readonly property var _cachedAudioModel: {
         var _ = _audioKfRev;
         for (var i = 0; i < effectsModel.length; i++) {
@@ -2259,8 +2269,19 @@ Common.AviQtlWindow {
             }
 
             function _doBuild() {
+                var isAudioTarget = targetClipId !== -1 && Workspace.currentTimeline.isAudioClip(targetClipId);
+                if (!isAudioTarget) {
+                    var browseItem = _registerDynamic(menuItemComp.createObject(root.contentItem, {
+                        "text": qsTr("Browse effect catalog..."),
+                        "iconName": "apps_line"
+                    }));
+                    browseItem.triggered.connect(function() {
+                        effectCatalogPicker.openForKinds(["effect"], "effect");
+                    });
+                    filterMenu.addItem(browseItem);
+                }
                 if (searchText !== "") {
-                    if (targetClipId !== -1 && Workspace.currentTimeline.isAudioClip(targetClipId)) {
+                    if (isAudioTarget) {
                         var cats = Workspace.currentTimeline.getPluginCategories();
                         for (var c = 0; c < cats.length; c++) {
                             var plugins = Workspace.currentTimeline.getPluginsByCategory(cats[c]);
@@ -2281,12 +2302,11 @@ Common.AviQtlWindow {
                             }
                         }
                     } else {
-                        var effects = Workspace.currentTimeline.getAvailableEffects();
-                        buildFiltered(filterMenu, effects);
+                        buildFlat(filterMenu, Workspace.currentTimeline.queryCatalog("effect", searchText, ""));
                     }
                     return ;
                 }
-                if (targetClipId !== -1 && Workspace.currentTimeline.isAudioClip(targetClipId)) {
+                if (isAudioTarget) {
                     var categories = Workspace.currentTimeline.getPluginCategories();
                     for (var c = 0; c < categories.length; c++) {
                         var catName = categories[c];
@@ -2314,24 +2334,22 @@ Common.AviQtlWindow {
                 }
             }
 
-            function buildFiltered(parentMenu, items) {
-                var filter = searchText.toLowerCase();
+            function buildFlat(parentMenu, items) {
+                if (!items)
+                    return;
+
                 for (var i = 0; i < items.length; ++i) {
                     var node = items[i];
-                    if (node.isCategory) {
-                        buildFiltered(parentMenu, node.children);
-                    } else if (node.name.toLowerCase().indexOf(filter) !== -1) {
-                        var effItem = _registerDynamic(menuItemComp.createObject(root.contentItem, {
-                            "text": node.name,
-                            "iconName": "magic_line"
-                        }));
-                        (function(id) {
-                            effItem.triggered.connect(() => {
-                                Workspace.currentTimeline.addEffect(targetClipId, id);
-                            });
-                        })(node.id);
-                        parentMenu.addItem(effItem);
-                    }
+                    var effItem = _registerDynamic(menuItemComp.createObject(root.contentItem, {
+                        "text": node.name || node.id,
+                        "iconName": "magic_line"
+                    }));
+                    (function(id) {
+                        effItem.triggered.connect(() => {
+                            Workspace.currentTimeline.addEffect(targetClipId, id);
+                        });
+                    })(node.id);
+                    parentMenu.addItem(effItem);
                 }
             }
 

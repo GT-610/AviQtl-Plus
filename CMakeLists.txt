@@ -248,6 +248,7 @@ set(QML_FILES
     ui/qml/common/BaseEffect.qml
     ui/qml/common/BaseObject.qml
     ui/qml/common/ControlLoader.qml
+    ui/qml/common/CatalogPickerDialog.qml
     ui/qml/common/DisplayModel.qml
     ui/qml/common/EasingConfigWindow.qml
     ui/qml/common/IconMenuItem.qml

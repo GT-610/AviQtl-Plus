@@ -1846,27 +1846,27 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Resize multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="89"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="90"/>
         <source>保存先のファイルパスが不明です</source>
         <translation>The destination file path is unknown</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="162"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="163"/>
         <source>クリップが見つかりません: %1</source>
         <translation>Clip not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="166"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="167"/>
         <source>再リンクできないメディアタイプです: %1</source>
         <translation>Media type cannot be relinked: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="177"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="178"/>
         <source>有効なファイルではありません: %1</source>
         <translation>Not a valid file: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="189"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="190"/>
         <source>メディアエフェクトが見つかりません: %1</source>
         <translation>Media effect not found: %1</translation>
     </message>
@@ -1877,13 +1877,13 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="339"/>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="173"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="174"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="408"/>
-        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="184"/>
+        <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="185"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
@@ -2097,6 +2097,64 @@ This software is released under the GNU Affero General Public License Version 3.
         <location filename="../ui/qml/common/BaseObject.qml" line="62"/>
         <source>覆い焼き</source>
         <translation>Dodge</translation>
+    </message>
+</context>
+<context>
+    <name>CatalogPickerDialog</name>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="22"/>
+        <source>Object and Effect Catalog</source>
+        <translation>Object and Effect Catalog</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="31"/>
+        <source>Objects</source>
+        <translation>Objects</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="33"/>
+        <source>Effects</source>
+        <translation>Effects</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="35"/>
+        <source>Transitions</source>
+        <translation>Transitions</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="110"/>
+        <source>Search by name, category, ID, or package...</source>
+        <translation>Search by name, category, ID, or package...</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="120"/>
+        <source>All categories</source>
+        <translation>All categories</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="127"/>
+        <source>%1 items</source>
+        <translation>%1 items</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="166"/>
+        <source>Built-in</source>
+        <translation>Built-in</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="205"/>
+        <source>No matching catalog items</source>
+        <translation>No matching catalog items</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="214"/>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="218"/>
+        <source>Add</source>
+        <translation>Add</translation>
     </message>
 </context>
 <context>
@@ -4184,173 +4242,178 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>SettingDialog</name>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="320"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="330"/>
         <source>設定ダイアログ</source>
         <translation>Settings Dialog</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="650"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="660"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="650"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="660"/>
         <source>選択した %1 件を削除</source>
         <translation>Delete %1 selected items</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="686"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="696"/>
         <source>プリセットを保存...</source>
         <translation>Save Preset...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="701"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="711"/>
         <source>プリセットを読み込み</source>
         <translation>Load Preset</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="767"/>
-        <location filename="../ui/qml/SettingDialog.qml" line="798"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="777"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="808"/>
         <source>プリセットがありません</source>
         <translation>No Presets</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="775"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="785"/>
         <source>プリセットを削除</source>
         <translation>Delete Preset</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="814"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="824"/>
         <source>プリセットを保存</source>
         <translation>Save Preset</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="823"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="833"/>
         <source>プリセット名:</source>
         <translation>Preset Name:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="829"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="839"/>
         <source>プリセット名を入力...</source>
         <translation>Enter preset name...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="898"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="908"/>
         <source>音声ワークスペース</source>
         <translation>Audio Workspace</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="905"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="915"/>
         <source>独立した音声ソース、Carlaプラグインチェーン、メーターをこのオブジェクト内で管理します。</source>
         <translation>Manage an independent audio source, Carla plugin chain, and meters inside this object.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="914"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="924"/>
         <source>プラグイン追加</source>
         <translation>Add Plugin</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="994"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1004"/>
         <source>音声ソースを選択</source>
         <translation>Select Audio Source</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1029"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1039"/>
         <source>Source Deck</source>
         <translation>Source Deck</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1042"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1052"/>
         <source>音声ファイルを選択...</source>
         <translation>Select an audio file...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1048"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1058"/>
         <source>参照</source>
         <translation>Browse</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1058"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1068"/>
         <source>Mode</source>
         <translation>Mode</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1078"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1088"/>
         <source>Start</source>
         <translation>Start</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1127"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1137"/>
         <source>Channel Strip</source>
         <translation>Channel Strip</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1135"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1145"/>
         <source>Limit</source>
         <translation>Limit</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1199"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1209"/>
         <source>MUTE</source>
         <translation>MUTE</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1207"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1217"/>
         <source>SOLO</source>
         <translation>SOLO</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1232"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1242"/>
         <source>メーター</source>
         <translation>Meters</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1305"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1315"/>
         <source>Carlaプラグインチェーン</source>
         <translation>Carla Plugin Chain</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1315"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1325"/>
         <source>左側のリストでプラグインを選択・並べ替えできます。</source>
         <translation>Select and reorder plugins in the list on the left.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1315"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1325"/>
         <source>上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。</source>
         <translation>Add Carla plugins from Add Plugin at the top or from the menu.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1701"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1711"/>
         <source> (直線)</source>
         <translation> (Linear)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1702"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1712"/>
         <source> (加速)</source>
         <translation> (Ease In)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1703"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1713"/>
         <source> (減速)</source>
         <translation> (Ease Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1704"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1714"/>
         <source> (加減速)</source>
         <translation> (Ease In/Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1705"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1715"/>
         <source> (ベジェ)</source>
         <translation> (Bezier)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2362"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2275"/>
+        <source>Browse effect catalog...</source>
+        <translation>Browse effect catalog...</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/SettingDialog.qml" line="2377"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2373"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2388"/>
         <source>検索...</source>
         <translation>Search...</translation>
     </message>
@@ -4764,82 +4827,92 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1174"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1176"/>
+        <source>Browse object and transition catalog...</source>
+        <translation>Browse object and transition catalog...</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1179"/>
         <source>オブジェクトを追加</source>
         <translation>Add Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1189"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1194"/>
         <source>トランジションを追加</source>
         <translation>Add Transition</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1201"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1206"/>
         <source>元に戻す</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1202"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1207"/>
         <source>やり直す</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1203"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1208"/>
         <source>貼り付け</source>
         <translation>Paste</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1205"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1210"/>
         <source>シーン設定...</source>
         <translation>Scene Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1206"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1211"/>
         <source>プロジェクト設定...</source>
         <translation>Project Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1207"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1212"/>
         <source>環境設定...</source>
         <translation>Preferences...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1209"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1214"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1210"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1215"/>
         <source>分割</source>
         <translation>Split</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1211"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1216"/>
         <source>複製</source>
         <translation>Duplicate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1213"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1218"/>
         <source>切り取り</source>
         <translation>Cut</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1214"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1219"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1218"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1223"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1230"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1233"/>
+        <source>Browse effect catalog...</source>
+        <translation>Browse effect catalog...</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1237"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1254"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1261"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>Search effects/objects...</translation>
     </message>
