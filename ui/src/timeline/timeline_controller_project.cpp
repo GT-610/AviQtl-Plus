@@ -287,8 +287,16 @@ auto TimelineController::getCatalogCategories(const QString &kind) -> QStringLis
             continue;
         }
         for (const QString &category : meta.categories) {
-            if (!category.isEmpty()) {
-                uniqueCategories.insert(category);
+            if (category.isEmpty()) {
+                continue;
+            }
+            uniqueCategories.insert(category);
+            const int slash = category.indexOf(QLatin1Char('/'));
+            if (slash > 0) {
+                const QString parent = category.left(slash);
+                if (!parent.isEmpty()) {
+                    uniqueCategories.insert(parent);
+                }
             }
         }
     }

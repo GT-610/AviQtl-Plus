@@ -1012,10 +1012,13 @@ Item {
                 if (!node)
                     return "";
 
-                return node.name;
+                return node.name || node.id || "";
             }
 
             function buildFlatItems(items, isEffect) {
+                if (!items)
+                    return;
+
                 for (var i = 0; i < items.length; ++i) {
                     var node = items[i];
                     var item = menuItemComp.createObject(timelineViewRoot, {

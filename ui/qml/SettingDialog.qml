@@ -2335,10 +2335,13 @@ Common.AviQtlWindow {
             }
 
             function buildFlat(parentMenu, items) {
+                if (!items)
+                    return;
+
                 for (var i = 0; i < items.length; ++i) {
                     var node = items[i];
                     var effItem = _registerDynamic(menuItemComp.createObject(root.contentItem, {
-                        "text": node.name,
+                        "text": node.name || node.id,
                         "iconName": "magic_line"
                     }));
                     (function(id) {

@@ -56,11 +56,15 @@ Dialog {
 
     function openForKinds(kinds, initialKind) {
         allowedKinds = kinds && kinds.length > 0 ? kinds : ["object", "effect", "transition"];
-        currentKind = allowedKinds.indexOf(initialKind) >= 0 ? initialKind : allowedKinds[0];
+        var newKind = allowedKinds.indexOf(initialKind) >= 0 ? initialKind : allowedKinds[0];
+        var kindChanged = newKind !== currentKind;
+        currentKind = newKind;
         searchText = "";
         searchField.text = "";
-        rebuildCategories();
-        refresh();
+        if (!kindChanged) {
+            rebuildCategories();
+            refresh();
+        }
         open();
         Qt.callLater(function() { searchField.forceActiveFocus(); });
     }
@@ -85,7 +89,6 @@ Dialog {
             id: kindTabs
             Layout.fillWidth: true
             visible: root.allowedKinds.length > 1
-            currentIndex: Math.max(0, root.allowedKinds.indexOf(root.currentKind))
             onCurrentIndexChanged: {
                 if (currentIndex >= 0 && currentIndex < root.allowedKinds.length)
                     root.currentKind = root.allowedKinds[currentIndex];
@@ -99,6 +102,20 @@ Dialog {
                     text: root.kindLabel(modelData)
                 }
             }
+
+            function syncToCurrentKind() {
+                var idx = root.allowedKinds.indexOf(root.currentKind);
+                if (idx >= 0)
+                    kindTabs.currentIndex = idx;
+            }
+
+            Connections {
+                target: root
+                function onCurrentKindChanged() { kindTabs.syncToCurrentKind(); }
+                function onAllowedKindsChanged() { kindTabs.syncToCurrentKind(); }
+            }
+
+            Component.onCompleted: syncToCurrentKind()
         }
 
         RowLayout {
@@ -110,7 +127,14 @@ Dialog {
                 placeholderText: qsTr("Search by name, category, ID, or package...")
                 onTextChanged: {
                     root.searchText = text;
-                    root.refresh();
+                    searchRefreshTimer.restart();
+                }
+
+                Timer {
+                    id: searchRefreshTimer
+                    interval: 250
+                    repeat: false
+                    onTriggered: root.refresh()
                 }
             }
 

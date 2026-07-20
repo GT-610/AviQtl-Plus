@@ -332,13 +332,13 @@ void TestDailyEditingWorkflow::catalogQueryFiltersMetadataAndCategories() {
 }
 
 void TestDailyEditingWorkflow::catalogPickerLoadsAndFilters() {
+    TimelineController controller;
     QQmlEngine engine;
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/common/CatalogPickerDialog.qml")));
     QVERIFY2(component.isReady(), qPrintable(component.errorString()));
     std::unique_ptr<QObject> picker(component.create());
     QVERIFY2(picker != nullptr, qPrintable(component.errorString()));
 
-    TimelineController controller;
     QVERIFY(picker->setProperty("controller", QVariant::fromValue(static_cast<QObject *>(&controller))));
     QVERIFY(picker->setProperty("currentKind", QStringLiteral("effect")));
     QVERIFY(picker->setProperty("searchText", QStringLiteral("blur")));
