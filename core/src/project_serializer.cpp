@@ -14,6 +14,7 @@
 #include <QSaveFile>
 #include <QUrl>
 #include <algorithm>
+#include <cmath>
 
 namespace AviQtl::Core {
 
@@ -23,6 +24,11 @@ namespace {
 constexpr int kMaxDimension = 32768;
 constexpr double kMaxFps = 1000.0;
 constexpr int kMaxSampleRate = 192000;
+constexpr double kMaxGridBpm = 1000.0;
+constexpr double kMaxGridOffset = 86400.0;
+constexpr int kMaxGridInterval = 1'000'000;
+constexpr int kMaxGridSubdivision = 128;
+constexpr int kMaxMagneticSnapRange = 100;
 
 int clampDimension(int value, int fallback) {
     return (value <= 0 || value > kMaxDimension) ? fallback : value;
@@ -32,6 +38,15 @@ double clampFps(double value, double fallback) {
 }
 int clampSampleRate(int value, int fallback) {
     return (value <= 0 || value > kMaxSampleRate) ? fallback : value;
+}
+double clampPositiveGridValue(double value, double maximum, double fallback) {
+    return (!std::isfinite(value) || value <= 0.0 || value > maximum) ? fallback : value;
+}
+double clampGridOffset(double value, double fallback) {
+    return (!std::isfinite(value) || value < 0.0 || value > kMaxGridOffset) ? fallback : value;
+}
+int clampPositiveGridValue(int value, int maximum, int fallback) {
+    return (value <= 0 || value > maximum) ? fallback : value;
 }
 } // namespace
 
@@ -299,12 +314,12 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
             scene.lockedLayers = layerSetFromJson(sobj.value(QStringLiteral("lockedLayers")));
             scene.hiddenLayers = layerSetFromJson(sobj.value(QStringLiteral("hiddenLayers")));
             scene.gridMode = sobj.value(QStringLiteral("gridMode")).toString(QStringLiteral("Auto"));
-            scene.gridBpm = sobj.value(QStringLiteral("gridBpm")).toDouble(120.0);
-            scene.gridOffset = sobj.value(QStringLiteral("gridOffset")).toDouble(0.0);
-            scene.gridInterval = std::max(1, sobj.value(QStringLiteral("gridInterval")).toInt(10));
-            scene.gridSubdivision = std::max(1, sobj.value(QStringLiteral("gridSubdivision")).toInt(4));
+            scene.gridBpm = clampPositiveGridValue(sobj.value(QStringLiteral("gridBpm")).toDouble(120.0), kMaxGridBpm, 120.0);
+            scene.gridOffset = clampGridOffset(sobj.value(QStringLiteral("gridOffset")).toDouble(0.0), 0.0);
+            scene.gridInterval = clampPositiveGridValue(sobj.value(QStringLiteral("gridInterval")).toInt(10), kMaxGridInterval, 10);
+            scene.gridSubdivision = clampPositiveGridValue(sobj.value(QStringLiteral("gridSubdivision")).toInt(4), kMaxGridSubdivision, 4);
             scene.enableSnap = sobj.value(QStringLiteral("enableSnap")).toBool(true);
-            scene.magneticSnapRange = std::max(0, sobj.value(QStringLiteral("magneticSnapRange")).toInt(10));
+            scene.magneticSnapRange = clampPositiveGridValue(sobj.value(QStringLiteral("magneticSnapRange")).toInt(10), kMaxMagneticSnapRange, 10);
         }
         tempScenes.append(scene);
         maxSceneId = std::max(scene.id, maxSceneId);

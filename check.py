@@ -313,7 +313,7 @@ def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> i
 def print_summary(returncode: int, xml_path: Path | None) -> None:
     print()
     if returncode == 0:
-        if NON_BLOCKING_WARNINGS:
+        if NON_BLOCKING_WARNINGS or SKIPPED_TOOLS:
             print(f"{BOLD}{GREEN}OK Quality checks complete: No blocking errors{RESET}")
         else:
             print(f"{BOLD}{GREEN}OK Quality checks complete: No reported issues{RESET}")

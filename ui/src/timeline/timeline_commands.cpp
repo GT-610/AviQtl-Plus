@@ -20,7 +20,7 @@ void AddClipCommand::redo() {
     }
 
     if (m_duration > 0) {
-        m_service->updateClipInternal(m_clipId, clip->layer, clip->startFrame, m_duration, false, true);
+        m_service->updateClipInternal(m_clipId, clip->layer, m_startFrame, m_duration, false, true);
     }
     for (auto *effect : std::as_const(clip->effects)) {
         if (effect == nullptr || effect->id() != m_effectId) {

@@ -22,6 +22,7 @@ class TestProjectSerializer : public QObject {
     void atomicSaveReplacesAnExistingProject();
     void saveFailureLeavesAnInvalidTargetUntouched();
     void sceneStateAndMediaPathsRoundTrip();
+    void invalidGridSettingsUseDefaults();
     void invalidJsonDoesNotReplaceProjectState();
 };
 
@@ -144,6 +145,39 @@ void TestProjectSerializer::invalidJsonDoesNotReplaceProjectState() {
     QVERIFY(!error.isEmpty());
     QCOMPARE(project.width(), 1234);
     QCOMPARE(timeline.getAllScenes().size(), 1);
+}
+
+void TestProjectSerializer::invalidGridSettingsUseDefaults() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("invalid-grid.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    const QByteArray document = R"({
+        "version": 3,
+        "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+        "scenes": [{
+            "id": 0, "name": "Grid", "width": 1920, "height": 1080, "fps": 60, "duration": 300,
+            "gridMode": "BPM", "gridBpm": 1000000, "gridOffset": -1,
+            "gridInterval": 0, "gridSubdivision": 1000000, "magneticSnapRange": 1000000
+        }],
+        "clips": []
+    })";
+    QCOMPARE(file.write(document), document.size());
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    QString error;
+    QVERIFY2(ProjectSerializer::load(path, &timeline, &project, &error), qPrintable(error));
+    const SceneData &scene = timeline.getAllScenes().first();
+    QCOMPARE(scene.gridMode, QStringLiteral("BPM"));
+    QCOMPARE(scene.gridBpm, 120.0);
+    QCOMPARE(scene.gridOffset, 0.0);
+    QCOMPARE(scene.gridInterval, 10);
+    QCOMPARE(scene.gridSubdivision, 4);
+    QCOMPARE(scene.magneticSnapRange, 10);
 }
 
 void TestProjectSerializer::saveFailureLeavesAnInvalidTargetUntouched() {
