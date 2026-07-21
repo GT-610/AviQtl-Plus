@@ -14,15 +14,21 @@
 #include <QSaveFile>
 #include <QUrl>
 #include <algorithm>
+#include <cmath>
 
 namespace AviQtl::Core {
 
-inline constexpr int PROJECT_VERSION = 2;
+inline constexpr int PROJECT_VERSION = 3;
 
 namespace {
 constexpr int kMaxDimension = 32768;
 constexpr double kMaxFps = 1000.0;
 constexpr int kMaxSampleRate = 192000;
+constexpr double kMaxGridBpm = 1000.0;
+constexpr double kMaxGridOffset = 86400.0;
+constexpr int kMaxGridInterval = 1'000'000;
+constexpr int kMaxGridSubdivision = 128;
+constexpr int kMaxMagneticSnapRange = 100;
 
 int clampDimension(int value, int fallback) {
     return (value <= 0 || value > kMaxDimension) ? fallback : value;
@@ -32,6 +38,15 @@ double clampFps(double value, double fallback) {
 }
 int clampSampleRate(int value, int fallback) {
     return (value <= 0 || value > kMaxSampleRate) ? fallback : value;
+}
+double clampPositiveGridValue(double value, double maximum, double fallback) {
+    return (!std::isfinite(value) || value <= 0.0 || value > maximum) ? fallback : value;
+}
+double clampGridOffset(double value, double fallback) {
+    return (!std::isfinite(value) || value < 0.0 || value > kMaxGridOffset) ? fallback : value;
+}
+int clampPositiveGridValue(int value, int maximum, int fallback) {
+    return (value <= 0 || value > maximum) ? fallback : value;
 }
 } // namespace
 
@@ -76,6 +91,44 @@ static void convertMediaPaths(QVariantMap &params, const QString &baseDir, bool 
     }
 }
 
+static void convertEffectMediaPath(const QString &effectId, QVariantMap &params, const QString &baseDir, bool toRelative) {
+    QString pathKey;
+    if (effectId == QLatin1String("video") || effectId == QLatin1String("image")) {
+        pathKey = QStringLiteral("path");
+    } else if (effectId == QLatin1String("audio")) {
+        pathKey = QStringLiteral("source");
+    } else {
+        return;
+    }
+
+    auto pathIt = params.find(pathKey);
+    if (pathIt == params.end() || pathIt->toString().isEmpty()) {
+        return;
+    }
+    *pathIt = toRelative ? toRelativePath(pathIt->toString(), baseDir) : toAbsolutePath(pathIt->toString(), baseDir);
+}
+
+static auto layerSetToJson(const QSet<int> &layers) -> QJsonArray {
+    QList<int> sortedLayers(layers.cbegin(), layers.cend());
+    std::sort(sortedLayers.begin(), sortedLayers.end());
+    QJsonArray result;
+    for (int layer : std::as_const(sortedLayers)) {
+        result.append(layer);
+    }
+    return result;
+}
+
+static auto layerSetFromJson(const QJsonValue &value) -> QSet<int> {
+    QSet<int> result;
+    for (const QJsonValue &layer : value.toArray()) {
+        const int index = layer.toInt(-1);
+        if (index >= 0 && index <= 127) {
+            result.insert(index);
+        }
+    }
+    return result;
+}
+
 auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *timeline, const UI::ProjectService *project, QString *errorMessage) -> bool {
     QString path = QUrl(fileUrl).toLocalFile();
     if (path.isEmpty()) {
@@ -104,6 +157,16 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
         sObj.insert(QStringLiteral("fps"), scene.fps);
         sObj.insert(QStringLiteral("start"), scene.startFrame);
         sObj.insert(QStringLiteral("duration"), scene.totalFrames);
+        sObj.insert(QStringLiteral("nestedDuration"), scene.durationFrames);
+        sObj.insert(QStringLiteral("lockedLayers"), layerSetToJson(scene.lockedLayers));
+        sObj.insert(QStringLiteral("hiddenLayers"), layerSetToJson(scene.hiddenLayers));
+        sObj.insert(QStringLiteral("gridMode"), scene.gridMode);
+        sObj.insert(QStringLiteral("gridBpm"), scene.gridBpm);
+        sObj.insert(QStringLiteral("gridOffset"), scene.gridOffset);
+        sObj.insert(QStringLiteral("gridInterval"), scene.gridInterval);
+        sObj.insert(QStringLiteral("gridSubdivision"), scene.gridSubdivision);
+        sObj.insert(QStringLiteral("enableSnap"), scene.enableSnap);
+        sObj.insert(QStringLiteral("magneticSnapRange"), scene.magneticSnapRange);
         scenesArray.append(sObj);
     }
     root.insert(QStringLiteral("scenes"), scenesArray);
@@ -143,7 +206,9 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
                 eObj.insert(QStringLiteral("id"), eff->id());
                 eObj.insert(QStringLiteral("name"), eff->name());
                 eObj.insert(QStringLiteral("enabled"), eff->isEnabled());
-                eObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(eff->params()));
+                QVariantMap effectParams = eff->params();
+                convertEffectMediaPath(eff->id(), effectParams, projectDir, true);
+                eObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(effectParams));
                 eObj.insert(QStringLiteral("keyframes"), QJsonObject::fromVariantMap(eff->keyframeTracks()));
                 effArray.append(eObj);
             }
@@ -194,8 +259,15 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         return false;
     }
 
-    auto jsonData = file.readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+    const QByteArray jsonData = file.readAll();
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = parseError.error != QJsonParseError::NoError ? parseError.errorString() : QStringLiteral("Project root must be a JSON object");
+        }
+        return false;
+    }
     QJsonObject root = doc.object();
 
     const int version = root.value(QStringLiteral("version")).toInt(1);
@@ -237,6 +309,18 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         scene.startFrame = sobj.value(QStringLiteral("start")).toInt(0);
         const int totalFrames = sobj.value(QStringLiteral("duration")).toInt(AviQtl::kDefaultTotalFrames);
         scene.totalFrames = totalFrames > 0 ? totalFrames : AviQtl::kDefaultTotalFrames;
+        if (version >= 3) {
+            scene.durationFrames = std::max(0, sobj.value(QStringLiteral("nestedDuration")).toInt(0));
+            scene.lockedLayers = layerSetFromJson(sobj.value(QStringLiteral("lockedLayers")));
+            scene.hiddenLayers = layerSetFromJson(sobj.value(QStringLiteral("hiddenLayers")));
+            scene.gridMode = sobj.value(QStringLiteral("gridMode")).toString(QStringLiteral("Auto"));
+            scene.gridBpm = clampPositiveGridValue(sobj.value(QStringLiteral("gridBpm")).toDouble(120.0), kMaxGridBpm, 120.0);
+            scene.gridOffset = clampGridOffset(sobj.value(QStringLiteral("gridOffset")).toDouble(0.0), 0.0);
+            scene.gridInterval = clampPositiveGridValue(sobj.value(QStringLiteral("gridInterval")).toInt(10), kMaxGridInterval, 10);
+            scene.gridSubdivision = clampPositiveGridValue(sobj.value(QStringLiteral("gridSubdivision")).toInt(4), kMaxGridSubdivision, 4);
+            scene.enableSnap = sobj.value(QStringLiteral("enableSnap")).toBool(true);
+            scene.magneticSnapRange = clampPositiveGridValue(sobj.value(QStringLiteral("magneticSnapRange")).toInt(10), kMaxMagneticSnapRange, 10);
+        }
         tempScenes.append(scene);
         maxSceneId = std::max(scene.id, maxSceneId);
     }
@@ -292,7 +376,11 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
                 continue;
             }
             QString displayName = meta.name.isEmpty() ? eObj.value(QStringLiteral("name")).toString() : meta.name;
-            auto *eff = new UI::EffectModel(effId, displayName, meta.kind, meta.categories, eObj.value(QStringLiteral("params")).toObject().toVariantMap(), meta.qmlSource, meta.uiDefinition, timeline);
+            QVariantMap effectParams = eObj.value(QStringLiteral("params")).toObject().toVariantMap();
+            if (version >= 2) {
+                convertEffectMediaPath(effId, effectParams, projectDir, false);
+            }
+            auto *eff = new UI::EffectModel(effId, displayName, meta.kind, meta.categories, effectParams, meta.qmlSource, meta.uiDefinition, timeline);
             eff->setEnabled(eObj.value(QStringLiteral("enabled")).toBool(true));
             auto it = eObj.find(QStringLiteral("keyframes"));
             if (it != eObj.end()) {

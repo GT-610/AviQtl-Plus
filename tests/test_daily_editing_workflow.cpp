@@ -1,9 +1,12 @@
 #include "effect_registry.hpp"
 #include "timeline_controller.hpp"
+#include "video_encoder.hpp"
 #include <QColor>
+#include <QFileInfo>
 #include <QImage>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QSignalBlocker>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrl>
@@ -21,6 +24,9 @@ class TestDailyEditingWorkflow : public QObject {
     void initTestCase() { registerWorkflowEffects(); }
 
     void saveAndReopenDailyEdit();
+    void mediaImportIsUndoable();
+    void linkedVideoImportRedoKeepsClipsSynchronized();
+    void audioPluginStateSurvivesClipCopies();
     void pasteReportsResolvedClipEditTarget();
     void catalogItemsExposeProductMetadata();
     void catalogQueryFiltersMetadataAndCategories();
@@ -242,6 +248,143 @@ void TestDailyEditingWorkflow::saveAndReopenDailyEdit() {
     QCOMPARE(loadedPastedTextClip.startFrame, 150);
     QCOMPARE(loadedPastedTextClip.layer, 2);
     QCOMPARE(loadedPastedTextClip.effects.at(1)->params().value(QStringLiteral("text")).toString(), QStringLiteral("Daily Edit"));
+}
+
+void TestDailyEditingWorkflow::mediaImportIsUndoable() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString imagePath = dir.filePath(QStringLiteral("undo-import.png"));
+    QImage image(16, 16, QImage::Format_ARGB32);
+    image.fill(Qt::cyan);
+    QVERIFY(image.save(imagePath));
+
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    const QVariantMap result = controller.importMediaFile(QUrl::fromLocalFile(imagePath).toString(), 12, 3);
+    QVERIFY(result.value(QStringLiteral("ok")).toBool());
+
+    const ClipData *imported = findClip(controller, clipId);
+    QVERIFY(imported != nullptr);
+    const int importedDuration = imported->durationFrames;
+    const int imageEffectIndex = effectIndexById(*imported, QStringLiteral("image"));
+    QVERIFY(imageEffectIndex >= 0);
+    QCOMPARE(imported->effects.at(imageEffectIndex)->params().value(QStringLiteral("path")).toString(), imagePath);
+
+    controller.timeline()->undo();
+    QVERIFY(findClip(controller, clipId) == nullptr);
+
+    controller.timeline()->redo();
+    imported = findClip(controller, clipId);
+    QVERIFY(imported != nullptr);
+    QCOMPARE(imported->startFrame, result.value(QStringLiteral("frame")).toInt());
+    QCOMPARE(imported->layer, result.value(QStringLiteral("layer")).toInt());
+    QCOMPARE(imported->durationFrames, importedDuration);
+    const int restoredImageEffectIndex = effectIndexById(*imported, QStringLiteral("image"));
+    QVERIFY(restoredImageEffectIndex >= 0);
+    QCOMPARE(imported->effects.at(restoredImageEffectIndex)->params().value(QStringLiteral("path")).toString(), imagePath);
+}
+
+void TestDailyEditingWorkflow::linkedVideoImportRedoKeepsClipsSynchronized() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString videoPath = dir.filePath(QStringLiteral("linked-import.mp4"));
+    VideoEncoder encoder;
+    VideoEncoder::Config config;
+    config.width = 32;
+    config.height = 18;
+    config.fps_num = 30;
+    config.fps_den = 1;
+    config.codecName = QStringLiteral("libx264");
+    config.outputUrl = videoPath;
+    config.preset = QStringLiteral("ultrafast");
+    QVERIFY(encoder.open(config));
+    for (int frame = 0; frame < 30; ++frame) {
+        QImage image(config.width, config.height, QImage::Format_RGBA8888);
+        image.fill(Qt::darkCyan);
+        QVERIFY(encoder.pushFrame(image, frame));
+    }
+    encoder.close();
+    QVERIFY(QFileInfo(videoPath).size() > 0);
+
+    TimelineController controller;
+    controller.createObject(QStringLiteral("image"), 70, 2);
+    controller.createObject(QStringLiteral("image"), 80, 3);
+
+    const int videoClipId = controller.timeline()->nextClipId();
+    const QSignalBlocker mediaRefreshBlocker(controller.timeline());
+    const QVariantMap result = controller.importMediaFile(QUrl::fromLocalFile(videoPath).toString(), 0, 2);
+    QVERIFY(result.value(QStringLiteral("ok")).toBool());
+    const int audioClipId = videoClipId + 1;
+    const int resolvedFrame = result.value(QStringLiteral("frame")).toInt();
+    QCOMPARE(resolvedFrame, 0);
+    const ClipData *importedVideo = findClip(controller, videoClipId);
+    const ClipData *importedAudio = findClip(controller, audioClipId);
+    QVERIFY(importedVideo != nullptr);
+    QVERIFY(importedAudio != nullptr);
+    QCOMPARE(importedVideo->startFrame, resolvedFrame);
+    QCOMPARE(importedAudio->startFrame, resolvedFrame);
+
+    controller.timeline()->undo();
+    QVERIFY(findClip(controller, videoClipId) == nullptr);
+    QVERIFY(findClip(controller, audioClipId) == nullptr);
+
+    controller.timeline()->redo();
+    const ClipData *videoClip = findClip(controller, videoClipId);
+    const ClipData *audioClip = findClip(controller, audioClipId);
+    QVERIFY(videoClip != nullptr);
+    QVERIFY(audioClip != nullptr);
+    QCOMPARE(videoClip->startFrame, resolvedFrame);
+    QCOMPARE(audioClip->startFrame, resolvedFrame);
+    QCOMPARE(videoClip->durationFrames, audioClip->durationFrames);
+}
+
+void TestDailyEditingWorkflow::audioPluginStateSurvivesClipCopies() {
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("audio"), 0, 0);
+
+    auto *source = controller.timeline()->findClipById(clipId);
+    QVERIFY(source != nullptr);
+    AudioPluginState plugin;
+    plugin.id = QStringLiteral("test.plugin");
+    plugin.enabled = false;
+    plugin.params = {{QStringLiteral("2"), 0.75}};
+    plugin.keyframeTracks = {{QStringLiteral("2"), QVariantMap{{QStringLiteral("points"), QVariantList{QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), 0.25}}}}}}};
+    source->audioPlugins.append(plugin);
+    const int splitFrame = source->startFrame + (source->durationFrames / 2);
+
+    const ClipData copied = controller.timeline()->deepCopyClip(*source);
+    QCOMPARE(copied.audioPlugins.size(), 1);
+    QCOMPARE(copied.audioPlugins.first().id, plugin.id);
+    QCOMPARE(copied.audioPlugins.first().enabled, plugin.enabled);
+    QCOMPARE(copied.audioPlugins.first().params, plugin.params);
+    QCOMPARE(copied.audioPlugins.first().keyframeTracks, plugin.keyframeTracks);
+
+    controller.copyClip(clipId);
+    const QVariantMap pasteResult = controller.pasteClip(150, 0);
+    QVERIFY(pasteResult.value(QStringLiteral("ok")).toBool());
+    const int pastedId = controller.timeline()->nextClipId() - 1;
+    const ClipData *pasted = findClip(controller, pastedId);
+    QVERIFY(pasted != nullptr);
+    QCOMPARE(pasted->audioPlugins.size(), 1);
+    QCOMPARE(pasted->audioPlugins.first().keyframeTracks, plugin.keyframeTracks);
+
+    controller.timeline()->splitClip(clipId, splitFrame);
+    const int splitId = controller.timeline()->nextClipId() - 1;
+    const ClipData *split = findClip(controller, splitId);
+    QVERIFY(split != nullptr);
+    QCOMPARE(split->audioPlugins.size(), 1);
+    QCOMPARE(split->audioPlugins.first().params, plugin.params);
+
+    controller.timeline()->undo();
+    QVERIFY(findClip(controller, splitId) == nullptr);
+    controller.timeline()->redo();
+    split = findClip(controller, splitId);
+    QVERIFY(split != nullptr);
+    QCOMPARE(split->audioPlugins.size(), 1);
+    QCOMPARE(split->audioPlugins.first().keyframeTracks, plugin.keyframeTracks);
 }
 
 void TestDailyEditingWorkflow::pasteReportsResolvedClipEditTarget() {

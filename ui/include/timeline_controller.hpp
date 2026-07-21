@@ -272,7 +272,6 @@ class TimelineController : public QObject {
     int clampVideoDuration(int clipId, int requestedDuration, int projectFps) const;
     int clampAudioDuration(int clipId, int requestedDuration, int projectFps) const;
     int clampSceneDuration(const ClipData *clip, int requestedDuration) const;
-    void setupClipAfterCreation(ClipData *clip, int duration, const QString &effectId, const QVariantMap &params);
     double getSceneFps() const;
 
     void updateClipActiveState();

@@ -681,6 +681,7 @@ auto TimelineService::deepCopyClip(const ClipData &source) -> ClipData {
     newClip.clipByUpperObject = source.clipByUpperObject;
     newClip.sceneId = source.sceneId;
     newClip.params = source.params;
+    newClip.audioPlugins = source.audioPlugins;
 
     for (const auto *oldEffect : std::as_const(source.effects)) {
         auto *newEffect = new EffectModel(oldEffect->id(), oldEffect->name(), oldEffect->kind(), oldEffect->categories(), oldEffect->params(), oldEffect->qmlSource(), oldEffect->uiDefinition(), this);

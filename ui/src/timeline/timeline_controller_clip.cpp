@@ -290,26 +290,6 @@ void TimelineController::createTransition(const QString &type, int startFrame, i
     }
 }
 
-void TimelineController::setupClipAfterCreation(ClipData *clip, int duration, const QString &effectId, const QVariantMap &params) {
-    if (clip == nullptr) {
-        return;
-    }
-    clip->durationFrames = duration;
-    for (auto *eff : std::as_const(clip->effects)) {
-        if (eff != nullptr) {
-            eff->syncTrackEndpoints(duration);
-        }
-    }
-    for (auto *eff : clip->effects) {
-        if (eff->id() == effectId) {
-            for (auto it = params.cbegin(); it != params.cend(); ++it) {
-                eff->setParam(it.key(), it.value());
-            }
-            break;
-        }
-    }
-}
-
 double TimelineController::getSceneFps() const {
     const int sceneId = m_timeline->currentSceneId();
     for (const auto &scene : m_timeline->getAllScenes()) {
@@ -356,20 +336,17 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         int videoClipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(videoClipId + 1);
-        m_timeline->createClipInternal(videoClipId, QStringLiteral("video"), startFrame, layer, false);
-        setupClipAfterCreation(m_timeline->findClipById(videoClipId), importDuration, QStringLiteral("video"),
-                               {{QStringLiteral("path"), filePath}});
+        m_timeline->undoStack()->push(new AddClipCommand(m_timeline, videoClipId, QStringLiteral("video"), startFrame, layer, tr("動画"), importDuration, QStringLiteral("video"),
+                                                        {{QStringLiteral("path"), filePath}}));
 
         int audioClipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(audioClipId + 1);
-        m_timeline->createClipInternal(audioClipId, QStringLiteral("audio"), startFrame, layer + 1, false);
-        setupClipAfterCreation(m_timeline->findClipById(audioClipId), importDuration, QStringLiteral("audio"),
-                               {{QStringLiteral("source"), filePath},
-                                {QStringLiteral("linkedVideo"), true},
-                                {QStringLiteral("speed"), AviQtl::kDefaultSpeed}});
+        m_timeline->undoStack()->push(new AddClipCommand(m_timeline, audioClipId, QStringLiteral("audio"), startFrame, layer + 1, tr("音声"), importDuration, QStringLiteral("audio"),
+                                                        {{QStringLiteral("source"), filePath},
+                                                         {QStringLiteral("linkedVideo"), true},
+                                                         {QStringLiteral("speed"), AviQtl::kDefaultSpeed}}));
 
         m_timeline->undoStack()->endMacro();
-        emit m_timeline->clipsChanged();
         return editResult(startFrame, layer, importDuration);
     } else if (audioExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
@@ -382,12 +359,10 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         int clipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(clipId + 1);
-        m_timeline->createClipInternal(clipId, QStringLiteral("audio"), startFrame, layer, false);
-        setupClipAfterCreation(m_timeline->findClipById(clipId), importDuration, QStringLiteral("audio"),
-                               {{QStringLiteral("source"), filePath}});
+        m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("audio"), startFrame, layer, tr("音声"), importDuration, QStringLiteral("audio"),
+                                                        {{QStringLiteral("source"), filePath}}));
 
         m_timeline->undoStack()->endMacro();
-        emit m_timeline->clipsChanged();
         return editResult(startFrame, layer, importDuration);
     } else if (imageExts.contains(suffix)) {
         m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
@@ -397,12 +372,10 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         int clipId = m_timeline->nextClipId();
         m_timeline->setNextClipId(clipId + 1);
-        m_timeline->createClipInternal(clipId, QStringLiteral("image"), startFrame, layer, false);
-        setupClipAfterCreation(m_timeline->findClipById(clipId), importDuration, QStringLiteral("image"),
-                               {{QStringLiteral("path"), filePath}});
+        m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("image"), startFrame, layer, tr("画像"), importDuration, QStringLiteral("image"),
+                                                        {{QStringLiteral("path"), filePath}}));
 
         m_timeline->undoStack()->endMacro();
-        emit m_timeline->clipsChanged();
         return editResult(startFrame, layer, importDuration);
     } else {
         emit errorOccurred(tr("サポートされていないファイル形式です: %1").arg(suffix));
