@@ -241,13 +241,11 @@ def run_clazy(files: list[Path], args: argparse.Namespace, root: Path) -> int:
     print(f"{BOLD}{YELLOW}--- Clazy (Qt Anti-Patterns) ---{RESET}")
 
     if not args.build_dir:
-        print(f"{RED}Error: --build-dir is required to run Clazy.{RESET}")
-        return 1
+        return skip_tool("Clazy", "--build-dir was not provided")
 
     cc_json = Path(args.build_dir) / "compile_commands.json"
     if not cc_json.exists():
-        print(f"{RED}Error: {cc_json} not found.{RESET}")
-        return 1
+        return skip_tool("Clazy", f"{cc_json} not found")
 
     if args.full:
         clazy_checks = ["level1", "level2"]
@@ -282,8 +280,11 @@ def run_clang_tidy(files: list[Path], args: argparse.Namespace, root: Path) -> i
     print(f"{BOLD}{YELLOW}--- Clang-Tidy (General & Static Analyzer) ---{RESET}")
 
     if not args.build_dir:
-        print(f"{RED}Error: --build-dir is required to run Clang-Tidy.{RESET}")
-        return 1
+        return skip_tool("Clang-Tidy", "--build-dir was not provided")
+
+    cc_json = Path(args.build_dir) / "compile_commands.json"
+    if not cc_json.exists():
+        return skip_tool("Clang-Tidy", f"{cc_json} not found")
 
     # Include Qt-specific checks
     if args.full:
@@ -313,11 +314,11 @@ def print_summary(returncode: int, xml_path: Path | None) -> None:
     print()
     if returncode == 0:
         if NON_BLOCKING_WARNINGS:
-            print(f"{BOLD}{GREEN}✔  Quality checks complete: No blocking errors{RESET}")
+            print(f"{BOLD}{GREEN}OK Quality checks complete: No blocking errors{RESET}")
         else:
-            print(f"{BOLD}{GREEN}✔  Quality checks complete: No reported issues{RESET}")
+            print(f"{BOLD}{GREEN}OK Quality checks complete: No reported issues{RESET}")
     else:
-        print(f"{BOLD}{RED}✘  Quality checks complete: Warnings/errors found (count {returncode}){RESET}")
+        print(f"{BOLD}{RED}FAILED Quality checks complete: Warnings/errors found (count {returncode}){RESET}")
     if SKIPPED_TOOLS:
         print(f"{YELLOW}   Skipped: {', '.join(SKIPPED_TOOLS)}{RESET}")
     if NON_BLOCKING_WARNINGS:
@@ -327,6 +328,11 @@ def print_summary(returncode: int, xml_path: Path | None) -> None:
         print(f"{CYAN}   XML Report: {xml_path}{RESET}")
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Run cppcheck across AviQtl project"
     )
