@@ -5,12 +5,36 @@
 
 namespace AviQtl::UI {
 
-AddClipCommand::AddClipCommand(TimelineService *service, int clipId, QString type, int startFrame, int layer, const QString &clipName) // NOLINT(bugprone-easily-swappable-parameters)
-    : m_service(service), m_clipId(clipId), m_type(std::move(type)), m_startFrame(startFrame), m_layer(layer), m_clipName(clipName) {
+AddClipCommand::AddClipCommand(TimelineService *service, int clipId, QString type, int startFrame, int layer, const QString &clipName, int duration, QString effectId,
+                               QVariantMap effectParams) // NOLINT(bugprone-easily-swappable-parameters)
+    : m_service(service), m_clipId(clipId), m_type(std::move(type)), m_startFrame(startFrame), m_layer(layer), m_clipName(clipName), m_duration(duration), m_effectId(std::move(effectId)),
+      m_effectParams(std::move(effectParams)) {
     setText(QObject::tr("クリップ追加: %1").arg(clipName));
 }
 void AddClipCommand::undo() { m_service->deleteClipInternal(m_clipId); }
-void AddClipCommand::redo() { m_service->createClipInternal(m_clipId, m_type, m_startFrame, m_layer); }
+void AddClipCommand::redo() {
+    m_service->createClipInternal(m_clipId, m_type, m_startFrame, m_layer, false);
+    auto *clip = m_service->findClipById(m_clipId);
+    if (clip == nullptr) {
+        return;
+    }
+
+    if (m_duration > 0) {
+        m_service->updateClipInternal(m_clipId, clip->layer, clip->startFrame, m_duration, false, true);
+    }
+    for (auto *effect : std::as_const(clip->effects)) {
+        if (effect == nullptr || effect->id() != m_effectId) {
+            continue;
+        }
+        for (auto it = m_effectParams.cbegin(); it != m_effectParams.cend(); ++it) {
+            effect->setParam(it.key(), it.value());
+        }
+        break;
+    }
+
+    emit m_service->clipsChanged();
+    emit m_service->clipCreated(clip->id, clip->layer, clip->startFrame, clip->durationFrames, clip->type);
+}
 
 MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int oldLayer, int oldStart, int oldDuration, int newLayer, int newStart, int newDuration, const QString &clipName) // NOLINT(bugprone-easily-swappable-parameters)
     : m_service(service), m_clipId(clipId), m_oldLayer(oldLayer), m_oldStart(oldStart), m_oldDuration(oldDuration), m_newLayer(newLayer), m_newStart(newStart), m_newDuration(newDuration), m_clipName(clipName) {

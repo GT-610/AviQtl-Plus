@@ -7,7 +7,7 @@ namespace AviQtl::UI {
 
 class AddClipCommand : public QUndoCommand {
   public:
-    AddClipCommand(TimelineService *service, int clipId, QString type, int startFrame, int layer, const QString &clipName);
+    AddClipCommand(TimelineService *service, int clipId, QString type, int startFrame, int layer, const QString &clipName, int duration = 0, QString effectId = {}, QVariantMap effectParams = {});
     void undo() override;
     void redo() override;
 
@@ -18,6 +18,9 @@ class AddClipCommand : public QUndoCommand {
     int m_startFrame;
     int m_layer;
     QString m_clipName;
+    int m_duration;
+    QString m_effectId;
+    QVariantMap m_effectParams;
 };
 
 class MoveClipCommand : public QUndoCommand {
