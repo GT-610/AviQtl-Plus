@@ -329,7 +329,7 @@ Loader {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 120
                 Layout.minimumWidth: 40
-                height: 24
+                Layout.preferredHeight: 24
                 radius: 3
                 color: controlLoader._resolveSwatchColor(colorRow._startVal)
                 border.color: startSwatchMa.containsMouse ? sysPalette.highlight : sysPalette.mid
@@ -417,7 +417,7 @@ Loader {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 120
                 Layout.minimumWidth: 40
-                height: 24
+                Layout.preferredHeight: 24
                 radius: 3
                 color: controlLoader._resolveSwatchColor(colorRow._endVal)
                 opacity: colorRow._rightInteractive ? 1 : 0.45
@@ -625,7 +625,7 @@ Loader {
 
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: sysPalette.mid
             }
 

@@ -57,7 +57,7 @@ Common.AviQtlWindow {
 
         Rectangle {
             Layout.fillWidth: true
-            height: 1
+            Layout.preferredHeight: 1
             color: palette.mid
             opacity: 0.5
         }

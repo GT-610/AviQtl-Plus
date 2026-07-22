@@ -77,8 +77,14 @@ Rectangle {
                     id: layerBtn
 
                     property int layerIndex: index
-                    property bool isVisible: (headerRoot.layerStateRevision, headerRoot.getLayerVisible(layerIndex))
-                    property bool isLocked: (headerRoot.layerStateRevision, headerRoot.getLayerLocked(layerIndex))
+                    property bool isVisible: {
+                        headerRoot.layerStateRevision;
+                        return headerRoot.getLayerVisible(layerIndex);
+                    }
+                    property bool isLocked: {
+                        headerRoot.layerStateRevision;
+                        return headerRoot.getLayerLocked(layerIndex);
+                    }
                     property bool isSelected: Workspace.currentTimeline?.selectedLayer === layerIndex
 
                     width: headerRoot.headerWidth
@@ -311,7 +317,7 @@ Rectangle {
 
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: palette.mid
                 opacity: 0.3
             }
