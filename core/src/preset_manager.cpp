@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStandardPaths>
 
 namespace AviQtl::Core {
@@ -12,6 +13,12 @@ namespace {
 bool isUnsafeName(const QString &s) {
     return s.isEmpty() || s.contains(QLatin1Char('/')) || s.contains(QLatin1Char('\\'))
         || s.contains(QLatin1String("..")) || s.startsWith(QLatin1Char('.'));
+}
+
+bool isPathWithin(const QString &basePath, const QString &candidatePath) {
+    const QString base = QDir::cleanPath(basePath);
+    const QString candidate = QDir::cleanPath(candidatePath);
+    return candidate == base || candidate.startsWith(base + QDir::separator());
 }
 } // namespace
 
@@ -43,11 +50,19 @@ QString PresetManager::presetPath(const QString &effectId, const QString &name) 
     const QString dir = presetDir(effectId);
     if (dir.isEmpty())
         return {};
-    const QString path = QDir(dir).filePath(name + QStringLiteral(".json"));
-    const QString baseCanon = QFileInfo(resolveBaseDir()).canonicalFilePath();
-    const QString fileCanon = QFileInfo(path).canonicalFilePath();
-    if (!baseCanon.isEmpty() && !fileCanon.isEmpty() && !fileCanon.startsWith(baseCanon))
+
+    const QString basePath = QDir(resolveBaseDir()).absolutePath();
+    const QString candidateDir = QDir(dir).absolutePath();
+    if (!isPathWithin(basePath, candidateDir))
         return {};
+
+    const QString canonicalBase = QDir(basePath).canonicalPath();
+    const QString canonicalDir = QDir(candidateDir).canonicalPath();
+    if (!canonicalBase.isEmpty() && !canonicalDir.isEmpty() &&
+        !isPathWithin(canonicalBase, canonicalDir))
+        return {};
+
+    const QString path = QDir(dir).filePath(name + QStringLiteral(".json"));
     return path;
 }
 
@@ -94,11 +109,14 @@ bool PresetManager::savePreset(const QString &effectId, const QString &name, con
     obj[QStringLiteral("params")] = QJsonObject::fromVariantMap(params);
     obj[QStringLiteral("keyframes")] = QJsonObject::fromVariantMap(keyframes);
 
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly))
         return false;
 
-    f.write(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+    const QByteArray payload = QJsonDocument(obj).toJson(QJsonDocument::Compact);
+    if (file.write(payload) != payload.size() || !file.commit())
+        return false;
+
     emit presetsChanged(effectId);
     return true;
 }

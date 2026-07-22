@@ -1,4 +1,5 @@
 #include "package_manager.hpp"
+#include "package_url_utils.hpp"
 #include "effect_registry.hpp"
 #include "settings_manager.hpp"
 #include "shader_compiler.hpp"
@@ -44,10 +45,6 @@ bool isValidPackageId(const QString &packageId) {
 bool isValidPackageType(const QString &packageType) {
     return packageType == QStringLiteral("mod") || packageType == QStringLiteral("effect") ||
            packageType == QStringLiteral("object") || packageType == QStringLiteral("transition");
-}
-
-bool isSecureNetworkUrl(const QUrl &url) {
-    return url.isValid() && url.scheme() == QStringLiteral("https") && !url.host().isEmpty();
 }
 
 bool writeJsonAtomically(const QString &path, const QJsonDocument &document) {
@@ -272,7 +269,7 @@ void PackageManager::saveRepositories(const QVariantList &repos) {
 }
 
 void PackageManager::addRepository(const QString &url, bool enabled, int priority) {
-    if (!isSecureNetworkUrl(QUrl(url)))
+    if (!Internal::isSecureNetworkUrl(QUrl(url)))
         return;
     QVariantList repos = repositories();
     for (const auto &r : repos) {
@@ -369,16 +366,6 @@ void PackageManager::refreshRepositories() {
             continue;
 
         QString repoUrl = repo.value(QStringLiteral("url")).toString();
-        QUrl baseUrl(repoUrl);
-        QString basePath = repoUrl;
-        if (basePath.endsWith(QStringLiteral("/repo.json")))
-            basePath.chop(9);
-        else if (basePath.endsWith(QStringLiteral(".json"))) {
-            int slash = basePath.lastIndexOf('/');
-            if (slash != -1)
-                basePath = basePath.left(slash);
-        }
-
         struct SyncCtx {
             QVariantMap repoInfo;
             QByteArray catalogData;
@@ -391,7 +378,7 @@ void PackageManager::refreshRepositories() {
         if (!fetchUrl.path().endsWith(QStringLiteral("/repo.json")))
             fetchUrl.setPath(fetchUrl.path() + (fetchUrl.path().endsWith('/') ? QStringLiteral("repo.json") : QStringLiteral("/repo.json")));
 
-        if (!isSecureNetworkUrl(fetchUrl)) {
+        if (!Internal::isSecureNetworkUrl(fetchUrl)) {
             m_pendingRequests--;
             emit errorOccurred(tr("Repository URL must use HTTPS: %1").arg(repoUrl));
             tryFinishSyncLegacy(installed);
@@ -399,7 +386,7 @@ void PackageManager::refreshRepositories() {
         }
         QNetworkReply *reply = m_networkManager->get(packageNetworkRequest(fetchUrl));
         enforceReplySizeLimit(reply, kMaxRepositoryResponseBytes);
-        connect(reply, &QNetworkReply::finished, this, [this, reply, fetchUrl, repoUrl, basePath, ctx, installed]() {
+        connect(reply, &QNetworkReply::finished, this, [this, reply, fetchUrl, repoUrl, ctx, installed]() {
             reply->deleteLater();
             m_pendingRequests--;
 
@@ -411,13 +398,9 @@ void PackageManager::refreshRepositories() {
                     ctx->repoInfo[QStringLiteral("name")] = repoObj.value(QStringLiteral("repo_name")).toString();
                     QString catalogUrl = repoObj.value(QStringLiteral("catalog_url")).toString();
                     if (!catalogUrl.isEmpty()) {
-                        QUrl absUrl;
-                        if (catalogUrl.startsWith(QStringLiteral("http://")) || catalogUrl.startsWith(QStringLiteral("https://")))
-                            absUrl = QUrl(catalogUrl);
-                        else
-                            absUrl = QUrl(basePath + QStringLiteral("/") + catalogUrl);
+                        const QUrl absUrl = Internal::resolveRepositoryReference(fetchUrl, catalogUrl);
 
-                        if (!isSecureNetworkUrl(absUrl)) {
+                        if (!Internal::isSecureNetworkUrl(absUrl)) {
                             emit errorOccurred(tr("Catalog URL must use HTTPS: %1").arg(absUrl.toString()));
                             onCatalogFetched(ctx->repoInfo, {}, installed);
                             tryFinishSyncLegacy(installed);
@@ -646,7 +629,7 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
 
     setStatus(tr("Fetching package details: %1").arg(packageId));
     QUrl url(metadataUrl);
-    if (!isSecureNetworkUrl(url)) {
+    if (!Internal::isSecureNetworkUrl(url)) {
         emit errorOccurred(tr("Invalid or insecure metadata URL for package: %1").arg(packageId));
         return;
     }
@@ -837,7 +820,7 @@ void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, 
         emit errorOccurred(tr("Invalid package ID or type."));
         return;
     }
-    if (!isSecureNetworkUrl(url)) {
+    if (!Internal::isSecureNetworkUrl(url)) {
         setBusy(false);
         emit errorOccurred(tr("Invalid or insecure package download URL."));
         return;
@@ -884,7 +867,11 @@ void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, 
             emit errorOccurred(tr("Package archive exceeds the maximum allowed size."));
             return;
         }
-        file.write(data);
+        if (file.write(data) != data.size()) {
+            setBusy(false);
+            emit errorOccurred(tr("Failed to write the complete downloaded package."));
+            return;
+        }
         file.close();
 
         // SHA256 verification

@@ -75,6 +75,78 @@ class TestPresetManager : public QObject {
         QVERIFY(names.isEmpty());
     }
 
+    void rejectsUnsafeNames() {
+        const QStringList unsafeNames = {
+            QString(),
+            QStringLiteral("."),
+            QStringLiteral("../escape"),
+            QStringLiteral("nested/name"),
+            QStringLiteral("nested\\name"),
+            QStringLiteral(".hidden"),
+        };
+        for (const QString &name : unsafeNames) {
+            QVERIFY(!PresetManager::instance().savePreset(name, QStringLiteral("safe"), {}, {}, true));
+            QVERIFY(!PresetManager::instance().savePreset(QStringLiteral("safe"), name, {}, {}, true));
+        }
+    }
+
+    void overwritesPresetAtomically() {
+        const QString effectId = QStringLiteral("atomic_effect");
+        const QString name = QStringLiteral("Atomic");
+        QVERIFY(PresetManager::instance().savePreset(effectId, name,
+                                                     {{QStringLiteral("value"), 1}}, {}, true));
+        QVERIFY(PresetManager::instance().savePreset(effectId, name,
+                                                     {{QStringLiteral("value"), 2}}, {}, false));
+
+        const QVariantMap loaded = PresetManager::instance().loadPreset(effectId, name);
+        QCOMPARE(loaded.value(QStringLiteral("params")).toMap().value(QStringLiteral("value")).toInt(), 2);
+        QVERIFY(!loaded.value(QStringLiteral("enabled")).toBool());
+
+        QDir effectDir(m_testDir + QLatin1Char('/') + effectId);
+        const QStringList temporaryFiles = effectDir.entryList({QStringLiteral("Atomic.json.*")}, QDir::Files);
+        QVERIFY(temporaryFiles.isEmpty());
+    }
+
+    void rejectsSymlinkedEffectDirectory() {
+        QTemporaryDir outside;
+        QVERIFY(outside.isValid());
+
+        const QString linkedDir = m_testDir + QStringLiteral("/linked_effect");
+        if (!QFile::link(outside.path(), linkedDir))
+            QSKIP("Directory symlinks are not supported in this environment");
+
+        QVERIFY(!PresetManager::instance().savePreset(QStringLiteral("linked_effect"),
+                                                      QStringLiteral("Escape"), {}, {}, true));
+        QVERIFY(!QFile::exists(outside.filePath(QStringLiteral("Escape.json"))));
+        QFile::remove(linkedDir);
+    }
+
+    void failedOverwritePreservesExistingPreset() {
+#ifdef Q_OS_WIN
+        QSKIP("Directory permission failure is not deterministic on Windows");
+#else
+        const QString effectId = QStringLiteral("readonly_effect");
+        const QString name = QStringLiteral("Existing");
+        QVERIFY(PresetManager::instance().savePreset(effectId, name,
+                                                     {{QStringLiteral("value"), 1}}, {}, true));
+
+        const QString effectDir = m_testDir + QLatin1Char('/') + effectId;
+        const QFileDevice::Permissions originalPermissions = QFile::permissions(effectDir);
+        struct PermissionRestore {
+            QString path;
+            QFileDevice::Permissions permissions;
+            ~PermissionRestore() { QFile::setPermissions(path, permissions); }
+        } restore{effectDir, originalPermissions};
+
+        QVERIFY(QFile::setPermissions(effectDir,
+                                      QFileDevice::ReadOwner | QFileDevice::ExeOwner));
+        QVERIFY(!PresetManager::instance().savePreset(effectId, name,
+                                                      {{QStringLiteral("value"), 2}}, {}, false));
+        const QVariantMap loaded = PresetManager::instance().loadPreset(effectId, name);
+        QCOMPARE(loaded.value(QStringLiteral("params")).toMap().value(QStringLiteral("value")).toInt(), 1);
+#endif
+    }
+
     void signalsEmitted() {
         QSignalSpy spy(&PresetManager::instance(), &PresetManager::presetsChanged);
 

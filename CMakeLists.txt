@@ -91,6 +91,7 @@ set(CORE_SOURCES
     core/src/media_decoder.cpp
     core/src/media_utils.cpp
     core/src/package_manager.cpp
+    core/src/package_url_utils.hpp
     core/src/permission_manager.cpp
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
