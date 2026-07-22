@@ -1807,6 +1807,11 @@ This software is released under the GNU Affero General Public License Version 3.
         <source>Upgrading package: %1</source>
         <translation>Upgrading package: %1</translation>
     </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="872"/>
+        <source>Failed to write the complete downloaded package.</source>
+        <translation>Failed to write the complete downloaded package.</translation>
+    </message>
 </context>
 <context>
     <name>AviQtl::UI::TimelineController</name>

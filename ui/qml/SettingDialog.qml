@@ -1,4 +1,3 @@
-import Qt.labs.qmlmodels
 import QtQml
 import QtQuick
 import QtQuick.Controls
