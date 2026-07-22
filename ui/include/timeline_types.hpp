@@ -2,6 +2,7 @@
 #include "constants.hpp"
 #include "effect_model.hpp"
 #include <QList>
+#include <QHash>
 #include <QSet>
 #include <QString>
 #include <QVariant>
@@ -13,6 +14,16 @@ struct AudioPluginState {
     bool enabled = true;
     QVariantMap params;
     QVariantMap keyframeTracks; // paramIndex -> structured keyframe track
+
+    void invalidateKeyframeCache() {
+        ++keyframeRevision;
+        resolvedKeyframeTracks.clear();
+        resolvedKeyframeRevision = keyframeRevision;
+    }
+
+    quint64 keyframeRevision = 0;
+    mutable quint64 resolvedKeyframeRevision = 0;
+    mutable QHash<QString, QVariantList> resolvedKeyframeTracks;
 };
 
 struct ClipData {

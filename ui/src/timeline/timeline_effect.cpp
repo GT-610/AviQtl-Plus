@@ -890,6 +890,7 @@ void TimelineService::setAudioPluginKeyframeInternal(int clipId, int pluginIndex
         plugin.params[paramKey] = value;
         track[QStringLiteral("start")] = start;
         plugin.keyframeTracks[paramKey] = track;
+        plugin.invalidateKeyframeCache();
         emit clipEffectsChanged(clipId);
         emit clipsChanged();
         return;
@@ -914,6 +915,7 @@ void TimelineService::setAudioPluginKeyframeInternal(int clipId, int pluginIndex
 
     track[QStringLiteral("points")] = sortAudioPluginPoints(points);
     plugin.keyframeTracks[paramKey] = track;
+    plugin.invalidateKeyframeCache();
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -940,6 +942,7 @@ void TimelineService::removeAudioPluginKeyframeInternal(int clipId, int pluginIn
     }
     track[QStringLiteral("points")] = next;
     plugin.keyframeTracks[paramKey] = track;
+    plugin.invalidateKeyframeCache();
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -976,6 +979,7 @@ void TimelineService::moveAudioPluginKeyframeInternal(int clipId, int pluginInde
     points[sourceIndex] = moved;
     track[QStringLiteral("points")] = sortAudioPluginPoints(points);
     plugin.keyframeTracks[paramKey] = track;
+    plugin.invalidateKeyframeCache();
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
