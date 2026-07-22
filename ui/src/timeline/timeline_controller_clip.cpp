@@ -106,6 +106,9 @@ static auto evaluateAudioPluginTrack(const QVariantList &points, int frame, cons
     if (nextFrame <= currentFrame) {
         return currentPoint.value(QStringLiteral("value"), fallback);
     }
+    if (currentPoint.value(QStringLiteral("interp")).toString() == QStringLiteral("none")) {
+        return currentPoint.value(QStringLiteral("value"), fallback);
+    }
 
     const double t = static_cast<double>(frame - currentFrame) /
                      static_cast<double>(nextFrame - currentFrame);

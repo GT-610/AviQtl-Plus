@@ -144,6 +144,12 @@ void TimelineMediaManager::removeDecoder(int clipId) {
     }
 
     auto decoder = it.value();
+    if (decoder != nullptr) {
+        disconnect(decoder, &AviQtl::Core::MediaDecoder::ready, this, nullptr);
+        if (auto *imageDecoder = qobject_cast<AviQtl::Core::ImageDecoder *>(decoder)) {
+            imageDecoder->waitForFinished();
+        }
+    }
     if (qobject_cast<AviQtl::Core::AudioDecoder *>(decoder) != nullptr && m_audioMixer != nullptr) {
         m_audioMixer->unregisterDecoder(clipId);
     }

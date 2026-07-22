@@ -445,6 +445,7 @@ void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {
         {QStringLiteral("0"), 0.0},
         {QStringLiteral("1"), 0},
         {QStringLiteral("2"), false},
+        {QStringLiteral("3"), 0.0},
     };
     plugin.keyframeTracks.insert(
         QStringLiteral("0"),
@@ -468,6 +469,14 @@ void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {
             QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), false}},
             QVariantMap{{QStringLiteral("frame"), 10}, {QStringLiteral("value"), true}},
         });
+    plugin.keyframeTracks.insert(
+        QStringLiteral("3"),
+        QVariantList{
+            QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), 2.0},
+                        {QStringLiteral("interp"), QStringLiteral("none")}},
+            QVariantMap{{QStringLiteral("frame"), 10}, {QStringLiteral("value"), 8.0},
+                        {QStringLiteral("interp"), QStringLiteral("linear")}},
+        });
     clip->audioPlugins.append(plugin);
 
     const QVariantList sorted = controller.audioPluginKeyframeListForUi(clipId, 0, QStringLiteral("0"));
@@ -481,6 +490,8 @@ void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {
     QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("1"), 5).toInt(), 5);
     QVERIFY(!controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("2"), 4).toBool());
     QVERIFY(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("2"), 5).toBool());
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("3"), 5).toDouble(), 2.0);
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("3"), 10).toDouble(), 8.0);
 
     QVariantList largeTrack;
     largeTrack.reserve(10'000);

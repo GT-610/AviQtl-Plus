@@ -6,6 +6,9 @@
 #include <QJsonObject>
 #include <QSignalSpy>
 #include <QTest>
+#ifndef Q_OS_WIN
+#include <unistd.h>
+#endif
 
 using namespace AviQtl::Core;
 
@@ -125,6 +128,9 @@ class TestPresetManager : public QObject {
 #ifdef Q_OS_WIN
         QSKIP("Directory permission failure is not deterministic on Windows");
 #else
+        if (::geteuid() == 0)
+            QSKIP("Directory permission failure cannot be tested as root");
+
         const QString effectId = QStringLiteral("readonly_effect");
         const QString name = QStringLiteral("Existing");
         QVERIFY(PresetManager::instance().savePreset(effectId, name,
