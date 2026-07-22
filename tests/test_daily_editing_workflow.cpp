@@ -1,5 +1,7 @@
 #include "effect_registry.hpp"
+#include "image_decoder.hpp"
 #include "timeline_controller.hpp"
+#include "video_frame_store.hpp"
 #include "video_encoder.hpp"
 #include <QColor>
 #include <QFileInfo>
@@ -25,6 +27,7 @@ class TestDailyEditingWorkflow : public QObject {
 
     void saveAndReopenDailyEdit();
     void mediaImportIsUndoable();
+    void imageDecoderOwnershipIsUnified();
     void linkedVideoImportRedoKeepsClipsSynchronized();
     void audioPluginStateSurvivesClipCopies();
     void pasteReportsResolvedClipEditTarget();
@@ -283,6 +286,46 @@ void TestDailyEditingWorkflow::mediaImportIsUndoable() {
     const int restoredImageEffectIndex = effectIndexById(*imported, QStringLiteral("image"));
     QVERIFY(restoredImageEffectIndex >= 0);
     QCOMPARE(imported->effects.at(restoredImageEffectIndex)->params().value(QStringLiteral("path")).toString(), imagePath);
+}
+
+void TestDailyEditingWorkflow::imageDecoderOwnershipIsUnified() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString firstPath = dir.filePath(QStringLiteral("first.png"));
+    const QString secondPath = dir.filePath(QStringLiteral("second.png"));
+    QImage firstImage(16, 16, QImage::Format_ARGB32);
+    firstImage.fill(Qt::red);
+    QVERIFY(firstImage.save(firstPath));
+    QImage secondImage(16, 16, QImage::Format_ARGB32);
+    secondImage.fill(Qt::blue);
+    QVERIFY(secondImage.save(secondPath));
+
+    TimelineController controller;
+    VideoFrameStore frameStore;
+    controller.setVideoFrameStore(&frameStore);
+
+    const int clipId = controller.timeline()->nextClipId();
+    QVERIFY(controller.importMediaFile(QUrl::fromLocalFile(firstPath).toString(), 0, 0)
+                .value(QStringLiteral("ok"))
+                .toBool());
+    QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
+
+    controller.requestImageLoad(clipId, firstPath);
+    QCoreApplication::processEvents();
+    QCOMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
+    QCOMPARE(qobject_cast<ImageDecoder *>(controller.mediaManager()->decoderForClip(clipId))->source(),
+             QUrl::fromLocalFile(firstPath));
+
+    controller.requestImageLoad(clipId, secondPath);
+    QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
+    auto *replacement = qobject_cast<ImageDecoder *>(controller.mediaManager()->decoderForClip(clipId));
+    QVERIFY(replacement != nullptr);
+    QCOMPARE(replacement->source(), QUrl::fromLocalFile(secondPath));
+
+    controller.deleteClip(clipId);
+    QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 0);
+    QVERIFY(frameStore.frame(QString::number(clipId)).isNull());
 }
 
 void TestDailyEditingWorkflow::linkedVideoImportRedoKeepsClipsSynchronized() {

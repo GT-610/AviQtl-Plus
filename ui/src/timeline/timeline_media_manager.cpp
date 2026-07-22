@@ -137,6 +137,33 @@ auto TimelineMediaManager::getClipSourceUrl(const ClipData &clip) -> QUrl {
     return QUrl::fromLocalFile(path);
 }
 
+void TimelineMediaManager::removeDecoder(int clipId) {
+    auto it = m_decoders.find(clipId);
+    if (it == m_decoders.end()) {
+        return;
+    }
+
+    auto decoder = it.value();
+    if (qobject_cast<AviQtl::Core::AudioDecoder *>(decoder) != nullptr && m_audioMixer != nullptr) {
+        m_audioMixer->unregisterDecoder(clipId);
+    }
+    if (m_videoFrameStore != nullptr) {
+        m_videoFrameStore->invalidateFrame(QString::number(clipId));
+    }
+    if (decoder != nullptr) {
+        decoder->deleteLater();
+    }
+    m_decoders.erase(it);
+}
+
+void TimelineMediaManager::registerDecoder(int clipId, AviQtl::Core::MediaDecoder *decoder) {
+    if (decoder == nullptr) {
+        return;
+    }
+    m_decoders.insert(clipId, decoder);
+    connect(decoder, &AviQtl::Core::MediaDecoder::ready, this, [this, clipId]() -> void { emit frameUpdated(clipId); });
+}
+
 void TimelineMediaManager::updateMediaDecoders() {
     // 巨大な QList<ClipData> のコピー作成を避け、元のデータ構造を直接走査する
     const auto &scenes = m_controller->timeline()->getAllScenes();
@@ -179,17 +206,7 @@ void TimelineMediaManager::updateMediaDecoders() {
 
             QUrl sourceUrl = getClipSourceUrl(clip);
             if (!sourceUrl.isValid() || sourceUrl.isEmpty()) {
-                auto it = m_decoders.find(clip.id);
-                if (it != m_decoders.end()) {
-                    auto decoder = it.value();
-                    if (qobject_cast<AviQtl::Core::AudioDecoder *>(decoder) != nullptr) {
-                        m_audioMixer->unregisterDecoder(clip.id);
-                    }
-                    if (decoder) {
-                        decoder->deleteLater();
-                    }
-                    m_decoders.erase(it);
-                }
+                removeDecoder(clip.id);
                 continue;
             }
 
@@ -199,11 +216,7 @@ void TimelineMediaManager::updateMediaDecoders() {
                 if (existingDecoder != nullptr) {
                     // If the source has changed, we must recreate the decoder
                     if (existingDecoder->source() != sourceUrl) {
-                        if (qobject_cast<AviQtl::Core::AudioDecoder *>(existingDecoder) != nullptr) {
-                            m_audioMixer->unregisterDecoder(clip.id);
-                        }
-                        existingDecoder->deleteLater();
-                        m_decoders.erase(itExisting);
+                        removeDecoder(clip.id);
                     } else {
                         continue;
                     }
@@ -231,13 +244,11 @@ void TimelineMediaManager::updateMediaDecoders() {
             }
 
             if (decoder != nullptr) {
-                m_decoders.insert(clip.id, decoder);
+                registerDecoder(clip.id, decoder);
                 if (clip.type == QStringLiteral("audio")) {
                     syncAudioPluginChain(clip);
                 }
                 int cid = clip.id;
-                // 画像や動画のデコード準備ができたらUIへ通知する
-                connect(decoder, &AviQtl::Core::MediaDecoder::ready, this, [this, cid]() -> void { emit frameUpdated(cid); });
 
                 if (auto *vid = qobject_cast<AviQtl::Core::VideoDecoder *>(decoder)) {
                     connect(decoder, &AviQtl::Core::MediaDecoder::frameReady, this, [this, cid](int) -> void { emit frameUpdated(cid); });
@@ -275,31 +286,10 @@ void TimelineMediaManager::updateMediaDecoders() {
         }
     }
 
-    for (auto it = m_decoders.begin(); it != m_decoders.end();) {
-        if (!currentClipIds.contains(it.key())) {
-            if (qobject_cast<AviQtl::Core::AudioDecoder *>(it.value()) != nullptr) {
-                m_audioMixer->unregisterDecoder(it.key());
-            }
-            if (m_videoFrameStore != nullptr) {
-                m_videoFrameStore->invalidateFrame(QString::number(it.key()));
-            }
-            if (it.value()) {
-                it.value()->deleteLater();
-            }
-            it = m_decoders.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    for (auto it = m_imageDecoders.begin(); it != m_imageDecoders.end();) {
-        if (!currentClipIds.contains(it.key())) {
-            if (it.value()) {
-                it.value()->deleteLater();
-            }
-            it = m_imageDecoders.erase(it);
-        } else {
-            ++it;
+    const QList<int> decoderIds = m_decoders.keys();
+    for (int clipId : decoderIds) {
+        if (!currentClipIds.contains(clipId)) {
+            removeDecoder(clipId);
         }
     }
 }
@@ -412,16 +402,16 @@ void TimelineMediaManager::requestImageLoad(int clipId, const QString &path) {
 
     const QUrl url = QUrl::fromLocalFile(path);
 
-    if (auto it = m_imageDecoders.find(clipId); it != m_imageDecoders.end()) {
-        auto existing = it.value();
-        if (existing && existing->source() == url) {
+    if (auto *existing = qobject_cast<AviQtl::Core::ImageDecoder *>(decoderForClip(clipId))) {
+        if (existing->source() == url) {
+            existing->seek(0);
             return;
         }
     }
 
+    removeDecoder(clipId);
     auto *decoder = new AviQtl::Core::ImageDecoder(clipId, url, m_videoFrameStore, this);
-    connect(decoder, &AviQtl::Core::MediaDecoder::ready, this, [this, clipId]() -> void { emit frameUpdated(clipId); });
-    m_imageDecoders.insert(clipId, decoder);
+    registerDecoder(clipId, decoder);
     decoder->load();
 }
 
