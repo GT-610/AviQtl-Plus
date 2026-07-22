@@ -93,9 +93,9 @@ void TestQmlCompositeCapture::initTestCase() {
     monochrome.version = QStringLiteral("1.0.0");
     monochrome.kind = QStringLiteral("effect");
     monochrome.categories = {QStringLiteral("Color")};
-    // Built-in effects are deployed beside the executable together with their
-    // compiled shaders; loading from there exercises the production layout.
-    const QString monochromeQmlPath = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("effects/Monochrome.qml"));
+    // Load from AviQtl's deployed assets. The test executable has a different
+    // output directory from the app bundle on macOS/Xcode.
+    const QString monochromeQmlPath = QStringLiteral(AVIQTL_DEPLOYED_EFFECTS_DIR "/Monochrome.qml");
     QVERIFY2(QFileInfo::exists(monochromeQmlPath), qPrintable(QStringLiteral("Missing deployed effect: %1").arg(monochromeQmlPath)));
     monochrome.qmlSource = QUrl::fromLocalFile(monochromeQmlPath).toString();
     monochrome.defaultParams = {{QStringLiteral("strength"), 100.0}, {QStringLiteral("color"), QStringLiteral("#ffffff")},
