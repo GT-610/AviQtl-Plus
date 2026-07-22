@@ -51,7 +51,7 @@ Node {
         _component = null;
         status = Loader.Null;
         errorString = "";
-        if (source == "") {
+        if (source === "") {
             status = Loader.Null;
             return ;
         }

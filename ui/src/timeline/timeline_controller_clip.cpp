@@ -42,6 +42,87 @@ static int getControlLayerCount(const ClipData &clip) {
     return 0;
 }
 
+static auto audioPluginTrackPoints(const AudioPluginState &plugin, const QString &paramKey) -> QVariantList {
+    if (plugin.resolvedKeyframeRevision != plugin.keyframeRevision) {
+        plugin.resolvedKeyframeTracks.clear();
+        plugin.resolvedKeyframeRevision = plugin.keyframeRevision;
+    }
+    const auto cached = plugin.resolvedKeyframeTracks.constFind(paramKey);
+    if (cached != plugin.resolvedKeyframeTracks.cend()) {
+        return cached.value();
+    }
+
+    const QVariant raw = plugin.keyframeTracks.value(paramKey);
+    QVariantList points;
+    if (AviQtl::Core::KeyframeUtils::isStructuredTrack(raw)) {
+        const QVariantMap track = raw.toMap();
+        points.append(track.value(QStringLiteral("start")));
+        points.append(track.value(QStringLiteral("points")).toList());
+    } else {
+        points = raw.toList();
+    }
+
+    const auto frameOf = [](const QVariant &point) {
+        return point.toMap().value(QStringLiteral("frame")).toInt();
+    };
+    if (!std::is_sorted(points.cbegin(), points.cend(), [&frameOf](const QVariant &lhs, const QVariant &rhs) {
+            return frameOf(lhs) < frameOf(rhs);
+        })) {
+        std::sort(points.begin(), points.end(), [&frameOf](const QVariant &lhs, const QVariant &rhs) {
+            return frameOf(lhs) < frameOf(rhs);
+        });
+    }
+    plugin.resolvedKeyframeTracks.insert(paramKey, points);
+    return points;
+}
+
+static auto evaluateAudioPluginTrack(const QVariantList &points, int frame, const QVariant &fallback) -> QVariant {
+    if (points.isEmpty()) {
+        return fallback;
+    }
+
+    const auto frameOf = [](const QVariant &point) {
+        return point.toMap().value(QStringLiteral("frame")).toInt();
+    };
+    const auto next = std::lower_bound(points.cbegin(), points.cend(), frame,
+                                       [&frameOf](const QVariant &point, int targetFrame) {
+                                           return frameOf(point) < targetFrame;
+                                       });
+    if (next == points.cbegin()) {
+        return next->toMap().value(QStringLiteral("value"), fallback);
+    }
+    if (next == points.cend()) {
+        return points.constLast().toMap().value(QStringLiteral("value"), fallback);
+    }
+
+    const QVariantMap nextPoint = next->toMap();
+    if (frameOf(*next) == frame) {
+        return nextPoint.value(QStringLiteral("value"), fallback);
+    }
+
+    const QVariantMap currentPoint = std::prev(next)->toMap();
+    const int currentFrame = currentPoint.value(QStringLiteral("frame")).toInt();
+    const int nextFrame = nextPoint.value(QStringLiteral("frame")).toInt();
+    if (nextFrame <= currentFrame) {
+        return currentPoint.value(QStringLiteral("value"), fallback);
+    }
+    if (currentPoint.value(QStringLiteral("interp")).toString() == QStringLiteral("none")) {
+        return currentPoint.value(QStringLiteral("value"), fallback);
+    }
+
+    const double t = static_cast<double>(frame - currentFrame) /
+                     static_cast<double>(nextFrame - currentFrame);
+    const double currentValue = currentPoint.value(QStringLiteral("value"), fallback).toDouble();
+    const double nextValue = nextPoint.value(QStringLiteral("value"), fallback).toDouble();
+    if (fallback.typeId() == QMetaType::Bool) {
+        return t < 0.5 ? currentValue : nextValue;
+    }
+    if (fallback.typeId() == QMetaType::Int || fallback.typeId() == QMetaType::LongLong) {
+        return t < 0.5 ? std::floor(currentValue) : std::floor(nextValue);
+    }
+    return currentValue + (nextValue - currentValue) * t;
+}
+
 static QVariantMap clipToVariantMap(const ClipData &clip) {
     QVariantMap map;
     map.insert(QStringLiteral("id"), clip.id);
@@ -981,21 +1062,7 @@ auto TimelineController::audioPluginKeyframeListForUi(int clipId, int pluginInde
         return {};
     }
     const auto &plugin = clip->audioPlugins.at(pluginIndex);
-    const QVariant raw = plugin.keyframeTracks.value(paramKey);
-    if (raw.typeId() == QMetaType::QVariantMap && raw.toMap().contains(QStringLiteral("start"))) {
-        QVariantMap track = raw.toMap();
-        QVariantList flat;
-        flat.append(track.value(QStringLiteral("start")).toMap());
-        const QVariantList points = track.value(QStringLiteral("points")).toList();
-        for (const auto &v : points) {
-            flat.append(v);
-        }
-        std::sort(flat.begin(), flat.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
-        return flat;
-    }
-    QVariantList list = raw.toList();
-    std::sort(list.begin(), list.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
-    return list;
+    return audioPluginTrackPoints(plugin, paramKey);
 }
 
 auto TimelineController::audioPluginEvaluatedParam(int clipId, int pluginIndex, const QString &paramKey, int frame) const -> QVariant {
@@ -1009,52 +1076,7 @@ auto TimelineController::audioPluginEvaluatedParam(int clipId, int pluginIndex, 
     if (!raw.isValid()) {
         return fallback;
     }
-    QVariantList flat;
-    if (raw.typeId() == QMetaType::QVariantMap && raw.toMap().contains(QStringLiteral("start"))) {
-        QVariantMap track = raw.toMap();
-        flat.append(track.value(QStringLiteral("start")).toMap());
-        const QVariantList points = track.value(QStringLiteral("points")).toList();
-        for (const auto &v : points) {
-            flat.append(v);
-        }
-        std::sort(flat.begin(), flat.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
-    } else {
-        flat = raw.toList();
-        std::sort(flat.begin(), flat.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
-    }
-    if (flat.isEmpty()) {
-        return fallback;
-    }
-    QVariantMap firstPoint = flat.first().toMap();
-    if (frame <= firstPoint.value(QStringLiteral("frame")).toInt()) {
-        return firstPoint.value(QStringLiteral("value"), fallback);
-    }
-    for (int i = 0; i < flat.size() - 1; ++i) {
-        QVariantMap cur = flat[i].toMap();
-        QVariantMap nxt = flat[i + 1].toMap();
-        int f0 = cur.value(QStringLiteral("frame")).toInt();
-        int f1 = nxt.value(QStringLiteral("frame")).toInt();
-        if (frame >= f0 && frame <= f1) {
-            if (frame == f0) {
-                return cur.value(QStringLiteral("value"), fallback);
-            }
-            if (frame == f1) {
-                return nxt.value(QStringLiteral("value"), fallback);
-            }
-            double t = static_cast<double>(frame - f0) / static_cast<double>(f1 - f0);
-            double v0 = cur.value(QStringLiteral("value"), fallback).toDouble();
-            double v1 = nxt.value(QStringLiteral("value"), fallback).toDouble();
-            // Discrete types: hold current value until crossing the midpoint
-            if (fallback.typeId() == QMetaType::Bool) {
-                return t < 0.5 ? v0 : v1;
-            }
-            if (fallback.typeId() == QMetaType::Int || fallback.typeId() == QMetaType::LongLong) {
-                return t < 0.5 ? std::floor(v0) : std::floor(v1);
-            }
-            return v0 + (v1 - v0) * t;
-        }
-    }
-    return flat.last().toMap().value(QStringLiteral("value"), fallback);
+    return evaluateAudioPluginTrack(audioPluginTrackPoints(plugin, paramKey), frame, fallback);
 }
 
 void TimelineController::deleteClip(int clipId) { requestDelete(clipId); }

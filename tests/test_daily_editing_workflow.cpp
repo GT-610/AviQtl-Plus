@@ -1,9 +1,12 @@
 #include "effect_registry.hpp"
+#include "image_decoder.hpp"
 #include "timeline_controller.hpp"
+#include "video_frame_store.hpp"
 #include "video_encoder.hpp"
 #include <QColor>
 #include <QFileInfo>
 #include <QImage>
+#include <QElapsedTimer>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QSignalBlocker>
@@ -25,8 +28,10 @@ class TestDailyEditingWorkflow : public QObject {
 
     void saveAndReopenDailyEdit();
     void mediaImportIsUndoable();
+    void imageDecoderOwnershipIsUnified();
     void linkedVideoImportRedoKeepsClipsSynchronized();
     void audioPluginStateSurvivesClipCopies();
+    void audioPluginKeyframeEvaluationIsCompatible();
     void pasteReportsResolvedClipEditTarget();
     void catalogItemsExposeProductMetadata();
     void catalogQueryFiltersMetadataAndCategories();
@@ -285,6 +290,46 @@ void TestDailyEditingWorkflow::mediaImportIsUndoable() {
     QCOMPARE(imported->effects.at(restoredImageEffectIndex)->params().value(QStringLiteral("path")).toString(), imagePath);
 }
 
+void TestDailyEditingWorkflow::imageDecoderOwnershipIsUnified() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString firstPath = dir.filePath(QStringLiteral("first.png"));
+    const QString secondPath = dir.filePath(QStringLiteral("second.png"));
+    QImage firstImage(16, 16, QImage::Format_ARGB32);
+    firstImage.fill(Qt::red);
+    QVERIFY(firstImage.save(firstPath));
+    QImage secondImage(16, 16, QImage::Format_ARGB32);
+    secondImage.fill(Qt::blue);
+    QVERIFY(secondImage.save(secondPath));
+
+    TimelineController controller;
+    VideoFrameStore frameStore;
+    controller.setVideoFrameStore(&frameStore);
+
+    const int clipId = controller.timeline()->nextClipId();
+    QVERIFY(controller.importMediaFile(QUrl::fromLocalFile(firstPath).toString(), 0, 0)
+                .value(QStringLiteral("ok"))
+                .toBool());
+    QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
+
+    controller.requestImageLoad(clipId, firstPath);
+    QCoreApplication::processEvents();
+    QCOMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
+    QCOMPARE(qobject_cast<ImageDecoder *>(controller.mediaManager()->decoderForClip(clipId))->source(),
+             QUrl::fromLocalFile(firstPath));
+
+    controller.requestImageLoad(clipId, secondPath);
+    QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
+    auto *replacement = qobject_cast<ImageDecoder *>(controller.mediaManager()->decoderForClip(clipId));
+    QVERIFY(replacement != nullptr);
+    QCOMPARE(replacement->source(), QUrl::fromLocalFile(secondPath));
+
+    controller.deleteClip(clipId);
+    QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 0);
+    QVERIFY(frameStore.frame(QString::number(clipId)).isNull());
+}
+
 void TestDailyEditingWorkflow::linkedVideoImportRedoKeepsClipsSynchronized() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
@@ -385,6 +430,84 @@ void TestDailyEditingWorkflow::audioPluginStateSurvivesClipCopies() {
     QVERIFY(split != nullptr);
     QCOMPARE(split->audioPlugins.size(), 1);
     QCOMPARE(split->audioPlugins.first().keyframeTracks, plugin.keyframeTracks);
+}
+
+void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("audio"), 0, 0);
+
+    auto *clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    AudioPluginState plugin;
+    plugin.id = QStringLiteral("test.keyframes");
+    plugin.params = {
+        {QStringLiteral("0"), 0.0},
+        {QStringLiteral("1"), 0},
+        {QStringLiteral("2"), false},
+        {QStringLiteral("3"), 0.0},
+    };
+    plugin.keyframeTracks.insert(
+        QStringLiteral("0"),
+        QVariantList{
+            QVariantMap{{QStringLiteral("frame"), 20}, {QStringLiteral("value"), 20.0}},
+            QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), 0.0}},
+            QVariantMap{{QStringLiteral("frame"), 10}, {QStringLiteral("value"), 10.0}},
+        });
+    plugin.keyframeTracks.insert(
+        QStringLiteral("1"),
+        QVariantMap{
+            {QStringLiteral("start"), QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), 1}}},
+            {QStringLiteral("points"), QVariantList{
+                 QVariantMap{{QStringLiteral("frame"), 20}, {QStringLiteral("value"), 9}},
+                 QVariantMap{{QStringLiteral("frame"), 10}, {QStringLiteral("value"), 5}},
+             }},
+        });
+    plugin.keyframeTracks.insert(
+        QStringLiteral("2"),
+        QVariantList{
+            QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), false}},
+            QVariantMap{{QStringLiteral("frame"), 10}, {QStringLiteral("value"), true}},
+        });
+    plugin.keyframeTracks.insert(
+        QStringLiteral("3"),
+        QVariantList{
+            QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), 2.0},
+                        {QStringLiteral("interp"), QStringLiteral("none")}},
+            QVariantMap{{QStringLiteral("frame"), 10}, {QStringLiteral("value"), 8.0},
+                        {QStringLiteral("interp"), QStringLiteral("linear")}},
+        });
+    clip->audioPlugins.append(plugin);
+
+    const QVariantList sorted = controller.audioPluginKeyframeListForUi(clipId, 0, QStringLiteral("0"));
+    QCOMPARE(sorted.size(), 3);
+    QCOMPARE(sorted.at(0).toMap().value(QStringLiteral("frame")).toInt(), 0);
+    QCOMPARE(sorted.at(2).toMap().value(QStringLiteral("frame")).toInt(), 20);
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("0"), -1).toDouble(), 0.0);
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("0"), 15).toDouble(), 15.0);
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("0"), 25).toDouble(), 20.0);
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("1"), 4).toInt(), 1);
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("1"), 5).toInt(), 5);
+    QVERIFY(!controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("2"), 4).toBool());
+    QVERIFY(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("2"), 5).toBool());
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("3"), 5).toDouble(), 2.0);
+    QCOMPARE(controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("3"), 10).toDouble(), 8.0);
+
+    QVariantList largeTrack;
+    largeTrack.reserve(10'000);
+    for (int frame = 0; frame < 10'000; ++frame) {
+        largeTrack.append(QVariantMap{{QStringLiteral("frame"), frame}, {QStringLiteral("value"), frame * 0.5}});
+    }
+    clip->audioPlugins[0].keyframeTracks.insert(QStringLiteral("0"), largeTrack);
+    clip->audioPlugins[0].invalidateKeyframeCache();
+    QElapsedTimer timer;
+    timer.start();
+    double checksum = 0.0;
+    for (int i = 0; i < 200; ++i) {
+        checksum += controller.audioPluginEvaluatedParam(clipId, 0, QStringLiteral("0"), 9'500 + (i % 400)).toDouble();
+    }
+    QVERIFY(checksum > 0.0);
+    qInfo() << "audio_plugin_keyframes points=10000 evaluations=200 elapsed_ms=" << timer.elapsed();
 }
 
 void TestDailyEditingWorkflow::pasteReportsResolvedClipEditTarget() {

@@ -18,10 +18,10 @@ namespace AviQtl::Core {
 ImageDecoder::ImageDecoder(int clipId, const QUrl &source, VideoFrameStore *store, QObject *parent) : MediaDecoder(clipId, source, parent), m_store(store) {}
 
 ImageDecoder::~ImageDecoder() {
-    if (m_future.isRunning()) {
-        m_future.waitForFinished();
-    }
+    waitForFinished();
 }
+
+void ImageDecoder::waitForFinished() { m_future.waitForFinished(); }
 
 void ImageDecoder::seek(qint64 ms) {
     Q_UNUSED(ms);

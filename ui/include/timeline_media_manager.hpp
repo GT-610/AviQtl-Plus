@@ -45,6 +45,8 @@ class TimelineMediaManager : public QObject {
 
   private:
     static QUrl getClipSourceUrl(const ClipData &clip);
+    void removeDecoder(int clipId);
+    void registerDecoder(int clipId, AviQtl::Core::MediaDecoder *decoder);
     void syncAudioPluginChain(const ClipData &clip);
     void updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid, const ClipData *clip, int relFrame);
 
@@ -52,7 +54,6 @@ class TimelineMediaManager : public QObject {
     QPointer<AviQtl::Engine::AudioMixer> m_audioMixer;
     AviQtl::Core::VideoFrameStore *m_videoFrameStore = nullptr;
     QHash<int, QPointer<AviQtl::Core::MediaDecoder>> m_decoders;
-    QHash<int, QPointer<AviQtl::Core::ImageDecoder>> m_imageDecoders;
 
     // Fingerprint of the last (sceneId, clipId, type, sourceUrl) set used to
     // build decoders. updateMediaDecoders() compares against this and

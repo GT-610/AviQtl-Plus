@@ -1,4 +1,5 @@
 #include "package_manager.hpp"
+#include "core/src/package_url_utils.hpp"
 #include "effect_registry.hpp"
 #include <QCoreApplication>
 #include <QDir>
@@ -29,6 +30,7 @@ class TestPackageDeploy : public QObject {
     void rollsBackWhenStateCommitFails();
     void removesPackageTransactionally();
     void rejectsRemovalWithUnknownType();
+    void resolvesRepositoryReferencesSafely();
 };
 
 void TestPackageDeploy::deployDirectoryCreation() {
@@ -288,6 +290,24 @@ void TestPackageDeploy::rejectsRemovalWithUnknownType() {
     QFile unchanged(installedPath);
     QVERIFY(unchanged.open(QIODevice::ReadOnly));
     QVERIFY(QJsonDocument::fromJson(unchanged.readAll()).object().contains(packageId));
+}
+
+void TestPackageDeploy::resolvesRepositoryReferencesSafely() {
+    using namespace AviQtl::Core::Internal;
+
+    const QUrl repository(QStringLiteral("https://packages.example.com/repos/stable/repo.json?channel=beta"));
+    QCOMPARE(resolveRepositoryReference(repository, QStringLiteral("catalog.json")),
+             QUrl(QStringLiteral("https://packages.example.com/repos/stable/catalog.json")));
+    QCOMPARE(resolveRepositoryReference(repository, QStringLiteral("../catalogs/main%20list.json?arch=arm64")).toString(QUrl::FullyEncoded),
+             QStringLiteral("https://packages.example.com/repos/catalogs/main%20list.json?arch=arm64"));
+    QCOMPARE(resolveRepositoryReference(repository, QStringLiteral("//cdn.example.com/catalog.json")),
+             QUrl(QStringLiteral("https://cdn.example.com/catalog.json")));
+    QCOMPARE(resolveRepositoryReference(repository, QStringLiteral("https://mirror.example.com/catalog.json")),
+             QUrl(QStringLiteral("https://mirror.example.com/catalog.json")));
+
+    QVERIFY(isSecureNetworkUrl(resolveRepositoryReference(repository, QStringLiteral("catalog.json"))));
+    QVERIFY(!isSecureNetworkUrl(resolveRepositoryReference(repository, QStringLiteral("http://example.com/catalog.json"))));
+    QVERIFY(!isSecureNetworkUrl(QUrl(QStringLiteral("https:///missing-host.json"))));
 }
 
 QTEST_MAIN(TestPackageDeploy)

@@ -1807,6 +1807,11 @@
         <source>Upgrading package: %1</source>
         <translation>正在升级软件包：%1</translation>
     </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="872"/>
+        <source>Failed to write the complete downloaded package.</source>
+        <translation>无法完整写入下载的软件包。</translation>
+    </message>
 </context>
 <context>
     <name>AviQtl::UI::TimelineController</name>

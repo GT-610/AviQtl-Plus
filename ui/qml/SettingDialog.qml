@@ -1,4 +1,3 @@
-import Qt.labs.qmlmodels
 import QtQml
 import QtQuick
 import QtQuick.Controls
@@ -618,7 +617,7 @@ Common.AviQtlWindow {
                                 checked: modelData.enabled !== undefined ? modelData.enabled : true
                                 Layout.preferredHeight: 20
                                 Layout.preferredWidth: 20
-                                onToggled: (checked) => {
+                                onToggled: {
                                     if (!Workspace.currentTimeline)
                                         return ;
 
@@ -1366,7 +1365,7 @@ Common.AviQtlWindow {
                         // エフェクトヘッダー
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 24
+                            Layout.preferredHeight: 24
                             color: palette.midlight
 
                             Label {
@@ -1758,9 +1757,9 @@ Common.AviQtlWindow {
 
                                 // 非数値 (ControlLoader で型別UI)
                                 Common.ControlLoader {
-                                    property int startFrameState: startFrame
-                                    property int endFrameState: endFrame
-                                    property bool rightInteractiveState: isMoving && hasKeyframeAt(endFrame) && interpType !== "" && interpType !== "constant"
+                                    startFrameState: startFrame
+                                    endFrameState: endFrame
+                                    rightInteractiveState: isMoving && hasKeyframeAt(endFrame) && interpType !== "" && interpType !== "constant"
 
                                     Layout.fillWidth: true
                                     Layout.margins: 4
@@ -2014,7 +2013,7 @@ Common.AviQtlWindow {
 
                             Rectangle {
                                 Layout.fillWidth: true
-                                height: 24
+                                Layout.preferredHeight: 24
                                 color: palette.midlight
 
                                 Label {

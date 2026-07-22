@@ -20,6 +20,7 @@ class ImageDecoder : public MediaDecoder {
     void startDecoding() override;
 
     void load(); // 互換性のため維持
+    void waitForFinished();
 
   signals:
     // MediaDecoder::ready を使用
