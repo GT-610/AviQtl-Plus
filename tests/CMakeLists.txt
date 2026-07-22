@@ -268,7 +268,9 @@ aviqtl_add_test(
 )
 target_compile_definitions(AviQtl_Test_qml_composite_capture PRIVATE
     AVIQTL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    AVIQTL_DEPLOYED_EFFECTS_DIR="$<TARGET_FILE_DIR:AviQtl>/effects"
 )
+add_dependencies(AviQtl_Test_qml_composite_capture AviQtl)
 
 aviqtl_add_test(
     NAME transition_effects
