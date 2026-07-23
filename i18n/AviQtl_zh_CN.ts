@@ -1942,7 +1942,7 @@
         <translation>导出已在进行中</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline_controller.cpp" line="296"/>
+        <location filename="../ui/src/timeline_controller.cpp" line="317"/>
         <source>Untitled project</source>
         <translation>未命名项目</translation>
     </message>

@@ -1942,7 +1942,7 @@
         <translation>エクスポートはすでに実行中です</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline_controller.cpp" line="296"/>
+        <location filename="../ui/src/timeline_controller.cpp" line="317"/>
         <source>Untitled project</source>
         <translation>無題のプロジェクト</translation>
     </message>

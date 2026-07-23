@@ -2,6 +2,7 @@
 #include "../../engine/audio_mixer.hpp"
 #include "effect_model.hpp"
 #include "project_service.hpp"
+#include "project_recovery_manager.hpp"
 #include "selection_service.hpp"
 #include "timeline_export_manager.hpp"
 #include "timeline_media_manager.hpp"
@@ -9,6 +10,7 @@
 #include "timeline_types.hpp"
 #include "transport_service.hpp"
 #include <QObject>
+#include <QFutureWatcher>
 #include <QPoint>
 #include <QPointer>
 #include <QQuickItem>
@@ -53,6 +55,7 @@ class TimelineController : public QObject {
 
   public:
     explicit TimelineController(QObject *parent = nullptr);
+    ~TimelineController() override;
 
     void setVideoFrameStore(AviQtl::Core::VideoFrameStore *store);
 
@@ -272,6 +275,8 @@ class TimelineController : public QObject {
     void initializeServices();
     void setupConnections();
     void configureAutoBackup();
+    void writeRecoveryAsync();
+    void clearRecoveryState();
     QString recoveryDisplayName() const;
     void syncTimelineToDocumentModel();
 
@@ -294,6 +299,7 @@ class TimelineController : public QObject {
     QString m_recoveryOriginalProjectUrl;
     QString m_recoveryId;
     QTimer *m_autoBackupTimer{};
+    QFutureWatcher<ProjectRecoveryWriteResult> *m_recoveryWriteWatcher{};
 
     int m_cursorFrame = 0;
     ProjectService *m_project{};

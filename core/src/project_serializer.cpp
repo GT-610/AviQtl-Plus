@@ -108,12 +108,12 @@ static void convertEffectMediaPath(const QString &effectId, QVariantMap &params,
     *pathIt = toRelative ? toRelativePath(pathIt->toString(), baseDir) : toAbsolutePath(pathIt->toString(), baseDir);
 }
 
-static auto layerSetToJson(const QSet<int> &layers) -> QJsonArray {
+static auto layerSetToVariantList(const QSet<int> &layers) -> QVariantList {
     QList<int> sortedLayers(layers.cbegin(), layers.cend());
     std::sort(sortedLayers.begin(), sortedLayers.end());
-    QJsonArray result;
+    QVariantList result;
     for (int layer : std::as_const(sortedLayers)) {
-        result.append(layer);
+        result.append(QVariant::fromValue(layer));
     }
     return result;
 }
@@ -129,27 +129,20 @@ static auto layerSetFromJson(const QJsonValue &value) -> QSet<int> {
     return result;
 }
 
-auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *timeline, const UI::ProjectService *project, QString *errorMessage) -> bool {
-    QString path = QUrl(fileUrl).toLocalFile();
-    if (path.isEmpty()) {
-        path = fileUrl;
-    }
-
-    const QString projectDir = QFileInfo(path).absolutePath();
-
-    QJsonObject root;
+QVariantMap ProjectSerializer::captureSnapshot(const UI::TimelineService *timeline, const UI::ProjectService *project) {
+    QVariantMap root;
     root.insert(QStringLiteral("version"), PROJECT_VERSION);
 
-    QJsonObject settings;
+    QVariantMap settings;
     settings.insert(QStringLiteral("width"), project->width());
     settings.insert(QStringLiteral("height"), project->height());
     settings.insert(QStringLiteral("fps"), project->fps());
     settings.insert(QStringLiteral("sampleRate"), project->sampleRate());
     root.insert(QStringLiteral("settings"), settings);
 
-    QJsonArray scenesArray;
+    QVariantList scenes;
     for (const auto &scene : timeline->getAllScenes()) {
-        QJsonObject sObj;
+        QVariantMap sObj;
         sObj.insert(QStringLiteral("id"), scene.id);
         sObj.insert(QStringLiteral("name"), scene.name);
         sObj.insert(QStringLiteral("width"), scene.width);
@@ -158,8 +151,8 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
         sObj.insert(QStringLiteral("start"), scene.startFrame);
         sObj.insert(QStringLiteral("duration"), scene.totalFrames);
         sObj.insert(QStringLiteral("nestedDuration"), scene.durationFrames);
-        sObj.insert(QStringLiteral("lockedLayers"), layerSetToJson(scene.lockedLayers));
-        sObj.insert(QStringLiteral("hiddenLayers"), layerSetToJson(scene.hiddenLayers));
+        sObj.insert(QStringLiteral("lockedLayers"), layerSetToVariantList(scene.lockedLayers));
+        sObj.insert(QStringLiteral("hiddenLayers"), layerSetToVariantList(scene.hiddenLayers));
         sObj.insert(QStringLiteral("gridMode"), scene.gridMode);
         sObj.insert(QStringLiteral("gridBpm"), scene.gridBpm);
         sObj.insert(QStringLiteral("gridOffset"), scene.gridOffset);
@@ -167,14 +160,14 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
         sObj.insert(QStringLiteral("gridSubdivision"), scene.gridSubdivision);
         sObj.insert(QStringLiteral("enableSnap"), scene.enableSnap);
         sObj.insert(QStringLiteral("magneticSnapRange"), scene.magneticSnapRange);
-        scenesArray.append(sObj);
+        scenes.append(sObj);
     }
-    root.insert(QStringLiteral("scenes"), scenesArray);
+    root.insert(QStringLiteral("scenes"), scenes);
 
-    QJsonArray clipsArray;
+    QVariantList clips;
     for (const auto &scene : timeline->getAllScenes()) {
         for (const auto &clip : std::as_const(scene.clips)) {
-            QJsonObject clipObj;
+            QVariantMap clipObj;
             clipObj.insert(QStringLiteral("id"), clip.id);
             clipObj.insert(QStringLiteral("sceneId"), clip.sceneId);
             clipObj.insert(QStringLiteral("type"), clip.type);
@@ -183,40 +176,66 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
             clipObj.insert(QStringLiteral("layer"), clip.layer);
             clipObj.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
 
-            QVariantMap paramsCopy = clip.params;
-            convertMediaPaths(paramsCopy, projectDir, true);
-            clipObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(paramsCopy));
+            clipObj.insert(QStringLiteral("params"), clip.params);
 
-            QJsonArray audioPluginsArray;
+            QVariantList audioPlugins;
             for (const auto &plugin : std::as_const(clip.audioPlugins)) {
-                QJsonObject pObj;
+                QVariantMap pObj;
                 pObj.insert(QStringLiteral("id"), plugin.id);
                 pObj.insert(QStringLiteral("enabled"), plugin.enabled);
-                pObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(plugin.params));
+                pObj.insert(QStringLiteral("params"), plugin.params);
                 if (!plugin.keyframeTracks.isEmpty()) {
-                    pObj.insert(QStringLiteral("keyframes"), QJsonObject::fromVariantMap(plugin.keyframeTracks));
+                    pObj.insert(QStringLiteral("keyframes"), plugin.keyframeTracks);
                 }
-                audioPluginsArray.append(pObj);
+                audioPlugins.append(pObj);
             }
-            clipObj.insert(QStringLiteral("audioPlugins"), audioPluginsArray);
+            clipObj.insert(QStringLiteral("audioPlugins"), audioPlugins);
 
-            QJsonArray effArray;
+            QVariantList effects;
             for (const auto *eff : std::as_const(clip.effects)) {
-                QJsonObject eObj;
+                QVariantMap eObj;
                 eObj.insert(QStringLiteral("id"), eff->id());
                 eObj.insert(QStringLiteral("name"), eff->name());
                 eObj.insert(QStringLiteral("enabled"), eff->isEnabled());
-                QVariantMap effectParams = eff->params();
-                convertEffectMediaPath(eff->id(), effectParams, projectDir, true);
-                eObj.insert(QStringLiteral("params"), QJsonObject::fromVariantMap(effectParams));
-                eObj.insert(QStringLiteral("keyframes"), QJsonObject::fromVariantMap(eff->keyframeTracks()));
-                effArray.append(eObj);
+                eObj.insert(QStringLiteral("params"), eff->params());
+                eObj.insert(QStringLiteral("keyframes"), eff->keyframeTracks());
+                effects.append(eObj);
             }
-            clipObj.insert(QStringLiteral("effects"), effArray);
-            clipsArray.append(clipObj);
+            clipObj.insert(QStringLiteral("effects"), effects);
+            clips.append(clipObj);
         }
     }
-    root.insert(QStringLiteral("clips"), clipsArray);
+    root.insert(QStringLiteral("clips"), clips);
+    return root;
+}
+
+auto ProjectSerializer::saveSnapshot(const QString &fileUrl, const QVariantMap &capturedSnapshot, QString *errorMessage) -> bool {
+    QString path = QUrl(fileUrl).toLocalFile();
+    if (path.isEmpty()) {
+        path = fileUrl;
+    }
+
+    const QString projectDir = QFileInfo(path).absolutePath();
+    QVariantMap snapshot = capturedSnapshot;
+    QVariantList clips = snapshot.value(QStringLiteral("clips")).toList();
+    for (QVariant &clipValue : clips) {
+        QVariantMap clip = clipValue.toMap();
+        QVariantMap params = clip.value(QStringLiteral("params")).toMap();
+        convertMediaPaths(params, projectDir, true);
+        clip.insert(QStringLiteral("params"), params);
+
+        QVariantList effects = clip.value(QStringLiteral("effects")).toList();
+        for (QVariant &effectValue : effects) {
+            QVariantMap effect = effectValue.toMap();
+            QVariantMap effectParams = effect.value(QStringLiteral("params")).toMap();
+            convertEffectMediaPath(effect.value(QStringLiteral("id")).toString(), effectParams, projectDir, true);
+            effect.insert(QStringLiteral("params"), effectParams);
+            effectValue = effect;
+        }
+        clip.insert(QStringLiteral("effects"), effects);
+        clipValue = clip;
+    }
+    snapshot.insert(QStringLiteral("clips"), clips);
 
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
@@ -226,7 +245,7 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
         return false;
     }
 
-    const QByteArray document = QJsonDocument(root).toJson();
+    const QByteArray document = QJsonDocument(QJsonObject::fromVariantMap(snapshot)).toJson();
     if (file.write(document) != document.size()) {
         if (errorMessage != nullptr) {
             *errorMessage = file.errorString();
@@ -243,6 +262,10 @@ auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *
     }
 
     return true;
+}
+
+auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *timeline, const UI::ProjectService *project, QString *errorMessage) -> bool {
+    return saveSnapshot(fileUrl, captureSnapshot(timeline, project), errorMessage);
 }
 
 auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeline, UI::ProjectService *project, QString *errorMessage) -> bool {

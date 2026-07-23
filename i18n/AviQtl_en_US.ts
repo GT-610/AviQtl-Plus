@@ -1942,7 +1942,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>export is already running</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline_controller.cpp" line="296"/>
+        <location filename="../ui/src/timeline_controller.cpp" line="317"/>
         <source>Untitled project</source>
         <translation>Untitled project</translation>
     </message>

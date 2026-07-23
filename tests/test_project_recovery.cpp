@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTimer>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUndoCommand>
@@ -38,6 +39,8 @@ class TestProjectRecovery : public QObject {
     void corruptSnapshotDoesNotPreventOtherRecovery();
     void closingProjectDiscardsSnapshot();
     void staleRecoveriesAreRemoved();
+    void staleOrphanedSnapshotsAreRemoved();
+    void timerBackupCompletesAsynchronously();
 
   private:
     void markDirty(TimelineController &controller);
@@ -232,6 +235,31 @@ void TestProjectRecovery::staleRecoveriesAreRemoved() {
     ProjectRecoveryManager::cleanupStale(30);
     QVERIFY(ProjectRecoveryManager::entries().isEmpty());
     QVERIFY(!QFileInfo::exists(entry.snapshotPath));
+}
+
+void TestProjectRecovery::staleOrphanedSnapshotsAreRemoved() {
+    const QString orphanPath = m_directory.filePath(QStringLiteral("orphan.aviqtl"));
+    QFile orphan(orphanPath);
+    QVERIFY(orphan.open(QIODevice::WriteOnly));
+    QVERIFY(orphan.write("orphan") > 0);
+    orphan.close();
+    QVERIFY(orphan.open(QIODevice::ReadWrite));
+    QVERIFY(orphan.setFileTime(QDateTime::currentDateTimeUtc().addDays(-31), QFileDevice::FileModificationTime));
+    orphan.close();
+
+    ProjectRecoveryManager::cleanupStale(30);
+    QVERIFY(!QFileInfo::exists(orphanPath));
+}
+
+void TestProjectRecovery::timerBackupCompletesAsynchronously() {
+    TimelineController controller;
+    markDirty(controller);
+    QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
+    QVERIFY(timer != nullptr);
+
+    QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+    QTRY_COMPARE_WITH_TIMEOUT(ProjectRecoveryManager::entries().size(), 1, 5000);
+    QVERIFY(ProjectRecoveryManager::entries().first().valid);
 }
 
 QTEST_MAIN(TestProjectRecovery)

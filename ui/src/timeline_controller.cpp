@@ -27,7 +27,14 @@ TimelineController::TimelineController(QObject *parent) : QObject(parent) {
     setupConnections();
 
     m_autoBackupTimer = new QTimer(this);
-    connect(m_autoBackupTimer, &QTimer::timeout, this, &TimelineController::writeRecoveryNow);
+    m_autoBackupTimer->setObjectName(QStringLiteral("projectRecoveryTimer"));
+    connect(m_autoBackupTimer, &QTimer::timeout, this, &TimelineController::writeRecoveryAsync);
+    m_recoveryWriteWatcher = new QFutureWatcher<ProjectRecoveryWriteResult>(this);
+    connect(m_recoveryWriteWatcher, &QFutureWatcher<ProjectRecoveryWriteResult>::finished, this, [this]() {
+        const ProjectRecoveryWriteResult result = m_recoveryWriteWatcher->result();
+        if (!result.success)
+            qWarning().noquote() << QStringLiteral("Could not write project recovery snapshot:") << result.error;
+    });
     connect(&AviQtl::Core::SettingsManager::instance(), &AviQtl::Core::SettingsManager::settingsChanged, this, &TimelineController::configureAutoBackup);
     configureAutoBackup();
 
@@ -39,6 +46,11 @@ TimelineController::TimelineController(QObject *parent) : QObject(parent) {
     updateClipActiveState();
     invalidateTimelineDuration();
     m_transport->setTotalFrames(timelineDuration());
+}
+
+TimelineController::~TimelineController() {
+    if (m_recoveryWriteWatcher->isRunning())
+        m_recoveryWriteWatcher->waitForFinished();
 }
 
 void TimelineController::initializeServices() {
@@ -318,7 +330,20 @@ bool TimelineController::writeRecoveryNow() {
     return result;
 }
 
-void TimelineController::discardRecovery() { ProjectRecoveryManager::remove(m_recoveryId); }
+void TimelineController::writeRecoveryAsync() {
+    const auto &settings = AviQtl::Core::SettingsManager::instance();
+    if (m_recoveryWriteWatcher->isRunning() || !settings.value(QStringLiteral("enableAutoBackup"), true).toBool() || !hasUnsavedChanges())
+        return;
+
+    const QString originalUrl = m_recoveryOriginalProjectUrl.isEmpty() ? m_currentProjectUrl : m_recoveryOriginalProjectUrl;
+    m_recoveryWriteWatcher->setFuture(ProjectRecoveryManager::writeAsync(m_recoveryId, originalUrl, recoveryDisplayName(), m_timeline, m_project));
+}
+
+void TimelineController::discardRecovery() {
+    if (m_recoveryWriteWatcher != nullptr && m_recoveryWriteWatcher->isRunning())
+        m_recoveryWriteWatcher->waitForFinished();
+    ProjectRecoveryManager::remove(m_recoveryId);
+}
 
 void TimelineController::syncTimelineToDocumentModel() {
     auto &doc = AviQtl::Core::DocumentModel::instance();
