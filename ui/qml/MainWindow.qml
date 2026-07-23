@@ -102,6 +102,7 @@ ApplicationWindow {
         // 一旦クローズをキャンセルし、全タブの未保存確認を行ってから終了する
         close.accepted = false;
         checkAllUnsavedAndExecute(function() {
+            Workspace.discardAllRecoveries();
             if (WindowManager)
                 WindowManager.requestQuit();
 

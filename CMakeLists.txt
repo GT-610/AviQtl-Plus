@@ -201,6 +201,7 @@ set(CORE_UI_DEPENDENT_SOURCES
 
 set(UI_SOURCES
     ui/src/bridge/ecs_render_bridge.cpp
+    ui/src/project_recovery_manager.cpp
     ui/src/selection_service.cpp
     ui/src/timeline/timeline_clip.cpp
     ui/src/timeline/timeline_commands.cpp
@@ -220,6 +221,7 @@ set(UI_SOURCES
     ui/src/workspace.cpp
     ui/include/bridge/ecs_render_bridge.hpp
     ui/include/commands.hpp
+    ui/include/project_recovery_manager.hpp
     ui/include/project_service.hpp
     ui/include/selection_service.hpp
     ui/include/timeline_controller.hpp

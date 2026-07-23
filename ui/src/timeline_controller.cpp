@@ -2,12 +2,17 @@
 #include "bridge/ecs_render_bridge.hpp"
 #include "commands.hpp"
 #include "core/include/document_model.hpp"
+#include "project_recovery_manager.hpp"
+#include "settings_manager.hpp"
 #include "engine/timeline/bake_controller.hpp"
 #include <QDebug>
+#include <QFileInfo>
 #include <QLoggingCategory>
 #include <QSet>
 #include <QSignalBlocker>
 #include <QTimer>
+#include <QUrl>
+#include <QUuid>
 #include <algorithm>
 #include <cmath>
 #include <ranges>
@@ -17,8 +22,14 @@ Q_LOGGING_CATEGORY(lcTimeline, "aviqtl.timeline")
 namespace AviQtl::UI {
 
 TimelineController::TimelineController(QObject *parent) : QObject(parent) {
+    m_recoveryId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     initializeServices();
     setupConnections();
+
+    m_autoBackupTimer = new QTimer(this);
+    connect(m_autoBackupTimer, &QTimer::timeout, this, &TimelineController::writeRecoveryNow);
+    connect(&AviQtl::Core::SettingsManager::instance(), &AviQtl::Core::SettingsManager::settingsChanged, this, &TimelineController::configureAutoBackup);
+    configureAutoBackup();
 
     // 初期状態の設定
     m_selection->select(-1, QVariantMap());
@@ -123,6 +134,15 @@ void TimelineController::setupConnections() {
     connect(this, &TimelineController::imageLoadRequested, m_mediaManager, &TimelineMediaManager::requestImageLoad);
 
     connect(m_timeline->undoStack(), &QUndoStack::cleanChanged, this, [this](bool) { emit hasUnsavedChangesChanged(); });
+
+    const auto markProjectDirty = [this]() {
+        if (m_timeline->undoStack()->isClean())
+            m_timeline->undoStack()->resetClean();
+    };
+    connect(m_project, &ProjectService::widthChanged, this, markProjectDirty);
+    connect(m_project, &ProjectService::heightChanged, this, markProjectDirty);
+    connect(m_project, &ProjectService::fpsChanged, this, markProjectDirty);
+    connect(m_project, &ProjectService::sampleRateChanged, this, markProjectDirty);
 }
 
 void TimelineController::scheduleMissingMediaRefresh() {
@@ -263,6 +283,42 @@ bool TimelineController::hasUnsavedChanges() const {
     }
     return false;
 }
+
+void TimelineController::configureAutoBackup() {
+    const auto &settings = AviQtl::Core::SettingsManager::instance();
+    const bool enabled = settings.value(QStringLiteral("enableAutoBackup"), true).toBool();
+    if (!enabled) {
+        m_autoBackupTimer->stop();
+        discardRecovery();
+        return;
+    }
+    const int intervalMinutes = std::clamp(settings.value(QStringLiteral("backupInterval"), 5).toInt(), 1, 24 * 60);
+    m_autoBackupTimer->start(intervalMinutes * 60 * 1000);
+}
+
+QString TimelineController::recoveryDisplayName() const {
+    if (!m_currentProjectUrl.isEmpty()) {
+        const QString localPath = QUrl(m_currentProjectUrl).toLocalFile();
+        return QFileInfo(localPath.isEmpty() ? m_currentProjectUrl : localPath).fileName();
+    }
+    const QString untitledName = property("untitledName").toString();
+    return untitledName.isEmpty() ? tr("Untitled project") : untitledName;
+}
+
+bool TimelineController::writeRecoveryNow() {
+    const auto &settings = AviQtl::Core::SettingsManager::instance();
+    if (!settings.value(QStringLiteral("enableAutoBackup"), true).toBool() || !hasUnsavedChanges())
+        return false;
+
+    QString error;
+    const QString originalUrl = m_recoveryOriginalProjectUrl.isEmpty() ? m_currentProjectUrl : m_recoveryOriginalProjectUrl;
+    const bool result = ProjectRecoveryManager::write(m_recoveryId, originalUrl, recoveryDisplayName(), m_timeline, m_project, &error);
+    if (!result)
+        qWarning().noquote() << QStringLiteral("Could not write project recovery snapshot:") << error;
+    return result;
+}
+
+void TimelineController::discardRecovery() { ProjectRecoveryManager::remove(m_recoveryId); }
 
 void TimelineController::syncTimelineToDocumentModel() {
     auto &doc = AviQtl::Core::DocumentModel::instance();
