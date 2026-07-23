@@ -2,6 +2,7 @@
 #include "../../engine/audio_mixer.hpp"
 #include "effect_model.hpp"
 #include "project_service.hpp"
+#include "project_recovery_manager.hpp"
 #include "selection_service.hpp"
 #include "timeline_export_manager.hpp"
 #include "timeline_media_manager.hpp"
@@ -9,6 +10,7 @@
 #include "timeline_types.hpp"
 #include "transport_service.hpp"
 #include <QObject>
+#include <QFutureWatcher>
 #include <QPoint>
 #include <QPointer>
 #include <QQuickItem>
@@ -16,6 +18,8 @@
 #include <QVariantMap>
 #include <memory>
 #include <vector>
+
+class QTimer;
 
 Q_DECLARE_LOGGING_CATEGORY(lcTimeline)
 
@@ -44,12 +48,14 @@ class TimelineController : public QObject {
     Q_PROPERTY(QVariantList scenes READ scenes NOTIFY scenesChanged)
     Q_PROPERTY(int currentSceneId READ currentSceneId NOTIFY currentSceneIdChanged)
     Q_PROPERTY(QString currentProjectUrl READ currentProjectUrl NOTIFY currentProjectUrlChanged)
+    Q_PROPERTY(QString recoveryOriginalProjectUrl READ recoveryOriginalProjectUrl NOTIFY recoveryOriginalProjectUrlChanged)
     Q_PROPERTY(bool hasUnsavedChanges READ hasUnsavedChanges NOTIFY hasUnsavedChangesChanged)
     Q_PROPERTY(QVariantList previewSelectionIds READ previewSelectionIds NOTIFY previewSelectionIdsChanged)
     Q_PROPERTY(QVariantList missingMedia READ missingMedia NOTIFY missingMediaChanged)
 
   public:
     explicit TimelineController(QObject *parent = nullptr);
+    ~TimelineController() override;
 
     void setVideoFrameStore(AviQtl::Core::VideoFrameStore *store);
 
@@ -165,6 +171,7 @@ class TimelineController : public QObject {
     QVariantList scenes() const;
     int currentSceneId() const;
     QString currentProjectUrl() const { return m_currentProjectUrl; }
+    QString recoveryOriginalProjectUrl() const { return m_recoveryOriginalProjectUrl; }
     bool hasUnsavedChanges() const;
     Q_INVOKABLE void createScene(const QString &name);
     Q_INVOKABLE void removeScene(int sceneId);
@@ -183,6 +190,10 @@ class TimelineController : public QObject {
     // プロジェクトI/O
     Q_INVOKABLE bool saveProject(const QString &fileUrl);
     Q_INVOKABLE bool loadProject(const QString &fileUrl);
+    Q_INVOKABLE bool writeRecoveryNow();
+    void discardRecovery();
+    bool loadRecovery(const QString &snapshotPath, const QString &recoveryId, const QString &originalProjectUrl);
+    QString recoveryId() const { return m_recoveryId; }
     // 新非同期インターフェース
     Q_INVOKABLE void exportVideoAsync(const QVariantMap &cfg);
     Q_INVOKABLE void exportImageSequence(const QString &dir, int quality = 100, const QString &format = QStringLiteral("PNG"), int startFrame = 0, int endFrame = -1);
@@ -246,6 +257,7 @@ class TimelineController : public QObject {
     void scenesChanged();
     void currentSceneIdChanged();
     void currentProjectUrlChanged();
+    void recoveryOriginalProjectUrlChanged();
     void hasUnsavedChangesChanged();
     void clipEffectsChanged(int clipId);
     void previewSelectionIdsChanged();
@@ -262,6 +274,10 @@ class TimelineController : public QObject {
     // Initialization Helpers
     void initializeServices();
     void setupConnections();
+    void configureAutoBackup();
+    void writeRecoveryAsync();
+    void clearRecoveryState();
+    QString recoveryDisplayName() const;
     void syncTimelineToDocumentModel();
 
     // Internal Slots
@@ -280,6 +296,10 @@ class TimelineController : public QObject {
     bool m_isClipActive = false;
     int m_selectedLayer = 0;
     QString m_currentProjectUrl;
+    QString m_recoveryOriginalProjectUrl;
+    QString m_recoveryId;
+    QTimer *m_autoBackupTimer{};
+    QFutureWatcher<ProjectRecoveryWriteResult> *m_recoveryWriteWatcher{};
 
     int m_cursorFrame = 0;
     ProjectService *m_project{};

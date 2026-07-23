@@ -1,11 +1,14 @@
 #include "workspace.hpp"
+#include "project_recovery_manager.hpp"
 #include <QFileInfo>
 #include <QUrl>
+#include <algorithm>
+#include <utility>
 
 namespace AviQtl::UI {
 
 // 起動時はタブなしで開始。プロジェクトランチャーが tabsChanged で自動起動する
-Workspace::Workspace(QObject *parent) : QObject(parent) {}
+Workspace::Workspace(QObject *parent) : QObject(parent) { ProjectRecoveryManager::cleanupStale(); }
 
 void Workspace::setCurrentIndex(int index) {
     if (m_currentIndex == index || index < 0 || index >= m_timelines.size())
@@ -41,6 +44,23 @@ QVariantList Workspace::tabs() const {
     return list;
 }
 
+QVariantList Workspace::recoveries() const {
+    QVariantList result;
+    for (const ProjectRecoveryEntry &entry : ProjectRecoveryManager::entries()) {
+        if (m_claimedRecoveryIds.contains(entry.id))
+            continue;
+        QVariantMap item;
+        item.insert(QStringLiteral("id"), entry.id);
+        item.insert(QStringLiteral("name"), entry.displayName.isEmpty() ? tr("Recovered project") : entry.displayName);
+        item.insert(QStringLiteral("originalProjectUrl"), entry.originalProjectUrl);
+        item.insert(QStringLiteral("savedAt"), entry.savedAt);
+        item.insert(QStringLiteral("valid"), entry.valid);
+        item.insert(QStringLiteral("error"), entry.error);
+        result.append(item);
+    }
+    return result;
+}
+
 void Workspace::setVideoFrameStore(AviQtl::Core::VideoFrameStore *store) {
     m_videoFrameStore = store;
     for (auto *tc : m_timelines) {
@@ -69,7 +89,10 @@ void Workspace::closeProject(int index) {
         return;
 
     auto *tc = m_timelines.takeAt(index);
+    m_claimedRecoveryIds.remove(tc->recoveryId());
+    tc->discardRecovery();
     tc->deleteLater();
+    emit recoveriesChanged();
 
     if (m_timelines.isEmpty()) {
         // タブが 0 になったら自動で newProject() せず tabsChanged を emit して
@@ -95,6 +118,38 @@ void Workspace::loadProject(const QString &fileUrl) {
         newProject();
         currentTimeline()->loadProject(fileUrl);
     }
+}
+
+bool Workspace::recoverProject(const QString &recoveryId) {
+    const auto allEntries = ProjectRecoveryManager::entries();
+    const auto it = std::find_if(allEntries.cbegin(), allEntries.cend(), [&recoveryId](const ProjectRecoveryEntry &entry) { return entry.id == recoveryId; });
+    if (it == allEntries.cend() || !it->valid)
+        return false;
+
+    newProject();
+    TimelineController *controller = currentTimeline();
+    if (!controller->loadRecovery(it->snapshotPath, it->id, it->originalProjectUrl)) {
+        closeProject(m_currentIndex);
+        return false;
+    }
+    controller->setProperty("untitledName", tr("Recovered - %1").arg(it->displayName));
+    m_claimedRecoveryIds.insert(it->id);
+    emit tabsChanged();
+    emit recoveriesChanged();
+    return true;
+}
+
+void Workspace::discardRecovery(const QString &recoveryId) {
+    ProjectRecoveryManager::remove(recoveryId);
+    m_claimedRecoveryIds.remove(recoveryId);
+    emit recoveriesChanged();
+}
+
+void Workspace::discardAllRecoveries() {
+    for (TimelineController *controller : std::as_const(m_timelines))
+        controller->discardRecovery();
+    m_claimedRecoveryIds.clear();
+    emit recoveriesChanged();
 }
 
 void Workspace::onTabStateChanged() { emit tabsChanged(); }

@@ -1,6 +1,7 @@
 #include "effect_registry.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
 #include "project_serializer.hpp"
+#include "project_recovery_manager.hpp"
 #include "project_service.hpp"
 #include "media_utils.hpp"
 #include "settings_manager.hpp"
@@ -101,6 +102,7 @@ auto TimelineController::saveProject(const QString &fileUrl) -> bool {
         emit currentProjectUrlChanged();
         emit hasUnsavedChangesChanged();
         addRecentProject(targetUrl, m_project);
+        clearRecoveryState();
 
         // Call onProjectSave hook
         AviQtl::Scripting::ModEngine::instance().onProjectSave(targetUrl);
@@ -121,6 +123,7 @@ auto TimelineController::loadProject(const QString &fileUrl) -> bool {
         emit currentProjectUrlChanged();
         emit hasUnsavedChangesChanged();
         addRecentProject(fileUrl, m_project);
+        clearRecoveryState();
 
         // Call onProjectOpen hook
         AviQtl::Scripting::ModEngine::instance().onProjectOpen(fileUrl);
@@ -129,6 +132,33 @@ auto TimelineController::loadProject(const QString &fileUrl) -> bool {
         emit errorOccurred(error);
     }
     return result;
+}
+
+void TimelineController::clearRecoveryState() {
+    discardRecovery();
+    if (!m_recoveryOriginalProjectUrl.isEmpty()) {
+        m_recoveryOriginalProjectUrl.clear();
+        emit recoveryOriginalProjectUrlChanged();
+    }
+}
+
+bool TimelineController::loadRecovery(const QString &snapshotPath, const QString &recoveryId, const QString &originalProjectUrl) {
+    QString error;
+    if (!AviQtl::Core::ProjectSerializer::load(snapshotPath, m_timeline, m_project, &error)) {
+        emit errorOccurred(error);
+        return false;
+    }
+
+    m_recoveryId = recoveryId;
+    m_currentProjectUrl.clear();
+    m_recoveryOriginalProjectUrl = originalProjectUrl;
+    m_timeline->undoStack()->clear();
+    m_timeline->undoStack()->resetClean();
+    emit currentProjectUrlChanged();
+    emit recoveryOriginalProjectUrlChanged();
+    emit hasUnsavedChangesChanged();
+    refreshMissingMedia();
+    return true;
 }
 
 void TimelineController::refreshMissingMedia() {

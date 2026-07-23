@@ -25,6 +25,8 @@ Common.AviQtlWindow {
             fpsField.text = SettingsManager.settings.defaultProjectFps || "" + DefaultFps;
             sampleRateField.text = SettingsManager.settings.defaultProjectSampleRate || "" + DefaultSampleRate;
         }
+        if (Workspace && Workspace.recoveries && Workspace.recoveries.length > 0)
+            Qt.callLater(function() { recoveryDialog.open(); });
     }
 
     FontLoader {
@@ -33,6 +35,75 @@ Common.AviQtlWindow {
 
     ListModel {
         id: recentModel
+    }
+
+    Dialog {
+        id: recoveryDialog
+
+        title: qsTr("Recover unsaved projects")
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(620, root.width - 40)
+        height: Math.min(420, root.height - 40)
+        standardButtons: Dialog.Close
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 10
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("AviQtl found recovery snapshots left by an interrupted session. Recovering opens a new unsaved project and never overwrites the original file.")
+                wrapMode: Text.Wrap
+            }
+
+            ListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: 6
+                model: Workspace ? Workspace.recoveries : []
+
+                delegate: Frame {
+                    required property var modelData
+                    width: ListView.view.width
+
+                    contentItem: RowLayout {
+                        spacing: 8
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.name
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.valid ? qsTr("Saved %1").arg(Qt.formatDateTime(modelData.savedAt, Qt.DefaultLocaleShortDate)) : qsTr("Invalid recovery: %1").arg(modelData.error)
+                                color: modelData.valid ? palette.text : palette.brightText
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        Button {
+                            text: qsTr("Recover")
+                            enabled: modelData.valid
+                            onClicked: Workspace.recoverProject(modelData.id)
+                        }
+
+                        Button {
+                            text: qsTr("Discard")
+                            onClicked: Workspace.discardRecovery(modelData.id)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     RowLayout {

@@ -223,6 +223,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME project_recovery
+    SOURCES test_project_recovery.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME transport_service
     SOURCES test_transport_service.cpp
     LINKS AviQtl_UI
@@ -300,7 +306,7 @@ aviqtl_label_tests(unit
     video_frame_store dense_component_map audio_plugin_chain triple_buffer
     lua_host plugin_manifest mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
-    transition_effects build_version
+    project_recovery transition_effects build_version
 )
 
 aviqtl_label_tests(integration
