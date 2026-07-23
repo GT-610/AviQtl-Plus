@@ -20,6 +20,24 @@ from dataclasses import dataclass
 from typing import Callable, ClassVar, List, Optional, Type
 
 
+def read_project_version(source_dir: Path) -> str:
+    """Read the canonical application version from CMakeLists.txt."""
+    cmake_path = source_dir / "CMakeLists.txt"
+    try:
+        cmake_text = cmake_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"Could not read project version from {cmake_path}: {exc}") from exc
+
+    match = re.search(
+        r"^project\(AviQtl\s+VERSION\s+(\d+\.\d+\.\d+)\b",
+        cmake_text,
+        flags=re.MULTILINE,
+    )
+    if not match:
+        raise RuntimeError(f"Could not find AviQtl project version in {cmake_path}")
+    return match.group(1)
+
+
 @dataclass
 class BuildConfig:
     source_dir: Path
@@ -1623,8 +1641,8 @@ def parse_args() -> argparse.Namespace:
         help="Official Qt directory for MSVC build. Only used with --msvc. When unspecified, checks QT_MSVC_DIR, QT_DIR, QTDIR, PATH.",
     )
     parser.add_argument(
-        "--version", type=str, default="0.0.0",
-        help="Specify the application version (e.g. 0.1.0 or 0.1.0-Anon)."
+        "--version", type=str,
+        help="Override the application version (defaults to the version in CMakeLists.txt)."
     )
     return parser.parse_args()
 
@@ -1662,6 +1680,7 @@ def main():
         sys.exit(1)
 
     source_dir = Path.cwd()
+    version_string = args.version or read_project_version(source_dir)
     config = BuildConfig(
         source_dir=source_dir,
         temp_base=source_dir / ".build_tmp",
@@ -1672,16 +1691,21 @@ def main():
         use_container=(target == "arch" and not args.no_container),
         is_offline=args.offline,
         qt_dir=args.qt_dir,
-        # Assign version info from args to config
-        version_string=args.version,
+        # Use either the explicit override or the canonical project version.
+        version_string=version_string,
     )
 
     # Parse major, minor, patch from version_string
-    match = re.match(r"(\d+)\.(\d+)\.(\d+)", args.version)
-    if match:
-        config.version_major = int(match.group(1))
-        config.version_minor = int(match.group(2))
-        config.version_patch = int(match.group(3))
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?", version_string)
+    if not match:
+        print(
+            f"Error: Invalid version '{version_string}'. "
+            "Expected semantic version such as 0.5.8 or 0.5.8-dev."
+        )
+        sys.exit(1)
+    config.version_major = int(match.group(1))
+    config.version_minor = int(match.group(2))
+    config.version_patch = int(match.group(3))
 
     worker = BuildWorker(config)
     cancelled = False

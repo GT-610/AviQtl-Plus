@@ -29,7 +29,9 @@ function(aviqtl_add_test)
     endif()
 
     # Register with CTest
-    add_test(NAME ${ARG_NAME} COMMAND ${TARGET_NAME})
+    # Force Qt Test output to stdout. On Windows, the default logger can write
+    # to the debugger instead, leaving CTest failures with no diagnostics.
+    add_test(NAME ${ARG_NAME} COMMAND ${TARGET_NAME} -o -,txt)
 
     # On Windows, ensure vendor DLLs (e.g., Carla) are in PATH for runtime loading.
     # ENVIRONMENT_MODIFICATION handles platform-specific path separators correctly.
