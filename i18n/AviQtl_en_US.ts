@@ -1602,208 +1602,208 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="198"/>
+        <location filename="../core/src/package_manager.cpp" line="195"/>
         <source>Idle</source>
         <translation>Idle</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="253"/>
+        <location filename="../core/src/package_manager.cpp" line="250"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>Packages loaded from cache (Press Sync to check for updates)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="345"/>
+        <location filename="../core/src/package_manager.cpp" line="342"/>
         <source>Syncing repository...</source>
         <translation>Syncing repository...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="396"/>
+        <location filename="../core/src/package_manager.cpp" line="383"/>
         <source>Repository URL must use HTTPS: %1</source>
         <translation>Repository URL must use HTTPS: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="421"/>
+        <location filename="../core/src/package_manager.cpp" line="404"/>
         <source>Catalog URL must use HTTPS: %1</source>
         <translation>Catalog URL must use HTTPS: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="581"/>
+        <location filename="../core/src/package_manager.cpp" line="564"/>
         <source>Sync complete</source>
         <translation>Sync complete</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="636"/>
+        <location filename="../core/src/package_manager.cpp" line="619"/>
         <source>Package not found: %1</source>
         <translation>Package not found: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="642"/>
+        <location filename="../core/src/package_manager.cpp" line="625"/>
         <source>No metadata URL for package: %1</source>
         <translation>No metadata URL for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="647"/>
+        <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Fetching package details: %1</source>
         <translation>Fetching package details: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="650"/>
+        <location filename="../core/src/package_manager.cpp" line="633"/>
         <source>Invalid or insecure metadata URL for package: %1</source>
         <translation>Invalid or insecure metadata URL for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="658"/>
+        <location filename="../core/src/package_manager.cpp" line="641"/>
         <source>Failed to fetch package metadata (%1): %2</source>
         <translation>Failed to fetch package metadata (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="670"/>
+        <location filename="../core/src/package_manager.cpp" line="653"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
         <translation>Metadata checksum mismatch for package %1: expected %2, got %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="678"/>
+        <location filename="../core/src/package_manager.cpp" line="661"/>
         <source>Invalid metadata format for package: %1</source>
         <translation>Invalid metadata format for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="792"/>
+        <location filename="../core/src/package_manager.cpp" line="775"/>
         <source>No download URL found for package %1 version %2</source>
         <translation>No download URL found for package %1 version %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="799"/>
+        <location filename="../core/src/package_manager.cpp" line="782"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
         <translation>Package %1 requires AviQtl %2 or newer (current: %3)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="943"/>
+        <location filename="../core/src/package_manager.cpp" line="930"/>
         <source>Package deployment failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>Package deployment failed and automatic rollback was incomplete; the backup was preserved.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="945"/>
+        <location filename="../core/src/package_manager.cpp" line="932"/>
         <source>Failed to deploy package; the previous installation was restored.</source>
         <translation>Failed to deploy package; the previous installation was restored.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="967"/>
+        <location filename="../core/src/package_manager.cpp" line="954"/>
         <source>Installation complete: %1</source>
         <translation>Installation complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="819"/>
+        <location filename="../core/src/package_manager.cpp" line="802"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl update available. Restart to apply.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="837"/>
+        <location filename="../core/src/package_manager.cpp" line="820"/>
         <source>Invalid package ID or type.</source>
         <translation>Invalid package ID or type.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="842"/>
+        <location filename="../core/src/package_manager.cpp" line="825"/>
         <source>Invalid or insecure package download URL.</source>
         <translation>Invalid or insecure package download URL.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="845"/>
+        <location filename="../core/src/package_manager.cpp" line="828"/>
         <source>Downloading package: %1</source>
         <translation>Downloading package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="861"/>
+        <location filename="../core/src/package_manager.cpp" line="844"/>
         <source>Download failed: %1</source>
         <translation>Download failed: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="868"/>
+        <location filename="../core/src/package_manager.cpp" line="851"/>
         <source>Failed to create temporary directory.</source>
         <translation>Failed to create temporary directory.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="878"/>
+        <location filename="../core/src/package_manager.cpp" line="861"/>
         <source>Failed to save downloaded file.</source>
         <translation>Failed to save downloaded file.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="859"/>
-        <location filename="../core/src/package_manager.cpp" line="884"/>
+        <location filename="../core/src/package_manager.cpp" line="842"/>
+        <location filename="../core/src/package_manager.cpp" line="867"/>
         <source>Package archive exceeds the maximum allowed size.</source>
         <translation>Package archive exceeds the maximum allowed size.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="895"/>
+        <location filename="../core/src/package_manager.cpp" line="882"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
         <translation>Checksum mismatch for %1: expected %2, got %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="900"/>
+        <location filename="../core/src/package_manager.cpp" line="887"/>
         <source>Extracting package...</source>
         <translation>Extracting package...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="911"/>
+        <location filename="../core/src/package_manager.cpp" line="898"/>
         <source>Failed to create extraction directory.</source>
         <translation>Failed to create extraction directory.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="917"/>
+        <location filename="../core/src/package_manager.cpp" line="904"/>
         <source>Failed to extract package archive.</source>
         <translation>Failed to extract package archive.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="934"/>
+        <location filename="../core/src/package_manager.cpp" line="921"/>
         <source>Deploying package files...</source>
         <translation>Deploying package files...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1138"/>
+        <location filename="../core/src/package_manager.cpp" line="1125"/>
         <source>Invalid package ID.</source>
         <translation>Invalid package ID.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1144"/>
+        <location filename="../core/src/package_manager.cpp" line="1131"/>
         <source>Cannot remove package because its installed type is missing or invalid.</source>
         <translation>Cannot remove package because its installed type is missing or invalid.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1148"/>
+        <location filename="../core/src/package_manager.cpp" line="1135"/>
         <source>Removing package: %1</source>
         <translation>Removing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1157"/>
+        <location filename="../core/src/package_manager.cpp" line="1144"/>
         <source>Package removal failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>Package removal failed and automatic rollback was incomplete; the backup was preserved.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1159"/>
+        <location filename="../core/src/package_manager.cpp" line="1146"/>
         <source>Failed to remove package; the installed state and files were restored.</source>
         <translation>Failed to remove package; the installed state and files were restored.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1172"/>
+        <location filename="../core/src/package_manager.cpp" line="1159"/>
         <source>Removal complete: %1</source>
         <translation>Removal complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1201"/>
+        <location filename="../core/src/package_manager.cpp" line="1188"/>
         <source>No packages to upgrade.</source>
         <translation>No packages to upgrade.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1203"/>
+        <location filename="../core/src/package_manager.cpp" line="1190"/>
         <source>Upgrading all packages...</source>
         <translation>Upgrading all packages...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1210"/>
+        <location filename="../core/src/package_manager.cpp" line="1197"/>
         <source>All upgrades complete.</source>
         <translation>All upgrades complete.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="1215"/>
+        <location filename="../core/src/package_manager.cpp" line="1202"/>
         <source>Upgrading package: %1</source>
         <translation>Upgrading package: %1</translation>
     </message>
@@ -1816,37 +1816,53 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="165"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="246"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="288"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="224"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="305"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="241"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="322"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="375"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="420"/>
+        <source>動画</source>
+        <translation>Video</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="425"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="443"/>
+        <source>音声</source>
+        <translation>Audio</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="433"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="393"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="449"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="546"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="456"/>
+        <source>画像</source>
+        <translation>Image</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="600"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1876,18 +1892,18 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Media effect not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="349"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="410"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="339"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="400"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="174"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="408"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="462"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="185"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
@@ -2127,37 +2143,37 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Transitions</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="110"/>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="127"/>
         <source>Search by name, category, ID, or package...</source>
         <translation>Search by name, category, ID, or package...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="120"/>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="144"/>
         <source>All categories</source>
         <translation>All categories</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="127"/>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="151"/>
         <source>%1 items</source>
         <translation>%1 items</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="166"/>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="190"/>
         <source>Built-in</source>
         <translation>Built-in</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="205"/>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="229"/>
         <source>No matching catalog items</source>
         <translation>No matching catalog items</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="214"/>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="238"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="218"/>
+        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="242"/>
         <source>Add</source>
         <translation>Add</translation>
     </message>
@@ -2860,117 +2876,117 @@ Progress will be lost.</translation>
 <context>
     <name>LayerHeader</name>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="207"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="213"/>
         <source>複数レイヤーを挿入</source>
         <translation>Insert multiple layers</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="220"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="226"/>
         <source>挿入するレイヤー数:</source>
         <translation>Number of layers to insert:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="233"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="239"/>
         <source>挿入方向:</source>
         <translation>Insertion direction:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="238"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="244"/>
         <source>選択レイヤーの上</source>
         <translation>Above selected layer</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="248"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="254"/>
         <source>選択レイヤーの下</source>
         <translation>Below selected layer</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="270"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="276"/>
         <source>このレイヤー以降をまとめて移動</source>
         <translation>Move this layer and below together</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="284"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="290"/>
         <source>対象レイヤーの範囲:</source>
         <translation>Target layer range:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="320"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="326"/>
         <source>移動量 (行数):</source>
         <translation>Move amount (rows):</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="333"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="339"/>
         <source>方向:</source>
         <translation>Direction:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="338"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="344"/>
         <source>上へ</source>
         <translation>Up</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="348"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="354"/>
         <source>下へ</source>
         <translation>Down</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="393"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="399"/>
         <source>複数レイヤーを挿入...</source>
         <translation>Insert multiple layers...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="439"/>
         <source>このレイヤーを非表示にする</source>
         <translation>Hide this layer</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="433"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="439"/>
         <source>このレイヤーを表示する</source>
         <translation>Show this layer</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="450"/>
         <source>このレイヤーのロックを解除</source>
         <translation>Unlock this layer</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="444"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="450"/>
         <source>このレイヤーをロックする</source>
         <translation>Lock this layer</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="458"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="464"/>
         <source>すべてのレイヤーを表示</source>
         <translation>Show all layers</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="468"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="474"/>
         <source>すべてのレイヤーを非表示</source>
         <translation>Hide all layers</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="373"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="379"/>
         <source>上にレイヤーを挿入 (1行)</source>
         <translation>Insert Layer Above (1 row)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="383"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="389"/>
         <source>下にレイヤーを挿入 (1行)</source>
         <translation>Insert Layer Below (1 row)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="403"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="409"/>
         <source>このレイヤーの内容を1行下へ</source>
         <translation>Move layer contents down by 1</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="413"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="419"/>
         <source>このレイヤーの内容を1行上へ</source>
         <translation>Move layer contents up by 1</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/LayerHeader.qml" line="423"/>
+        <location filename="../ui/qml/timeline/LayerHeader.qml" line="429"/>
         <source>範囲を指定してレイヤー移動...</source>
         <translation>Move layers by range...</translation>
     </message>
@@ -3849,162 +3865,162 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="10"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="12"/>
         <source>クリップ追加: %1</source>
         <translation>Add clip: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="17"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="41"/>
         <source>クリップ移動: %1</source>
         <translation>Move clip: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="23"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="47"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="23"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="47"/>
         <source>上のオブジェクトでクリッピング解除</source>
         <translation>Disable Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="30"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="54"/>
         <source>パラメータ変更: %1 - %2</source>
         <translation>Parameter change: %1 - %2</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="50"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="74"/>
         <source>エフェクト追加: %1</source>
         <translation>Add effect: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="57"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="81"/>
         <source>エフェクト削除: %1</source>
         <translation>Delete effect: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="71"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="95"/>
         <source>エフェクト順序変更</source>
         <translation>Change effect order</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="84"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="108"/>
         <source>オーディオプラグイン順序変更</source>
         <translation>Change audio plugin order</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="90"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="114"/>
         <source>エフェクト有効/無効切り替え</source>
         <translation>Toggle effect enabled/disabled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="96"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="120"/>
         <source>オーディオプラグイン有効/無効切り替え</source>
         <translation>Toggle audio plugin enabled/disabled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="104"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="128"/>
         <source>エフェクト貼り付け</source>
         <translation>Paste effect</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="135"/>
         <source>レイヤーロック</source>
         <translation>Lock layer</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="135"/>
         <source>ロック解除</source>
         <translation>Unlock</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="135"/>
         <source>レイヤー非表示</source>
         <translation>Hide layer</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="111"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="135"/>
         <source>レイヤー表示</source>
         <translation>Show layer</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="112"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="136"/>
         <source>%1: レイヤー %2</source>
         <translation>%1: Layer %2</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="119"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="143"/>
         <source>クリップ分割: %1</source>
         <translation>Split clip: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="196"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="220"/>
         <source>切り取り: %1</source>
         <translation>Cut: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="231"/>
         <source>貼り付け: %1</source>
         <translation>Paste: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="219"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="243"/>
         <source>キーフレーム設定: %1</source>
         <translation>Set keyframe: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="246"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="270"/>
         <source>キーフレーム削除: %1 [%2]</source>
         <translation>Delete keyframe: %1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="253"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="277"/>
         <source>キーフレーム移動: %1 [%2 -&gt; %3]</source>
         <translation>Move keyframe: %1 [%2 -&gt; %3]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="258"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="282"/>
         <source>シーン追加: %1</source>
         <translation>Add scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="269"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="293"/>
         <source>シーン削除: %1</source>
         <translation>Delete scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="276"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="300"/>
         <source>シーン設定変更: %1</source>
         <translation>Scene settings change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="285"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="309"/>
         <source>オーディオプラグインキーフレーム設定: %1</source>
         <translation>Audio plugin keyframe set: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="312"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="336"/>
         <source>オーディオプラグインキーフレーム削除: %1 [%2]</source>
         <translation>Audio plugin keyframe delete: %1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="319"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="343"/>
         <source>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</source>
         <translation>Audio plugin keyframe move: %1 [%2 -&gt; %3]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="326"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="350"/>
         <source>オーディオプラグインパラメータ変更: %1</source>
         <translation>Audio plugin parameter change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="346"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="370"/>
         <source>オーディオプラグイン追加: %1</source>
         <translation>Add audio plugin: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="353"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="377"/>
         <source>オーディオプラグイン削除: %1</source>
         <translation>Remove audio plugin: %1</translation>
     </message>
@@ -4040,12 +4056,12 @@ Please restart the application to apply the update.</translation>
         <translation>Delete multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="765"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="766"/>
         <source>複数クリップ分割: %1</source>
         <translation>Split multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="811"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="812"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>Paste multiple clips: %1</translation>
     </message>
@@ -4247,178 +4263,178 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>SettingDialog</name>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="330"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="329"/>
         <source>設定ダイアログ</source>
         <translation>Settings Dialog</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="660"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="659"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="660"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="659"/>
         <source>選択した %1 件を削除</source>
         <translation>Delete %1 selected items</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="696"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="695"/>
         <source>プリセットを保存...</source>
         <translation>Save Preset...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="711"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="710"/>
         <source>プリセットを読み込み</source>
         <translation>Load Preset</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="777"/>
-        <location filename="../ui/qml/SettingDialog.qml" line="808"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="776"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="807"/>
         <source>プリセットがありません</source>
         <translation>No Presets</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="785"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="784"/>
         <source>プリセットを削除</source>
         <translation>Delete Preset</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="824"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="823"/>
         <source>プリセットを保存</source>
         <translation>Save Preset</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="833"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="832"/>
         <source>プリセット名:</source>
         <translation>Preset Name:</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="839"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="838"/>
         <source>プリセット名を入力...</source>
         <translation>Enter preset name...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="908"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="907"/>
         <source>音声ワークスペース</source>
         <translation>Audio Workspace</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="915"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="914"/>
         <source>独立した音声ソース、Carlaプラグインチェーン、メーターをこのオブジェクト内で管理します。</source>
         <translation>Manage an independent audio source, Carla plugin chain, and meters inside this object.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="924"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="923"/>
         <source>プラグイン追加</source>
         <translation>Add Plugin</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1004"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1003"/>
         <source>音声ソースを選択</source>
         <translation>Select Audio Source</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1039"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1038"/>
         <source>Source Deck</source>
         <translation>Source Deck</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1052"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1051"/>
         <source>音声ファイルを選択...</source>
         <translation>Select an audio file...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1058"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1057"/>
         <source>参照</source>
         <translation>Browse</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1068"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1067"/>
         <source>Mode</source>
         <translation>Mode</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1088"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1087"/>
         <source>Start</source>
         <translation>Start</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1137"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1136"/>
         <source>Channel Strip</source>
         <translation>Channel Strip</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1145"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1144"/>
         <source>Limit</source>
         <translation>Limit</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1209"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1208"/>
         <source>MUTE</source>
         <translation>MUTE</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1217"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1216"/>
         <source>SOLO</source>
         <translation>SOLO</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1242"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1241"/>
         <source>メーター</source>
         <translation>Meters</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1315"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1314"/>
         <source>Carlaプラグインチェーン</source>
         <translation>Carla Plugin Chain</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1325"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1324"/>
         <source>左側のリストでプラグインを選択・並べ替えできます。</source>
         <translation>Select and reorder plugins in the list on the left.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1325"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1324"/>
         <source>上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。</source>
         <translation>Add Carla plugins from Add Plugin at the top or from the menu.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1711"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1710"/>
         <source> (直線)</source>
         <translation> (Linear)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1712"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1711"/>
         <source> (加速)</source>
         <translation> (Ease In)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1713"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1712"/>
         <source> (減速)</source>
         <translation> (Ease Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1714"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1713"/>
         <source> (加減速)</source>
         <translation> (Ease In/Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1715"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1714"/>
         <source> (ベジェ)</source>
         <translation> (Bezier)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2275"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2274"/>
         <source>Browse effect catalog...</source>
         <translation>Browse effect catalog...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2377"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2379"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2388"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2390"/>
         <source>検索...</source>
         <translation>Search...</translation>
     </message>
@@ -4832,92 +4848,92 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1176"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1179"/>
         <source>Browse object and transition catalog...</source>
         <translation>Browse object and transition catalog...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1179"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1182"/>
         <source>オブジェクトを追加</source>
         <translation>Add Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1194"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1197"/>
         <source>トランジションを追加</source>
         <translation>Add Transition</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1206"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1209"/>
         <source>元に戻す</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1207"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1210"/>
         <source>やり直す</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1208"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1211"/>
         <source>貼り付け</source>
         <translation>Paste</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1210"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1213"/>
         <source>シーン設定...</source>
         <translation>Scene Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1211"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1214"/>
         <source>プロジェクト設定...</source>
         <translation>Project Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1212"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1215"/>
         <source>環境設定...</source>
         <translation>Preferences...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1214"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1217"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1215"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1218"/>
         <source>分割</source>
         <translation>Split</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1216"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1219"/>
         <source>複製</source>
         <translation>Duplicate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1218"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1221"/>
         <source>切り取り</source>
         <translation>Cut</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1219"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1222"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1223"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1226"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1233"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1236"/>
         <source>Browse effect catalog...</source>
         <translation>Browse effect catalog...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1237"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1240"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1261"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1264"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>Search effects/objects...</translation>
     </message>

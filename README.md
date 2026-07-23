@@ -86,6 +86,9 @@ The build currently uses Qt private modules (`CorePrivate`, `GuiPrivate`, and
 Build and runtime Qt patch versions must therefore match; distributors should
 rebuild AviQtl-Plus whenever their Qt packages are upgraded.
 
+Maintainers should follow the [Release Checklist](docs/RELEASE_CHECKLIST.md)
+before creating a version tag.
+
 ```bash
 git clone https://github.com/GT-610/AviQtl-Plus.git
 cd AviQtl-Plus
@@ -254,16 +257,19 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 - BorderBlur O(n²) → O(2n) with edge-detect blend and aspect ratio control
 - Multi-pass ping-pong correctness for 3+ pass dispatches
 
-**Completed (unreleased):**
-- 4 new transitions: Dissolve, Push, Zoom, Wipe (7 total)
-- Wipe transition now properly composites previous/next scenes
-- Push transition reverse direction positioning
-- CONTRIBUTING.md and CHANGELOG.md
-- CI: test steps for macOS and Windows in build workflow
+**Completed (0.5.x):**
+- End-to-end daily editing, missing-media recovery, and atomic project saves
+- Unified searchable object/effect catalog with package provenance
+- Real QML composition capture and encoded MP4 verification
+- Large-timeline virtualization and continuous zoom performance fixtures
+- Video decoder GOP/frame-cache lifecycle and eviction coverage
+- Linux, macOS, and Windows release builds with platform test steps
+- Consistently green release baseline and version validation
 
-**Next (0.4.x-0.5.0):**
-- Expand effect and object plugin ecosystem (more example plugins)
-- Continue hardening CI/CD and release automation
+**Next (0.5.8+):**
+- Add autosave and crash-recovery safeguards
+- Measure representative long-video, long-audio, and plugin-scanning workloads
+- Continue workflow-level usability hardening with real editing projects
 
 **Long-term:**
 - Full-featured video editor suitable as an AviUtl replacement

@@ -20,6 +20,51 @@ from dataclasses import dataclass
 from typing import Callable, ClassVar, List, Optional, Type
 
 
+_SEMVER_NUMERIC_IDENTIFIER = r"(?:0|[1-9][0-9]*)"
+_SEMVER_NON_NUMERIC_IDENTIFIER = r"(?:[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+_SEMVER_PRERELEASE_IDENTIFIER = (
+    rf"(?:{_SEMVER_NUMERIC_IDENTIFIER}|{_SEMVER_NON_NUMERIC_IDENTIFIER})"
+)
+_SEMVER_PATTERN = re.compile(
+    rf"^(?P<major>{_SEMVER_NUMERIC_IDENTIFIER})\."
+    rf"(?P<minor>{_SEMVER_NUMERIC_IDENTIFIER})\."
+    rf"(?P<patch>{_SEMVER_NUMERIC_IDENTIFIER})"
+    rf"(?:-{_SEMVER_PRERELEASE_IDENTIFIER}"
+    rf"(?:\.{_SEMVER_PRERELEASE_IDENTIFIER})*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
+
+
+def parse_semver(version_string: str) -> tuple[int, int, int]:
+    """Validate a SemVer string and return its numeric components."""
+    match = _SEMVER_PATTERN.fullmatch(version_string)
+    if not match:
+        raise ValueError(f"Invalid semantic version: {version_string}")
+    return (
+        int(match.group("major")),
+        int(match.group("minor")),
+        int(match.group("patch")),
+    )
+
+
+def read_project_version(source_dir: Path) -> str:
+    """Read the canonical application version from CMakeLists.txt."""
+    cmake_path = source_dir / "CMakeLists.txt"
+    try:
+        cmake_text = cmake_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"Could not read project version from {cmake_path}: {exc}") from exc
+
+    match = re.search(
+        r"^project\(AviQtl\s+VERSION\s+(\d+\.\d+\.\d+)\b",
+        cmake_text,
+        flags=re.MULTILINE,
+    )
+    if not match:
+        raise RuntimeError(f"Could not find AviQtl project version in {cmake_path}")
+    return match.group(1)
+
+
 @dataclass
 class BuildConfig:
     source_dir: Path
@@ -1623,8 +1668,8 @@ def parse_args() -> argparse.Namespace:
         help="Official Qt directory for MSVC build. Only used with --msvc. When unspecified, checks QT_MSVC_DIR, QT_DIR, QTDIR, PATH.",
     )
     parser.add_argument(
-        "--version", type=str, default="0.0.0",
-        help="Specify the application version (e.g. 0.1.0 or 0.1.0-Anon)."
+        "--version", type=str,
+        help="Override the application version (defaults to the version in CMakeLists.txt)."
     )
     return parser.parse_args()
 
@@ -1662,6 +1707,7 @@ def main():
         sys.exit(1)
 
     source_dir = Path.cwd()
+    version_string = args.version or read_project_version(source_dir)
     config = BuildConfig(
         source_dir=source_dir,
         temp_base=source_dir / ".build_tmp",
@@ -1672,16 +1718,22 @@ def main():
         use_container=(target == "arch" and not args.no_container),
         is_offline=args.offline,
         qt_dir=args.qt_dir,
-        # Assign version info from args to config
-        version_string=args.version,
+        # Use either the explicit override or the canonical project version.
+        version_string=version_string,
     )
 
     # Parse major, minor, patch from version_string
-    match = re.match(r"(\d+)\.(\d+)\.(\d+)", args.version)
-    if match:
-        config.version_major = int(match.group(1))
-        config.version_minor = int(match.group(2))
-        config.version_patch = int(match.group(3))
+    try:
+        version_major, version_minor, version_patch = parse_semver(version_string)
+    except ValueError:
+        print(
+            f"Error: Invalid version '{version_string}'. "
+            "Expected a semantic version such as 0.5.8 or 0.5.8-rc.1+build.2."
+        )
+        sys.exit(1)
+    config.version_major = version_major
+    config.version_minor = version_minor
+    config.version_patch = version_patch
 
     worker = BuildWorker(config)
     cancelled = False

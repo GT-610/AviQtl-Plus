@@ -5,17 +5,95 @@ All notable changes to AviQtl-Plus are documented in this file.
 ## [Unreleased]
 
 ### Added
-- 4 new transitions: Dissolve, Push, Zoom, Wipe (7 total)
-- CONTRIBUTING.md and CHANGELOG.md
-- CI: test steps for macOS and Windows in build workflow
+- Green release baseline checks for canonical versioning and tag consistency
+
+### Changed
+- Local and manually dispatched builds now use the canonical CMake project
+  version instead of reporting `0.0.0`
+- Tagged release builds reject tags that do not match the project version
+- Qt Test output is explicitly routed through CTest on all platforms
 
 ### Fixed
-- Wipe transition now properly composites previous/next scenes
-- Push transition reverse direction positioning
+- Preset path containment checks now handle Windows path separators correctly
+
+## [0.5.7] - 2026-07-22
+
+### Added
+- Unified, searchable object and effect catalog with package provenance
+- Daily editing reliability coverage for project editing workflows
+
+### Fixed
+- macOS QML composite test asset deployment
+
+## [0.5.6] - 2026-07-19
+
+### Added
+- Large-timeline performance and QML viewport virtualization fixtures
+- Encoded QML export, shader rendering, and video decoder round-trip coverage
+- Observable GOP and bounded frame-cache eviction coverage
+
+### Changed
+- Continuous timeline zoom now reuses the loaded viewport range
+- Test suite labels and coverage were streamlined
+
+## [0.5.5] - 2026-07-13
+
+### Added
+- Animated text and real `CompositeView` capture tests
+
+### Changed
+- Removed dead code and hardened package quality checks
+
+## [0.5.4] - 2026-07-12
+
+### Added
+- Atomic project saves and missing-media recovery workflow
+- Hardened timeline batch movement and export output integrity
+
+### Fixed
+- Linux headless test startup and rendering/audio correctness issues
+
+## [0.5.3] - 2026-07-08
+
+### Added
+- AviUtl operability and timeline edit-target specifications
+- Daily editing workflow coverage and catalog provenance metadata
+
+### Changed
+- Export failures now identify configuration, capture, and encoding stages
+- Windows and macOS release packages were reduced in size
+
+## [0.5.2] - 2026-07-05
+
+### Added
+- Timeline skimmer edit target
+- Chunked audio decoding and waveform peaks
+
+### Changed
+- Security, correctness, memory, and thread-safety hardening
+
+## [0.5.1] - 2026-06-30
+
+### Fixed
+- macOS CI test failures
+
+## [0.5.0] - 2026-06-30
+
+### Added
+- Installable effect packages and expanded plugin examples
+- Advanced package management and effect registry/package tests
+- Undoable audio plugin changes and configurable undo history
+- Dissolve, Push, Zoom, and Wipe transitions
+- CONTRIBUTING.md and CHANGELOG.md
+- macOS and Windows test steps in the release workflow
+
+### Fixed
+- Wipe compositing between previous and next scenes
+- Push transition reverse-direction positioning
 
 ### Removed
-- Duplicate effect-packages/transitions/ (built-in transitions only)
-- Empty plugins/placeholder
+- Duplicate packaged transitions in favor of built-in transitions
+- Empty plugin placeholder directory
 
 ## [0.4.0] - 2026-06-24
 

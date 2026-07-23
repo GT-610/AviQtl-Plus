@@ -16,9 +16,9 @@ bool isUnsafeName(const QString &s) {
 }
 
 bool isPathWithin(const QString &basePath, const QString &candidatePath) {
-    const QString base = QDir::cleanPath(basePath);
-    const QString candidate = QDir::cleanPath(candidatePath);
-    return candidate == base || candidate.startsWith(base + QDir::separator());
+    const QString base = QDir::fromNativeSeparators(QDir::cleanPath(basePath));
+    const QString candidate = QDir::fromNativeSeparators(QDir::cleanPath(candidatePath));
+    return candidate == base || candidate.startsWith(base + QLatin1Char('/'));
 }
 } // namespace
 
