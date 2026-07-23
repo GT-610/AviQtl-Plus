@@ -265,9 +265,9 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 - Video decoder GOP/frame-cache lifecycle and eviction coverage
 - Linux, macOS, and Windows release builds with platform test steps
 - Consistently green release baseline and version validation
+- Independent autosave snapshots and startup crash recovery for multiple projects
 
-**Next (0.5.8+):**
-- Add autosave and crash-recovery safeguards
+**Next (0.5.9+):**
 - Measure representative long-video, long-audio, and plugin-scanning workloads
 - Continue workflow-level usability hardening with real editing projects
 

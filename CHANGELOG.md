@@ -4,14 +4,23 @@ All notable changes to AviQtl-Plus are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.8] - 2026-07-23
+
 ### Added
 - Green release baseline checks for canonical versioning and tag consistency
+- Independent autosave snapshots and startup crash recovery for multiple
+  projects
+- Recovery coverage for formal saves, discarded projects, corrupt snapshots,
+  stale data, and orphaned snapshot cleanup
 
 ### Changed
 - Local and manually dispatched builds now use the canonical CMake project
   version instead of reporting `0.0.0`
 - Tagged release builds reject tags that do not match the project version
 - Qt Test output is explicitly routed through CTest on all platforms
+- Periodic recovery serialization and disk writes now run outside the UI thread
+- Project-level resolution, frame-rate, and sample-rate changes now mark the
+  project as unsaved
 
 ### Fixed
 - Preset path containment checks now handle Windows path separators correctly
