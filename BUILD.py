@@ -20,6 +20,33 @@ from dataclasses import dataclass
 from typing import Callable, ClassVar, List, Optional, Type
 
 
+_SEMVER_NUMERIC_IDENTIFIER = r"(?:0|[1-9][0-9]*)"
+_SEMVER_NON_NUMERIC_IDENTIFIER = r"(?:[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+_SEMVER_PRERELEASE_IDENTIFIER = (
+    rf"(?:{_SEMVER_NUMERIC_IDENTIFIER}|{_SEMVER_NON_NUMERIC_IDENTIFIER})"
+)
+_SEMVER_PATTERN = re.compile(
+    rf"^(?P<major>{_SEMVER_NUMERIC_IDENTIFIER})\."
+    rf"(?P<minor>{_SEMVER_NUMERIC_IDENTIFIER})\."
+    rf"(?P<patch>{_SEMVER_NUMERIC_IDENTIFIER})"
+    rf"(?:-{_SEMVER_PRERELEASE_IDENTIFIER}"
+    rf"(?:\.{_SEMVER_PRERELEASE_IDENTIFIER})*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
+
+
+def parse_semver(version_string: str) -> tuple[int, int, int]:
+    """Validate a SemVer string and return its numeric components."""
+    match = _SEMVER_PATTERN.fullmatch(version_string)
+    if not match:
+        raise ValueError(f"Invalid semantic version: {version_string}")
+    return (
+        int(match.group("major")),
+        int(match.group("minor")),
+        int(match.group("patch")),
+    )
+
+
 def read_project_version(source_dir: Path) -> str:
     """Read the canonical application version from CMakeLists.txt."""
     cmake_path = source_dir / "CMakeLists.txt"
@@ -1696,16 +1723,17 @@ def main():
     )
 
     # Parse major, minor, patch from version_string
-    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?", version_string)
-    if not match:
+    try:
+        version_major, version_minor, version_patch = parse_semver(version_string)
+    except ValueError:
         print(
             f"Error: Invalid version '{version_string}'. "
-            "Expected semantic version such as 0.5.8 or 0.5.8-dev."
+            "Expected a semantic version such as 0.5.8 or 0.5.8-rc.1+build.2."
         )
         sys.exit(1)
-    config.version_major = int(match.group(1))
-    config.version_minor = int(match.group(2))
-    config.version_patch = int(match.group(3))
+    config.version_major = version_major
+    config.version_minor = version_minor
+    config.version_patch = version_patch
 
     worker = BuildWorker(config)
     cancelled = False

@@ -264,9 +264,9 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 - Large-timeline virtualization and continuous zoom performance fixtures
 - Video decoder GOP/frame-cache lifecycle and eviction coverage
 - Linux, macOS, and Windows release builds with platform test steps
+- Consistently green release baseline and version validation
 
 **Next (0.5.8+):**
-- Establish a consistently green release baseline and version validation
 - Add autosave and crash-recovery safeguards
 - Measure representative long-video, long-audio, and plugin-scanning workloads
 - Continue workflow-level usability hardening with real editing projects

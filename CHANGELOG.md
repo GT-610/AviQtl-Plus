@@ -72,7 +72,7 @@ All notable changes to AviQtl-Plus are documented in this file.
 ### Changed
 - Security, correctness, memory, and thread-safety hardening
 
-## [0.5.1] - 2026-06-28
+## [0.5.1] - 2026-06-30
 
 ### Fixed
 - macOS CI test failures

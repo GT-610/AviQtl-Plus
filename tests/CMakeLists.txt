@@ -4,6 +4,7 @@
 
 # --- Dependencies ---
 find_package(Qt6 REQUIRED COMPONENTS Test)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 if(POLICY CMP0110)
     cmake_policy(SET CMP0110 NEW)
@@ -283,6 +284,11 @@ target_compile_definitions(AviQtl_Test_transition_effects PRIVATE
     AVIQTL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
+add_test(
+    NAME build_version
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_build_version.py
+)
+
 # Labels keep focused developer runs concise without changing the default suite.
 function(aviqtl_label_tests LABEL)
     set_property(TEST ${ARGN} APPEND PROPERTY LABELS "${LABEL}")
@@ -294,7 +300,7 @@ aviqtl_label_tests(unit
     video_frame_store dense_component_map audio_plugin_chain triple_buffer
     lua_host plugin_manifest mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
-    transition_effects
+    transition_effects build_version
 )
 
 aviqtl_label_tests(integration

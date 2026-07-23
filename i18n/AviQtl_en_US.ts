@@ -1838,13 +1838,13 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="420"/>
         <source>動画</source>
-        <translation type="unfinished">Video</translation>
+        <translation>Video</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="425"/>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="443"/>
         <source>音声</source>
-        <translation type="unfinished">Audio</translation>
+        <translation>Audio</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="433"/>
@@ -1859,7 +1859,7 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="456"/>
         <source>画像</source>
-        <translation type="unfinished">Image</translation>
+        <translation>Image</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="600"/>
