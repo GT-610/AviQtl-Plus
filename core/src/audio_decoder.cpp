@@ -163,6 +163,11 @@ auto AudioDecoder::openFile() -> bool {
         m_chunkOrder.clear();
         m_peakPyramid.clear();
         m_peakBuildData.reset();
+        m_chunkHits.store(0, std::memory_order_release);
+        m_chunkMisses.store(0, std::memory_order_release);
+        m_decodedChunks.store(0, std::memory_order_release);
+        m_chunkEvictions.store(0, std::memory_order_release);
+        m_peakCacheComplete.store(false, std::memory_order_release);
     }
 
     return true;
@@ -224,6 +229,7 @@ void AudioDecoder::closeFFmpeg() {
     m_peakPyramid.clear();
     m_peakBuildData.reset();
     m_peakGeneration.fetch_add(1, std::memory_order_acq_rel);
+    m_peakCacheComplete.store(false, std::memory_order_release);
     m_totalDurationSec = 0.0;
 }
 
@@ -246,6 +252,7 @@ void AudioDecoder::setSampleRate(int sampleRate) {
     m_peakPyramid.clear();
     m_peakBuildData.reset();
     m_peakGeneration.fetch_add(1, std::memory_order_acq_rel);
+    m_peakCacheComplete.store(false, std::memory_order_release);
 }
 
 void AudioDecoder::seek(qint64 ms) {
@@ -283,12 +290,14 @@ auto AudioDecoder::ensureChunk(int64_t chunkIdx) -> bool {
         QMutexLocker locker(&m_mutex);
         auto it = m_chunkCache.find(chunkIdx);
         if (it != m_chunkCache.end() && it.value().fullyDecoded) {
+            m_chunkHits.fetch_add(1, std::memory_order_relaxed);
             m_chunkOrder.removeAll(chunkIdx);
             m_chunkOrder.append(chunkIdx);
             return true;
         }
     }
 
+    m_chunkMisses.fetch_add(1, std::memory_order_relaxed);
     return decodeChunk(chunkIdx);
 }
 
@@ -408,6 +417,7 @@ auto AudioDecoder::decodeChunk(int64_t chunkIdx) -> bool {
         m_chunkOrder.append(chunkIdx);
         evictChunks();
     }
+    m_decodedChunks.fetch_add(1, std::memory_order_relaxed);
 
     return true;
 }
@@ -416,6 +426,7 @@ void AudioDecoder::evictChunks() {
     while (m_chunkOrder.size() > kMaxCachedChunks) {
         const int64_t evictIdx = m_chunkOrder.takeFirst();
         m_chunkCache.remove(evictIdx);
+        m_chunkEvictions.fetch_add(1, std::memory_order_relaxed);
     }
 }
 
@@ -569,6 +580,7 @@ void AudioDecoder::rebuildPeakPyramidFromBase() {
 }
 
 void AudioDecoder::buildPeakCache() {
+    m_peakCacheComplete.store(false, std::memory_order_release);
     const int generation = m_peakGeneration.load(std::memory_order_acquire);
     const double duration = totalDurationSec();
     if (duration <= 0.0 || m_sampleRate <= 0) {
@@ -623,6 +635,7 @@ void AudioDecoder::buildPeakCache() {
     QMutexLocker locker(&m_mutex);
     if (generation == m_peakGeneration.load(std::memory_order_acquire)) {
         rebuildPeakPyramidFromBase();
+        m_peakCacheComplete.store(true, std::memory_order_release);
     }
 }
 
@@ -717,6 +730,27 @@ auto AudioDecoder::getPeaks(double startSec, double durationSec, int pixelWidth)
 auto AudioDecoder::totalDurationSec() const -> double {
     QMutexLocker locker(&m_mutex);
     return m_totalDurationSec;
+}
+
+auto AudioDecoder::cacheStats() const -> CacheStats {
+    CacheStats stats;
+    stats.chunkHits = m_chunkHits.load(std::memory_order_relaxed);
+    stats.chunkMisses = m_chunkMisses.load(std::memory_order_relaxed);
+    stats.decodedChunks = m_decodedChunks.load(std::memory_order_relaxed);
+    stats.chunkEvictions = m_chunkEvictions.load(std::memory_order_relaxed);
+    stats.maxChunkEntries = kMaxCachedChunks;
+    stats.peakCacheComplete = m_peakCacheComplete.load(std::memory_order_acquire);
+
+    QMutexLocker locker(&m_mutex);
+    stats.chunkEntries = m_chunkCache.size();
+    for (auto it = m_chunkCache.cbegin(); it != m_chunkCache.cend(); ++it) {
+        stats.cachedSamples += static_cast<qsizetype>(it.value().data.size());
+    }
+    stats.peakLevels = static_cast<qsizetype>(m_peakPyramid.size());
+    if (!m_peakPyramid.empty()) {
+        stats.peakEntries = static_cast<qsizetype>(m_peakPyramid.front().peaks.size());
+    }
+    return stats;
 }
 
 void AudioDecoder::setPlaying(bool playing) {

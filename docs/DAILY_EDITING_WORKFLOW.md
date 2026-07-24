@@ -144,3 +144,22 @@ The `export_workflow` CTest covers the service-level export path:
   starts.
 - Missing QML capture surfaces fail before partial output is produced.
 - Failure messages identify configuration and frame-capture stages.
+
+## Repeatable Workflow Verification
+
+The closest automated proxy for a real editing-project walk-through is the
+following focused group. It covers project creation and reopening, media
+relinking, export failure handling, real QML composition capture, shader output,
+MP4 encoding, and decoded-frame motion verification:
+
+```text
+ctest -R "^(daily_editing_workflow|missing_media|export_workflow|qml_composite_capture)$" --output-on-failure
+```
+
+On Windows, the QML capture test uses the OpenGL RHI backend explicitly. This
+avoids dependence on the current desktop session's default Direct3D adapter
+while continuing to exercise the production QRhi/QML composition path.
+
+This group does not replace the manual preview and export checks above. Those
+checks still require a human to judge interaction latency, discoverability,
+audio perception, and whether the resulting workflow feels efficient.

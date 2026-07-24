@@ -4,6 +4,7 @@
 #include "video_frame_store.hpp"
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -33,24 +34,25 @@ class TestVideoDecoder : public QObject {
     void initialStateIsEmpty();
     void decodesEncodedFramesThroughVideoSink();
     void frameCacheEvictionStaysWithinBudget();
+    void representativeMediaSeekWorkload();
 
   private:
-    static bool createTestVideo(const QString &path, int frameCount = kTestFrameCount);
+    static bool createTestVideo(const QString &path, int frameCount = kTestFrameCount, int width = 96, int height = 64, int gopSize = kTestGopSize);
     static QVector3D averageColor(const QImage &image);
 };
 
-bool TestVideoDecoder::createTestVideo(const QString &path, int frameCount) {
+bool TestVideoDecoder::createTestVideo(const QString &path, int frameCount, int width, int height, int gopSize) {
     VideoEncoder encoder;
     VideoEncoder::Config config;
-    config.width = 96;
-    config.height = 64;
+    config.width = width;
+    config.height = height;
     config.fps_num = 30;
     config.fps_den = 1;
     config.crf = 10;
     config.codecName = QStringLiteral("libx264");
     config.outputUrl = path;
     config.preset = QStringLiteral("ultrafast");
-    config.gopSize = kTestGopSize;
+    config.gopSize = gopSize;
     if (!encoder.open(config))
         return false;
 
@@ -303,7 +305,8 @@ void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
     const qint64 frameCacheHitMs = seekAndVerify(frameCacheHitTarget);
     QVERIFY(frameCacheHitMs >= 0);
     const VideoDecoder::CacheStats hitStats = decoder.cacheStats();
-    QTextStream(stdout) << "video_decoder frame_cache_reseek frame=" << frameCacheHitTarget << " elapsed_ms=" << frameCacheHitMs << " misses=" << hitStats.misses << " gop_hits=" << hitStats.gopHits << " frame_hits=" << hitStats.frameHits << " decoded_frames=" << hitStats.decodedFrames << Qt::endl;
+    QTextStream(stdout) << "video_decoder frame_cache_reseek frame=" << frameCacheHitTarget << " elapsed_ms=" << frameCacheHitMs << " misses=" << hitStats.misses << " gop_hits=" << hitStats.gopHits << " frame_hits=" << hitStats.frameHits
+                        << " decoded_frames=" << hitStats.decodedFrames << Qt::endl;
     QCOMPARE(hitStats.misses, sweepStats.misses);
     QCOMPARE(hitStats.gopHits, sweepStats.gopHits);
     QCOMPARE(hitStats.frameHits, sweepStats.frameHits + 1);
@@ -314,12 +317,68 @@ void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
     QVERIFY(evictedReseekMs >= 0);
     QTRY_COMPARE_WITH_TIMEOUT(decoder.cacheStats().decodedFrames, hitStats.decodedFrames + kTestGopSize, 10'000);
     const VideoDecoder::CacheStats evictionStats = decoder.cacheStats();
-    QTextStream(stdout) << "video_decoder evicted_reseek frame=" << evictedFrameTarget << " elapsed_ms=" << evictedReseekMs << " misses=" << evictionStats.misses << " frame_hits=" << evictionStats.frameHits << " decoded_frames=" << evictionStats.decodedFrames << " frame_entries=" << evictionStats.frameEntries
-                        << " frame_cost=" << evictionStats.frameCost << Qt::endl;
+    QTextStream(stdout) << "video_decoder evicted_reseek frame=" << evictedFrameTarget << " elapsed_ms=" << evictedReseekMs << " misses=" << evictionStats.misses << " frame_hits=" << evictionStats.frameHits
+                        << " decoded_frames=" << evictionStats.decodedFrames << " frame_entries=" << evictionStats.frameEntries << " frame_cost=" << evictionStats.frameCost << Qt::endl;
     QCOMPARE(evictionStats.misses, hitStats.misses + 1);
     QCOMPARE(evictionStats.frameHits, hitStats.frameHits);
     QCOMPARE(evictionStats.decodedFrames, hitStats.decodedFrames + kTestGopSize);
     QVERIFY(evictionStats.frameCost <= evictionStats.frameMaxCost);
+}
+
+void TestVideoDecoder::representativeMediaSeekWorkload() {
+    QString videoPath = qEnvironmentVariable("AVIQTL_PERF_VIDEO");
+    QTemporaryDir syntheticDir;
+    if (videoPath == QStringLiteral("synthetic")) {
+        QVERIFY(syntheticDir.isValid());
+        videoPath = syntheticDir.filePath(QStringLiteral("representative-video.mp4"));
+        QElapsedTimer encodeTimer;
+        encodeTimer.start();
+        QVERIFY2(createTestVideo(videoPath, 1800, 640, 360, 60), "failed to create representative synthetic video");
+        QTextStream(stdout) << "video_representative encode_ms=" << encodeTimer.elapsed() << " frames=1800 width=640 height=360 gop=60" << Qt::endl;
+    } else if (videoPath.isEmpty()) {
+        QSKIP("Set AVIQTL_PERF_VIDEO to a representative media path, or to 'synthetic'.");
+    }
+    QVERIFY2(QFileInfo::exists(videoPath), qPrintable(QStringLiteral("representative video does not exist: %1").arg(videoPath)));
+
+    constexpr int clipId = 9;
+    VideoFrameStore store;
+    QVideoSink sink;
+    store.registerSink(QString::number(clipId), &sink);
+
+    QElapsedTimer startupTimer;
+    startupTimer.start();
+    VideoDecoder decoder(clipId, QUrl::fromLocalFile(videoPath), &store);
+    QSignalSpy readySpy(&decoder, &MediaDecoder::ready);
+    decoder.scheduleStart();
+    QTRY_COMPARE_WITH_TIMEOUT(readySpy.count(), 1, 60'000);
+    const qint64 startupMs = startupTimer.elapsed();
+    QVERIFY(decoder.totalFrameCount() > 0);
+    QVERIFY(decoder.sourceFps() > 0.0);
+
+    const int lastFrame = decoder.totalFrameCount() - 1;
+    const QVector<int> targets = {
+        lastFrame / 20, lastFrame / 4, lastFrame / 2, (lastFrame * 3) / 4, (lastFrame * 19) / 20, lastFrame / 3, std::min(lastFrame, (lastFrame / 3) + 1),
+    };
+    QVector<qint64> seekTimes;
+    seekTimes.reserve(targets.size());
+    for (const int frame : targets) {
+        QSignalSpy frameSpy(&decoder, &MediaDecoder::frameReady);
+        QElapsedTimer seekTimer;
+        seekTimer.start();
+        decoder.seekToFrame(frame, decoder.sourceFps());
+        if (frameSpy.isEmpty()) {
+            QVERIFY2(frameSpy.wait(30'000), qPrintable(QStringLiteral("timed out seeking representative video to frame %1").arg(frame)));
+        }
+        QCOMPARE(frameSpy.last().first().toInt(), frame);
+        seekTimes.append(seekTimer.elapsed());
+    }
+
+    std::ranges::sort(seekTimes);
+    const VideoDecoder::CacheStats stats = decoder.cacheStats();
+    QVERIFY(stats.frameCost <= stats.frameMaxCost);
+    QTextStream(stdout) << "video_representative path=" << QFileInfo(videoPath).fileName() << " bytes=" << QFileInfo(videoPath).size() << " frames=" << decoder.totalFrameCount() << " fps=" << decoder.sourceFps() << " startup_ms=" << startupMs
+                        << " seeks=" << seekTimes.size() << " median_seek_ms=" << seekTimes.at(seekTimes.size() / 2) << " max_seek_ms=" << seekTimes.last() << " misses=" << stats.misses << " gop_hits=" << stats.gopHits << " frame_hits=" << stats.frameHits
+                        << " decoded_frames=" << stats.decodedFrames << " frame_entries=" << stats.frameEntries << " frame_cost=" << stats.frameCost << " frame_max_cost=" << stats.frameMaxCost << Qt::endl;
 }
 
 QTEST_MAIN(TestVideoDecoder)

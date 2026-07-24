@@ -35,6 +35,20 @@ class AudioDecoder : public MediaDecoder {
     std::vector<float> getPeaks(double startSec, double durationSec, int pixelWidth);
     double totalDurationSec() const;
 
+    struct CacheStats {
+        quint64 chunkHits = 0;
+        quint64 chunkMisses = 0;
+        quint64 decodedChunks = 0;
+        quint64 chunkEvictions = 0;
+        qsizetype chunkEntries = 0;
+        qsizetype cachedSamples = 0;
+        qsizetype maxChunkEntries = 0;
+        qsizetype peakLevels = 0;
+        qsizetype peakEntries = 0;
+        bool peakCacheComplete = false;
+    };
+    CacheStats cacheStats() const;
+
   protected:
     void startDecoding() override;
 
@@ -98,6 +112,11 @@ class AudioDecoder : public MediaDecoder {
     QFuture<void> m_prefetchFuture;
     std::atomic<bool> m_closing{false};
     std::atomic<int> m_peakGeneration{0};
+    std::atomic<quint64> m_chunkHits{0};
+    std::atomic<quint64> m_chunkMisses{0};
+    std::atomic<quint64> m_decodedChunks{0};
+    std::atomic<quint64> m_chunkEvictions{0};
+    std::atomic<bool> m_peakCacheComplete{false};
     QString m_lastError;
 
     // Separate mutex for FFmpeg seek/decode operations
