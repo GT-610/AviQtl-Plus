@@ -43,6 +43,7 @@ class AudioDecoder : public MediaDecoder {
         qsizetype chunkEntries = 0;
         qsizetype cachedSamples = 0;
         qsizetype maxChunkEntries = 0;
+        qsizetype samplesPerChunk = 0;
         qsizetype peakLevels = 0;
         qsizetype peakEntries = 0;
         bool peakCacheComplete = false;

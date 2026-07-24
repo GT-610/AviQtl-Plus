@@ -706,9 +706,12 @@ void AudioPluginManager::scanPlugins() {
     // Runtime-only test/diagnostic override; underscore-prefixed settings are
     // intentionally not exposed or persisted by the application UI.
     QString tool = settings.value(QStringLiteral("_pluginDiscoveryToolPath")).toString();
-    if (!tool.isEmpty() && !QFileInfo::exists(tool)) {
-        qWarning() << "[AudioPluginManager] Configured discovery tool not found:" << tool;
-        tool.clear();
+    if (!tool.isEmpty()) {
+        const QFileInfo configuredTool(tool);
+        if (!configuredTool.isFile() || !configuredTool.isExecutable()) {
+            qWarning() << "[AudioPluginManager] Configured discovery tool is not an executable file:" << tool;
+            tool.clear();
+        }
     }
     if (tool.isEmpty()) {
         for (const QString &p : std::as_const(discoverySearchPaths())) {

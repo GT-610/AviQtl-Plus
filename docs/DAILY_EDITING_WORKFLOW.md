@@ -153,7 +153,7 @@ relinking, export failure handling, real QML composition capture, shader output,
 MP4 encoding, and decoded-frame motion verification:
 
 ```text
-ctest -R "^(daily_editing_workflow|missing_media|export_workflow|qml_composite_capture)$" --output-on-failure
+ctest --test-dir build -R "^(daily_editing_workflow|missing_media|export_workflow|qml_composite_capture)$" --output-on-failure
 ```
 
 On Windows, the QML capture test uses the OpenGL RHI backend explicitly. This

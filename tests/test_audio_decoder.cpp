@@ -123,8 +123,17 @@ void TestAudioDecoder::sampleRateChangeKeepsDecoderReadable() {
     QSignalSpy readySpy(&decoder, &AudioDecoder::ready);
     decoder.scheduleStart();
     QTRY_COMPARE(readySpy.count(), 1);
+    QTRY_VERIFY_WITH_TIMEOUT(decoder.cacheStats().peakCacheComplete, 5000);
+    QVERIFY(decoder.cacheStats().decodedChunks > 0);
 
     decoder.setSampleRate(44100);
+    const AudioDecoder::CacheStats resetStats = decoder.cacheStats();
+    QCOMPARE(resetStats.chunkHits, quint64{0});
+    QCOMPARE(resetStats.chunkMisses, quint64{0});
+    QCOMPARE(resetStats.decodedChunks, quint64{0});
+    QCOMPARE(resetStats.chunkEvictions, quint64{0});
+    QCOMPARE(resetStats.chunkEntries, 0);
+    QVERIFY(!resetStats.peakCacheComplete);
     constexpr int sampleCount = 4410 * 2;
     std::vector<float> samples(sampleCount, 0.0F);
     QCOMPARE(decoder.getSamplesInto(0.1, sampleCount, samples.data()), sampleCount);
@@ -245,7 +254,7 @@ void TestAudioDecoder::representativeLongAudioWorkload() {
     std::ranges::sort(readTimes);
     const AudioDecoder::CacheStats stats = decoder.cacheStats();
     QVERIFY(stats.chunkEntries <= stats.maxChunkEntries);
-    QVERIFY(stats.cachedSamples <= stats.maxChunkEntries * kTestSampleRate * 2 * 4);
+    QVERIFY(stats.cachedSamples <= stats.maxChunkEntries * stats.samplesPerChunk);
     QVERIFY(stats.peakEntries > 0);
     QTextStream(stdout) << "audio_representative path=" << QFileInfo(audioPath).fileName() << " bytes=" << QFileInfo(audioPath).size() << " duration_sec=" << duration << " startup_ms=" << startupMs << " reads=" << readTimes.size()
                         << " median_read_ms=" << readTimes.at(readTimes.size() / 2) << " max_read_ms=" << readTimes.last() << " waveform_ms=" << waveformTimer.elapsed() << " chunk_hits=" << stats.chunkHits << " chunk_misses=" << stats.chunkMisses

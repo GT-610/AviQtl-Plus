@@ -230,6 +230,10 @@ void AudioDecoder::closeFFmpeg() {
     m_peakBuildData.reset();
     m_peakGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_peakCacheComplete.store(false, std::memory_order_release);
+    m_chunkHits.store(0, std::memory_order_release);
+    m_chunkMisses.store(0, std::memory_order_release);
+    m_decodedChunks.store(0, std::memory_order_release);
+    m_chunkEvictions.store(0, std::memory_order_release);
     m_totalDurationSec = 0.0;
 }
 
@@ -253,6 +257,10 @@ void AudioDecoder::setSampleRate(int sampleRate) {
     m_peakBuildData.reset();
     m_peakGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_peakCacheComplete.store(false, std::memory_order_release);
+    m_chunkHits.store(0, std::memory_order_release);
+    m_chunkMisses.store(0, std::memory_order_release);
+    m_decodedChunks.store(0, std::memory_order_release);
+    m_chunkEvictions.store(0, std::memory_order_release);
 }
 
 void AudioDecoder::seek(qint64 ms) {
@@ -739,6 +747,7 @@ auto AudioDecoder::cacheStats() const -> CacheStats {
     stats.decodedChunks = m_decodedChunks.load(std::memory_order_relaxed);
     stats.chunkEvictions = m_chunkEvictions.load(std::memory_order_relaxed);
     stats.maxChunkEntries = kMaxCachedChunks;
+    stats.samplesPerChunk = chunkSampleCount();
     stats.peakCacheComplete = m_peakCacheComplete.load(std::memory_order_acquire);
 
     QMutexLocker locker(&m_mutex);
