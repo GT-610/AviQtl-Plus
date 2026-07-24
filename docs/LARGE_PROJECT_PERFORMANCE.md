@@ -109,10 +109,76 @@ not use wall-clock pass/fail limits. The low-resolution generated video makes
 cache lifecycle behavior deterministic; it is not representative evidence for
 seek latency on production media.
 
+## Representative Video Workload
+
+The `video_decoder` test accepts an opt-in `AVIQTL_PERF_VIDEO` workload. Set it
+to a local media path to measure a production file, or to `synthetic` for the
+repeatable 60-second, 640x360, 30 fps H.264 fixture. The workload records index
+startup time, forward and backward seek latency, decoded frames, cache hits,
+cache entries, and estimated frame-cache memory.
+
+On the Windows Release build used to introduce the fixture, the synthetic run
+reported 103 ms startup, 28 ms median seek, 63 ms maximum seek, and 225,792,000
+bytes of frame-cache cost after seven distributed seeks. The cache remained
+inside its configured 512 MiB bound. The flat-color synthetic source exercises
+the lifecycle repeatably but is deliberately not treated as evidence for
+production codec complexity.
+
+PowerShell:
+
+```powershell
+$env:AVIQTL_PERF_VIDEO = "D:\media\representative.mp4"
+ctest --test-dir build -R "^video_decoder$" -V
+```
+
+POSIX shell:
+
+```bash
+AVIQTL_PERF_VIDEO=/media/representative.mp4 \
+  ctest --test-dir build -R '^video_decoder$' -V
+```
+
+## Representative Audio Workload
+
+The `audio_decoder` test similarly accepts `AVIQTL_PERF_AUDIO`. Its synthetic
+mode generates two minutes of 48 kHz stereo PCM, then measures decoder startup,
+distributed sample reads, full-duration waveform availability, chunk-cache
+occupancy, evictions, and peak-pyramid size.
+
+The initial Windows Release measurement reported 55 ms startup, 2 ms median
+read, 3 ms maximum read, and 29 ms until the full peak pyramid was available.
+The ten-chunk cache contained 3,840,000 float samples. Building the waveform
+and the distributed reads decoded 37 chunks, evicted 26, and left the cache at
+its ten-chunk limit.
+
+```powershell
+$env:AVIQTL_PERF_AUDIO = "synthetic" # or a local audio/media path
+ctest --test-dir build -R "^audio_decoder$" -V
+```
+
+## Audio Plugin Scanning
+
+The `audio_plugin_scan` fixture creates 40 application-relative VST2 targets,
+including one target that emits malformed discovery output. It uses the real
+parallel scan orchestration with a deterministic discovery subprocess, verifies
+39 normalized results, and repeats the scan to expose rescan cost. This also
+protects resolution of relative plugin directories.
+
+The initial Windows Release measurement reported 4.4 seconds for both the first
+and repeated scans with eight discovery workers. The fixture intentionally uses
+separate processes and reports timings without a wall-clock assertion. A future
+persistent discovery cache can use the repeated-scan number as its baseline.
+
+```text
+ctest --test-dir build -R audio_plugin_scan -V
+```
+
 ## Next Measurements
 
-The fixture now covers the model/controller baseline, real QML delegate
-virtualization, continuous viewport interaction, the decoder GOP-cache
-lifecycle, and bounded frame-cache eviction. Separate measurements are still
-needed for long-video seek latency with representative media, long-audio
-decoding, and plugin scanning.
+The fixtures now cover the model/controller baseline, real QML delegate
+virtualization, continuous viewport interaction, decoder cache lifecycle,
+bounded video and audio caches, opt-in long-media workloads, and repeated plugin
+scanning. The next evidence should come from a maintained corpus containing
+representative H.264/H.265 camera files, compressed long-form audio, and real
+VST3/LV2 installations. Record machine, codec, resolution, duration, plugin
+count, and before/after medians when using those files.

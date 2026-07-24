@@ -7,6 +7,7 @@
 #include <QDirIterator>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QProcess>
 #include <QSet>
 #include <QStandardPaths>
@@ -633,7 +634,7 @@ auto discoverFormat(const QString &tool, const FormatConfig &cfg, std::atomic<bo
                 targets << fi.absoluteFilePath();
             }
         } else {
-            QDirIterator it(dirPath, {cfg.fileFilter}, QDir::Files, QDirIterator::Subdirectories);
+            QDirIterator it(absPath, {cfg.fileFilter}, QDir::Files, QDirIterator::Subdirectories);
             while (it.hasNext()) {
                 targets << it.next();
             }
@@ -701,11 +702,23 @@ void AudioPluginManager::scanPlugins() {
     }
     m_stopRequested = false;
 
-    QString tool;
-    for (const QString &p : std::as_const(discoverySearchPaths())) {
-        if (QFile::exists(p)) {
-            tool = p;
-            break;
+    const auto &settings = AviQtl::Core::SettingsManager::instance();
+    // Runtime-only test/diagnostic override; underscore-prefixed settings are
+    // intentionally not exposed or persisted by the application UI.
+    QString tool = settings.value(QStringLiteral("_pluginDiscoveryToolPath")).toString();
+    if (!tool.isEmpty()) {
+        const QFileInfo configuredTool(tool);
+        if (!configuredTool.isFile() || !configuredTool.isExecutable()) {
+            qWarning() << "[AudioPluginManager] Configured discovery tool is not an executable file:" << tool;
+            tool.clear();
+        }
+    }
+    if (tool.isEmpty()) {
+        for (const QString &p : std::as_const(discoverySearchPaths())) {
+            if (QFile::exists(p)) {
+                tool = p;
+                break;
+            }
         }
     }
     if (tool.isEmpty()) {
@@ -722,7 +735,6 @@ void AudioPluginManager::scanPlugins() {
     QList<PluginInfo> newPlugins;
     QHash<QString, PluginInfo> newMap;
 
-    const auto &settings = AviQtl::Core::SettingsManager::instance();
     for (const FormatConfig &cfg : std::as_const(formats())) {
         if (m_stopRequested) {
             break;

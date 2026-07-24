@@ -266,9 +266,11 @@ As an early core contributor, I've seen the project's potential firsthand. I'm p
 - Linux, macOS, and Windows release builds with platform test steps
 - Consistently green release baseline and version validation
 - Independent autosave snapshots and startup crash recovery for multiple projects
+- Repeatable opt-in video, audio, and plugin-scanning performance workloads
 
 **Next (0.5.9+):**
-- Measure representative long-video, long-audio, and plugin-scanning workloads
+- Run the performance workloads against a maintained corpus of representative
+  production media and third-party plugins
 - Continue workflow-level usability hardening with real editing projects
 
 **Long-term:**

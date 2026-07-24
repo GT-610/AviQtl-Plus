@@ -160,6 +160,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME audio_plugin_scan
+    SOURCES test_audio_plugin_scan.cpp
+    LINKS AviQtl_Engine
+)
+
+aviqtl_add_test(
     NAME bake_controller
     SOURCES test_bake_controller.cpp
     LINKS AviQtl_Engine AviQtl_UI
@@ -280,6 +286,11 @@ target_compile_definitions(AviQtl_Test_qml_composite_capture PRIVATE
     AVIQTL_DEPLOYED_EFFECTS_DIR="$<TARGET_FILE_DIR:AviQtl>/effects"
 )
 add_dependencies(AviQtl_Test_qml_composite_capture AviQtl)
+if(WIN32)
+    set_property(TEST qml_composite_capture APPEND PROPERTY
+        ENVIRONMENT "QSG_RHI_BACKEND=opengl"
+    )
+endif()
 
 aviqtl_add_test(
     NAME transition_effects
@@ -311,7 +322,7 @@ aviqtl_label_tests(unit
 
 aviqtl_label_tests(integration
     effect_registry_load effect_package project_serializer preset_manager
-    video_encoder audio_decoder video_decoder bake_controller ecs_render
+    video_encoder audio_decoder video_decoder audio_plugin_scan bake_controller ecs_render
     package_deploy large_timeline_performance daily_editing_workflow
     missing_media export_workflow qml_composite_capture
 )
@@ -323,4 +334,4 @@ aviqtl_label_tests(media
 )
 
 aviqtl_label_tests(qml large_timeline_performance qml_composite_capture)
-aviqtl_label_tests(performance large_timeline_performance)
+aviqtl_label_tests(performance large_timeline_performance video_decoder audio_decoder audio_plugin_scan)

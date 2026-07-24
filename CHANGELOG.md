@@ -4,6 +4,24 @@ All notable changes to AviQtl-Plus are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Opt-in representative video and audio performance workloads with repeatable
+  startup, seek, waveform, cache, and memory diagnostics
+- Audio plugin scan coverage for large directories, repeated scans, and
+  malformed discovery output
+- Observable bounded-cache statistics for streaming audio decoding and waveform
+  generation
+
+### Changed
+- Windows QML composition capture tests use the OpenGL RHI backend for
+  repeatable headless frame capture and encoded-video verification
+- Audio decoder test media is generated in buffered blocks, keeping longer
+  workload fixtures inexpensive
+
+### Fixed
+- Relative audio plugin search paths now scan the resolved application-relative
+  directory instead of the process working directory
+
 ## [0.5.8] - 2026-07-23
 
 ### Added
