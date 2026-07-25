@@ -44,6 +44,9 @@ edited", while edit targets answer "where the edit happens".
 - The proposed frame is snapped before collision resolution. Collision avoidance
   then moves the complete selection forward by one shared amount, so the preview
   and final placement agree.
+- While moving, trimming, or dropping media with snapping enabled, the timeline
+  shows the resolved snap frame. Holding Shift temporarily bypasses snapping and
+  hides that feedback.
 - Dragging left or up clamps the complete selection at frame `0` and layer `0`.
 - A locked source layer or locked destination layer rejects the whole batch move;
   no selected clip moves.
@@ -65,6 +68,10 @@ edited", while edit targets answer "where the edit happens".
   the playhead-relative frame.
 - Box-select clips on different layers and drag them: their relative spacing is
   preserved after snapping and after collision avoidance.
+- Move or trim a clip near a grid point: a guide shows the resolved frame; hold
+  Shift during the same edit to bypass snapping and hide the guide.
+- Select clips on multiple layers and press the split shortcut: every selected
+  clip crossing the edit target is split, and one undo restores them together.
 - Drag the same selection toward frame `0` or layer `0`: the entire selection
   stops at the boundary.
 - Lock either a selected source layer or a destination layer and drag: none of

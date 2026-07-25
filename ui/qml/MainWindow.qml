@@ -310,15 +310,7 @@ ApplicationWindow {
         onTriggered: {
             if (Workspace.currentTimeline?.transport) {
                 var f = mainWin.editTargetFrame();
-                if (Workspace.currentTimeline.selection?.selectedClipId >= 0) {
-                    Workspace.currentTimeline.splitClip(Workspace.currentTimeline.selection.selectedClipId, f);
-                } else {
-                    if (Workspace.currentTimeline.selection?.selectedClipIds?.length > 0) {
-                        for (var i = 0; i < Workspace.currentTimeline.selection.selectedClipIds.length; i++) {
-                            Workspace.currentTimeline.splitClip(Workspace.currentTimeline.selection.selectedClipIds[i], f);
-                        }
-                    }
-                }
+                Workspace.currentTimeline.splitSelectedClips(f);
             }
         }
     }

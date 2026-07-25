@@ -252,8 +252,9 @@ Item {
                 var deltaFrame = Math.round(dX / clipDelegate.scale);
                 var deltaLayer = Math.round(dY / layerHeight);
                 var ignoreSnap = (modifiers & Qt.ShiftModifier);
+                var snappedFrame = snapFrameFunc(initialFrame + deltaFrame, ignoreSnap);
                 if (!ignoreSnap)
-                    deltaFrame = snapFrameFunc(initialFrame + deltaFrame, false) - initialFrame;
+                    deltaFrame = snappedFrame - initialFrame;
                 if (typeof Workspace.currentTimeline?.resolveDragDelta === "function") {
                     var activeIds = (timelineViewRoot && timelineViewRoot.selectionVisualLatchIds) || [];
                     if (activeIds.length === 0)
@@ -369,6 +370,7 @@ Item {
             }
             onReleased: (mouse) => {
                 timelineViewRoot.endDragAutoScroll();
+                timelineViewRoot.clearSnapFeedback();
                 if (!Workspace.currentTimeline)
                     return ;
 
@@ -392,6 +394,14 @@ Item {
                         viewRoot.activeDragDeltaLayer = 0;
                     }
                 });
+            }
+            onCanceled: {
+                timelineViewRoot.endDragAutoScroll();
+                timelineViewRoot.clearSnapFeedback();
+                dragActive = false;
+                timelineViewRoot.isDraggingMulti = false;
+                timelineViewRoot.activeDragDeltaFrame = 0;
+                timelineViewRoot.activeDragDeltaLayer = 0;
             }
             onDoubleClicked: {
                 if (WindowManager)
@@ -459,6 +469,7 @@ Item {
                         return ;
 
                     resizing = false;
+                    timelineViewRoot.clearSnapFeedback();
                     if (Workspace.currentTimeline && clipDelegate.resizeDraftDuration > 0) {
                         var newStart = clipDelegate.resizeDraftStart >= 0 ? clipDelegate.resizeDraftStart : modelData.startFrame;
                         var deltaStart = newStart - startFrame;
@@ -466,6 +477,12 @@ Item {
                         clipResized(modelData.id, deltaStart, deltaDuration, 0); // using params to pass delta
                     }
                     // ドラフト解除 → バインディングが自動で正値を返す
+                    clipDelegate.resizeDraftStart = -1;
+                    clipDelegate.resizeDraftDuration = -1;
+                }
+                onCanceled: {
+                    resizing = false;
+                    timelineViewRoot.clearSnapFeedback();
                     clipDelegate.resizeDraftStart = -1;
                     clipDelegate.resizeDraftDuration = -1;
                 }
@@ -526,11 +543,17 @@ Item {
                         return ;
 
                     resizing = false;
+                    timelineViewRoot.clearSnapFeedback();
                     if (Workspace.currentTimeline && clipDelegate.resizeDraftDuration > 0) {
                         var deltaDuration = clipDelegate.resizeDraftDuration - startDuration;
                         clipResized(modelData.id, 0, deltaDuration, 0);
                     }
                     // ドラフト解除 → バインディングが自動で正値を返す
+                    clipDelegate.resizeDraftDuration = -1;
+                }
+                onCanceled: {
+                    resizing = false;
+                    timelineViewRoot.clearSnapFeedback();
                     clipDelegate.resizeDraftDuration = -1;
                 }
             }

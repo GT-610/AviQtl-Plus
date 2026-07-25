@@ -11,6 +11,7 @@ All notable changes to AviQtl-Plus are documented in this file.
   malformed discovery output
 - Observable bounded-cache statistics for streaming audio decoding and waveform
   generation
+- Visible snap-frame feedback for timeline moves, trims, and media drops
 
 ### Changed
 - Windows QML composition capture tests use the OpenGL RHI backend for
@@ -21,6 +22,7 @@ All notable changes to AviQtl-Plus are documented in this file.
 ### Fixed
 - Relative audio plugin search paths now scan the resolved application-relative
   directory instead of the process working directory
+- Main-window split commands now apply to the complete clip selection
 
 ## [0.5.8] - 2026-07-23
 

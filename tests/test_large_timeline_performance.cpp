@@ -121,6 +121,18 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     QTRY_VERIFY_WITH_TIMEOUT(window.isExposed(), 5'000);
     QTRY_VERIFY_WITH_TIMEOUT(timelineView->property("renderedClipCount").toInt() > 0, 5'000);
 
+    QVariant snappedFrame;
+    QVERIFY(QMetaObject::invokeMethod(timelineView, "snapFrameForEdit", Q_RETURN_ARG(QVariant, snappedFrame), Q_ARG(QVariant, 16.0), Q_ARG(QVariant, false)));
+    QCOMPARE(snappedFrame.toInt(), 20);
+    QVERIFY(timelineView->property("snapFeedbackVisible").toBool());
+    QCOMPARE(timelineView->property("snapFeedbackFrame").toInt(), 20);
+    QVERIFY(QMetaObject::invokeMethod(timelineView, "clearSnapFeedback"));
+    QVERIFY(!timelineView->property("snapFeedbackVisible").toBool());
+
+    QVERIFY(QMetaObject::invokeMethod(timelineView, "snapFrameForEdit", Q_RETURN_ARG(QVariant, snappedFrame), Q_ARG(QVariant, 16.0), Q_ARG(QVariant, true)));
+    QCOMPARE(snappedFrame.toInt(), 16);
+    QVERIFY(!timelineView->property("snapFeedbackVisible").toBool());
+
     const int initialDelegateCount = timelineView->property("renderedClipCount").toInt();
     QVERIFY(initialDelegateCount < 800);
     QVERIFY(!timelineView->property("renderedClipIds").toList().contains(kClipCount));
