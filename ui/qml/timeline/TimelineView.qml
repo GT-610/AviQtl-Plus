@@ -22,6 +22,8 @@ Item {
     property bool skimmerVisible: false
     property int skimmerFrame: 0
     property int skimmerLayer: 0
+    property int snapFeedbackFrame: -1
+    readonly property bool snapFeedbackVisible: snapFeedbackFrame >= 0
     readonly property color skimmerColor: "#ff5a3d"
     onSkimmingEnabledChanged: {
         if (!skimmingEnabled)
@@ -382,6 +384,16 @@ Item {
         // グリッド無視時は整数丸めのみ
     }
 
+    function snapFrameForEdit(frame, ignoreSnap) {
+        var snappedFrame = snapFrame(frame, ignoreSnap);
+        snapFeedbackFrame = !ignoreSnap && enableSnap ? snappedFrame : -1;
+        return snappedFrame;
+    }
+
+    function clearSnapFeedback() {
+        snapFeedbackFrame = -1;
+    }
+
     clip: true
 
     Flickable {
@@ -497,6 +509,28 @@ Item {
 
         }
 
+        Rectangle {
+            visible: timelineViewRoot.snapFeedbackVisible
+            x: timelineViewRoot.snapFeedbackFrame * (Workspace.currentTimeline?.timelineScale ?? 1)
+            y: timelineFlickable.contentY
+            width: 2
+            height: timelineFlickable.height
+            color: palette.highlight
+            opacity: 0.9
+            z: 150
+
+            Label {
+                x: 4
+                y: 4
+                text: timelineViewRoot.snapFeedbackFrame
+                color: palette.highlightedText
+                background: Rectangle {
+                    color: palette.highlight
+                    radius: 2
+                }
+            }
+        }
+
         Repeater {
             id: clipRepeater
 
@@ -509,7 +543,7 @@ Item {
                 forceVisualSelection: false
                 forcedSelectedIds: []
                 flickableContentItem: timelineFlickable.contentItem
-                snapFrameFunc: timelineViewRoot.snapFrame
+                snapFrameFunc: timelineViewRoot.snapFrameForEdit
                 onClipMoved: (clipId, deltaLayer, deltaStart, unused) => {
                     if (Workspace.currentTimeline) {
                         var selectedIds = Workspace.currentTimeline?.selection?.selectedClipIds ?? [];
@@ -722,12 +756,22 @@ Item {
             dropIndicator.visible = true;
         }
 
+        onPositionChanged: (drag) => {
+            if (!drag.hasUrls || !Workspace.currentTimeline)
+                return;
+
+            var frame = Math.max(0, (drag.x + timelineFlickable.contentX) / Workspace.currentTimeline.timelineScale);
+            timelineViewRoot.snapFrameForEdit(frame, drag.modifiers & Qt.ShiftModifier);
+        }
+
         onExited: {
             dropIndicator.visible = false;
+            timelineViewRoot.clearSnapFeedback();
         }
 
         onDropped: (drop) => {
             dropIndicator.visible = false;
+            timelineViewRoot.clearSnapFeedback();
             if (!drop.hasUrls || !Workspace.currentTimeline)
                 return;
 

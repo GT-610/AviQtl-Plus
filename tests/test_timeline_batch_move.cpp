@@ -14,6 +14,7 @@ class TestTimelineBatchMove : public QObject {
     void clampsDragDeltaAtTimelineBounds();
     void rejectsBatchMoveWhenSourceOrTargetLayerIsLocked();
     void snapsFramesUsingCurrentSceneSettings();
+    void splitsSelectedClipsAsOneUndoableEdit();
 
   private:
     static int addClip(TimelineService &timeline, const QString &type, int startFrame, int layer, int duration);
@@ -129,6 +130,35 @@ void TestTimelineBatchMove::snapsFramesUsingCurrentSceneSettings() {
 
     controller.updateSceneSettings(sceneId, QStringLiteral("Scene"), 1280, 720, 30.0, 300, QStringLiteral("Frame"), 120.0, 0.0, 10, 4, false, 10);
     QCOMPARE(controller.snapFrame(16.0), 16);
+}
+
+void TestTimelineBatchMove::splitsSelectedClipsAsOneUndoableEdit() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int first = addClip(timeline, QStringLiteral("first"), 0, 0, 20);
+    const int second = addClip(timeline, QStringLiteral("second"), 0, 2, 20);
+    const int firstSplit = timeline.nextClipId();
+    const int secondSplit = firstSplit + 1;
+    timeline.applySelectionIds({first, second});
+    timeline.undoStack()->clear();
+
+    timeline.splitSelectedClips(10);
+    QCOMPARE(timeline.clips().size(), 4);
+    QCOMPARE(clip(timeline, first).durationFrames, 10);
+    QCOMPARE(clip(timeline, second).durationFrames, 10);
+    QCOMPARE(clip(timeline, firstSplit).startFrame, 10);
+    QCOMPARE(clip(timeline, secondSplit).startFrame, 10);
+    QCOMPARE(timeline.undoStack()->count(), 1);
+
+    timeline.undo();
+    QCOMPARE(timeline.clips().size(), 2);
+    QCOMPARE(clip(timeline, first).durationFrames, 20);
+    QCOMPARE(clip(timeline, second).durationFrames, 20);
+
+    timeline.redo();
+    QCOMPARE(timeline.clips().size(), 4);
+    QCOMPARE(clip(timeline, firstSplit).layer, 0);
+    QCOMPARE(clip(timeline, secondSplit).layer, 2);
 }
 
 QTEST_MAIN(TestTimelineBatchMove)
