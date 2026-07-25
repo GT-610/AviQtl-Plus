@@ -252,8 +252,9 @@ Item {
                 var deltaFrame = Math.round(dX / clipDelegate.scale);
                 var deltaLayer = Math.round(dY / layerHeight);
                 var ignoreSnap = (modifiers & Qt.ShiftModifier);
+                var snappedFrame = snapFrameFunc(initialFrame + deltaFrame, ignoreSnap);
                 if (!ignoreSnap)
-                    deltaFrame = snapFrameFunc(initialFrame + deltaFrame, false) - initialFrame;
+                    deltaFrame = snappedFrame - initialFrame;
                 if (typeof Workspace.currentTimeline?.resolveDragDelta === "function") {
                     var activeIds = (timelineViewRoot && timelineViewRoot.selectionVisualLatchIds) || [];
                     if (activeIds.length === 0)
@@ -398,6 +399,9 @@ Item {
                 timelineViewRoot.endDragAutoScroll();
                 timelineViewRoot.clearSnapFeedback();
                 dragActive = false;
+                timelineViewRoot.isDraggingMulti = false;
+                timelineViewRoot.activeDragDeltaFrame = 0;
+                timelineViewRoot.activeDragDeltaLayer = 0;
             }
             onDoubleClicked: {
                 if (WindowManager)
