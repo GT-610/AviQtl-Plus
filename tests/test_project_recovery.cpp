@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QUuid>
 #include <QUndoCommand>
 #include <QUndoStack>
 #include <QUrl>
@@ -38,6 +39,10 @@ class TestProjectRecovery : public QObject {
     void corruptMetadataDoesNotHideValidRecoveries();
     void corruptSnapshotDoesNotPreventOtherRecovery();
     void closingProjectDiscardsSnapshot();
+    void invalidIdentifiersAreRejected();
+    void successiveWritesReplaceSnapshotGeneration();
+    void legacySnapshotMetadataRemainsReadable();
+    void failedMetadataOpenPreservesPreviousSnapshot();
     void staleRecoveriesAreRemoved();
     void staleOrphanedSnapshotsAreRemoved();
     void timerBackupCompletesAsynchronously();
@@ -217,6 +222,73 @@ void TestProjectRecovery::closingProjectDiscardsSnapshot() {
     QVERIFY(ProjectRecoveryManager::entries().isEmpty());
 }
 
+void TestProjectRecovery::invalidIdentifiersAreRejected() {
+    TimelineController controller;
+    QString error;
+    QVERIFY(!ProjectRecoveryManager::write(QStringLiteral("../outside"), QString(), QStringLiteral("Invalid"), controller.timeline(), controller.project(), &error));
+    QVERIFY(!error.isEmpty());
+    QVERIFY(!ProjectRecoveryManager::remove(QStringLiteral("../outside")));
+    QVERIFY(!QFileInfo::exists(QDir(m_directory.path()).filePath(QStringLiteral("../outside.json"))));
+    QVERIFY(ProjectRecoveryManager::entries().isEmpty());
+}
+
+void TestProjectRecovery::successiveWritesReplaceSnapshotGeneration() {
+    TimelineController controller;
+    markDirty(controller);
+    QVERIFY(controller.writeRecoveryNow());
+    const QString firstSnapshot = ProjectRecoveryManager::entries().first().snapshotPath;
+    QVERIFY(QFileInfo::exists(firstSnapshot));
+
+    controller.project()->setWidth(1440);
+    QVERIFY(controller.writeRecoveryNow());
+    const ProjectRecoveryEntry secondEntry = ProjectRecoveryManager::entries().first();
+    QVERIFY(secondEntry.valid);
+    QVERIFY(secondEntry.snapshotPath != firstSnapshot);
+    QVERIFY(QFileInfo::exists(secondEntry.snapshotPath));
+    QVERIFY(!QFileInfo::exists(firstSnapshot));
+    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+}
+
+void TestProjectRecovery::legacySnapshotMetadataRemainsReadable() {
+    TimelineController controller;
+    markDirty(controller);
+    QVERIFY(controller.writeRecoveryNow());
+    const ProjectRecoveryEntry generatedEntry = ProjectRecoveryManager::entries().first();
+    const QString legacyPath = m_directory.filePath(generatedEntry.id + QStringLiteral(".aviqtl"));
+    QVERIFY(QFile::rename(generatedEntry.snapshotPath, legacyPath));
+
+    QFile metadata(m_directory.filePath(generatedEntry.id + QStringLiteral(".json")));
+    QVERIFY(metadata.open(QIODevice::ReadOnly));
+    QJsonObject object = QJsonDocument::fromJson(metadata.readAll()).object();
+    metadata.close();
+    object.remove(QStringLiteral("snapshotFile"));
+    const QByteArray metadataDocument = QJsonDocument(object).toJson(QJsonDocument::Compact);
+    QVERIFY(metadata.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    QCOMPARE(metadata.write(metadataDocument), metadataDocument.size());
+    metadata.close();
+
+    const ProjectRecoveryEntry legacyEntry = ProjectRecoveryManager::entries().first();
+    QVERIFY(legacyEntry.valid);
+    QCOMPARE(legacyEntry.snapshotPath, legacyPath);
+}
+
+void TestProjectRecovery::failedMetadataOpenPreservesPreviousSnapshot() {
+    TimelineController controller;
+    markDirty(controller);
+    QVERIFY(controller.writeRecoveryNow());
+    const ProjectRecoveryEntry entry = ProjectRecoveryManager::entries().first();
+    const QString metadataPath = m_directory.filePath(entry.id + QStringLiteral(".json"));
+    QVERIFY(QFile::remove(metadataPath));
+    QVERIFY(QDir().mkpath(metadataPath));
+
+    QString error;
+    QVERIFY(!ProjectRecoveryManager::write(entry.id, QString(), QStringLiteral("Retry"), controller.timeline(), controller.project(), &error));
+    QVERIFY(!error.isEmpty());
+    QVERIFY(QFileInfo::exists(entry.snapshotPath));
+    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+    QVERIFY(QDir(metadataPath).removeRecursively());
+}
+
 void TestProjectRecovery::staleRecoveriesAreRemoved() {
     TimelineController controller;
     markDirty(controller);
@@ -238,7 +310,9 @@ void TestProjectRecovery::staleRecoveriesAreRemoved() {
 }
 
 void TestProjectRecovery::staleOrphanedSnapshotsAreRemoved() {
-    const QString orphanPath = m_directory.filePath(QStringLiteral("orphan.aviqtl"));
+    const QString recoveryId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString generationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString orphanPath = m_directory.filePath(recoveryId + QLatin1Char('-') + generationId + QStringLiteral(".aviqtl"));
     QFile orphan(orphanPath);
     QVERIFY(orphan.open(QIODevice::WriteOnly));
     QVERIFY(orphan.write("orphan") > 0);
