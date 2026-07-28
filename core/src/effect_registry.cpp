@@ -13,6 +13,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QUrl>
+#include <utility>
 
 Q_LOGGING_CATEGORY(lcEffectRegistry, "aviqtl.effect_registry")
 
@@ -80,6 +81,8 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
     }
 
     int loadedCount = 0;
+    QSet<QString> shaderDirectories;
+    QSet<QString> shaderSources;
     qCDebug(lcEffectRegistry).noquote() << "Scanning:" << path;
 
     // *.json ファイルをサブディレクトリを含めて検索
@@ -191,14 +194,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
                 meta.packageId = relativePath.section(QLatin1Char('/'), 0, 0);
             }
 
-            // Ensure shaders in the same directory are compiled
-            const QStringList shaderExtensions = {QStringLiteral("*.frag"), QStringLiteral("*.comp"), QStringLiteral("*.vert")};
-            QDirIterator shaderIt(jsonDir.path(), shaderExtensions, QDir::Files, QDirIterator::Subdirectories);
-            while (shaderIt.hasNext()) {
-                const QString shaderPath = shaderIt.next();
-                const QString shaderDir = QFileInfo(shaderPath).absolutePath();
-                ShaderCompiler::ensureCompiled(shaderPath, shaderDir);
-            }
+            shaderDirectories.insert(QDir::cleanPath(jsonDir.absolutePath()));
         } else {
             qWarning().noquote() << "[EffectRegistry] Referenced QML file not found. Effect:" << id << "Path:" << absoluteQmlPath;
             continue;
@@ -207,6 +203,15 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         registerEffect(meta);
         loadedCount++;
     }
+
+    const QStringList shaderExtensions = {QStringLiteral("*.frag"), QStringLiteral("*.comp"), QStringLiteral("*.vert")};
+    for (const QString &shaderDirectory : std::as_const(shaderDirectories)) {
+        QDirIterator shaderIt(shaderDirectory, shaderExtensions, QDir::Files, QDirIterator::Subdirectories);
+        while (shaderIt.hasNext())
+            shaderSources.insert(QDir::cleanPath(shaderIt.next()));
+    }
+    for (const QString &shaderPath : std::as_const(shaderSources))
+        ShaderCompiler::ensureCompiled(shaderPath, QFileInfo(shaderPath).absolutePath());
 
     qCInfo(lcEffectRegistry).noquote() << dir.dirName() << "→" << loadedCount << " loaded";
 }

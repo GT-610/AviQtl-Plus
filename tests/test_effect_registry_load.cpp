@@ -23,6 +23,7 @@ class TestEffectRegistryLoad : public QObject {
     void skipEmptyCategories();
     void skipMissingQmlFile();
     void loadFromSubdirectory();
+    void sharedDirectoryShadersAreCompiled();
     void loadFromNonexistentDir();
     void colorFieldPreserved();
     void defaultParamsPreserved();
@@ -303,6 +304,50 @@ void TestEffectRegistryLoad::loadFromSubdirectory() {
 
     const auto &meta = reg.getEffect("load.nested");
     QCOMPARE(meta.id, QStringLiteral("load.nested"));
+}
+
+void TestEffectRegistryLoad::sharedDirectoryShadersAreCompiled() {
+    writeJson("first.json", R"({
+        "id": "load.shared.first",
+        "name": "First",
+        "qml": "First.qml",
+        "version": "1.0.0",
+        "kind": "effect",
+        "categories": ["Test"],
+        "params": {},
+        "ui": {"controls": [{"type": "header", "label": "X"}]}
+    })");
+    writeJson("second.json", R"({
+        "id": "load.shared.second",
+        "name": "Second",
+        "qml": "Second.qml",
+        "version": "1.0.0",
+        "kind": "effect",
+        "categories": ["Test"],
+        "params": {},
+        "ui": {"controls": [{"type": "header", "label": "X"}]}
+    })");
+    writeQml("First.qml");
+    writeQml("Second.qml");
+
+    QFile shader(m_dir.filePath(QStringLiteral("shared.frag")));
+    QVERIFY(shader.open(QIODevice::WriteOnly));
+    QVERIFY(shader.write(R"(#version 440
+layout(location=0) in vec2 qt_TexCoord0;
+layout(location=0) out vec4 fragColor;
+layout(std140, binding=0) uniform buf { mat4 qt_Matrix; float qt_Opacity; };
+layout(binding=1) uniform sampler2D source;
+void main() { fragColor = texture(source, qt_TexCoord0) * qt_Opacity; }
+)") > 0);
+    shader.close();
+
+    EffectRegistry &reg = EffectRegistry::instance();
+    reg.loadEffectsFromDirectory(m_dir.path());
+
+    QCOMPARE(reg.getEffect(QStringLiteral("load.shared.first")).id, QStringLiteral("load.shared.first"));
+    QCOMPARE(reg.getEffect(QStringLiteral("load.shared.second")).id, QStringLiteral("load.shared.second"));
+    QVERIFY(QFileInfo::exists(m_dir.filePath(QStringLiteral("shared.frag.qsb"))));
+    QCOMPARE(QDir(m_dir.path()).entryList({QStringLiteral("*.qsb")}, QDir::Files).size(), 1);
 }
 
 void TestEffectRegistryLoad::loadFromNonexistentDir() {

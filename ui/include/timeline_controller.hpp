@@ -284,7 +284,7 @@ class TimelineController : public QObject {
     void onPlayingChanged();
     void onCurrentFrameChanged();
 
-    int clampedDuration(int clipId, int newStart, int requestedDuration) const;
+    int clampedDuration(int clipId, int requestedDuration) const;
     int clampVideoDuration(int clipId, int requestedDuration, int projectFps) const;
     int clampAudioDuration(int clipId, int requestedDuration, int projectFps) const;
     int clampSceneDuration(const ClipData *clip, int requestedDuration) const;
@@ -300,6 +300,7 @@ class TimelineController : public QObject {
     QString m_recoveryId;
     QTimer *m_autoBackupTimer{};
     QFutureWatcher<ProjectRecoveryWriteResult> *m_recoveryWriteWatcher{};
+    bool m_recoveryWritePending = false;
 
     int m_cursorFrame = 0;
     ProjectService *m_project{};

@@ -606,8 +606,7 @@ void TimelineController::resizeSelectedClips(int deltaStartFrame, int deltaDurat
     m_timeline->undoStack()->endMacro();
 }
 
-int TimelineController::clampedDuration(int clipId, int newStart, int requestedDuration) const {
-    Q_UNUSED(newStart);
+int TimelineController::clampedDuration(int clipId, int requestedDuration) const {
     const auto *clip = m_timeline->findClipById(clipId);
     if (clip == nullptr) {
         return requestedDuration;
@@ -749,7 +748,7 @@ void TimelineController::updateClip(int id, int layer, int startFrame, int durat
         return;
     }
 
-    const int clamped = clampedDuration(id, startFrame, duration);
+    const int clamped = clampedDuration(id, duration);
     m_timeline->updateClip(id, layer, startFrame, clamped);
 }
 

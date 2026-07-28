@@ -54,6 +54,7 @@ class TestLargeTimelinePerformance : public QObject {
     void virtualizesTimelineViewDelegates();
     void findsClipsAcrossLargeTimeline();
     void movesLargeSelectionWithUndoRedo();
+    void movesLargeSelectionNatively();
 };
 
 void TestLargeTimelinePerformance::materializesQmlClipSnapshot() {
@@ -282,6 +283,40 @@ void TestLargeTimelinePerformance::movesLargeSelectionWithUndoRedo() {
         QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 0);
         controller.timeline()->undoStack()->clear();
     }
+}
+
+void TestLargeTimelinePerformance::movesLargeSelectionNatively() {
+    TimelineController controller;
+    populateLargeTimeline(controller);
+
+    constexpr int batchSize = 1'000;
+    QVariantList selectedIds;
+    selectedIds.reserve(batchSize);
+    for (int id = 1; id <= batchSize; ++id)
+        selectedIds.append(id);
+    controller.timeline()->applySelectionIds(selectedIds);
+    controller.timeline()->undoStack()->clear();
+
+    QElapsedTimer timer;
+    timer.start();
+    controller.moveSelectedClips(0, 5);
+    const qint64 moveMs = timer.elapsed();
+
+    QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 5);
+    QCOMPARE(controller.timeline()->findClipById(batchSize)->startFrame, ((batchSize - 1) / kLayerCount) * kClipSpacing + 5);
+    QCOMPARE(controller.timeline()->undoStack()->count(), 1);
+
+    timer.restart();
+    controller.undo();
+    const qint64 undoMs = timer.elapsed();
+    QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 0);
+
+    timer.restart();
+    controller.redo();
+    const qint64 redoMs = timer.elapsed();
+    QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 5);
+
+    QTextStream(stdout) << "large_timeline native_selection_move clips=" << kClipCount << " selected=" << batchSize << " move_ms=" << moveMs << " undo_ms=" << undoMs << " redo_ms=" << redoMs << Qt::endl;
 }
 
 QTEST_MAIN(TestLargeTimelinePerformance)

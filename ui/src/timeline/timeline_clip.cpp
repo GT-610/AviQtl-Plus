@@ -241,16 +241,8 @@ void TimelineService::moveSelectedClips(int deltaLayer, int deltaFrame) {
         return;
     }
 
-    struct PendingOp {
-        int id;
-        int oldLayer;
-        int oldStart;
-        int duration;
-        QString name;
-    };
-
-    QVector<PendingOp> pending;
-    pending.reserve(ids.size());
+    QVariantList moves;
+    moves.reserve(ids.size());
 
     for (const QVariant &value : std::as_const(ids)) {
         const int id = value.toInt();
@@ -258,33 +250,13 @@ void TimelineService::moveSelectedClips(int deltaLayer, int deltaFrame) {
         if (clip == nullptr) {
             continue;
         }
-
-        pending.push_back(PendingOp{.id = id, .oldLayer = clip->layer, .oldStart = clip->startFrame, .duration = clip->durationFrames, .name = clip->effects.isEmpty() ? clip->type : clip->effects.first()->name()});
+        moves.append(QVariantMap{{QStringLiteral("id"), id},
+                                 {QStringLiteral("layer"), std::clamp(clip->layer + deltaLayer, 0, 127)},
+                                 {QStringLiteral("startFrame"), std::max(0, clip->startFrame + deltaFrame)},
+                                 {QStringLiteral("duration"), clip->durationFrames}});
     }
 
-    if (deltaFrame > 0 || (deltaFrame == 0 && deltaLayer > 0)) {
-        std::ranges::sort(pending, [](const PendingOp &a, const PendingOp &b) -> bool {
-            if (a.oldStart != b.oldStart) {
-                return a.oldStart > b.oldStart;
-            }
-            return a.oldLayer > b.oldLayer;
-        });
-    } else {
-        std::ranges::sort(pending, [](const PendingOp &a, const PendingOp &b) -> bool {
-            if (a.oldStart != b.oldStart) {
-                return a.oldStart < b.oldStart;
-            }
-            return a.oldLayer < b.oldLayer;
-        });
-    }
-
-    m_undoStack->beginMacro(QObject::tr("複数クリップ移動: %1").arg(pending.size()));
-    for (const PendingOp &clip : std::as_const(pending)) {
-        const int newLayer = std::max(0, clip.oldLayer + deltaLayer);
-        const int newStart = std::max(0, clip.oldStart + deltaFrame);
-        m_undoStack->push(new MoveClipCommand(this, clip.id, clip.oldLayer, clip.oldStart, clip.duration, newLayer, newStart, clip.duration, clip.name));
-    }
-    m_undoStack->endMacro();
+    applyClipBatchMove(moves);
 }
 
 void TimelineService::resizeSelectedClips(int deltaStartFrame, int deltaDuration) {

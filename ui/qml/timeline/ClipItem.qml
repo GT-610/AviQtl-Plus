@@ -14,7 +14,7 @@ Item {
     }
     property int resizeDraftStart: -1
     property int resizeDraftDuration: -1
-    property double scale: Workspace.currentTimeline?.timelineScale ?? 1
+    property double timelineScale: Workspace.currentTimeline?.timelineScale ?? 1
     property bool forceVisualSelection: false
     property var forcedSelectedIds: []
     readonly property bool committedSelected: Workspace.currentTimeline?.selection?.selectedClipIds?.includes(modelData.id) ?? false
@@ -47,13 +47,13 @@ Item {
     Accessible.description: qsTr("クリップ: ") + clipDisplayName + qsTr("、レイヤー") + modelData.layer + qsTr("、フレーム") + modelData.startFrame + qsTr("から") + modelData.durationFrames + qsTr("フレーム")
     Accessible.role: Accessible.Grouping
 
-    signal clipMoved(int clipId, int deltaLayer, int deltaStartFrame, int duration)
-    signal clipResized(int clipId, int deltaStartFrame, int deltaDuration, int unused)
+    signal clipMoved(int clipId, int deltaLayer, int deltaStartFrame)
+    signal clipResized(int clipId, int deltaStartFrame, int deltaDuration)
     signal clipDoubleClicked(int clipId)
 
-    x: (resizeDraftStart >= 0 ? resizeDraftStart : Math.max(0, modelData.startFrame + dragDeltaStart)) * scale
+    x: (resizeDraftStart >= 0 ? resizeDraftStart : Math.max(0, modelData.startFrame + dragDeltaStart)) * timelineScale
     y: (Math.max(0, modelData.layer + dragDeltaLayer) + 0.1) * layerHeight
-    width: (resizeDraftDuration >= 0 ? resizeDraftDuration : modelData.durationFrames) * scale
+    width: (resizeDraftDuration >= 0 ? resizeDraftDuration : modelData.durationFrames) * timelineScale
     height: layerHeight * 0.8
     z: modelData.layer
 
@@ -113,7 +113,7 @@ Item {
         }
 
         Text {
-            readonly property int padding: 4
+            readonly property int textPadding: 4
             property real stickyX: Math.max(0, (timelineViewRoot ? timelineViewRoot.contentX : 0) - clipDelegate.x)
 
             anchors.verticalCenter: parent.verticalCenter
@@ -128,8 +128,8 @@ Item {
             }
             font.pixelSize: 10
             elide: Text.ElideRight
-            x: Math.min(stickyX, parent.width - width - padding) + padding
-            width: Math.min(implicitWidth, parent.width - padding * 2)
+            x: Math.min(stickyX, parent.width - width - textPadding) + textPadding
+            width: Math.min(implicitWidth, parent.width - textPadding * 2)
         }
 
         Canvas {
@@ -249,7 +249,7 @@ Item {
             function updateDragFromScenePos(sp, modifiers) {
                 var dX = sp.x - dragStartScenePos.x;
                 var dY = sp.y - dragStartScenePos.y;
-                var deltaFrame = Math.round(dX / clipDelegate.scale);
+                var deltaFrame = Math.round(dX / clipDelegate.timelineScale);
                 var deltaLayer = Math.round(dY / layerHeight);
                 var ignoreSnap = (modifiers & Qt.ShiftModifier);
                 var snappedFrame = snapFrameFunc(initialFrame + deltaFrame, ignoreSnap);
@@ -383,7 +383,7 @@ Item {
                 var deltaL = timelineViewRoot.activeDragDeltaLayer;
                 dragActive = false;
                 // Emit relative movement FIRST so backend updates
-                clipMoved(modelData.id, deltaL, deltaF, modelData.durationFrames);
+                clipMoved(modelData.id, deltaL, deltaF);
                 // Delay dropping the visual multi-drag state so that bindings
                 // don't collapse before C++ model updates are fully propagated.
                 var viewRoot = timelineViewRoot;
@@ -451,7 +451,7 @@ Item {
                     var delta = sp.x - startSceneX;
                     // 右端（終点）を固定して左端のみ動かす
                     var endFrame = startFrame + startDuration;
-                    var rawNewStart = startFrame + delta / clipDelegate.scale;
+                    var rawNewStart = startFrame + delta / clipDelegate.timelineScale;
                     var ignoreSnap = (mouse.modifiers & Qt.ShiftModifier);
                     var newStart = Math.max(0, snapFrameFunc(rawNewStart, ignoreSnap));
                     var newDur = endFrame - newStart;
@@ -474,7 +474,7 @@ Item {
                         var newStart = clipDelegate.resizeDraftStart >= 0 ? clipDelegate.resizeDraftStart : modelData.startFrame;
                         var deltaStart = newStart - startFrame;
                         var deltaDuration = clipDelegate.resizeDraftDuration - startDuration;
-                        clipResized(modelData.id, deltaStart, deltaDuration, 0); // using params to pass delta
+                        clipResized(modelData.id, deltaStart, deltaDuration);
                     }
                     // ドラフト解除 → バインディングが自動で正値を返す
                     clipDelegate.resizeDraftStart = -1;
@@ -530,7 +530,7 @@ Item {
                     var sp = mapToItem(flickableContentItem, mouse.x, mouse.y);
                     var delta = sp.x - startSceneX;
                     // 右端フレームをスナップ
-                    var rawEndFrame = startFrame + (startDuration * clipDelegate.scale + delta) / clipDelegate.scale;
+                    var rawEndFrame = startFrame + (startDuration * clipDelegate.timelineScale + delta) / clipDelegate.timelineScale;
                     var ignoreSnap = (mouse.modifiers & Qt.ShiftModifier);
                     var snappedEndFrame = snapFrameFunc(rawEndFrame, ignoreSnap);
                     var minDur = SettingsManager?.value("minClipDurationFrames", 5) ?? 5;
@@ -546,7 +546,7 @@ Item {
                     timelineViewRoot.clearSnapFeedback();
                     if (Workspace.currentTimeline && clipDelegate.resizeDraftDuration > 0) {
                         var deltaDuration = clipDelegate.resizeDraftDuration - startDuration;
-                        clipResized(modelData.id, 0, deltaDuration, 0);
+                        clipResized(modelData.id, 0, deltaDuration);
                     }
                     // ドラフト解除 → バインディングが自動で正値を返す
                     clipDelegate.resizeDraftDuration = -1;
