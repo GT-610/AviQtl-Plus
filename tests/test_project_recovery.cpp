@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSignalSpy>
 #include <QTimer>
 #include <QTemporaryDir>
 #include <QTest>
@@ -44,8 +45,11 @@ class TestProjectRecovery : public QObject {
     void legacySnapshotMetadataRemainsReadable();
     void failedMetadataOpenPreservesPreviousSnapshot();
     void staleRecoveriesAreRemoved();
+    void staleCorruptMetadataIsRemoved();
     void staleOrphanedSnapshotsAreRemoved();
     void timerBackupCompletesAsynchronously();
+    void timerBackupQueuesLatestSnapshot();
+    void synchronousBackupWaitsForAsyncWrite();
 
   private:
     void markDirty(TimelineController &controller);
@@ -309,6 +313,29 @@ void TestProjectRecovery::staleRecoveriesAreRemoved() {
     QVERIFY(!QFileInfo::exists(entry.snapshotPath));
 }
 
+void TestProjectRecovery::staleCorruptMetadataIsRemoved() {
+    const QString recoveryId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString metadataPath = m_directory.filePath(recoveryId + QStringLiteral(".json"));
+    const QString snapshotPath = m_directory.filePath(recoveryId + QStringLiteral(".aviqtl"));
+
+    QFile metadata(metadataPath);
+    QVERIFY(metadata.open(QIODevice::WriteOnly));
+    QVERIFY(metadata.write("{not json") > 0);
+    metadata.close();
+    QVERIFY(metadata.open(QIODevice::ReadWrite));
+    QVERIFY(metadata.setFileTime(QDateTime::currentDateTimeUtc().addDays(-31), QFileDevice::FileModificationTime));
+    metadata.close();
+
+    QFile snapshot(snapshotPath);
+    QVERIFY(snapshot.open(QIODevice::WriteOnly));
+    QVERIFY(snapshot.write("stale snapshot") > 0);
+    snapshot.close();
+
+    ProjectRecoveryManager::cleanupStale(30);
+    QVERIFY(!QFileInfo::exists(metadataPath));
+    QVERIFY(!QFileInfo::exists(snapshotPath));
+}
+
 void TestProjectRecovery::staleOrphanedSnapshotsAreRemoved() {
     const QString recoveryId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const QString generationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -334,6 +361,54 @@ void TestProjectRecovery::timerBackupCompletesAsynchronously() {
     QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
     QTRY_COMPARE_WITH_TIMEOUT(ProjectRecoveryManager::entries().size(), 1, 5000);
     QVERIFY(ProjectRecoveryManager::entries().first().valid);
+}
+
+void TestProjectRecovery::timerBackupQueuesLatestSnapshot() {
+    TimelineController controller;
+    markDirty(controller);
+    QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
+    auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
+    QVERIFY(timer != nullptr);
+    QVERIFY(watcher != nullptr);
+    QSignalSpy finishedSpy(watcher, &QFutureWatcherBase::finished);
+
+    controller.project()->setWidth(1111);
+    QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+    QVERIFY(watcher->isRunning());
+    controller.project()->setWidth(2222);
+    QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 2, 5000);
+    const QList<ProjectRecoveryEntry> entries = ProjectRecoveryManager::entries();
+    QCOMPARE(entries.size(), 1);
+    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+
+    TimelineController recovered;
+    QVERIFY(recovered.loadRecovery(entries.first().snapshotPath, entries.first().id, entries.first().originalProjectUrl));
+    QCOMPARE(recovered.project()->width(), 2222);
+}
+
+void TestProjectRecovery::synchronousBackupWaitsForAsyncWrite() {
+    TimelineController controller;
+    markDirty(controller);
+    QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
+    auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
+    QVERIFY(timer != nullptr);
+    QVERIFY(watcher != nullptr);
+
+    controller.project()->setWidth(1111);
+    QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+    QVERIFY(watcher->isRunning());
+    controller.project()->setWidth(3333);
+    QVERIFY(controller.writeRecoveryNow());
+
+    const QList<ProjectRecoveryEntry> entries = ProjectRecoveryManager::entries();
+    QCOMPARE(entries.size(), 1);
+    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+
+    TimelineController recovered;
+    QVERIFY(recovered.loadRecovery(entries.first().snapshotPath, entries.first().id, entries.first().originalProjectUrl));
+    QCOMPARE(recovered.project()->width(), 3333);
 }
 
 QTEST_MAIN(TestProjectRecovery)

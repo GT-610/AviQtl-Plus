@@ -210,7 +210,8 @@ void ProjectRecoveryManager::cleanupStale(int maximumAgeDays) {
     const QList<ProjectRecoveryEntry> recoveryEntries = entries();
     QSet<QString> referencedSnapshots;
     for (const ProjectRecoveryEntry &entry : recoveryEntries) {
-        if (entry.savedAt.isValid() && entry.savedAt < cutoff)
+        const QDateTime entryTimestamp = entry.savedAt.isValid() ? entry.savedAt : QFileInfo(metadataPath(entry.id)).lastModified().toUTC();
+        if (entryTimestamp.isValid() && entryTimestamp < cutoff)
             remove(entry.id);
         else if (entry.valid)
             referencedSnapshots.insert(QFileInfo(entry.snapshotPath).absoluteFilePath());

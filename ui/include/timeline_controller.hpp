@@ -300,6 +300,7 @@ class TimelineController : public QObject {
     QString m_recoveryId;
     QTimer *m_autoBackupTimer{};
     QFutureWatcher<ProjectRecoveryWriteResult> *m_recoveryWriteWatcher{};
+    bool m_recoveryWritePending = false;
 
     int m_cursorFrame = 0;
     ProjectService *m_project{};
