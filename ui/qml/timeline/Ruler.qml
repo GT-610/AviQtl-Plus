@@ -132,17 +132,17 @@ Rectangle {
             Canvas {
                 id: rulerCanvas
 
-                property double scale: Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1
+                property double timelineScale: Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1
                 property double offsetX: targetFlickable ? targetFlickable.contentX : 0
                 property int fpsInt: Math.round(rulerRoot.fps)
 
                 anchors.fill: parent
-                onScaleChanged: requestPaint()
+                onTimelineScaleChanged: requestPaint()
                 onOffsetXChanged: requestPaint()
                 onWidthChanged: requestPaint()
                 onHeightChanged: requestPaint()
                 onPaint: {
-                    if (width <= 0 || height <= 0 || scale <= 0)
+                    if (width <= 0 || height <= 0 || timelineScale <= 0)
                         return ;
 
                     var ctx = getContext("2d");
@@ -159,23 +159,23 @@ Rectangle {
                     // 簡易的なグリッド描画（詳細は元のロジックを維持）
                     var frameInterval = 60;
                     // 仮
-                    if (scale > 5)
+                    if (timelineScale > 5)
                         frameInterval = 10;
-                    else if (scale > 1)
+                    else if (timelineScale > 1)
                         frameInterval = 30;
-                    else if (scale > 0.5)
+                    else if (timelineScale > 0.5)
                         frameInterval = 60;
                     else
                         frameInterval = 300;
-                    var startFrame = Math.floor(viewOffsetX / scale);
-                    var endFrame = Math.ceil((viewOffsetX + viewWidth) / scale);
+                    var startFrame = Math.floor(viewOffsetX / timelineScale);
+                    var endFrame = Math.ceil((viewOffsetX + viewWidth) / timelineScale);
                     var alignedStart = Math.floor(startFrame / frameInterval) * frameInterval;
                     ctx.strokeStyle = drawColor;
                     ctx.fillStyle = drawColor;
                     ctx.lineWidth = 1;
                     ctx.font = "10px sans-serif";
                     for (var f = alignedStart; f <= endFrame; f += frameInterval) {
-                        var pixelX = f * scale - viewOffsetX;
+                        var pixelX = f * timelineScale - viewOffsetX;
                         var isSecond = (f % fpsInt === 0);
                         // 大目盛
                         ctx.beginPath();

@@ -8,7 +8,7 @@ Canvas {
     property real gridInterval: 1
     property int layerCount: 128
     property int layerHeight: 30
-    property real scale: Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1
+    property real timelineScale: Workspace.currentTimeline ? Workspace.currentTimeline.timelineScale : 1
     property var gridSettings: ({
         "mode": "Auto",
         "bpm": 120,
@@ -21,16 +21,16 @@ Canvas {
     onContentYChanged: requestPaint()
     onGridIntervalChanged: requestPaint()
     onGridSettingsChanged: requestPaint()
-    onScaleChanged: requestPaint()
+    onTimelineScaleChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     anchors.fill: parent
     onPaint: {
-        if (width < 1 || height <= 0 || scale <= 0)
+        if (width < 1 || height <= 0 || timelineScale <= 0)
             return ;
 
         var ctx = getContext("2d");
-        var currentScale = scale;
+        var currentScale = timelineScale;
         var currentContentX = contentX;
         // 境界の1px残りを防ぐため、クリア範囲を広めにとる
         ctx.clearRect(-1, -1, width + 2, height + 2);

@@ -544,35 +544,11 @@ Item {
                 forcedSelectedIds: []
                 flickableContentItem: timelineFlickable.contentItem
                 snapFrameFunc: timelineViewRoot.snapFrameForEdit
-                onClipMoved: (clipId, deltaLayer, deltaStart, unused) => {
+                onClipMoved: (clipId, deltaLayer, deltaStart) => {
                     if (Workspace.currentTimeline) {
                         var selectedIds = Workspace.currentTimeline?.selection?.selectedClipIds ?? [];
                         if (selectedIds.includes(clipId)) {
-                            var moves = [];
-                            var allClips = Workspace.currentTimeline.clips;
-                            for (var i = 0; i < allClips.length; i++) {
-                                var c = allClips[i];
-                                if (selectedIds.includes(c.id)) {
-                                    var newL = Math.round(Number(c.layer) + Number(deltaLayer));
-                                    var newF = Math.round(Number(c.startFrame) + Number(deltaStart));
-                                    if (newL < 0)
-                                        newL = 0;
-
-                                    if (newL >= timelineViewRoot.layerCount)
-                                        newL = timelineViewRoot.layerCount - 1;
-
-                                    if (newF < 0)
-                                        newF = 0;
-
-                                    moves.push({
-                                        "id": Number(c.id),
-                                        "layer": newL,
-                                        "startFrame": newF,
-                                        "duration": Number(c.durationFrames)
-                                    });
-                                }
-                            }
-                            Workspace.currentTimeline.applyClipBatchMove(moves);
+                            Workspace.currentTimeline.moveSelectedClips(deltaLayer, deltaStart);
                         } else {
                             // Should not happen with new UX fix, but fallback
                             var c = Workspace.currentTimeline.clips.find((c) => {
@@ -584,7 +560,7 @@ Item {
                         }
                     }
                 }
-                onClipResized: (clipId, deltaStart, deltaDuration, unused) => {
+                onClipResized: (clipId, deltaStart, deltaDuration) => {
                     if (Workspace.currentTimeline) {
                         if (Workspace.currentTimeline?.selection?.selectedClipIds?.includes(clipId)) {
                             Workspace.currentTimeline.resizeSelectedClips(deltaStart, deltaDuration);

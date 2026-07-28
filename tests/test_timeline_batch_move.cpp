@@ -11,6 +11,7 @@ class TestTimelineBatchMove : public QObject {
   private slots:
     void preservesLayoutAndUndoRedo();
     void avoidsUnselectedCollisionsAsOneGroup();
+    void movesSelectionThroughResolvedBatchPath();
     void clampsDragDeltaAtTimelineBounds();
     void rejectsBatchMoveWhenSourceOrTargetLayerIsLocked();
     void snapsFramesUsingCurrentSceneSettings();
@@ -78,6 +79,37 @@ void TestTimelineBatchMove::avoidsUnselectedCollisionsAsOneGroup() {
     QCOMPARE(clip(timeline, first).startFrame, 25);
     QCOMPARE(clip(timeline, second).startFrame, 45);
     QCOMPARE(clip(timeline, second).startFrame - clip(timeline, first).startFrame, 20);
+}
+
+void TestTimelineBatchMove::movesSelectionThroughResolvedBatchPath() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int first = addClip(timeline, QStringLiteral("first"), 0, 0, 10);
+    const int second = addClip(timeline, QStringLiteral("second"), 20, 1, 10);
+    addClip(timeline, QStringLiteral("obstacle"), 15, 0, 10);
+    timeline.applySelectionIds({first, second});
+    timeline.undoStack()->clear();
+
+    timeline.moveSelectedClips(0, 10);
+    QCOMPARE(clip(timeline, first).startFrame, 25);
+    QCOMPARE(clip(timeline, second).startFrame, 45);
+    QCOMPARE(clip(timeline, second).startFrame - clip(timeline, first).startFrame, 20);
+    QCOMPARE(timeline.undoStack()->count(), 1);
+
+    timeline.undo();
+    QCOMPARE(clip(timeline, first).startFrame, 0);
+    QCOMPARE(clip(timeline, second).startFrame, 20);
+    timeline.redo();
+    QCOMPARE(clip(timeline, first).startFrame, 25);
+    QCOMPARE(clip(timeline, second).startFrame, 45);
+
+    timeline.undo();
+    timeline.setLayerState(2, true, 0);
+    timeline.undoStack()->clear();
+    timeline.moveSelectedClips(1, 0);
+    QCOMPARE(clip(timeline, first).layer, 0);
+    QCOMPARE(clip(timeline, second).layer, 1);
+    QVERIFY(timeline.undoStack()->isClean());
 }
 
 void TestTimelineBatchMove::clampsDragDeltaAtTimelineBounds() {
