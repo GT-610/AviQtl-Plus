@@ -396,9 +396,6 @@ foreach(AVIQTL_EXTERNAL_ASSET_DIR effects objects transitions)
             "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/${AVIQTL_EXTERNAL_ASSET_DIR}"
             "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/${AVIQTL_EXTERNAL_ASSET_DIR}"
-            "$<TARGET_FILE_DIR:AviQtl>/${AVIQTL_EXTERNAL_ASSET_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
             "$<TARGET_FILE_DIR:AviQtl>/${AVIQTL_EXTERNAL_ASSET_DIR}"
         VERBATIM

@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QLoggingCategory>
+#include <QSaveFile>
 
 // Ensure GuiPrivate headers are available
 #include <QtGui/private/qtguiglobal_p.h>
@@ -65,14 +66,26 @@ bool ShaderCompiler::compileToFile(const QString &sourcePath,
         return false;
     }
 
-    QFile outFile(outputQsbPath);
+    QSaveFile outFile(outputQsbPath);
     if (!outFile.open(QIODevice::WriteOnly)) {
         if (errorMessage) {
             *errorMessage = QStringLiteral("Cannot write output: ") + outputQsbPath;
         }
         return false;
     }
-    outFile.write(shader.serialized());
+
+    const QByteArray serialized = shader.serialized();
+    if (outFile.write(serialized) != serialized.size()) {
+        if (errorMessage)
+            *errorMessage = outFile.errorString();
+        outFile.cancelWriting();
+        return false;
+    }
+    if (!outFile.commit()) {
+        if (errorMessage)
+            *errorMessage = outFile.errorString();
+        return false;
+    }
 
     qCDebug(lcShaderCompiler).noquote() << "Compiled:" << sourcePath << "->" << outputQsbPath;
     return true;

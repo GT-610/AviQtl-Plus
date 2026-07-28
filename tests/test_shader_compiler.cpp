@@ -15,6 +15,7 @@ class TestShaderCompiler : public QObject {
     void compileComputeSource();
     void compileInvalidSource();
     void compileToFile();
+    void failedCompilePreservesExistingOutput();
     void compileToFileInvalidPath();
     void needsRecompileWhenMissing();
     void needsRecompileWhenStale();
@@ -95,6 +96,11 @@ void TestShaderCompiler::compileToFile() {
     src.write(simpleFragmentShader());
     src.close();
 
+    QFile previous(outPath);
+    QVERIFY(previous.open(QIODevice::WriteOnly));
+    QCOMPARE(previous.write("previous-cache"), qint64(14));
+    previous.close();
+
     QString error;
     bool ok = ShaderCompiler::compileToFile(srcPath, outPath, &error);
     QVERIFY2(ok, qPrintable(error));
@@ -103,6 +109,31 @@ void TestShaderCompiler::compileToFile() {
     QFile out(outPath);
     QVERIFY(out.open(QIODevice::ReadOnly));
     QVERIFY(out.size() > 0);
+    QVERIFY(out.readAll() != QByteArrayLiteral("previous-cache"));
+}
+
+void TestShaderCompiler::failedCompilePreservesExistingOutput() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString srcPath = dir.path() + QStringLiteral("/invalid.frag");
+    const QString outPath = dir.path() + QStringLiteral("/invalid.frag.qsb");
+    QFile src(srcPath);
+    QVERIFY(src.open(QIODevice::WriteOnly));
+    QCOMPARE(src.write(invalidShader()), invalidShader().size());
+    src.close();
+
+    const QByteArray previousCache = QByteArrayLiteral("known-good-cache");
+    QFile out(outPath);
+    QVERIFY(out.open(QIODevice::WriteOnly));
+    QCOMPARE(out.write(previousCache), previousCache.size());
+    out.close();
+
+    QString error;
+    QVERIFY(!ShaderCompiler::compileToFile(srcPath, outPath, &error));
+    QVERIFY(!error.isEmpty());
+    QVERIFY(out.open(QIODevice::ReadOnly));
+    QCOMPARE(out.readAll(), previousCache);
 }
 
 void TestShaderCompiler::compileToFileInvalidPath() {

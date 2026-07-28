@@ -44,6 +44,15 @@ dedicated design, fixtures, or performance measurements.
 - Repository catalog references use `QUrl::resolved()` and are checked again
   for HTTPS after resolution. Downloaded package archives are accepted only
   after their complete payload has been written to the temporary file.
+- Recovery snapshots use validated UUID identifiers and generation-specific
+  files. Metadata switches atomically to a completed generation, legacy
+  snapshots remain readable, and cleanup ignores unrecognized paths.
+- Timeline drag commits use the native grouped-move path instead of rebuilding
+  the complete QML clip snapshot. Internal unused signal parameters and QML
+  properties that shadowed Qt base properties were removed.
+- Runtime shader cache files use atomic replacement. Effect discovery collects
+  unique shader paths before compilation, and built-in assets are staged once
+  before being copied to the executable output.
 
 ## Remaining priorities
 
@@ -55,6 +64,10 @@ dedicated design, fixtures, or performance measurements.
    compatibility fields. Establish module metadata for external effects first,
    then reduce the remaining application warnings in behavior-preserving
    batches before making warnings fatal in CI.
+   On the July 2026 macOS Qt 6.11 application-only scan, the focused cleanup
+   reduced the warning count from 1,967 to 1,959 and removed all four
+   `property-override` diagnostics; the remaining count is informational and
+   Qt-version dependent.
 2. **Measured large-project performance.** A repeatable 5,000-clip model and
    controller fixture now covers QML snapshot materialization, distributed
    lookup, move/undo/redo scaling from 1 to 1,000 selected clips, and bounded
