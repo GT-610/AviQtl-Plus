@@ -9,6 +9,8 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QScopeGuard>
+#include <QSemaphore>
 #include <QSignalSpy>
 #include <QTimer>
 #include <QTemporaryDir>
@@ -18,6 +20,7 @@
 #include <QUndoStack>
 #include <QUrl>
 #include <algorithm>
+#include <atomic>
 
 using namespace AviQtl::Core;
 using namespace AviQtl::UI;
@@ -66,6 +69,7 @@ void TestProjectRecovery::initTestCase() {
 }
 
 void TestProjectRecovery::init() {
+    ProjectRecoveryManager::setWriteBarrierForTests({});
     QDir root(m_directory.path());
     for (const QString &file : root.entryList(QDir::Files))
         QVERIFY(root.remove(file));
@@ -74,6 +78,7 @@ void TestProjectRecovery::init() {
 }
 
 void TestProjectRecovery::cleanupTestCase() {
+    ProjectRecoveryManager::setWriteBarrierForTests({});
     SettingsManager::instance().setValue(QStringLiteral("enableAutoBackup"), m_originalAutoBackup);
     SettingsManager::instance().setValue(QStringLiteral("backupInterval"), m_originalBackupInterval);
     ProjectRecoveryManager::setRecoveryRootForTests(QString());
@@ -365,6 +370,19 @@ void TestProjectRecovery::timerBackupCompletesAsynchronously() {
 
 void TestProjectRecovery::timerBackupQueuesLatestSnapshot() {
     TimelineController controller;
+    QSemaphore asyncWriteStarted;
+    QSemaphore releaseAsyncWrite;
+    std::atomic_bool blockFirstAsyncWrite = true;
+    ProjectRecoveryManager::setWriteBarrierForTests([&](ProjectRecoveryWriteBarrierPoint point) {
+        if (point == ProjectRecoveryWriteBarrierPoint::AsyncWriteStarted && blockFirstAsyncWrite.exchange(false)) {
+            asyncWriteStarted.release();
+            releaseAsyncWrite.acquire();
+        }
+    });
+    const auto resetBarrier = qScopeGuard([&]() {
+        releaseAsyncWrite.release();
+        ProjectRecoveryManager::setWriteBarrierForTests({});
+    });
     markDirty(controller);
     QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
     auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
@@ -374,9 +392,11 @@ void TestProjectRecovery::timerBackupQueuesLatestSnapshot() {
 
     controller.project()->setWidth(1111);
     QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+    QVERIFY(asyncWriteStarted.tryAcquire(1, 5000));
     QVERIFY(watcher->isRunning());
     controller.project()->setWidth(2222);
     QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+    releaseAsyncWrite.release();
 
     QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 2, 5000);
     const QList<ProjectRecoveryEntry> entries = ProjectRecoveryManager::entries();
@@ -390,6 +410,20 @@ void TestProjectRecovery::timerBackupQueuesLatestSnapshot() {
 
 void TestProjectRecovery::synchronousBackupWaitsForAsyncWrite() {
     TimelineController controller;
+    QSemaphore asyncWriteStarted;
+    QSemaphore releaseAsyncWrite;
+    ProjectRecoveryManager::setWriteBarrierForTests([&](ProjectRecoveryWriteBarrierPoint point) {
+        if (point == ProjectRecoveryWriteBarrierPoint::AsyncWriteStarted) {
+            asyncWriteStarted.release();
+            releaseAsyncWrite.acquire();
+        } else {
+            releaseAsyncWrite.release();
+        }
+    });
+    const auto resetBarrier = qScopeGuard([&]() {
+        releaseAsyncWrite.release();
+        ProjectRecoveryManager::setWriteBarrierForTests({});
+    });
     markDirty(controller);
     QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
     auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
@@ -398,6 +432,7 @@ void TestProjectRecovery::synchronousBackupWaitsForAsyncWrite() {
 
     controller.project()->setWidth(1111);
     QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+    QVERIFY(asyncWriteStarted.tryAcquire(1, 5000));
     QVERIFY(watcher->isRunning());
     controller.project()->setWidth(3333);
     QVERIFY(controller.writeRecoveryNow());

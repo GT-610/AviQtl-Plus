@@ -327,8 +327,10 @@ bool TimelineController::writeRecoveryNow() {
         return false;
 
     m_recoveryWritePending = false;
-    if (m_recoveryWriteWatcher->isRunning())
+    if (m_recoveryWriteWatcher->isRunning()) {
+        ProjectRecoveryManager::notifySynchronousWaitForTests();
         m_recoveryWriteWatcher->waitForFinished();
+    }
 
     QString error;
     const QString originalUrl = m_recoveryOriginalProjectUrl.isEmpty() ? m_currentProjectUrl : m_recoveryOriginalProjectUrl;

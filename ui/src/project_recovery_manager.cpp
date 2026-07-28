@@ -11,10 +11,12 @@
 #include <QStandardPaths>
 #include <QUuid>
 #include <QtConcurrent>
+#include <utility>
 
 namespace AviQtl::UI {
 namespace {
 QString recoveryRootOverride;
+std::function<void(ProjectRecoveryWriteBarrierPoint)> recoveryWriteBarrier;
 
 QString metadataPath(const QString &id) { return QDir(ProjectRecoveryManager::recoveryRoot()).filePath(id + QStringLiteral(".json")); }
 QString legacySnapshotFileName(const QString &id) { return id + QStringLiteral(".aviqtl"); }
@@ -115,6 +117,13 @@ QString ProjectRecoveryManager::recoveryRoot() {
 
 void ProjectRecoveryManager::setRecoveryRootForTests(const QString &path) { recoveryRootOverride = path; }
 
+void ProjectRecoveryManager::setWriteBarrierForTests(std::function<void(ProjectRecoveryWriteBarrierPoint)> barrier) { recoveryWriteBarrier = std::move(barrier); }
+
+void ProjectRecoveryManager::notifySynchronousWaitForTests() {
+    if (recoveryWriteBarrier)
+        recoveryWriteBarrier(ProjectRecoveryWriteBarrierPoint::SynchronousWaitStarted);
+}
+
 bool ProjectRecoveryManager::write(const QString &id, const QString &originalProjectUrl, const QString &displayName, const TimelineService *timeline, const ProjectService *project, QString *errorMessage) {
     if (id.isEmpty() || timeline == nullptr || project == nullptr)
         return setError(errorMessage, QStringLiteral("Invalid recovery snapshot request"));
@@ -127,7 +136,10 @@ QFuture<ProjectRecoveryWriteResult> ProjectRecoveryManager::writeAsync(const QSt
     }
 
     const QVariantMap snapshot = AviQtl::Core::ProjectSerializer::captureSnapshot(timeline, project);
-    return QtConcurrent::run([id, originalProjectUrl, displayName, snapshot]() {
+    const auto writeBarrier = recoveryWriteBarrier;
+    return QtConcurrent::run([id, originalProjectUrl, displayName, snapshot, writeBarrier]() {
+        if (writeBarrier)
+            writeBarrier(ProjectRecoveryWriteBarrierPoint::AsyncWriteStarted);
         ProjectRecoveryWriteResult result;
         result.success = writeCapturedSnapshot(id, originalProjectUrl, displayName, snapshot, &result.error);
         return result;
