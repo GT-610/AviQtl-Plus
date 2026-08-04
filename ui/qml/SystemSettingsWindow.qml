@@ -9,7 +9,6 @@ Common.AviQtlWindow {
 
     property var draftSettings: ({
     })
-    property alias currentTabIndex: tabBar.currentIndex
     property var pluginFormats: ["LADSPA", "DSSI", "LV2", "VST2", "VST3", "CLAP", "SF2", "SFZ", "JSFX", "Effects", "Objects"]
     property var themeValues: ["Dark", "Light", "System"]
     property var themeLabels: [qsTr("ダーク"), qsTr("ライト"), qsTr("システムに従う")]
@@ -123,13 +122,6 @@ Common.AviQtlWindow {
         "name": qsTr("現在のレイヤーを表示/非表示")
     }]
 
-    function getShortcutValue(actionId, fallback) {
-        if (!draftSettings["shortcuts"])
-            return fallback;
-
-        return draftSettings["shortcuts"][actionId] !== undefined ? draftSettings["shortcuts"][actionId] : fallback;
-    }
-
     function setShortcutValue(actionId, value) {
         var next = cloneSettings(draftSettings);
         if (!next["shortcuts"])
@@ -158,11 +150,6 @@ Common.AviQtlWindow {
             return ;
 
         SettingsManager.settings = cloneSettings(draftSettings);
-        SettingsManager.save();
-    }
-
-    function valueOr(key, fallbackValue) {
-        return draftSettings[key] !== undefined ? draftSettings[key] : fallbackValue;
     }
 
     function setValue(key, value) {

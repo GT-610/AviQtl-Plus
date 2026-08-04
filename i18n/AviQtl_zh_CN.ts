@@ -4590,269 +4590,269 @@
 <context>
     <name>SystemSettingsWindow</name>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="15"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="14"/>
         <source>ダーク</source>
         <translation>深色</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="15"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="14"/>
         <source>ライト</source>
         <translation>浅色</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="15"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="14"/>
         <source>システムに従う</source>
         <translation>跟随系统</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="18"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="17"/>
         <source>H.264 (VAAPI)</source>
         <translation>H.264 (VAAPI)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="18"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="17"/>
         <source>HEVC (VAAPI)</source>
         <translation>HEVC (VAAPI)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="18"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="17"/>
         <source>H.264 (CPU)</source>
         <translation>H.264 (CPU)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="24"/>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="235"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="23"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="222"/>
         <source>新規プロジェクト</source>
         <translation>新建项目</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="27"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="26"/>
         <source>プロジェクトを開く</source>
         <translation>打开项目</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="30"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="29"/>
         <source>上書き保存</source>
         <translation>覆盖保存</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="33"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="32"/>
         <source>名前を付けて保存</source>
         <translation>另存为</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="36"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="35"/>
         <source>メディアの書き出し</source>
         <translation>导出媒体</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="39"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="38"/>
         <source>終了</source>
         <translation>退出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="42"/>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="200"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="41"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="187"/>
         <source>環境設定</source>
         <translation>首选项</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="45"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="44"/>
         <source>元に戻す</source>
         <translation>撤销</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="48"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="47"/>
         <source>やり直す</source>
         <translation>重做</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="51"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="50"/>
         <source>カット</source>
         <translation>剪切</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="54"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="53"/>
         <source>コピー</source>
         <translation>复制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="57"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="56"/>
         <source>貼り付け</source>
         <translation>粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="60"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="59"/>
         <source>削除</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="63"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="62"/>
         <source>複製</source>
         <translation>复制副本</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="66"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="65"/>
         <source>再生 / 一時停止</source>
         <translation>播放 / 暂停</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="69"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="68"/>
         <source>1フレーム進む</source>
         <translation>前进 1 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="72"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="71"/>
         <source>1フレーム戻る</source>
         <translation>后退 1 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="75"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="74"/>
         <source>先頭へ移動</source>
         <translation>移动到开头</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="78"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="77"/>
         <source>末尾へ移動</source>
         <translation>移动到末尾</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="81"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="80"/>
         <source>ズームイン</source>
         <translation>放大</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="84"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="83"/>
         <source>ズームアウト</source>
         <translation>缩小</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="87"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="86"/>
         <source>タイムラインの表示</source>
         <translation>显示时间线</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="90"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="89"/>
         <source>設定ダイアログの表示</source>
         <translation>显示设置对话框</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="93"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="92"/>
         <source>プロジェクト設定</source>
         <translation>项目设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="96"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="95"/>
         <source>クリップを分割</source>
         <translation>分割片段</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="99"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="98"/>
         <source>レイヤーを上へ移動</source>
         <translation>上移图层</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="102"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="101"/>
         <source>レイヤーを下へ移動</source>
         <translation>下移图层</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="105"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="104"/>
         <source>1フレーム左へ移動</source>
         <translation>向左移动 1 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="108"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="107"/>
         <source>1フレーム右へ移動</source>
         <translation>向右移动 1 帧</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="111"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="110"/>
         <source>新規シーン作成</source>
         <translation>新建场景</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="114"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="113"/>
         <source>現在のシーン設定</source>
         <translation>当前场景设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="117"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="116"/>
         <source>現在のシーンを削除</source>
         <translation>删除当前场景</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="120"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="119"/>
         <source>現在のレイヤーをロック/解除</source>
         <translation>锁定/解锁当前图层</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="123"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="122"/>
         <source>現在のレイヤーを表示/非表示</source>
         <translation>显示/隐藏当前图层</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="219"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="206"/>
         <source>一般</source>
         <translation>常规</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="223"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="210"/>
         <source>性能</source>
         <translation>性能</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="227"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="214"/>
         <source>タイムライン</source>
         <translation>时间线</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="231"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="218"/>
         <source>外観</source>
         <translation>外观</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="239"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="226"/>
         <source>書き出し</source>
         <translation>导出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="243"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="230"/>
         <source>デコードと音声</source>
         <translation>解码与音频</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="247"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="234"/>
         <source>プラグイン</source>
         <translation>插件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="251"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="238"/>
         <source>ショートカット</source>
         <translation>快捷键</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="351"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="338"/>
         <source>設定は「適用」または「OK」で保存されます</source>
         <translation>设置会在点击“应用”或“OK”后保存</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="357"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="344"/>
         <source>再読込</source>
         <translation>重新加载</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="362"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="349"/>
         <source>適用</source>
         <translation>应用</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="367"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="354"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SystemSettingsWindow.qml" line="376"/>
+        <location filename="../ui/qml/SystemSettingsWindow.qml" line="363"/>
         <source>閉じる</source>
         <translation>关闭</translation>
     </message>
