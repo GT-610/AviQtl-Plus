@@ -324,11 +324,13 @@ Common.AviQtlWindow {
         return [];
     }
 
-    width: isAudioWorkspaceClip ? 820 : 350
+    width: isAudioWorkspaceClip ? 820 : 560
     height: isAudioWorkspaceClip ? 620 : 500
+    minimumWidth: isAudioWorkspaceClip ? 760 : 480
+    minimumHeight: 420
     title: qsTr("設定ダイアログ")
     color: palette.window
-    visible: true
+    visible: false
     x: 500
     y: 200
     onVisibleChanged: {
@@ -408,6 +410,7 @@ Common.AviQtlWindow {
         id: settingsSplitView
 
         anchors.fill: parent
+        anchors.margins: 8
         orientation: Qt.Horizontal
         LayoutMirroring.enabled: root.sidebarOnRight
         LayoutMirroring.childrenInherit: true
@@ -1346,7 +1349,7 @@ Common.AviQtlWindow {
                         property var effectModel: modelData
                         property int _effectRev: 0
 
-                        width: root.width
+                        Layout.fillWidth: true
                         spacing: 0
 
                         Connections {

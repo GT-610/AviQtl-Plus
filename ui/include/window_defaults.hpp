@@ -21,7 +21,7 @@ constexpr int PROJECT_SETTINGS_X = 800;
 constexpr int PROJECT_SETTINGS_Y = 100;
 
 // Object Settings
-constexpr int OBJECT_SETTINGS_WIDTH = 400;
+constexpr int OBJECT_SETTINGS_WIDTH = 560;
 constexpr int OBJECT_SETTINGS_HEIGHT = 600;
 constexpr int OBJECT_SETTINGS_X = 800;
 constexpr int OBJECT_SETTINGS_Y = 420;
