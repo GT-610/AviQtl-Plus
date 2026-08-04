@@ -291,7 +291,7 @@ Common.AviQtlWindow {
                 }
 
                 Button {
-                    text: "OK"
+                    text: qsTr("OK")
                     highlighted: true
                     onClicked: {
                         if (Workspace.currentTimeline) {

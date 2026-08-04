@@ -82,12 +82,4 @@ Item {
         }
     }
 
-    // デバッグ用テキスト
-    Text {
-        anchors.centerIn: parent
-        text: "Wipe Circle"
-        color: "white"
-        font.pixelSize: 24
-        visible: false
-    }
 }

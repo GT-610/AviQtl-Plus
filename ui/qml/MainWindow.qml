@@ -748,7 +748,7 @@ ApplicationWindow {
 
         title: qsTr("名前を付けて保存")
         fileMode: Platform.FileDialog.SaveFile
-        nameFilters: ["AviQtl Plus Project files (*.aviqtl)", "JSON files (*.json)"]
+        nameFilters: [qsTr("AviQtl Plus Project files (*.aviqtl)"), qsTr("JSON files (*.json)")]
         defaultSuffix: "aviqtl"
         onAccepted: {
             if (Workspace.currentTimeline)
@@ -768,7 +768,7 @@ ApplicationWindow {
         id: loadDialog
 
         title: qsTr("プロジェクトを開く")
-        nameFilters: ["AviQtl Plus Project files (*.aviqtl)", "JSON files (*.json)"]
+        nameFilters: [qsTr("AviQtl Plus Project files (*.aviqtl)"), qsTr("JSON files (*.json)")]
         onAccepted: {
             if (Workspace)
                 Workspace.loadProject(file);

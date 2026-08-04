@@ -45,7 +45,7 @@ Common.AviQtlWindow {
                 }
 
                 Label {
-                    text: typeof AviQtlVersionCodename !== "undefined" ? AviQtlVersionCodename : "Rolling Release"
+                    text: typeof AviQtlVersionCodename !== "undefined" ? AviQtlVersionCodename : qsTr("Rolling Release")
                     font.pixelSize: 14
                     color: palette.highlight
                     font.bold: true

@@ -476,7 +476,7 @@ Loader {
                     if (Array.isArray(f))
                         return f;
 
-                    return f ? [f, "All files (*)"] : ["All files (*)"];
+                    return f ? [f, qsTr("All files (*)")] : [qsTr("All files (*)")];
                 }
                 onAccepted: {
                     controlLoader.valueModified(controlLoader._dialogUrlToPath(selectedFile));
@@ -741,7 +741,7 @@ Loader {
         id: unknownComponent
 
         Text {
-            text: "Unknown Type: " + (controlLoader.definition ? controlLoader.definition.type : "null")
+            text: qsTr("Unknown type: %1").arg(controlLoader.definition ? controlLoader.definition.type : "null")
             color: sysPalette.highlight
             font.pixelSize: 10
         }

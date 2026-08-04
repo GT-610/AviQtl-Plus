@@ -24,6 +24,8 @@ Common.AviQtlWindow {
     property var availableVideoCodecs: []
     property var availableAudioCodecs: []
     property string selectedCodecValue: comboValue(codecCombo, "libx264")
+    readonly property color highQualityTextColor: palette.window.hslLightness > 0.5 ? "#137547" : "#76dba4"
+    readonly property color lowQualityTextColor: palette.window.hslLightness > 0.5 ? "#a02c3c" : "#ff9ca8"
 
     function modelLength(combo) {
         return combo && combo.model && typeof combo.model.length === "number" ? combo.model.length : 0;
@@ -421,7 +423,7 @@ Common.AviQtlWindow {
                     Label {
                         text: crfSlider.value <= 17 ? qsTr("高品質") : crfSlider.value <= 28 ? qsTr("標準") : qsTr("低品質")
                         font.pixelSize: 10
-                        color: crfSlider.value <= 17 ? "#44cc88" : crfSlider.value <= 28 ? palette.text : "#cc4444"
+                        color: crfSlider.value <= 17 ? root.highQualityTextColor : crfSlider.value <= 28 ? palette.text : root.lowQualityTextColor
                     }
 
                 }

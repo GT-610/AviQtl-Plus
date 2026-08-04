@@ -12,6 +12,7 @@ Rectangle {
     property int layerHeight: 30
     property int layerCount: 128
     property var syncFlickable: null // TimelineViewのFlickable
+    readonly property color lockedTextColor: palette.window.hslLightness > 0.5 ? "#92283a" : "#ffb3bd"
     // レイヤー状態管理 (内部保持)
     property int layerStateRevision: 0
 
@@ -138,7 +139,7 @@ Rectangle {
                                     return palette.mid;
 
                                 if (layerBtn.isLocked)
-                                    return "#ffcccc";
+                                    return headerRoot.lockedTextColor;
 
                                 return layerBtn.isSelected ? palette.highlightedText : palette.text;
                             }
@@ -157,7 +158,7 @@ Rectangle {
                                 visible: layerBtn.isLocked
                                 iconName: "lock_fill"
                                 size: 10
-                                color: "#ffcccc"
+                                color: headerRoot.lockedTextColor
                             }
 
                             Common.AviQtlIcon {

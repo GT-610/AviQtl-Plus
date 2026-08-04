@@ -7,9 +7,15 @@ Text {
     property string iconName: ""
     property alias size: root.font.pixelSize
 
+    SystemPalette {
+        id: systemPalette
+
+        colorGroup: SystemPalette.Active
+    }
+
     font.family: "remixicon"
     font.pixelSize: 24
-    color: "white"
+    color: systemPalette.text
     text: Icons.RI[iconName] || ""
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter
