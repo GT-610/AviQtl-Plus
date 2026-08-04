@@ -30,7 +30,7 @@ This directory contains effect packages that demonstrate the extensibility of Av
 1. Study the package structure
 2. Read the package's README.md
 3. Create your own effect following the same pattern
-4. See the [effects and objects documentation](../docs/docs/developer/effects.md) for the extension model
+4. See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for the extension model
 
 ## Package Structure
 
@@ -167,8 +167,8 @@ void main() {
 
 ## Documentation
 
-- [Effects and objects](../docs/docs/developer/effects.md) - extension model and JSON metadata
-- [Plugin development](../docs/docs/developer/plugins.md) - LuaJIT automation and permissions
+- [Effects and objects](https://aviqtl.gt610.dpdns.org/developer/effects) - extension model and JSON metadata
+- [Plugin development](https://aviqtl.gt610.dpdns.org/developer/plugins) - LuaJIT automation and permissions
 
 ## Contributing
 

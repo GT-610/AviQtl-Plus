@@ -14,15 +14,15 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plus 是 [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) 的 fork，在上游项目改用 **Rust + Slint + wgpu** 重建后，继续 **Qt Quick + QRhi + ECS** 开发路线。完整来龙去脉见[关于项目](../../docs/docs/guide/start-here/about.md)。
+> AviQtl-Plus 是 [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) 的 fork，在上游项目改用 **Rust + Slint + wgpu** 重建后，继续 **Qt Quick + QRhi + ECS** 开发路线。关于完整来龙去脉，请参见[关于项目](https://aviqtl.gt610.dpdns.org/zh-CN/guide/start-here/about)。
 
 ## 什么是 [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)？
 
-<img src="../../assets/screenshot.webp">
+<img src="../../assets/screenshot.webp" alt="AviQtl-Plus 界面截图">
 
 一个旨在继承 **AviUtl 1.10** 和 **ExEdit 0.92** 的操作体验，同时拥有**超越 AviUtl 性能**的视频编辑软件项目。
 
-指导开发的编辑模型兼容目标见 [AviUtl 操作体验目标](../../docs/docs/developer/operability-targets.md)。
+指导开发的编辑模型兼容目标见 [AviUtl 操作体验目标](https://aviqtl.gt610.dpdns.org/zh-CN/developer/operability-targets)。
 
 ### 主要特性
 
@@ -34,12 +34,12 @@
 
 ## 文档
 
-- [安装](../../docs/docs/guide/start-here/installation.md)
-- [用户手册](../../docs/docs/guide/start-here/index.md)
-- [从源码构建](../../docs/docs/developer/building.md)
-- [开发者文档](../../docs/docs/developer/index.md)
-- [常见问题](../../docs/docs/guide/help-and-reference/faq.md)
-- [关于项目](../../docs/docs/guide/start-here/about.md)
+- [安装](https://aviqtl.gt610.dpdns.org/zh-CN/guide/start-here/installation)
+- [用户手册](https://aviqtl.gt610.dpdns.org/zh-CN/guide/start-here/)
+- [从源码构建](https://aviqtl.gt610.dpdns.org/zh-CN/developer/building)
+- [开发者文档](https://aviqtl.gt610.dpdns.org/zh-CN/developer/)
+- [常见问题](https://aviqtl.gt610.dpdns.org/zh-CN/guide/help-and-reference/faq)
+- [关于项目](https://aviqtl.gt610.dpdns.org/zh-CN/guide/start-here/about)
 
 ## 效果包
 

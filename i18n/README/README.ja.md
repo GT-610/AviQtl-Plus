@@ -14,15 +14,15 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plusは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkであり、上流プロジェクトが**Rust + Slint + wgpu**で再構築された後も**Qt Quick + QRhi + ECS**の開発路線を継続しています。詳しい経緯は[プロジェクトについて](../../docs/docs/guide/start-here/about.md)をご覧ください。
+> AviQtl-Plusは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkであり、上流プロジェクトが**Rust + Slint + wgpu**で再構築された後も**Qt Quick + QRhi + ECS**の開発路線を継続しています。詳しい経緯は[プロジェクトについて](https://aviqtl.gt610.dpdns.org/guide/start-here/about)をご覧ください。
 
 ## [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)とは
 
-<img src="../../assets/screenshot.webp">
+<img src="../../assets/screenshot.webp" alt="AviQtl-Plusのスクリーンショット">
 
 **AviUtl 1.10** & **ExEdit 0.92**の操作感を踏襲しつつ、**AviUtlを超える性能**を持つ動画編集ソフトを開発するプロジェクトです。
 
-開発を導く編集モデルの互換目標については、[AviUtl操作感の目標](../../docs/docs/developer/operability-targets.md)をご覧ください。
+開発を導く編集モデルの互換目標については、[AviUtl操作感の目標](https://aviqtl.gt610.dpdns.org/developer/operability-targets)をご覧ください。
 
 ### 主な特徴
 
@@ -34,12 +34,12 @@
 
 ## ドキュメント
 
-- [インストール](../../docs/docs/guide/start-here/installation.md)
-- [ユーザーガイド](../../docs/docs/guide/start-here/index.md)
-- [ソースからのビルド](../../docs/docs/developer/building.md)
-- [開発者ドキュメント](../../docs/docs/developer/index.md)
-- [よくある質問](../../docs/docs/guide/help-and-reference/faq.md)
-- [プロジェクトについて](../../docs/docs/guide/start-here/about.md)
+- [インストール](https://aviqtl.gt610.dpdns.org/guide/start-here/installation)
+- [ユーザーガイド](https://aviqtl.gt610.dpdns.org/guide/start-here/)
+- [ソースからのビルド](https://aviqtl.gt610.dpdns.org/developer/building)
+- [開発者ドキュメント](https://aviqtl.gt610.dpdns.org/developer/)
+- [よくある質問](https://aviqtl.gt610.dpdns.org/guide/help-and-reference/faq)
+- [プロジェクトについて](https://aviqtl.gt610.dpdns.org/guide/start-here/about)
 
 ## エフェクトパッケージ
 

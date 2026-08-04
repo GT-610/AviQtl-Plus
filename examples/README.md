@@ -54,5 +54,5 @@ Complete, self-contained examples demonstrating each extension type.
 
 ## Documentation
 
-- [Effects and objects](../docs/docs/developer/effects.md) — extension model and JSON metadata
-- [Plugin development](../docs/docs/developer/plugins.md) — LuaJIT automation and permissions
+- [Effects and objects](https://aviqtl.gt610.dpdns.org/developer/effects) — extension model and JSON metadata
+- [Plugin development](https://aviqtl.gt610.dpdns.org/developer/plugins) — LuaJIT automation and permissions

@@ -53,7 +53,7 @@ All APIs are accessed through the `aviqtl` global table:
 | `aviqtl.scene.create(name)` | Create a new scene |
 | `aviqtl.transport.play/pause/stop()` | Playback control |
 
-See the [plugin development documentation](../../docs/docs/developer/plugins.md) for the
+See the [plugin development documentation](https://aviqtl.gt610.dpdns.org/developer/plugins) for the
 complete Lua API documentation.
 
 ### Permissions
@@ -111,5 +111,5 @@ Plugins can be distributed via the package manager:
 }
 ```
 
-See the [plugin development documentation](../../docs/docs/developer/plugins.md) for
+See the [plugin development documentation](https://aviqtl.gt610.dpdns.org/developer/plugins) for
 the complete plugin development guide.

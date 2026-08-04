@@ -123,7 +123,7 @@ Each effect is defined by a JSON file with the following structure:
 5. **Compile**: Use `qsb` to compile shader to `.qsb` format
 6. **Test**: Place in effects directory and restart AviQtl
 
-See the [effects and objects documentation](../../docs/docs/developer/effects.md) for complete reference.
+See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for complete reference.
 
 ## License
 

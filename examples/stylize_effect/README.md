@@ -134,4 +134,4 @@ binding=2  uniform Params { your_params... }
 binding=3+ extra textures (optional)
 ```
 
-See the [effects and objects documentation](../../docs/docs/developer/effects.md) for the extension model.
+See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for the extension model.

@@ -96,7 +96,7 @@ These effects use fragment shaders for simplicity:
 4. **Optimize**: Migrate to compute shader if performance is critical
 5. **Test**: Verify with various input sizes and parameter ranges
 
-See the [effects and objects documentation](../../docs/docs/developer/effects.md) for complete reference.
+See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for complete reference.
 
 ## License
 

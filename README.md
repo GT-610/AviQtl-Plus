@@ -14,15 +14,15 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plus is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) that continues the **Qt Quick + QRhi + ECS** development path after the upstream project was rebuilt with **Rust + Slint + wgpu**. See [About the project](docs/docs/guide/start-here/about.md) for the full story.
+> AviQtl-Plus is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) that continues the **Qt Quick + QRhi + ECS** development path after the upstream project was rebuilt with **Rust + Slint + wgpu**. See [About the project](https://aviqtl.gt610.dpdns.org/guide/start-here/about) for the full story.
 
 ## What is AviQtl-Plus?
 
-<img src="./assets/screenshot.webp">
+<img src="./assets/screenshot.webp" alt="AviQtl-Plus screenshot">
 
 A project to develop a video editor that inherits the operability of **AviUtl 1.10** & **ExEdit 0.92** while delivering **performance that surpasses AviUtl**.
 
-See [AviUtl Operability Targets](docs/docs/developer/operability-targets.md) for the editing-model compatibility goals that guide development.
+See [AviUtl Operability Targets](https://aviqtl.gt610.dpdns.org/developer/operability-targets) for the editing-model compatibility goals that guide development.
 
 ### Key Features
 
@@ -34,12 +34,12 @@ See [AviUtl Operability Targets](docs/docs/developer/operability-targets.md) for
 
 ## Documentation
 
-- [Installation](docs/docs/guide/start-here/installation.md)
-- [User guide](docs/docs/guide/start-here/index.md)
-- [Build from source](docs/docs/developer/building.md)
-- [Developer documentation](docs/docs/developer/index.md)
-- [Frequently asked questions](docs/docs/guide/help-and-reference/faq.md)
-- [About the project](docs/docs/guide/start-here/about.md)
+- [Installation](https://aviqtl.gt610.dpdns.org/guide/start-here/installation)
+- [User guide](https://aviqtl.gt610.dpdns.org/guide/start-here/)
+- [Build from source](https://aviqtl.gt610.dpdns.org/developer/building)
+- [Developer documentation](https://aviqtl.gt610.dpdns.org/developer/)
+- [Frequently asked questions](https://aviqtl.gt610.dpdns.org/guide/help-and-reference/faq)
+- [About the project](https://aviqtl.gt610.dpdns.org/guide/start-here/about)
 
 ## Effect Packages
 

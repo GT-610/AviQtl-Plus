@@ -82,7 +82,7 @@ To distribute via the package manager:
 4. Implement your shader logic in the `.frag` or `.comp` file
 5. Compile shaders with `qsb` (or let CMake handle it)
 
-See the [effects and objects documentation](../../docs/docs/developer/effects.md) for the complete JSON reference.
+See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for the complete JSON reference.
 
 ## Key Conventions
 

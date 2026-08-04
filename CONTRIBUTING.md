@@ -6,7 +6,7 @@ Thank you for your interest in contributing!
 
 1. Fork the repository
 2. Clone your fork and create a branch from `main`
-3. Build the project using `python3 BUILD.py` (see the [build documentation](docs/docs/developer/building.md) for platform-specific instructions)
+3. Build the project using `python3 BUILD.py` (see the [build documentation](https://aviqtl.gt610.dpdns.org/developer/building) for platform-specific instructions)
 4. Make your changes
 5. Run tests: `cd build && ctest --output-on-failure`
 6. Submit a pull request
@@ -42,7 +42,7 @@ Each effect/object/transition consists of:
 - A `.qml` component file
 - Optionally a `.frag` or `.comp` shader file
 
-See the [effects and objects documentation](docs/docs/developer/effects.md) for the extension model.
+See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for the extension model.
 
 ## Adding Tests
 
