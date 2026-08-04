@@ -1,11 +1,22 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from BUILD import parse_semver
+from BUILD import BuildConfig, Logger, PlatformBuilder, parse_semver
+
+
+class RecordingBuilder(PlatformBuilder):
+    def __init__(self, config, logger):
+        super().__init__(config, logger)
+        self.cache_existed_when_command_ran = None
+
+    def run_cmd(self, cmd, shell=False, force_host=False):
+        del cmd, shell, force_host
+        self.cache_existed_when_command_ran = (self.config.work_dir / "CMakeCache.txt").exists()
 
 
 class TestBuildVersion(unittest.TestCase):
@@ -41,6 +52,33 @@ class TestBuildVersion(unittest.TestCase):
             with self.subTest(version=version):
                 with self.assertRaises(ValueError):
                     parse_semver(version)
+
+    def test_configure_refreshes_cmake_cache_but_keeps_build_artifacts(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_dir = Path(temp_dir)
+            config = BuildConfig(
+                source_dir=source_dir,
+                temp_base=source_dir / ".build_tmp",
+                output_dir=source_dir / "build",
+                target="test",
+                is_debug=False,
+                use_container=False,
+                is_offline=True,
+            )
+            config.work_dir.mkdir(parents=True)
+            cache_path = config.work_dir / "CMakeCache.txt"
+            artifact_path = config.work_dir / "build.ninja"
+            cache_path.write_text("LUAJIT_INCLUDE_DIRS=/stale/path\n", encoding="utf-8")
+            artifact_path.write_text("# keep incremental build metadata\n", encoding="utf-8")
+            messages = []
+            builder = RecordingBuilder(config, Logger(messages.append, lambda _value, _message: None))
+
+            builder.configure()
+
+            self.assertFalse(builder.cache_existed_when_command_ran)
+            self.assertFalse(cache_path.exists())
+            self.assertTrue(artifact_path.exists())
+            self.assertTrue(any("Refreshing CMake cache" in message for message in messages))
 
 
 if __name__ == "__main__":

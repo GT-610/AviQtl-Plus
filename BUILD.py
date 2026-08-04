@@ -177,7 +177,20 @@ class PlatformBuilder:
         pass
 
     def configure(self):
+        self.refresh_cmake_cache()
         self.run_cmd(self.get_cmake_config_cmd())
+
+    def refresh_cmake_cache(self):
+        """Force dependency discovery to run again while preserving build artifacts."""
+        cache_path = self.config.work_dir / "CMakeCache.txt"
+        if not cache_path.exists():
+            return
+
+        self.logger.log(f"Refreshing CMake cache: {cache_path}")
+        try:
+            cache_path.unlink()
+        except OSError as exc:
+            raise RuntimeError(f"Could not remove stale CMake cache {cache_path}: {exc}") from exc
 
     def update_translations(self):
         self.run_cmd([self.get_cmake_cmd(), "--build", str(self.config.work_dir), "--target", "AviQtl_lupdate"])
