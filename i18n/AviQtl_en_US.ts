@@ -1942,7 +1942,7 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>export is already running</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline_controller.cpp" line="317"/>
+        <location filename="../ui/src/timeline_controller.cpp" line="321"/>
         <source>Untitled project</source>
         <translation>Untitled project</translation>
     </message>
@@ -4084,32 +4084,31 @@ Please restart the application to apply the update.</translation>
         <translation>Absolute move multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="281"/>
         <source>複数クリップ移動: %1</source>
-        <translation>Move multiple clips: %1</translation>
+        <translation type="vanished">Move multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="340"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="312"/>
         <source>複数クリップ変形: %1</source>
         <translation>Transform multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="605"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="577"/>
         <source>クリップ削除</source>
         <translation>Delete clip</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="605"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="577"/>
         <source>複数クリップ削除: %1</source>
         <translation>Delete multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="766"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="738"/>
         <source>複数クリップ分割: %1</source>
         <translation>Split multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="812"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="784"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>Paste multiple clips: %1</translation>
     </message>
@@ -4896,97 +4895,97 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1223"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1199"/>
         <source>Browse object and transition catalog...</source>
         <translation>Browse object and transition catalog...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1226"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1202"/>
         <source>オブジェクトを追加</source>
         <translation>Add Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1241"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1217"/>
         <source>トランジションを追加</source>
         <translation>Add Transition</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1253"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1229"/>
         <source>元に戻す</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1254"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1230"/>
         <source>やり直す</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1255"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1231"/>
         <source>貼り付け</source>
         <translation>Paste</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1257"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1233"/>
         <source>シーン設定...</source>
         <translation>Scene Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1258"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1234"/>
         <source>プロジェクト設定...</source>
         <translation>Project Settings...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1259"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1235"/>
         <source>環境設定...</source>
         <translation>Preferences...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1261"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1237"/>
         <source>削除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1262"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1238"/>
         <source>分割</source>
         <translation>Split</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1263"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1239"/>
         <source>複製</source>
         <translation>Duplicate</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1265"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1241"/>
         <source>切り取り</source>
         <translation>Cut</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1266"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1242"/>
         <source>コピー</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1270"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1246"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1280"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1256"/>
         <source>Browse effect catalog...</source>
         <translation>Browse effect catalog...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1284"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1260"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1308"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1284"/>
         <source>エフェクト/オブジェクトを検索...</source>
         <translation>Search effects/objects...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="806"/>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="782"/>
         <source>ここにドロップ</source>
         <translation>Drop here</translation>
     </message>

@@ -54,7 +54,5 @@ Complete, self-contained examples demonstrating each extension type.
 
 ## Documentation
 
-- [EFFECT_SCHEMA.md](../docs/effects/EFFECT_SCHEMA.md) — JSON schema reference
-- [PLUGIN_SYSTEM_DESIGN.md](../docs/plugins/PLUGIN_SYSTEM_DESIGN.md) — Architecture
-- [DEVELOPER_GUIDE.md](../docs/plugins/DEVELOPER_GUIDE.md) — Plugin development
-- [API_REFERENCE.md](../docs/plugins/API_REFERENCE.md) — Lua API reference
+- [Effects and objects](https://aviqtl.gt610.dpdns.org/developer/effects) — extension model and JSON metadata
+- [Plugin development](https://aviqtl.gt610.dpdns.org/developer/plugins) — LuaJIT automation and permissions

@@ -30,7 +30,7 @@ This directory contains effect packages that demonstrate the extensibility of Av
 1. Study the package structure
 2. Read the package's README.md
 3. Create your own effect following the same pattern
-4. See [EFFECT_SCHEMA.md](../docs/effects/EFFECT_SCHEMA.md) for complete reference
+4. See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for the extension model
 
 ## Package Structure
 
@@ -167,10 +167,8 @@ void main() {
 
 ## Documentation
 
-- [EFFECT_SCHEMA.md](../docs/effects/EFFECT_SCHEMA.md) - JSON schema reference
-- [PLUGIN_SYSTEM_DESIGN.md](../docs/plugins/PLUGIN_SYSTEM_DESIGN.md) - Architecture
-- [DEVELOPER_GUIDE.md](../docs/plugins/DEVELOPER_GUIDE.md) - Plugin development
-- [API_REFERENCE.md](../docs/plugins/API_REFERENCE.md) - Lua API reference
+- [Effects and objects](https://aviqtl.gt610.dpdns.org/developer/effects) - extension model and JSON metadata
+- [Plugin development](https://aviqtl.gt610.dpdns.org/developer/plugins) - LuaJIT automation and permissions
 
 ## Contributing
 
