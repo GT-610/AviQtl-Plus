@@ -196,10 +196,10 @@ void WindowManager::registerWindow(const QString &id, QQuickWindow *win) {
     if (id == QStringLiteral("launcher")) {
         connect(win, &QQuickWindow::closing, this, [this](QQuickCloseEvent *e) -> void {
             Q_UNUSED(e);
-            auto mainWin = m_windows.value(QStringLiteral("main"));
-            if (!mainWin || mainWin.isNull()) {
-                requestQuit();
-            }
+            QObject *workspaceObject = m_engine ? m_engine->rootContext()->contextProperty(QStringLiteral("Workspace")).value<QObject *>() : nullptr;
+            auto *workspace = qobject_cast<Workspace *>(workspaceObject);
+            if (workspace == nullptr || workspace->tabs().isEmpty())
+                QCoreApplication::quit();
         });
     }
 
