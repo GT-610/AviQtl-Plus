@@ -91,6 +91,21 @@ ApplicationWindow {
         }
     }
 
+    function finishApplicationQuit() {
+        if (Workspace)
+            Workspace.discardAllRecoveries();
+        if (WindowManager)
+            WindowManager.requestQuit();
+    }
+
+    function requestApplicationQuit() {
+        var shouldConfirm = !SettingsManager || !SettingsManager.settings || SettingsManager.settings.showConfirmOnClose !== false;
+        if (shouldConfirm)
+            checkAllUnsavedAndExecute(finishApplicationQuit);
+        else
+            finishApplicationQuit();
+    }
+
     visible: Workspace && Workspace.tabs ? Workspace.tabs.length > 0 : false
     width: 640
     height: 360
@@ -99,14 +114,8 @@ ApplicationWindow {
     objectName: "mainWindow"
     title: qsTr("AviQtl Plus - プレビュー")
     onClosing: (close) => {
-        // 一旦クローズをキャンセルし、全タブの未保存確認を行ってから終了する
         close.accepted = false;
-        checkAllUnsavedAndExecute(function() {
-            Workspace.discardAllRecoveries();
-            if (WindowManager)
-                WindowManager.requestQuit();
-
-        });
+        requestApplicationQuit();
     }
     // 起動時に自分自身(Window)をコントローラーに渡す
     Component.onCompleted: {
@@ -186,13 +195,7 @@ ApplicationWindow {
         property string shortcutText: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["app.quit"]) || "Ctrl+Q"
 
         text: qsTr("終了")
-        onTriggered: {
-            checkAllUnsavedAndExecute(function() {
-                if (WindowManager)
-                    WindowManager.requestQuit();
-
-            });
-        }
+        onTriggered: requestApplicationQuit()
     }
 
     Action {

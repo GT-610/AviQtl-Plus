@@ -1,3 +1,4 @@
+import "../common/SettingsHelper.js" as SettingsHelper
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -6,6 +7,8 @@ ScrollView {
     id: root
 
     required property var draftSettings
+    required property var themeValues
+    required property var themeLabels
 
     signal valueChanged(string key, var value)
 
@@ -28,7 +31,7 @@ ScrollView {
         spacing: 14
 
         GroupBox {
-            title: qsTr("表示")
+            title: qsTr("テーマ")
             Layout.fillWidth: true
 
             GridLayout {
@@ -38,25 +41,26 @@ ScrollView {
                 anchors.fill: parent
 
                 Label {
-                    text: qsTr("文字余白係数")
+                    text: qsTr("カラーテーマ")
                 }
 
-                SpinBox {
-                    from: 1
-                    to: 20
-                    stepSize: 1
-                    value: Math.round(root.valueOr("textPaddingMultiplier", 4) * 10)
-                    textFromValue: function(value, locale) {
-                        return (value / 10).toFixed(1);
-                    }
-                    valueFromText: function(text, locale) {
-                        return Math.round(Number(text) * 10);
-                    }
-                    onValueModified: root.setValue("textPaddingMultiplier", value / 10)
+                ComboBox {
+                    Layout.fillWidth: true
+                    model: root.themeLabels
+                    currentIndex: SettingsHelper.indexOfValue(root.themeValues, root.valueOr("theme", "System"), 2)
+                    onActivated: root.setValue("theme", root.themeValues[currentIndex])
                 }
 
             }
 
+        }
+
+        Label {
+            Layout.fillWidth: true
+            text: qsTr("テーマの変更は「適用」または「OK」を押すとすぐに反映されます")
+            color: palette.text
+            opacity: 0.7
+            wrapMode: Text.WordWrap
         }
 
         Item {

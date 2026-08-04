@@ -1,4 +1,3 @@
-import "../common/SettingsHelper.js" as SettingsHelper
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,8 +6,6 @@ ScrollView {
     id: root
 
     required property var draftSettings
-    required property var timeUnitValues
-    required property var timeUnitLabels
 
     signal valueChanged(string key, var value)
 
@@ -37,29 +34,10 @@ ScrollView {
             ColumnLayout {
                 anchors.fill: parent
 
-                RowLayout {
-                    Label {
-                        text: qsTr("時間表示")
-                    }
-
-                    ComboBox {
-                        model: timeUnitLabels
-                        currentIndex: SettingsHelper.indexOfValue(timeUnitValues, root.valueOr("timeUnit", "frame"), 0)
-                        onActivated: root.setValue("timeUnit", timeUnitValues[currentIndex])
-                    }
-
-                }
-
                 CheckBox {
                     text: qsTr("タイムラインスキミングを有効にする")
                     checked: root.valueOr("enableTimelineSkimming", true)
                     onToggled: root.setValue("enableTimelineSkimming", checked)
-                }
-
-                CheckBox {
-                    text: qsTr("レイヤー範囲を表示する")
-                    checked: root.valueOr("showLayerRange", true)
-                    onToggled: root.setValue("showLayerRange", checked)
                 }
 
             }
@@ -138,17 +116,6 @@ ScrollView {
                     to: 300
                     value: root.valueOr("timelineLayerHeaderWidth", 60)
                     onValueModified: root.setValue("timelineLayerHeaderWidth", value)
-                }
-
-                Label {
-                    text: qsTr("時間表示欄の幅")
-                }
-
-                SpinBox {
-                    from: 40
-                    to: 300
-                    value: root.valueOr("timelineRulerTimeWidth", 70)
-                    onValueModified: root.setValue("timelineRulerTimeWidth", value)
                 }
 
                 Label {

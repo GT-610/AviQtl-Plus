@@ -1,4 +1,5 @@
 #include "theme_controller.hpp"
+#include "settings_manager.hpp"
 #include <QSignalSpy>
 #include <QTest>
 
@@ -33,6 +34,22 @@ class TestThemeController : public QObject {
         QSignalSpy spy(&ctrl, &ThemeController::themeChanged);
         ctrl.setTheme(current);
         QCOMPARE(spy.count(), 0);
+    }
+
+    void settingsMapChangeUpdatesTheme() {
+        ThemeController &ctrl = ThemeController::instance();
+        SettingsManager &settings = SettingsManager::instance();
+        const QVariantMap originalSettings = settings.settings();
+        QVariantMap changedSettings = originalSettings;
+        const QString target = ctrl.theme() == QStringLiteral("Light") ? QStringLiteral("Dark") : QStringLiteral("Light");
+        changedSettings.insert(QStringLiteral("theme"), target);
+
+        QSignalSpy spy(&ctrl, &ThemeController::themeChanged);
+        settings.setSettings(changedSettings);
+        QCOMPARE(ctrl.theme(), target);
+        QCOMPARE(spy.count(), 1);
+
+        settings.setSettings(originalSettings);
     }
 };
 

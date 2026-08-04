@@ -11,9 +11,6 @@ ScrollView {
     required property var videoCodecLabels
     required property var audioCodecValues
     required property var audioCodecLabels
-    required property var audioChannelValues
-    required property var audioChannelLabels
-    required property var blockSizeValues
 
     signal valueChanged(string key, var value)
 
