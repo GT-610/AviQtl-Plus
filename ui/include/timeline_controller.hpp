@@ -198,7 +198,7 @@ class TimelineController : public QObject {
     Q_INVOKABLE void exportVideoAsync(const QVariantMap &cfg);
     Q_INVOKABLE void exportImageSequence(const QString &dir, int quality = 100, const QString &format = QStringLiteral("PNG"), int startFrame = 0, int endFrame = -1);
     Q_INVOKABLE void cancelExport();
-    Q_PROPERTY(bool isExporting READ isExporting NOTIFY exportFinished)
+    Q_PROPERTY(bool isExporting READ isExporting NOTIFY isExportingChanged)
     bool isExporting() const;
 
     // エンコーダー検出
@@ -264,6 +264,7 @@ class TimelineController : public QObject {
     void selectedLayerChanged();
     void errorOccurred(const QString &message);
     void missingMediaChanged();
+    void isExportingChanged();
     void exportStarted(int totalFrames);
     void exportProgressChanged(int progress, int currentFrame, int totalFrames, int etaSeconds);
     void exportFinished(bool success, const QString &message);

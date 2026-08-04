@@ -130,6 +130,7 @@ void TimelineController::setupConnections() {
     connect(m_mediaManager, &TimelineMediaManager::frameUpdated, this, &TimelineController::clipEffectsChanged);
     connect(m_mediaManager->audioMixer(), &AviQtl::Engine::AudioMixer::audioMeterChanged, this, &TimelineController::audioMeterChanged);
 
+    connect(m_exportManager, &TimelineExportManager::exportingChanged, this, [this]() { emit isExportingChanged(); });
     connect(m_exportManager, &TimelineExportManager::exportStarted, this, &TimelineController::exportStarted);
     connect(m_exportManager, &TimelineExportManager::exportProgressChanged, this, &TimelineController::exportProgressChanged);
     connect(m_exportManager, &TimelineExportManager::exportFinished, this, &TimelineController::exportFinished);

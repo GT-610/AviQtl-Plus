@@ -7,6 +7,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #include <cmath>
 
 using namespace AviQtl::UI;
@@ -26,6 +27,7 @@ class TestExportWorkflow : public QObject {
     void imageSequenceWithoutCompositeViewFailsBeforeCreatingFrames();
     void imageSequenceCaptureFailureRemovesPartialOutput();
     void imageSequenceRefusesToOverwriteExistingFrames();
+    void exportStateTransitionsBeforeCompletion();
 
   private:
     static QVariantMap validVideoConfig(const TimelineController &controller, const QString &outputPath);
@@ -206,7 +208,7 @@ void TestExportWorkflow::imageSequenceCaptureFailureRemovesPartialOutput() {
     QQuickItem captureItem;
     captureItem.setSize(QSizeF(64, 64));
     controller.setCompositeView(&captureItem);
-    const QString firstFramePath = QDir(outputDir).filePath(QStringLiteral("frame_0.png"));
+    const QString firstFramePath = QDir(outputDir).filePath(QStringLiteral("frame_000000.png"));
     int captureCount = 0;
     bool firstFrameWasWritten = false;
     TimelineExportManager exportManager(&controller, [&](const QSize &requestedSize, int) {
@@ -239,7 +241,7 @@ void TestExportWorkflow::imageSequenceRefusesToOverwriteExistingFrames() {
 
     const QString outputDir = dir.filePath(QStringLiteral("existing-sequence"));
     QVERIFY(QDir().mkpath(outputDir));
-    const QString existingFrame = QDir(outputDir).filePath(QStringLiteral("frame_0.png"));
+    const QString existingFrame = QDir(outputDir).filePath(QStringLiteral("frame_000000.png"));
     QFile sentinel(existingFrame);
     QVERIFY(sentinel.open(QIODevice::WriteOnly));
     const QByteArray sentinelData("existing frame data");
@@ -259,6 +261,37 @@ void TestExportWorkflow::imageSequenceRefusesToOverwriteExistingFrames() {
     QFile preservedFrame(existingFrame);
     QVERIFY(preservedFrame.open(QIODevice::ReadOnly));
     QCOMPARE(preservedFrame.readAll(), sentinelData);
+}
+
+void TestExportWorkflow::exportStateTransitionsBeforeCompletion() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    TimelineController controller;
+    QQuickItem captureItem;
+    captureItem.setSize(QSizeF(64, 64));
+    controller.setCompositeView(&captureItem);
+
+    TimelineExportManager exportManager(&controller, [](const QSize &requestedSize, int) {
+        QThread::msleep(100);
+        const QSize imageSize = requestedSize.isValid() ? requestedSize : QSize(64, 64);
+        QImage image(imageSize, QImage::Format_RGBA8888);
+        image.fill(Qt::blue);
+        return image;
+    });
+
+    QStringList events;
+    connect(&exportManager, &TimelineExportManager::exportingChanged, this, [&events](bool exporting) { events.append(exporting ? QStringLiteral("active") : QStringLiteral("inactive")); });
+    connect(&exportManager, &TimelineExportManager::exportFinished, this, [&events]() { events.append(QStringLiteral("finished")); });
+    QSignalSpy finishedSpy(&exportManager, &TimelineExportManager::exportFinished);
+
+    QVERIFY(exportManager.exportImageSequence(dir.filePath(QStringLiteral("sequence")), 95, QStringLiteral("PNG"), 0, 1));
+    QVERIFY(exportManager.isExporting());
+    QCOMPARE(events, QStringList{QStringLiteral("active")});
+
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 10'000);
+    QVERIFY(!exportManager.isExporting());
+    QCOMPARE(events, QStringList({QStringLiteral("active"), QStringLiteral("inactive"), QStringLiteral("finished")}));
 }
 
 QTEST_MAIN(TestExportWorkflow)

@@ -17,6 +17,7 @@ Common.AviQtlWindow {
     property int defaultCrf: SettingsManager ? SettingsManager.value("exportDefaultCrf", 20) : 20
     property string defaultAudioCodec: SettingsManager ? SettingsManager.value("exportDefaultAudioCodec", "aac") : "aac"
     property int defaultAudioKbps: SettingsManager ? SettingsManager.value("exportDefaultAudioBitrateKbps", 192) : 192
+    property int defaultImageQuality: SettingsManager ? SettingsManager.value("exportImageQuality", 95) : 95
     property bool isImageSequence: formatCombo.currentIndex === 1
     property string imageFormat: imageFormatCombo.currentIndex === 0 ? "PNG" : "JPEG"
 
@@ -45,13 +46,10 @@ Common.AviQtlWindow {
         return -1;
     }
 
-    function show() {
-        refreshAvailableCodecs();
-        visible = true;
-    }
-
     function open() {
         refreshAvailableCodecs();
+        exportProgressBar.value = 0;
+        progressLabel.text = qsTr("0 / 0 フレーム");
         visible = true;
     }
 
@@ -113,6 +111,12 @@ Common.AviQtlWindow {
     modality: ownerWindow ? Qt.WindowModal : Qt.ApplicationModal
     transientParent: ownerWindow
     flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowCloseButtonHint
+    onClosing: function(close) {
+        if (Workspace.currentTimeline?.isExporting) {
+            close.accepted = false;
+            cancelConfirmDialog.open();
+        }
+    }
 
     // 進捗オーバーレイ
     Rectangle {
@@ -122,6 +126,10 @@ Common.AviQtlWindow {
         color: Qt.rgba(0, 0, 0, 0.75)
         visible: Workspace.currentTimeline?.isExporting
         z: 100
+
+        MouseArea {
+            anchors.fill: parent
+        }
 
         ColumnLayout {
             anchors.centerIn: parent
@@ -150,7 +158,7 @@ Common.AviQtlWindow {
 
                 Layout.alignment: Qt.AlignHCenter
                 text: qsTr("0 / 0 フレーム")
-                color: palette.mid
+                color: Qt.rgba(1, 1, 1, 0.8)
                 font.pixelSize: 11
             }
 
@@ -166,6 +174,11 @@ Common.AviQtlWindow {
 
     // 進捗シグナルの受信
     Connections {
+        function onExportStarted(totalFrames) {
+            exportProgressBar.value = 0;
+            progressLabel.text = qsTr("0 / %1 フレーム").arg(totalFrames);
+        }
+
         function onExportProgressChanged(progress, current, total, etaSeconds) {
             exportProgressBar.value = progress;
             if (etaSeconds > 0) {
@@ -188,9 +201,10 @@ Common.AviQtlWindow {
         }
 
         function onExportFinished(success, message) {
+            cancelConfirmDialog.close();
             resultPopup.message = message;
             resultPopup.success = success;
-            resultPopup.open();
+            Qt.callLater(function() { resultPopup.open(); });
         }
 
         target: Workspace.currentTimeline
@@ -210,6 +224,8 @@ Common.AviQtlWindow {
 
         Label {
             text: resultPopup.message
+            wrapMode: Text.WordWrap
+            width: Math.min(420, implicitWidth)
         }
 
     }
@@ -702,7 +718,7 @@ Common.AviQtlWindow {
                     if (root.isImageSequence) {
                         var sf = fullRangeCheck.checked ? 0 : startFrameSpin.value;
                         var ef = fullRangeCheck.checked ? -1 : endFrameSpin.value;
-                        Workspace.currentTimeline.exportImageSequence(filePathField.text, 100, root.imageFormat, sf, ef);
+                        Workspace.currentTimeline.exportImageSequence(filePathField.text, root.defaultImageQuality, root.imageFormat, sf, ef);
                     } else {
                         var codec = root.comboValue(codecCombo, "libx264");
                         var audioCodec = root.comboValue(audioCodecCombo, "aac");
@@ -741,7 +757,7 @@ Common.AviQtlWindow {
 
         title: qsTr("保存先を指定")
         fileMode: Dialogs.FileDialog.SaveFile
-        nameFilters: ["MP4 Video (*.mp4)", "MKV Video (*.mkv)", "All files (*)"]
+        nameFilters: [qsTr("MP4 Video (*.mp4)"), qsTr("MKV Video (*.mkv)"), qsTr("All files (*)")]
         onAccepted: {
             var path = selectedFile.toString();
             filePathField.text = Qt.platform.os === "windows" ? path.replace(/^file:\/{3}/, "") : path.replace(/^file:\/\//, "");
