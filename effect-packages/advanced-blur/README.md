@@ -96,7 +96,7 @@ These effects use fragment shaders for simplicity:
 4. **Optimize**: Migrate to compute shader if performance is critical
 5. **Test**: Verify with various input sizes and parameter ranges
 
-See [EFFECT_SCHEMA.md](../../docs/effects/EFFECT_SCHEMA.md) for complete reference.
+See the [effects and objects documentation](../../docs/docs/developer/effects.md) for complete reference.
 
 ## License
 

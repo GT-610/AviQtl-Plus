@@ -102,7 +102,7 @@ Objects are defined similarly to effects but with `kind: "object"`:
 5. **Connect Parameters**: Bind JSON params to QML properties
 6. **Test**: Place in objects directory and restart AviQtl
 
-See [EFFECT_SCHEMA.md](../../docs/effects/EFFECT_SCHEMA.md) for complete reference.
+See the [effects and objects documentation](../../docs/docs/developer/effects.md) for complete reference.
 
 ## License
 

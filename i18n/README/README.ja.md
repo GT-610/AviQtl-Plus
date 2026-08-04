@@ -14,46 +14,15 @@
 </p>
 
 > [!IMPORTANT]
-> このリポジトリは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkです。2026年5月末、原作者は開発を**リセット**することを決定しました。現在の`main`ブランチは **Rust + Slint + wgpu** をベースとした新しいNeoUtlが置かれ、Qt Quickベースの旧バージョンは`aviqtl`ブランチ（**AviQtl**）に移動されました。元プロジェクトの初期コアコントリビューターであった[GT610](https://github.com/GT-610)がQt Quick路線を継続し、**AviQtl-Plus**として開発を進めます。
->
-> これにより、3つのNeoUtl関連プロジェクトが並行して存在することになりました：
-> - **[NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)** — Rust + Slint + wgpu で再構築された元プロジェクト
-> - **[AviQtl](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl)** — 元のQt Quick版。「AviQtl」として継続
-> - **AviQtl-Plus（このプロジェクト）** — Qt Quick + QRhi + ECS アプローチを継続するfork
-
-### 元プロジェクトの開発休止理由
-
-原作者は以下の技術的課題を特定しました：
-
-- Qt Quick独自のリソース管理がCompute Shaderと相性が悪く、実装が困難
-- 同様に、ECSとの相性が悪く、最適化が困難
-- リアルタイム処理においてパフォーマンス上の懸念がある
-
-### AviQtl-Plusの取り組み
-
-元プロジェクトで得られた知見を基に、AviQtl-Plusはこれらの課題に取り組みます：
-
-1. **Compute Shaderの実現**: Qt Quickの制約を回避し、GPU Compute Shaderを活用した高速なエフェクト処理を実現する
-2. **ECSアーキテクチャの最適化**: データ駆動型設計の恩恵を最大化しつつ、Qt Quickとの摩擦を解消する
-3. **リアルタイム性能の向上**: プレビュー描画におけるボトルネックを排除し、滑らかな編集体験を提供する
-
-ビジョンは変わりません：**AviUtlを踏襲し凌駕する動画編集ソフトの実現**です。Qt Quick + QRhi + ECS アプローチは実行可能で価値のある道であり、実用的な日常の編集ツールに成熟させることに注力します。
-
-### 原作者の新しい方向性
-
-原作者はすでに計画を実行に移しています。新しい`main`ブランチは **Rust + Slint + wgpu** でゼロから再構築されており、Compute Shaderを重視する将来のビジョンにはQt Quickは適さないという確信に基づいています。コア実装フェーズ中はPRを受け付けないとのことです。
-
-旧Qt Quickソースコードは引き続き[`aviqtl`ブランチ](https://codeberg.org/taisho-guy/NeoUtl/src/branch/aviqtl)で入手可能であり、原作者はQt Quickアプローチを好むユーザーに[明示的にAviQtl-Plusを推奨](https://codeberg.org/taisho-guy/NeoUtl)しています。
-
-### 新しいNeoUtlとの関係
-
-原作者と私は友好的な関係を維持しています。AviQtl-Plusの貢献が新しいNeoUtlに適用可能であれば、喜んで上流に提出します。同様に、両プロジェクトの成果が時間とともに相互に還元され、最終的にはモダンでパワフルなAviUtl後継を求めるすべてのユーザーに利益をもたらすことを願っています。
+> AviQtl-Plusは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkであり、上流プロジェクトが**Rust + Slint + wgpu**で再構築された後も**Qt Quick + QRhi + ECS**の開発路線を継続しています。詳しい経緯は[プロジェクトについて](../../docs/docs/guide/start-here/about.md)をご覧ください。
 
 ## [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)とは
 
 <img src="../../assets/screenshot.webp">
 
 **AviUtl 1.10** & **ExEdit 0.92**の操作感を踏襲しつつ、**AviUtlを超える性能**を持つ動画編集ソフトを開発するプロジェクトです。
+
+開発を導く編集モデルの互換目標については、[AviUtl操作感の目標](../../docs/docs/developer/operability-targets.md)をご覧ください。
 
 ### 主な特徴
 
@@ -63,81 +32,14 @@
 - **LuaJITプラグインシステム**（パッケージ管理、宣言的パラメータ、権限制御付き）
 - **Linux**、**Windows**、**macOS**に対応
 
-## インストール手順
+## ドキュメント
 
-1. Linuxの場合、以下の依存関係をインストールします：
-   - Qt6全般、LuaJIT、Vulkan実装（Mesa等）、FFmpeg、Carla、clang（libc++を提供）
-2. [リリースページ](https://github.com/GT-610/AviQtl-Plus/releases)からお使いのPCに最適なビルドをダウンロードします。
-3. ファイルを展開し、`AviQtl` に実行権限を付与して実行します。
-
-> [!NOTE]
-> Linuxユーザーの場合、Arch Linux相当の最新環境を要求します。Ubuntu等の他のディストリビューションをご利用の方は、[Distrobox](https://distrobox.it/)でArch Linuxコンテナを作成し、その中でAviQtlを実行することを強く推奨致します。
-
-## ビルド手順
-
-`BUILD.py` は現在の OS からビルドターゲットを自動判定します。通常は `python BUILD.py` だけで実行できますが、手動で指定することも可能です。
-
-共通の準備として、リポジトリをクローンしてください：
-
-```bash
-git clone https://github.com/GT-610/AviQtl-Plus.git
-cd AviQtl-Plus
-```
-
-<details>
-<summary>Linux</summary>
-
-Linux では既定で distrobox/podman コンテナを使用してビルド環境を分離します。
-
-1. **依存関係のインストール**
-   - Pacman: `sudo pacman -S --needed distrobox podman python git`
-   - APT: `sudo apt install distrobox podman python3 git`
-   - DNF: `sudo dnf install distrobox podman python3 git`
-2. **ビルド**
-   - `python BUILD.py --arch`
-3. **実行**
-   - `./build/AviQtl`
-</details>
-
-<details>
-<summary>macOS</summary>
-
-macOS では `BUILD.py` が Homebrew 経由で CMake、Ninja、Qt6 等の依存関係を確認・インストールし、`macdeployqt` と `codesign` を実行して `.app` バンドルを作成します。
-
-1. **依存関係のインストール**
-   - `brew install python git`
-2. **ビルド**
-   - `python BUILD.py --xcode`
-3. **実行**
-   - `open ./build/AviQtl.app`
-</details>
-
-<details>
-<summary>Windows (MSYS2)</summary>
-
-1. **依存関係のインストール**
-   - `pacman -S git mingw-w64-ucrt-x86_64-python`
-2. **ビルド**
-   - `python BUILD.py --msys2`
-3. **実行**
-   - `./build/AviQtl.exe`
-</details>
-
-<details>
-<summary>Windows (MSVC - 非推奨)</summary>
-
-MSVC ビルドは環境構築の複雑さから非推奨としています。
-
-1. **追加の準備**
-   - Visual Studio 2022 Build Tools の C++ ツールセット
-   - 公式 Qt の MSVC x64 版（例: `msvc2022_64`）
-   - vcpkg（`VCPKG_ROOT` 環境変数で指定可能。見つからない場合は `BUILD.py` が取得を試みます）
-2. **ビルド**
-   - `python BUILD.py --msvc --qt-dir <Qtインストールディレクトリ>`
-   - `--qt-dir` を省略した場合は `QT_MSVC_DIR` 等から自動検出を試みます。
-3. **実行**
-   - `.\build\AviQtl.exe`
-</details>
+- [インストール](../../docs/docs/guide/start-here/installation.md)
+- [ユーザーガイド](../../docs/docs/guide/start-here/index.md)
+- [ソースからのビルド](../../docs/docs/developer/building.md)
+- [開発者ドキュメント](../../docs/docs/developer/index.md)
+- [よくある質問](../../docs/docs/guide/help-and-reference/faq.md)
+- [プロジェクトについて](../../docs/docs/guide/start-here/about.md)
 
 ## エフェクトパッケージ
 
@@ -150,132 +52,6 @@ AviQtl-Plus はモジュラーなエフェクトシステムを備えていま�
 | [weather-objects](../../effect-packages/weather-objects/) | オブジェクト | 雨、雪アニメーション |
 
 これらのパッケージは、実用的な追加機能であると同時に、カスタムエフェクト作成のための開発者リファレンスとしても活用できます。詳細は [effect-packages/README.md](../../effect-packages/README.md) を参照してください。
-
-## Q & A
-
-> [!NOTE]
-> 以下のQ&Aは元の作者（taisho-guy）の個人的な見解と動機を述べたものです。
-
-<details>
-<summary>開発のきっかけは？</summary>
-
-### OSの壁
-LinuxでAviUtlが動かないことがきっかけです。**AviUtlのためだけにWindows環境を維持し続けること**は受け入れがたいものでした。
-
-### 肥大化したエコシステム
-理由は違えど、AviUtlを「仕方なく」使い続けている方は少なくないはずです。長年の拡張によって肥大化した「ハウルの動く城」のようなエコシステムは、不満を抱えながらも手放しにくい存在となっています。
-
-### プロジェクトの目標とミッション
-[鹿児島県立甲南高等学校](https://edunet002.synapse-blog.jp/konan/)の課題研究において、この課題を解決すべくNeoUtlの独自開発を決意しました。
-
-- **個人的な目標:** Domino、VocalShifter、REAPER、AviUtlをはしごすることなく、Linux上のNeoUtlのみで音MADを制作すること。
-- **NeoUtlのミッション:** AviUtlを「仕方なく」使っている方々の最適解になること。
-</details>
-
-<details>
-<summary>なぜAviUtlのクローンを開発しているのですか？</summary>
-
-AviQtl-Plusは「AviUtlの再発明」ではありません。AviUtlを強く意識していますが、その中身は全く異なります。
-
-| 項目 | AviQtl-Plus | ExEdit0 | ExEdit2 |
-| :--- | :--- | :--- | :--- |
-| 基盤技術 | Qt6 | Win32 API | Win32 API |
-| 並列処理モデル | データ駆動型（ECS） | シングルスレッド | マルチスレッド |
-| メモリ空間 | 64bit | 32bit (最大4GB) | 64bit |
-| プレビュー描画 | Vulkan / Metal / DX12 | GDI | DX11 |
-| 音声エンジン | Carla (VST3/LV2等) | 標準機能のみ | 標準機能のみ |
-| プラグイン方式 | LuaJIT / C++ / QML / GLSL | Lua / C++ | LuaJIT / C++ |
-| 対応OS | Linux, Windows, macOS | Windows | Windows |
-
-AviQtl-Plusは構造的な弱点を根本的に解決します：
-1. **ECS（Entity Component System）によるデータ指向:** CPUキャッシュ効率を極限まで高め、大量のオブジェクト処理を高速化。
-2. **近代的なメモリ管理:** C++23のスマートポインタを採用し、原因不明のクラッシュを構造的に最小化。
-3. **UIとレンダリングの分離:** 重い描画中でもタイムライン操作が妨げられず、High-DPI環境でもUIが鮮明に表示されます。
-</details>
-
-<details>
-<summary>名称やアイコンの由来は？</summary>
-
-名称は「AviUtl」と「Qt」を組み合わせた造語です。
-アイコンは、QtとAviUtlのロゴを組み合わせたデザインになっています。
-
-<p align="center">
-  <img src="../../assets/qt.svg" width="64" align="middle"> + <img src="../../assets/aviutl.svg" width="64" align="middle"> = <img src="../../assets/icon.svg" width="64" align="middle">
-</p>
-</details>
-
-<details>
-<summary>AviUtlのプラグインは使えますか？</summary>
-いいえ。仕組みが異なるため互換性は有りません。互換レイヤーを実装する予定も有りません。
-</details>
-
-### AviQtl-Plus Q&A
-
-> [!NOTE]
-> 以下のQ&AはAviQtl-Plusメンテナー（[GT610](https://github.com/GT-610)）の見解です。
-
-<details>
-<summary>なぜAviQtl-Plusの開発を継続するのですか？</summary>
-
-元プロジェクトはQt Quickの技術的課題により休止しましたが、同時に**QtとFFmpegを使えば動画編集ソフトの高品質なプロトタイプを高速に実装できる**ことが証明されました。アーキテクチャは良く設計されており、基盤はしっかりしています。特にQRhiによってCompute Shaderへの実行可能なパスが開かれた今、Qt Quick路線にはまだ価値があると信じています。
-
-初期のコアコントリビューターとして、このプロジェクトの可能性を間近で見てきました。原作者が残した場所から開発を引き継ぎ、単にコードを生かし続けるだけでなく、本来のビジョン——AviUtlの操作感を踏襲しつつそれを超える性能を持つ動画編集ソフトの実現——を成し遂げたいと考えています。
-</details>
-
-<details>
-<summary>AviQtl-Plusのロードマップは？</summary>
-
-**完了（0.3.0）：**
-- ライフサイクルフック、宣言的パラメータ、きめ細かな権限制御を備えたLuaJITプラグインシステム
-- リモートリポジトリからのプラグイン・エフェクト・オブジェクトのインストール/更新を行うパッケージマネージャー
-- コア、エンジン、スクリプティング、プラグインサブシステムをカバーする24個の単体テスト
-- GitHub ActionsによるCI（ビルド＋静的解析）
-
-**完了（0.3.1-0.3.2）：**
-- ロックフリー共有ポインタによるスレッドセーフなオーディオ処理とキーフレーム評価の最適化
-- Compute ShaderエフェクトのHDR出力、不透明度、マルチパスディスパッチ
-- トランジションエフェクト（Dissolve、Slide、WipeCircle）
-- オーディオプラグインのキーフレーム編集とミキサーパネルUI
-- エフェクトスキーマドキュメントとセピアエフェクトのサンプル
-- ハードコード定数の抽出とログの標準化
-- オブジェクトJSON/QMLの命名整合性の統一
-- macOSビルドおよびパッケージングの修正（atomic shared_ptr、carla-discovery-native RPATH）
-
-**完了（0.4.0）：**
-- GPU Compute Shader最適化：SRB事前割り当て、きめ細かなダーティフラグ、分離可能ブラー、ビソニックソート
-- BorderBlur O(n²) → O(2n)、エッジ検出ブレンドとアスペクト比制御
-- 3パス以上のマルチパスピンポンの正しさ
-
-**完了（未リリース）：**
-- 4つの新しいトランジション：Dissolve、Push、Zoom、Wipe（計7個）
-- Wipeトランジションの前/次のシーンの適切な合成
-- Pushトランジションの逆方向位置修正
-- CONTRIBUTING.mdとCHANGELOG.md
-- CI：ビルドワークフローのmacOSおよびWindowsテストステップ
-
-**次（0.4.x-0.5.0）：**
-- エフェクト・オブジェクトプラグインエコシステムの拡大（プラグインサンプルの追加）
-- CI/CDとリリース自動化の継続的強化
-
-**長期：**
-- AviUtlの代替として十分なフル機能動画編集ソフトへ
-- プロジェクトの独立した方向性を反映した改名・リブランド（名前とロゴ）を検討
-- 新しいNeoUtlの進捗を継続的に監視し、プロジェクト間の相互還元の機会を模索する
-
-本プロジェクトは完全に個人のモチベーションに基づいて進められています。締切や商業的なプレッシャーはありません。着実に、しかし無理のないペースで進めていきます。
-</details>
-
-<details>
-<summary>AviQtl-Plusは元のプロジェクトとどう違うのですか？</summary>
-
-技術的な方向性はほぼ同じ（Qt Quick + QRhi + ECS）ですが、AviQtl-Plusでは以下をより重視しています：
-
-- **インクリメンタルな成果**: アーキテクチャの完全性を追求するよりも、まず基本的で使える編集ワークフローを届ける
-- **プラグマティックな問題解決**: Qt Quickの制約をブロッカーとして捉えるのではなく、その範囲内で最適解を探る
-- **コミュニティへの透明性**: forkの関係性、計画、長期的な意図を明確に文書化
-
-プロジェクトが使用可能な状態に達した後は、元のプロジェクトとの差別化を明確にするため、改名およびリブランドを行う可能性があります。
-</details>
 
 ## 関連リンク
 
