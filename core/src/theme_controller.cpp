@@ -11,8 +11,20 @@ auto ThemeController::instance() -> ThemeController & {
 }
 
 ThemeController::ThemeController(QObject *parent) : QObject(parent) {
-    m_theme = SettingsManager::instance().value(QStringLiteral("theme"), "System").toString();
+    auto &settings = SettingsManager::instance();
+    m_theme = settings.value(QStringLiteral("theme"), QStringLiteral("System")).toString();
     applyTheme();
+
+    connect(&settings, &SettingsManager::settingsChanged, this, [this, &settings]() {
+        const QString theme = settings.value(QStringLiteral("theme"), QStringLiteral("System")).toString();
+        if (m_theme == theme) {
+            return;
+        }
+
+        m_theme = theme;
+        applyTheme();
+        emit themeChanged();
+    });
 }
 
 auto ThemeController::theme() const -> QString { return m_theme; }

@@ -324,11 +324,13 @@ Common.AviQtlWindow {
         return [];
     }
 
-    width: isAudioWorkspaceClip ? 820 : 350
+    width: isAudioWorkspaceClip ? 820 : 560
     height: isAudioWorkspaceClip ? 620 : 500
+    minimumWidth: isAudioWorkspaceClip ? 760 : 480
+    minimumHeight: 420
     title: qsTr("設定ダイアログ")
     color: palette.window
-    visible: true
+    visible: false
     x: 500
     y: 200
     onVisibleChanged: {
@@ -408,6 +410,7 @@ Common.AviQtlWindow {
         id: settingsSplitView
 
         anchors.fill: parent
+        anchors.margins: 8
         orientation: Qt.Horizontal
         LayoutMirroring.enabled: root.sidebarOnRight
         LayoutMirroring.childrenInherit: true
@@ -559,7 +562,7 @@ Common.AviQtlWindow {
 
                             // ドラッグ用ハンドル
                             Common.AviQtlIcon {
-                                iconName: "drag_move_line" // 適切なアイコン名に変更してください
+                                iconName: "drag_move_line"
                                 size: 16
                                 color: palette.text
                                 opacity: 0.5
@@ -1001,7 +1004,7 @@ Common.AviQtlWindow {
                         id: audioSourceDialog
 
                         title: qsTr("音声ソースを選択")
-                        nameFilters: ["Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)", "All Files (*)"]
+                        nameFilters: [qsTr("Audio Files (*.wav *.mp3 *.aac *.m4a *.flac *.ogg)"), qsTr("All Files (*)")]
                         onAccepted: {
                             var path = selectedFile.toString();
                             if (path.indexOf("file://") === 0) {
@@ -1071,9 +1074,23 @@ Common.AviQtlWindow {
 
                                     ComboBox {
                                         Layout.fillWidth: true
-                                        model: ["開始時間＋再生速度", "時間直接指定"]
-                                        currentIndex: model.indexOf(root.audioParamValue("playMode", "開始時間＋再生速度"))
-                                        onActivated: root.setAudioParam("playMode", model[currentIndex])
+                                        model: [{
+                                            "text": qsTr("開始時間＋再生速度"),
+                                            "value": "開始時間＋再生速度"
+                                        }, {
+                                            "text": qsTr("時間直接指定"),
+                                            "value": "時間直接指定"
+                                        }]
+                                        textRole: "text"
+                                        currentIndex: {
+                                            var currentValue = root.audioParamValue("playMode", "開始時間＋再生速度");
+                                            for (var i = 0; i < model.length; ++i) {
+                                                if (model[i].value === currentValue)
+                                                    return i;
+                                            }
+                                            return 0;
+                                        }
+                                        onActivated: root.setAudioParam("playMode", model[currentIndex].value)
                                     }
                                 }
 
@@ -1346,7 +1363,7 @@ Common.AviQtlWindow {
                         property var effectModel: modelData
                         property int _effectRev: 0
 
-                        width: root.width
+                        Layout.fillWidth: true
                         spacing: 0
 
                         Connections {

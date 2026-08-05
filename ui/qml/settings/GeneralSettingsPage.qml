@@ -36,7 +36,7 @@ ScrollView {
                 anchors.fill: parent
 
                 CheckBox {
-                    text: qsTr("終了時に確認ダイアログを表示する")
+                    text: qsTr("終了時に未保存のプロジェクトを確認する")
                     checked: root.valueOr("showConfirmOnClose", true)
                     onToggled: root.setValue("showConfirmOnClose", checked)
                 }
@@ -131,18 +131,6 @@ ScrollView {
                 anchors.fill: parent
 
                 Label {
-                    text: qsTr("スプラッシュ表示時間")
-                }
-
-                SpinBox {
-                    from: 0
-                    to: 10000
-                    stepSize: 100
-                    value: root.valueOr("splashDuration", 512)
-                    onValueModified: root.setValue("splashDuration", value)
-                }
-
-                Label {
                     text: qsTr("スプラッシュ画像サイズ")
                 }
 
@@ -150,20 +138,8 @@ ScrollView {
                     from: 128
                     to: 2048
                     stepSize: 64
-                    value: root.valueOr("splashSize", 128)
+                    value: root.valueOr("splashSize", 512)
                     onValueModified: root.setValue("splashSize", value)
-                }
-
-                Label {
-                    text: qsTr("起動後の遅延時間")
-                }
-
-                SpinBox {
-                    from: 0
-                    to: 10000
-                    stepSize: 100
-                    value: root.valueOr("appStartupDelay", 1000)
-                    onValueModified: root.setValue("appStartupDelay", value)
                 }
 
             }

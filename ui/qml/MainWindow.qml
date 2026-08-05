@@ -11,6 +11,7 @@ ApplicationWindow {
 
     id: mainWin
 
+    property bool quitInProgress: false
     readonly property bool _isInputFocused: {
         var item = Qt.application.focusItem;
         if (!item)
@@ -91,6 +92,28 @@ ApplicationWindow {
         }
     }
 
+    function finishApplicationQuit() {
+        if (quitInProgress)
+            return;
+
+        quitInProgress = true;
+        if (Workspace)
+            Workspace.discardAllRecoveries();
+        if (WindowManager)
+            WindowManager.requestQuit();
+    }
+
+    function requestApplicationQuit() {
+        if (quitInProgress)
+            return;
+
+        var shouldConfirm = !SettingsManager || !SettingsManager.settings || SettingsManager.settings.showConfirmOnClose !== false;
+        if (shouldConfirm)
+            checkAllUnsavedAndExecute(finishApplicationQuit);
+        else
+            finishApplicationQuit();
+    }
+
     visible: Workspace && Workspace.tabs ? Workspace.tabs.length > 0 : false
     width: 640
     height: 360
@@ -99,14 +122,13 @@ ApplicationWindow {
     objectName: "mainWindow"
     title: qsTr("AviQtl Plus - プレビュー")
     onClosing: (close) => {
-        // 一旦クローズをキャンセルし、全タブの未保存確認を行ってから終了する
-        close.accepted = false;
-        checkAllUnsavedAndExecute(function() {
-            Workspace.discardAllRecoveries();
-            if (WindowManager)
-                WindowManager.requestQuit();
+        if (quitInProgress) {
+            close.accepted = true;
+            return;
+        }
 
-        });
+        close.accepted = false;
+        requestApplicationQuit();
     }
     // 起動時に自分自身(Window)をコントローラーに渡す
     Component.onCompleted: {
@@ -186,13 +208,7 @@ ApplicationWindow {
         property string shortcutText: (SettingsManager.settings.shortcuts && SettingsManager.settings.shortcuts["app.quit"]) || "Ctrl+Q"
 
         text: qsTr("終了")
-        onTriggered: {
-            checkAllUnsavedAndExecute(function() {
-                if (WindowManager)
-                    WindowManager.requestQuit();
-
-            });
-        }
+        onTriggered: requestApplicationQuit()
     }
 
     Action {
@@ -745,7 +761,7 @@ ApplicationWindow {
 
         title: qsTr("名前を付けて保存")
         fileMode: Platform.FileDialog.SaveFile
-        nameFilters: ["AviQtl Plus Project files (*.aviqtl)", "JSON files (*.json)"]
+        nameFilters: [qsTr("AviQtl Plus Project files (*.aviqtl)"), qsTr("JSON files (*.json)")]
         defaultSuffix: "aviqtl"
         onAccepted: {
             if (Workspace.currentTimeline)
@@ -765,7 +781,7 @@ ApplicationWindow {
         id: loadDialog
 
         title: qsTr("プロジェクトを開く")
-        nameFilters: ["AviQtl Plus Project files (*.aviqtl)", "JSON files (*.json)"]
+        nameFilters: [qsTr("AviQtl Plus Project files (*.aviqtl)"), qsTr("JSON files (*.json)")]
         onAccepted: {
             if (Workspace)
                 Workspace.loadProject(file);

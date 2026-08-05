@@ -10,8 +10,8 @@ Common.AviQtlWindow {
     width: 700
     height: 500
     title: qsTr("AviQtl Plus - プロジェクトランチャー")
-    Component.onCompleted: {
-        // 最近使ったプロジェクトをロード
+
+    function refreshLauncherData() {
         if (SettingsManager && SettingsManager.settings) {
             var recent = SettingsManager.settings.recentProjects || [];
             recentModel.clear();
@@ -25,8 +25,17 @@ Common.AviQtlWindow {
             fpsField.text = SettingsManager.settings.defaultProjectFps || "" + DefaultFps;
             sampleRateField.text = SettingsManager.settings.defaultProjectSampleRate || "" + DefaultSampleRate;
         }
+    }
+
+    Component.onCompleted: refreshLauncherData()
+    onVisibleChanged: {
+        if (!visible) {
+            recoveryWindow.close();
+            return;
+        }
+        refreshLauncherData();
         if (Workspace && Workspace.recoveries && Workspace.recoveries.length > 0)
-            Qt.callLater(function() { recoveryDialog.open(); });
+            Qt.callLater(function() { recoveryWindow.open(); });
     }
 
     FontLoader {
@@ -37,72 +46,17 @@ Common.AviQtlWindow {
         id: recentModel
     }
 
-    Dialog {
-        id: recoveryDialog
+    ProjectRecoveryWindow {
+        id: recoveryWindow
+        ownerWindow: root
+    }
 
-        title: qsTr("Recover unsaved projects")
-        modal: true
-        anchors.centerIn: parent
-        width: Math.min(620, root.width - 40)
-        height: Math.min(420, root.height - 40)
-        standardButtons: Dialog.Close
+    Connections {
+        target: Workspace
 
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 10
-
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("AviQtl found recovery snapshots left by an interrupted session. Recovering opens a new unsaved project and never overwrites the original file.")
-                wrapMode: Text.Wrap
-            }
-
-            ListView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                spacing: 6
-                model: Workspace ? Workspace.recoveries : []
-
-                delegate: Frame {
-                    required property var modelData
-                    width: ListView.view.width
-
-                    contentItem: RowLayout {
-                        spacing: 8
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Label {
-                                Layout.fillWidth: true
-                                text: modelData.name
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
-
-                            Label {
-                                Layout.fillWidth: true
-                                text: modelData.valid ? qsTr("Saved %1").arg(Qt.formatDateTime(modelData.savedAt, Qt.DefaultLocaleShortDate)) : qsTr("Invalid recovery: %1").arg(modelData.error)
-                                color: modelData.valid ? palette.text : palette.brightText
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        Button {
-                            text: qsTr("Recover")
-                            enabled: modelData.valid
-                            onClicked: Workspace.recoverProject(modelData.id)
-                        }
-
-                        Button {
-                            text: qsTr("Discard")
-                            onClicked: Workspace.discardRecovery(modelData.id)
-                        }
-                    }
-                }
-            }
+        function onTabsChanged() {
+            if (Workspace.tabs.length > 0)
+                root.close();
         }
     }
 
@@ -206,6 +160,7 @@ Common.AviQtlWindow {
 
                 highlighted: true
                 Layout.fillWidth: true
+                enabled: widthField.acceptableInput && heightField.acceptableInput && fpsField.acceptableInput && sampleRateField.acceptableInput
                 onClicked: {
                     // C++ 0引数の newProject() のみ使用（QML はオーバーロード不可）
                     Workspace.newProject();
@@ -268,9 +223,20 @@ Common.AviQtlWindow {
                     model: recentModel
                     spacing: 5
 
+                    Label {
+                        anchors.centerIn: parent
+                        visible: recentModel.count === 0
+                        text: qsTr("最近使ったプロジェクトはありません")
+                        color: palette.text
+                        opacity: 0.65
+                    }
+
                     delegate: ItemDelegate {
                         width: recentListView.width
                         height: 60
+                        hoverEnabled: true
+                        ToolTip.visible: hovered && Boolean(model.path)
+                        ToolTip.text: model.path || ""
                         onClicked: {
                             Workspace.loadProject(model.path);
                             root.close();
@@ -288,11 +254,14 @@ Common.AviQtlWindow {
                             Label {
                                 text: model.path || ""
                                 font.pixelSize: 10
-                                color: "gray"
+                                color: palette.text
+                                opacity: 0.65
+                                elide: Text.ElideMiddle
+                                Layout.fillWidth: true
                             }
 
                             Label {
-                                text: (model.width || DefaultWidth) + "x" + (model.height || DefaultHeight) + " @ " + (model.fps || DefaultFps) + "fps"
+                                text: qsTr("%1 × %2 @ %3 fps").arg(model.width || DefaultWidth).arg(model.height || DefaultHeight).arg(model.fps || DefaultFps)
                                 font.pixelSize: 10
                             }
 
@@ -336,7 +305,7 @@ Common.AviQtlWindow {
         id: fileDialog
 
         title: qsTr("プロジェクトファイルを開く")
-        nameFilters: ["AviQtl Plus Project (*.aviqtl)", "All files (*)"]
+        nameFilters: [qsTr("AviQtl Plus Project (*.aviqtl)"), qsTr("All Files (*)")]
         onAccepted: {
             Workspace.loadProject(fileDialog.selectedFile);
             root.close();

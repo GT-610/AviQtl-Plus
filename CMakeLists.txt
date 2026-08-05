@@ -265,6 +265,7 @@ set(QML_FILES
     ui/qml/PackageManagerWindow.qml
     ui/qml/PluginPermissionDialog.qml
     ui/qml/ProjectLauncherWindow.qml
+    ui/qml/ProjectRecoveryWindow.qml
     ui/qml/ProjectSettingsWindow.qml
     ui/qml/SceneRenderer.qml
     ui/qml/SceneSettingsWindow.qml

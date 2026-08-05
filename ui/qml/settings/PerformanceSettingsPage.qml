@@ -1,4 +1,3 @@
-import "../common/SettingsHelper.js" as SettingsHelper
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,9 +6,6 @@ ScrollView {
     id: root
 
     required property var draftSettings
-    required property var renderThreadValues
-    required property var renderThreadLabels
-    readonly property color secondaryTextColor: Qt.rgba(palette.text.r, palette.text.g, palette.text.b, 0.7)
 
     signal valueChanged(string key, var value)
 
@@ -63,39 +59,6 @@ ScrollView {
                     stepSize: 64
                     value: root.valueOr("cacheSize", 512)
                     onValueModified: root.setValue("cacheSize", value)
-                }
-
-                Label {
-                    text: qsTr("描画スレッド数")
-                }
-
-                ComboBox {
-                    model: renderThreadLabels
-                    currentIndex: SettingsHelper.indexOfValue(renderThreadValues, root.valueOr("renderThreads", 0), 0)
-                    onActivated: root.setValue("renderThreads", renderThreadValues[currentIndex])
-                }
-
-            }
-
-        }
-
-        GroupBox {
-            title: qsTr("補足")
-            Layout.fillWidth: true
-
-            ColumnLayout {
-                anchors.fill: parent
-
-                Label {
-                    text: qsTr("描画スレッド数が自動のときは実行環境に応じて決定します")
-                    wrapMode: Text.WordWrap
-                    color: root.secondaryTextColor
-                }
-
-                Label {
-                    text: qsTr("ご使用の実行環境に合わせて、まずは自動設定で動作を確認してください")
-                    wrapMode: Text.WordWrap
-                    color: root.secondaryTextColor
                 }
 
             }

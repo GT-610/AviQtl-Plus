@@ -7,8 +7,6 @@ ScrollView {
     id: root
 
     required property var draftSettings
-    required property var audioChannelValues
-    required property var audioChannelLabels
     required property var blockSizeValues
     readonly property color secondaryTextColor: Qt.rgba(palette.text.r, palette.text.g, palette.text.b, 0.7)
 
@@ -90,16 +88,6 @@ ScrollView {
                 columnSpacing: 12
                 rowSpacing: 8
                 anchors.fill: parent
-
-                Label {
-                    text: qsTr("音声チャンネル数")
-                }
-
-                ComboBox {
-                    model: audioChannelLabels
-                    currentIndex: SettingsHelper.indexOfValue(audioChannelValues, root.valueOr("audioChannels", 2), 1)
-                    onActivated: root.setValue("audioChannels", audioChannelValues[currentIndex])
-                }
 
                 Label {
                     text: qsTr("プラグイン最大ブロックサイズ")

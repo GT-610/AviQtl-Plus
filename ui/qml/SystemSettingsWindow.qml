@@ -9,16 +9,9 @@ Common.AviQtlWindow {
 
     property var draftSettings: ({
     })
-    property alias currentTabIndex: tabBar.currentIndex
     property var pluginFormats: ["LADSPA", "DSSI", "LV2", "VST2", "VST3", "CLAP", "SF2", "SFZ", "JSFX", "Effects", "Objects"]
     property var themeValues: ["Dark", "Light", "System"]
     property var themeLabels: [qsTr("ダーク"), qsTr("ライト"), qsTr("システムに従う")]
-    property var timeUnitValues: ["frame", "second"]
-    property var timeUnitLabels: [qsTr("フレーム"), qsTr("秒")]
-    property var renderThreadValues: [0, 1, 2, 4, 8, 16]
-    property var renderThreadLabels: [qsTr("自動"), "1", "2", "4", "8", "16"]
-    property var audioChannelValues: [1, 2]
-    property var audioChannelLabels: [qsTr("モノラル"), qsTr("ステレオ")]
     property var blockSizeValues: [256, 512, 1024, 2048, 4096, 8192]
     property var videoCodecValues: ["h264_vaapi", "hevc_vaapi", "libx264"]
     property var videoCodecLabels: [qsTr("H.264 (VAAPI)"), qsTr("HEVC (VAAPI)"), qsTr("H.264 (CPU)")]
@@ -129,13 +122,6 @@ Common.AviQtlWindow {
         "name": qsTr("現在のレイヤーを表示/非表示")
     }]
 
-    function getShortcutValue(actionId, fallback) {
-        if (!draftSettings["shortcuts"])
-            return fallback;
-
-        return draftSettings["shortcuts"][actionId] !== undefined ? draftSettings["shortcuts"][actionId] : fallback;
-    }
-
     function setShortcutValue(actionId, value) {
         var next = cloneSettings(draftSettings);
         if (!next["shortcuts"])
@@ -164,11 +150,6 @@ Common.AviQtlWindow {
             return ;
 
         SettingsManager.settings = cloneSettings(draftSettings);
-        SettingsManager.save();
-    }
-
-    function valueOr(key, fallbackValue) {
-        return draftSettings[key] !== undefined ? draftSettings[key] : fallbackValue;
     }
 
     function setValue(key, value) {
@@ -273,8 +254,6 @@ Common.AviQtlWindow {
 
             PerformanceSettingsPage {
                 draftSettings: root.draftSettings
-                renderThreadValues: root.renderThreadValues
-                renderThreadLabels: root.renderThreadLabels
                 onValueChanged: (key, value) => {
                     return root.setValue(key, value);
                 }
@@ -282,8 +261,6 @@ Common.AviQtlWindow {
 
             TimelineSettingsPage {
                 draftSettings: root.draftSettings
-                timeUnitValues: root.timeUnitValues
-                timeUnitLabels: root.timeUnitLabels
                 onValueChanged: (key, value) => {
                     return root.setValue(key, value);
                 }
@@ -291,6 +268,8 @@ Common.AviQtlWindow {
 
             AppearanceSettingsPage {
                 draftSettings: root.draftSettings
+                themeValues: root.themeValues
+                themeLabels: root.themeLabels
                 onValueChanged: (key, value) => {
                     return root.setValue(key, value);
                 }
@@ -309,9 +288,6 @@ Common.AviQtlWindow {
                 videoCodecLabels: root.videoCodecLabels
                 audioCodecValues: root.audioCodecValues
                 audioCodecLabels: root.audioCodecLabels
-                audioChannelValues: root.audioChannelValues
-                audioChannelLabels: root.audioChannelLabels
-                blockSizeValues: root.blockSizeValues
                 onValueChanged: (key, value) => {
                     return root.setValue(key, value);
                 }
@@ -319,8 +295,6 @@ Common.AviQtlWindow {
 
             DecodeAudioSettingsPage {
                 draftSettings: root.draftSettings
-                audioChannelValues: root.audioChannelValues
-                audioChannelLabels: root.audioChannelLabels
                 blockSizeValues: root.blockSizeValues
                 onValueChanged: (key, value) => {
                     return root.setValue(key, value);

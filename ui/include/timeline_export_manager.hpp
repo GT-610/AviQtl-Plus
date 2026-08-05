@@ -32,11 +32,14 @@ class TimelineExportManager : public QObject {
     bool isExporting() const { return m_exporting.load(); }
 
   signals:
+    void exportingChanged(bool exporting);
     void exportStarted(int totalFrames);
     void exportProgressChanged(int progress, int currentFrame, int totalFrames, int etaSeconds);
     void exportFinished(bool success, const QString &message);
 
   private:
+    bool beginExport();
+    void finishExport(bool success, const QString &message);
     void runExport(const AviQtl::Core::VideoEncoder::Config &config);
     void runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame);
     QImage grabFrame(QPointer<QQuickItem> targetItem, const QSize &size, int timeoutMs) const;

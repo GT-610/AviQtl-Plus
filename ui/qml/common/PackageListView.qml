@@ -71,7 +71,7 @@ ListView {
                 Layout.fillWidth: true
 
                 Label {
-                    text: modelData.author ? qsTr("Author: ") + modelData.author : ""
+                    text: modelData.author ? qsTr("Author: %1").arg(modelData.author) : ""
                     font.pixelSize: 11
                     color: palette.mid
                     Layout.fillWidth: true
@@ -79,14 +79,15 @@ ListView {
                 }
 
                 Label {
-                    text: qsTr("インストール済み: ") + installedVer
+                    text: qsTr("インストール済み: %1").arg(installedVer)
                     font.pixelSize: 11
-                    color: "#44cc88"
+                    color: palette.text
+                    opacity: 0.75
                     visible: installedVer !== "" && !hasUpdate
                 }
 
                 Label {
-                    text: qsTr("アップデートあり: ") + latestVer
+                    text: qsTr("アップデートあり: %1").arg(latestVer)
                     font.pixelSize: 11
                     color: palette.highlight
                     visible: hasUpdate
