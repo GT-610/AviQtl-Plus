@@ -34,7 +34,7 @@ class TestExportWorkflow : public QObject {
     void exportStateTransitionsBeforeCompletion();
 
   private:
-    static constexpr int kTestSequencePadding = 6;
+    static constexpr int kTestSequencePadding = 4;
     static QVariantMap validVideoConfig(const TimelineController &controller, const QString &outputPath);
     static VideoEncoder::Config validEncoderConfig(const TimelineController &controller, const QString &outputPath);
     static void expectExportFailure(QSignalSpy &spy, const QString &expectedMessage);
