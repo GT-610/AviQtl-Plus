@@ -305,7 +305,7 @@ Common.AviQtlWindow {
         id: fileDialog
 
         title: qsTr("プロジェクトファイルを開く")
-        nameFilters: [qsTr("AviQtl Plus Project (*.aviqtl)"), qsTr("All files (*)")]
+        nameFilters: [qsTr("AviQtl Plus Project (*.aviqtl)"), qsTr("All Files (*)")]
         onAccepted: {
             Workspace.loadProject(fileDialog.selectedFile);
             root.close();

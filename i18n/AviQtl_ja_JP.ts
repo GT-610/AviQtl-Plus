@@ -2265,7 +2265,7 @@
     <message>
         <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
         <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
-        <source>All files (*)</source>
+        <source>All Files (*)</source>
         <translation>すべてのファイル (*)</translation>
     </message>
     <message>
@@ -2776,7 +2776,7 @@
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="762"/>
-        <source>All files (*)</source>
+        <source>All Files (*)</source>
         <translation>すべてのファイル (*)</translation>
     </message>
     <message>
@@ -3839,7 +3839,7 @@
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="308"/>
-        <source>All files (*)</source>
+        <source>All Files (*)</source>
         <translation>すべてのファイル (*)</translation>
     </message>
 </context>

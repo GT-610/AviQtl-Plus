@@ -2265,8 +2265,8 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
         <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
-        <source>All files (*)</source>
-        <translation>All files (*)</translation>
+        <source>All Files (*)</source>
+        <translation>All Files (*)</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/ControlLoader.qml" line="620"/>
@@ -2776,8 +2776,8 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="762"/>
-        <source>All files (*)</source>
-        <translation>All files (*)</translation>
+        <source>All Files (*)</source>
+        <translation>All Files (*)</translation>
     </message>
     <message>
         <location filename="../ui/qml/ExportDialog.qml" line="772"/>
@@ -3839,8 +3839,8 @@ Please restart the application to apply the update.</translation>
     </message>
     <message>
         <location filename="../ui/qml/ProjectLauncherWindow.qml" line="308"/>
-        <source>All files (*)</source>
-        <translation>All files (*)</translation>
+        <source>All Files (*)</source>
+        <translation>All Files (*)</translation>
     </message>
 </context>
 <context>

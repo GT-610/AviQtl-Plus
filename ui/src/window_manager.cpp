@@ -184,14 +184,6 @@ void WindowManager::registerWindow(const QString &id, QQuickWindow *win) {
         emitVisibilityChanged(id);
     });
 
-    // メインが閉じられたら全終了
-    if (id == QStringLiteral("main")) {
-        connect(win, &QQuickWindow::closing, this, [this](QQuickCloseEvent *e) -> void {
-            Q_UNUSED(e);
-            requestQuit();
-        });
-    }
-
     // ランチャーが閉じられ、かつまだ main が生成されていなければ全終了
     if (id == QStringLiteral("launcher")) {
         connect(win, &QQuickWindow::closing, this, [this](QQuickCloseEvent *e) -> void {

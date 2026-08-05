@@ -11,6 +11,7 @@ ApplicationWindow {
 
     id: mainWin
 
+    property bool quitInProgress: false
     readonly property bool _isInputFocused: {
         var item = Qt.application.focusItem;
         if (!item)
@@ -92,6 +93,10 @@ ApplicationWindow {
     }
 
     function finishApplicationQuit() {
+        if (quitInProgress)
+            return;
+
+        quitInProgress = true;
         if (Workspace)
             Workspace.discardAllRecoveries();
         if (WindowManager)
@@ -99,6 +104,9 @@ ApplicationWindow {
     }
 
     function requestApplicationQuit() {
+        if (quitInProgress)
+            return;
+
         var shouldConfirm = !SettingsManager || !SettingsManager.settings || SettingsManager.settings.showConfirmOnClose !== false;
         if (shouldConfirm)
             checkAllUnsavedAndExecute(finishApplicationQuit);
@@ -114,6 +122,11 @@ ApplicationWindow {
     objectName: "mainWindow"
     title: qsTr("AviQtl Plus - プレビュー")
     onClosing: (close) => {
+        if (quitInProgress) {
+            close.accepted = true;
+            return;
+        }
+
         close.accepted = false;
         requestApplicationQuit();
     }

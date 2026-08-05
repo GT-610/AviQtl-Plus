@@ -759,7 +759,7 @@ Common.AviQtlWindow {
 
         title: qsTr("保存先を指定")
         fileMode: Dialogs.FileDialog.SaveFile
-        nameFilters: [qsTr("MP4 Video (*.mp4)"), qsTr("MKV Video (*.mkv)"), qsTr("All files (*)")]
+        nameFilters: [qsTr("MP4 Video (*.mp4)"), qsTr("MKV Video (*.mkv)"), qsTr("All Files (*)")]
         onAccepted: {
             var path = selectedFile.toString();
             filePathField.text = Qt.platform.os === "windows" ? path.replace(/^file:\/{3}/, "") : path.replace(/^file:\/\//, "");
