@@ -12,10 +12,12 @@ from BUILD import BuildConfig, Logger, PlatformBuilder, parse_semver
 class RecordingBuilder(PlatformBuilder):
     def __init__(self, config, logger):
         super().__init__(config, logger)
+        self.run_cmd_call_count = 0
         self.cache_existed_when_command_ran = None
 
     def run_cmd(self, cmd, shell=False, force_host=False):
         del cmd, shell, force_host
+        self.run_cmd_call_count += 1
         self.cache_existed_when_command_ran = (self.config.work_dir / "CMakeCache.txt").exists()
 
 
@@ -75,6 +77,7 @@ class TestBuildVersion(unittest.TestCase):
 
             builder.configure()
 
+            self.assertGreater(builder.run_cmd_call_count, 0)
             self.assertFalse(builder.cache_existed_when_command_ran)
             self.assertFalse(cache_path.exists())
             self.assertTrue(artifact_path.exists())

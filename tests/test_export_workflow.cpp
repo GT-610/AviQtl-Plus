@@ -1,3 +1,4 @@
+#include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_export_manager.hpp"
 #include <QDir>
@@ -11,12 +12,15 @@
 #include <cmath>
 
 using namespace AviQtl::UI;
+using AviQtl::Core::SettingsManager;
 using AviQtl::Core::VideoEncoder;
 
 class TestExportWorkflow : public QObject {
     Q_OBJECT
 
   private slots:
+    void initTestCase();
+    void cleanupTestCase();
     void videoExportRejectsEmptyPath();
     void videoExportRejectsInvalidRange();
     void videoExportRejectsMismatchedFps();
@@ -30,10 +34,21 @@ class TestExportWorkflow : public QObject {
     void exportStateTransitionsBeforeCompletion();
 
   private:
+    static constexpr int kTestSequencePadding = 6;
     static QVariantMap validVideoConfig(const TimelineController &controller, const QString &outputPath);
     static VideoEncoder::Config validEncoderConfig(const TimelineController &controller, const QString &outputPath);
     static void expectExportFailure(QSignalSpy &spy, const QString &expectedMessage);
+
+    QVariant m_originalSequencePadding;
 };
+
+void TestExportWorkflow::initTestCase() {
+    SettingsManager &settings = SettingsManager::instance();
+    m_originalSequencePadding = settings.value(QStringLiteral("exportSequencePadding"), kTestSequencePadding);
+    settings.setValue(QStringLiteral("exportSequencePadding"), kTestSequencePadding);
+}
+
+void TestExportWorkflow::cleanupTestCase() { SettingsManager::instance().setValue(QStringLiteral("exportSequencePadding"), m_originalSequencePadding); }
 
 QVariantMap TestExportWorkflow::validVideoConfig(const TimelineController &controller, const QString &outputPath) {
     const double fps = controller.project()->fps();
@@ -208,7 +223,7 @@ void TestExportWorkflow::imageSequenceCaptureFailureRemovesPartialOutput() {
     QQuickItem captureItem;
     captureItem.setSize(QSizeF(64, 64));
     controller.setCompositeView(&captureItem);
-    const QString firstFramePath = QDir(outputDir).filePath(QStringLiteral("frame_000000.png"));
+    const QString firstFramePath = QDir(outputDir).filePath(QStringLiteral("frame_%1.png").arg(0, kTestSequencePadding, 10, QLatin1Char('0')));
     int captureCount = 0;
     bool firstFrameWasWritten = false;
     TimelineExportManager exportManager(&controller, [&](const QSize &requestedSize, int) {
@@ -241,7 +256,7 @@ void TestExportWorkflow::imageSequenceRefusesToOverwriteExistingFrames() {
 
     const QString outputDir = dir.filePath(QStringLiteral("existing-sequence"));
     QVERIFY(QDir().mkpath(outputDir));
-    const QString existingFrame = QDir(outputDir).filePath(QStringLiteral("frame_000000.png"));
+    const QString existingFrame = QDir(outputDir).filePath(QStringLiteral("frame_%1.png").arg(0, kTestSequencePadding, 10, QLatin1Char('0')));
     QFile sentinel(existingFrame);
     QVERIFY(sentinel.open(QIODevice::WriteOnly));
     const QByteArray sentinelData("existing frame data");
