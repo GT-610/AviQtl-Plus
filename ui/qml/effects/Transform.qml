@@ -41,7 +41,7 @@ Common.BaseEffect {
         // アフィン変換 uniform バインド
         property real translationX: 0
         property real translationY: 0
-        property real scale: 1
+        property real scaleFactor: 1
         property real rotationZ: 0
         property real cx: 0
         property real cy: 0

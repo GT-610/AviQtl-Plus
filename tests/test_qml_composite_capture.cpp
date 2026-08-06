@@ -16,6 +16,7 @@
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
 #include <QQuickWindow>
+#include <QRegularExpression>
 #include <QSGRendererInterface>
 #include <QElapsedTimer>
 #include <QSignalSpy>
@@ -25,6 +26,7 @@
 #include <QVector3D>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -41,6 +43,7 @@ class TestQmlCompositeCapture : public QObject {
 
   private slots:
     void initTestCase();
+    void loadsDeployedQmlAssetsWithoutRuntimeErrors();
     void capturesCompositeView3DOutput();
     void capturesAnimatedTextAndMonochromeEffect();
     void exportsAnimatedTextAndDecodesDistinctFrames();
@@ -56,6 +59,7 @@ class TestQmlCompositeCapture : public QObject {
     };
 
     static QImage grabView3D(QQuickItem *view3D);
+    static QImage grabView3DUntil(QQuickItem *view3D, const std::function<bool(const QImage &)> &predicate, int timeoutMs = 5'000);
     static QImage grabView3DUntilVisible(QQuickItem *view3D, int minimumBrightness = 180, int timeoutMs = 5'000);
     static double brightPixelCenterX(const QImage &image);
     static QVector3D averageVisibleColor(const QImage &image, int minimumBrightness = 20);
@@ -103,6 +107,44 @@ void TestQmlCompositeCapture::initTestCase() {
     Core::EffectRegistry::instance().registerEffect(monochrome);
 }
 
+void TestQmlCompositeCapture::loadsDeployedQmlAssetsWithoutRuntimeErrors() {
+    QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(?:TypeError|ReferenceError|Final member).*$")));
+    QQmlEngine engine;
+    Workspace workspace;
+    workspace.newProject();
+    QQmlContext *context = engine.rootContext();
+    context->setContextProperty(QStringLiteral("Workspace"), &workspace);
+    context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
+    context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
+    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
+    context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
+    context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
+    context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
+
+    const QString effectsDir = QStringLiteral(AVIQTL_DEPLOYED_EFFECTS_DIR);
+    const QStringList effectFiles = QDir(effectsDir).entryList({QStringLiteral("*.qml")}, QDir::Files, QDir::Name);
+    QVERIFY(!effectFiles.isEmpty());
+
+    for (const QString &effectFile : effectFiles) {
+        const QString effectPath = QDir(effectsDir).filePath(effectFile);
+        QVERIFY2(QFileInfo::exists(effectPath), qPrintable(QStringLiteral("Missing deployed effect: %1").arg(effectPath)));
+        QQmlComponent component(&engine, QUrl::fromLocalFile(effectPath));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        std::unique_ptr<QObject> object(component.create(context));
+        QVERIFY2(object != nullptr, qPrintable(component.errorString()));
+        QCoreApplication::processEvents();
+    }
+
+    const QString objectsDir = QStringLiteral(AVIQTL_DEPLOYED_OBJECTS_DIR);
+    const QStringList objectFiles = QDir(objectsDir).entryList({QStringLiteral("*.qml")}, QDir::Files, QDir::Name);
+    QVERIFY(!objectFiles.isEmpty());
+    for (const QString &objectFile : objectFiles) {
+        const QString objectPath = QDir(objectsDir).filePath(objectFile);
+        QQmlComponent component(&engine, QUrl::fromLocalFile(objectPath));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    }
+}
+
 QImage TestQmlCompositeCapture::grabView3D(QQuickItem *view3D) {
     const QSharedPointer<QQuickItemGrabResult> grab = view3D->grabToImage(QSize(320, 180));
     if (!grab) return {};
@@ -111,16 +153,20 @@ QImage TestQmlCompositeCapture::grabView3D(QQuickItem *view3D) {
 }
 
 QImage TestQmlCompositeCapture::grabView3DUntilVisible(QQuickItem *view3D, int minimumBrightness, int timeoutMs) {
+    return grabView3DUntil(view3D, [minimumBrightness](const QImage &image) { return averageVisibleColor(image, minimumBrightness).x() >= 0.0F; }, timeoutMs);
+}
+
+QImage TestQmlCompositeCapture::grabView3DUntil(QQuickItem *view3D, const std::function<bool(const QImage &)> &predicate, int timeoutMs) {
     QElapsedTimer timer;
     timer.start();
     QImage image;
     do {
-        image = grabView3D(view3D);
-        if (!image.isNull() && averageVisibleColor(image, minimumBrightness).x() >= 0.0F)
-            return image;
-        QTest::qWait(50);
         if (view3D->window())
             view3D->window()->update();
+        image = grabView3D(view3D);
+        if (!image.isNull() && predicate(image))
+            return image;
+        QCoreApplication::processEvents();
     } while (timer.elapsed() < timeoutMs);
     return image;
 }
@@ -298,7 +344,6 @@ void TestQmlCompositeCapture::capturesCompositeView3DOutput() {
     window.show();
 
     QTRY_VERIFY_WITH_TIMEOUT(window.isExposed(), 5'000);
-    QTest::qWait(100);
 
     auto *view3D = compositeView->property("view3D").value<QQuickItem *>();
     QVERIFY(view3D != nullptr);
@@ -370,7 +415,6 @@ void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
     // graph, where Qt Quick 3D intentionally renders no View3D content.
     if (!QSGRendererInterface::isApiRhiBased(window.rendererInterface()->graphicsApi()))
         QSKIP("Qt Quick 3D rendering requires an RHI-based graphics API");
-    QTest::qWait(200);
 
     auto *view3D = compositeView->property("view3D").value<QQuickItem *>();
     QVERIFY(view3D != nullptr);
@@ -384,24 +428,21 @@ void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
     QVERIFY(firstRenderData.contains(QString::number(textClipId)));
     QCOMPARE(firstRenderData.value(QString::number(textClipId)).toMap().value(QStringLiteral("x")).toDouble(), -80.0);
     QTRY_COMPARE_WITH_TIMEOUT(compositeView->property("currentFrame").toInt(), 0, 5'000);
-    window.update();
-    QTest::qWait(150);
     const QImage firstFrame = grabView3DUntilVisible(view3D);
+    QVERIFY(!firstFrame.isNull());
+    const double firstCenterX = brightPixelCenterX(firstFrame);
+    QVERIFY(firstCenterX >= 0.0);
+
     QSignalSpy frameSpy(controller->transport(), &TransportService::currentFrameChanged);
     controller->transport()->setCurrentFrame_seek(30);
     const QVariantMap lastRenderData = syncEcsRenderData(compositeView);
     QCOMPARE(lastRenderData.value(QString::number(textClipId)).toMap().value(QStringLiteral("x")).toDouble(), 80.0);
     QTRY_COMPARE_WITH_TIMEOUT(frameSpy.count(), 1, 5'000);
     QTRY_COMPARE_WITH_TIMEOUT(compositeView->property("currentFrame").toInt(), 30, 5'000);
-    window.update();
-    QTest::qWait(250);
-    const QImage lastFrame = grabView3DUntilVisible(view3D);
+    const QImage lastFrame = grabView3DUntil(view3D, [firstCenterX](const QImage &image) { return brightPixelCenterX(image) > firstCenterX + 40.0; });
 
-    QVERIFY(!firstFrame.isNull());
     QVERIFY(!lastFrame.isNull());
-    const double firstCenterX = brightPixelCenterX(firstFrame);
     const double lastCenterX = brightPixelCenterX(lastFrame);
-    QVERIFY(firstCenterX >= 0.0);
     QVERIFY(lastCenterX >= 0.0);
     QVERIFY2(lastCenterX > firstCenterX + 40.0, qPrintable(QStringLiteral("text center did not move: frame 0=%1, frame 30=%2").arg(firstCenterX).arg(lastCenterX)));
 
@@ -414,9 +455,10 @@ void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
     controller->transport()->setCurrentFrame_seek(29);
     controller->transport()->setCurrentFrame_seek(30);
     syncEcsRenderData(compositeView);
-    window.update();
-    QTest::qWait(250);
-    const QImage monochromeFrame = grabView3DUntilVisible(view3D, 20);
+    const QImage monochromeFrame = grabView3DUntil(view3D, [](const QImage &image) {
+        const QVector3D color = averageVisibleColor(image, 20);
+        return color.x() >= 0.0F && std::abs(color.x() - color.y()) < 8.0F && std::abs(color.x() - color.z()) < 8.0F;
+    });
     QVERIFY(!monochromeFrame.isNull());
     const QVector3D colorAfterEffect = averageVisibleColor(monochromeFrame);
     const QString afterMessage = QStringLiteral("monochrome channels differ: r=%1 g=%2 b=%3").arg(colorAfterEffect.x()).arg(colorAfterEffect.y()).arg(colorAfterEffect.z());

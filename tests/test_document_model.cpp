@@ -10,12 +10,6 @@ class TestDocumentModel : public QObject {
   private slots:
     void init() { DocumentModel::instance().clear(); }
 
-    void singletonInstance() {
-        DocumentModel &m1 = DocumentModel::instance();
-        DocumentModel &m2 = DocumentModel::instance();
-        QCOMPARE(&m1, &m2);
-    }
-
     void projectSettings() {
         DocumentModel &model = DocumentModel::instance();
         ProjectSettings expected;

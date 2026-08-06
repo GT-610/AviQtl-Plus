@@ -15,7 +15,6 @@
 #include <QQuickItemGrabResult>
 #include <QTimer>
 #include <algorithm>
-#include <utility>
 
 namespace {
 constexpr int kDefaultGrabTimeoutMs = 2000;
@@ -44,7 +43,7 @@ public:
 
     ~ExportModeGuard() {
         if (m_view) {
-            QMetaObject::invokeMethod(m_view.data(), [v = m_view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(m_view.data(), [v = m_view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::QueuedConnection);
         }
     }
 
@@ -62,9 +61,6 @@ private:
 namespace AviQtl::UI {
 
 TimelineExportManager::TimelineExportManager(TimelineController *controller, QObject *parent) : QObject(parent), m_controller(controller) {}
-
-TimelineExportManager::TimelineExportManager(TimelineController *controller, FrameGrabber frameGrabber, QObject *parent)
-    : QObject(parent), m_controller(controller), m_frameGrabber(std::move(frameGrabber)) {}
 
 TimelineExportManager::~TimelineExportManager() {
     if (m_exportThread) {
@@ -247,10 +243,6 @@ QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const Q
     if (!targetItem) {
         return img;
     }
-    if (m_frameGrabber) {
-        return m_frameGrabber(size, timeoutMs);
-    }
-
     QSharedPointer<QQuickItemGrabResult> grab;
     QMetaObject::invokeMethod(targetItem.data(), [targetItem, &grab, size]() -> void {
         grab = targetItem->grabToImage(size.isValid() ? size : QSize());

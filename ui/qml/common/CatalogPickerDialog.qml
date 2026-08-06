@@ -8,7 +8,7 @@ Dialog {
     id: root
 
     property var controller: null
-    property var allowedKinds: ["object", "effect", "transition"]
+    property var allowedKinds: ["object", "effect"]
     property string currentKind: "object"
     property string searchText: ""
     property string selectedCategory: ""
@@ -31,8 +31,6 @@ Dialog {
             return qsTr("Objects");
         if (kind === "effect")
             return qsTr("Effects");
-        if (kind === "transition")
-            return qsTr("Transitions");
         return kind;
     }
 
@@ -55,7 +53,7 @@ Dialog {
     }
 
     function openForKinds(kinds, initialKind) {
-        allowedKinds = kinds && kinds.length > 0 ? kinds : ["object", "effect", "transition"];
+        allowedKinds = kinds && kinds.length > 0 ? kinds : ["object", "effect"];
         var newKind = allowedKinds.indexOf(initialKind) >= 0 ? initialKind : allowedKinds[0];
         var kindChanged = newKind !== currentKind;
         currentKind = newKind;

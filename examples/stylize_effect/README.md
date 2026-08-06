@@ -112,7 +112,7 @@ Users can then install it from the Package Manager UI.
 - [ ] `id` is unique and lowercase
 - [ ] `qml` filename matches the QML component filename exactly
 - [ ] `version` follows semver (`x.y.z`)
-- [ ] `kind` is `"effect"`, `"object"`, or `"transition"`
+- [ ] `kind` is `"effect"` or `"object"`
 - [ ] `categories` is a non-empty array
 - [ ] `ui.controls` has at least one control
 - [ ] GLSL `uniform` names match JSON `param` keys

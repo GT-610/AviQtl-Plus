@@ -7,7 +7,7 @@ layout(std140, binding=0) uniform buf {
     float strength;
     vec2 center;
     float angle;
-    float width;
+    float gradientWidth;
     int   shape;
     vec4 colStart;
     vec4 colEnd;
@@ -22,11 +22,11 @@ void main() {
     if (shape == 0) {
         float rad = radians(angle);
         vec2 dir = vec2(cos(rad), sin(rad));
-        t = dot(uv, dir) / max(width, 0.001) + 0.5;
+        t = dot(uv, dir) / max(gradientWidth, 0.001) + 0.5;
     } else if (shape == 1) {
-        t = length(uv) / max(width, 0.001);
+        t = length(uv) / max(gradientWidth, 0.001);
     } else {
-        t = max(abs(uv.x), abs(uv.y)) / max(width, 0.001);
+        t = max(abs(uv.x), abs(uv.y)) / max(gradientWidth, 0.001);
     }
 
     t = clamp(t, 0.0, 1.0);

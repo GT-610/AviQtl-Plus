@@ -7,7 +7,7 @@ layout(std140, binding = 0) uniform buf {
     float qt_Opacity;
     float translationX;
     float translationY;
-    float scale;
+    float scaleFactor;
     float rotationZ; // ラジアン
     float cx;
     float cy;
@@ -23,8 +23,8 @@ void main() {
     vec2 pivot = vec2(cx / targetWidth, cy / targetHeight);
     uv -= pivot;
 
-    if (scale > 0.0) {
-        uv /= scale;
+    if (scaleFactor > 0.0) {
+        uv /= scaleFactor;
     }
 
     float cosAngle = cos(-rotationZ);

@@ -35,9 +35,9 @@ effect-packages/ - External effect packages
 tests/         - Unit tests (CTest)
 ```
 
-## Adding Effects, Objects, or Transitions
+## Adding Effects or Objects
 
-Each effect/object/transition consists of:
+Each effect or object consists of:
 - A `.json` metadata file (id, name, params, UI controls)
 - A `.qml` component file
 - Optionally a `.frag` or `.comp` shader file

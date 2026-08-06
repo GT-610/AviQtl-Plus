@@ -5,7 +5,6 @@
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
-#include <functional>
 
 class QNetworkAccessManager;
 
@@ -21,13 +20,6 @@ class PackageManager : public QObject {
     Q_PROPERTY(QVariantList repositories READ repositories NOTIFY repositoriesChanged)
 
   public:
-    enum class FileOperationResult {
-        Success,
-        Failed,
-        StateCommitFailed,
-        RollbackFailed,
-    };
-
     static PackageManager &instance();
 
     bool isBusy() const { return m_isBusy; }
@@ -48,15 +40,6 @@ class PackageManager : public QObject {
     Q_INVOKABLE void upgradeAllPackages();
     Q_INVOKABLE void removePackage(const QString &packageId);
     Q_INVOKABLE QVariantList getPackagesByType(const QString &type) const;
-
-    // Package deployment helpers (public for testing)
-    QString getPackageDeployDir(const QString &packageType) const;
-    FileOperationResult deployPackageFiles(const QString &packageId, const QString &extractDir, const QString &packageType,
-                                           const std::function<bool()> &commitState = {});
-    FileOperationResult removePackageFiles(const QString &packageId, const QString &packageType,
-                                           const std::function<bool()> &commitState);
-    bool extractPackageArchive(const QString &archivePath, const QString &destDir);
-    static bool isSafeArchivePath(const QString &path);
 
   signals:
     void isBusyChanged();
@@ -90,12 +73,6 @@ class PackageManager : public QObject {
     void fetchPackageMetadataForInstall(const QString &packageId, const QString &sourceRepo, const QString &version);
     void continueInstallWithMetadata(const QString &packageId, const QString &sourceRepo, const QString &version, const QVariantMap &detail);
     static QString detailCacheKey(const QString &packageId, const QString &sourceRepo);
-    FileOperationResult runFileTransaction(const QString &targetDir, const QString &backupDir,
-                                           const std::function<bool()> &applyMutation,
-                                           const std::function<bool()> &revertMutation,
-                                           const std::function<bool()> &commitState,
-                                           const char *operationName);
-
     // Package installation pipeline
     void downloadPackage(const QString &packageId, const QUrl &url, const QString &expectedSha256, const QString &packageType, const QString &version, const QString &sourceRepo);
     void extractAndDeploy(const QString &packageId, const QString &archivePath, const QString &packageType, const QString &version = {}, const QString &downloadUrl = {}, const QString &sourceRepo = {});

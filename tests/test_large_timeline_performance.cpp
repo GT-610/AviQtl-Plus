@@ -13,6 +13,7 @@
 #include <QSet>
 #include <QTest>
 #include <QTextStream>
+#include <QTimer>
 #include <memory>
 
 using namespace AviQtl::UI;
@@ -43,6 +44,16 @@ void populateLargeTimeline(TimelineController &controller) {
 }
 
 QVariantMap moveFor(const ClipData &clip, int frameDelta) { return {{QStringLiteral("id"), clip.id}, {QStringLiteral("layer"), clip.layer}, {QStringLiteral("startFrame"), clip.startFrame + frameDelta}, {QStringLiteral("duration"), clip.durationFrames}}; }
+
+void processDeferredQmlUpdates() {
+    // TimelineView coalesces viewport work through a zero-interval QML Timer and
+    // Qt.callLater. Run event-loop turns instead of relying on wall-clock delays.
+    for (int turn = 0; turn < 3; ++turn) {
+        QEventLoop loop;
+        QTimer::singleShot(0, &loop, &QEventLoop::quit);
+        loop.exec();
+    }
+}
 } // namespace
 
 class TestLargeTimelinePerformance : public QObject {
@@ -143,7 +154,7 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     const int initialLoadedLastFrame = timelineView->property("loadedLastFrame").toInt();
     const int initialModelRevision = timelineView->property("viewportModelRevision").toInt();
     timelineView->setProperty("contentX", 80.0);
-    QTest::qWait(20);
+    processDeferredQmlUpdates();
     QCOMPARE(timelineView->property("loadedLastFrame").toInt(), initialLoadedLastFrame);
     QCOMPARE(timelineView->property("viewportModelRevision").toInt(), initialModelRevision);
     QCOMPARE(timelineView->property("renderedClipCount").toInt(), initialDelegateCount);
@@ -153,7 +164,7 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     const int retainedDelegateCount = timelineView->property("renderedClipCount").toInt();
     const int retainedModelRevision = timelineView->property("viewportModelRevision").toInt();
     timelineView->setProperty("isDraggingMulti", true);
-    QTest::qWait(20);
+    processDeferredQmlUpdates();
     QCOMPARE(timelineView->property("renderedClipCount").toInt(), retainedDelegateCount);
     QCOMPARE(timelineView->property("viewportModelRevision").toInt(), retainedModelRevision);
 
@@ -170,7 +181,7 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     controller->setTimelineScale(1.0);
     timelineView->setProperty("contentX", 0.0);
     timelineView->setProperty("contentY", 0.0);
-    QTest::qWait(20);
+    processDeferredQmlUpdates();
 
     constexpr int interactionSteps = 120;
     constexpr double finalScrollX = 1'000.0;
@@ -188,7 +199,7 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
         QCoreApplication::processEvents(QEventLoop::AllEvents);
         scrollPeakDelegateCount = std::max(scrollPeakDelegateCount, timelineView->property("renderedClipCount").toInt());
     }
-    QTest::qWait(20);
+    processDeferredQmlUpdates();
     const qint64 scrollMs = timer.elapsed();
     const int scrollRevisionCount = timelineView->property("viewportModelRevision").toInt() - scrollInitialRevision;
 
@@ -209,7 +220,7 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
         zoomPeakDelegateCount = std::max(zoomPeakDelegateCount, timelineView->property("renderedClipCount").toInt());
     }
     controller->setTimelineScale(1.0);
-    QTest::qWait(20);
+    processDeferredQmlUpdates();
     const qint64 zoomMs = timer.elapsed();
     const int zoomRevisionCount = timelineView->property("viewportModelRevision").toInt() - zoomInitialRevision;
 

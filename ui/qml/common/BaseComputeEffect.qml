@@ -67,7 +67,6 @@ BaseEffect {
         source: root.sourceProxy
         params: root.buildUniforms()
         autoWorkGroup: true
-        opacity: root.opacity
     }
 
     Label {

@@ -3,6 +3,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <array>
+#include <cstring>
 
 namespace AviQtl::Core {
 
@@ -29,6 +31,56 @@ bool PermissionManager::hasPermission(const QString &pluginId, const QString &pe
         return false;
     }
     return hasPermission(pluginId, permissionFromName(permissionName));
+}
+
+bool PermissionManager::hasApiPermission(const QString &pluginId, const char *apiName) const {
+    struct ApiPermission {
+        const char *name;
+        PluginPermission permission;
+    };
+    static constexpr std::array mappings = {
+        ApiPermission{"transport_play", PluginPermission::TransportControl},
+        ApiPermission{"transport_pause", PluginPermission::TransportControl},
+        ApiPermission{"transport_toggle", PluginPermission::TransportControl},
+        ApiPermission{"transport_seek", PluginPermission::TransportControl},
+        ApiPermission{"transport_get_frame", PluginPermission::TransportControl},
+        ApiPermission{"transport_is_playing", PluginPermission::TransportControl},
+        ApiPermission{"clip_list", PluginPermission::ClipRead},
+        ApiPermission{"clip_select", PluginPermission::ClipRead},
+        ApiPermission{"clip_create", PluginPermission::ClipModify},
+        ApiPermission{"clip_delete", PluginPermission::ClipModify},
+        ApiPermission{"clip_update", PluginPermission::ClipModify},
+        ApiPermission{"clip_split", PluginPermission::ClipModify},
+        ApiPermission{"clip_copy", PluginPermission::ClipboardAccess},
+        ApiPermission{"clip_cut", PluginPermission::ClipboardAccess},
+        ApiPermission{"clip_paste", PluginPermission::ClipboardAccess},
+        ApiPermission{"effect_add", PluginPermission::EffectModify},
+        ApiPermission{"effect_remove", PluginPermission::EffectModify},
+        ApiPermission{"effect_set_param", PluginPermission::EffectModify},
+        ApiPermission{"project_width", PluginPermission::ProjectRead},
+        ApiPermission{"project_height", PluginPermission::ProjectRead},
+        ApiPermission{"project_fps", PluginPermission::ProjectRead},
+        ApiPermission{"project_save", PluginPermission::ProjectSave},
+        ApiPermission{"project_load", PluginPermission::ProjectLoad},
+        ApiPermission{"scene_create", PluginPermission::SceneManage},
+        ApiPermission{"scene_remove", PluginPermission::SceneManage},
+        ApiPermission{"scene_switch", PluginPermission::SceneManage},
+        ApiPermission{"settings_set", PluginPermission::SettingsWrite},
+        ApiPermission{"settings_get", PluginPermission::SettingsRead},
+        ApiPermission{"undo", PluginPermission::HistoryControl},
+        ApiPermission{"redo", PluginPermission::HistoryControl},
+        ApiPermission{"command_begin_group", PluginPermission::HistoryControl},
+        ApiPermission{"command_end_group", PluginPermission::HistoryControl},
+        ApiPermission{"log", PluginPermission::LogOutput},
+    };
+
+    if (apiName == nullptr)
+        return false;
+    for (const ApiPermission &mapping : mappings) {
+        if (std::strcmp(apiName, mapping.name) == 0)
+            return hasPermission(pluginId, mapping.permission);
+    }
+    return false;
 }
 
 void PermissionManager::grantPermission(const QString &pluginId, PluginPermission permission) {
@@ -70,7 +122,6 @@ void PermissionManager::grantAllPermissions(const QString &pluginId) {
     allPerms << PluginPermission::TransportControl
              << PluginPermission::ClipRead
              << PluginPermission::ClipModify
-             << PluginPermission::EffectRead
              << PluginPermission::EffectModify
              << PluginPermission::ProjectRead
              << PluginPermission::ProjectSave
@@ -79,6 +130,7 @@ void PermissionManager::grantAllPermissions(const QString &pluginId) {
              << PluginPermission::SettingsRead
              << PluginPermission::SettingsWrite
              << PluginPermission::ClipboardAccess
+             << PluginPermission::HistoryControl
              << PluginPermission::LogOutput;
     m_permissions[pluginId] = allPerms;
     savePermissions();
@@ -110,8 +162,6 @@ QString PermissionManager::permissionName(PluginPermission permission) {
         return QStringLiteral("clip.read");
     case PluginPermission::ClipModify:
         return QStringLiteral("clip.modify");
-    case PluginPermission::EffectRead:
-        return QStringLiteral("effect.read");
     case PluginPermission::EffectModify:
         return QStringLiteral("effect.modify");
     case PluginPermission::ProjectRead:
@@ -128,6 +178,8 @@ QString PermissionManager::permissionName(PluginPermission permission) {
         return QStringLiteral("settings.write");
     case PluginPermission::ClipboardAccess:
         return QStringLiteral("clipboard.access");
+    case PluginPermission::HistoryControl:
+        return QStringLiteral("history.control");
     case PluginPermission::LogOutput:
         return QStringLiteral("log.output");
     }
@@ -141,8 +193,6 @@ PluginPermission PermissionManager::permissionFromName(const QString &name) {
         return PluginPermission::ClipRead;
     if (name == QStringLiteral("clip.modify"))
         return PluginPermission::ClipModify;
-    if (name == QStringLiteral("effect.read"))
-        return PluginPermission::EffectRead;
     if (name == QStringLiteral("effect.modify"))
         return PluginPermission::EffectModify;
     if (name == QStringLiteral("project.read"))
@@ -159,6 +209,8 @@ PluginPermission PermissionManager::permissionFromName(const QString &name) {
         return PluginPermission::SettingsWrite;
     if (name == QStringLiteral("clipboard.access"))
         return PluginPermission::ClipboardAccess;
+    if (name == QStringLiteral("history.control"))
+        return PluginPermission::HistoryControl;
     if (name == QStringLiteral("log.output"))
         return PluginPermission::LogOutput;
     // Return a clearly invalid value instead of silently defaulting to LogOutput.
@@ -171,7 +223,6 @@ QStringList PermissionManager::allPermissionNames() {
         QStringLiteral("transport.control"),
         QStringLiteral("clip.read"),
         QStringLiteral("clip.modify"),
-        QStringLiteral("effect.read"),
         QStringLiteral("effect.modify"),
         QStringLiteral("project.read"),
         QStringLiteral("project.save"),
@@ -180,6 +231,7 @@ QStringList PermissionManager::allPermissionNames() {
         QStringLiteral("settings.read"),
         QStringLiteral("settings.write"),
         QStringLiteral("clipboard.access"),
+        QStringLiteral("history.control"),
         QStringLiteral("log.output")
     };
 }
@@ -192,8 +244,6 @@ QString PermissionManager::permissionDescription(PluginPermission permission) {
         return QObject::tr("クリップ情報の一覧表示と読み取り");
     case PluginPermission::ClipModify:
         return QObject::tr("クリップの作成、削除、移動、変更");
-    case PluginPermission::EffectRead:
-        return QObject::tr("エフェクト情報の一覧表示");
     case PluginPermission::EffectModify:
         return QObject::tr("エフェクトの追加、削除、パラメータ変更");
     case PluginPermission::ProjectRead:
@@ -210,6 +260,8 @@ QString PermissionManager::permissionDescription(PluginPermission permission) {
         return QObject::tr("プラグイン設定の書き込み");
     case PluginPermission::ClipboardAccess:
         return QObject::tr("クリップボードへのコピー、切り取り、貼り付け");
+    case PluginPermission::HistoryControl:
+        return QObject::tr("元に戻す、やり直し、コマンドのグループ化");
     case PluginPermission::LogOutput:
         return QObject::tr("コンソールへのログ出力");
     }

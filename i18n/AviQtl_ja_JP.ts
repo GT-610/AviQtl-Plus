@@ -1538,76 +1538,6 @@
         <source>ワイプ</source>
         <translation>ワイプ</translation>
     </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
-        <source>クロスフェード</source>
-        <translation>クロスフェード</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
-        <source>ワイプ（円）</source>
-        <translation>ワイプ（円）</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
-        <source>スライド</source>
-        <translation>スライド</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
-        <source>円形</source>
-        <translation>円形</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
-        <source>持続フレーム</source>
-        <translation>持続フレーム</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
-        <source>イージング</source>
-        <translation>イージング</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
-        <source>linear</source>
-        <translation>linear</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
-        <source>ease_in</source>
-        <translation>ease_in</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
-        <source>ease_out</source>
-        <translation>ease_out</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
-        <source>ease_in_out</source>
-        <translation>ease_in_out</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
-        <source>left</source>
-        <translation>left</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
-        <source>right</source>
-        <translation>right</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
-        <source>up</source>
-        <translation>up</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
-        <source>down</source>
-        <translation>down</translation>
-    </message>
 </context>
 <context>
     <name>AviQtl::Core::PackageManager</name>
@@ -2164,11 +2094,6 @@
         <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="33"/>
         <source>Effects</source>
         <translation>エフェクト</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="35"/>
-        <source>Transitions</source>
-        <translation>トランジション</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="127"/>
@@ -3463,11 +3388,6 @@
         <translation>オブジェクト</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="101"/>
-        <source>トランジション</source>
-        <translation>トランジション</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="103"/>
         <source>インストール済み</source>
         <translation>インストール済み</translation>
@@ -3612,16 +3532,6 @@
         <translation>クリップの作成、削除、移動</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
-        <source>エフェクト読み取り</source>
-        <translation>エフェクト読み取り</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
-        <source>エフェクト情報の一覧表示</source>
-        <translation>エフェクト情報の一覧表示</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
         <source>エフェクト変更</source>
         <translation>エフェクト変更</translation>
@@ -3700,6 +3610,16 @@
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
         <source>コピー、切り取り、貼り付け</source>
         <translation>コピー、切り取り、貼り付け</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>履歴操作</source>
+        <translation>履歴操作</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>元に戻す、やり直し、コマンドのグループ化</source>
+        <translation>元に戻す、やり直し、コマンドのグループ化</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
@@ -4196,11 +4116,6 @@
         <translation>クリップの作成、削除、移動、変更</translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="196"/>
-        <source>エフェクト情報の一覧表示</source>
-        <translation>エフェクト情報の一覧表示</translation>
-    </message>
-    <message>
         <location filename="../core/src/permission_manager.cpp" line="198"/>
         <source>エフェクトの追加、削除、パラメータ変更</source>
         <translation>エフェクトの追加、削除、パラメータ変更</translation>
@@ -4239,6 +4154,11 @@
         <location filename="../core/src/permission_manager.cpp" line="212"/>
         <source>クリップボードへのコピー、切り取り、貼り付け</source>
         <translation>クリップボードへのコピー、切り取り、貼り付け</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="264"/>
+        <source>元に戻す、やり直し、コマンドのグループ化</source>
+        <translation>元に戻す、やり直し、コマンドのグループ化</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="214"/>
@@ -4938,19 +4858,14 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1199"/>
-        <source>Browse object and transition catalog...</source>
-        <translation>オブジェクト・トランジションカタログを開く...</translation>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1173"/>
+        <source>Browse object catalog...</source>
+        <translation>オブジェクトカタログを開く...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="1202"/>
         <source>オブジェクトを追加</source>
         <translation>オブジェクトを追加</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1217"/>
-        <source>トランジションを追加</source>
-        <translation>トランジションを追加</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="1229"/>

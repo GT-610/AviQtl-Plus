@@ -322,25 +322,6 @@ QString TimelineController::recoveryDisplayName() const {
     return untitledName.isEmpty() ? tr("Untitled project") : untitledName;
 }
 
-bool TimelineController::writeRecoveryNow() {
-    const auto &settings = AviQtl::Core::SettingsManager::instance();
-    if (!settings.value(QStringLiteral("enableAutoBackup"), true).toBool() || !hasUnsavedChanges())
-        return false;
-
-    m_recoveryWritePending = false;
-    if (m_recoveryWriteWatcher->isRunning()) {
-        ProjectRecoveryManager::notifySynchronousWaitForTests();
-        m_recoveryWriteWatcher->waitForFinished();
-    }
-
-    QString error;
-    const QString originalUrl = m_recoveryOriginalProjectUrl.isEmpty() ? m_currentProjectUrl : m_recoveryOriginalProjectUrl;
-    const bool result = ProjectRecoveryManager::write(m_recoveryId, originalUrl, recoveryDisplayName(), m_timeline, m_project, &error);
-    if (!result)
-        qWarning().noquote() << QStringLiteral("Could not write project recovery snapshot:") << error;
-    return result;
-}
-
 void TimelineController::writeRecoveryAsync() {
     const auto &settings = AviQtl::Core::SettingsManager::instance();
     if (!settings.value(QStringLiteral("enableAutoBackup"), true).toBool() || !hasUnsavedChanges())

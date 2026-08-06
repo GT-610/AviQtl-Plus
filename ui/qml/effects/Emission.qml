@@ -9,6 +9,7 @@ Common.BaseEffect {
     property real threshold: root.evalNumber("threshold", 80) / 100
     property string color: root.evalColor("color", "")
     property bool fixedSize: root.evalParam("fixedSize", false)
+    property color resolvedColor: root.color.length > 0 ? root.color : "transparent"
 
     ShaderEffect {
         property var source: root.sourceProxy
@@ -17,8 +18,7 @@ Common.BaseEffect {
         property real threshold: root.threshold
         property vector3d glowColor: {
             if (root.color.length > 0) {
-                var c = Qt.colorConvert(root.color, "rgba");
-                return Qt.vector3d(c.r, c.g, c.b);
+                return Qt.vector3d(root.resolvedColor.r, root.resolvedColor.g, root.resolvedColor.b);
             }
             return Qt.vector3d(0, 0, 0);
         }

@@ -90,6 +90,8 @@ set(CORE_SOURCES
     core/src/effect_registry.cpp
     core/src/media_decoder.cpp
     core/src/media_utils.cpp
+    core/src/package_deployment.cpp
+    core/src/package_deployment.hpp
     core/src/package_manager.cpp
     core/src/package_url_utils.hpp
     core/src/permission_manager.cpp
@@ -312,7 +314,7 @@ qt_add_qml_module(AviQtl_UI
 set(EXTERNAL_QSB_FILES "")
 
 # Compile shaders from ui/qml/ (built-in effects)
-foreach(DIR "effects" "objects" "transitions" "common/shaders")
+foreach(DIR "effects" "objects" "common/shaders")
     file(GLOB_RECURSE SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "ui/qml/${DIR}/*.frag" "ui/qml/${DIR}/*.vert" "ui/qml/${DIR}/*.comp")
     foreach(SH ${SHADERS})
         get_filename_component(SH_FILE_NAME ${SH} NAME)
@@ -363,6 +365,19 @@ endforeach()
 
 add_custom_target(AviQtl_ExternalShaders ALL DEPENDS ${EXTERNAL_QSB_FILES})
 
+set(AVIQTL_RUNTIME_SHADER_COPY_COMMANDS "")
+foreach(OUTPUT_QSB IN LISTS EXTERNAL_QSB_FILES)
+    file(RELATIVE_PATH OUTPUT_QSB_RELATIVE "${CMAKE_BINARY_DIR}" "${OUTPUT_QSB}")
+    get_filename_component(OUTPUT_QSB_DIRECTORY "${OUTPUT_QSB_RELATIVE}" DIRECTORY)
+    list(APPEND AVIQTL_RUNTIME_SHADER_COPY_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:AviQtl>/${OUTPUT_QSB_DIRECTORY}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${OUTPUT_QSB}"
+            "$<TARGET_FILE_DIR:AviQtl>/${OUTPUT_QSB_RELATIVE}"
+    )
+endforeach()
+
 # --- Executable ---
 set(AVIQTL_EXECUTABLE_SOURCES
     core/src/main.cpp
@@ -387,32 +402,34 @@ if(APPLE)
     )
 endif()
 
-add_dependencies(AviQtl AviQtl_ExternalShaders)
-
-foreach(AVIQTL_EXTERNAL_ASSET_DIR effects objects transitions)
-    add_custom_command(TARGET AviQtl POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/${AVIQTL_EXTERNAL_ASSET_DIR}"
-            "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_BINARY_DIR}/${AVIQTL_EXTERNAL_ASSET_DIR}"
-            "$<TARGET_FILE_DIR:AviQtl>/${AVIQTL_EXTERNAL_ASSET_DIR}"
-        VERBATIM
-    )
-endforeach()
-
-# Copy effect-packages/ to build output (source files + compiled .qsb)
-add_custom_command(TARGET AviQtl POST_BUILD
+# Runtime assets must be refreshed even when the executable itself does not
+# relink. Recreate deployed directories so removed assets cannot survive in an
+# incremental build and tests never exercise stale copies.
+add_custom_target(AviQtl_RuntimeAssets
+    COMMAND ${CMAKE_COMMAND} -E rm -rf
+        "$<TARGET_FILE_DIR:AviQtl>/effects"
+        "$<TARGET_FILE_DIR:AviQtl>/objects"
+        "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
+        "$<TARGET_FILE_DIR:AviQtl>/transitions"
+        "${CMAKE_BINARY_DIR}/transitions"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:AviQtl>/effects"
+        "$<TARGET_FILE_DIR:AviQtl>/objects"
+        "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/effects"
+        "$<TARGET_FILE_DIR:AviQtl>/effects"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/objects"
+        "$<TARGET_FILE_DIR:AviQtl>/objects"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/effect-packages"
         "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_BINARY_DIR}/effect-packages"
-        "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
+    ${AVIQTL_RUNTIME_SHADER_COPY_COMMANDS}
     VERBATIM
 )
+add_dependencies(AviQtl_RuntimeAssets AviQtl_ExternalShaders)
+add_dependencies(AviQtl AviQtl_RuntimeAssets)
 
 add_custom_command(TARGET AviQtl POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -432,8 +449,13 @@ set(TS_FILES
 )
 
 if(TS_FILES)
-    qt_add_translations(AviQtl TS_FILES ${TS_FILES})
-    add_dependencies(AviQtl AviQtl_lupdate AviQtl_lrelease)
+    qt_add_translations(AviQtl
+        TS_FILES ${TS_FILES}
+        LUPDATE_OPTIONS -no-obsolete
+    )
+    # Building the application must not rewrite source translation catalogs.
+    # BUILD.py exposes AviQtl_lupdate explicitly for intentional catalog updates.
+    add_dependencies(AviQtl AviQtl_lrelease)
     set(QM_FILES "")
     foreach(TS_FILE ${TS_FILES})
         get_filename_component(TS_NAME "${TS_FILE}" NAME_WE)

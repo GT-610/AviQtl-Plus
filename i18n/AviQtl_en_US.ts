@@ -1538,76 +1538,6 @@ This software is released under the GNU Affero General Public License Version 3.
         <source>ワイプ</source>
         <translation>Wipe</translation>
     </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
-        <source>クロスフェード</source>
-        <translation>Cross Fade</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
-        <source>ワイプ（円）</source>
-        <translation>Wipe (Circle)</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
-        <source>スライド</source>
-        <translation>Slide</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
-        <source>円形</source>
-        <translation>Circle</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
-        <source>持続フレーム</source>
-        <translation>Duration (frames)</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
-        <source>イージング</source>
-        <translation>Easing</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
-        <source>linear</source>
-        <translation>Linear</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
-        <source>ease_in</source>
-        <translation>Ease In</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
-        <source>ease_out</source>
-        <translation>Ease Out</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
-        <source>ease_in_out</source>
-        <translation>Ease In Out</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
-        <source>left</source>
-        <translation>Left</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
-        <source>right</source>
-        <translation>Right</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
-        <source>up</source>
-        <translation>Up</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
-        <source>down</source>
-        <translation>Down</translation>
-    </message>
 </context>
 <context>
     <name>AviQtl::Core::PackageManager</name>
@@ -2164,11 +2094,6 @@ This software is released under the GNU Affero General Public License Version 3.
         <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="33"/>
         <source>Effects</source>
         <translation>Effects</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="35"/>
-        <source>Transitions</source>
-        <translation>Transitions</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="127"/>
@@ -3463,11 +3388,6 @@ Please restart the application to apply the update.</translation>
         <translation>Objects</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="101"/>
-        <source>トランジション</source>
-        <translation>Transitions</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="103"/>
         <source>インストール済み</source>
         <translation>Installed</translation>
@@ -3612,16 +3532,6 @@ Please restart the application to apply the update.</translation>
         <translation>Create, delete, and move clips</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
-        <source>エフェクト読み取り</source>
-        <translation>Effect Read</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
-        <source>エフェクト情報の一覧表示</source>
-        <translation>List effect information</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
         <source>エフェクト変更</source>
         <translation>Effect Modify</translation>
@@ -3700,6 +3610,16 @@ Please restart the application to apply the update.</translation>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
         <source>コピー、切り取り、貼り付け</source>
         <translation>Copy, cut, and paste</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>履歴操作</source>
+        <translation>History Control</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>元に戻す、やり直し、コマンドのグループ化</source>
+        <translation>Undo, redo, and group commands</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
@@ -4196,11 +4116,6 @@ Please restart the application to apply the update.</translation>
         <translation>Create, delete, move, and modify clips</translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="196"/>
-        <source>エフェクト情報の一覧表示</source>
-        <translation>List effect information</translation>
-    </message>
-    <message>
         <location filename="../core/src/permission_manager.cpp" line="198"/>
         <source>エフェクトの追加、削除、パラメータ変更</source>
         <translation>Add, remove effects, and modify parameters</translation>
@@ -4239,6 +4154,11 @@ Please restart the application to apply the update.</translation>
         <location filename="../core/src/permission_manager.cpp" line="212"/>
         <source>クリップボードへのコピー、切り取り、貼り付け</source>
         <translation>Copy, cut, and paste to clipboard</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="264"/>
+        <source>元に戻す、やり直し、コマンドのグループ化</source>
+        <translation>Undo, redo, and group commands</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="214"/>
@@ -4938,19 +4858,14 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1199"/>
-        <source>Browse object and transition catalog...</source>
-        <translation>Browse object and transition catalog...</translation>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1173"/>
+        <source>Browse object catalog...</source>
+        <translation>Browse object catalog...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="1202"/>
         <source>オブジェクトを追加</source>
         <translation>Add Object</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1217"/>
-        <source>トランジションを追加</source>
-        <translation>Add Transition</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="1229"/>

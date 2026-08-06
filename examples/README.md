@@ -10,7 +10,6 @@ Complete, self-contained examples demonstrating each extension type.
 | [stylize_effect](stylize_effect/) | Fragment effect | Minimum viable effect template |
 | [compute_blur](compute_blur/) | Compute effect | Multi-pass, `passIndex` injection |
 | [custom_object](custom_object/) | Object | `BaseObject`, scene graph integration |
-| [custom_transition](custom_transition/) | Transition | `previousScene`/`nextScene` animation |
 | [hello_mod](hello_mod/) | Lua plugin | Lifecycle hooks, APIs, permissions |
 
 ## Quick Start
@@ -32,11 +31,6 @@ Complete, self-contained examples demonstrating each extension type.
 1. Copy `custom_object/` to `<data>/objects/color_chip/`
 2. Restart AviQtl
 
-### Transition
-
-1. Copy `custom_transition/` to `<data>/transitions/zoom_transition/`
-2. Restart AviQtl
-
 ### Lua Plugin
 
 1. Copy `hello_mod/` to `<data>/plugins/hello_mod/`
@@ -49,7 +43,6 @@ Complete, self-contained examples demonstrating each extension type.
 |------|-------|-----------|---------|
 | Effect | JSON + QML + GLSL | `BaseEffect` / `BaseComputeEffect` | QML + QRhi |
 | Object | JSON + QML | `BaseObject` | QML + QtQuick3D |
-| Transition | JSON + QML | `Item` | QML |
 | Mod | `manifest.lua` + `main.lua` | — | LuaJIT |
 
 ## Documentation

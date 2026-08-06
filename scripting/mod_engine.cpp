@@ -9,6 +9,8 @@
 #include <QPointer>
 #include <QStringList>
 #include <QVariant>
+#include <array>
+#include <utility>
 
 namespace AviQtl::Scripting {
 
@@ -54,6 +56,15 @@ static bool isPluginCompatible(const PluginManifest &manifest) {
     return compareVersions(appVersion, manifest.minAppVersion) >= 0;
 }
 
+static constexpr std::array<const char *, 6> kPluginHookNames = {
+    "AviQtlUpdateHook",
+    "AviQtlOnLoad",
+    "AviQtlOnUnload",
+    "AviQtlOnProjectOpen",
+    "AviQtlOnProjectSave",
+    "AviQtlOnClipChange",
+};
+
 // C API Wrappers (used by Lua bindings)
 extern "C" {
 static void api_log(const char *msg) {
@@ -90,55 +101,7 @@ bool ModEngine::checkPermission(const char *apiName) const {
     if (m_currentPluginId.isEmpty()) {
         return true; // No plugin context, allow (for direct calls)
     }
-
-    auto &permMgr = AviQtl::Core::PermissionManager::instance();
-
-    // Map API names to permissions
-    struct ApiPermMap {
-        const char *name;
-        AviQtl::Core::PluginPermission permission;
-    };
-
-    static const ApiPermMap apiPermMap[] = {
-        {"transport_play", AviQtl::Core::PluginPermission::TransportControl},
-        {"transport_pause", AviQtl::Core::PluginPermission::TransportControl},
-        {"transport_toggle", AviQtl::Core::PluginPermission::TransportControl},
-        {"transport_seek", AviQtl::Core::PluginPermission::TransportControl},
-        {"transport_get_frame", AviQtl::Core::PluginPermission::TransportControl},
-        {"transport_is_playing", AviQtl::Core::PluginPermission::TransportControl},
-        {"clip_list", AviQtl::Core::PluginPermission::ClipRead},
-        {"clip_create", AviQtl::Core::PluginPermission::ClipModify},
-        {"clip_delete", AviQtl::Core::PluginPermission::ClipModify},
-        {"clip_update", AviQtl::Core::PluginPermission::ClipModify},
-        {"clip_select", AviQtl::Core::PluginPermission::ClipRead},
-        {"clip_split", AviQtl::Core::PluginPermission::ClipModify},
-        {"clip_copy", AviQtl::Core::PluginPermission::ClipboardAccess},
-        {"clip_cut", AviQtl::Core::PluginPermission::ClipboardAccess},
-        {"clip_paste", AviQtl::Core::PluginPermission::ClipboardAccess},
-        {"effect_add", AviQtl::Core::PluginPermission::EffectModify},
-        {"effect_remove", AviQtl::Core::PluginPermission::EffectModify},
-        {"effect_set_param", AviQtl::Core::PluginPermission::EffectModify},
-        {"project_width", AviQtl::Core::PluginPermission::ProjectRead},
-        {"project_height", AviQtl::Core::PluginPermission::ProjectRead},
-        {"project_fps", AviQtl::Core::PluginPermission::ProjectRead},
-        {"project_save", AviQtl::Core::PluginPermission::ProjectSave},
-        {"project_load", AviQtl::Core::PluginPermission::ProjectLoad},
-        {"scene_create", AviQtl::Core::PluginPermission::SceneManage},
-        {"scene_remove", AviQtl::Core::PluginPermission::SceneManage},
-        {"scene_switch", AviQtl::Core::PluginPermission::SceneManage},
-        {"settings_set", AviQtl::Core::PluginPermission::SettingsWrite},
-        {"settings_get", AviQtl::Core::PluginPermission::SettingsRead},
-        {"log", AviQtl::Core::PluginPermission::LogOutput},
-    };
-
-    for (const auto &entry : apiPermMap) {
-        if (strcmp(apiName, entry.name) == 0) {
-            return permMgr.hasPermission(m_currentPluginId, entry.permission);
-        }
-    }
-
-    // Default: deny unknown APIs to enforce explicit permission grants
-    return false;
+    return AviQtl::Core::PermissionManager::instance().hasApiPermission(m_currentPluginId, apiName);
 }
 
 // ヘルパー
@@ -426,13 +389,19 @@ static auto l_project_load(lua_State *L) -> int {
 // undo/redo
 static auto l_undo(lua_State *L) -> int {
     _checkCtrl(L);
-    // Undo/redo is allowed by default (no specific permission required)
+    if (!ModEngine::instance().checkPermission("undo")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: history.control");
+        return lua_error(L);
+    }
     g_ctrl->undo();
     return 0;
 }
 static auto l_redo(lua_State *L) -> int {
     _checkCtrl(L);
-    // Undo/redo is allowed by default (no specific permission required)
+    if (!ModEngine::instance().checkPermission("redo")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: history.control");
+        return lua_error(L);
+    }
     g_ctrl->redo();
     return 0;
 }
@@ -491,6 +460,10 @@ static auto l_scene_switch(lua_State *L) -> int {
 // command
 static auto l_command_begin_group(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("command_begin_group")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: history.control");
+        return lua_error(L);
+    }
     const char *text = luaL_checkstring(L, 1);
     if (g_ctrl->timeline() != nullptr) {
         g_ctrl->timeline()->undoStack()->beginMacro(QString::fromUtf8(text));
@@ -499,6 +472,10 @@ static auto l_command_begin_group(lua_State *L) -> int {
 }
 static auto l_command_end_group(lua_State *L) -> int {
     _checkCtrl(L);
+    if (!ModEngine::instance().checkPermission("command_end_group")) {
+        lua_pushstring(L, "[AviQtlAPI] Permission denied: history.control");
+        return lua_error(L);
+    }
     if (g_ctrl->timeline() != nullptr) {
         g_ctrl->timeline()->undoStack()->endMacro();
     }
@@ -517,10 +494,16 @@ ModEngine::~ModEngine() {
 }
 
 void ModEngine::initialize(void *ecsPtr) {
+    m_ecsPtr = ecsPtr;
+    m_initialized = true;
     if (L != nullptr) {
         return;
     }
     L = luaL_newstate();
+    if (L == nullptr) {
+        qCritical() << "[ModEngine] Failed to create Lua state.";
+        return;
+    }
     AviQtl::Scripting::LuaHost::setupSafeLuaState(L);
 
     // Register core pointer as global
@@ -533,8 +516,24 @@ void ModEngine::initialize(void *ecsPtr) {
     qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
 }
 
+void ModEngine::resetLuaState() {
+    if (L != nullptr) {
+        lua_close(L);
+        L = nullptr;
+    }
+    m_apiRegistered = false;
+    if (m_initialized) {
+        initialize(m_ecsPtr);
+    }
+}
+
 void ModEngine::registerController(AviQtl::UI::TimelineController *controller) {
+    QObject::disconnect(m_clipChangeConnection);
     g_ctrl = controller;
+    if (controller != nullptr && controller->timeline() != nullptr) {
+        m_clipChangeConnection = QObject::connect(controller->timeline(), &AviQtl::UI::TimelineService::clipsChanged,
+                                                  [this]() { onClipChange(); });
+    }
     if (L != nullptr && !m_apiRegistered) {
         registerAviQtlAPI();
         m_apiRegistered = true;
@@ -643,6 +642,13 @@ aviqtl = {
 }
 
 void ModEngine::loadPlugins() {
+    if (L == nullptr) {
+        initialize(m_ecsPtr);
+    }
+    if (L == nullptr) {
+        return;
+    }
+
     // Ensure API is registered (registerController may have been called before initialize)
     if (!m_apiRegistered && L != nullptr) {
         registerAviQtlAPI();
@@ -657,24 +663,7 @@ void ModEngine::loadPlugins() {
         return;
     }
 
-    // First pass: load manifests
     const QStringList subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-    for (const QString &subdir : subdirs) {
-        QString pluginDir = pluginsPath + QStringLiteral("/") + subdir;
-        PluginManifest manifest = loadManifest(pluginDir);
-        if (manifest.isValid()) {
-            if (!isPluginCompatible(manifest)) {
-                qWarning() << "[ModEngine] Skipping plugin" << manifest.name << "(" << manifest.id
-                           << "): requires AviQtl" << manifest.minAppVersion << "or newer (current:"
-                           << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
-                continue;
-            }
-            qInfo() << "[ModEngine] Found plugin:" << manifest.name << "v" << manifest.version << "(" << manifest.id << ")";
-            m_loadedPlugins.append(manifest);
-        }
-    }
-
-    // Second pass: load Lua files (both from root and subdirectories)
     QStringList filters;
     filters << QStringLiteral("*.lua");
     QFileInfoList files = dir.entryInfoList(filters, QDir::Files, QDir::Name);
@@ -711,13 +700,21 @@ void ModEngine::loadSingleFilePlugin(const QFileInfo &fileInfo) {
         }
     }
 
-    m_pluginInfos.append(info);
+    const QString previousPluginId = m_currentPluginId;
+    m_currentPluginId.clear();
+    clearHookGlobals();
     injectPluginParams(L, info);
 
     if (luaL_dofile(L, fileInfo.absoluteFilePath().toUtf8().constData())) {
         qCritical() << "[ModEngine] Load Error:" << lua_tostring(L, -1);
         lua_pop(L, 1);
+        clearHookGlobals();
+        m_currentPluginId = previousPluginId;
+        return;
     }
+    capturePluginHooks(QString());
+    m_pluginInfos.append(info);
+    m_currentPluginId = previousPluginId;
 }
 
 void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &pluginsPath) {
@@ -736,35 +733,50 @@ void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &plugin
 
     QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
     PluginManifest m = loadManifest(manifestDir);
-    if (m.isValid() && !isPluginCompatible(m)) {
+    if (!m.isValid()) {
+        qWarning() << "[ModEngine] Skipping plugin without a valid manifest:" << subdir;
+        return;
+    }
+    if (!isPluginCompatible(m)) {
         qWarning() << "[ModEngine] Skipping plugin" << subdir << ": requires AviQtl" << m.minAppVersion
                    << "or newer (current:" << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
         return;
     }
-    if (m.isValid()) {
-        info.manifest = m;
-        setCurrentPluginId(m.id);
-        m_lastLoadedPluginId = m.id;
+    for (const PluginManifest &loaded : std::as_const(m_loadedPlugins)) {
+        if (loaded.id == m.id) {
+            qWarning() << "[ModEngine] Skipping duplicate plugin ID:" << m.id;
+            return;
+        }
+    }
+    info.manifest = m;
 
-        for (const ScriptParam &param : scriptMeta.params) {
-            QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(m.id, param.varName);
-            QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
-            if (saved.isValid()) {
-                info.paramValues[param.varName] = saved;
-            } else {
-                info.paramValues[param.varName] = param.defaultValue;
-            }
+    for (const ScriptParam &param : scriptMeta.params) {
+        QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(m.id, param.varName);
+        QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
+        if (saved.isValid()) {
+            info.paramValues[param.varName] = saved;
+        } else {
+            info.paramValues[param.varName] = param.defaultValue;
         }
     }
 
-    m_pluginInfos.append(info);
+    const QString previousPluginId = m_currentPluginId;
+    m_currentPluginId = m.id;
+    clearHookGlobals();
     injectPluginParams(L, info);
 
     if (luaL_dofile(L, mainLua.toUtf8().constData())) {
         qCritical() << "[ModEngine] Plugin Error:" << lua_tostring(L, -1);
         lua_pop(L, 1);
+        clearHookGlobals();
+        m_currentPluginId = previousPluginId;
+        return;
     }
-    setCurrentPluginId(QString());
+    capturePluginHooks(m.id);
+    m_pluginInfos.append(info);
+    m_loadedPlugins.append(m);
+    m_currentPluginId = previousPluginId;
+    qInfo() << "[ModEngine] Loaded plugin:" << m.name << "v" << m.version << "(" << m.id << ")";
 }
 
 PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
@@ -820,11 +832,15 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
 }
 
 void ModEngine::unloadPlugins() {
-    // Note: Lua doesn't have a built-in unload mechanism
-    // We would need to track loaded chunks and their globals
-    // For now, this just clears the manifest list
+    if (!m_pluginRuntimes.isEmpty()) {
+        onUnload();
+    }
     m_loadedPlugins.clear();
-    qInfo() << "[ModEngine] Plugin list cleared (full unload requires Lua state reset)";
+    m_pluginInfos.clear();
+    m_pluginRuntimes.clear();
+    m_currentPluginId.clear();
+    resetLuaState();
+    qInfo() << "[ModEngine] Plugins unloaded and Lua state reset";
 }
 
 void ModEngine::enableHotReload(bool enable) {
@@ -875,9 +891,7 @@ void ModEngine::setupFileWatcher() {
         m_reloadDebounceTimer.setSingleShot(true);
         m_reloadDebounceTimer.setInterval(500);
         QObject::connect(&m_reloadDebounceTimer, &QTimer::timeout, [this]() {
-            m_loadedPlugins.clear();
-            m_pluginInfos.clear();
-            m_lastLoadedPluginId.clear();
+            unloadPlugins();
             loadPlugins();
             onLoad();
             qInfo() << "[ModEngine] Plugins reloaded due to file changes";
@@ -896,14 +910,14 @@ void ModEngine::onUpdate() {
     if (L == nullptr) {
         return;
     }
-    callHook("AviQtlUpdateHook");
+    callHooks("AviQtlUpdateHook");
 }
 
 void ModEngine::onLoad() {
     if (L == nullptr) {
         return;
     }
-    callHook("AviQtlOnLoad");
+    callHooks("AviQtlOnLoad");
     qInfo() << "[ModEngine] onLoad hook called";
 }
 
@@ -911,7 +925,7 @@ void ModEngine::onUnload() {
     if (L == nullptr) {
         return;
     }
-    callHook("AviQtlOnUnload");
+    callHooks("AviQtlOnUnload");
     qInfo() << "[ModEngine] onUnload hook called";
 }
 
@@ -919,8 +933,7 @@ void ModEngine::onProjectOpen(const QString &path) {
     if (L == nullptr) {
         return;
     }
-    lua_pushstring(L, path.toUtf8().constData());
-    callHook("AviQtlOnProjectOpen", 1);
+    callHooks("AviQtlOnProjectOpen", &path);
     qInfo() << "[ModEngine] onProjectOpen hook called:" << path;
 }
 
@@ -928,8 +941,7 @@ void ModEngine::onProjectSave(const QString &path) {
     if (L == nullptr) {
         return;
     }
-    lua_pushstring(L, path.toUtf8().constData());
-    callHook("AviQtlOnProjectSave", 1);
+    callHooks("AviQtlOnProjectSave", &path);
     qInfo() << "[ModEngine] onProjectSave hook called:" << path;
 }
 
@@ -937,29 +949,65 @@ void ModEngine::onClipChange() {
     if (L == nullptr) {
         return;
     }
-    callHook("AviQtlOnClipChange");
+    callHooks("AviQtlOnClipChange");
 }
 
-void ModEngine::callHook(const char *hookName, int nargs) {
-    // Stack before: [arg1, ..., argN]
-    lua_getglobal(L, hookName);
-    // Stack after: [arg1, ..., argN, function]
-    if (!lua_isfunction(L, -1)) {
-        lua_pop(L, 1 + nargs);
+void ModEngine::clearHookGlobals() {
+    if (L == nullptr) {
         return;
     }
-    // Move function below arguments: [arg1, ..., argN, function] -> [function, arg1, ..., argN]
-    lua_insert(L, -(nargs + 1));
-    // Set plugin context for permission checks during hook execution
-    QString prevPluginId = m_currentPluginId;
-    if (m_currentPluginId.isEmpty() && !m_lastLoadedPluginId.isEmpty()) {
-        m_currentPluginId = m_lastLoadedPluginId;
+    for (const char *hookName : kPluginHookNames) {
+        lua_pushnil(L);
+        lua_setglobal(L, hookName);
     }
-    if (lua_pcall(L, nargs, 0, 0) != 0) {
-        qCritical() << "[ModEngine] Hook" << hookName << "Error:" << lua_tostring(L, -1);
-        lua_pop(L, 1);
+}
+
+void ModEngine::capturePluginHooks(const QString &pluginId) {
+    PluginRuntime runtime;
+    runtime.pluginId = pluginId;
+    for (const char *hookName : kPluginHookNames) {
+        lua_getglobal(L, hookName);
+        if (lua_isfunction(L, -1)) {
+            runtime.hookRefs.insert(QByteArray(hookName), luaL_ref(L, LUA_REGISTRYINDEX));
+        } else {
+            lua_pop(L, 1);
+        }
+        lua_pushnil(L);
+        lua_setglobal(L, hookName);
     }
-    m_currentPluginId = prevPluginId;
+    if (!runtime.hookRefs.isEmpty()) {
+        m_pluginRuntimes.append(std::move(runtime));
+    }
+}
+
+void ModEngine::callHooks(const char *hookName, const QString *argument) {
+    if (L == nullptr) {
+        return;
+    }
+    for (const PluginRuntime &runtime : std::as_const(m_pluginRuntimes)) {
+        const auto refIt = runtime.hookRefs.constFind(QByteArray(hookName));
+        if (refIt == runtime.hookRefs.cend()) {
+            continue;
+        }
+
+        lua_rawgeti(L, LUA_REGISTRYINDEX, refIt.value());
+        int argumentCount = 0;
+        if (argument != nullptr) {
+            const QByteArray encoded = argument->toUtf8();
+            lua_pushlstring(L, encoded.constData(), static_cast<size_t>(encoded.size()));
+            argumentCount = 1;
+        }
+
+        const QString previousPluginId = m_currentPluginId;
+        m_currentPluginId = runtime.pluginId;
+        if (lua_pcall(L, argumentCount, 0, 0) != 0) {
+            qCritical() << "[ModEngine] Hook" << hookName << "for plugin"
+                        << (runtime.pluginId.isEmpty() ? QStringLiteral("<legacy>") : runtime.pluginId)
+                        << "failed:" << lua_tostring(L, -1);
+            lua_pop(L, 1);
+        }
+        m_currentPluginId = previousPluginId;
+    }
 }
 
 ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {

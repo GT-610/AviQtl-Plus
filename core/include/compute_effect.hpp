@@ -24,7 +24,6 @@ class ComputeEffect : public QQuickItem {
     Q_PROPERTY(int workGroupSizeY READ workGroupSizeY WRITE setWorkGroupSizeY NOTIFY workGroupSizeYChanged)
     Q_PROPERTY(bool autoWorkGroup READ autoWorkGroup WRITE setAutoWorkGroup NOTIFY autoWorkGroupChanged)
     Q_PROPERTY(bool hdrOutput READ hdrOutput WRITE setHdrOutput NOTIFY hdrOutputChanged)
-    Q_PROPERTY(qreal opacity READ opacity WRITE setOpacity NOTIFY opacityChanged)
     Q_PROPERTY(QVariantList extraTextures READ extraTextures WRITE setExtraTextures NOTIFY extraTexturesChanged)
     Q_PROPERTY(int dispatchCount READ dispatchCount WRITE setDispatchCount NOTIFY dispatchCountChanged)
 
@@ -44,7 +43,6 @@ class ComputeEffect : public QQuickItem {
     int workGroupSizeY() const { return m_workGroupY; }
     bool autoWorkGroup() const { return m_autoWorkGroup; }
     bool hdrOutput() const { return m_hdrOutput; }
-    qreal opacity() const { return m_opacity; }
     QVariantList extraTextures() const { return m_extraTextures; }
     int dispatchCount() const { return m_dispatchCount; }
 
@@ -56,7 +54,6 @@ class ComputeEffect : public QQuickItem {
     void setWorkGroupSizeY(int y);
     void setAutoWorkGroup(bool autoWG);
     void setHdrOutput(bool hdr);
-    void setOpacity(qreal o);
     void setExtraTextures(const QVariantList &textures);
     void setDispatchCount(int count);
 
@@ -72,7 +69,6 @@ class ComputeEffect : public QQuickItem {
     void workGroupSizeYChanged();
     void autoWorkGroupChanged();
     void hdrOutputChanged();
-    void opacityChanged();
     void extraTexturesChanged();
     void dispatchCountChanged();
 
@@ -94,7 +90,6 @@ class ComputeEffect : public QQuickItem {
     int m_workGroupY = 1;
     bool m_autoWorkGroup = true;
     bool m_hdrOutput = false;
-    qreal m_opacity = 1.0;
     QVariantList m_extraTextures;
     int m_dispatchCount = 1;
 };
