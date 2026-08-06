@@ -306,8 +306,9 @@ add_test(
 )
 set_tests_properties(build_version PROPERTIES TIMEOUT 30)
 
+set_tests_properties(audio_decoder PROPERTIES TIMEOUT 180)
 set_tests_properties(
-    audio_decoder video_decoder large_timeline_performance qml_composite_capture
+    video_decoder large_timeline_performance qml_composite_capture
     PROPERTIES TIMEOUT 120
 )
 

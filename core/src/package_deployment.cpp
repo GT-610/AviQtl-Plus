@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QDebug>
 #include <QtCore/private/qzipreader_p.h>
@@ -12,6 +13,12 @@ namespace AviQtl::Core::Internal {
 namespace {
 constexpr qint64 kMaxPackageExtractedBytes = 1024LL * 1024LL * 1024LL;
 constexpr qsizetype kMaxPackageArchiveEntries = 10000;
+
+QString transactionWorkspace(const QString &deployDirectory) {
+    const QFileInfo deployInfo(QDir::cleanPath(deployDirectory));
+    return QDir(deployInfo.absolutePath())
+        .filePath(QStringLiteral(".%1-package-deployment").arg(deployInfo.fileName()));
+}
 
 bool copyDirectory(const QString &srcPath, const QString &destPath) {
     QDir srcDir(srcPath);
@@ -90,7 +97,11 @@ PackageDeployment::FileOperationResult PackageDeployment::deployFiles(
 
     if (!QDir().mkpath(deployBase))
         return FileOperationResult::Failed;
-    QTemporaryDir stagingDir(QDir(deployBase).filePath(QStringLiteral(".staging_XXXXXX")));
+    const QString workspace = transactionWorkspace(deployBase);
+    if (!QDir().mkpath(workspace))
+        return FileOperationResult::Failed;
+    const auto workspaceCleanup = qScopeGuard([workspace]() { QDir().rmdir(workspace); });
+    QTemporaryDir stagingDir(QDir(workspace).filePath(QStringLiteral(".staging_XXXXXX")));
     if (!stagingDir.isValid()) {
         qWarning() << "[PackageDeployment] Failed to create staging directory.";
         return FileOperationResult::Failed;
@@ -109,7 +120,7 @@ PackageDeployment::FileOperationResult PackageDeployment::deployFiles(
         }
     }
 
-    const QString backupDir = QDir(deployBase).filePath(QStringLiteral(".backup_") + packageId);
+    const QString backupDir = QDir(workspace).filePath(QStringLiteral(".backup_") + packageId);
     const FileOperationResult result = runFileTransaction(
         packageDir, backupDir,
         [stagingPath, packageDir] { return QDir().rename(stagingPath, packageDir); },
@@ -128,8 +139,12 @@ PackageDeployment::FileOperationResult PackageDeployment::removeFiles(
     if (deployDir.isEmpty())
         return FileOperationResult::Failed;
 
+    const QString workspace = transactionWorkspace(deployDir);
+    if (!QDir().mkpath(workspace))
+        return FileOperationResult::Failed;
+    const auto workspaceCleanup = qScopeGuard([workspace]() { QDir().rmdir(workspace); });
     const QString packageDir = QDir(deployDir).filePath(packageId);
-    const QString backupDir = QDir(deployDir).filePath(QStringLiteral(".remove_backup_") + packageId);
+    const QString backupDir = QDir(workspace).filePath(QStringLiteral(".remove_backup_") + packageId);
     return runFileTransaction(packageDir, backupDir, [] { return true; }, [] { return true; }, commitState, "remove");
 }
 

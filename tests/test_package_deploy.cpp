@@ -4,6 +4,7 @@
 #include "settings_manager.hpp"
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -68,6 +69,18 @@ void restoreSettings(const SettingsSnapshot &snapshot) {
         file.write(snapshot.payload);
     }
 }
+
+bool containsTransactionDirectory(const QString &deployDir, const QString &packageId) {
+    QDirIterator it(deployDir, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QString name = QFileInfo(it.next()).fileName();
+        if (name.startsWith(QStringLiteral(".staging_")) || name == QStringLiteral(".backup_") + packageId ||
+            name == QStringLiteral(".remove_backup_") + packageId) {
+            return true;
+        }
+    }
+    return false;
+}
 } // namespace
 
 void TestPackageDeploy::deploysPackageFiles_data() {
@@ -108,12 +121,15 @@ void TestPackageDeploy::deploysPackageFiles() {
     } cleanup{packageDir};
 
     bool stateCommitted = false;
-    QCOMPARE(PackageDeployment::deployFiles(packageId, sourceDir.path(), packageType, [&stateCommitted] {
+    bool transactionDirectoryWasReachable = false;
+    QCOMPARE(PackageDeployment::deployFiles(packageId, sourceDir.path(), packageType, [&] {
+                 transactionDirectoryWasReachable = containsTransactionDirectory(deployDir, packageId);
                  stateCommitted = true;
                  return true;
              }),
              PackageDeployment::FileOperationResult::Success);
     QVERIFY(stateCommitted);
+    QVERIFY(!transactionDirectoryWasReachable);
     QVERIFY(!QFileInfo::exists(QDir(packageDir).filePath(QStringLiteral("stale.txt"))));
     QFile installedPayload(QDir(packageDir).filePath(QStringLiteral("payload.txt")));
     QVERIFY(installedPayload.open(QIODevice::ReadOnly));
@@ -214,8 +230,14 @@ void TestPackageDeploy::removesPackageTransactionally() {
     file.write("old");
     file.close();
 
-    QCOMPARE(PackageDeployment::removeFiles(packageId, QStringLiteral("effect"), [] { return false; }),
+    const QString deployDir = PackageDeployment::deployDirectory(QStringLiteral("effect"));
+    bool transactionDirectoryWasReachable = false;
+    QCOMPARE(PackageDeployment::removeFiles(packageId, QStringLiteral("effect"), [&] {
+                 transactionDirectoryWasReachable = containsTransactionDirectory(deployDir, packageId);
+                 return false;
+             }),
              PackageDeployment::FileOperationResult::StateCommitFailed);
+    QVERIFY(!transactionDirectoryWasReachable);
     QVERIFY(QFile::exists(packageDir + QStringLiteral("/content.txt")));
     QDir(packageDir).removeRecursively();
 }
@@ -330,7 +352,7 @@ void TestPackageDeploy::managesRepositoriesAndPersistsThem() {
                                                    .value(QStringLiteral("packageRepositories"))
                                                    .toArray()
                                                    .toVariantList();
-    QCOMPARE(persistedRepositories, expectedRepositories);
+    QCOMPARE(persistedRepositories, QJsonArray::fromVariantList(expectedRepositories).toVariantList());
 
     settings.setValue(QStringLiteral("packageRepositories"), QVariantList{});
     QVERIFY(persistedFile.open(QIODevice::WriteOnly | QIODevice::Truncate));

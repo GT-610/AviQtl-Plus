@@ -102,7 +102,7 @@ ListView {
 
                 Button {
                     text: qsTr("削除")
-                    visible: installedVer !== "" && modelData.id !== "org.aviqtl.app"
+                    visible: installedVer !== "" && modelData.id !== "org.aviqtl.app" && !modelData.local_file_plugin
                     enabled: PackageManager && !PackageManager.isBusy
                     onClicked: PackageManager.removePackage(modelData.id)
                 }

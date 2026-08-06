@@ -80,6 +80,7 @@ bool PermissionManager::hasApiPermission(const QString &pluginId, const char *ap
         if (std::strcmp(apiName, mapping.name) == 0)
             return hasPermission(pluginId, mapping.permission);
     }
+    qWarning() << "[PermissionManager] Unknown API name:" << apiName;
     return false;
 }
 

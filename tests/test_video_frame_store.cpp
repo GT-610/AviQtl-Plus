@@ -47,14 +47,22 @@ void TestVideoFrameStore::safeImageUpdateRunsOnStoreThread() {
     QThread *signalThread = nullptr;
     connect(&store, &VideoFrameStore::frameUpdated, &store, [&signalThread]() { signalThread = QThread::currentThread(); });
 
-    const QImage image(8, 6, QImage::Format_ARGB32);
-    std::thread producer([&store, image]() { store.setFrameSafe(QStringLiteral("worker"), image); });
+    QByteArray pixels(8 * 6 * 4, '\0');
+    QImage image(reinterpret_cast<uchar *>(pixels.data()), 8, 6, 8 * 4, QImage::Format_RGBA8888);
+    image.fill(Qt::red);
+    std::thread producer([&store, &image]() { store.setFrameSafe(QStringLiteral("worker"), image); });
     producer.join();
+    auto *pixelBytes = reinterpret_cast<uchar *>(pixels.data());
+    pixelBytes[0] = 0;
+    pixelBytes[1] = 0;
+    pixelBytes[2] = 255;
+    pixelBytes[3] = 255;
 
     QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 5'000);
     QCOMPARE(spy.first().at(0).toString(), QStringLiteral("worker"));
     QCOMPARE(signalThread, store.thread());
     QCOMPARE(store.frame(QStringLiteral("worker")).size(), image.size());
+    QCOMPARE(store.frame(QStringLiteral("worker")).pixelColor(0, 0), QColor(Qt::red));
 }
 
 void TestVideoFrameStore::invalidateClearsImageAndVideoSink() {

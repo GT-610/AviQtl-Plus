@@ -114,6 +114,7 @@ class ModEngine {
     void registerAviQtlAPI();
     void callHooks(const char *hookName, const QString *argument = nullptr);
     void capturePluginHooks(const QString &pluginId);
+    void releasePluginHooks();
     void clearHookGlobals();
     void resetLuaState();
     void setupFileWatcher();
@@ -131,6 +132,7 @@ class ModEngine {
     QMetaObject::Connection m_clipChangeConnection;
     QTimer m_reloadDebounceTimer;
     bool m_hotReloadEnabled = false;
+    bool m_dispatchingHooks = false;
     QString m_currentPluginId;
     void *m_ecsPtr = nullptr;
     bool m_initialized = false;

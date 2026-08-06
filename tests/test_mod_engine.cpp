@@ -1,4 +1,5 @@
 #include "mod_engine.hpp"
+#include "package_manager.hpp"
 #include "permission_manager.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
@@ -6,11 +7,13 @@
 #include <QDir>
 #include <QFile>
 #include <QMap>
+#include <QRegularExpression>
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextStream>
+#include <algorithm>
 
 using namespace AviQtl::Scripting;
 
@@ -20,6 +23,7 @@ class TestModEngine : public QObject {
   private slots:
     void pluginFileWatcherWatchesAndClearsPaths();
     void apiPermissionMappingCoversRegisteredOperations();
+    void filePluginsUseSyntheticPermissionIdentity();
     void loadsAndDispatchesEachPluginLifecycle();
 };
 
@@ -80,7 +84,8 @@ bool writeTextFile(const QString &path, const QString &contents) {
 }
 
 bool createPlugin(const QString &pluginsPath, const QString &directoryName,
-                  const QString &pluginId, const QString &pluginName) {
+                  const QString &pluginId, const QString &pluginName,
+                  bool mutateOnClipChange = false) {
     const QString pluginPath = QDir(pluginsPath).filePath(directoryName);
     if (!QDir().mkpath(pluginPath)) {
         return false;
@@ -96,6 +101,9 @@ return {
 local function record(key, value)
     aviqtl.settings.set(key, tostring(value))
 end
+
+local mutateOnClipChange = %1
+local clipHookCount = 0
 
 function AviQtlOnLoad()
     record("load", "called")
@@ -114,13 +122,18 @@ function AviQtlOnProjectSave(path)
 end
 
 function AviQtlOnClipChange()
+    clipHookCount = clipHookCount + 1
     record("clip", "called")
+    record("clip_count", clipHookCount)
+    if mutateOnClipChange and clipHookCount == 1 then
+        aviqtl.clip.create("rect", 1, 0)
+    end
 end
 
 function AviQtlOnUnload()
     record("unload", "called")
 end
-)");
+)").arg(mutateOnClipChange ? QStringLiteral("true") : QStringLiteral("false"));
     return writeTextFile(QDir(pluginPath).filePath(QStringLiteral("manifest.lua")), manifest) &&
            writeTextFile(QDir(pluginPath).filePath(QStringLiteral("main.lua")), script);
 }
@@ -167,6 +180,7 @@ void TestModEngine::apiPermissionMappingCoversRegisteredOperations() {
 
     QVERIFY(engine.currentPluginId().isEmpty());
     QVERIFY(engine.checkPermission("direct_internal_call"));
+    QTest::ignoreMessage(QtWarningMsg, QRegularExpression(QStringLiteral(".*Unknown API name.*unknown_api.*")));
     QVERIFY(!permissions.hasApiPermission(pluginId, "unknown_api"));
 
     QMap<int, PluginPermission> permissionsByValue;
@@ -182,6 +196,61 @@ void TestModEngine::apiPermissionMappingCoversRegisteredOperations() {
             QCOMPARE(permissions.hasApiPermission(pluginId, testCase.apiName), testCase.permission == granted);
         }
     }
+}
+
+void TestModEngine::filePluginsUseSyntheticPermissionIdentity() {
+    using AviQtl::Core::PackageManager;
+    using AviQtl::Core::PermissionManager;
+    using AviQtl::Core::PluginPermission;
+    using AviQtl::Core::SettingsManager;
+
+    ModEngine &engine = ModEngine::instance();
+    PermissionManager &permissions = PermissionManager::instance();
+    SettingsManager &settings = SettingsManager::instance();
+    const QVariantMap originalSettings = settings.settings();
+    const QString pluginsPath = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins"));
+    const QString fileName = QStringLiteral("synthetic_identity.lua");
+    const QString filePath = QDir(pluginsPath).filePath(fileName);
+    const QString pluginId = QStringLiteral("file:") + fileName;
+    const QString settingKey = QStringLiteral("plugin.%1.file_load").arg(pluginId);
+
+    engine.unloadPlugins();
+    permissions.revokeAllPermissions(pluginId);
+    QFile::remove(filePath);
+    const auto cleanup = qScopeGuard([&]() {
+        engine.unloadPlugins();
+        permissions.revokeAllPermissions(pluginId);
+        settings.setSettings(originalSettings);
+        QFile::remove(filePath);
+    });
+
+    QVERIFY(QDir().mkpath(pluginsPath));
+    QVERIFY(writeTextFile(filePath, QStringLiteral(R"(
+function AviQtlOnLoad()
+    aviqtl.settings.set("file_load", "called")
+end
+)")));
+
+    engine.loadPlugins();
+    const QList<PluginInfo> infos = engine.pluginInfos();
+    QVERIFY(std::any_of(infos.cbegin(), infos.cend(), [&pluginId](const PluginInfo &info) {
+        return info.manifest.id == pluginId;
+    }));
+    const QVariantList installedPackages = PackageManager::instance().getPackagesByType(QStringLiteral("installed"));
+    const auto packageIt = std::find_if(installedPackages.cbegin(), installedPackages.cend(), [&pluginId](const QVariant &entry) {
+        return entry.toMap().value(QStringLiteral("id")).toString() == pluginId;
+    });
+    QVERIFY(packageIt != installedPackages.cend());
+    QVERIFY(packageIt->toMap().value(QStringLiteral("local_file_plugin")).toBool());
+
+    QTest::ignoreMessage(QtCriticalMsg, QRegularExpression(QStringLiteral(".*Permission denied: settings\\.write.*")));
+    engine.onLoad();
+    QVERIFY(!settings.settings().contains(settingKey));
+
+    permissions.grantPermission(pluginId, PluginPermission::SettingsWrite);
+    engine.onLoad();
+    QCOMPARE(settings.value(settingKey).toString(), QStringLiteral("called"));
+    QVERIFY(engine.currentPluginId().isEmpty());
 }
 
 void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
@@ -214,7 +283,7 @@ void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
     });
 
     QVERIFY(QDir().mkpath(pluginsPath));
-    QVERIFY(createPlugin(pluginsPath, pluginDirectories.at(0), pluginIds.at(0), QStringLiteral("Lifecycle Alpha")));
+    QVERIFY(createPlugin(pluginsPath, pluginDirectories.at(0), pluginIds.at(0), QStringLiteral("Lifecycle Alpha"), true));
     QVERIFY(createPlugin(pluginsPath, pluginDirectories.at(1), pluginIds.at(1), QStringLiteral("Lifecycle Beta")));
     const QString invalidPath = QDir(pluginsPath).filePath(pluginDirectories.at(2));
     QVERIFY(QDir().mkpath(invalidPath));
@@ -224,11 +293,20 @@ void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
     for (const QString &pluginId : pluginIds) {
         permissions.revokeAllPermissions(pluginId);
         permissions.grantPermission(pluginId, PluginPermission::SettingsWrite);
+        permissions.grantPermission(pluginId, PluginPermission::ClipModify);
     }
 
     engine.loadPlugins();
-    QCOMPARE(engine.loadedPlugins().size(), 2);
-    QCOMPARE(engine.pluginInfos().size(), 2);
+    const QList<PluginManifest> loadedPlugins = engine.loadedPlugins();
+    const QList<PluginInfo> pluginInfos = engine.pluginInfos();
+    for (const QString &pluginId : pluginIds) {
+        QVERIFY(std::any_of(loadedPlugins.cbegin(), loadedPlugins.cend(), [&pluginId](const PluginManifest &plugin) {
+            return plugin.id == pluginId;
+        }));
+        QVERIFY(std::any_of(pluginInfos.cbegin(), pluginInfos.cend(), [&pluginId](const PluginInfo &info) {
+            return info.manifest.id == pluginId;
+        }));
+    }
     QVERIFY(engine.currentPluginId().isEmpty());
 
     engine.onLoad();
@@ -241,6 +319,7 @@ void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
     AviQtl::UI::TimelineController controller;
     engine.registerController(&controller);
     controller.createObject(QStringLiteral("rect"), 0, 0);
+    QCOMPARE(controller.clips().size(), 2);
 
     for (const QString &pluginId : pluginIds) {
         const QString prefix = QStringLiteral("plugin.%1.").arg(pluginId);
@@ -249,12 +328,21 @@ void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
         QCOMPARE(settings.value(prefix + QStringLiteral("open")).toString(), openedPath);
         QCOMPARE(settings.value(prefix + QStringLiteral("save")).toString(), savedPath);
         QCOMPARE(settings.value(prefix + QStringLiteral("clip")).toString(), QStringLiteral("called"));
+        QCOMPARE(settings.value(prefix + QStringLiteral("clip_count")).toString(), QStringLiteral("3"));
     }
     QVERIFY(!settings.settings().contains(QStringLiteral("should_not_run")));
 
     engine.unloadPlugins();
-    QCOMPARE(engine.loadedPlugins().size(), 0);
-    QCOMPARE(engine.pluginInfos().size(), 0);
+    const QList<PluginManifest> remainingPlugins = engine.loadedPlugins();
+    const QList<PluginInfo> remainingInfos = engine.pluginInfos();
+    for (const QString &pluginId : pluginIds) {
+        QVERIFY(std::none_of(remainingPlugins.cbegin(), remainingPlugins.cend(), [&pluginId](const PluginManifest &plugin) {
+            return plugin.id == pluginId;
+        }));
+        QVERIFY(std::none_of(remainingInfos.cbegin(), remainingInfos.cend(), [&pluginId](const PluginInfo &info) {
+            return info.manifest.id == pluginId;
+        }));
+    }
     QVERIFY(engine.currentPluginId().isEmpty());
     QVERIFY(engine.state() != nullptr);
     for (const QString &pluginId : pluginIds) {

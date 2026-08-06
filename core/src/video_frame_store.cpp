@@ -29,7 +29,7 @@ void VideoFrameStore::setFrame(const QString &key, const QImage &frame) {
 
 void VideoFrameStore::setFrameSafe(const QString &key, const QImage &frame) {
     if (QThread::currentThread() != thread()) {
-        const QImage copy(frame);
+        const QImage copy = frame.copy();
         QMetaObject::invokeMethod(this, [this, key, copy]() { setFrameSafe(key, copy); }, Qt::QueuedConnection);
         return;
     }

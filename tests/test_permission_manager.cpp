@@ -35,6 +35,7 @@ const QStringList &testPluginIds() {
         QStringLiteral("test.revoke"),
         QStringLiteral("test.grantall"),
         QStringLiteral("test.revokeall"),
+        QStringLiteral("test.unknown"),
         QStringLiteral("test.auth"),
         QStringLiteral("test.persist"),
     };
@@ -159,7 +160,7 @@ void TestPermissionManager::allPermissionNamesAreComplete() {
 
 void TestPermissionManager::unknownPermissionNamesAreRejected() {
     PermissionManager &pm = PermissionManager::instance();
-    const QString pluginId = QStringLiteral("test.grant");
+    const QString pluginId = QStringLiteral("test.unknown");
     const QString unknown = QStringLiteral("unknown.permission");
     QVERIFY(!pm.hasPermission(pluginId, unknown));
     pm.grantPermission(pluginId, unknown);

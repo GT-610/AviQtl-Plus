@@ -905,16 +905,11 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
         return;
     }
 
-    // Compile shaders for effect/object packages
+    // Compile shaders and reload the registry for effect/object packages.
     if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
         const QString deployDir = Internal::PackageDeployment::deployDirectory(packageType);
         const QString packageDir = deployDir + QStringLiteral("/") + packageId;
         compileShadersInDirectory(packageDir);
-    }
-
-    // Reload registry for effect/object packages
-    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
-        const QString deployDir = Internal::PackageDeployment::deployDirectory(packageType);
         EffectRegistry::instance().loadEffectsFromDirectory(deployDir);
     } else if (packageType == QStringLiteral("mod")) {
         // Mods will be loaded on next app restart
@@ -993,6 +988,26 @@ QVariantList PackageManager::getPackagesByType(const QString &type) const {
         } else {
             if (pkg.value(QStringLiteral("type")).toString() == type)
                 result.append(pkg);
+        }
+    }
+    if (type == QStringLiteral("installed") || type == QStringLiteral("mod")) {
+        const QDir pluginsDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")));
+        const QFileInfoList filePlugins = pluginsDir.entryInfoList({QStringLiteral("*.lua")}, QDir::Files, QDir::Name);
+        for (const QFileInfo &fileInfo : filePlugins) {
+            const QString pluginId = QStringLiteral("file:%1").arg(fileInfo.fileName());
+            const bool alreadyPresent = std::any_of(result.cbegin(), result.cend(), [&pluginId](const QVariant &entry) {
+                return entry.toMap().value(QStringLiteral("id")).toString() == pluginId;
+            });
+            if (alreadyPresent)
+                continue;
+            result.append(QVariantMap{
+                {QStringLiteral("id"), pluginId},
+                {QStringLiteral("type"), QStringLiteral("mod")},
+                {QStringLiteral("display_name"), fileInfo.completeBaseName()},
+                {QStringLiteral("version"), QStringLiteral("file")},
+                {QStringLiteral("installed_version"), QStringLiteral("file")},
+                {QStringLiteral("local_file_plugin"), true},
+            });
         }
     }
     return result;

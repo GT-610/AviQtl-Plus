@@ -7,6 +7,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QStringList>
 #include <QVariant>
 #include <array>
@@ -488,6 +489,7 @@ auto ModEngine::instance() -> ModEngine & {
 }
 
 ModEngine::~ModEngine() {
+    releasePluginHooks();
     if (L != nullptr) {
         lua_close(L);
     }
@@ -517,6 +519,7 @@ void ModEngine::initialize(void *ecsPtr) {
 }
 
 void ModEngine::resetLuaState() {
+    releasePluginHooks();
     if (L != nullptr) {
         lua_close(L);
         L = nullptr;
@@ -680,6 +683,7 @@ void ModEngine::loadPlugins() {
 
 void ModEngine::loadSingleFilePlugin(const QFileInfo &fileInfo) {
     qInfo() << "[ModEngine] Loading MOD:" << fileInfo.fileName();
+    const QString pluginId = QStringLiteral("file:%1").arg(fileInfo.fileName());
 
     ScriptMetadata scriptMeta = loadScriptParams(fileInfo.absoluteFilePath());
     if (!scriptMeta.params.isEmpty()) {
@@ -687,6 +691,9 @@ void ModEngine::loadSingleFilePlugin(const QFileInfo &fileInfo) {
     }
 
     PluginInfo info;
+    info.manifest.id = pluginId;
+    info.manifest.name = fileInfo.completeBaseName();
+    info.manifest.version = QStringLiteral("file");
     info.filePath = fileInfo.absoluteFilePath();
     info.scriptMeta = scriptMeta;
 
@@ -701,7 +708,7 @@ void ModEngine::loadSingleFilePlugin(const QFileInfo &fileInfo) {
     }
 
     const QString previousPluginId = m_currentPluginId;
-    m_currentPluginId.clear();
+    m_currentPluginId = pluginId;
     clearHookGlobals();
     injectPluginParams(L, info);
 
@@ -712,7 +719,7 @@ void ModEngine::loadSingleFilePlugin(const QFileInfo &fileInfo) {
         m_currentPluginId = previousPluginId;
         return;
     }
-    capturePluginHooks(QString());
+    capturePluginHooks(pluginId);
     m_pluginInfos.append(info);
     m_currentPluginId = previousPluginId;
 }
@@ -837,7 +844,6 @@ void ModEngine::unloadPlugins() {
     }
     m_loadedPlugins.clear();
     m_pluginInfos.clear();
-    m_pluginRuntimes.clear();
     m_currentPluginId.clear();
     resetLuaState();
     qInfo() << "[ModEngine] Plugins unloaded and Lua state reset";
@@ -980,10 +986,23 @@ void ModEngine::capturePluginHooks(const QString &pluginId) {
     }
 }
 
+void ModEngine::releasePluginHooks() {
+    if (L != nullptr) {
+        for (const PluginRuntime &runtime : std::as_const(m_pluginRuntimes)) {
+            for (int reference : runtime.hookRefs) {
+                luaL_unref(L, LUA_REGISTRYINDEX, reference);
+            }
+        }
+    }
+    m_pluginRuntimes.clear();
+}
+
 void ModEngine::callHooks(const char *hookName, const QString *argument) {
-    if (L == nullptr) {
+    if (L == nullptr || m_dispatchingHooks) {
         return;
     }
+    m_dispatchingHooks = true;
+    const auto dispatchGuard = qScopeGuard([this]() { m_dispatchingHooks = false; });
     for (const PluginRuntime &runtime : std::as_const(m_pluginRuntimes)) {
         const auto refIt = runtime.hookRefs.constFind(QByteArray(hookName));
         if (refIt == runtime.hookRefs.cend()) {
