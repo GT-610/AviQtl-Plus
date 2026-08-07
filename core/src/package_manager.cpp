@@ -65,6 +65,11 @@ const QString &appVersionString() {
     return cached;
 }
 
+bool isSupportedCatalogPackageType(const QString &packageType) {
+    return packageType == QStringLiteral("application") ||
+           Internal::PackageDeployment::isValidPackageType(packageType);
+}
+
 QString getInstalledPackagesPath() {
     const QString path = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
     QDir().mkpath(path);
@@ -433,6 +438,11 @@ void PackageManager::onCatalogFetched(const QVariantMap &repoInfo, const QByteAr
 
 void PackageManager::mergeCatalogPackage(const QVariantMap &pkg, const QVariantMap &repoInfo, const QVariantMap &installed) {
     const QString id = pkg.value(QStringLiteral("id")).toString();
+    const QString packageType = pkg.value(QStringLiteral("type")).toString();
+    if (!isSupportedCatalogPackageType(packageType)) {
+        qWarning() << "[PackageManager] Skipping package with unsupported type:" << id << packageType;
+        return;
+    }
     const QString repoUrl = repoInfo.value(QStringLiteral("url")).toString();
     const int repoPriority = repoInfo.value(QStringLiteral("priority"), 10).toInt();
 
@@ -765,11 +775,29 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
     if (m_isBusy)
         return;
 
+    if (!Internal::PackageDeployment::isValidPackageId(packageId)) {
+        m_pendingInstall.clear();
+        emit errorOccurred(tr("Invalid package ID or type."));
+        return;
+    }
+
     // Self-update is handled separately
     if (packageId == QStringLiteral("org.aviqtl.app")) {
         QString ver = version.isEmpty() ? QStringLiteral("latest") : version;
         emit selfUpdateAvailable(ver, QString());
         setStatus(tr("AviQtl update available. Restart to apply."));
+        return;
+    }
+
+    const auto packageIt = std::find_if(m_packageList.cbegin(), m_packageList.cend(), [&packageId](const QVariant &entry) {
+        return entry.toMap().value(QStringLiteral("id")).toString() == packageId;
+    });
+    const QString packageType = packageIt == m_packageList.cend()
+        ? QString()
+        : packageIt->toMap().value(QStringLiteral("type")).toString();
+    if (!Internal::PackageDeployment::isValidPackageType(packageType)) {
+        m_pendingInstall.clear();
+        emit errorOccurred(tr("Invalid package ID or type."));
         return;
     }
 
@@ -786,8 +814,11 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
 
 void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, const QString &expectedSha256, const QString &packageType, const QString &version, const QString &sourceRepo) {
     if (!Internal::PackageDeployment::isValidPackageId(packageId) || !Internal::PackageDeployment::isValidPackageType(packageType)) {
+        m_pendingInstall.clear();
         setBusy(false);
         emit errorOccurred(tr("Invalid package ID or type."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
     if (!Internal::isSecureNetworkUrl(url)) {
@@ -972,6 +1003,13 @@ void PackageManager::removePackage(const QString &packageId) {
             emit packageListChanged();
             break;
         }
+    }
+    updateUpdateState();
+    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
+        const QString deployDir = Internal::PackageDeployment::deployDirectory(packageType);
+        EffectRegistry &registry = EffectRegistry::instance();
+        registry.removeEffectsFromDirectory(QDir(deployDir).filePath(packageId));
+        registry.loadEffectsFromDirectory(deployDir);
     }
     setBusy(false);
     setStatus(tr("Removal complete: %1").arg(packageId));

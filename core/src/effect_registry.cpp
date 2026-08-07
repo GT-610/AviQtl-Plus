@@ -216,4 +216,22 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
     qCInfo(lcEffectRegistry).noquote() << dir.dirName() << "→" << loadedCount << " loaded";
 }
 
+void EffectRegistry::removeEffectsFromDirectory(const QString &path) {
+    const QDir directory(QDir::cleanPath(QFileInfo(path).absoluteFilePath()));
+    for (auto it = m_orderedIds.begin(); it != m_orderedIds.end();) {
+        const auto effectIt = m_effects.constFind(*it);
+        const QString relativeSourcePath = effectIt == m_effects.cend()
+            ? QStringLiteral("..")
+            : QDir::cleanPath(directory.relativeFilePath(QFileInfo(effectIt->sourcePath).absoluteFilePath()));
+        if (relativeSourcePath != QStringLiteral("..") &&
+            !relativeSourcePath.startsWith(QStringLiteral("../")) &&
+            !QDir::isAbsolutePath(relativeSourcePath)) {
+            m_effects.remove(*it);
+            it = m_orderedIds.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 } // namespace AviQtl::Core

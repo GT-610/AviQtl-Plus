@@ -1,6 +1,7 @@
 #include "package_manager.hpp"
 #include "core/src/package_deployment.hpp"
 #include "core/src/package_url_utils.hpp"
+#include "effect_registry.hpp"
 #include "settings_manager.hpp"
 #include <QCoreApplication>
 #include <QDir>
@@ -10,11 +11,13 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QtCore/private/qzipwriter_p.h>
+#include <algorithm>
 
 using namespace AviQtl::Core;
 using PackageDeployment = AviQtl::Core::Internal::PackageDeployment;
@@ -23,6 +26,7 @@ class TestPackageDeploy : public QObject {
     Q_OBJECT
 
   private slots:
+    void rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemoval();
     void deploysPackageFiles_data();
     void deploysPackageFiles();
     void rejectsUnknownPackageType();
@@ -82,6 +86,133 @@ bool containsTransactionDirectory(const QString &deployDir, const QString &packa
     return false;
 }
 } // namespace
+
+void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemoval() {
+    const QString reposDir = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("repos"));
+    QVERIFY(QDir().mkpath(reposDir));
+    const QDir repoDirectory(reposDir);
+    const QStringList existingCatalogNames = repoDirectory.entryList({QStringLiteral("catalog_*.json")}, QDir::Files);
+    QMap<QString, QByteArray> existingCatalogs;
+    for (const QString &fileName : existingCatalogNames) {
+        QFile file(repoDirectory.filePath(fileName));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        existingCatalogs.insert(fileName, file.readAll());
+    }
+
+    const QString installedPath = repoDirectory.filePath(QStringLiteral("installed.json"));
+    QFile installedFile(installedPath);
+    const bool installedFileExisted = installedFile.exists();
+    QByteArray installedPayload;
+    if (installedFileExisted) {
+        QVERIFY(installedFile.open(QIODevice::ReadOnly));
+        installedPayload = installedFile.readAll();
+        installedFile.close();
+    }
+
+    const QString invalidPackageId = QStringLiteral("org.aviqtl.test.unsupported_catalog_type");
+    const QString removablePackageId = QStringLiteral("org.aviqtl.test.registry_removal");
+    const QString effectId = QStringLiteral("org.aviqtl.test.removed_effect");
+    const QString packageDir = QDir(PackageDeployment::deployDirectory(QStringLiteral("effect"))).filePath(removablePackageId);
+    QDir(packageDir).removeRecursively();
+    const auto cleanup = qScopeGuard([&]() {
+        EffectRegistry::instance().removeEffectsFromDirectory(packageDir);
+        QDir(packageDir).removeRecursively();
+        const QStringList currentCatalogs = repoDirectory.entryList({QStringLiteral("catalog_*.json")}, QDir::Files);
+        for (const QString &fileName : currentCatalogs)
+            QFile::remove(repoDirectory.filePath(fileName));
+        for (auto it = existingCatalogs.cbegin(); it != existingCatalogs.cend(); ++it) {
+            QFile file(repoDirectory.filePath(it.key()));
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                file.write(it.value());
+        }
+        if (!installedFileExisted) {
+            QFile::remove(installedPath);
+        } else {
+            QFile file(installedPath);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                file.write(installedPayload);
+        }
+    });
+    for (const QString &fileName : existingCatalogNames)
+        QVERIFY(QFile::remove(repoDirectory.filePath(fileName)));
+
+    QJsonObject installed;
+    installed.insert(removablePackageId, QJsonObject{
+        {QStringLiteral("type"), QStringLiteral("effect")},
+        {QStringLiteral("version"), QStringLiteral("1.0.0")},
+    });
+    QVERIFY(installedFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    installedFile.write(QJsonDocument(installed).toJson());
+    installedFile.close();
+
+    QJsonArray packages;
+    packages.append(QJsonObject{
+        {QStringLiteral("id"), invalidPackageId},
+        {QStringLiteral("type"), QStringLiteral("unsupported")},
+        {QStringLiteral("version"), QStringLiteral("1.0.0")},
+    });
+    packages.append(QJsonObject{
+        {QStringLiteral("id"), removablePackageId},
+        {QStringLiteral("type"), QStringLiteral("effect")},
+        {QStringLiteral("version"), QStringLiteral("2.0.0")},
+    });
+    QFile catalogFile(repoDirectory.filePath(QStringLiteral("catalog_review_validation.json")));
+    QVERIFY(catalogFile.open(QIODevice::WriteOnly));
+    catalogFile.write(QJsonDocument(QJsonObject{
+        {QStringLiteral("_repo_url"), QStringLiteral("https://packages.example.com/review.json")},
+        {QStringLiteral("packages"), packages},
+    }).toJson());
+    catalogFile.close();
+
+    PackageManager &manager = PackageManager::instance();
+    const auto containsPackage = [&manager](const QString &packageId) {
+        const QVariantList packages = manager.packageList();
+        return std::any_of(packages.cbegin(), packages.cend(), [&packageId](const QVariant &entry) {
+            return entry.toMap().value(QStringLiteral("id")).toString() == packageId;
+        });
+    };
+    QTRY_VERIFY_WITH_TIMEOUT(containsPackage(removablePackageId), 5'000);
+    QVERIFY(!containsPackage(invalidPackageId));
+    QVERIFY(manager.hasUpdatesAvailable());
+
+    QSignalSpy errorSpy(&manager, &PackageManager::errorOccurred);
+    QSignalSpy busySpy(&manager, &PackageManager::isBusyChanged);
+    manager.installPackage(invalidPackageId);
+    QCOMPARE(errorSpy.count(), 1);
+    QCOMPARE(errorSpy.first().at(0).toString(), QStringLiteral("Invalid package ID or type."));
+    QCOMPARE(busySpy.count(), 0);
+    QVERIFY(!manager.isBusy());
+
+    QVERIFY(QDir().mkpath(packageDir));
+    QFile qmlFile(QDir(packageDir).filePath(QStringLiteral("RemovedEffect.qml")));
+    QVERIFY(qmlFile.open(QIODevice::WriteOnly));
+    qmlFile.write("import QtQuick; Item {}");
+    qmlFile.close();
+    QFile definitionFile(QDir(packageDir).filePath(QStringLiteral("removed_effect.json")));
+    QVERIFY(definitionFile.open(QIODevice::WriteOnly));
+    definitionFile.write(QJsonDocument(QJsonObject{
+        {QStringLiteral("id"), effectId},
+        {QStringLiteral("name"), QStringLiteral("Removed Effect")},
+        {QStringLiteral("qml"), QStringLiteral("RemovedEffect.qml")},
+        {QStringLiteral("version"), QStringLiteral("1.0.0")},
+        {QStringLiteral("kind"), QStringLiteral("effect")},
+        {QStringLiteral("categories"), QJsonArray{QStringLiteral("Test")}},
+        {QStringLiteral("params"), QJsonObject{}},
+        {QStringLiteral("ui"), QJsonObject{{QStringLiteral("controls"), QJsonArray{}}}},
+    }).toJson());
+    definitionFile.close();
+
+    EffectRegistry &registry = EffectRegistry::instance();
+    registry.loadEffectsFromDirectory(PackageDeployment::deployDirectory(QStringLiteral("effect")));
+    QCOMPARE(registry.getEffect(effectId).packageId, removablePackageId);
+
+    QSignalSpy removedSpy(&manager, &PackageManager::packageRemoved);
+    manager.removePackage(removablePackageId);
+    QCOMPARE(removedSpy.count(), 1);
+    QVERIFY(!QDir(packageDir).exists());
+    QVERIFY(registry.getEffect(effectId).id.isEmpty());
+    QVERIFY(!manager.hasUpdatesAvailable());
+}
 
 void TestPackageDeploy::deploysPackageFiles_data() {
     QTest::addColumn<QString>("packageType");

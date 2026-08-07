@@ -56,6 +56,7 @@ class EffectRegistry {
     }
 
     void loadEffectsFromDirectory(const QString &path);
+    void removeEffectsFromDirectory(const QString &path);
 
   private:
     EffectRegistry() = default;
