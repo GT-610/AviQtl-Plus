@@ -94,7 +94,6 @@ class TimelineController : public QObject {
     bool isClipActive() const;
 
     Q_INVOKABLE void createObject(const QString &type, int startFrame, int layer);
-    Q_INVOKABLE void createTransition(const QString &type, int startFrame, int layer);
     Q_INVOKABLE QVariantMap importMediaFile(const QString &fileUrl, int startFrame, int layer);
     Q_INVOKABLE bool relinkMedia(int clipId, const QString &fileUrl);
     QVariantList missingMedia() const { return m_missingMedia; }
@@ -121,10 +120,9 @@ class TimelineController : public QObject {
     Q_INVOKABLE int getClipEffectIndex(int clipId, QObject *effectModel) const;
     Q_INVOKABLE void updateClipEffectParam(int clipId, int effectIndex, const QString &paramName, const QVariant &value);
 
-    // エフェクト・オブジェクト・トランジションの利用可能リスト取得
+    // エフェクト・オブジェクトの利用可能リスト取得
     Q_INVOKABLE static QVariantList getAvailableEffects();
     Q_INVOKABLE static QVariantList getAvailableObjects();
-    Q_INVOKABLE static QVariantList getAvailableTransitions();
     Q_INVOKABLE static QVariantList queryCatalog(const QString &kind, const QString &query = QString(), const QString &category = QString());
     Q_INVOKABLE static QStringList getCatalogCategories(const QString &kind);
     Q_INVOKABLE static QString getClipTypeColor(const QString &type);
@@ -190,7 +188,6 @@ class TimelineController : public QObject {
     // プロジェクトI/O
     Q_INVOKABLE bool saveProject(const QString &fileUrl);
     Q_INVOKABLE bool loadProject(const QString &fileUrl);
-    Q_INVOKABLE bool writeRecoveryNow();
     void discardRecovery();
     bool loadRecovery(const QString &snapshotPath, const QString &recoveryId, const QString &originalProjectUrl);
     QString recoveryId() const { return m_recoveryId; }

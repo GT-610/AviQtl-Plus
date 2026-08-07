@@ -11,13 +11,9 @@
 #include <QStandardPaths>
 #include <QUuid>
 #include <QtConcurrent>
-#include <utility>
 
 namespace AviQtl::UI {
 namespace {
-QString recoveryRootOverride;
-std::function<void(ProjectRecoveryWriteBarrierPoint)> recoveryWriteBarrier;
-
 QString metadataPath(const QString &id) { return QDir(ProjectRecoveryManager::recoveryRoot()).filePath(id + QStringLiteral(".json")); }
 QString legacySnapshotFileName(const QString &id) { return id + QStringLiteral(".aviqtl"); }
 QString generatedSnapshotFileName(const QString &id) { return id + QLatin1Char('-') + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".aviqtl"); }
@@ -109,26 +105,7 @@ bool writeCapturedSnapshot(const QString &id, const QString &originalProjectUrl,
 }
 } // namespace
 
-QString ProjectRecoveryManager::recoveryRoot() {
-    if (!recoveryRootOverride.isEmpty())
-        return recoveryRootOverride;
-    return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath(QStringLiteral("recovery"));
-}
-
-void ProjectRecoveryManager::setRecoveryRootForTests(const QString &path) { recoveryRootOverride = path; }
-
-void ProjectRecoveryManager::setWriteBarrierForTests(std::function<void(ProjectRecoveryWriteBarrierPoint)> barrier) { recoveryWriteBarrier = std::move(barrier); }
-
-void ProjectRecoveryManager::notifySynchronousWaitForTests() {
-    if (recoveryWriteBarrier)
-        recoveryWriteBarrier(ProjectRecoveryWriteBarrierPoint::SynchronousWaitStarted);
-}
-
-bool ProjectRecoveryManager::write(const QString &id, const QString &originalProjectUrl, const QString &displayName, const TimelineService *timeline, const ProjectService *project, QString *errorMessage) {
-    if (id.isEmpty() || timeline == nullptr || project == nullptr)
-        return setError(errorMessage, QStringLiteral("Invalid recovery snapshot request"));
-    return writeCapturedSnapshot(id, originalProjectUrl, displayName, AviQtl::Core::ProjectSerializer::captureSnapshot(timeline, project), errorMessage);
-}
+QString ProjectRecoveryManager::recoveryRoot() { return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath(QStringLiteral("recovery")); }
 
 QFuture<ProjectRecoveryWriteResult> ProjectRecoveryManager::writeAsync(const QString &id, const QString &originalProjectUrl, const QString &displayName, const TimelineService *timeline, const ProjectService *project) {
     if (id.isEmpty() || timeline == nullptr || project == nullptr) {
@@ -136,10 +113,7 @@ QFuture<ProjectRecoveryWriteResult> ProjectRecoveryManager::writeAsync(const QSt
     }
 
     const QVariantMap snapshot = AviQtl::Core::ProjectSerializer::captureSnapshot(timeline, project);
-    const auto writeBarrier = recoveryWriteBarrier;
-    return QtConcurrent::run([id, originalProjectUrl, displayName, snapshot, writeBarrier]() {
-        if (writeBarrier)
-            writeBarrier(ProjectRecoveryWriteBarrierPoint::AsyncWriteStarted);
+    return QtConcurrent::run([id, originalProjectUrl, displayName, snapshot]() {
         ProjectRecoveryWriteResult result;
         result.success = writeCapturedSnapshot(id, originalProjectUrl, displayName, snapshot, &result.error);
         return result;

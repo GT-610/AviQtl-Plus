@@ -49,7 +49,7 @@ Common.AviQtlWindow {
     }
 
     function packageTypeForTab(index) {
-        var types = ["effect", "object", "transition", "mod", "installed", "application"];
+        var types = ["effect", "object", "mod", "installed", "application"];
         if (index < types.length)
             return types[index];
         return "";
@@ -98,7 +98,6 @@ Common.AviQtlWindow {
 
             TabButton { text: qsTr("エフェクト") }
             TabButton { text: qsTr("オブジェクト") }
-            TabButton { text: qsTr("トランジション") }
             TabButton { text: "MOD" }
             TabButton { text: qsTr("インストール済み") }
             TabButton { text: qsTr("アプリケーション") }
@@ -109,7 +108,7 @@ Common.AviQtlWindow {
             Layout.fillWidth: true
             Layout.bottomMargin: 8
             spacing: 8
-            visible: tabBar.currentIndex < 6
+            visible: tabBar.currentIndex < 5
 
             TextField {
                 id: searchField
@@ -123,7 +122,7 @@ Common.AviQtlWindow {
                 icon.name: "refresh-line"
                 enabled: PackageManager && !PackageManager.isBusy
                 onClicked: PackageManager.refreshRepositories()
-                visible: tabBar.currentIndex < 4
+                visible: tabBar.currentIndex < 3
             }
         }
 
@@ -148,7 +147,7 @@ Common.AviQtlWindow {
                 onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
             }
 
-            // Page 2: Transition
+            // Page 2: MOD
             Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -156,32 +155,24 @@ Common.AviQtlWindow {
                 onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
             }
 
-            // Page 3: MOD
+            // Page 3: Installed
             Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(3)
+                showInstallButton: false
                 onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
             }
 
-            // Page 4: Installed
+            // Page 4: Application
             Common.PackageListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 packages: root.filteredPackages(4)
                 showInstallButton: false
-                onPermissionRequested: (id, name) => { permissionDialog.pluginId = id; permissionDialog.pluginName = name; permissionDialog.open(); }
             }
 
-            // Page 5: Application
-            Common.PackageListView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                packages: root.filteredPackages(5)
-                showInstallButton: false
-            }
-
-            // Page 6: Repository Management
+            // Page 5: Repository Management
             ColumnLayout {
                 spacing: 12
 

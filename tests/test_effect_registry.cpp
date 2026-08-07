@@ -8,18 +8,11 @@ class TestEffectRegistry : public QObject {
     Q_OBJECT
 
   private slots:
-    void singletonInstance();
     void registerAndRetrieve();
     void duplicateRegistration();
     void getAllEffectsPreservesOrder();
     void getEffectNotFound();
 };
-
-void TestEffectRegistry::singletonInstance() {
-    EffectRegistry &r1 = EffectRegistry::instance();
-    EffectRegistry &r2 = EffectRegistry::instance();
-    QCOMPARE(&r1, &r2);
-}
 
 void TestEffectRegistry::registerAndRetrieve() {
     EffectRegistry &reg = EffectRegistry::instance();

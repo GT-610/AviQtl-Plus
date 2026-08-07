@@ -23,6 +23,9 @@ function(aviqtl_add_test)
 
     set(TARGET_NAME "AviQtl_Test_${ARG_NAME}")
     add_executable(${TARGET_NAME} ${ARG_SOURCES})
+    set_target_properties(${TARGET_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/bin/${ARG_NAME}"
+    )
 
     target_link_libraries(${TARGET_NAME} PRIVATE Qt6::Test)
     if(ARG_LINKS)
@@ -33,6 +36,10 @@ function(aviqtl_add_test)
     # Force Qt Test output to stdout. On Windows, the default logger can write
     # to the debugger instead, leaving CTest failures with no diagnostics.
     add_test(NAME ${ARG_NAME} COMMAND ${TARGET_NAME} -o -,txt)
+    set_tests_properties(${ARG_NAME} PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        TIMEOUT 60
+    )
 
     # On Windows, ensure vendor DLLs (e.g., Carla) are in PATH for runtime loading.
     # ENVIRONMENT_MODIFICATION handles platform-specific path separators correctly.
@@ -199,7 +206,7 @@ aviqtl_add_test(
 aviqtl_add_test(
     NAME mod_engine
     SOURCES test_mod_engine.cpp
-    LINKS AviQtl_Scripting
+    LINKS AviQtl_Scripting AviQtl_UI
 )
 
 # --- Plugin System Tests ---
@@ -279,11 +286,12 @@ aviqtl_add_test(
 aviqtl_add_test(
     NAME qml_composite_capture
     SOURCES test_qml_composite_capture.cpp
-    LINKS AviQtl_UI
+    LINKS AviQtl_UI AviQtl_UIplugin
 )
 target_compile_definitions(AviQtl_Test_qml_composite_capture PRIVATE
     AVIQTL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     AVIQTL_DEPLOYED_EFFECTS_DIR="$<TARGET_FILE_DIR:AviQtl>/effects"
+    AVIQTL_DEPLOYED_OBJECTS_DIR="$<TARGET_FILE_DIR:AviQtl>/objects"
 )
 add_dependencies(AviQtl_Test_qml_composite_capture AviQtl)
 if(WIN32)
@@ -292,18 +300,16 @@ if(WIN32)
     )
 endif()
 
-aviqtl_add_test(
-    NAME transition_effects
-    SOURCES test_transition_effects.cpp
-    LINKS AviQtl_Core
-)
-target_compile_definitions(AviQtl_Test_transition_effects PRIVATE
-    AVIQTL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
-)
-
 add_test(
     NAME build_version
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_build_version.py
+)
+set_tests_properties(build_version PROPERTIES TIMEOUT 30)
+
+set_tests_properties(audio_decoder PROPERTIES TIMEOUT 180)
+set_tests_properties(
+    video_decoder large_timeline_performance qml_composite_capture
+    PROPERTIES TIMEOUT 120
 )
 
 # Labels keep focused developer runs concise without changing the default suite.
@@ -317,7 +323,7 @@ aviqtl_label_tests(unit
     video_frame_store dense_component_map audio_plugin_chain triple_buffer
     lua_host plugin_manifest mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
-    project_recovery transition_effects build_version
+    project_recovery build_version
 )
 
 aviqtl_label_tests(integration

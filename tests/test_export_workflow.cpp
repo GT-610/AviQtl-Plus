@@ -4,16 +4,70 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QQmlComponent>
+#include <QQmlEngine>
 #include <QQuickItem>
+#include <QQuickWindow>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
-#include <QThread>
 #include <cmath>
+#include <memory>
 
 using namespace AviQtl::UI;
 using AviQtl::Core::SettingsManager;
 using AviQtl::Core::VideoEncoder;
+
+namespace {
+class QuickCaptureView {
+  public:
+    QuickCaptureView() : m_component(&m_engine) {}
+
+    bool initialize(QString *errorMessage) {
+        m_component.setData(R"(
+            import QtQuick
+            Rectangle {
+                width: 64
+                height: 64
+                color: "#336699"
+            }
+        )", QUrl());
+        if (!m_component.isReady()) {
+            if (errorMessage != nullptr)
+                *errorMessage = m_component.errorString();
+            return false;
+        }
+
+        m_object.reset(m_component.create());
+        m_item = qobject_cast<QQuickItem *>(m_object.get());
+        if (!m_item) {
+            if (errorMessage != nullptr)
+                *errorMessage = QStringLiteral("Capture fixture root is not a QQuickItem");
+            return false;
+        }
+
+        m_window.setGeometry(0, 0, 64, 64);
+        m_item->setParentItem(m_window.contentItem());
+        m_window.show();
+        return true;
+    }
+
+    QQuickItem *item() const { return m_item; }
+    QQuickWindow *window() { return &m_window; }
+
+    void destroyItem() {
+        m_object.reset();
+        m_item = nullptr;
+    }
+
+  private:
+    QQmlEngine m_engine;
+    QQmlComponent m_component;
+    QQuickWindow m_window;
+    std::unique_ptr<QObject> m_object;
+    QPointer<QQuickItem> m_item;
+};
+} // namespace
 
 class TestExportWorkflow : public QObject {
     Q_OBJECT
@@ -32,6 +86,7 @@ class TestExportWorkflow : public QObject {
     void imageSequenceCaptureFailureRemovesPartialOutput();
     void imageSequenceRefusesToOverwriteExistingFrames();
     void exportStateTransitionsBeforeCompletion();
+    void completionHandlerCanDestroyManager();
 
   private:
     static constexpr int kTestSequencePadding = 4;
@@ -152,21 +207,19 @@ void TestExportWorkflow::videoExportCaptureFailureRemovesPartialOutput() {
 
     const QString outputPath = dir.filePath(QStringLiteral("capture-failure.mp4"));
     TimelineController controller;
-    QQuickItem captureItem;
-    captureItem.setSize(QSizeF(64, 64));
-    controller.setCompositeView(&captureItem);
-    int captureCount = 0;
+    QuickCaptureView captureView;
+    QString fixtureError;
+    QVERIFY2(captureView.initialize(&fixtureError), qPrintable(fixtureError));
+    QTRY_VERIFY_WITH_TIMEOUT(captureView.window()->isExposed(), 5'000);
+    controller.setCompositeView(captureView.item());
     bool firstFrameReachedEncoder = false;
-    TimelineExportManager exportManager(&controller, [&](const QSize &size, int) {
-        ++captureCount;
-        if (captureCount == 1) {
-            QImage image(size, QImage::Format_RGBA8888);
-            image.fill(Qt::red);
-            return image;
+    connect(controller.transport(), &TransportService::currentFrameChanged, this, [&]() {
+        if (controller.transport()->currentFrame() == 1) {
+            firstFrameReachedEncoder = QFileInfo::exists(outputPath);
+            captureView.destroyItem();
         }
-        firstFrameReachedEncoder = QFileInfo::exists(outputPath);
-        return QImage();
     });
+    TimelineExportManager exportManager(&controller);
     QSignalSpy spy(&exportManager, &TimelineExportManager::exportFinished);
 
     QVERIFY(exportManager.exportVideoAsync(validEncoderConfig(controller, outputPath)));
@@ -174,7 +227,6 @@ void TestExportWorkflow::videoExportCaptureFailureRemovesPartialOutput() {
     QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
     QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 10'000);
     expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 1"));
-    QCOMPARE(captureCount, 2);
     QVERIFY(firstFrameReachedEncoder);
     QVERIFY(!QFileInfo::exists(outputPath));
 }
@@ -220,23 +272,20 @@ void TestExportWorkflow::imageSequenceCaptureFailureRemovesPartialOutput() {
 
     const QString outputDir = dir.filePath(QStringLiteral("capture-failure-sequence"));
     TimelineController controller;
-    QQuickItem captureItem;
-    captureItem.setSize(QSizeF(64, 64));
-    controller.setCompositeView(&captureItem);
+    QuickCaptureView captureView;
+    QString fixtureError;
+    QVERIFY2(captureView.initialize(&fixtureError), qPrintable(fixtureError));
+    QTRY_VERIFY_WITH_TIMEOUT(captureView.window()->isExposed(), 5'000);
+    controller.setCompositeView(captureView.item());
     const QString firstFramePath = QDir(outputDir).filePath(QStringLiteral("frame_%1.png").arg(0, kTestSequencePadding, 10, QLatin1Char('0')));
-    int captureCount = 0;
     bool firstFrameWasWritten = false;
-    TimelineExportManager exportManager(&controller, [&](const QSize &requestedSize, int) {
-        ++captureCount;
-        if (captureCount == 1) {
-            const QSize imageSize = requestedSize.isValid() ? requestedSize : QSize(64, 64);
-            QImage image(imageSize, QImage::Format_RGBA8888);
-            image.fill(Qt::green);
-            return image;
+    connect(controller.transport(), &TransportService::currentFrameChanged, this, [&]() {
+        if (controller.transport()->currentFrame() == 1) {
+            firstFrameWasWritten = QFileInfo::exists(firstFramePath);
+            captureView.destroyItem();
         }
-        firstFrameWasWritten = QFileInfo::exists(firstFramePath);
-        return QImage();
     });
+    TimelineExportManager exportManager(&controller);
     QSignalSpy spy(&exportManager, &TimelineExportManager::exportFinished);
 
     QVERIFY(exportManager.exportImageSequence(outputDir, 95, QStringLiteral("PNG"), 0, 2));
@@ -244,7 +293,6 @@ void TestExportWorkflow::imageSequenceCaptureFailureRemovesPartialOutput() {
     QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
     QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 10'000);
     expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 1"));
-    QCOMPARE(captureCount, 2);
     QVERIFY(firstFrameWasWritten);
     QVERIFY(!QFileInfo::exists(firstFramePath));
     QVERIFY(!QDir(outputDir).exists());
@@ -283,17 +331,13 @@ void TestExportWorkflow::exportStateTransitionsBeforeCompletion() {
     QVERIFY(dir.isValid());
 
     TimelineController controller;
-    QQuickItem captureItem;
-    captureItem.setSize(QSizeF(64, 64));
-    controller.setCompositeView(&captureItem);
+    QuickCaptureView captureView;
+    QString fixtureError;
+    QVERIFY2(captureView.initialize(&fixtureError), qPrintable(fixtureError));
+    QTRY_VERIFY_WITH_TIMEOUT(captureView.window()->isExposed(), 5'000);
+    controller.setCompositeView(captureView.item());
 
-    TimelineExportManager exportManager(&controller, [](const QSize &requestedSize, int) {
-        QThread::msleep(100);
-        const QSize imageSize = requestedSize.isValid() ? requestedSize : QSize(64, 64);
-        QImage image(imageSize, QImage::Format_RGBA8888);
-        image.fill(Qt::blue);
-        return image;
-    });
+    TimelineExportManager exportManager(&controller);
 
     QStringList events;
     connect(&exportManager, &TimelineExportManager::exportingChanged, this, [&events](bool exporting) { events.append(exporting ? QStringLiteral("active") : QStringLiteral("inactive")); });
@@ -305,8 +349,33 @@ void TestExportWorkflow::exportStateTransitionsBeforeCompletion() {
     QCOMPARE(events, QStringList{QStringLiteral("active")});
 
     QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 10'000);
+    QTRY_COMPARE_WITH_TIMEOUT(events.size(), 3, 10'000);
     QVERIFY(!exportManager.isExporting());
     QCOMPARE(events, QStringList({QStringLiteral("active"), QStringLiteral("inactive"), QStringLiteral("finished")}));
+}
+
+void TestExportWorkflow::completionHandlerCanDestroyManager() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    TimelineController controller;
+    QuickCaptureView captureView;
+    QString fixtureError;
+    QVERIFY2(captureView.initialize(&fixtureError), qPrintable(fixtureError));
+    QTRY_VERIFY_WITH_TIMEOUT(captureView.window()->isExposed(), 5'000);
+    controller.setCompositeView(captureView.item());
+
+    auto *exportManager = new TimelineExportManager(&controller);
+    QPointer<TimelineExportManager> managerGuard(exportManager);
+    bool completionHandled = false;
+    connect(exportManager, &TimelineExportManager::exportFinished, this, [&completionHandled, exportManager]() {
+        completionHandled = true;
+        delete exportManager;
+    });
+
+    QVERIFY(exportManager->exportImageSequence(dir.filePath(QStringLiteral("sequence")), 95, QStringLiteral("PNG"), 0, 1));
+    QTRY_VERIFY_WITH_TIMEOUT(completionHandled, 10'000);
+    QVERIFY(managerGuard.isNull());
 }
 
 QTEST_MAIN(TestExportWorkflow)

@@ -202,6 +202,8 @@ void TestAudioDecoder::getPeaksHighZoomReadsSamples() {
 void TestAudioDecoder::representativeLongAudioWorkload() {
     QString audioPath = qEnvironmentVariable("AVIQTL_PERF_AUDIO");
     QTemporaryDir syntheticDir;
+    if (audioPath.isEmpty())
+        audioPath = QStringLiteral("synthetic");
     if (audioPath == QStringLiteral("synthetic")) {
         QVERIFY(syntheticDir.isValid());
         QElapsedTimer createTimer;
@@ -210,8 +212,6 @@ void TestAudioDecoder::representativeLongAudioWorkload() {
         QVERIFY(source.isValid());
         audioPath = source.toLocalFile();
         QTextStream(stdout) << "audio_representative create_ms=" << createTimer.elapsed() << " duration_sec=120 sample_rate=" << kTestSampleRate << Qt::endl;
-    } else if (audioPath.isEmpty()) {
-        QSKIP("Set AVIQTL_PERF_AUDIO to a representative media path, or to 'synthetic'.");
     }
     QVERIFY2(QFileInfo::exists(audioPath), qPrintable(QStringLiteral("representative audio does not exist: %1").arg(audioPath)));
 

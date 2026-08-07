@@ -1,4 +1,5 @@
 #include "package_manager.hpp"
+#include "package_deployment.hpp"
 #include "package_url_utils.hpp"
 #include "effect_registry.hpp"
 #include "settings_manager.hpp"
@@ -21,31 +22,14 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QXmlStreamReader>
-#include <QtCore/private/qzipreader_p.h>
+#include <utility>
 
 namespace AviQtl::Core {
 
 namespace {
 constexpr qint64 kMaxPackageDownloadBytes = 256LL * 1024LL * 1024LL;
 constexpr qint64 kMaxRepositoryResponseBytes = 16LL * 1024LL * 1024LL;
-constexpr qint64 kMaxPackageExtractedBytes = 1024LL * 1024LL * 1024LL;
-constexpr qsizetype kMaxPackageArchiveEntries = 10000;
 constexpr int kNetworkTransferTimeoutMs = 30000;
-
-bool isValidPackageId(const QString &packageId) {
-    if (packageId.isEmpty() || packageId == QStringLiteral(".") || packageId == QStringLiteral(".."))
-        return false;
-    for (const QChar ch : packageId) {
-        if (!ch.isLetterOrNumber() && ch != QLatin1Char('.') && ch != QLatin1Char('-') && ch != QLatin1Char('_'))
-            return false;
-    }
-    return true;
-}
-
-bool isValidPackageType(const QString &packageType) {
-    return packageType == QStringLiteral("mod") || packageType == QStringLiteral("effect") ||
-           packageType == QStringLiteral("object") || packageType == QStringLiteral("transition");
-}
 
 bool writeJsonAtomically(const QString &path, const QJsonDocument &document) {
     QSaveFile file(path);
@@ -81,6 +65,23 @@ const QString &appVersionString() {
     return cached;
 }
 
+bool isSupportedCatalogPackageType(const QString &packageType) {
+    return packageType == QStringLiteral("application") ||
+           Internal::PackageDeployment::isValidPackageType(packageType);
+}
+
+bool isPathWithinDirectory(const QString &path, const QString &directoryPath) {
+    const QString canonicalPath = QFileInfo(path).canonicalFilePath();
+    const QString canonicalDirectory = QFileInfo(directoryPath).canonicalFilePath();
+    if (canonicalPath.isEmpty() || canonicalDirectory.isEmpty()) {
+        return false;
+    }
+    const QString relativePath = QDir(canonicalDirectory).relativeFilePath(canonicalPath);
+    return relativePath != QStringLiteral("..") &&
+           !relativePath.startsWith(QStringLiteral("../")) &&
+           !QDir::isAbsolutePath(relativePath);
+}
+
 QString getInstalledPackagesPath() {
     const QString path = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
     QDir().mkpath(path);
@@ -91,31 +92,6 @@ QString getReposCachePath() {
     const QString path = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
     QDir().mkpath(path);
     return path;
-}
-
-bool copyDirectory(const QString &srcPath, const QString &destPath) {
-    QDir srcDir(srcPath);
-    if (!srcDir.exists())
-        return false;
-    QDir destDir(destPath);
-    if (!destDir.exists())
-        QDir().mkpath(destPath);
-    const QStringList entries = srcDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-    for (const QString &entry : entries) {
-        const QString srcFilePath = srcDir.absoluteFilePath(entry);
-        const QString destFilePath = destPath + QStringLiteral("/") + entry;
-        QFileInfo srcInfo(srcFilePath);
-        if (srcInfo.isDir()) {
-            if (!copyDirectory(srcFilePath, destFilePath))
-                return false;
-        } else {
-            if (QFile::exists(destFilePath))
-                QFile::remove(destFilePath);
-            if (!QFile::copy(srcFilePath, destFilePath))
-                return false;
-        }
-    }
-    return true;
 }
 
 int compareVersions(const QString &v1, const QString &v2) {
@@ -269,8 +245,10 @@ void PackageManager::saveRepositories(const QVariantList &repos) {
 }
 
 void PackageManager::addRepository(const QString &url, bool enabled, int priority) {
-    if (!Internal::isSecureNetworkUrl(QUrl(url)))
+    if (!Internal::isSecureNetworkUrl(QUrl(url))) {
+        emit errorOccurred(tr("Repository URL must use HTTPS: %1").arg(url));
         return;
+    }
     QVariantList repos = repositories();
     for (const auto &r : repos) {
         if (r.toMap().value(QStringLiteral("url")).toString() == url)
@@ -301,6 +279,8 @@ void PackageManager::setRepositoryEnabled(const QString &url, bool enabled) {
     for (int i = 0; i < repos.size(); ++i) {
         QVariantMap r = repos[i].toMap();
         if (r.value(QStringLiteral("url")).toString() == url) {
+            if (r.value(QStringLiteral("enabled"), true).toBool() == enabled)
+                return;
             r[QStringLiteral("enabled")] = enabled;
             repos[i] = r;
             saveRepositories(repos);
@@ -314,6 +294,8 @@ void PackageManager::setRepositoryPriority(const QString &url, int priority) {
     for (int i = 0; i < repos.size(); ++i) {
         QVariantMap r = repos[i].toMap();
         if (r.value(QStringLiteral("url")).toString() == url) {
+            if (r.value(QStringLiteral("priority"), 10).toInt() == priority)
+                return;
             r[QStringLiteral("priority")] = priority;
             repos[i] = r;
             saveRepositories(repos);
@@ -355,7 +337,12 @@ void PackageManager::refreshRepositories() {
             enabledCount++;
     }
     if (enabledCount == 0) {
+        m_pendingRequests = 0;
+        updateUpdateState();
+        setProgress(1.0);
+        setStatus(tr("Idle"));
         setBusy(false);
+        emit repositoryRefreshed();
         return;
     }
     m_pendingRequests = enabledCount;
@@ -463,6 +450,11 @@ void PackageManager::onCatalogFetched(const QVariantMap &repoInfo, const QByteAr
 
 void PackageManager::mergeCatalogPackage(const QVariantMap &pkg, const QVariantMap &repoInfo, const QVariantMap &installed) {
     const QString id = pkg.value(QStringLiteral("id")).toString();
+    const QString packageType = pkg.value(QStringLiteral("type")).toString();
+    if (!isSupportedCatalogPackageType(packageType)) {
+        qWarning() << "[PackageManager] Skipping package with unsupported type:" << id << packageType;
+        return;
+    }
     const QString repoUrl = repoInfo.value(QStringLiteral("url")).toString();
     const int repoPriority = repoInfo.value(QStringLiteral("priority"), 10).toInt();
 
@@ -795,11 +787,32 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
     if (m_isBusy)
         return;
 
+    if (!Internal::PackageDeployment::isValidPackageId(packageId)) {
+        m_pendingInstall.clear();
+        emit errorOccurred(tr("Invalid package ID or type."));
+        return;
+    }
+
     // Self-update is handled separately
     if (packageId == QStringLiteral("org.aviqtl.app")) {
         QString ver = version.isEmpty() ? QStringLiteral("latest") : version;
         emit selfUpdateAvailable(ver, QString());
         setStatus(tr("AviQtl update available. Restart to apply."));
+        return;
+    }
+
+    const auto packageIt = std::find_if(m_packageList.cbegin(), m_packageList.cend(), [&packageId](const QVariant &entry) {
+        return entry.toMap().value(QStringLiteral("id")).toString() == packageId;
+    });
+    if (packageIt == m_packageList.cend()) {
+        m_pendingInstall.clear();
+        emit errorOccurred(tr("Package not found: %1").arg(packageId));
+        return;
+    }
+    const QString packageType = packageIt->toMap().value(QStringLiteral("type")).toString();
+    if (!Internal::PackageDeployment::isValidPackageType(packageType)) {
+        m_pendingInstall.clear();
+        emit errorOccurred(tr("Invalid package ID or type."));
         return;
     }
 
@@ -815,14 +828,19 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
 }
 
 void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, const QString &expectedSha256, const QString &packageType, const QString &version, const QString &sourceRepo) {
-    if (!isValidPackageId(packageId) || !isValidPackageType(packageType)) {
+    if (!Internal::PackageDeployment::isValidPackageId(packageId) || !Internal::PackageDeployment::isValidPackageType(packageType)) {
+        m_pendingInstall.clear();
         setBusy(false);
         emit errorOccurred(tr("Invalid package ID or type."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
     if (!Internal::isSecureNetworkUrl(url)) {
         setBusy(false);
         emit errorOccurred(tr("Invalid or insecure package download URL."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
     setStatus(tr("Downloading package: %1").arg(packageId));
@@ -896,12 +914,16 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     if (!extractDir.isValid()) {
         setBusy(false);
         emit errorOccurred(tr("Failed to create extraction directory."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
 
-    if (!extractPackageArchive(archivePath, extractDir.path())) {
+    if (!Internal::PackageDeployment::extractArchive(archivePath, extractDir.path())) {
         setBusy(false);
         emit errorOccurred(tr("Failed to extract package archive."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
 
@@ -920,13 +942,13 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
 
     setStatus(tr("Deploying package files..."));
     setProgress(0.8);
-    const FileOperationResult deployResult = deployPackageFiles(packageId, extractDir.path(), packageType, [installed]() {
+    const Internal::PackageDeployment::FileOperationResult deployResult = Internal::PackageDeployment::deployFiles(packageId, extractDir.path(), packageType, [installed]() {
             return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(installed));
         });
-    if (deployResult != FileOperationResult::Success) {
+    if (deployResult != Internal::PackageDeployment::FileOperationResult::Success) {
         qWarning() << "[PackageManager] Failed to deploy package or atomically save installation state.";
         setBusy(false);
-        if (deployResult == FileOperationResult::RollbackFailed)
+        if (deployResult == Internal::PackageDeployment::FileOperationResult::RollbackFailed)
             emit errorOccurred(tr("Package deployment failed and automatic rollback was incomplete; the backup was preserved."));
         else
             emit errorOccurred(tr("Failed to deploy package; the previous installation was restored."));
@@ -935,16 +957,11 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
         return;
     }
 
-    // Compile shaders for effect/object/transition packages
-    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object") || packageType == QStringLiteral("transition")) {
-        const QString deployDir = getPackageDeployDir(packageType);
+    // Compile shaders and reload the registry for effect/object packages.
+    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
+        const QString deployDir = Internal::PackageDeployment::deployDirectory(packageType);
         const QString packageDir = deployDir + QStringLiteral("/") + packageId;
         compileShadersInDirectory(packageDir);
-    }
-
-    // Reload registry for effect/object/transition
-    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object") || packageType == QStringLiteral("transition")) {
-        const QString deployDir = getPackageDeployDir(packageType);
         EffectRegistry::instance().loadEffectsFromDirectory(deployDir);
     } else if (packageType == QStringLiteral("mod")) {
         // Mods will be loaded on next app restart
@@ -972,162 +989,15 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
         processUpgradeQueue();
 }
 
-bool PackageManager::extractPackageArchive(const QString &archivePath, const QString &destDir) {
-    QZipReader reader(archivePath);
-    if (!reader.exists() || !reader.isReadable() || reader.status() != QZipReader::NoError) {
-        qWarning() << "[PackageManager] Package archive is not a readable ZIP file.";
-        return false;
-    }
-
-    const QList<QZipReader::FileInfo> entries = reader.fileInfoList();
-    if (entries.size() > kMaxPackageArchiveEntries)
-        return false;
-
-    qint64 extractedBytes = 0;
-    for (const QZipReader::FileInfo &entry : entries) {
-        if (!entry.isValid() || entry.isSymLink || !isSafeArchivePath(entry.filePath) || entry.size < 0 ||
-            extractedBytes > kMaxPackageExtractedBytes - entry.size) {
-            qWarning() << "[PackageManager] Unsafe package archive entry:" << entry.filePath;
-            return false;
-        }
-        extractedBytes += entry.size;
-    }
-
-    if (!QDir().mkpath(destDir) || !reader.extractAll(destDir))
-        return false;
-    return true;
-}
-
-bool PackageManager::isSafeArchivePath(const QString &path) {
-    if (path.isEmpty() || QDir::isAbsolutePath(path) || path.contains(QLatin1Char('\\')))
-        return false;
-    const QString normalized = QDir::cleanPath(path);
-    return normalized != QStringLiteral("..") && !normalized.startsWith(QStringLiteral("../")) &&
-           !normalized.contains(QStringLiteral("/../"));
-}
-
-PackageManager::FileOperationResult PackageManager::deployPackageFiles(
-    const QString &packageId, const QString &extractDir, const QString &packageType,
-    const std::function<bool()> &commitState) {
-    if (!isValidPackageId(packageId) || !isValidPackageType(packageType)) {
-        qWarning() << "[PackageManager] Invalid package ID or type:" << packageId << packageType;
-        return FileOperationResult::Failed;
-    }
-    const QString deployBase = getPackageDeployDir(packageType);
-    if (deployBase.isEmpty()) return FileOperationResult::Failed;
-    const QString packageDir = deployBase + QStringLiteral("/") + packageId;
-
-    // Resolve the source directory (handle single-subdir wrapper archives)
-    QDir sourceDir(extractDir);
-    QStringList entries = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-    if (entries.size() == 1) {
-        QFileInfo fi(sourceDir.absoluteFilePath(entries.first()));
-        if (fi.isDir()) { sourceDir.cd(entries.first()); entries = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot); }
-    }
-
-    // Ensure the base directory exists before creating the staging directory.
-    QDir().mkpath(deployBase);
-
-    // Stage new contents into a temporary sibling directory so we can roll
-    // back if copying fails and avoid leaving stale files behind on upgrade.
-    QTemporaryDir stagingDir(deployBase + QStringLiteral("/.staging_XXXXXX"));
-    if (!stagingDir.isValid()) {
-        qWarning() << "[PackageManager] Failed to create staging directory for deployment.";
-        return FileOperationResult::Failed;
-    }
-    const QString stagingPath = stagingDir.path();
-    for (const QString &entry : std::as_const(entries)) {
-        const QString srcPath = sourceDir.absoluteFilePath(entry);
-        const QString destPath = stagingPath + QStringLiteral("/") + entry;
-        QFileInfo srcInfo(srcPath);
-        if (srcInfo.isDir()) { if (!copyDirectory(srcPath, destPath)) return FileOperationResult::Failed; }
-        else { if (QFile::exists(destPath)) QFile::remove(destPath); if (!QFile::copy(srcPath, destPath)) return FileOperationResult::Failed; }
-    }
-
-    const QString backupDir = deployBase + QStringLiteral("/.backup_") + packageId;
-    QDir().mkpath(deployBase);
-    const FileOperationResult result = runFileTransaction(
-        packageDir, backupDir,
-        [stagingPath, packageDir] { return QDir().rename(stagingPath, packageDir); },
-        [packageDir] { return !QDir(packageDir).exists() || QDir(packageDir).removeRecursively(); },
-        commitState, "deploy");
-    if (result == FileOperationResult::Success)
-        stagingDir.setAutoRemove(false);
-    return result;
-}
-
-PackageManager::FileOperationResult PackageManager::removePackageFiles(
-    const QString &packageId, const QString &packageType, const std::function<bool()> &commitState) {
-    if (!isValidPackageId(packageId) || !isValidPackageType(packageType) || !commitState)
-        return FileOperationResult::Failed;
-    const QString deployDir = getPackageDeployDir(packageType);
-    if (deployDir.isEmpty())
-        return FileOperationResult::Failed;
-
-    const QString packageDir = deployDir + QLatin1Char('/') + packageId;
-    const QString backupDir = deployDir + QStringLiteral("/.remove_backup_") + packageId;
-    return runFileTransaction(packageDir, backupDir, [] { return true; }, [] { return true; }, commitState, "remove");
-}
-
-PackageManager::FileOperationResult PackageManager::runFileTransaction(
-    const QString &targetDir, const QString &backupDir,
-    const std::function<bool()> &applyMutation, const std::function<bool()> &revertMutation,
-    const std::function<bool()> &commitState, const char *operationName) {
-    const bool hadExisting = QDir(targetDir).exists();
-    if (hadExisting) {
-        if (QDir(backupDir).exists() && !QDir(backupDir).removeRecursively()) {
-            qWarning() << "[PackageManager] Could not remove stale backup before" << operationName << ':' << backupDir;
-            return FileOperationResult::Failed;
-        }
-        if (!QDir().rename(targetDir, backupDir)) {
-            qWarning() << "[PackageManager] Could not create backup before" << operationName << ':' << targetDir;
-            return FileOperationResult::Failed;
-        }
-    }
-
-    if (!applyMutation()) {
-        qWarning() << "[PackageManager] File mutation failed during" << operationName;
-        if (hadExisting && !QDir().rename(backupDir, targetDir)) {
-            qCritical() << "[PackageManager] Could not restore backup after mutation failure:" << backupDir;
-            return FileOperationResult::RollbackFailed;
-        }
-        return FileOperationResult::Failed;
-    }
-
-    if (commitState && !commitState()) {
-        qWarning() << "[PackageManager] State commit failed during" << operationName << "; rolling back.";
-        const bool reverted = revertMutation();
-        const bool restored = !hadExisting || (reverted && QDir().rename(backupDir, targetDir));
-        if (!reverted || !restored) {
-            qCritical() << "[PackageManager] Could not restore backup after state commit failure:" << backupDir;
-            return FileOperationResult::RollbackFailed;
-        }
-        return FileOperationResult::StateCommitFailed;
-    }
-
-    if (hadExisting && !QDir(backupDir).removeRecursively())
-        qWarning() << "[PackageManager] Operation succeeded but backup cleanup failed:" << backupDir;
-    return FileOperationResult::Success;
-}
-
-QString PackageManager::getPackageDeployDir(const QString &packageType) const {
-    const QString appDir = QCoreApplication::applicationDirPath();
-    if (packageType == QStringLiteral("mod")) return appDir + QStringLiteral("/plugins");
-    if (packageType == QStringLiteral("effect")) return appDir + QStringLiteral("/effects");
-    if (packageType == QStringLiteral("object")) return appDir + QStringLiteral("/objects");
-    if (packageType == QStringLiteral("transition")) return appDir + QStringLiteral("/transitions");
-    return {};
-}
-
 void PackageManager::removePackage(const QString &packageId) {
     if (m_isBusy || packageId == QStringLiteral("org.aviqtl.app")) return;
-    if (!isValidPackageId(packageId)) {
+    if (!Internal::PackageDeployment::isValidPackageId(packageId)) {
         emit errorOccurred(tr("Invalid package ID.")); return;
     }
     const QVariantMap currentInstalled = loadInstalledPackagesFromFile();
     const QVariantMap installedPackage = currentInstalled.value(packageId).toMap();
     const QString packageType = installedPackage.value(QStringLiteral("type")).toString();
-    if (!currentInstalled.contains(packageId) || !isValidPackageType(packageType)) {
+    if (!currentInstalled.contains(packageId) || !Internal::PackageDeployment::isValidPackageType(packageType)) {
         emit errorOccurred(tr("Cannot remove package because its installed type is missing or invalid."));
         return;
     }
@@ -1135,12 +1005,12 @@ void PackageManager::removePackage(const QString &packageId) {
     setStatus(tr("Removing package: %1").arg(packageId));
     QVariantMap updatedInstalled = currentInstalled;
     updatedInstalled.remove(packageId);
-    const FileOperationResult removalResult = removePackageFiles(packageId, packageType, [updatedInstalled]() {
+    const Internal::PackageDeployment::FileOperationResult removalResult = Internal::PackageDeployment::removeFiles(packageId, packageType, [updatedInstalled]() {
         return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(updatedInstalled));
     });
-    if (removalResult != FileOperationResult::Success) {
+    if (removalResult != Internal::PackageDeployment::FileOperationResult::Success) {
         setBusy(false);
-        if (removalResult == FileOperationResult::RollbackFailed)
+        if (removalResult == Internal::PackageDeployment::FileOperationResult::RollbackFailed)
             emit errorOccurred(tr("Package removal failed and automatic rollback was incomplete; the backup was preserved."));
         else
             emit errorOccurred(tr("Failed to remove package; the installed state and files were restored."));
@@ -1154,6 +1024,13 @@ void PackageManager::removePackage(const QString &packageId) {
             emit packageListChanged();
             break;
         }
+    }
+    updateUpdateState();
+    if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
+        const QString deployDir = Internal::PackageDeployment::deployDirectory(packageType);
+        EffectRegistry &registry = EffectRegistry::instance();
+        registry.removeEffectsFromDirectory(QDir(deployDir).filePath(packageId));
+        registry.loadEffectsFromDirectory(deployDir);
     }
     setBusy(false);
     setStatus(tr("Removal complete: %1").arg(packageId));
@@ -1170,6 +1047,44 @@ QVariantList PackageManager::getPackagesByType(const QString &type) const {
         } else {
             if (pkg.value(QStringLiteral("type")).toString() == type)
                 result.append(pkg);
+        }
+    }
+    if (type == QStringLiteral("installed") || type == QStringLiteral("mod")) {
+        const QDir pluginsDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")));
+        QStringList installedModDirectories;
+        const QVariantMap installedPackages = loadInstalledPackagesFromFile();
+        for (auto it = installedPackages.cbegin(); it != installedPackages.cend(); ++it) {
+            if (it.value().toMap().value(QStringLiteral("type")).toString() != QStringLiteral("mod") ||
+                !Internal::PackageDeployment::isValidPackageId(it.key())) {
+                continue;
+            }
+            const QString packageDirectory = pluginsDir.filePath(it.key());
+            if (QFileInfo(packageDirectory).isDir()) {
+                installedModDirectories.append(packageDirectory);
+            }
+        }
+        const QFileInfoList filePlugins = pluginsDir.entryInfoList({QStringLiteral("*.lua")}, QDir::Files, QDir::Name);
+        for (const QFileInfo &fileInfo : filePlugins) {
+            const bool providedByInstalledPackage = std::any_of(
+                installedModDirectories.cbegin(), installedModDirectories.cend(), [&fileInfo](const QString &packageDirectory) {
+                    return isPathWithinDirectory(fileInfo.absoluteFilePath(), packageDirectory);
+                });
+            if (providedByInstalledPackage)
+                continue;
+            const QString pluginId = QStringLiteral("file:%1").arg(fileInfo.fileName());
+            const bool alreadyPresent = std::any_of(result.cbegin(), result.cend(), [&pluginId](const QVariant &entry) {
+                return entry.toMap().value(QStringLiteral("id")).toString() == pluginId;
+            });
+            if (alreadyPresent)
+                continue;
+            result.append(QVariantMap{
+                {QStringLiteral("id"), pluginId},
+                {QStringLiteral("type"), QStringLiteral("mod")},
+                {QStringLiteral("display_name"), fileInfo.completeBaseName()},
+                {QStringLiteral("version"), QStringLiteral("file")},
+                {QStringLiteral("installed_version"), QStringLiteral("file")},
+                {QStringLiteral("local_file_plugin"), true},
+            });
         }
     }
     return result;

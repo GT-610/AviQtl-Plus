@@ -91,16 +91,6 @@ void ComputeEffect::setHdrOutput(bool hdr) {
     update();
 }
 
-void ComputeEffect::setOpacity(qreal o) {
-    const qreal clamped = qBound(0.0, o, 1.0);
-    if (qFuzzyCompare(m_opacity, clamped))
-        return;
-    m_opacity = clamped;
-    m_dirty = true;
-    emit opacityChanged();
-    update();
-}
-
 void ComputeEffect::setExtraTextures(const QVariantList &textures) {
     if (m_extraTextures == textures)
         return;
@@ -192,7 +182,6 @@ auto ComputeEffect::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) -> 
         node->syncSize(width(), height());
         node->syncWorkGroupSize(m_workGroupX, m_workGroupY);
         node->syncHdrOutput(m_hdrOutput);
-        node->syncOpacity(m_opacity);
 
         // Collect extra textures from QQuickItem sources
         // Preserve slot positions to maintain binding index correspondence

@@ -101,10 +101,6 @@ void ComputeRenderNode::syncHdrOutput(bool hdr) {
     m_texturesDirty = true;
 }
 
-void ComputeRenderNode::syncOpacity(qreal opacity) {
-    m_opacity = qBound(0.0, opacity, 1.0);
-}
-
 void ComputeRenderNode::syncExtraTextures(const QList<QSGTexture *> &textures) {
     if (m_extraTextures == textures)
         return;
@@ -560,7 +556,7 @@ void ComputeRenderNode::prepare() {
             mvp *= *nodeMatrix;
         mvp.scale(m_width, m_height, 1.0f);
         batch->updateDynamicBuffer(m_ubuf, 0, 64, mvp.constData());
-        const float opacity = static_cast<float>(m_opacity);
+        const float opacity = static_cast<float>(inheritedOpacity());
         batch->updateDynamicBuffer(m_ubuf, 64, 4, &opacity);
     }
 

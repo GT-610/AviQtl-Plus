@@ -364,13 +364,6 @@ void TimelineController::createObject(const QString &type, int startFrame, int l
     }
 }
 
-void TimelineController::createTransition(const QString &type, int startFrame, int layer) {
-    if (m_timeline != nullptr) {
-        // トランジションは通常のオブジェクトとして作成
-        m_timeline->createClip(type, startFrame, layer);
-    }
-}
-
 double TimelineController::getSceneFps() const {
     const int sceneId = m_timeline->currentSceneId();
     for (const auto &scene : m_timeline->getAllScenes()) {

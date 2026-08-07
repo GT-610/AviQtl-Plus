@@ -6,7 +6,7 @@ layout(std140, binding=0) uniform buf {
     float qt_Opacity;
     float centerX;
     float centerY;
-    float scale;
+    float polarScale;
     float angleOffset;
     float targetWidth;
     float targetHeight;
@@ -26,8 +26,8 @@ void main() {
     
     // Convert back to Cartesian with scale
     vec2 polarUV = vec2(
-        cos(angle) * dist * scale,
-        sin(angle) * dist * scale
+        cos(angle) * dist * polarScale,
+        sin(angle) * dist * polarScale
     );
     
     // Map to texture coordinates

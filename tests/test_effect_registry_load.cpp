@@ -13,7 +13,6 @@ class TestEffectRegistryLoad : public QObject {
     void init();
     void loadValidEffect();
     void loadValidObject();
-    void loadValidTransition();
     void skipMissingId();
     void skipMissingName();
     void skipMissingQml();
@@ -107,26 +106,6 @@ void TestEffectRegistryLoad::loadValidObject() {
 
     const auto &meta = reg.getEffect("load.test.object");
     QCOMPARE(meta.kind, QStringLiteral("object"));
-}
-
-void TestEffectRegistryLoad::loadValidTransition() {
-    writeJson("test_transition.json", R"({
-        "id": "load.test.transition",
-        "name": "Test Transition",
-        "qml": "TestTransition.qml",
-        "version": "1.0.0",
-        "kind": "transition",
-        "categories": ["Basic"],
-        "params": {"duration": 30},
-        "ui": {"controls": [{"type": "spinner", "param": "duration", "label": "Duration"}]}
-    })");
-    writeQml("TestTransition.qml");
-
-    EffectRegistry &reg = EffectRegistry::instance();
-    reg.loadEffectsFromDirectory(m_dir.path());
-
-    const auto &meta = reg.getEffect("load.test.transition");
-    QCOMPARE(meta.kind, QStringLiteral("transition"));
 }
 
 void TestEffectRegistryLoad::skipMissingId() {

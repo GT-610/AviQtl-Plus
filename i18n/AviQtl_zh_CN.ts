@@ -1538,76 +1538,6 @@
         <source>ワイプ</source>
         <translation>擦除</translation>
     </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="304"/>
-        <source>クロスフェード</source>
-        <translation>交叉淡化</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="305"/>
-        <source>ワイプ（円）</source>
-        <translation>擦除（圆形）</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="306"/>
-        <source>スライド</source>
-        <translation>滑动</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="307"/>
-        <source>円形</source>
-        <translation>圆形</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="308"/>
-        <source>持続フレーム</source>
-        <translation>持续帧数</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="309"/>
-        <source>イージング</source>
-        <translation>缓动</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="310"/>
-        <source>linear</source>
-        <translation>线性</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="311"/>
-        <source>ease_in</source>
-        <translation>缓入</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="312"/>
-        <source>ease_out</source>
-        <translation>缓出</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="313"/>
-        <source>ease_in_out</source>
-        <translation>缓入缓出</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="314"/>
-        <source>left</source>
-        <translation>左</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="315"/>
-        <source>right</source>
-        <translation>右</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="316"/>
-        <source>up</source>
-        <translation>上</translation>
-    </message>
-    <message>
-        <location filename="../core/src/effect_metadata_i18n.cpp" line="317"/>
-        <source>down</source>
-        <translation>下</translation>
-    </message>
 </context>
 <context>
     <name>AviQtl::Core::PackageManager</name>
@@ -2164,11 +2094,6 @@
         <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="33"/>
         <source>Effects</source>
         <translation>效果</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="35"/>
-        <source>Transitions</source>
-        <translation>转场</translation>
     </message>
     <message>
         <location filename="../ui/qml/common/CatalogPickerDialog.qml" line="127"/>
@@ -3463,11 +3388,6 @@
         <translation>对象</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PackageManagerWindow.qml" line="101"/>
-        <source>トランジション</source>
-        <translation>转场</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PackageManagerWindow.qml" line="103"/>
         <source>インストール済み</source>
         <translation>已安装</translation>
@@ -3612,16 +3532,6 @@
         <translation>创建、删除、移动剪辑</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
-        <source>エフェクト読み取り</source>
-        <translation>读取效果</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
-        <source>エフェクト情報の一覧表示</source>
-        <translation>查看效果信息列表</translation>
-    </message>
-    <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
         <source>エフェクト変更</source>
         <translation>修改效果</translation>
@@ -3700,6 +3610,16 @@
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
         <source>コピー、切り取り、貼り付け</source>
         <translation>复制、剪切、粘贴</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>履歴操作</source>
+        <translation>历史操作</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <source>元に戻す、やり直し、コマンドのグループ化</source>
+        <translation>撤销、重做和命令分组</translation>
     </message>
     <message>
         <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
@@ -4196,11 +4116,6 @@
         <translation>创建、删除、移动、修改剪辑</translation>
     </message>
     <message>
-        <location filename="../core/src/permission_manager.cpp" line="196"/>
-        <source>エフェクト情報の一覧表示</source>
-        <translation>查看效果信息列表</translation>
-    </message>
-    <message>
         <location filename="../core/src/permission_manager.cpp" line="198"/>
         <source>エフェクトの追加、削除、パラメータ変更</source>
         <translation>添加、删除效果及修改参数</translation>
@@ -4239,6 +4154,11 @@
         <location filename="../core/src/permission_manager.cpp" line="212"/>
         <source>クリップボードへのコピー、切り取り、貼り付け</source>
         <translation>复制、剪切、粘贴到剪贴板</translation>
+    </message>
+    <message>
+        <location filename="../core/src/permission_manager.cpp" line="264"/>
+        <source>元に戻す、やり直し、コマンドのグループ化</source>
+        <translation>撤销、重做和命令分组</translation>
     </message>
     <message>
         <location filename="../core/src/permission_manager.cpp" line="214"/>
@@ -4938,19 +4858,14 @@
 <context>
     <name>TimelineView</name>
     <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1199"/>
-        <source>Browse object and transition catalog...</source>
-        <translation>浏览对象与转场目录...</translation>
+        <location filename="../ui/qml/timeline/TimelineView.qml" line="1173"/>
+        <source>Browse object catalog...</source>
+        <translation>浏览对象目录...</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="1202"/>
         <source>オブジェクトを追加</source>
         <translation>添加对象</translation>
-    </message>
-    <message>
-        <location filename="../ui/qml/timeline/TimelineView.qml" line="1217"/>
-        <source>トランジションを追加</source>
-        <translation>添加转场</translation>
     </message>
     <message>
         <location filename="../ui/qml/timeline/TimelineView.qml" line="1229"/>

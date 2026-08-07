@@ -51,7 +51,7 @@ package-name/
 └── ...
 ```
 
-**Important**: Each effect/object/transition should be placed in a subdirectory named after its ID. The ID in the directory name should match the `id` field in the JSON file for consistency, though the registry loads effects by scanning for JSON files regardless of directory name.
+**Important**: Each effect or object should be placed in a subdirectory named after its ID. The ID in the directory name should match the `id` field in the JSON file for consistency, though the registry loads definitions by scanning for JSON files regardless of directory name.
 
 ## Effect Types
 
@@ -59,7 +59,6 @@ package-name/
 |------|------|----------|-----------|---------|
 | Effect | `"effect"` | `effects/` | `BaseEffect` / `BaseComputeEffect` | QML + QRhi |
 | Object | `"object"` | `objects/` | `BaseObject` | QML + QtQuick3D |
-| Transition | `"transition"` | `transitions/` | `Item` | QML |
 
 ## Creating Your Own Package
 
@@ -67,7 +66,6 @@ package-name/
 
 - **Effect**: Visual filter applied to layers (blur, color correction, etc.)
 - **Object**: Self-contained visual entity (text, shape, particle, etc.)
-- **Transition**: Animation between scenes
 
 ### 2. Create the Structure
 

@@ -24,7 +24,6 @@ class ComputeRenderNode final : public QSGRenderNode {
     void syncSize(float w, float h);
     void syncWorkGroupSize(int x, int y, int z = 1);
     void syncHdrOutput(bool hdr);
-    void syncOpacity(qreal opacity);
     void syncExtraTextures(const QList<QSGTexture *> &textures);
     void syncDispatchCount(int count);
 
@@ -85,7 +84,6 @@ class ComputeRenderNode final : public QSGRenderNode {
 
     int m_dispatchCount = 1;
     bool m_hdrOutput = false;
-    qreal m_opacity = 1.0;
     QList<QSGTexture *> m_extraTextures;
     QList<QRhiTexture *> m_extraRhiTextures;
 

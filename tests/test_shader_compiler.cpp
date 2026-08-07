@@ -1,11 +1,18 @@
 #include "shader_compiler.hpp"
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
-#include <QThread>
 
 using namespace AviQtl::Core;
+
+namespace {
+bool setModificationTime(const QString &path, const QDateTime &time) {
+    QFile file(path);
+    return file.open(QIODevice::ReadWrite) && file.setFileTime(time, QFileDevice::FileModificationTime);
+}
+} // namespace
 
 class TestShaderCompiler : public QObject {
     Q_OBJECT
@@ -162,14 +169,14 @@ void TestShaderCompiler::needsRecompileWhenStale() {
     qsb.write("old_qsb");
     qsb.close();
 
-    // Ensure timestamp separation on coarse filesystems
-    QThread::msleep(50);
-
     // Create source file (newer than .qsb)
     QFile src(srcPath);
     QVERIFY(src.open(QIODevice::WriteOnly));
     src.write("new");
     src.close();
+    const QDateTime referenceTime = QDateTime::currentDateTimeUtc();
+    QVERIFY(setModificationTime(qsbPath, referenceTime.addSecs(-10)));
+    QVERIFY(setModificationTime(srcPath, referenceTime));
 
     QVERIFY(ShaderCompiler::needsRecompile(srcPath, qsbPath));
 }
@@ -192,6 +199,9 @@ void TestShaderCompiler::needsRecompileWhenFresh() {
     QVERIFY(qsb.open(QIODevice::WriteOnly));
     qsb.write("qsb");
     qsb.close();
+    const QDateTime referenceTime = QDateTime::currentDateTimeUtc();
+    QVERIFY(setModificationTime(srcPath, referenceTime.addSecs(-10)));
+    QVERIFY(setModificationTime(qsbPath, referenceTime));
 
     QVERIFY(!ShaderCompiler::needsRecompile(srcPath, qsbPath));
 }
@@ -228,22 +238,31 @@ void TestShaderCompiler::ensureCompiledRecompiles() {
 
     QString result1 = ShaderCompiler::ensureCompiled(srcPath, dir.path());
     QVERIFY(!result1.isEmpty());
-    QDateTime mtime1 = QFileInfo(result1).lastModified();
+    QFile firstOutput(result1);
+    QVERIFY(firstOutput.open(QIODevice::ReadOnly));
+    const QByteArray firstSerialized = firstOutput.readAll();
+    firstOutput.close();
 
     // Modify source to trigger recompile
-    QThread::msleep(50);
     QFile src2(srcPath);
     QVERIFY(src2.open(QIODevice::WriteOnly));
-    src2.write(simpleComputeShader());
+    QByteArray modifiedShader = simpleComputeShader();
+    modifiedShader.replace("local_size_x = 8", "local_size_x = 4");
+    QCOMPARE(src2.write(modifiedShader), modifiedShader.size());
     src2.close();
+    const QDateTime referenceTime = QDateTime::currentDateTimeUtc();
+    QVERIFY(setModificationTime(result1, referenceTime.addSecs(-10)));
+    QVERIFY(setModificationTime(srcPath, referenceTime));
 
     QString result2 = ShaderCompiler::ensureCompiled(srcPath, dir.path());
     QVERIFY(!result2.isEmpty());
     QCOMPARE(result1, result2); // Same output path
 
-    // Verify recompilation actually happened (file was regenerated)
-    QDateTime mtime2 = QFileInfo(result2).lastModified();
-    QVERIFY(mtime2 > mtime1);
+    QFile secondOutput(result2);
+    QVERIFY(secondOutput.open(QIODevice::ReadOnly));
+    const QByteArray secondSerialized = secondOutput.readAll();
+    QVERIFY(!secondSerialized.isEmpty());
+    QVERIFY(secondSerialized != firstSerialized);
 }
 
 QTEST_MAIN(TestShaderCompiler)

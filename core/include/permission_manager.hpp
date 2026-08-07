@@ -11,7 +11,6 @@ enum class PluginPermission {
     TransportControl,  // Play, pause, seek
     ClipRead,          // List and read clip information
     ClipModify,        // Create, delete, update clips
-    EffectRead,        // List effects
     EffectModify,      // Add, remove, modify effects
     ProjectRead,       // Read project info (resolution, fps)
     ProjectSave,       // Save project files
@@ -20,6 +19,7 @@ enum class PluginPermission {
     SettingsRead,      // Read plugin settings
     SettingsWrite,     // Write plugin settings
     ClipboardAccess,   // Copy, cut, paste operations
+    HistoryControl,    // Undo, redo, and command grouping
     LogOutput,         // Write to console log
 };
 
@@ -31,6 +31,7 @@ class PermissionManager : public QObject {
     // Permission checking
     Q_INVOKABLE bool hasPermission(const QString &pluginId, PluginPermission permission) const;
     Q_INVOKABLE bool hasPermission(const QString &pluginId, const QString &permissionName) const;
+    bool hasApiPermission(const QString &pluginId, const char *apiName) const;
 
     // Permission granting/revoking
     void grantPermission(const QString &pluginId, PluginPermission permission);

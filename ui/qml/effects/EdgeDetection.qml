@@ -9,6 +9,7 @@ Common.BaseEffect {
     property real luminanceEdge: root.evalParam("luminanceEdge", true) ? 1 : 0
     property real alphaEdge: root.evalParam("alphaEdge", false) ? 1 : 0
     property string color: root.evalColor("color", "#ffffff")
+    property color resolvedColor: root.color || "#ffffff"
 
     ShaderEffect {
         property var source: root.sourceProxy
@@ -16,10 +17,7 @@ Common.BaseEffect {
         property real threshold: root.threshold
         property real luminanceEdge: root.luminanceEdge
         property real alphaEdge: root.alphaEdge
-        property vector3d edgeColor: {
-            var c = Qt.colorConvert(root.color || "#ffffff", "rgba");
-            return Qt.vector3d(c.r, c.g, c.b);
-        }
+        property vector3d edgeColor: Qt.vector3d(root.resolvedColor.r, root.resolvedColor.g, root.resolvedColor.b)
         property real texelW: root.source ? 1.0 / root.source.width : 0
         property real texelH: root.source ? 1.0 / root.source.height : 0
 

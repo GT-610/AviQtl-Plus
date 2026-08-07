@@ -62,8 +62,6 @@ SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
         {"pluginPathsEffects", getDefaultPluginPaths(QStringLiteral("effects"), {QStringLiteral("AVIQTL_EFFECTS_PATH")}, {})},
         {"pluginEnableObjects", true},
         {"pluginPathsObjects", getDefaultPluginPaths(QStringLiteral("objects"), {QStringLiteral("AVIQTL_OBJECTS_PATH")}, {})},
-        {"pluginEnableTransitions", true},
-        {"pluginPathsTransitions", getDefaultPluginPaths(QStringLiteral("transitions"), {QStringLiteral("AVIQTL_TRANSITIONS_PATH")}, {})},
         {"packageRepositories", QVariantList{QVariantMap{
             {QStringLiteral("url"), QStringLiteral("https://raw.githubusercontent.com/GT-610/AviQtl-Plus/main/repos/repo.json")},
             {QStringLiteral("name"), QStringLiteral("AviQtl Official")},

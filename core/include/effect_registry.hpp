@@ -39,7 +39,8 @@ class EffectRegistry {
         m_effects.insert(meta.id, meta);
     }
 
-    /// Returns a reference valid only until the next registerEffect() call.
+    /// Returns a reference valid only until loadEffectsFromDirectory() registers
+    /// or reloads effects, or removeEffectsFromDirectory() removes entries.
     /// Callers must copy if they need a stable value.
     const EffectMetadata &getEffect(const QString &id) const {
         static const EffectMetadata s_empty;
@@ -56,6 +57,7 @@ class EffectRegistry {
     }
 
     void loadEffectsFromDirectory(const QString &path);
+    void removeEffectsFromDirectory(const QString &path);
 
   private:
     EffectRegistry() = default;

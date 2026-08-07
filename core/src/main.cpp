@@ -124,6 +124,7 @@ auto main(int argc, char *argv[]) -> int {
     engine.rootContext()->setContextProperty(QStringLiteral("Workspace"), workspace);
 
     auto &modEngine = Scripting::ModEngine::instance();
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&modEngine]() { modEngine.unloadPlugins(); });
     QObject::connect(workspace, &UI::Workspace::currentTimelineChanged, [&]() {
         if (workspace->currentTimeline()) {
             modEngine.registerController(workspace->currentTimeline());
@@ -163,7 +164,6 @@ auto main(int argc, char *argv[]) -> int {
 
         loadRegistry(QStringLiteral("Effects"));
         loadRegistry(QStringLiteral("Objects"));
-        loadRegistry(QStringLiteral("Transitions"));
 
         // Enable hot reload if setting is enabled
         if (sm.value(QStringLiteral("luaHotReload"), false).toBool()) {

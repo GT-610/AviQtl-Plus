@@ -3,15 +3,19 @@
 #include "timeline_controller.hpp"
 #include "timeline_service.hpp"
 #include "workspace.hpp"
+#include <QCoreApplication>
 #include <QDir>
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QScopeGuard>
 #include <QSemaphore>
 #include <QSignalSpy>
+#include <QStandardPaths>
+#include <QThreadPool>
 #include <QTimer>
 #include <QTemporaryDir>
 #include <QTest>
@@ -19,8 +23,8 @@
 #include <QUndoCommand>
 #include <QUndoStack>
 #include <QUrl>
+#include <QtConcurrent>
 #include <algorithm>
-#include <atomic>
 
 using namespace AviQtl::Core;
 using namespace AviQtl::UI;
@@ -52,54 +56,81 @@ class TestProjectRecovery : public QObject {
     void staleOrphanedSnapshotsAreRemoved();
     void timerBackupCompletesAsynchronously();
     void timerBackupQueuesLatestSnapshot();
-    void synchronousBackupWaitsForAsyncWrite();
 
   private:
     void markDirty(TimelineController &controller);
+    void writeRecovery(TimelineController &controller);
+    ProjectRecoveryEntry recoveryEntryFor(const TimelineController &controller) const;
     QTemporaryDir m_directory;
+    QString m_recoveryRoot;
     QVariant m_originalAutoBackup;
     QVariant m_originalBackupInterval;
 };
 
 void TestProjectRecovery::initTestCase() {
     QVERIFY(m_directory.isValid());
-    ProjectRecoveryManager::setRecoveryRootForTests(m_directory.path());
+    QStandardPaths::setTestModeEnabled(true);
+    QCoreApplication::setOrganizationName(QStringLiteral("AviQtl"));
+    QCoreApplication::setApplicationName(QStringLiteral("AviQtl_Test_project_recovery_%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)));
+    m_recoveryRoot = ProjectRecoveryManager::recoveryRoot();
+    QVERIFY(!m_recoveryRoot.isEmpty());
     m_originalAutoBackup = SettingsManager::instance().value(QStringLiteral("enableAutoBackup"), true);
     m_originalBackupInterval = SettingsManager::instance().value(QStringLiteral("backupInterval"), 5);
 }
 
 void TestProjectRecovery::init() {
-    ProjectRecoveryManager::setWriteBarrierForTests({});
-    QDir root(m_directory.path());
-    for (const QString &file : root.entryList(QDir::Files))
-        QVERIFY(root.remove(file));
+    QDir recoveryRoot(m_recoveryRoot);
+    if (recoveryRoot.exists())
+        QVERIFY(recoveryRoot.removeRecursively());
+    QVERIFY(QDir().mkpath(m_recoveryRoot));
+    QDir projectRoot(m_directory.path());
+    for (const QString &file : projectRoot.entryList(QDir::Files))
+        QVERIFY(projectRoot.remove(file));
     SettingsManager::instance().setValue(QStringLiteral("enableAutoBackup"), true);
     SettingsManager::instance().setValue(QStringLiteral("backupInterval"), 5);
 }
 
 void TestProjectRecovery::cleanupTestCase() {
-    ProjectRecoveryManager::setWriteBarrierForTests({});
     SettingsManager::instance().setValue(QStringLiteral("enableAutoBackup"), m_originalAutoBackup);
     SettingsManager::instance().setValue(QStringLiteral("backupInterval"), m_originalBackupInterval);
-    ProjectRecoveryManager::setRecoveryRootForTests(QString());
+    QDir recoveryRoot(m_recoveryRoot);
+    if (recoveryRoot.exists())
+        QVERIFY(recoveryRoot.removeRecursively());
 }
 
 void TestProjectRecovery::markDirty(TimelineController &controller) { controller.timeline()->undoStack()->push(new QUndoCommand(QStringLiteral("test edit"))); }
+
+void TestProjectRecovery::writeRecovery(TimelineController &controller) {
+    QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
+    auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
+    QVERIFY(timer != nullptr);
+    QVERIFY(watcher != nullptr);
+    QSignalSpy finishedSpy(watcher, &QFutureWatcherBase::finished);
+
+    QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 5000);
+    QVERIFY(!watcher->isRunning());
+}
+
+ProjectRecoveryEntry TestProjectRecovery::recoveryEntryFor(const TimelineController &controller) const {
+    const auto entries = ProjectRecoveryManager::entries();
+    const auto it = std::find_if(entries.cbegin(), entries.cend(), [&controller](const ProjectRecoveryEntry &entry) { return entry.id == controller.recoveryId(); });
+    return it == entries.cend() ? ProjectRecoveryEntry{} : *it;
+}
 
 void TestProjectRecovery::dirtyProjectCreatesIndependentSnapshot() {
     TimelineController controller;
     controller.setProperty("untitledName", QStringLiteral("Draft"));
     markDirty(controller);
 
-    QVERIFY(controller.writeRecoveryNow());
+    writeRecovery(controller);
     QVERIFY(controller.hasUnsavedChanges());
     QVERIFY(controller.currentProjectUrl().isEmpty());
 
-    const auto entries = ProjectRecoveryManager::entries();
-    QCOMPARE(entries.size(), 1);
-    QVERIFY(entries.first().valid);
-    QCOMPARE(entries.first().displayName, QStringLiteral("Draft"));
-    QVERIFY(QFileInfo::exists(entries.first().snapshotPath));
+    const ProjectRecoveryEntry entry = recoveryEntryFor(controller);
+    QVERIFY(entry.valid);
+    QCOMPARE(entry.displayName, QStringLiteral("Draft"));
+    QVERIFY(QFileInfo::exists(entry.snapshotPath));
 }
 
 void TestProjectRecovery::projectSettingsAreRecoverableChanges() {
@@ -107,7 +138,7 @@ void TestProjectRecovery::projectSettingsAreRecoverableChanges() {
     QVERIFY(!controller.hasUnsavedChanges());
     controller.project()->setFps(24.0);
     QVERIFY(controller.hasUnsavedChanges());
-    QVERIFY(controller.writeRecoveryNow());
+    writeRecovery(controller);
     QCOMPARE(ProjectRecoveryManager::entries().size(), 1);
 }
 
@@ -119,20 +150,30 @@ void TestProjectRecovery::snapshotDoesNotAffectFormalSaveState() {
     QVERIFY(!controller.hasUnsavedChanges());
 
     markDirty(controller);
-    QVERIFY(controller.writeRecoveryNow());
+    writeRecovery(controller);
     QCOMPARE(controller.currentProjectUrl(), projectUrl);
     QVERIFY(controller.hasUnsavedChanges());
 }
 
 void TestProjectRecovery::cleanAndDisabledProjectsDoNotCreateSnapshots() {
     TimelineController clean;
-    QVERIFY(!clean.writeRecoveryNow());
+    QTimer *cleanTimer = clean.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
+    auto *cleanWatcher = clean.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
+    QVERIFY(cleanTimer != nullptr);
+    QVERIFY(cleanWatcher != nullptr);
+    QVERIFY(QMetaObject::invokeMethod(cleanTimer, "timeout", Qt::DirectConnection));
+    QVERIFY(!cleanWatcher->isRunning());
     QVERIFY(ProjectRecoveryManager::entries().isEmpty());
 
     TimelineController disabled;
     markDirty(disabled);
     SettingsManager::instance().setValue(QStringLiteral("enableAutoBackup"), false);
-    QVERIFY(!disabled.writeRecoveryNow());
+    QTimer *disabledTimer = disabled.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
+    auto *disabledWatcher = disabled.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
+    QVERIFY(disabledTimer != nullptr);
+    QVERIFY(disabledWatcher != nullptr);
+    QVERIFY(QMetaObject::invokeMethod(disabledTimer, "timeout", Qt::DirectConnection));
+    QVERIFY(!disabledWatcher->isRunning());
     QVERIFY(ProjectRecoveryManager::entries().isEmpty());
 }
 
@@ -141,8 +182,8 @@ void TestProjectRecovery::untitledProjectsUseDistinctSnapshots() {
     TimelineController second;
     markDirty(first);
     markDirty(second);
-    QVERIFY(first.writeRecoveryNow());
-    QVERIFY(second.writeRecoveryNow());
+    writeRecovery(first);
+    writeRecovery(second);
     QVERIFY(first.recoveryId() != second.recoveryId());
     QCOMPARE(ProjectRecoveryManager::entries().size(), 2);
 }
@@ -150,7 +191,7 @@ void TestProjectRecovery::untitledProjectsUseDistinctSnapshots() {
 void TestProjectRecovery::formalSaveRemovesSnapshot() {
     TimelineController controller;
     markDirty(controller);
-    QVERIFY(controller.writeRecoveryNow());
+    writeRecovery(controller);
 
     const QString projectPath = m_directory.filePath(QStringLiteral("saved-project.aviqtl"));
     QVERIFY(controller.saveProject(QUrl::fromLocalFile(projectPath).toString()));
@@ -161,12 +202,15 @@ void TestProjectRecovery::formalSaveRemovesSnapshot() {
 
 void TestProjectRecovery::recoveredProjectRemainsUnsaved() {
     TimelineController source;
-    source.project()->setWidth(1234);
+    const QString originalPath = m_directory.filePath(QStringLiteral("original.aviqtl"));
+    const QString originalUrl = QUrl::fromLocalFile(originalPath).toString();
     markDirty(source);
-    const QString originalUrl = QUrl::fromLocalFile(m_directory.filePath(QStringLiteral("original.aviqtl"))).toString();
-    QString error;
-    QVERIFY(ProjectRecoveryManager::write(source.recoveryId(), originalUrl, QStringLiteral("Original"), source.timeline(), source.project(), &error));
-    const ProjectRecoveryEntry entry = ProjectRecoveryManager::entries().first();
+    QVERIFY(source.saveProject(originalUrl));
+    source.project()->setWidth(1234);
+    QVERIFY(source.hasUnsavedChanges());
+    writeRecovery(source);
+    const ProjectRecoveryEntry entry = recoveryEntryFor(source);
+    QVERIFY(entry.valid);
 
     TimelineController recovered;
     QVERIFY(recovered.loadRecovery(entry.snapshotPath, entry.id, entry.originalProjectUrl));
@@ -180,9 +224,9 @@ void TestProjectRecovery::recoveredProjectRemainsUnsaved() {
 void TestProjectRecovery::corruptMetadataDoesNotHideValidRecoveries() {
     TimelineController controller;
     markDirty(controller);
-    QVERIFY(controller.writeRecoveryNow());
+    writeRecovery(controller);
 
-    QFile corrupt(m_directory.filePath(QStringLiteral("corrupt.json")));
+    QFile corrupt(QDir(m_recoveryRoot).filePath(QStringLiteral("corrupt.json")));
     QVERIFY(corrupt.open(QIODevice::WriteOnly));
     QCOMPARE(corrupt.write("{not json"), qint64(9));
     corrupt.close();
@@ -196,9 +240,10 @@ void TestProjectRecovery::corruptMetadataDoesNotHideValidRecoveries() {
 void TestProjectRecovery::corruptSnapshotDoesNotPreventOtherRecovery() {
     TimelineController corruptSource;
     markDirty(corruptSource);
-    QVERIFY(corruptSource.writeRecoveryNow());
+    writeRecovery(corruptSource);
     const QString corruptId = corruptSource.recoveryId();
-    const ProjectRecoveryEntry corruptEntry = ProjectRecoveryManager::entries().first();
+    const ProjectRecoveryEntry corruptEntry = recoveryEntryFor(corruptSource);
+    QVERIFY(corruptEntry.valid);
     QFile corruptSnapshot(corruptEntry.snapshotPath);
     QVERIFY(corruptSnapshot.open(QIODevice::WriteOnly | QIODevice::Truncate));
     QVERIFY(corruptSnapshot.write("not a project") > 0);
@@ -207,7 +252,7 @@ void TestProjectRecovery::corruptSnapshotDoesNotPreventOtherRecovery() {
     TimelineController validSource;
     validSource.project()->setHeight(777);
     markDirty(validSource);
-    QVERIFY(validSource.writeRecoveryNow());
+    writeRecovery(validSource);
 
     Workspace workspace;
     QVERIFY(!workspace.recoverProject(corruptId));
@@ -224,7 +269,7 @@ void TestProjectRecovery::closingProjectDiscardsSnapshot() {
     TimelineController *controller = workspace.currentTimeline();
     QVERIFY(controller != nullptr);
     markDirty(*controller);
-    QVERIFY(controller->writeRecoveryNow());
+    writeRecovery(*controller);
     QCOMPARE(ProjectRecoveryManager::entries().size(), 1);
 
     workspace.closeProject(0);
@@ -233,40 +278,42 @@ void TestProjectRecovery::closingProjectDiscardsSnapshot() {
 
 void TestProjectRecovery::invalidIdentifiersAreRejected() {
     TimelineController controller;
-    QString error;
-    QVERIFY(!ProjectRecoveryManager::write(QStringLiteral("../outside"), QString(), QStringLiteral("Invalid"), controller.timeline(), controller.project(), &error));
-    QVERIFY(!error.isEmpty());
+    QFuture<ProjectRecoveryWriteResult> future = ProjectRecoveryManager::writeAsync(QStringLiteral("../outside"), QString(), QStringLiteral("Invalid"), controller.timeline(), controller.project());
+    future.waitForFinished();
+    const ProjectRecoveryWriteResult result = future.result();
+    QVERIFY(!result.success);
+    QVERIFY(!result.error.isEmpty());
     QVERIFY(!ProjectRecoveryManager::remove(QStringLiteral("../outside")));
-    QVERIFY(!QFileInfo::exists(QDir(m_directory.path()).filePath(QStringLiteral("../outside.json"))));
+    QVERIFY(!QFileInfo::exists(QDir(m_recoveryRoot).filePath(QStringLiteral("../outside.json"))));
     QVERIFY(ProjectRecoveryManager::entries().isEmpty());
 }
 
 void TestProjectRecovery::successiveWritesReplaceSnapshotGeneration() {
     TimelineController controller;
     markDirty(controller);
-    QVERIFY(controller.writeRecoveryNow());
-    const QString firstSnapshot = ProjectRecoveryManager::entries().first().snapshotPath;
+    writeRecovery(controller);
+    const QString firstSnapshot = recoveryEntryFor(controller).snapshotPath;
     QVERIFY(QFileInfo::exists(firstSnapshot));
 
     controller.project()->setWidth(1440);
-    QVERIFY(controller.writeRecoveryNow());
-    const ProjectRecoveryEntry secondEntry = ProjectRecoveryManager::entries().first();
+    writeRecovery(controller);
+    const ProjectRecoveryEntry secondEntry = recoveryEntryFor(controller);
     QVERIFY(secondEntry.valid);
     QVERIFY(secondEntry.snapshotPath != firstSnapshot);
     QVERIFY(QFileInfo::exists(secondEntry.snapshotPath));
     QVERIFY(!QFileInfo::exists(firstSnapshot));
-    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+    QCOMPARE(QDir(m_recoveryRoot).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
 }
 
 void TestProjectRecovery::legacySnapshotMetadataRemainsReadable() {
     TimelineController controller;
     markDirty(controller);
-    QVERIFY(controller.writeRecoveryNow());
-    const ProjectRecoveryEntry generatedEntry = ProjectRecoveryManager::entries().first();
-    const QString legacyPath = m_directory.filePath(generatedEntry.id + QStringLiteral(".aviqtl"));
+    writeRecovery(controller);
+    const ProjectRecoveryEntry generatedEntry = recoveryEntryFor(controller);
+    const QString legacyPath = QDir(m_recoveryRoot).filePath(generatedEntry.id + QStringLiteral(".aviqtl"));
     QVERIFY(QFile::rename(generatedEntry.snapshotPath, legacyPath));
 
-    QFile metadata(m_directory.filePath(generatedEntry.id + QStringLiteral(".json")));
+    QFile metadata(QDir(m_recoveryRoot).filePath(generatedEntry.id + QStringLiteral(".json")));
     QVERIFY(metadata.open(QIODevice::ReadOnly));
     QJsonObject object = QJsonDocument::fromJson(metadata.readAll()).object();
     metadata.close();
@@ -284,27 +331,29 @@ void TestProjectRecovery::legacySnapshotMetadataRemainsReadable() {
 void TestProjectRecovery::failedMetadataOpenPreservesPreviousSnapshot() {
     TimelineController controller;
     markDirty(controller);
-    QVERIFY(controller.writeRecoveryNow());
-    const ProjectRecoveryEntry entry = ProjectRecoveryManager::entries().first();
-    const QString metadataPath = m_directory.filePath(entry.id + QStringLiteral(".json"));
+    writeRecovery(controller);
+    const ProjectRecoveryEntry entry = recoveryEntryFor(controller);
+    const QString metadataPath = QDir(m_recoveryRoot).filePath(entry.id + QStringLiteral(".json"));
     QVERIFY(QFile::remove(metadataPath));
     QVERIFY(QDir().mkpath(metadataPath));
 
-    QString error;
-    QVERIFY(!ProjectRecoveryManager::write(entry.id, QString(), QStringLiteral("Retry"), controller.timeline(), controller.project(), &error));
-    QVERIFY(!error.isEmpty());
+    QFuture<ProjectRecoveryWriteResult> future = ProjectRecoveryManager::writeAsync(entry.id, QString(), QStringLiteral("Retry"), controller.timeline(), controller.project());
+    future.waitForFinished();
+    const ProjectRecoveryWriteResult result = future.result();
+    QVERIFY(!result.success);
+    QVERIFY(!result.error.isEmpty());
     QVERIFY(QFileInfo::exists(entry.snapshotPath));
-    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+    QCOMPARE(QDir(m_recoveryRoot).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
     QVERIFY(QDir(metadataPath).removeRecursively());
 }
 
 void TestProjectRecovery::staleRecoveriesAreRemoved() {
     TimelineController controller;
     markDirty(controller);
-    QVERIFY(controller.writeRecoveryNow());
-    const ProjectRecoveryEntry entry = ProjectRecoveryManager::entries().first();
+    writeRecovery(controller);
+    const ProjectRecoveryEntry entry = recoveryEntryFor(controller);
 
-    QFile metadata(m_directory.filePath(entry.id + QStringLiteral(".json")));
+    QFile metadata(QDir(m_recoveryRoot).filePath(entry.id + QStringLiteral(".json")));
     QVERIFY(metadata.open(QIODevice::ReadOnly));
     QJsonObject object = QJsonDocument::fromJson(metadata.readAll()).object();
     metadata.close();
@@ -320,8 +369,8 @@ void TestProjectRecovery::staleRecoveriesAreRemoved() {
 
 void TestProjectRecovery::staleCorruptMetadataIsRemoved() {
     const QString recoveryId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    const QString metadataPath = m_directory.filePath(recoveryId + QStringLiteral(".json"));
-    const QString snapshotPath = m_directory.filePath(recoveryId + QStringLiteral(".aviqtl"));
+    const QString metadataPath = QDir(m_recoveryRoot).filePath(recoveryId + QStringLiteral(".json"));
+    const QString snapshotPath = QDir(m_recoveryRoot).filePath(recoveryId + QStringLiteral(".aviqtl"));
 
     QFile metadata(metadataPath);
     QVERIFY(metadata.open(QIODevice::WriteOnly));
@@ -344,7 +393,7 @@ void TestProjectRecovery::staleCorruptMetadataIsRemoved() {
 void TestProjectRecovery::staleOrphanedSnapshotsAreRemoved() {
     const QString recoveryId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const QString generationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    const QString orphanPath = m_directory.filePath(recoveryId + QLatin1Char('-') + generationId + QStringLiteral(".aviqtl"));
+    const QString orphanPath = QDir(m_recoveryRoot).filePath(recoveryId + QLatin1Char('-') + generationId + QStringLiteral(".aviqtl"));
     QFile orphan(orphanPath);
     QVERIFY(orphan.open(QIODevice::WriteOnly));
     QVERIFY(orphan.write("orphan") > 0);
@@ -361,28 +410,36 @@ void TestProjectRecovery::timerBackupCompletesAsynchronously() {
     TimelineController controller;
     markDirty(controller);
     QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
+    auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
     QVERIFY(timer != nullptr);
+    QVERIFY(watcher != nullptr);
+    QSignalSpy finishedSpy(watcher, &QFutureWatcherBase::finished);
 
     QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
-    QTRY_COMPARE_WITH_TIMEOUT(ProjectRecoveryManager::entries().size(), 1, 5000);
-    QVERIFY(ProjectRecoveryManager::entries().first().valid);
+    QVERIFY(watcher->isRunning());
+    QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 5000);
+    QVERIFY(recoveryEntryFor(controller).valid);
 }
 
 void TestProjectRecovery::timerBackupQueuesLatestSnapshot() {
+    QThreadPool *threadPool = QThreadPool::globalInstance();
+    const int originalMaxThreadCount = threadPool->maxThreadCount();
+    threadPool->setMaxThreadCount(1);
+
+    QSemaphore blockerStarted;
+    QSemaphore releaseBlocker;
+    QFuture<void> blockerFuture = QtConcurrent::run(threadPool, [&]() {
+        blockerStarted.release();
+        releaseBlocker.acquire();
+    });
+    const auto restoreThreadPool = qScopeGuard([&]() {
+        releaseBlocker.release();
+        blockerFuture.waitForFinished();
+        threadPool->setMaxThreadCount(originalMaxThreadCount);
+    });
+    QVERIFY(blockerStarted.tryAcquire(1, 5000));
+
     TimelineController controller;
-    QSemaphore asyncWriteStarted;
-    QSemaphore releaseAsyncWrite;
-    std::atomic_bool blockFirstAsyncWrite = true;
-    ProjectRecoveryManager::setWriteBarrierForTests([&](ProjectRecoveryWriteBarrierPoint point) {
-        if (point == ProjectRecoveryWriteBarrierPoint::AsyncWriteStarted && blockFirstAsyncWrite.exchange(false)) {
-            asyncWriteStarted.release();
-            releaseAsyncWrite.acquire();
-        }
-    });
-    const auto resetBarrier = qScopeGuard([&]() {
-        releaseAsyncWrite.release();
-        ProjectRecoveryManager::setWriteBarrierForTests({});
-    });
     markDirty(controller);
     QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
     auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
@@ -392,58 +449,20 @@ void TestProjectRecovery::timerBackupQueuesLatestSnapshot() {
 
     controller.project()->setWidth(1111);
     QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
-    QVERIFY(asyncWriteStarted.tryAcquire(1, 5000));
     QVERIFY(watcher->isRunning());
     controller.project()->setWidth(2222);
     QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
-    releaseAsyncWrite.release();
+    releaseBlocker.release();
 
     QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 2, 5000);
-    const QList<ProjectRecoveryEntry> entries = ProjectRecoveryManager::entries();
-    QCOMPARE(entries.size(), 1);
-    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+    const ProjectRecoveryEntry entry = recoveryEntryFor(controller);
+    QVERIFY(entry.valid);
+    QCOMPARE(ProjectRecoveryManager::entries().size(), 1);
+    QCOMPARE(QDir(m_recoveryRoot).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
 
     TimelineController recovered;
-    QVERIFY(recovered.loadRecovery(entries.first().snapshotPath, entries.first().id, entries.first().originalProjectUrl));
+    QVERIFY(recovered.loadRecovery(entry.snapshotPath, entry.id, entry.originalProjectUrl));
     QCOMPARE(recovered.project()->width(), 2222);
-}
-
-void TestProjectRecovery::synchronousBackupWaitsForAsyncWrite() {
-    TimelineController controller;
-    QSemaphore asyncWriteStarted;
-    QSemaphore releaseAsyncWrite;
-    ProjectRecoveryManager::setWriteBarrierForTests([&](ProjectRecoveryWriteBarrierPoint point) {
-        if (point == ProjectRecoveryWriteBarrierPoint::AsyncWriteStarted) {
-            asyncWriteStarted.release();
-            releaseAsyncWrite.acquire();
-        } else {
-            releaseAsyncWrite.release();
-        }
-    });
-    const auto resetBarrier = qScopeGuard([&]() {
-        releaseAsyncWrite.release();
-        ProjectRecoveryManager::setWriteBarrierForTests({});
-    });
-    markDirty(controller);
-    QTimer *timer = controller.findChild<QTimer *>(QStringLiteral("projectRecoveryTimer"));
-    auto *watcher = controller.findChild<QFutureWatcherBase *>(QStringLiteral("projectRecoveryWriteWatcher"));
-    QVERIFY(timer != nullptr);
-    QVERIFY(watcher != nullptr);
-
-    controller.project()->setWidth(1111);
-    QVERIFY(QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection));
-    QVERIFY(asyncWriteStarted.tryAcquire(1, 5000));
-    QVERIFY(watcher->isRunning());
-    controller.project()->setWidth(3333);
-    QVERIFY(controller.writeRecoveryNow());
-
-    const QList<ProjectRecoveryEntry> entries = ProjectRecoveryManager::entries();
-    QCOMPARE(entries.size(), 1);
-    QCOMPARE(QDir(m_directory.path()).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
-
-    TimelineController recovered;
-    QVERIFY(recovered.loadRecovery(entries.first().snapshotPath, entries.first().id, entries.first().originalProjectUrl));
-    QCOMPARE(recovered.project()->width(), 3333);
 }
 
 QTEST_MAIN(TestProjectRecovery)

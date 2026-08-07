@@ -18,6 +18,9 @@ All notable changes to AviQtl-Plus are documented in this file.
   repeatable headless frame capture and encoded-video verification
 - Audio decoder test media is generated in buffered blocks, keeping longer
   workload fixtures inexpensive
+- Removed the incomplete transition catalog, package type, examples, and
+  placeholder assets until transitions are implemented in the real timeline
+  and frame-driven composition pipeline
 
 ### Fixed
 - Relative audio plugin search paths now scan the resolved application-relative

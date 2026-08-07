@@ -24,7 +24,7 @@ constexpr int kTestFrameCount = 60;
 constexpr int kTestGopSize = 12;
 constexpr int kColdFrame = 48;
 constexpr int kEvictionFrameCount = 240;
-constexpr qsizetype kEvictionCacheBytes = 2 * 1024 * 1024;
+constexpr qsizetype kEvictionCacheBytes = 64 * 1024 * 1024;
 } // namespace
 
 class TestVideoDecoder : public QObject {
@@ -217,26 +217,21 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     decoder.seekToFrame(24, decoder.sourceFps());
     decoder.seekToFrame(36, decoder.sourceFps());
     QTRY_VERIFY_WITH_TIMEOUT(std::any_of(burstFrameSpy.cbegin(), burstFrameSpy.cend(), [](const QList<QVariant> &arguments) { return arguments.first().toInt() == 36; }), 10'000);
-    QTest::qWait(20);
+    QVERIFY(!burstFrameSpy.wait(100));
     QCOMPARE(burstFrameSpy.last().first().toInt(), 36);
 }
 
 void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
     SettingsManager &settings = SettingsManager::instance();
-    const QVariant previousOverride = settings.value(QStringLiteral("_videoDecoderFrameCacheMaxBytes"));
-    settings.setValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"), kEvictionCacheBytes);
-    const auto restoreCacheOverride = qScopeGuard([&settings, previousOverride]() -> void {
-        if (previousOverride.isValid()) {
-            settings.setValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"), previousOverride);
-        } else {
-            settings.removeValue(QStringLiteral("_videoDecoderFrameCacheMaxBytes"));
-        }
-    });
+    const QVariantMap originalSettings = settings.settings();
+    settings.setValue(QStringLiteral("cacheSize"), 64);
+    settings.setValue(QStringLiteral("videoDecoderMinCacheMB"), 16);
+    const auto restoreSettings = qScopeGuard([&settings, originalSettings]() { settings.setSettings(originalSettings); });
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString videoPath = dir.filePath(QStringLiteral("decoder-eviction.mp4"));
-    QVERIFY(createTestVideo(videoPath, kEvictionFrameCount));
+    QVERIFY(createTestVideo(videoPath, kEvictionFrameCount, 640, 360));
 
     constexpr int clipId = 8;
     VideoFrameStore store;
@@ -328,6 +323,8 @@ void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
 void TestVideoDecoder::representativeMediaSeekWorkload() {
     QString videoPath = qEnvironmentVariable("AVIQTL_PERF_VIDEO");
     QTemporaryDir syntheticDir;
+    if (videoPath.isEmpty())
+        videoPath = QStringLiteral("synthetic");
     if (videoPath == QStringLiteral("synthetic")) {
         QVERIFY(syntheticDir.isValid());
         videoPath = syntheticDir.filePath(QStringLiteral("representative-video.mp4"));
@@ -335,8 +332,6 @@ void TestVideoDecoder::representativeMediaSeekWorkload() {
         encodeTimer.start();
         QVERIFY2(createTestVideo(videoPath, 1800, 640, 360, 60), "failed to create representative synthetic video");
         QTextStream(stdout) << "video_representative encode_ms=" << encodeTimer.elapsed() << " frames=1800 width=640 height=360 gop=60" << Qt::endl;
-    } else if (videoPath.isEmpty()) {
-        QSKIP("Set AVIQTL_PERF_VIDEO to a representative media path, or to 'synthetic'.");
     }
     QVERIFY2(QFileInfo::exists(videoPath), qPrintable(QStringLiteral("representative video does not exist: %1").arg(videoPath)));
 

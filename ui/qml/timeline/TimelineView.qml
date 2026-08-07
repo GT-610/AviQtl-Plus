@@ -874,8 +874,6 @@ Item {
                 return;
             if (item.kind === "object")
                 Workspace.currentTimeline.createObject(item.id, contextClickFrame, contextClickLayer);
-            else if (item.kind === "transition")
-                Workspace.currentTimeline.createTransition(item.id, contextClickFrame, contextClickLayer);
             else if (item.kind === "effect" && contextMenu.targetClipId >= 0)
                 Workspace.currentTimeline.addEffect(contextMenu.targetClipId, item.id);
         }
@@ -1016,7 +1014,7 @@ Item {
                 break;
             case "catalog.browse":
                 if (targetType === "timeline")
-                    catalogPicker.openForKinds(["object", "transition"], "object");
+                    catalogPicker.openForKinds(["object"], "object");
                 else if (targetType === "clip" && !Workspace.currentTimeline.isAudioClip(targetClipId))
                     catalogPicker.openForKinds(["effect"], "effect");
                 break;
@@ -1107,30 +1105,6 @@ Item {
                 }
             }
 
-            function buildTransitionMenu(parentMenu, items) {
-                for (var i = 0; i < items.length; ++i) {
-                    var node = items[i];
-                    if (node.isCategory) {
-                        var subMenu = subMenuComp.createObject(timelineViewRoot, {
-                            "title": node.title
-                        });
-                        buildTransitionMenu(subMenu, node.children);
-                        parentMenu.addMenu(subMenu);
-                    } else {
-                        var transItem = menuItemComp.createObject(timelineViewRoot, {
-                            "text": catalogItemText(node),
-                            "iconName": "shape_line"
-                        });
-                        (function(id) {
-                            transItem.triggered.connect(() => {
-                                Workspace.currentTimeline.createTransition(id, contextClickFrame, contextClickLayer);
-                            });
-                        })(node.id);
-                        parentMenu.addItem(transItem);
-                    }
-                }
-            }
-
             function buildAudioPluginMenu(parentMenu) {
                 var categories = Workspace.currentTimeline.getPluginCategories();
                 for (var c = 0; c < categories.length; c++) {
@@ -1196,7 +1170,7 @@ Item {
                 return ;
             }
             if (targetType === "timeline") {
-                contextMenu.addItem(createMenuItem(qsTr("Browse object and transition catalog..."), "catalog.browse", "apps_line"));
+                contextMenu.addItem(createMenuItem(qsTr("Browse object catalog..."), "catalog.browse", "apps_line"));
                 addSeparator();
                 var objectMenu = subMenuComp.createObject(contextMenu, {
                     "title": qsTr("オブジェクトを追加")
@@ -1211,19 +1185,6 @@ Item {
                     buildObjMenu(objectMenu, objects);
                 });
                 contextMenu.addMenu(objectMenu);
-
-                // トランジションメニュー
-                var transitionMenu = subMenuComp.createObject(contextMenu, {
-                    "title": qsTr("トランジションを追加")
-                });
-                transitionMenu.aboutToShow.connect(function() {
-                    if (transitionMenu.count > 0)
-                        return;
-
-                    var transitions = Workspace.currentTimeline.getAvailableTransitions();
-                    buildTransitionMenu(transitionMenu, transitions);
-                });
-                contextMenu.addMenu(transitionMenu);
 
                 addSeparator();
                 contextMenu.addItem(createMenuItem(qsTr("元に戻す"), "edit.undo", "arrow_go_back_line"));

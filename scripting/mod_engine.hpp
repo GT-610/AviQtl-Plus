@@ -1,6 +1,9 @@
 #pragma once
+#include <QByteArray>
 #include <QDir>
 #include <QFileSystemWatcher>
+#include <QHash>
+#include <QMetaObject>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -90,7 +93,6 @@ class ModEngine {
 
     // Permission checking
     bool checkPermission(const char *apiName) const;
-    void setCurrentPluginId(const QString &pluginId) { m_currentPluginId = pluginId; }
     QString currentPluginId() const { return m_currentPluginId; }
 
     // Lifecycle hooks
@@ -110,18 +112,30 @@ class ModEngine {
     lua_State *L = nullptr;
     bool m_apiRegistered = false;
     void registerAviQtlAPI();
-    void callHook(const char *hookName, int nargs = 0);
+    void callHooks(const char *hookName, const QString *argument = nullptr);
+    void capturePluginHooks(const QString &pluginId);
+    void releasePluginHooks();
+    void clearHookGlobals();
+    void resetLuaState();
     void setupFileWatcher();
     void onPluginDirectoryChanged(const QString &path);
     void loadSingleFilePlugin(const QFileInfo &fileInfo);
     void loadDirectoryPlugin(const QString &subdir, const QString &pluginsPath);
     QList<PluginManifest> m_loadedPlugins;
     QList<PluginInfo> m_pluginInfos;
+    struct PluginRuntime {
+        QString pluginId;
+        QHash<QByteArray, int> hookRefs;
+    };
+    QList<PluginRuntime> m_pluginRuntimes;
     PluginFileWatcher *m_fileWatcher = nullptr;
+    QMetaObject::Connection m_clipChangeConnection;
     QTimer m_reloadDebounceTimer;
     bool m_hotReloadEnabled = false;
+    bool m_dispatchingHooks = false;
     QString m_currentPluginId;
-    QString m_lastLoadedPluginId; // context for hook dispatch
+    void *m_ecsPtr = nullptr;
+    bool m_initialized = false;
 };
 
 } // namespace AviQtl::Scripting
