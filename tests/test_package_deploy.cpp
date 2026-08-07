@@ -111,12 +111,25 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
 
     const QString invalidPackageId = QStringLiteral("org.aviqtl.test.unsupported_catalog_type");
     const QString removablePackageId = QStringLiteral("org.aviqtl.test.registry_removal");
+    const QString installedModPackageId = QStringLiteral("org.aviqtl.test.installed_file_mod");
     const QString effectId = QStringLiteral("org.aviqtl.test.removed_effect");
-    const QString packageDir = QDir(PackageDeployment::deployDirectory(QStringLiteral("effect"))).filePath(removablePackageId);
+    const QString effectDeployDir = PackageDeployment::deployDirectory(QStringLiteral("effect"));
+    const QString packageDir = QDir(effectDeployDir).filePath(removablePackageId);
+    const QString pluginsDir = PackageDeployment::deployDirectory(QStringLiteral("mod"));
+    const QString installedModDir = QDir(pluginsDir).filePath(installedModPackageId);
+    const QString packageOwnedPlugin = QDir(installedModDir).filePath(QStringLiteral("main.lua"));
+    const QString packageOwnedAlias = QDir(pluginsDir).filePath(QStringLiteral("installed_file_mod.lua"));
+    const QString standalonePlugin = QDir(pluginsDir).filePath(QStringLiteral("standalone_review.lua"));
     QDir(packageDir).removeRecursively();
+    QDir(installedModDir).removeRecursively();
+    QFile::remove(packageOwnedAlias);
+    QFile::remove(standalonePlugin);
     const auto cleanup = qScopeGuard([&]() {
         EffectRegistry::instance().removeEffectsFromDirectory(packageDir);
         QDir(packageDir).removeRecursively();
+        QDir(installedModDir).removeRecursively();
+        QFile::remove(packageOwnedAlias);
+        QFile::remove(standalonePlugin);
         const QStringList currentCatalogs = repoDirectory.entryList({QStringLiteral("catalog_*.json")}, QDir::Files);
         for (const QString &fileName : currentCatalogs)
             QFile::remove(repoDirectory.filePath(fileName));
@@ -141,6 +154,10 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
         {QStringLiteral("type"), QStringLiteral("effect")},
         {QStringLiteral("version"), QStringLiteral("1.0.0")},
     });
+    installed.insert(installedModPackageId, QJsonObject{
+        {QStringLiteral("type"), QStringLiteral("mod")},
+        {QStringLiteral("version"), QStringLiteral("1.0.0")},
+    });
     QVERIFY(installedFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
     installedFile.write(QJsonDocument(installed).toJson());
     installedFile.close();
@@ -156,6 +173,11 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
         {QStringLiteral("type"), QStringLiteral("effect")},
         {QStringLiteral("version"), QStringLiteral("2.0.0")},
     });
+    packages.append(QJsonObject{
+        {QStringLiteral("id"), installedModPackageId},
+        {QStringLiteral("type"), QStringLiteral("mod")},
+        {QStringLiteral("version"), QStringLiteral("1.0.0")},
+    });
     QFile catalogFile(repoDirectory.filePath(QStringLiteral("catalog_review_validation.json")));
     QVERIFY(catalogFile.open(QIODevice::WriteOnly));
     catalogFile.write(QJsonDocument(QJsonObject{
@@ -164,14 +186,18 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
     }).toJson());
     catalogFile.close();
 
+    // This is intentionally the first test: construction schedules the cached
+    // catalog load, so wait for its packageListChanged signal before inspecting it.
     PackageManager &manager = PackageManager::instance();
+    QSignalSpy packageListLoadedSpy(&manager, &PackageManager::packageListChanged);
+    QTRY_VERIFY_WITH_TIMEOUT(packageListLoadedSpy.count() > 0, 5'000);
     const auto containsPackage = [&manager](const QString &packageId) {
         const QVariantList packages = manager.packageList();
         return std::any_of(packages.cbegin(), packages.cend(), [&packageId](const QVariant &entry) {
             return entry.toMap().value(QStringLiteral("id")).toString() == packageId;
         });
     };
-    QTRY_VERIFY_WITH_TIMEOUT(containsPackage(removablePackageId), 5'000);
+    QVERIFY(containsPackage(removablePackageId));
     QVERIFY(!containsPackage(invalidPackageId));
     QVERIFY(manager.hasUpdatesAvailable());
 
@@ -179,9 +205,34 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
     QSignalSpy busySpy(&manager, &PackageManager::isBusyChanged);
     manager.installPackage(invalidPackageId);
     QCOMPARE(errorSpy.count(), 1);
-    QCOMPARE(errorSpy.first().at(0).toString(), QStringLiteral("Invalid package ID or type."));
+    QCOMPARE(errorSpy.first().at(0).toString(), QStringLiteral("Package not found: %1").arg(invalidPackageId));
     QCOMPARE(busySpy.count(), 0);
     QVERIFY(!manager.isBusy());
+
+    QVERIFY(QDir().mkpath(installedModDir));
+    QFile packagePlugin(packageOwnedPlugin);
+    QVERIFY(packagePlugin.open(QIODevice::WriteOnly));
+    packagePlugin.write("function AviQtlOnLoad() end");
+    packagePlugin.close();
+    QFile standaloneFile(standalonePlugin);
+    QVERIFY(standaloneFile.open(QIODevice::WriteOnly));
+    standaloneFile.write("function AviQtlOnLoad() end");
+    standaloneFile.close();
+#ifdef Q_OS_UNIX
+    QVERIFY(QFile::link(packageOwnedPlugin, packageOwnedAlias));
+#endif
+
+    const QVariantList installedPackages = manager.getPackagesByType(QStringLiteral("installed"));
+    const auto hasInstalledEntry = [&installedPackages](const QString &packageId) {
+        return std::any_of(installedPackages.cbegin(), installedPackages.cend(), [&packageId](const QVariant &entry) {
+            return entry.toMap().value(QStringLiteral("id")).toString() == packageId;
+        });
+    };
+    QVERIFY(hasInstalledEntry(installedModPackageId));
+    QVERIFY(hasInstalledEntry(QStringLiteral("file:standalone_review.lua")));
+#ifdef Q_OS_UNIX
+    QVERIFY(!hasInstalledEntry(QStringLiteral("file:installed_file_mod.lua")));
+#endif
 
     QVERIFY(QDir().mkpath(packageDir));
     QFile qmlFile(QDir(packageDir).filePath(QStringLiteral("RemovedEffect.qml")));
@@ -203,8 +254,23 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
     definitionFile.close();
 
     EffectRegistry &registry = EffectRegistry::instance();
-    registry.loadEffectsFromDirectory(PackageDeployment::deployDirectory(QStringLiteral("effect")));
+    const QString relativeDeployDir = QDir::current().relativeFilePath(effectDeployDir);
+    registry.loadEffectsFromDirectory(relativeDeployDir);
     QCOMPARE(registry.getEffect(effectId).packageId, removablePackageId);
+    QCOMPARE(registry.getEffect(effectId).sourcePath, QFileInfo(definitionFile).canonicalFilePath());
+    registry.removeEffectsFromDirectory(packageDir);
+    QVERIFY(registry.getEffect(effectId).id.isEmpty());
+
+#ifdef Q_OS_UNIX
+    QTemporaryDir aliasDirectory;
+    QVERIFY(aliasDirectory.isValid());
+    const QString deployAlias = aliasDirectory.filePath(QStringLiteral("effects-alias"));
+    QVERIFY(QFile::link(effectDeployDir, deployAlias));
+    registry.loadEffectsFromDirectory(deployAlias);
+#else
+    registry.loadEffectsFromDirectory(effectDeployDir);
+#endif
+    QVERIFY(!registry.getEffect(effectId).id.isEmpty());
 
     QSignalSpy removedSpy(&manager, &PackageManager::packageRemoved);
     manager.removePackage(removablePackageId);

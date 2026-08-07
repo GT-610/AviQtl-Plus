@@ -70,6 +70,18 @@ bool isSupportedCatalogPackageType(const QString &packageType) {
            Internal::PackageDeployment::isValidPackageType(packageType);
 }
 
+bool isPathWithinDirectory(const QString &path, const QString &directoryPath) {
+    const QString canonicalPath = QFileInfo(path).canonicalFilePath();
+    const QString canonicalDirectory = QFileInfo(directoryPath).canonicalFilePath();
+    if (canonicalPath.isEmpty() || canonicalDirectory.isEmpty()) {
+        return false;
+    }
+    const QString relativePath = QDir(canonicalDirectory).relativeFilePath(canonicalPath);
+    return relativePath != QStringLiteral("..") &&
+           !relativePath.startsWith(QStringLiteral("../")) &&
+           !QDir::isAbsolutePath(relativePath);
+}
+
 QString getInstalledPackagesPath() {
     const QString path = QCoreApplication::applicationDirPath() + QStringLiteral("/repos");
     QDir().mkpath(path);
@@ -792,9 +804,12 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
     const auto packageIt = std::find_if(m_packageList.cbegin(), m_packageList.cend(), [&packageId](const QVariant &entry) {
         return entry.toMap().value(QStringLiteral("id")).toString() == packageId;
     });
-    const QString packageType = packageIt == m_packageList.cend()
-        ? QString()
-        : packageIt->toMap().value(QStringLiteral("type")).toString();
+    if (packageIt == m_packageList.cend()) {
+        m_pendingInstall.clear();
+        emit errorOccurred(tr("Package not found: %1").arg(packageId));
+        return;
+    }
+    const QString packageType = packageIt->toMap().value(QStringLiteral("type")).toString();
     if (!Internal::PackageDeployment::isValidPackageType(packageType)) {
         m_pendingInstall.clear();
         emit errorOccurred(tr("Invalid package ID or type."));
@@ -824,6 +839,8 @@ void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, 
     if (!Internal::isSecureNetworkUrl(url)) {
         setBusy(false);
         emit errorOccurred(tr("Invalid or insecure package download URL."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
     setStatus(tr("Downloading package: %1").arg(packageId));
@@ -897,12 +914,16 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     if (!extractDir.isValid()) {
         setBusy(false);
         emit errorOccurred(tr("Failed to create extraction directory."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
 
     if (!Internal::PackageDeployment::extractArchive(archivePath, extractDir.path())) {
         setBusy(false);
         emit errorOccurred(tr("Failed to extract package archive."));
+        if (!m_upgradeQueue.isEmpty())
+            processUpgradeQueue();
         return;
     }
 
@@ -1030,8 +1051,26 @@ QVariantList PackageManager::getPackagesByType(const QString &type) const {
     }
     if (type == QStringLiteral("installed") || type == QStringLiteral("mod")) {
         const QDir pluginsDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")));
+        QStringList installedModDirectories;
+        const QVariantMap installedPackages = loadInstalledPackagesFromFile();
+        for (auto it = installedPackages.cbegin(); it != installedPackages.cend(); ++it) {
+            if (it.value().toMap().value(QStringLiteral("type")).toString() != QStringLiteral("mod") ||
+                !Internal::PackageDeployment::isValidPackageId(it.key())) {
+                continue;
+            }
+            const QString packageDirectory = pluginsDir.filePath(it.key());
+            if (QFileInfo(packageDirectory).isDir()) {
+                installedModDirectories.append(packageDirectory);
+            }
+        }
         const QFileInfoList filePlugins = pluginsDir.entryInfoList({QStringLiteral("*.lua")}, QDir::Files, QDir::Name);
         for (const QFileInfo &fileInfo : filePlugins) {
+            const bool providedByInstalledPackage = std::any_of(
+                installedModDirectories.cbegin(), installedModDirectories.cend(), [&fileInfo](const QString &packageDirectory) {
+                    return isPathWithinDirectory(fileInfo.absoluteFilePath(), packageDirectory);
+                });
+            if (providedByInstalledPackage)
+                continue;
             const QString pluginId = QStringLiteral("file:%1").arg(fileInfo.fileName());
             const bool alreadyPresent = std::any_of(result.cbegin(), result.cend(), [&pluginId](const QVariant &entry) {
                 return entry.toMap().value(QStringLiteral("id")).toString() == pluginId;

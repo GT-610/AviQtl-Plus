@@ -72,6 +72,29 @@ auto localizeUiMetadataValue(const QVariant &value) -> QVariant {
 
     return value;
 }
+
+QString resolvedPathIdentity(const QString &path) {
+    QFileInfo current(path);
+    const QString canonicalPath = current.canonicalFilePath();
+    if (!canonicalPath.isEmpty()) {
+        return QDir::cleanPath(canonicalPath);
+    }
+
+    QStringList missingComponents;
+    while (!current.exists() && !current.fileName().isEmpty()) {
+        missingComponents.prepend(current.fileName());
+        current.setFile(current.absolutePath());
+    }
+
+    QString resolvedPath = current.canonicalFilePath();
+    if (resolvedPath.isEmpty()) {
+        resolvedPath = current.absoluteFilePath();
+    }
+    for (const QString &component : std::as_const(missingComponents)) {
+        resolvedPath = QDir(resolvedPath).filePath(component);
+    }
+    return QDir::cleanPath(resolvedPath);
+}
 } // namespace
 
 void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
@@ -79,6 +102,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
     if (!dir.exists()) {
         return;
     }
+    const QString resolvedRootPath = resolvedPathIdentity(path);
 
     int loadedCount = 0;
     QSet<QString> shaderDirectories;
@@ -163,7 +187,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         if (qmlFileName.startsWith(QStringLiteral("qrc:"))) {
             meta.qmlSource = qmlFileName;
             meta.source = obj.value(QStringLiteral("source")).toString(QStringLiteral("built-in"));
-            meta.sourcePath = file.fileName();
+            meta.sourcePath = resolvedPathIdentity(file.fileName());
             registerEffect(meta);
             loadedCount++;
             continue;
@@ -188,9 +212,9 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         if (QFile::exists(absoluteQmlPath)) {
             meta.qmlSource = QUrl::fromLocalFile(absoluteQmlPath).toString();
             meta.source = obj.value(QStringLiteral("source")).toString(QStringLiteral("package"));
-            meta.sourcePath = file.fileName();
+            meta.sourcePath = resolvedPathIdentity(file.fileName());
             if (meta.packageId.isEmpty()) {
-                const QString relativePath = QDir(path).relativeFilePath(jsonInfo.absolutePath());
+                const QString relativePath = QDir(resolvedRootPath).relativeFilePath(resolvedPathIdentity(jsonInfo.absolutePath()));
                 meta.packageId = relativePath.section(QLatin1Char('/'), 0, 0);
             }
 
@@ -217,12 +241,12 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
 }
 
 void EffectRegistry::removeEffectsFromDirectory(const QString &path) {
-    const QDir directory(QDir::cleanPath(QFileInfo(path).absoluteFilePath()));
+    const QDir directory(resolvedPathIdentity(path));
     for (auto it = m_orderedIds.begin(); it != m_orderedIds.end();) {
         const auto effectIt = m_effects.constFind(*it);
         const QString relativeSourcePath = effectIt == m_effects.cend()
             ? QStringLiteral("..")
-            : QDir::cleanPath(directory.relativeFilePath(QFileInfo(effectIt->sourcePath).absoluteFilePath()));
+            : QDir::cleanPath(directory.relativeFilePath(resolvedPathIdentity(effectIt->sourcePath)));
         if (relativeSourcePath != QStringLiteral("..") &&
             !relativeSourcePath.startsWith(QStringLiteral("../")) &&
             !QDir::isAbsolutePath(relativeSourcePath)) {
