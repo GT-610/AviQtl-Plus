@@ -373,11 +373,11 @@ auto VideoEncoder::open(const Config &config) -> bool {
     } else {
         // SWエンコードのデフォルト: 可能な限り10bit以上の高精度フォーマットを優先選択
         m_encCtx->pix_fmt = AV_PIX_FMT_YUV420P;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        if (codec->pix_fmts != nullptr) {
-            m_encCtx->pix_fmt = codec->pix_fmts[0]; // 互換性のためデフォルトを最初の候補に
-            for (const enum AVPixelFormat *p = codec->pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
+        const AVPixelFormat *pixelFormats = nullptr;
+        const int pixelFormatResult = avcodec_get_supported_config(m_encCtx, codec, AV_CODEC_CONFIG_PIX_FORMAT, 0, reinterpret_cast<const void **>(&pixelFormats), nullptr);
+        if (pixelFormatResult >= 0 && pixelFormats != nullptr) {
+            m_encCtx->pix_fmt = pixelFormats[0]; // 互換性のためデフォルトを最初の候補に
+            for (const enum AVPixelFormat *p = pixelFormats; *p != AV_PIX_FMT_NONE; p++) {
                 const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(*p);
                 if (desc && !(desc->flags & AV_PIX_FMT_FLAG_RGB) && desc->comp[0].depth >= 10) {
                     m_encCtx->pix_fmt = *p;
@@ -385,7 +385,6 @@ auto VideoEncoder::open(const Config &config) -> bool {
                 }
             }
         }
-#pragma clang diagnostic pop
     }
 
     if (config.crf >= 0) {
@@ -490,10 +489,9 @@ auto VideoEncoder::addAudioStream(int sampleRate, int channels) -> bool {
         return false;
     }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    m_audioEncCtx->sample_fmt = (codec->sample_fmts != nullptr) ? codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
-#pragma clang diagnostic pop
+    const AVSampleFormat *sampleFormats = nullptr;
+    const int sampleFormatResult = avcodec_get_supported_config(m_audioEncCtx, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, reinterpret_cast<const void **>(&sampleFormats), nullptr);
+    m_audioEncCtx->sample_fmt = (sampleFormatResult >= 0 && sampleFormats != nullptr) ? sampleFormats[0] : AV_SAMPLE_FMT_FLTP;
     m_audioEncCtx->bit_rate = m_config.audioBitrate;
     m_audioEncCtx->sample_rate = sampleRate;
     av_channel_layout_default(&m_audioEncCtx->ch_layout, channels);
