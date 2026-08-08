@@ -301,6 +301,7 @@ auto VideoEncoder::open(const Config &config) -> bool {
                 cleanup();
                 return false;
             }
+            codec = fallbackCodec;
             // No hardware context needed for software encoder
         } else {
             cleanup();

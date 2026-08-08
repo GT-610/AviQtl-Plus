@@ -35,7 +35,7 @@ find_package(ECM REQUIRED NO_MODULE)
 list(APPEND CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(FFMPEG IMPORTED_TARGET REQUIRED libavcodec libavformat libavutil libswscale libswresample)
+pkg_check_modules(FFMPEG IMPORTED_TARGET REQUIRED libavcodec>=61.12 libavformat libavutil libswscale libswresample)
 pkg_check_modules(LUAJIT IMPORTED_TARGET REQUIRED luajit)
 
 # Carla Audio Plugin Backend
