@@ -2,7 +2,7 @@
 
 All notable changes to AviQtl-Plus are documented in this file.
 
-## [Unreleased]
+## [0.5.10] - 2026-08-08
 
 ### Added
 - Opt-in representative video and audio performance workloads with repeatable
