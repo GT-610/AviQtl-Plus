@@ -94,6 +94,7 @@ set(CORE_SOURCES
     core/src/package_deployment.hpp
     core/src/package_manager.cpp
     core/src/package_url_utils.hpp
+    core/src/performance_metrics.cpp
     core/src/permission_manager.cpp
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
@@ -109,6 +110,7 @@ set(CORE_SOURCES
     core/include/media_decoder.hpp
     core/include/media_utils.hpp
     core/include/package_manager.hpp
+    core/include/performance_metrics.hpp
     core/include/permission_manager.hpp
     core/include/preset_manager.hpp
     core/include/project_serializer.hpp

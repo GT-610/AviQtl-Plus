@@ -94,6 +94,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME performance_metrics
+    SOURCES test_performance_metrics.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME preset_manager
     SOURCES test_preset_manager.cpp
     LINKS AviQtl_Core
@@ -318,7 +324,7 @@ function(aviqtl_label_tests LABEL)
 endfunction()
 
 aviqtl_label_tests(unit
-    effect_registry shader_compiler document_model settings_manager
+    effect_registry shader_compiler document_model settings_manager performance_metrics
     theme_controller media_decoder media_utils keyframe_utils effect_model
     video_frame_store dense_component_map audio_plugin_chain triple_buffer
     lua_host plugin_manifest mod_engine permission_manager selection_service
