@@ -2,6 +2,7 @@
 #include <QAbstractVideoBuffer>
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
+#include <cstdlib>
 
 extern "C" {
 #include <libavutil/frame.h>
@@ -23,9 +24,24 @@ class FFmpegVideoBuffer final : public QAbstractVideoBuffer {
         MapData d;
         d.planeCount = 0;
         for (int i = 0; i < AV_NUM_DATA_POINTERS && m_frame->data[i]; ++i) {
+            int planeHeight = m_frame->height;
+            if (i > 0) {
+                switch (m_format.pixelFormat()) {
+                case QVideoFrameFormat::Format_YUV420P:
+                case QVideoFrameFormat::Format_YV12:
+                case QVideoFrameFormat::Format_NV12:
+                case QVideoFrameFormat::Format_NV21:
+                case QVideoFrameFormat::Format_P010:
+                case QVideoFrameFormat::Format_YUV420P10:
+                    planeHeight = (m_frame->height + 1) / 2;
+                    break;
+                default:
+                    break;
+                }
+            }
             d.data[i] = m_frame->data[i];
             d.bytesPerLine[i] = m_frame->linesize[i];
-            d.dataSize[i] = m_frame->linesize[i] * (i == 0 ? m_frame->height : m_frame->height / 2);
+            d.dataSize[i] = std::abs(m_frame->linesize[i]) * planeHeight;
             ++d.planeCount;
         }
         return d;

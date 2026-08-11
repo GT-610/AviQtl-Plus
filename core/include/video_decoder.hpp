@@ -66,8 +66,10 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
         bool isKeyframe;
     };
 
-    void decodeTask(int targetFrame, double fps);
-    bool tryCacheHit(int targetFrame, const QString &clipKey);
+    void decodeTask(int targetFrame, double fps, quint64 generation);
+    bool tryCacheHit(int targetFrame, const QString &clipKey, quint64 generation);
+    bool isCurrentRequest(quint64 generation) const;
+    void publishFrame(int targetFrame, const QString &clipKey, const QVideoFrame &frame, quint64 generation);
     bool open(const QString &path);
     int findGopEndIndex(int startFrame) const;
     void close();
@@ -99,6 +101,7 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     std::vector<int> m_prevKeyframe; ///< m_prevKeyframe[i] = index of the closest keyframe before or at frame i
     QCache<int, QVideoFrame> m_frameCache;
     std::atomic<int> m_lastRequestedFrame{-1};
+    std::atomic<quint64> m_requestGeneration{0};
     QVideoFrame m_lastGoodFrame; ///< MLT-style last valid frame for error concealment
     std::atomic<bool> m_closing{false};
     std::atomic<bool> m_isPlaying{false};

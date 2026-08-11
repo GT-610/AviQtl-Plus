@@ -1,3 +1,4 @@
+#include "performance_metrics.hpp"
 #include "settings_manager.hpp"
 #include "video_decoder.hpp"
 #include "video_encoder.hpp"
@@ -31,7 +32,9 @@ class TestVideoDecoder : public QObject {
     Q_OBJECT
 
   private slots:
+    void init() { PerformanceMetrics::instance().reset(); }
     void initialStateIsEmpty();
+    void videoBufferAccountsForPlanarHeights();
     void decodesEncodedFramesThroughVideoSink();
     void frameCacheEvictionStaysWithinBudget();
     void representativeMediaSeekWorkload();
@@ -90,6 +93,25 @@ void TestVideoDecoder::initialStateIsEmpty() {
     QVERIFY(!decoder.isReady());
     QCOMPARE(decoder.sourceFps(), 0.0);
     QCOMPARE(decoder.totalFrameCount(), 0);
+}
+
+void TestVideoDecoder::videoBufferAccountsForPlanarHeights() {
+    AVFrame *frame = av_frame_alloc();
+    QVERIFY(frame != nullptr);
+    const auto freeFrame = qScopeGuard([&frame]() { av_frame_free(&frame); });
+    frame->format = AV_PIX_FMT_YUV422P;
+    frame->width = 32;
+    frame->height = 18;
+    QCOMPARE(av_frame_get_buffer(frame, 32), 0);
+
+    const QVideoFrameFormat format(QSize(frame->width, frame->height), QVideoFrameFormat::Format_YUV422P);
+    FFmpegVideoBuffer buffer(frame, format);
+    const QAbstractVideoBuffer::MapData mapped = buffer.map(QVideoFrame::ReadOnly);
+    QCOMPARE(mapped.planeCount, 3);
+    QCOMPARE(mapped.dataSize[0], std::abs(frame->linesize[0]) * frame->height);
+    QCOMPARE(mapped.dataSize[1], std::abs(frame->linesize[1]) * frame->height);
+    QCOMPARE(mapped.dataSize[2], std::abs(frame->linesize[2]) * frame->height);
+    buffer.unmap();
 }
 
 void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
@@ -211,7 +233,11 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     QCOMPARE(finalStats.gopBlocks, 3);
     QCOMPARE(finalStats.gopEvictions, quint64{2});
     QCOMPARE(finalStats.frameEntries, kTestFrameCount);
+    const PerformanceSnapshot decodeMetrics = PerformanceMetrics::instance().snapshot();
+    QCOMPARE(decodeMetrics.value(PerformanceCounter::DecodeFramesProduced), finalStats.decodedFrames);
+    QVERIFY(decodeMetrics.value(PerformanceCounter::DecodePixelConversions) <= finalStats.decodedFrames);
 
+    PerformanceMetrics::instance().reset();
     QSignalSpy burstFrameSpy(&decoder, &MediaDecoder::frameReady);
     decoder.seekToFrame(12, decoder.sourceFps());
     decoder.seekToFrame(24, decoder.sourceFps());
@@ -219,6 +245,11 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     QTRY_VERIFY_WITH_TIMEOUT(std::any_of(burstFrameSpy.cbegin(), burstFrameSpy.cend(), [](const QList<QVariant> &arguments) { return arguments.first().toInt() == 36; }), 10'000);
     QVERIFY(!burstFrameSpy.wait(100));
     QCOMPARE(burstFrameSpy.last().first().toInt(), 36);
+    const PerformanceSnapshot burstMetrics = PerformanceMetrics::instance().snapshot();
+    QCOMPARE(burstMetrics.value(PerformanceCounter::DecodeRequests), quint64{3});
+    QVERIFY(burstMetrics.value(PerformanceCounter::DecodeRequestsCoalesced) <= 2);
+    QVERIFY(burstMetrics.value(PerformanceCounter::DecodeCacheHits) >= 1);
+    QCOMPARE(burstMetrics.value(PerformanceCounter::DecodePixelConversions), quint64{0});
 }
 
 void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
