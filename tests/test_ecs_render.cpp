@@ -1,13 +1,17 @@
 #include "core/include/document_model.hpp"
 #include "core/include/effect_registry.hpp"
+#include "core/include/performance_metrics.hpp"
 #include "core/include/settings_manager.hpp"
 #include "engine/timeline/bake_controller.hpp"
 #include "engine/timeline/ecs.hpp"
+#include "bridge/ecs_render_bridge.hpp"
+#include <QSignalSpy>
 #include <QTest>
 #include <bitset>
 
 using namespace AviQtl::Core;
 using namespace AviQtl::Engine::Timeline;
+using namespace AviQtl::UI;
 
 class TestECSRender : public QObject {
     Q_OBJECT
@@ -20,6 +24,8 @@ class TestECSRender : public QObject {
         std::bitset<MAX_CLIP_ID> empty;
         ECS::instance().syncClipIds(empty);
         ECS::instance().commit();
+        ECSRenderBridge::instance().notifyFrameReady();
+        PerformanceMetrics::instance().reset();
 
         EffectRegistry::instance().registerEffect({
             .id = QStringLiteral("transform"),
@@ -205,6 +211,44 @@ class TestECSRender : public QObject {
             QVERIFY(snapshot->renderStates.contains(20));
             QVERIFY(!snapshot->renderStates.contains(21));
         }
+    }
+
+    void bridgeReusesUnchangedStatesAndSuppressesSignals() {
+        SceneSettings scene;
+        scene.id = 5;
+        scene.fps = AviQtl::kDefaultFps;
+
+        Clip clip;
+        clip.id = 90;
+        clip.durationFrames = 60;
+        Effect transform;
+        transform.id = QStringLiteral("transform");
+        transform.params = {
+            {QStringLiteral("x"), 12.0}, {QStringLiteral("y"), 24.0},
+            {QStringLiteral("scale"), 100.0}, {QStringLiteral("opacity"), 1.0},
+        };
+        clip.effects.push_back(transform);
+        scene.clips.push_back(clip);
+        DocumentModel::instance().addScene(scene);
+
+        BakeController::instance().bake(scene.id, 0);
+        ECSRenderBridge &bridge = ECSRenderBridge::instance();
+        bridge.notifyFrameReady();
+        const QVariantMap initialMap = bridge.renderStateMap();
+        QVERIFY(initialMap.contains(QStringLiteral("90")));
+        QCOMPARE(initialMap.value(QStringLiteral("90")).toMap().value(QStringLiteral("x")).toFloat(), 12.0f);
+
+        QSignalSpy spy(&bridge, &ECSRenderBridge::renderStatesChanged);
+        PerformanceMetrics::instance().reset();
+        BakeController::instance().bake(scene.id, 0);
+        bridge.notifyFrameReady();
+        QCOMPARE(spy.count(), 0);
+        QCOMPARE(PerformanceMetrics::instance().snapshot().value(PerformanceCounter::EcsBridgeStatesReused), quint64{1});
+
+        BakeController::instance().bake(scene.id, 1);
+        bridge.notifyFrameReady();
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(bridge.getEffectParams(clip.id).value(QStringLiteral("time")).toFloat(), 1.0f);
     }
 };
 

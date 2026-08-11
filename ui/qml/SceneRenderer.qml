@@ -10,7 +10,7 @@ Item {
     property var sceneStack: sceneId >= 0 ? [sceneId] : []
     property int sceneWidth: DefaultWidth
     property int sceneHeight: DefaultHeight
-    property var ecsRenderData: ({})
+    property var ecsRenderData: ECSRenderBridge.renderStateMap
 
     property var sceneInfo: {
         if (!timelineBridge || sceneId < 0)
@@ -33,25 +33,6 @@ Item {
     }
     width: sceneWidth
     height: sceneHeight
-
-    function updateEcsData() {
-        var states = ECSRenderBridge.renderStates;
-        var map = {};
-        for (var i = 0; i < states.length; i++) {
-            var s = states[i];
-            map[s.clipId] = s;
-        }
-        root.ecsRenderData = map;
-    }
-
-    Connections {
-        target: ECSRenderBridge
-        function onRenderStatesChanged() {
-            root.updateEcsData();
-        }
-    }
-
-    Component.onCompleted: root.updateEcsData()
 
     CompositeView {
         id: compositeView
