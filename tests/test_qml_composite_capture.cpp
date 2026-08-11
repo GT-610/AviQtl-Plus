@@ -17,6 +17,7 @@
 #include <QQuickItemGrabResult>
 #include <QQuickWindow>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QSGRendererInterface>
 #include <QElapsedTimer>
 #include <QSignalSpy>
@@ -44,6 +45,7 @@ class TestQmlCompositeCapture : public QObject {
   private slots:
     void initTestCase();
     void loadsDeployedQmlAssetsWithoutRuntimeErrors();
+    void previewQualitySettingsUpdateViewGeometry();
     void capturesCompositeView3DOutput();
     void capturesAnimatedTextAndMonochromeEffect();
     void exportsAnimatedTextAndDecodesDistinctFrames();
@@ -143,6 +145,58 @@ void TestQmlCompositeCapture::loadsDeployedQmlAssetsWithoutRuntimeErrors() {
         QQmlComponent component(&engine, QUrl::fromLocalFile(objectPath));
         QVERIFY2(component.isReady(), qPrintable(component.errorString()));
     }
+}
+
+void TestQmlCompositeCapture::previewQualitySettingsUpdateViewGeometry() {
+    Core::SettingsManager &settings = Core::SettingsManager::instance();
+    const QVariant originalScale = settings.value(QStringLiteral("previewRenderScale"), 1.0);
+    const QVariant originalMsaa = settings.value(QStringLiteral("previewMsaaSamples"), 0);
+    const auto restoreSettings = qScopeGuard([&settings, originalScale, originalMsaa]() {
+        settings.setValue(QStringLiteral("previewRenderScale"), originalScale);
+        settings.setValue(QStringLiteral("previewMsaaSamples"), originalMsaa);
+    });
+    settings.setValue(QStringLiteral("previewRenderScale"), 1.0);
+    settings.setValue(QStringLiteral("previewMsaaSamples"), 0);
+
+    QQmlEngine engine;
+    Workspace workspace;
+    workspace.newProject();
+    QQmlContext *context = engine.rootContext();
+    context->setContextProperty(QStringLiteral("Workspace"), &workspace);
+    context->setContextProperty(QStringLiteral("SettingsManager"), &settings);
+    context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
+    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
+    context->setContextProperty(QStringLiteral("DefaultWidth"), 400);
+    context->setContextProperty(QStringLiteral("DefaultHeight"), 200);
+    context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
+
+    QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/CompositeView.qml")));
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> object(component.create(context));
+    QVERIFY2(object != nullptr, qPrintable(component.errorString()));
+    auto *compositeView = qobject_cast<QQuickItem *>(object.get());
+    QVERIFY(compositeView != nullptr);
+    compositeView->setSize(QSizeF(400, 200));
+    compositeView->setProperty("projectWidth", 400);
+    compositeView->setProperty("projectHeight", 200);
+
+    auto *view3D = compositeView->property("view3D").value<QQuickItem *>();
+    QVERIFY(view3D != nullptr);
+    QTRY_COMPARE(view3D->width(), 400.0);
+    QTRY_COMPARE(view3D->height(), 200.0);
+    QCOMPARE(compositeView->property("previewMsaaSamples").toInt(), 0);
+
+    settings.setValue(QStringLiteral("previewRenderScale"), 0.5);
+    settings.setValue(QStringLiteral("previewMsaaSamples"), 4);
+    QTRY_COMPARE(view3D->width(), 200.0);
+    QTRY_COMPARE(view3D->height(), 100.0);
+    QTRY_COMPARE(view3D->scale(), 2.0);
+    QTRY_COMPARE(compositeView->property("previewMsaaSamples").toInt(), 4);
+
+    compositeView->setProperty("exportMode", true);
+    QTRY_COMPARE(view3D->width(), 400.0);
+    QTRY_COMPARE(view3D->height(), 200.0);
+    QTRY_COMPARE(view3D->scale(), 1.0);
 }
 
 QImage TestQmlCompositeCapture::grabView3D(QQuickItem *view3D) {
