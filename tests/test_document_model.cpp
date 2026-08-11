@@ -1,5 +1,6 @@
 #include "document_model.hpp"
 #include <QSignalSpy>
+#include <QSignalBlocker>
 #include <QTest>
 
 using namespace AviQtl::Core;
@@ -112,6 +113,29 @@ class TestDocumentModel : public QObject {
         QSignalSpy spy(&model, &DocumentModel::structureChanged);
         model.clear();
         QCOMPARE(spy.count(), 1);
+    }
+
+    void revisionTracksBlockedMutations() {
+        DocumentModel &model = DocumentModel::instance();
+        SceneSettings scene;
+        scene.id = 30;
+        model.addScene(scene);
+        const quint64 before = model.revision();
+
+        {
+            const QSignalBlocker blocker(&model);
+            Clip clip;
+            clip.id = 300;
+            clip.durationFrames = 10;
+            std::vector<Clip> clips;
+            clips.push_back(clip);
+            model.setClips(scene.id, std::move(clips));
+        }
+
+        QCOMPARE(model.revision(), before + 1);
+        const SceneSettings *updated = model.findScene(scene.id);
+        QVERIFY(updated != nullptr);
+        QCOMPARE(updated->clips.size(), std::size_t{1});
     }
 };
 

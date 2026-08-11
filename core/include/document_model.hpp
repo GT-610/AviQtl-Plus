@@ -79,6 +79,7 @@ class DocumentModel : public QObject {
     // プロジェクト設定
     const ProjectSettings &projectSettings() const { return m_projectSettings; }
     void setProjectSettings(const ProjectSettings &settings);
+    [[nodiscard]] quint64 revision() const { return m_revision; }
 
     // シーン操作
     const std::vector<SceneSettings> &scenes() const { return m_scenes; }
@@ -106,6 +107,7 @@ class DocumentModel : public QObject {
     ProjectSettings m_projectSettings;
     std::vector<SceneSettings> m_scenes;
     QUndoStack m_undoStack;
+    quint64 m_revision = 0;
 };
 
 } // namespace AviQtl::Core

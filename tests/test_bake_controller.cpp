@@ -1,9 +1,12 @@
 #include "core/include/document_model.hpp"
+#include "core/include/effect_registry.hpp"
+#include "core/include/performance_metrics.hpp"
 #include "core/include/settings_manager.hpp"
 #include "engine/timeline/bake_controller.hpp"
 #include "engine/timeline/ecs.hpp"
 #include <QSignalSpy>
 #include <QTest>
+#include <algorithm>
 #include <bitset>
 
 using namespace AviQtl::Core;
@@ -24,6 +27,18 @@ class TestBakeController : public QObject {
         std::bitset<MAX_CLIP_ID> empty;
         ECS::instance().syncClipIds(empty);
         ECS::instance().commit();
+
+        SettingsManager::instance().setValue(QStringLiteral("bakeStrategy"), QStringLiteral("FullBake"));
+        SettingsManager::instance().setValue(QStringLiteral("onDemandPrefetchFrames"), 30);
+        PerformanceMetrics::instance().reset();
+
+        EffectRegistry::instance().registerEffect({
+            .id = QStringLiteral("cache-test"),
+            .name = QStringLiteral("Cache Test"),
+            .kind = QStringLiteral("effect"),
+            .categories = {QStringLiteral("test")},
+            .defaultParams = {{QStringLiteral("value"), 0.0}},
+        });
     }
 
     void cleanup() {
@@ -277,6 +292,93 @@ class TestBakeController : public QObject {
         QCOMPARE(a->pan, -0.25f);
         QVERIFY(a->mute);
         QVERIFY(!a->directMode);
+    }
+
+    void resolvedTracksAreReusedAndInvalidatedByRevision() {
+        SceneSettings scene;
+        scene.id = 9;
+
+        Clip clip;
+        clip.id = 70;
+        clip.durationFrames = 120;
+        Effect effect;
+        effect.id = QStringLiteral("cache-test");
+        effect.params.insert(QStringLiteral("value"), 1.0);
+        clip.effects.push_back(effect);
+        scene.clips.push_back(clip);
+        DocumentModel::instance().addScene(scene);
+
+        BakeController::instance().bake(scene.id, 0);
+        PerformanceSnapshot first = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(first.value(PerformanceCounter::BakeTrackCacheMisses), quint64{1});
+        QCOMPARE(first.value(PerformanceCounter::BakeTrackCacheHits), quint64{0});
+
+        BakeController::instance().bake(scene.id, 1);
+        PerformanceSnapshot second = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(second.value(PerformanceCounter::BakeTrackCacheMisses), quint64{1});
+        QCOMPARE(second.value(PerformanceCounter::BakeTrackCacheHits), quint64{1});
+
+        scene.clips.front().effects.front().params.insert(QStringLiteral("value"), 2.0);
+        DocumentModel::instance().setClips(scene.id, std::move(scene.clips));
+        BakeController::instance().bake(scene.id, 2);
+        PerformanceSnapshot invalidated = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(invalidated.value(PerformanceCounter::BakeTrackCacheMisses), quint64{2});
+        QCOMPARE(invalidated.value(PerformanceCounter::BakeTrackCacheHits), quint64{1});
+    }
+
+    void onDemandUsesTemporalBuckets() {
+        SettingsManager::instance().setValue(QStringLiteral("bakeStrategy"), QStringLiteral("OnDemand"));
+        SettingsManager::instance().setValue(QStringLiteral("onDemandPrefetchFrames"), 10);
+
+        SceneSettings scene;
+        scene.id = 10;
+        constexpr int kClipCount = 1000;
+        constexpr int kTargetIndex = 500;
+        for (int i = 0; i < kClipCount; ++i) {
+            Clip clip;
+            clip.id = i;
+            clip.startFrame = i * 240;
+            clip.durationFrames = 30;
+            scene.clips.push_back(std::move(clip));
+        }
+        DocumentModel::instance().addScene(scene);
+        PerformanceMetrics::instance().reset();
+
+        BakeController::instance().bake(scene.id, kTargetIndex * 240 + 5);
+
+        const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeClipsVisited), quint64{1});
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeClipsActive), quint64{1});
+        QVERIFY(ECS::instance().editState().renderStates.contains(kTargetIndex));
+    }
+
+    void dynamicTimeDoesNotInvalidateResolvedTracks() {
+        SceneSettings scene;
+        scene.id = 11;
+
+        Clip clip;
+        clip.id = 80;
+        clip.startFrame = 10;
+        clip.durationFrames = 100;
+        Effect effect;
+        effect.id = QStringLiteral("cache-test");
+        effect.params.insert(QStringLiteral("value"), 4.0);
+        clip.effects.push_back(effect);
+        scene.clips.push_back(clip);
+        DocumentModel::instance().addScene(scene);
+
+        BakeController::instance().bake(scene.id, 15);
+        BakeController::instance().bake(scene.id, 23);
+
+        const auto &entries = ECS::instance().editState().effectParams.entries;
+        const auto timeIt = std::find_if(entries.cbegin(), entries.cend(), [](const EffectParamEntry &entry) {
+            return entry.clipId == 80 && QString::fromUtf8(entry.paramName) == QStringLiteral("time");
+        });
+        QVERIFY(timeIt != entries.cend());
+        QCOMPARE(timeIt->value[0], 13.0f);
+        const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeTrackCacheMisses), quint64{1});
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeTrackCacheHits), quint64{1});
     }
 };
 
