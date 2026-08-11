@@ -216,6 +216,26 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         }
     }
 
+    const auto buildComputeBindings = [&]() {
+        QList<QRhiShaderResourceBinding> bindings;
+        if (m_inputRhiTexture)
+            bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage,
+                                                                      m_inputRhiTexture, m_sampler));
+        for (int i = 0; i < m_extraRhiTextures.size(); ++i) {
+            if (m_extraRhiTextures[i])
+                bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i,
+                                                                          QRhiShaderResourceBinding::ComputeStage,
+                                                                          m_extraRhiTextures[i], m_sampler));
+        }
+        if (m_outputTexture)
+            bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage,
+                                                                      m_outputTexture, 0));
+        if (m_paramUbuf)
+            bindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage,
+                                                                     m_paramUbuf));
+        return bindings;
+    };
+
     // Full rebuild: shader layout change or first initialization. Texture
     // identity changes are handled below by rebuilding only the bindings.
     if (m_bufferLayoutDirty) {
@@ -238,24 +258,11 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
 
         if (computeSupported)
             m_srb = trackResourceCreate(rhi->newShaderResourceBindings());
-        QList<QRhiShaderResourceBinding> bindings;
 
         if (!m_sampler) {
             m_sampler = trackResourceCreate(rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None,
                                                             QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge));
             m_sampler->create();
-        }
-
-        if (computeSupported && m_srb && m_inputRhiTexture) {
-            bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage, m_inputRhiTexture, m_sampler));
-        }
-
-        // Extra textures at binding 3, 4, 5, ...
-        for (int i = 0; i < m_extraTextures.size(); ++i) {
-            QRhiTexture *extraRhi = m_extraTextures[i] ? m_extraTextures[i]->rhiTexture() : nullptr;
-            if (extraRhi) {
-                bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i, QRhiShaderResourceBinding::ComputeStage, extraRhi, m_sampler));
-            }
         }
 
         if (computeSupported && m_srb) {
@@ -266,15 +273,18 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
                 destroyTrackedResource(m_outputTexture);
                 destroyTrackedResource(m_srb);
                 m_error = QStringLiteral("Compute output texture creation failed.");
+                m_bufferLayoutDirty = true;
+                return false;
             } else {
-                bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage, m_outputTexture, 0));
-
                 // Second output texture for ping-pong (multi-pass)
                 if (m_dispatchCount > 1) {
                     m_outputTextureB = trackResourceCreate(rhi->newTexture(outputFormat, sz, 1, QRhiTexture::UsedWithLoadStore | QRhiTexture::RenderTarget));
                     AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::RhiTextureRebuilds);
                     if (!m_outputTextureB->create()) {
                         destroyTrackedResource(m_outputTextureB);
+                        m_error = QStringLiteral("Compute secondary output texture creation failed.");
+                        m_bufferLayoutDirty = true;
+                        return false;
                     }
                 }
             }
@@ -286,7 +296,9 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             destroyTrackedResource(m_vbuf);
             destroyTrackedResource(m_sampler);
             destroyTrackedResource(m_outputTexture);
+            destroyTrackedResource(m_outputTextureB);
             destroyTrackedResource(m_srb);
+            m_bufferLayoutDirty = true;
             return false;
         }
 
@@ -297,7 +309,9 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             destroyTrackedResource(m_vbuf);
             destroyTrackedResource(m_sampler);
             destroyTrackedResource(m_outputTexture);
+            destroyTrackedResource(m_outputTextureB);
             destroyTrackedResource(m_srb);
+            m_bufferLayoutDirty = true;
             return false;
         }
 
@@ -321,8 +335,10 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
                 destroyTrackedResource(m_srb);
                 if (m_error.isEmpty())
                     m_error = QStringLiteral("Compute parameter uniform buffer creation failed.");
+                m_bufferLayoutDirty = true;
+                return false;
             } else {
-                bindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage, m_paramUbuf));
+                const QList<QRhiShaderResourceBinding> bindings = buildComputeBindings();
                 m_srb->setBindings(bindings.cbegin(), bindings.cend());
                 AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::RhiSrbRebuilds);
                 if (!m_srb->create()) {
@@ -330,6 +346,8 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
                     if (m_error.isEmpty())
                         m_error = QStringLiteral("Compute shader resource bindings creation failed.");
                     qCWarning(lcComputeRenderNode) << m_error;
+                    m_bufferLayoutDirty = true;
+                    return false;
                 } else {
                     m_paramsDirty = true;
                 }
@@ -348,29 +366,20 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         }
         if (!m_srb)
             m_srb = trackResourceCreate(rhi->newShaderResourceBindings());
-        if (!m_srb)
+        if (!m_srb) {
+            destroyTrackedResource(m_pipeline);
+            m_shaderDirty = true;
+            m_error = QStringLiteral("Compute shader resource bindings allocation failed.");
             return false;
-
-        QList<QRhiShaderResourceBinding> bindings;
-        if (m_inputRhiTexture)
-            bindings.append(QRhiShaderResourceBinding::sampledTexture(kInputBinding, QRhiShaderResourceBinding::ComputeStage,
-                                                                      m_inputRhiTexture, m_sampler));
-        for (int i = 0; i < m_extraRhiTextures.size(); ++i) {
-            if (m_extraRhiTextures[i])
-                bindings.append(QRhiShaderResourceBinding::sampledTexture(kExtraBindingBase + i,
-                                                                          QRhiShaderResourceBinding::ComputeStage,
-                                                                          m_extraRhiTextures[i], m_sampler));
         }
-        if (m_outputTexture)
-            bindings.append(QRhiShaderResourceBinding::imageLoadStore(kOutputBinding, QRhiShaderResourceBinding::ComputeStage,
-                                                                      m_outputTexture, 0));
-        if (m_paramUbuf)
-            bindings.append(QRhiShaderResourceBinding::uniformBuffer(kParamsBinding, QRhiShaderResourceBinding::ComputeStage,
-                                                                     m_paramUbuf));
+
+        const QList<QRhiShaderResourceBinding> bindings = buildComputeBindings();
         m_srb->setBindings(bindings.cbegin(), bindings.cend());
         AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::RhiSrbRebuilds);
         if (!m_srb->create()) {
             destroyTrackedResource(m_srb);
+            destroyTrackedResource(m_pipeline);
+            m_shaderDirty = true;
             m_error = QStringLiteral("Compute shader resource bindings creation failed.");
             return false;
         }
@@ -379,10 +388,17 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     };
 
     // Partial rebuild: only output textures changed (HDR format, texture size)
-    if (m_texturesDirty && computeSupported && m_srb) {
+    if (m_texturesDirty && computeSupported) {
         m_texturesDirty = false;
         m_passSrbDirty = true;
 
+        destroyTrackedResource(m_pipeline);
+        destroyTrackedResource(m_srb);
+        m_shaderDirty = true;
+        m_bindingsDirty = true;
+        destroyTrackedResource(m_renderSrb);
+        destroyTrackedResource(m_renderPipeline);
+        m_renderTexture = nullptr;
         destroyTrackedResource(m_outputTexture);
         destroyTrackedResource(m_outputTextureB);
 
@@ -398,6 +414,7 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::RhiTextureRebuilds);
         if (!m_outputTexture->create()) {
             destroyTrackedResource(m_outputTexture);
+            m_texturesDirty = true;
             m_error = QStringLiteral("Compute output texture creation failed.");
             return false;
         }
@@ -407,6 +424,9 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::RhiTextureRebuilds);
             if (!m_outputTextureB->create()) {
                 destroyTrackedResource(m_outputTextureB);
+                m_texturesDirty = true;
+                m_error = QStringLiteral("Compute secondary output texture creation failed.");
+                return false;
             }
         }
 
@@ -460,6 +480,7 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::RhiSrbRebuilds);
             if (!(*cfg.target)->create()) {
                 destroyTrackedResource(*cfg.target);
+                m_passSrbDirty = true;
                 m_error = QStringLiteral("Multi-pass SRB creation failed at config %1").arg(i);
                 break;
             }

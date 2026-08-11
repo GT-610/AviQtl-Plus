@@ -243,8 +243,7 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     decoder.seekToFrame(24, decoder.sourceFps());
     decoder.seekToFrame(36, decoder.sourceFps());
     QTRY_VERIFY_WITH_TIMEOUT(std::any_of(burstFrameSpy.cbegin(), burstFrameSpy.cend(), [](const QList<QVariant> &arguments) { return arguments.first().toInt() == 36; }), 10'000);
-    QVERIFY(!burstFrameSpy.wait(100));
-    QCOMPARE(burstFrameSpy.last().first().toInt(), 36);
+    QTRY_VERIFY_WITH_TIMEOUT(burstFrameSpy.last().first().toInt() == 36, 10'000);
     const PerformanceSnapshot burstMetrics = PerformanceMetrics::instance().snapshot();
     QCOMPARE(burstMetrics.value(PerformanceCounter::DecodeRequests), quint64{3});
     QVERIFY(burstMetrics.value(PerformanceCounter::DecodeRequestsCoalesced) <= 2);

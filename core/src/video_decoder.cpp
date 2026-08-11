@@ -67,26 +67,10 @@ static int displayRotationFromCcw(int ccwDegrees) {
     }
 }
 
-static int planeHeight(QVideoFrameFormat::PixelFormat format, int plane, int frameHeight) {
-    if (plane == 0)
-        return frameHeight;
-    switch (format) {
-    case QVideoFrameFormat::Format_YUV420P:
-    case QVideoFrameFormat::Format_YV12:
-    case QVideoFrameFormat::Format_NV12:
-    case QVideoFrameFormat::Format_NV21:
-    case QVideoFrameFormat::Format_P010:
-    case QVideoFrameFormat::Format_YUV420P10:
-        return (frameHeight + 1) / 2;
-    default:
-        return frameHeight;
-    }
-}
-
 static int64_t frameStorageCost(const AVFrame *frame, QVideoFrameFormat::PixelFormat format) {
     int64_t cost = 0;
     for (int plane = 0; plane < AV_NUM_DATA_POINTERS && frame->data[plane] != nullptr; ++plane) {
-        cost += static_cast<int64_t>(std::abs(frame->linesize[plane])) * planeHeight(format, plane, frame->height);
+        cost += static_cast<int64_t>(std::abs(frame->linesize[plane])) * videoPlaneHeight(format, plane, frame->height);
     }
     return cost;
 }
@@ -404,8 +388,8 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
     }
     auto &metrics = PerformanceMetrics::instance();
     metrics.add(PerformanceCounter::DecodeRequests);
-    m_requestGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_lastRequestedFrame.store(frame, std::memory_order_release);
+    m_requestGeneration.fetch_add(1, std::memory_order_acq_rel);
 
     bool expected = false;
     if (!m_isDecoding.compare_exchange_strong(expected, true)) {

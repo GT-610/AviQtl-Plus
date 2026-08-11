@@ -10,6 +10,22 @@ extern "C" {
 
 namespace AviQtl::Core {
 
+inline int videoPlaneHeight(QVideoFrameFormat::PixelFormat format, int plane, int frameHeight) {
+    if (plane == 0)
+        return frameHeight;
+    switch (format) {
+    case QVideoFrameFormat::Format_YUV420P:
+    case QVideoFrameFormat::Format_YV12:
+    case QVideoFrameFormat::Format_NV12:
+    case QVideoFrameFormat::Format_NV21:
+    case QVideoFrameFormat::Format_P010:
+    case QVideoFrameFormat::Format_YUV420P10:
+        return (frameHeight + 1) / 2;
+    default:
+        return frameHeight;
+    }
+}
+
 class FFmpegVideoBuffer final : public QAbstractVideoBuffer {
   public:
     FFmpegVideoBuffer(const FFmpegVideoBuffer &) = delete;
@@ -24,24 +40,9 @@ class FFmpegVideoBuffer final : public QAbstractVideoBuffer {
         MapData d;
         d.planeCount = 0;
         for (int i = 0; i < AV_NUM_DATA_POINTERS && m_frame->data[i]; ++i) {
-            int planeHeight = m_frame->height;
-            if (i > 0) {
-                switch (m_format.pixelFormat()) {
-                case QVideoFrameFormat::Format_YUV420P:
-                case QVideoFrameFormat::Format_YV12:
-                case QVideoFrameFormat::Format_NV12:
-                case QVideoFrameFormat::Format_NV21:
-                case QVideoFrameFormat::Format_P010:
-                case QVideoFrameFormat::Format_YUV420P10:
-                    planeHeight = (m_frame->height + 1) / 2;
-                    break;
-                default:
-                    break;
-                }
-            }
             d.data[i] = m_frame->data[i];
             d.bytesPerLine[i] = m_frame->linesize[i];
-            d.dataSize[i] = std::abs(m_frame->linesize[i]) * planeHeight;
+            d.dataSize[i] = std::abs(m_frame->linesize[i]) * videoPlaneHeight(m_format.pixelFormat(), i, m_frame->height);
             ++d.planeCount;
         }
         return d;
