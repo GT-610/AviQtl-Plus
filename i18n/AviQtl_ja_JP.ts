@@ -1914,9 +1914,15 @@
         <translation>エクスポートをキャンセルしました</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="182"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="360"/>
-        <source>Frame capture error: failed to capture frame %1</source>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="439"/>
+        <source>Frame render timeout: failed to render frame %1</source>
+        <translation>フレーム描画タイムアウト: フレーム %1 を描画できませんでした</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="453"/>
+        <source>Frame grab error: failed to capture frame %1</source>
         <translation>フレーム取得エラー: フレーム %1 を取得できませんでした</translation>
     </message>
     <message>
@@ -2779,6 +2785,11 @@
         <source>進捗更新間隔</source>
         <translation>進捗更新間隔</translation>
     </message>
+    <message>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="159"/>
+        <source>Encoder queue memory (MB)</source>
+        <translation>エンコーダーキューのメモリ (MB)</translation>
+    </message>
 </context>
 <context>
     <name>GeneralSettingsPage</name>
@@ -3487,6 +3498,51 @@
         <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="53"/>
         <source>キャッシュ容量</source>
         <translation>キャッシュ容量</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="69"/>
+        <source>Preview rendering</source>
+        <translation>プレビュー描画</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="79"/>
+        <source>Render scale</source>
+        <translation>描画スケール</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="105"/>
+        <source>Preview antialiasing</source>
+        <translation>プレビューのアンチエイリアス</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="113"/>
+        <source>Disabled</source>
+        <translation>無効</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="127"/>
+        <source>Timeline baking</source>
+        <translation>タイムラインのベイク</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="137"/>
+        <source>Strategy</source>
+        <translation>方式</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="144"/>
+        <source>On demand</source>
+        <translation>オンデマンド</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="145"/>
+        <source>Bake all clips</source>
+        <translation>すべてのクリップをベイク</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="152"/>
+        <source>Prefetch frames</source>
+        <translation>先読みフレーム数</translation>
     </message>
 </context>
 <context>

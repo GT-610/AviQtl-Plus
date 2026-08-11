@@ -36,16 +36,49 @@ QPointer<QQuickItem> captureTargetForView(QPointer<QQuickItem> view) {
     return view;
 }
 
-// RAII helper that ensures exportMode is reset on the GUI item.
+// RAII helper that keeps the preview window renderable during export and
+// restores its original visibility together with exportMode afterwards.
 class ExportModeGuard {
 public:
     explicit ExportModeGuard(QPointer<QQuickItem> view)
-        : m_view(view) {}
+        : m_view(view) {
+        if (!m_view)
+            return;
+        const Qt::ConnectionType connectionType = m_view->thread() == QThread::currentThread()
+                                                      ? Qt::DirectConnection
+                                                      : Qt::BlockingQueuedConnection;
+        QMetaObject::invokeMethod(m_view.data(), [this, view = m_view]() -> void {
+            if (!view)
+                return;
+            view->setProperty("exportMode", true);
+            m_window = view->window();
+            if (!m_window)
+                return;
+            m_originalVisibility = m_window->visibility();
+            m_wasVisible = m_window->isVisible();
+            if (!m_window->isExposed())
+                m_window->showNormal();
+        }, connectionType);
+    }
 
     ~ExportModeGuard() {
-        if (m_view) {
-            QMetaObject::invokeMethod(m_view.data(), [v = m_view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::QueuedConnection);
-        }
+        QPointer<QQuickItem> view = m_view;
+        QPointer<QQuickWindow> window = m_window;
+        QObject *context = window ? static_cast<QObject *>(window.data()) : static_cast<QObject *>(view.data());
+        if (!context)
+            return;
+        const Qt::ConnectionType connectionType = context->thread() == QThread::currentThread()
+                                                      ? Qt::DirectConnection
+                                                      : Qt::QueuedConnection;
+        QMetaObject::invokeMethod(context, [view, window, visibility = m_originalVisibility, wasVisible = m_wasVisible]() -> void {
+            if (view)
+                view->setProperty("exportMode", false);
+            if (window) {
+                window->setVisibility(visibility);
+                if (!wasVisible)
+                    window->hide();
+            }
+        }, connectionType);
     }
 
     ExportModeGuard(const ExportModeGuard &) = delete;
@@ -55,6 +88,9 @@ public:
 
 private:
     QPointer<QQuickItem> m_view;
+    QPointer<QQuickWindow> m_window;
+    QWindow::Visibility m_originalVisibility = QWindow::Hidden;
+    bool m_wasVisible = false;
 };
 
 } // namespace
@@ -117,9 +153,6 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         return;
     }
 
-    if (view) {
-        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
-    }
     ExportModeGuard exportModeGuard(view);
 
     AviQtl::Core::VideoEncoder encoder;
@@ -173,7 +206,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
             if (!waitForRenderFrame(targetItem, grabTimeout)) {
                 encoder.close();
                 QFile::remove(config.outputUrl);
-                finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+                finishExport(false, tr("Frame render timeout: failed to render frame %1").arg(frame));
                 return;
             }
         }
@@ -187,7 +220,7 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
             qWarning() << "Frame grab failed for frame" << frame;
             encoder.close();
             QFile::remove(config.outputUrl);
-            finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+            finishExport(false, tr("Frame grab error: failed to capture frame %1").arg(frame));
             return;
         }
 
@@ -310,6 +343,8 @@ bool TimelineExportManager::waitForRenderFrame(QPointer<QQuickItem> targetItem, 
             rendered = true;
             loop.quit();
         }, Qt::QueuedConnection);
+        if (!window->isExposed())
+            window->showNormal();
         window->update();
     }, Qt::BlockingQueuedConnection);
 
@@ -379,9 +414,6 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         }
     }
 
-    if (view) {
-        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
-    }
     ExportModeGuard exportModeGuard(view);
 
     const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
@@ -404,7 +436,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             AviQtl::Core::ScopedPerformanceTimer waitTimer(AviQtl::Core::PerformanceCounter::ExportFrameWaitNanoseconds);
             if (!waitForRenderFrame(targetItem, grabTimeout)) {
                 cleanupPartialOutput();
-                finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+                finishExport(false, tr("Frame render timeout: failed to render frame %1").arg(frame));
                 return;
             }
         }
@@ -418,7 +450,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         if (img.isNull()) {
             qWarning() << "Frame grab failed for frame" << frame;
             cleanupPartialOutput();
-            finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+            finishExport(false, tr("Frame grab error: failed to capture frame %1").arg(frame));
             return;
         }
 

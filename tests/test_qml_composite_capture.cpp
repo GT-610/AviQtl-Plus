@@ -182,21 +182,51 @@ void TestQmlCompositeCapture::previewQualitySettingsUpdateViewGeometry() {
 
     auto *view3D = compositeView->property("view3D").value<QQuickItem *>();
     QVERIFY(view3D != nullptr);
+    QObject *environment = view3D->property("environment").value<QObject *>();
+    QVERIFY(environment != nullptr);
+    // QQuick3DSceneEnvironment's public QML enum values are stable: NoAA=0,
+    // MSAA=2, and quality values match their sample counts (2, 4, 8).
+    constexpr int noAa = 0;
+    constexpr int msaa = 2;
+    constexpr int medium = 2;
+    constexpr int high = 4;
+    constexpr int veryHigh = 8;
     QTRY_COMPARE(view3D->width(), 400.0);
     QTRY_COMPARE(view3D->height(), 200.0);
     QCOMPARE(compositeView->property("previewMsaaSamples").toInt(), 0);
+    QCOMPARE(environment->property("antialiasingMode").toInt(), noAa);
+    QCOMPARE(environment->property("antialiasingQuality").toInt(), medium);
+
+    settings.setValue(QStringLiteral("previewRenderScale"), QStringLiteral("invalid"));
+    QTRY_COMPARE(compositeView->property("previewRenderScale").toDouble(), 1.0);
+    QTRY_COMPARE(view3D->width(), 400.0);
+    QTRY_COMPARE(view3D->height(), 200.0);
 
     settings.setValue(QStringLiteral("previewRenderScale"), 0.5);
-    settings.setValue(QStringLiteral("previewMsaaSamples"), 4);
+    settings.setValue(QStringLiteral("previewMsaaSamples"), 2);
     QTRY_COMPARE(view3D->width(), 200.0);
     QTRY_COMPARE(view3D->height(), 100.0);
     QTRY_COMPARE(view3D->scale(), 2.0);
+    QTRY_COMPARE(compositeView->property("previewMsaaSamples").toInt(), 2);
+    QTRY_COMPARE(environment->property("antialiasingMode").toInt(), msaa);
+    QTRY_COMPARE(environment->property("antialiasingQuality").toInt(), medium);
+
+    settings.setValue(QStringLiteral("previewMsaaSamples"), 4);
     QTRY_COMPARE(compositeView->property("previewMsaaSamples").toInt(), 4);
+    QTRY_COMPARE(environment->property("antialiasingMode").toInt(), msaa);
+    QTRY_COMPARE(environment->property("antialiasingQuality").toInt(), high);
+
+    settings.setValue(QStringLiteral("previewMsaaSamples"), 8);
+    QTRY_COMPARE(compositeView->property("previewMsaaSamples").toInt(), 8);
+    QTRY_COMPARE(environment->property("antialiasingMode").toInt(), msaa);
+    QTRY_COMPARE(environment->property("antialiasingQuality").toInt(), veryHigh);
 
     compositeView->setProperty("exportMode", true);
     QTRY_COMPARE(view3D->width(), 400.0);
     QTRY_COMPARE(view3D->height(), 200.0);
     QTRY_COMPARE(view3D->scale(), 1.0);
+    QTRY_COMPARE(environment->property("antialiasingMode").toInt(), msaa);
+    QTRY_COMPARE(environment->property("antialiasingQuality").toInt(), high);
 }
 
 QImage TestQmlCompositeCapture::grabView3D(QQuickItem *view3D) {

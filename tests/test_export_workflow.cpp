@@ -88,6 +88,7 @@ class TestExportWorkflow : public QObject {
     void imageSequenceWithoutCompositeViewFailsBeforeCreatingFrames();
     void imageSequenceCaptureFailureRemovesPartialOutput();
     void imageSequenceRefusesToOverwriteExistingFrames();
+    void hiddenWindowExportsAreRestored();
     void exportStateTransitionsBeforeCompletion();
     void completionHandlerCanDestroyManager();
 
@@ -229,7 +230,7 @@ void TestExportWorkflow::videoExportCaptureFailureRemovesPartialOutput() {
 
     QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
     QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 10'000);
-    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 1"));
+    expectExportFailure(spy, QStringLiteral("Frame render timeout: failed to render frame 1"));
     QVERIFY(firstFrameReachedEncoder);
     QVERIFY(!QFileInfo::exists(outputPath));
 }
@@ -295,7 +296,7 @@ void TestExportWorkflow::imageSequenceCaptureFailureRemovesPartialOutput() {
 
     QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 10'000);
     QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 10'000);
-    expectExportFailure(spy, QStringLiteral("Frame capture error: failed to capture frame 1"));
+    expectExportFailure(spy, QStringLiteral("Frame render timeout: failed to render frame 1"));
     QVERIFY(firstFrameWasWritten);
     QVERIFY(!QFileInfo::exists(firstFramePath));
     QVERIFY(!QDir(outputDir).exists());
@@ -327,6 +328,39 @@ void TestExportWorkflow::imageSequenceRefusesToOverwriteExistingFrames() {
     QFile preservedFrame(existingFrame);
     QVERIFY(preservedFrame.open(QIODevice::ReadOnly));
     QCOMPARE(preservedFrame.readAll(), sentinelData);
+}
+
+void TestExportWorkflow::hiddenWindowExportsAreRestored() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    TimelineController controller;
+    QuickCaptureView captureView;
+    QString fixtureError;
+    QVERIFY2(captureView.initialize(&fixtureError), qPrintable(fixtureError));
+    QTRY_VERIFY_WITH_TIMEOUT(captureView.window()->isExposed(), 5'000);
+    captureView.window()->hide();
+    QTRY_VERIFY_WITH_TIMEOUT(!captureView.window()->isVisible(), 5'000);
+    controller.setCompositeView(captureView.item());
+
+    TimelineExportManager exportManager(&controller);
+    const QString sequenceDir = dir.filePath(QStringLiteral("hidden-sequence"));
+    QSignalSpy imageSpy(&exportManager, &TimelineExportManager::exportFinished);
+    QVERIFY(exportManager.exportImageSequence(sequenceDir, 95, QStringLiteral("PNG"), 0, 1));
+    QTRY_COMPARE_WITH_TIMEOUT(imageSpy.count(), 1, 10'000);
+    QCOMPARE(imageSpy.takeFirst().at(0).toBool(), true);
+    QVERIFY(QFileInfo::exists(QDir(sequenceDir).filePath(QStringLiteral("frame_0000.png"))));
+    QTRY_VERIFY_WITH_TIMEOUT(!captureView.window()->isVisible(), 5'000);
+
+    const QString videoPath = dir.filePath(QStringLiteral("hidden-video.mp4"));
+    VideoEncoder::Config videoConfig = validEncoderConfig(controller, videoPath);
+    videoConfig.endFrame = 1;
+    QSignalSpy videoSpy(&exportManager, &TimelineExportManager::exportFinished);
+    QVERIFY(exportManager.exportVideoAsync(videoConfig));
+    QTRY_COMPARE_WITH_TIMEOUT(videoSpy.count(), 1, 10'000);
+    QCOMPARE(videoSpy.takeFirst().at(0).toBool(), true);
+    QVERIFY(QFileInfo(videoPath).size() > 0);
+    QTRY_VERIFY_WITH_TIMEOUT(!captureView.window()->isVisible(), 5'000);
 }
 
 void TestExportWorkflow::exportStateTransitionsBeforeCompletion() {

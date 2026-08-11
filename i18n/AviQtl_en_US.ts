@@ -1914,10 +1914,16 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Export cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="182"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="360"/>
-        <source>Frame capture error: failed to capture frame %1</source>
-        <translation>Frame capture error: failed to capture frame %1</translation>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="439"/>
+        <source>Frame render timeout: failed to render frame %1</source>
+        <translation>Frame render timeout: failed to render frame %1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="453"/>
+        <source>Frame grab error: failed to capture frame %1</source>
+        <translation>Frame grab error: failed to capture frame %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="189"/>

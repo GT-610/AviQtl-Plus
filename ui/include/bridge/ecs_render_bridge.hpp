@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QVector>
 
 namespace AviQtl::UI {
 
@@ -42,6 +43,7 @@ class ECSRenderBridge : public QObject {
     mutable QHash<int, QVector<AviQtl::Engine::Timeline::EffectParamEntry>> m_cachedParamEntries;
     mutable QHash<int, QVariantMap> m_cachedParamValues;
     mutable bool m_dirty = true;
+    mutable bool m_pendingChange = false;
     mutable quint64 m_renderRevision = 0;
 };
 

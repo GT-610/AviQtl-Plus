@@ -1914,9 +1914,15 @@
         <translation>导出已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="182"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="360"/>
-        <source>Frame capture error: failed to capture frame %1</source>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="439"/>
+        <source>Frame render timeout: failed to render frame %1</source>
+        <translation>帧渲染超时：无法渲染第 %1 帧</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="453"/>
+        <source>Frame grab error: failed to capture frame %1</source>
         <translation>帧捕获错误：无法捕获第 %1 帧</translation>
     </message>
     <message>

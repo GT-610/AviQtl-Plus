@@ -24,7 +24,8 @@ class TestECSRender : public QObject {
         std::bitset<MAX_CLIP_ID> empty;
         ECS::instance().syncClipIds(empty);
         ECS::instance().commit();
-        ECSRenderBridge::instance().notifyFrameReady();
+        if (qstrcmp(QTest::currentTestFunction(), "accessorChangeIsLatchedUntilNotification") != 0)
+            ECSRenderBridge::instance().notifyFrameReady();
         PerformanceMetrics::instance().reset();
 
         EffectRegistry::instance().registerEffect({
@@ -43,6 +44,30 @@ class TestECSRender : public QObject {
 
     void cleanup() {
         SettingsManager::instance().setValue(QStringLiteral("bakeStrategy"), QStringLiteral("FullBake"));
+    }
+
+    void accessorChangeIsLatchedUntilNotification() {
+        SceneSettings scene;
+        scene.id = 6;
+        scene.fps = AviQtl::kDefaultFps;
+
+        Clip clip;
+        clip.id = 91;
+        clip.durationFrames = 30;
+        clip.type = QStringLiteral("text");
+        scene.clips.push_back(clip);
+        DocumentModel::instance().addScene(scene);
+        BakeController::instance().bake(scene.id, 0);
+
+        ECSRenderBridge &bridge = ECSRenderBridge::instance();
+        QSignalSpy spy(&bridge, &ECSRenderBridge::renderStatesChanged);
+        const quint64 initialRevision = bridge.renderRevision();
+        QVERIFY(bridge.renderStateMap().contains(QStringLiteral("91")));
+        QCOMPARE(spy.count(), 0);
+
+        bridge.notifyFrameReady();
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(bridge.renderRevision(), initialRevision + 1);
     }
 
     void renderComponentPopulated() {

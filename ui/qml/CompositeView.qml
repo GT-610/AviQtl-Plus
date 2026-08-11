@@ -27,7 +27,8 @@ Item {
             return 1.0;
         const settings = SettingsManager.settings;
         const value = settings.previewRenderScale !== undefined ? settings.previewRenderScale : 1.0;
-        return Math.max(0.25, Math.min(1.0, Number(value)));
+        const scale = Number(value);
+        return Number.isNaN(scale) ? 1.0 : Math.max(0.25, Math.min(1.0, scale));
     }
     readonly property int previewMsaaSamples: {
         if (typeof SettingsManager === "undefined" || !SettingsManager)

@@ -171,28 +171,30 @@ bool ECSRenderBridge::syncSnapshot() const {
 }
 
 QVariantList ECSRenderBridge::renderStates() const {
-    syncSnapshot();
+    m_pendingChange |= syncSnapshot();
     return m_cachedStates;
 }
 
 QVariantMap ECSRenderBridge::renderStateMap() const {
-    syncSnapshot();
+    m_pendingChange |= syncSnapshot();
     return m_cachedStateMap;
 }
 
 QVariantMap ECSRenderBridge::getRenderState(int clipId) const {
-    syncSnapshot();
+    m_pendingChange |= syncSnapshot();
     return m_cachedStateValues.value(clipId);
 }
 
 QVariantMap ECSRenderBridge::getEffectParams(int clipId) const {
-    syncSnapshot();
+    m_pendingChange |= syncSnapshot();
     return m_cachedParamValues.value(clipId);
 }
 
 void ECSRenderBridge::notifyFrameReady() {
     m_dirty = true;
-    if (syncSnapshot()) {
+    m_pendingChange |= syncSnapshot();
+    if (m_pendingChange) {
+        m_pendingChange = false;
         ++m_renderRevision;
         emit renderStatesChanged();
     }
