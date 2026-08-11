@@ -266,6 +266,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME phase1_performance
+    SOURCES test_phase1_performance.cpp
+    LINKS AviQtl_Engine AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME clip_by_upper_object
     SOURCES test_clip_by_upper_object.cpp
     LINKS AviQtl_UI
@@ -346,4 +352,4 @@ aviqtl_label_tests(media
 )
 
 aviqtl_label_tests(qml large_timeline_performance qml_composite_capture)
-aviqtl_label_tests(performance large_timeline_performance video_decoder audio_decoder audio_plugin_scan)
+aviqtl_label_tests(performance large_timeline_performance phase1_performance video_decoder audio_decoder audio_plugin_scan)
