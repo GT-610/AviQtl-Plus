@@ -38,6 +38,7 @@ class TimelineExportManager : public QObject {
     void finishExport(bool success, const QString &message);
     void runExport(const AviQtl::Core::VideoEncoder::Config &config);
     void runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame);
+    bool waitForRenderFrame(QPointer<QQuickItem> targetItem, int timeoutMs) const;
     QImage grabFrame(QPointer<QQuickItem> targetItem, const QSize &size, int timeoutMs) const;
     TimelineController *m_controller;
     QPointer<QThread> m_exportThread;

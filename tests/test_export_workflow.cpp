@@ -1,3 +1,4 @@
+#include "performance_metrics.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "timeline_export_manager.hpp"
@@ -17,6 +18,8 @@
 using namespace AviQtl::UI;
 using AviQtl::Core::SettingsManager;
 using AviQtl::Core::VideoEncoder;
+using AviQtl::Core::PerformanceCounter;
+using AviQtl::Core::PerformanceMetrics;
 
 namespace {
 class QuickCaptureView {
@@ -338,6 +341,7 @@ void TestExportWorkflow::exportStateTransitionsBeforeCompletion() {
     controller.setCompositeView(captureView.item());
 
     TimelineExportManager exportManager(&controller);
+    PerformanceMetrics::instance().reset();
 
     QStringList events;
     connect(&exportManager, &TimelineExportManager::exportingChanged, this, [&events](bool exporting) { events.append(exporting ? QStringLiteral("active") : QStringLiteral("inactive")); });
@@ -352,6 +356,10 @@ void TestExportWorkflow::exportStateTransitionsBeforeCompletion() {
     QTRY_COMPARE_WITH_TIMEOUT(events.size(), 3, 10'000);
     QVERIFY(!exportManager.isExporting());
     QCOMPARE(events, QStringList({QStringLiteral("active"), QStringLiteral("inactive"), QStringLiteral("finished")}));
+    const auto metrics = PerformanceMetrics::instance().snapshot();
+    QCOMPARE(metrics.value(PerformanceCounter::ExportFrames), quint64{1});
+    QVERIFY(metrics.value(PerformanceCounter::ExportFrameWaitNanoseconds) > 0);
+    QVERIFY(metrics.value(PerformanceCounter::ExportFrameGrabNanoseconds) > 0);
 }
 
 void TestExportWorkflow::completionHandlerCanDestroyManager() {

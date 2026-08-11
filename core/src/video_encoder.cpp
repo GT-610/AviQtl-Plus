@@ -23,7 +23,8 @@ Q_LOGGING_CATEGORY(lcVideoEncoder, "aviqtl.video_encoder")
 
 namespace AviQtl::Core {
 
-constexpr size_t MAX_QUEUE_SIZE = 16;
+constexpr std::size_t kMaxEncoderQueueTasks = 16;
+constexpr std::size_t kMinEncoderQueueTasks = 2;
 
 namespace {
 
@@ -254,6 +255,12 @@ auto VideoEncoder::open(const Config &config) -> bool {
     std::scoped_lock lock(m_mutex);
     cleanup();
     m_config = config;
+    const quint64 frameBytes = static_cast<quint64>(std::max(1, config.width)) *
+                               static_cast<quint64>(std::max(1, config.height)) * 4ULL;
+    const quint64 queueBudgetBytes = static_cast<quint64>(std::max(
+        16, SettingsManager::instance().value(QStringLiteral("exportEncoderQueueMB"), 128).toInt())) * 1024ULL * 1024ULL;
+    m_maxQueueSize = std::clamp<std::size_t>(static_cast<std::size_t>(queueBudgetBytes / frameBytes),
+                                             kMinEncoderQueueTasks, kMaxEncoderQueueTasks);
     m_headerWritten = false;
     m_encodedFrameCount = 0;
 
@@ -565,7 +572,7 @@ auto VideoEncoder::pushFrame(const QImage &img, int64_t pts) -> bool {
 
     std::unique_lock<std::mutex> lock(m_queueMutex);
     // バックプレッシャー: キューがいっぱいなら消費されるのを待つ
-    m_queuePushCv.wait(lock, [this] -> bool { return m_taskQueue.size() < MAX_QUEUE_SIZE || m_stopEncoding; });
+    m_queuePushCv.wait(lock, [this] -> bool { return m_taskQueue.size() < m_maxQueueSize || m_stopEncoding; });
 
     if (m_stopEncoding) {
         return false;
@@ -761,7 +768,7 @@ auto VideoEncoder::pushAudio(const float *samples, int interleavedSampleCount) -
     }
 
     std::unique_lock<std::mutex> lock(m_queueMutex);
-    m_queuePushCv.wait(lock, [this] -> bool { return m_taskQueue.size() < MAX_QUEUE_SIZE || m_stopEncoding; });
+    m_queuePushCv.wait(lock, [this] -> bool { return m_taskQueue.size() < m_maxQueueSize || m_stopEncoding; });
 
     if (m_stopEncoding) {
         return false;

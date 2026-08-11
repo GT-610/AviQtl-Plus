@@ -1,6 +1,7 @@
 #include "timeline_export_manager.hpp"
 #include "constants.hpp"
 #include "engine/audio_mixer.hpp"
+#include "performance_metrics.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "video_encoder.hpp"
@@ -13,12 +14,12 @@
 #include <QPointer>
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
+#include <QQuickWindow>
 #include <QTimer>
 #include <algorithm>
 
 namespace {
 constexpr int kDefaultGrabTimeoutMs = 2000;
-constexpr int kFrameSettleWaitMs = 8;
 constexpr int kExportAudioChannels = 2;
 
 QString imageSequenceFileName(int frame, int padDigits, const QString &extension) {
@@ -167,10 +168,21 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame]() -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
-        // Give the render thread a moment to produce the new frame before grabbing.
-        QThread::msleep(kFrameSettleWaitMs);
+        {
+            AviQtl::Core::ScopedPerformanceTimer waitTimer(AviQtl::Core::PerformanceCounter::ExportFrameWaitNanoseconds);
+            if (!waitForRenderFrame(targetItem, grabTimeout)) {
+                encoder.close();
+                QFile::remove(config.outputUrl);
+                finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+                return;
+            }
+        }
 
-        QImage img = grabFrame(targetItem, QSize(config.width, config.height), grabTimeout);
+        QImage img;
+        {
+            AviQtl::Core::ScopedPerformanceTimer grabTimer(AviQtl::Core::PerformanceCounter::ExportFrameGrabNanoseconds);
+            img = grabFrame(targetItem, QSize(config.width, config.height), grabTimeout);
+        }
         if (img.isNull()) {
             qWarning() << "Frame grab failed for frame" << frame;
             encoder.close();
@@ -179,12 +191,18 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
             return;
         }
 
-        if (!encoder.pushFrame(img, frame - startFrame)) {
+        bool frameQueued = false;
+        {
+            AviQtl::Core::ScopedPerformanceTimer queueTimer(AviQtl::Core::PerformanceCounter::ExportEncoderQueueNanoseconds);
+            frameQueued = encoder.pushFrame(img, frame - startFrame);
+        }
+        if (!frameQueued) {
             encoder.close();
             QFile::remove(config.outputUrl);
             finishExport(false, tr("Encoder error: failed to queue video frame %1").arg(frame));
             return;
         }
+        AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::ExportFrames);
 
         // Calculate audio samples for this frame using fractional accumulation to prevent A/V drift.
         // Keep the denominator as a scaled integer to preserve fractional frame rates.
@@ -267,6 +285,47 @@ QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const Q
     return img;
 }
 
+bool TimelineExportManager::waitForRenderFrame(QPointer<QQuickItem> targetItem, int timeoutMs) const {
+    if (!targetItem)
+        return false;
+
+    QPointer<QQuickWindow> window;
+    QEventLoop loop;
+    QMetaObject::Connection synchronizedConnection;
+    QMetaObject::Connection renderedConnection;
+    bool synchronized = false;
+    bool rendered = false;
+    QMetaObject::invokeMethod(targetItem.data(), [&]() -> void {
+        if (!targetItem)
+            return;
+        window = targetItem->window();
+        if (!window)
+            return;
+        synchronizedConnection = connect(window.data(), &QQuickWindow::afterSynchronizing, &loop, [&]() -> void {
+            synchronized = true;
+        }, Qt::QueuedConnection);
+        renderedConnection = connect(window.data(), &QQuickWindow::afterRendering, &loop, [&]() -> void {
+            if (!synchronized)
+                return;
+            rendered = true;
+            loop.quit();
+        }, Qt::QueuedConnection);
+        window->update();
+    }, Qt::BlockingQueuedConnection);
+
+    if (!window)
+        return false;
+
+    QTimer timeoutTimer;
+    timeoutTimer.setSingleShot(true);
+    connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timeoutTimer.start(std::max(1, timeoutMs));
+    loop.exec();
+    disconnect(synchronizedConnection);
+    disconnect(renderedConnection);
+    return rendered;
+}
+
 void TimelineExportManager::runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
     QDir outputDir(dir);
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
@@ -341,10 +400,20 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame]() -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
-        // Give the render thread a moment to produce the new frame before grabbing.
-        QThread::msleep(kFrameSettleWaitMs);
+        {
+            AviQtl::Core::ScopedPerformanceTimer waitTimer(AviQtl::Core::PerformanceCounter::ExportFrameWaitNanoseconds);
+            if (!waitForRenderFrame(targetItem, grabTimeout)) {
+                cleanupPartialOutput();
+                finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+                return;
+            }
+        }
 
-        QImage img = grabFrame(targetItem, QSize(), grabTimeout);
+        QImage img;
+        {
+            AviQtl::Core::ScopedPerformanceTimer grabTimer(AviQtl::Core::PerformanceCounter::ExportFrameGrabNanoseconds);
+            img = grabFrame(targetItem, QSize(), grabTimeout);
+        }
 
         if (img.isNull()) {
             qWarning() << "Frame grab failed for frame" << frame;
@@ -364,6 +433,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             }
             writtenFiles.push_back(filePath);
         }
+        AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::ExportFrames);
 
         const int done = frame - startFrame + 1;
         if (done % progInterval == 0 || done == totalFrames) {

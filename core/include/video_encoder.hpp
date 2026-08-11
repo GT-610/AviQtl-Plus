@@ -105,6 +105,7 @@ class VideoEncoder : public QObject {
     std::mutex m_queueMutex;
     std::condition_variable m_queueCv;
     std::condition_variable m_queuePushCv;
+    std::size_t m_maxQueueSize = 2;
     std::atomic<bool> m_stopEncoding{false};
     std::atomic<bool> m_errorOccurred{false};
 
