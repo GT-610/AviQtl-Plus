@@ -349,7 +349,8 @@ void TestExportWorkflow::hiddenWindowExportsAreRestored() {
     QVERIFY(exportManager.exportImageSequence(sequenceDir, 95, QStringLiteral("PNG"), 0, 1));
     QTRY_COMPARE_WITH_TIMEOUT(imageSpy.count(), 1, 10'000);
     QCOMPARE(imageSpy.takeFirst().at(0).toBool(), true);
-    QVERIFY(QFileInfo::exists(QDir(sequenceDir).filePath(QStringLiteral("frame_0000.png"))));
+    const QString firstFramePath = QDir(sequenceDir).filePath(QStringLiteral("frame_%1.png").arg(0, kTestSequencePadding, 10, QLatin1Char('0')));
+    QVERIFY(QFileInfo::exists(firstFramePath));
     QTRY_VERIFY_WITH_TIMEOUT(!captureView.window()->isVisible(), 5'000);
 
     const QString videoPath = dir.filePath(QStringLiteral("hidden-video.mp4"));
