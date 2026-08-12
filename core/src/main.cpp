@@ -1,10 +1,11 @@
-#include <QApplication>
 #include <QDir>
+#include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
-#include <QSplashScreen>
+#include <QQuickView>
+#include <QScreen>
 #include <QTimer>
 #include <QTranslator>
 #include <QUrl>
@@ -84,14 +85,14 @@ void setupQmlEngine(QQmlApplicationEngine &engine) {
 }
 
 auto main(int argc, char *argv[]) -> int {
-    QApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
-    QApplication::setApplicationName(QStringLiteral("AviQtl Plus"));
+    QGuiApplication::setApplicationName(QStringLiteral("AviQtl Plus"));
     av_log_set_callback(aviqtl_ffmpeg_log_callback);
-    QApplication::setWindowIcon(QIcon(QStringLiteral(":/assets/icon.svg")));
+    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/assets/icon.svg")));
 
     // macOS .app bundle では Resources が ../Resources にある
-    const QString appDir = QApplication::applicationDirPath();
+    const QString appDir = QGuiApplication::applicationDirPath();
     QString resourceDir = QDir(appDir + QStringLiteral("/../Resources")).canonicalPath();
     if (resourceDir.isEmpty()) {
         resourceDir = appDir;
@@ -108,7 +109,16 @@ auto main(int argc, char *argv[]) -> int {
 
     // スプラッシュ
     int splashSize = settings.value(QStringLiteral("splashSize"), 128).toInt();
-    QSplashScreen splash(QIcon(QStringLiteral(":/assets/splash.svg")).pixmap(splashSize, splashSize));
+    QQuickView splash;
+    splash.setColor(Qt::transparent);
+    splash.setFlags(Qt::SplashScreen | Qt::FramelessWindowHint);
+    splash.setResizeMode(QQuickView::SizeRootObjectToView);
+    splash.setSource(QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/SplashView.qml")));
+    splash.resize(splashSize, splashSize);
+    if (QScreen *screen = QGuiApplication::primaryScreen()) {
+        const QPoint center = screen->availableGeometry().center();
+        splash.setPosition(center.x() - splashSize / 2, center.y() - splashSize / 2);
+    }
     splash.show();
 
     QQmlApplicationEngine engine;
@@ -176,7 +186,7 @@ auto main(int argc, char *argv[]) -> int {
         // 第三引数に &app (メインスレッド所属) を渡してメインスレッドで実行されるようにする
         QObject::connect(&Engine::Plugin::AudioPluginManager::instance(), &Engine::Plugin::AudioPluginManager::pluginsReady, &app, [&]() {
             UI::WindowManager::instance().showLauncher(&engine);
-            splash.finish(nullptr);
+            splash.close();
         });
         Engine::Plugin::AudioPluginManager::instance().initialize();
     });

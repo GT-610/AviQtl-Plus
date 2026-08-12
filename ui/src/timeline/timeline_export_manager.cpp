@@ -1,6 +1,7 @@
 #include "timeline_export_manager.hpp"
 #include "constants.hpp"
 #include "engine/audio_mixer.hpp"
+#include "performance_metrics.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "video_encoder.hpp"
@@ -13,12 +14,12 @@
 #include <QPointer>
 #include <QQuickItem>
 #include <QQuickItemGrabResult>
+#include <QQuickWindow>
 #include <QTimer>
 #include <algorithm>
 
 namespace {
 constexpr int kDefaultGrabTimeoutMs = 2000;
-constexpr int kFrameSettleWaitMs = 8;
 constexpr int kExportAudioChannels = 2;
 
 QString imageSequenceFileName(int frame, int padDigits, const QString &extension) {
@@ -35,16 +36,49 @@ QPointer<QQuickItem> captureTargetForView(QPointer<QQuickItem> view) {
     return view;
 }
 
-// RAII helper that ensures exportMode is reset on the GUI item.
+// RAII helper that keeps the preview window renderable during export and
+// restores its original visibility together with exportMode afterwards.
 class ExportModeGuard {
 public:
     explicit ExportModeGuard(QPointer<QQuickItem> view)
-        : m_view(view) {}
+        : m_view(view) {
+        if (!m_view)
+            return;
+        const Qt::ConnectionType connectionType = m_view->thread() == QThread::currentThread()
+                                                      ? Qt::DirectConnection
+                                                      : Qt::BlockingQueuedConnection;
+        QMetaObject::invokeMethod(m_view.data(), [this, view = m_view]() -> void {
+            if (!view)
+                return;
+            view->setProperty("exportMode", true);
+            m_window = view->window();
+            if (!m_window)
+                return;
+            m_originalVisibility = m_window->visibility();
+            m_wasVisible = m_window->isVisible();
+            if (!m_window->isExposed())
+                m_window->showNormal();
+        }, connectionType);
+    }
 
     ~ExportModeGuard() {
-        if (m_view) {
-            QMetaObject::invokeMethod(m_view.data(), [v = m_view.data()]() -> void { v->setProperty("exportMode", false); }, Qt::QueuedConnection);
-        }
+        QPointer<QQuickItem> view = m_view;
+        QPointer<QQuickWindow> window = m_window;
+        QObject *context = window ? static_cast<QObject *>(window.data()) : static_cast<QObject *>(view.data());
+        if (!context)
+            return;
+        const Qt::ConnectionType connectionType = context->thread() == QThread::currentThread()
+                                                      ? Qt::DirectConnection
+                                                      : Qt::QueuedConnection;
+        QMetaObject::invokeMethod(context, [view, window, visibility = m_originalVisibility, wasVisible = m_wasVisible]() -> void {
+            if (view)
+                view->setProperty("exportMode", false);
+            if (window) {
+                window->setVisibility(visibility);
+                if (!wasVisible)
+                    window->hide();
+            }
+        }, connectionType);
     }
 
     ExportModeGuard(const ExportModeGuard &) = delete;
@@ -54,6 +88,9 @@ public:
 
 private:
     QPointer<QQuickItem> m_view;
+    QPointer<QQuickWindow> m_window;
+    QWindow::Visibility m_originalVisibility = QWindow::Hidden;
+    bool m_wasVisible = false;
 };
 
 } // namespace
@@ -116,9 +153,6 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         return;
     }
 
-    if (view) {
-        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
-    }
     ExportModeGuard exportModeGuard(view);
 
     AviQtl::Core::VideoEncoder encoder;
@@ -167,24 +201,41 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame]() -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
-        // Give the render thread a moment to produce the new frame before grabbing.
-        QThread::msleep(kFrameSettleWaitMs);
+        {
+            AviQtl::Core::ScopedPerformanceTimer waitTimer(AviQtl::Core::PerformanceCounter::ExportFrameWaitNanoseconds);
+            if (!waitForRenderFrame(targetItem, grabTimeout)) {
+                encoder.close();
+                QFile::remove(config.outputUrl);
+                finishExport(false, tr("Frame render timeout: failed to render frame %1").arg(frame));
+                return;
+            }
+        }
 
-        QImage img = grabFrame(targetItem, QSize(config.width, config.height), grabTimeout);
+        QImage img;
+        {
+            AviQtl::Core::ScopedPerformanceTimer grabTimer(AviQtl::Core::PerformanceCounter::ExportFrameGrabNanoseconds);
+            img = grabFrame(targetItem, QSize(config.width, config.height), grabTimeout);
+        }
         if (img.isNull()) {
             qWarning() << "Frame grab failed for frame" << frame;
             encoder.close();
             QFile::remove(config.outputUrl);
-            finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+            finishExport(false, tr("Frame grab error: failed to capture frame %1").arg(frame));
             return;
         }
 
-        if (!encoder.pushFrame(img, frame - startFrame)) {
+        bool frameQueued = false;
+        {
+            AviQtl::Core::ScopedPerformanceTimer queueTimer(AviQtl::Core::PerformanceCounter::ExportEncoderQueueNanoseconds);
+            frameQueued = encoder.pushFrame(img, frame - startFrame);
+        }
+        if (!frameQueued) {
             encoder.close();
             QFile::remove(config.outputUrl);
             finishExport(false, tr("Encoder error: failed to queue video frame %1").arg(frame));
             return;
         }
+        AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::ExportFrames);
 
         // Calculate audio samples for this frame using fractional accumulation to prevent A/V drift.
         // Keep the denominator as a scaled integer to preserve fractional frame rates.
@@ -267,6 +318,49 @@ QImage TimelineExportManager::grabFrame(QPointer<QQuickItem> targetItem, const Q
     return img;
 }
 
+bool TimelineExportManager::waitForRenderFrame(QPointer<QQuickItem> targetItem, int timeoutMs) const {
+    if (!targetItem)
+        return false;
+
+    QPointer<QQuickWindow> window;
+    QEventLoop loop;
+    QMetaObject::Connection synchronizedConnection;
+    QMetaObject::Connection renderedConnection;
+    bool synchronized = false;
+    bool rendered = false;
+    QMetaObject::invokeMethod(targetItem.data(), [&]() -> void {
+        if (!targetItem)
+            return;
+        window = targetItem->window();
+        if (!window)
+            return;
+        synchronizedConnection = connect(window.data(), &QQuickWindow::afterSynchronizing, &loop, [&]() -> void {
+            synchronized = true;
+        }, Qt::QueuedConnection);
+        renderedConnection = connect(window.data(), &QQuickWindow::afterRendering, &loop, [&]() -> void {
+            if (!synchronized)
+                return;
+            rendered = true;
+            loop.quit();
+        }, Qt::QueuedConnection);
+        if (!window->isExposed())
+            window->showNormal();
+        window->update();
+    }, Qt::BlockingQueuedConnection);
+
+    if (!window)
+        return false;
+
+    QTimer timeoutTimer;
+    timeoutTimer.setSingleShot(true);
+    connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timeoutTimer.start(std::max(1, timeoutMs));
+    loop.exec();
+    disconnect(synchronizedConnection);
+    disconnect(renderedConnection);
+    return rendered;
+}
+
 void TimelineExportManager::runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
     QDir outputDir(dir);
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
@@ -320,9 +414,6 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         }
     }
 
-    if (view) {
-        QMetaObject::invokeMethod(view.data(), [v = view.data()]() -> void { v->setProperty("exportMode", true); }, Qt::BlockingQueuedConnection);
-    }
     ExportModeGuard exportModeGuard(view);
 
     const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
@@ -341,15 +432,25 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
         QMetaObject::invokeMethod(m_controller->transport(), [this, frame]() -> void { m_controller->transport()->setCurrentFrame(frame); }, Qt::BlockingQueuedConnection);
 
-        // Give the render thread a moment to produce the new frame before grabbing.
-        QThread::msleep(kFrameSettleWaitMs);
+        {
+            AviQtl::Core::ScopedPerformanceTimer waitTimer(AviQtl::Core::PerformanceCounter::ExportFrameWaitNanoseconds);
+            if (!waitForRenderFrame(targetItem, grabTimeout)) {
+                cleanupPartialOutput();
+                finishExport(false, tr("Frame render timeout: failed to render frame %1").arg(frame));
+                return;
+            }
+        }
 
-        QImage img = grabFrame(targetItem, QSize(), grabTimeout);
+        QImage img;
+        {
+            AviQtl::Core::ScopedPerformanceTimer grabTimer(AviQtl::Core::PerformanceCounter::ExportFrameGrabNanoseconds);
+            img = grabFrame(targetItem, QSize(), grabTimeout);
+        }
 
         if (img.isNull()) {
             qWarning() << "Frame grab failed for frame" << frame;
             cleanupPartialOutput();
-            finishExport(false, tr("Frame capture error: failed to capture frame %1").arg(frame));
+            finishExport(false, tr("Frame grab error: failed to capture frame %1").arg(frame));
             return;
         }
 
@@ -364,6 +465,7 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
             }
             writtenFiles.push_back(filePath);
         }
+        AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::ExportFrames);
 
         const int done = frame - startFrame + 1;
         if (done % progInterval == 0 || done == totalFrames) {

@@ -73,6 +73,7 @@ class ComputeRenderNode final : public QSGRenderNode {
 
     bool m_shaderDirty = true;
     bool m_bufferLayoutDirty = true;
+    bool m_bindingsDirty = true;
     bool m_texturesDirty = true;
     bool m_passSrbDirty = true;
     bool m_renderTargetDirty = true;

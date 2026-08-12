@@ -15,9 +15,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND EXTRA_QT_COMPONENTS WaylandClient)
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS
+find_package(Qt6 6.5 REQUIRED COMPONENTS
     Core CorePrivate Gui GuiPrivate Quick QuickControls2 Quick3D
-    Widgets Core5Compat Sql Svg Multimedia Concurrent
+    Svg Multimedia Concurrent
     ShaderTools ShaderToolsPrivate LinguistTools Network Test ${EXTRA_QT_COMPONENTS}
 )
 
@@ -94,6 +94,7 @@ set(CORE_SOURCES
     core/src/package_deployment.hpp
     core/src/package_manager.cpp
     core/src/package_url_utils.hpp
+    core/src/performance_metrics.cpp
     core/src/permission_manager.cpp
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
@@ -109,6 +110,7 @@ set(CORE_SOURCES
     core/include/media_decoder.hpp
     core/include/media_utils.hpp
     core/include/package_manager.hpp
+    core/include/performance_metrics.hpp
     core/include/permission_manager.hpp
     core/include/preset_manager.hpp
     core/include/project_serializer.hpp
@@ -121,7 +123,7 @@ set(CORE_SOURCES
 
 add_library(AviQtl_Core STATIC ${CORE_SOURCES})
 target_include_directories(AviQtl_Core PUBLIC core/include ${CMAKE_SOURCE_DIR})
-target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
+target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
 target_link_libraries(AviQtl_Core PRIVATE Qt6::CorePrivate Qt6::ShaderToolsPrivate)
 aviqtl_target_warning_flags(AviQtl_Core)
 
@@ -239,13 +241,14 @@ set(UI_SOURCES
 
 add_library(AviQtl_UI STATIC ${UI_SOURCES})
 target_include_directories(AviQtl_UI PUBLIC ui/include core/include)
-target_link_libraries(AviQtl_UI PUBLIC AviQtl_Engine AviQtl_Scripting Qt6::Quick Qt6::QuickControls2 Qt6::Quick3D Qt6::Multimedia Qt6::Svg Qt6::Core5Compat Qt6::GuiPrivate Vulkan::Vulkan)
+target_link_libraries(AviQtl_UI PUBLIC AviQtl_Engine AviQtl_Scripting Qt6::Quick Qt6::QuickControls2 Qt6::Quick3D Qt6::Multimedia Qt6::Svg Qt6::GuiPrivate Vulkan::Vulkan)
 aviqtl_target_warning_flags(AviQtl_UI)
 
 # --- QML Resources & Module ---
 # Effects and objects are loaded at runtime as external modules and are not embedded here.
 set(QML_FILES
     ui/qml/AboutWindow.qml
+    ui/qml/SplashView.qml
     ui/qml/common/AudioKfParamTrack.qml
     ui/qml/common/AviQtlIcon.qml
     ui/qml/common/AviQtlWindow.qml

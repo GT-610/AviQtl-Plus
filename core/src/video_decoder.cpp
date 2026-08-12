@@ -1,5 +1,6 @@
 #include "video_decoder.hpp"
 #include "document_model.hpp"
+#include "performance_metrics.hpp"
 #include "settings_manager.hpp"
 #include "video_frame_store.hpp"
 #include <QDebug>
@@ -9,7 +10,6 @@
 #include <QtConcurrent>
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <utility>
 
 extern "C" {
@@ -17,7 +17,6 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/display.h>
 #include <libavutil/hwcontext.h>
-#include <libavutil/imgutils.h>
 #include <libavutil/time.h>
 #include <libswscale/swscale.h>
 }
@@ -55,68 +54,25 @@ static int displayRotationCcwFromDisplayMatrix(const AVStream *stream) {
     }
 }
 
-static AVFrame *rotatePackedRgbaFrame(const AVFrame *srcFrame, int ccwDegrees) {
-    if (srcFrame == nullptr || (srcFrame->format != AV_PIX_FMT_RGBA && srcFrame->format != AV_PIX_FMT_RGBA64LE)) {
-        return nullptr;
+static int displayRotationFromCcw(int ccwDegrees) {
+    switch (ccwDegrees) {
+    case 90:
+        return 270;
+    case 180:
+        return 180;
+    case 270:
+        return 90;
+    default:
+        return 0;
     }
+}
 
-    ccwDegrees %= 360;
-    if (ccwDegrees < 0) {
-        ccwDegrees += 360;
+static int64_t frameStorageCost(const AVFrame *frame, QVideoFrameFormat::PixelFormat format) {
+    int64_t cost = 0;
+    for (int plane = 0; plane < AV_NUM_DATA_POINTERS && frame->data[plane] != nullptr; ++plane) {
+        cost += static_cast<int64_t>(std::abs(frame->linesize[plane])) * videoPlaneHeight(format, plane, frame->height);
     }
-    if (ccwDegrees != 90 && ccwDegrees != 180 && ccwDegrees != 270) {
-        return nullptr;
-    }
-
-    const int srcWidth = srcFrame->width;
-    const int srcHeight = srcFrame->height;
-    const int bytesPerPixel = srcFrame->format == AV_PIX_FMT_RGBA64LE ? 8 : 4;
-    const int dstWidth = ccwDegrees == 180 ? srcWidth : srcHeight;
-    const int dstHeight = ccwDegrees == 180 ? srcHeight : srcWidth;
-
-    AVFrame *dstFrame = av_frame_alloc();
-    if (dstFrame == nullptr) {
-        return nullptr;
-    }
-
-    dstFrame->format = srcFrame->format;
-    dstFrame->width = dstWidth;
-    dstFrame->height = dstHeight;
-    if (av_frame_get_buffer(dstFrame, 32) < 0) {
-        av_frame_free(&dstFrame);
-        return nullptr;
-    }
-
-    for (int y = 0; y < srcHeight; ++y) {
-        const uint8_t *src = srcFrame->data[0] + y * srcFrame->linesize[0];
-        for (int x = 0; x < srcWidth; ++x) {
-            int dstX = 0;
-            int dstY = 0;
-            switch (ccwDegrees) {
-            case 90:
-                dstX = y;
-                dstY = srcWidth - 1 - x;
-                break;
-            case 180:
-                dstX = srcWidth - 1 - x;
-                dstY = srcHeight - 1 - y;
-                break;
-            case 270:
-                dstX = srcHeight - 1 - y;
-                dstY = x;
-                break;
-            default:
-                break;
-            }
-            memcpy(dstFrame->data[0] + dstY * dstFrame->linesize[0] + dstX * bytesPerPixel, src + x * bytesPerPixel, bytesPerPixel);
-        }
-    }
-
-    dstFrame->pts = srcFrame->pts;
-    dstFrame->best_effort_timestamp = srcFrame->best_effort_timestamp;
-    dstFrame->duration = srcFrame->duration;
-    dstFrame->time_base = srcFrame->time_base;
-    return dstFrame;
+    return cost;
 }
 
 auto VideoDecoder::getHwFormat(AVCodecContext *ctx, const enum AVPixelFormat *pixfmts) -> enum AVPixelFormat {
@@ -430,10 +386,14 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
     if (frame < 0) {
         return;
     }
+    auto &metrics = PerformanceMetrics::instance();
+    metrics.add(PerformanceCounter::DecodeRequests);
     m_lastRequestedFrame.store(frame, std::memory_order_release);
+    m_requestGeneration.fetch_add(1, std::memory_order_acq_rel);
 
     bool expected = false;
     if (!m_isDecoding.compare_exchange_strong(expected, true)) {
+        metrics.add(PerformanceCounter::DecodeRequestsCoalesced);
         return;
     }
 
@@ -445,11 +405,12 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
             m_isDecoding.store(false, std::memory_order_release);
         });
         while (!m_closing.load(std::memory_order_acquire)) {
-            int targetFrame = m_lastRequestedFrame.load(std::memory_order_acquire);
-            decodeTask(targetFrame, fps);
-            if (m_lastRequestedFrame.load(std::memory_order_acquire) == targetFrame) {
+            const quint64 activeGeneration = m_requestGeneration.load(std::memory_order_acquire);
+            const int targetFrame = m_lastRequestedFrame.load(std::memory_order_acquire);
+            decodeTask(targetFrame, fps, activeGeneration);
+            if (m_requestGeneration.load(std::memory_order_acquire) == activeGeneration) {
                 m_isDecoding.store(false, std::memory_order_release);
-                if (m_lastRequestedFrame.load(std::memory_order_acquire) != targetFrame) {
+                if (m_requestGeneration.load(std::memory_order_acquire) != activeGeneration) {
                     bool exp = false;
                     if (m_isDecoding.compare_exchange_strong(exp, true)) {
                         continue;
@@ -461,19 +422,37 @@ void VideoDecoder::seekToFrame(int frame, double fps) { // NOLINT(bugprone-easil
     });
 }
 
-bool VideoDecoder::tryCacheHit(int targetFrame, const QString &clipKey) {
+bool VideoDecoder::isCurrentRequest(quint64 generation) const {
+    return !m_closing.load(std::memory_order_acquire) &&
+           m_requestGeneration.load(std::memory_order_acquire) == generation;
+}
+
+void VideoDecoder::publishFrame(int targetFrame, const QString &clipKey, const QVideoFrame &frame, quint64 generation) {
+    const QPointer<VideoFrameStore> store(m_store);
+    QMetaObject::invokeMethod(this, [this, store, targetFrame, clipKey, frame, generation]() -> void {
+        if (!isCurrentRequest(generation))
+            return;
+        if (store)
+            store->setVideoFrameSafe(clipKey, frame);
+        emit frameReady(targetFrame);
+    }, Qt::QueuedConnection);
+}
+
+bool VideoDecoder::tryCacheHit(int targetFrame, const QString &clipKey, quint64 generation) {
     QVideoFrame cachedFrame;
     if (getFrameFromGopCache(targetFrame, cachedFrame)) {
         m_gopCacheHits.fetch_add(1, std::memory_order_relaxed);
-        m_store->setVideoFrameSafe(clipKey, cachedFrame);
-        QMetaObject::invokeMethod(this, [this, targetFrame]() -> void { emit frameReady(targetFrame); }, Qt::QueuedConnection);
+        PerformanceMetrics::instance().add(PerformanceCounter::DecodeCacheHits);
+        if (isCurrentRequest(generation))
+            publishFrame(targetFrame, clipKey, cachedFrame, generation);
         return true;
     }
 
     if (QVideoFrame *cached = m_frameCache.object(targetFrame)) {
         m_frameCacheHits.fetch_add(1, std::memory_order_relaxed);
-        m_store->setVideoFrameSafe(clipKey, *cached);
-        QMetaObject::invokeMethod(this, [this, targetFrame]() { emit frameReady(targetFrame); }, Qt::QueuedConnection);
+        PerformanceMetrics::instance().add(PerformanceCounter::DecodeCacheHits);
+        if (isCurrentRequest(generation))
+            publishFrame(targetFrame, clipKey, *cached, generation);
         return true;
     }
 
@@ -481,9 +460,11 @@ bool VideoDecoder::tryCacheHit(int targetFrame, const QString &clipKey) {
     return false;
 }
 
-void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-easily-swappable-parameters)
+void VideoDecoder::decodeTask(int targetFrame, double fps, quint64 generation) { // NOLINT(bugprone-easily-swappable-parameters)
+    Q_UNUSED(fps);
+    ScopedPerformanceTimer decodeTimer(PerformanceCounter::DecodeNanoseconds);
     QMutexLocker locker(&m_mutex);
-    if (m_closing.load(std::memory_order_acquire)) {
+    if (!isCurrentRequest(generation)) {
         return;
     }
     if ((m_decCtx == nullptr) || m_index.empty()) {
@@ -495,11 +476,10 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 
     const QString &clipKey = clipIdString();
 
-    if (tryCacheHit(targetFrame, clipKey)) {
+    if (tryCacheHit(targetFrame, clipKey, generation)) {
         return;
     }
 
-    const auto &targetEntry = m_index[targetFrame];
     bool needSeek = true;
 
     int keyIndex = m_prevKeyframe[targetFrame];
@@ -575,12 +555,9 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 
             if (decodedFrameIndex == targetFrame && !targetDispatched) {
                 QVideoFrame *cached = m_frameCache.object(decodedFrameIndex);
-                if (cached && cached->isValid()) {
-                    m_store->setVideoFrameSafe(clipKey, *cached);
+                if (cached && cached->isValid() && isCurrentRequest(generation)) {
                     m_lastGoodFrame = *cached;
-                    if (auto *app = qApp) {
-                        QMetaObject::invokeMethod(this, [this, targetFrame]() { emit frameReady(targetFrame); }, Qt::QueuedConnection);
-                    }
+                    publishFrame(targetFrame, clipKey, *cached, generation);
                     targetDispatched = true;
                 }
             }
@@ -594,6 +571,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                 if (m_frame->format == m_hwPixFmt) {
                     swFrame = av_frame_alloc();
                     if (av_hwframe_transfer_data(swFrame, m_frame, 0) == 0) {
+                        PerformanceMetrics::instance().add(PerformanceCounter::DecodeHardwareDownloads);
                         srcFrame = swFrame;
                     } else {
                         av_frame_free(&swFrame);
@@ -613,15 +591,14 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 
                     bool useHBD = DocumentModel::instance().projectSettings().highBitDepth;
 
-                    bool isSupported = (pixFmt == AV_PIX_FMT_YUV420P || pixFmt == AV_PIX_FMT_NV12 || pixFmt == AV_PIX_FMT_RGBA);
+                    bool isSupported = (pixFmt == AV_PIX_FMT_YUV420P || pixFmt == AV_PIX_FMT_YUV422P ||
+                                        pixFmt == AV_PIX_FMT_NV12 || pixFmt == AV_PIX_FMT_RGBA);
                     if (useHBD)
-                        isSupported |= (pixFmt == AV_PIX_FMT_RGBA64LE || pixFmt == AV_PIX_FMT_P010LE);
+                        isSupported |= (pixFmt == AV_PIX_FMT_P010LE);
 
-                    const bool needsPixelRotation = m_displayRotationCcw != 0;
-                    const bool needsRgbaForRotation = needsPixelRotation && pixFmt != AV_PIX_FMT_RGBA && pixFmt != AV_PIX_FMT_RGBA64LE;
-                    if (!isSupported || needsRgbaForRotation) {
+                    if (!isSupported) {
                         // プロジェクト設定に応じてターゲットフォーマットを選択
-                        AVPixelFormat targetFmt = useHBD ? AV_PIX_FMT_RGBA64LE : AV_PIX_FMT_RGBA;
+                        AVPixelFormat targetFmt = useHBD ? AV_PIX_FMT_P010LE : AV_PIX_FMT_RGBA;
                         m_swsCtx = sws_getCachedContext(m_swsCtx, srcFrame->width, srcFrame->height, static_cast<AVPixelFormat>(srcFrame->format), srcFrame->width, srcFrame->height, targetFmt, SWS_BILINEAR, nullptr, nullptr, nullptr);
                         if (m_swsCtx != nullptr) {
                             convertedFrame = av_frame_alloc();
@@ -630,6 +607,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                             convertedFrame->height = srcFrame->height;
                             if (av_frame_get_buffer(convertedFrame, 32) == 0) {
                                 sws_scale(m_swsCtx, srcFrame->data, srcFrame->linesize, 0, srcFrame->height, convertedFrame->data, convertedFrame->linesize);
+                                PerformanceMetrics::instance().add(PerformanceCounter::DecodePixelConversions);
                                 convertedFrame->pts = srcFrame->pts;
                                 convertedFrame->best_effort_timestamp = srcFrame->best_effort_timestamp;
                                 srcFrame = convertedFrame;
@@ -640,21 +618,15 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                         }
                     }
 
-                    AVFrame *rotatedFrame = nullptr;
-                    if (needsPixelRotation) {
-                        rotatedFrame = rotatePackedRgbaFrame(srcFrame, m_displayRotationCcw);
-                        if (rotatedFrame != nullptr) {
-                            srcFrame = rotatedFrame;
-                        } else {
-                            qWarning() << "[VideoDecoder][rotation] failed to rotate frame, using unrotated pixels:" << m_source;
-                        }
-                    }
-
                     QVideoFrameFormat::PixelFormat qtFmt = QVideoFrameFormat::Format_Invalid;
                     switch (srcFrame->format) {
                     case AV_PIX_FMT_YUV420P:
                     case AV_PIX_FMT_YUVJ420P:
                         qtFmt = QVideoFrameFormat::Format_YUV420P;
+                        break;
+                    case AV_PIX_FMT_YUV422P:
+                    case AV_PIX_FMT_YUVJ422P:
+                        qtFmt = QVideoFrameFormat::Format_YUV422P;
                         break;
                     case AV_PIX_FMT_NV12:
                         qtFmt = QVideoFrameFormat::Format_NV12;
@@ -665,28 +637,36 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
                     case AV_PIX_FMT_RGBA:
                         qtFmt = QVideoFrameFormat::Format_RGBA8888;
                         break;
-                    case AV_PIX_FMT_RGBA64LE:
-                        qtFmt = QVideoFrameFormat::Format_RGBA8888; // メタデータ上は8bitとして扱う
-                        break;
                     default:
-                        qtFmt = QVideoFrameFormat::Format_YUV420P;
+                        qtFmt = QVideoFrameFormat::Format_Invalid;
                         break;
                     }
 
+                    if (qtFmt == QVideoFrameFormat::Format_Invalid) {
+                        if (swFrame != nullptr)
+                            av_frame_free(&swFrame);
+                        if (convertedFrame != nullptr)
+                            av_frame_free(&convertedFrame);
+                        continue;
+                    }
+
                     const QSize outputSize(srcFrame->width, srcFrame->height);
-                    const AVPixelFormat outputPixFmt = static_cast<AVPixelFormat>(srcFrame->format);
+                    const int64_t storageCost = std::max<int64_t>(0, frameStorageCost(srcFrame, qtFmt));
                     AVFrame *ownedFrame = av_frame_alloc();
-                    av_frame_ref(ownedFrame, srcFrame);
+                    if (ownedFrame == nullptr || av_frame_ref(ownedFrame, srcFrame) < 0) {
+                        av_frame_free(&ownedFrame);
+                        if (swFrame != nullptr)
+                            av_frame_free(&swFrame);
+                        if (convertedFrame != nullptr)
+                            av_frame_free(&convertedFrame);
+                        continue;
+                    }
                     if (swFrame != nullptr) {
                         av_frame_free(&swFrame);
                     }
                     if (convertedFrame != nullptr) {
                         av_frame_free(&convertedFrame);
                     }
-                    if (rotatedFrame != nullptr) {
-                        av_frame_free(&rotatedFrame);
-                    }
-
                     QVideoFrameFormat format(outputSize, qtFmt);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -694,27 +674,27 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
 #pragma clang diagnostic pop
                     av_frame_free(&ownedFrame);
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                    videoFrame.setRotation(static_cast<QtVideo::Rotation>(displayRotationFromCcw(m_displayRotationCcw)));
+#else
+                    videoFrame.setRotationAngle(static_cast<QVideoFrame::RotationAngle>(displayRotationFromCcw(m_displayRotationCcw)));
+#endif
                     videoFrame.setStartTime(-1);
                     videoFrame.setEndTime(-1);
 
                     if (videoFrame.isValid()) {
                         m_decodedFrames.fetch_add(1, std::memory_order_relaxed);
-                        // メタデータが8bitでも、実際のメモリ消費(RGBA64)に合わせてコスト計算を行う
-                        int bpp = (outputPixFmt == AV_PIX_FMT_RGBA64LE) ? 8 : (qtFmt == QVideoFrameFormat::Format_RGBA8888 ? 4 : 2);
-                        int64_t cost = static_cast<int64_t>(videoFrame.width()) * videoFrame.height() * bpp;
+                        PerformanceMetrics::instance().add(PerformanceCounter::DecodeFramesProduced);
                         auto *cachedFrame = new QVideoFrame(videoFrame);
 
-                        m_frameCache.insert(decodedFrameIndex, cachedFrame, static_cast<int>(std::clamp<int64_t>(cost, 0, INT_MAX)));
+                        m_frameCache.insert(decodedFrameIndex, cachedFrame, static_cast<int>(std::clamp<int64_t>(storageCost, 0, INT_MAX)));
                         newGopBlock.frames.insert(decodedFrameIndex, videoFrame);
 
                         // 最後に成功したフレームを更新 (Concealment 用)
                         m_lastGoodFrame = videoFrame;
 
-                        if (decodedFrameIndex == targetFrame && !targetDispatched) {
-                            m_store->setVideoFrameSafe(clipKey, m_lastGoodFrame);
-                            if (auto *app = qApp) {
-                                QMetaObject::invokeMethod(this, [this, targetFrame]() { emit frameReady(targetFrame); }, Qt::QueuedConnection);
-                            }
+                        if (decodedFrameIndex == targetFrame && !targetDispatched && isCurrentRequest(generation)) {
+                            publishFrame(targetFrame, clipKey, m_lastGoodFrame, generation);
                             targetDispatched = true;
                         }
                     }
@@ -726,7 +706,7 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
             }
 
             // 途中で新しいフレーム要求が来た場合は即座にこのタスクを中断
-            if (m_lastRequestedFrame.load(std::memory_order_acquire) != targetFrame) {
+            if (!isCurrentRequest(generation)) {
                 av_packet_unref(m_pkt);
                 return;
             }
@@ -746,21 +726,18 @@ void VideoDecoder::decodeTask(int targetFrame, double fps) { // NOLINT(bugprone-
         storeGopCacheBlock(std::move(newGopBlock));
     }
 
-    if (!targetDispatched && m_lastGoodFrame.isValid() && !m_closing.load(std::memory_order_acquire)) {
-        m_store->setVideoFrameSafe(clipKey, m_lastGoodFrame);
-        if (auto *app = qApp) {
-            QMetaObject::invokeMethod(this, [this, targetFrame]() { emit frameReady(targetFrame); }, Qt::QueuedConnection);
-        }
+    if (!targetDispatched && m_lastGoodFrame.isValid() && isCurrentRequest(generation)) {
+        publishFrame(targetFrame, clipKey, m_lastGoodFrame, generation);
         targetDispatched = true;
     }
 
     if (!targetDispatched) {
         QPointer<VideoDecoder> self(this);
-        if (auto *app = qApp) {
+        if (qApp != nullptr) {
             QMetaObject::invokeMethod(
                 this,
-                [self, targetFrame]() -> void {
-                    if (self && !self->m_closing.load(std::memory_order_acquire)) {
+                [self, targetFrame, generation]() -> void {
+                    if (self && self->isCurrentRequest(generation)) {
                         emit self->frameError(targetFrame);
                     }
                 },
@@ -773,6 +750,7 @@ void VideoDecoder::updateCacheSize() {
     int sizeMB = SettingsManager::instance().settings().value(QStringLiteral("cacheSize"), 512).toInt();
     int minSizeMB = SettingsManager::instance().value(QStringLiteral("videoDecoderMinCacheMB"), 64).toInt();
     sizeMB = std::max(sizeMB, minSizeMB);
+    QMutexLocker locker(&m_mutex);
     m_frameCache.setMaxCost(static_cast<qsizetype>(sizeMB) * 1024 * 1024);
 }
 

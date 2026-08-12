@@ -1914,9 +1914,15 @@
         <translation>导出已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="182"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="360"/>
-        <source>Frame capture error: failed to capture frame %1</source>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="439"/>
+        <source>Frame render timeout: failed to render frame %1</source>
+        <translation>帧渲染超时：无法渲染第 %1 帧</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="453"/>
+        <source>Frame grab error: failed to capture frame %1</source>
         <translation>帧捕获错误：无法捕获第 %1 帧</translation>
     </message>
     <message>
@@ -2779,6 +2785,11 @@
         <source>進捗更新間隔</source>
         <translation>进度更新间隔</translation>
     </message>
+    <message>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="159"/>
+        <source>Encoder queue memory (MB)</source>
+        <translation>编码器队列内存（MB）</translation>
+    </message>
 </context>
 <context>
     <name>GeneralSettingsPage</name>
@@ -3487,6 +3498,51 @@
         <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="53"/>
         <source>キャッシュ容量</source>
         <translation>缓存容量</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="69"/>
+        <source>Preview rendering</source>
+        <translation>预览渲染</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="79"/>
+        <source>Render scale</source>
+        <translation>渲染缩放</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="105"/>
+        <source>Preview antialiasing</source>
+        <translation>预览抗锯齿</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="113"/>
+        <source>Disabled</source>
+        <translation>禁用</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="127"/>
+        <source>Timeline baking</source>
+        <translation>时间线烘焙</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="137"/>
+        <source>Strategy</source>
+        <translation>策略</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="144"/>
+        <source>On demand</source>
+        <translation>按需</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="145"/>
+        <source>Bake all clips</source>
+        <translation>烘焙所有剪辑</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="152"/>
+        <source>Prefetch frames</source>
+        <translation>预取帧数</translation>
     </message>
 </context>
 <context>

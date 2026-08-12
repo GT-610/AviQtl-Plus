@@ -1914,10 +1914,16 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Export cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="182"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="360"/>
-        <source>Frame capture error: failed to capture frame %1</source>
-        <translation>Frame capture error: failed to capture frame %1</translation>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="439"/>
+        <source>Frame render timeout: failed to render frame %1</source>
+        <translation>Frame render timeout: failed to render frame %1</translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="453"/>
+        <source>Frame grab error: failed to capture frame %1</source>
+        <translation>Frame grab error: failed to capture frame %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="189"/>
@@ -2779,6 +2785,11 @@ Progress will be lost.</translation>
         <source>進捗更新間隔</source>
         <translation>Progress update interval</translation>
     </message>
+    <message>
+        <location filename="../ui/qml/settings/ExportSettingsPage.qml" line="159"/>
+        <source>Encoder queue memory (MB)</source>
+        <translation>Encoder queue memory (MB)</translation>
+    </message>
 </context>
 <context>
     <name>GeneralSettingsPage</name>
@@ -3487,6 +3498,51 @@ Please restart the application to apply the update.</translation>
         <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="53"/>
         <source>キャッシュ容量</source>
         <translation>Cache capacity</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="69"/>
+        <source>Preview rendering</source>
+        <translation>Preview rendering</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="79"/>
+        <source>Render scale</source>
+        <translation>Render scale</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="105"/>
+        <source>Preview antialiasing</source>
+        <translation>Preview antialiasing</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="113"/>
+        <source>Disabled</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="127"/>
+        <source>Timeline baking</source>
+        <translation>Timeline baking</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="137"/>
+        <source>Strategy</source>
+        <translation>Strategy</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="144"/>
+        <source>On demand</source>
+        <translation>On demand</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="145"/>
+        <source>Bake all clips</source>
+        <translation>Bake all clips</translation>
+    </message>
+    <message>
+        <location filename="../ui/qml/settings/PerformanceSettingsPage.qml" line="152"/>
+        <source>Prefetch frames</source>
+        <translation>Prefetch frames</translation>
     </message>
 </context>
 <context>

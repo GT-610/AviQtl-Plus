@@ -23,6 +23,13 @@ class TestSettingsManager : public QObject {
         QCOMPARE(val.toInt(), 8192);
     }
 
+    void performanceDefaults() {
+        SettingsManager &settings = SettingsManager::instance();
+        QCOMPARE(settings.value(QStringLiteral("previewRenderScale")).toDouble(), 1.0);
+        QCOMPARE(settings.value(QStringLiteral("previewMsaaSamples")).toInt(), 0);
+        QCOMPARE(settings.value(QStringLiteral("exportEncoderQueueMB")).toInt(), 128);
+    }
+
     void setAndGetValue() {
         // Use underscore prefix to avoid disk save side-effect
         SettingsManager::instance().setValue(QStringLiteral("_test.integer"), 42);

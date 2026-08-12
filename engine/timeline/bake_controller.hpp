@@ -1,5 +1,6 @@
 #pragma once
 #include <QObject>
+#include <memory>
 
 namespace AviQtl::Engine::Timeline {
 
@@ -19,14 +20,17 @@ class BakeController : public QObject {
     void onStructureChanged();
 
   private:
+    struct CacheState;
+
     BakeController();
-    ~BakeController() override = default;
+    ~BakeController() override;
 
     BakeController(const BakeController &) = delete;
     BakeController &operator=(const BakeController &) = delete;
 
     int m_lastSceneId = -1;
     int m_lastFrame = -1;
+    std::unique_ptr<CacheState> m_cache;
 };
 
 } // namespace AviQtl::Engine::Timeline

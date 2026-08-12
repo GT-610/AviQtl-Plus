@@ -155,6 +155,18 @@ ScrollView {
                     onValueModified: root.setValue("exportProgressInterval", value)
                 }
 
+                Label {
+                    text: qsTr("Encoder queue memory (MB)")
+                }
+
+                SpinBox {
+                    from: 16
+                    to: 1024
+                    stepSize: 16
+                    value: root.valueOr("exportEncoderQueueMB", 128)
+                    onValueModified: root.setValue("exportEncoderQueueMB", value)
+                }
+
             }
 
         }

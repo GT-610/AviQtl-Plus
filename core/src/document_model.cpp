@@ -11,10 +11,14 @@ DocumentModel &DocumentModel::instance() {
 void DocumentModel::clear() {
     m_scenes.clear();
     m_undoStack.clear();
+    ++m_revision;
     emit structureChanged();
 }
 
-void DocumentModel::setProjectSettings(const ProjectSettings &settings) { m_projectSettings = settings; }
+void DocumentModel::setProjectSettings(const ProjectSettings &settings) {
+    m_projectSettings = settings;
+    ++m_revision;
+}
 
 const SceneSettings *DocumentModel::findScene(int sceneId) const {
     auto it = std::find_if(m_scenes.begin(), m_scenes.end(), [sceneId](const SceneSettings &s) { return s.id == sceneId; });
@@ -23,6 +27,7 @@ const SceneSettings *DocumentModel::findScene(int sceneId) const {
 
 void DocumentModel::addScene(const SceneSettings &scene) {
     m_scenes.push_back(scene);
+    ++m_revision;
     emit structureChanged();
 }
 
@@ -30,6 +35,7 @@ void DocumentModel::removeScene(int sceneId) {
     auto it = std::remove_if(m_scenes.begin(), m_scenes.end(), [sceneId](const SceneSettings &s) { return s.id == sceneId; });
     if (it != m_scenes.end()) {
         m_scenes.erase(it, m_scenes.end());
+        ++m_revision;
         emit structureChanged();
     }
 }
@@ -41,6 +47,7 @@ void DocumentModel::updateSceneSettings(const SceneSettings &settings) {
         auto savedClips = std::move(it->clips);
         *it = settings;
         it->clips = std::move(savedClips);
+        ++m_revision;
         emit structureChanged();
     }
 }
@@ -49,6 +56,7 @@ void DocumentModel::setClips(int sceneId, std::vector<Clip> &&clips) {
     auto it = std::find_if(m_scenes.begin(), m_scenes.end(), [sceneId](const SceneSettings &s) { return s.id == sceneId; });
     if (it != m_scenes.end()) {
         it->clips = std::move(clips);
+        ++m_revision;
         emit structureChanged();
     }
 }

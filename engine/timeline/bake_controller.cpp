@@ -3,11 +3,14 @@
 #include "core/include/effect_registry.hpp"
 #include "core/include/keyframe_utils.hpp"
 #include "core/include/media_utils.hpp"
+#include "core/include/performance_metrics.hpp"
 #include "core/include/settings_manager.hpp"
 #include "ecs.hpp"
 #include <algorithm>
 #include <bitset>
+#include <limits>
 #include <QSet>
+#include <unordered_map>
 
 namespace AviQtl::Engine::Timeline {
 
@@ -59,8 +62,14 @@ struct ResolvedTracks {
     QSet<QString> allKeys;
 };
 
+QVariant evalValue(const ResolvedTracks &rt, const QString &key, int frame) {
+    if (key == QStringLiteral("time"))
+        return frame;
+    return AviQtl::Core::KeyframeUtils::evaluateResolvedParam(rt.params, rt.resolved, key, frame);
+}
+
 float evalFloat(const ResolvedTracks &rt, const QString &key, int frame) {
-    const QVariant v = AviQtl::Core::KeyframeUtils::evaluateResolvedParam(rt.params, rt.resolved, key, frame);
+    const QVariant v = evalValue(rt, key, frame);
     return static_cast<float>(v.toDouble());
 }
 
@@ -71,10 +80,10 @@ float evalFloatOr(const ResolvedTracks &rt, const QString &key, float fallback, 
     return evalFloat(rt, key, frame);
 }
 
-ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int relFrame, int clipDuration) {
+ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int clipDuration) {
     ResolvedTracks out;
     out.params = effect.params;
-    out.params[QStringLiteral("time")] = relFrame;
+    out.allKeys.insert(QStringLiteral("time"));
 
     int trackDuration = clipDuration;
     QVariantMap tracks;
@@ -95,8 +104,20 @@ ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int relFr
     return out;
 }
 
-void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fps,
-                     RenderComponent &render, EffectParamBuffer &paramBuf) {
+struct CachedEffect {
+    ResolvedTracks tracks;
+};
+
+struct CachedClip {
+    std::size_t sceneClipIndex = 0;
+    int clipId = -1;
+    int startFrame = 0;
+    int endFrame = 0;
+    std::vector<CachedEffect> effects;
+};
+
+void bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps,
+                      RenderComponent &render, EffectParamBuffer &paramBuf) {
     Q_UNUSED(fps);
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
     const double relTime = static_cast<double>(relFrame);
@@ -112,7 +133,8 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     bool hasTransform = false;
     uint16_t effectIdx = 0;
 
-    for (const auto &effect : clip.effects) {
+    for (std::size_t effectIndex = 0; effectIndex < clip.effects.size(); ++effectIndex) {
+        const auto &effect = clip.effects[effectIndex];
         if (!effect.enabled) {
             ++effectIdx;
             continue;
@@ -124,7 +146,11 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             continue;
         }
 
-        const ResolvedTracks rt = buildResolvedTracks(effect, relFrame, clip.durationFrames);
+        if (effectIndex >= cachedClip.effects.size()) {
+            ++effectIdx;
+            continue;
+        }
+        const ResolvedTracks &rt = cachedClip.effects[effectIndex].tracks;
 
         if (effect.id == QStringLiteral("transform")) {
             hasTransform = true;
@@ -156,7 +182,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
             std::memcpy(entry.paramName, nameBytes.constData(), copyLen);
             entry.paramName[copyLen] = '\0';
 
-            QVariant evaluated = AviQtl::Core::KeyframeUtils::evaluateResolvedParam(rt.params, rt.resolved, key, relFrame);
+            QVariant evaluated = evalValue(rt, key, relFrame);
 
             if (evaluated.canConvert<QColor>()) {
                 QColor c(evaluated.toString());
@@ -191,7 +217,7 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, int currentFrame, double fp
     }
 }
 
-AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, double fps) {
+AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps) {
     if (fps <= 0.0) {
         return {};
     }
@@ -206,7 +232,10 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
         [](const auto &e) { return e.enabled && e.id == QStringLiteral("audio"); });
     if (it != clip.effects.end()) {
         const auto &effect = *it;
-        const ResolvedTracks rt = buildResolvedTracks(effect, relFrame, clip.durationFrames);
+        const std::size_t effectIndex = static_cast<std::size_t>(std::distance(clip.effects.begin(), it));
+        if (effectIndex >= cachedClip.effects.size())
+            return audio;
+        const ResolvedTracks &rt = cachedClip.effects[effectIndex].tracks;
 
         const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
         audio.directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
@@ -228,7 +257,58 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, int currentFrame, 
 
 } // namespace
 
-BakeController::BakeController() { connect(&AviQtl::Core::DocumentModel::instance(), &AviQtl::Core::DocumentModel::structureChanged, this, &BakeController::onStructureChanged); }
+struct BakeController::CacheState {
+    static constexpr int kFrameBucketSize = 120;
+
+    quint64 documentRevision = std::numeric_limits<quint64>::max();
+    int sceneId = -1;
+    std::vector<CachedClip> clips;
+    std::unordered_map<int, std::vector<std::size_t>> timeBuckets;
+
+    void rebuild(const AviQtl::Core::SceneSettings &scene, quint64 revision) {
+        documentRevision = revision;
+        sceneId = scene.id;
+        clips.clear();
+        timeBuckets.clear();
+        clips.reserve(scene.clips.size());
+
+        quint64 resolvedEffectCount = 0;
+        for (std::size_t sceneIndex = 0; sceneIndex < scene.clips.size(); ++sceneIndex) {
+            const auto &clip = scene.clips[sceneIndex];
+            if (clip.id < 0 || clip.id >= MAX_CLIP_ID)
+                continue;
+
+            CachedClip cached;
+            cached.sceneClipIndex = sceneIndex;
+            cached.clipId = clip.id;
+            cached.startFrame = clip.startFrame;
+            cached.endFrame = clip.startFrame + std::max(0, clip.durationFrames);
+            cached.effects.reserve(clip.effects.size());
+            for (const auto &effect : clip.effects) {
+                cached.effects.push_back({
+                    .tracks = buildResolvedTracks(effect, clip.durationFrames),
+                });
+                ++resolvedEffectCount;
+            }
+
+            const std::size_t cachedIndex = clips.size();
+            clips.push_back(std::move(cached));
+
+            const int firstBucket = clip.startFrame / kFrameBucketSize;
+            const int lastBucket = std::max(clip.startFrame, clip.startFrame + std::max(0, clip.durationFrames)) / kFrameBucketSize;
+            for (int bucket = firstBucket; bucket <= lastBucket; ++bucket)
+                timeBuckets[bucket].push_back(cachedIndex);
+        }
+
+        AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::BakeTrackCacheMisses, resolvedEffectCount);
+    }
+};
+
+BakeController::BakeController() : m_cache(std::make_unique<CacheState>()) {
+    connect(&AviQtl::Core::DocumentModel::instance(), &AviQtl::Core::DocumentModel::structureChanged, this, &BakeController::onStructureChanged);
+}
+
+BakeController::~BakeController() = default;
 
 BakeController &BakeController::instance() {
     static BakeController inst;
@@ -236,79 +316,87 @@ BakeController &BakeController::instance() {
 }
 
 void BakeController::bake(int sceneId, int currentFrame) {
-    const auto *scene = AviQtl::Core::DocumentModel::instance().findScene(sceneId);
+    auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
+    metrics.add(AviQtl::Core::PerformanceCounter::BakeCalls);
+    AviQtl::Core::ScopedPerformanceTimer bakeTimer(AviQtl::Core::PerformanceCounter::BakeNanoseconds);
+
+    const auto &document = AviQtl::Core::DocumentModel::instance();
+    const auto *scene = document.findScene(sceneId);
     if (!scene)
         return;
 
+    const bool cacheRebuilt = m_cache->documentRevision != document.revision() || m_cache->sceneId != sceneId;
+    if (cacheRebuilt)
+        m_cache->rebuild(*scene, document.revision());
+
     auto &sm = AviQtl::Core::SettingsManager::instance();
-    const QString strategy = sm.value(QStringLiteral("bakeStrategy"), QStringLiteral("FullBake")).toString();
-    const int prefetch = sm.value(QStringLiteral("onDemandPrefetchFrames"), 30).toInt();
+    const QString strategy = sm.value(QStringLiteral("bakeStrategy"), QStringLiteral("OnDemand")).toString();
+    const int prefetch = std::max(0, sm.value(QStringLiteral("onDemandPrefetchFrames"), 30).toInt());
     const double fps = scene->fps;
 
     const bool isFullBake = (strategy == QStringLiteral("FullBake"));
     std::bitset<MAX_CLIP_ID> aliveFlags;
+    std::bitset<MAX_CLIP_ID> selectedFlags;
+    std::vector<std::size_t> selectedClips;
+
+    if (isFullBake) {
+        selectedClips.resize(m_cache->clips.size());
+        for (std::size_t i = 0; i < selectedClips.size(); ++i)
+            selectedClips[i] = i;
+        metrics.add(AviQtl::Core::PerformanceCounter::BakeClipsVisited, selectedClips.size());
+    } else {
+        const int rangeStart = currentFrame - prefetch;
+        const int rangeEnd = currentFrame + prefetch;
+        const int firstBucket = rangeStart / CacheState::kFrameBucketSize;
+        const int lastBucket = rangeEnd / CacheState::kFrameBucketSize;
+        for (int bucket = firstBucket; bucket <= lastBucket; ++bucket) {
+            const auto bucketIt = m_cache->timeBuckets.find(bucket);
+            if (bucketIt == m_cache->timeBuckets.end())
+                continue;
+            for (const std::size_t cachedIndex : bucketIt->second) {
+                const auto &cached = m_cache->clips[cachedIndex];
+                if (selectedFlags.test(static_cast<std::size_t>(cached.clipId)))
+                    continue;
+                selectedFlags.set(static_cast<std::size_t>(cached.clipId));
+                metrics.add(AviQtl::Core::PerformanceCounter::BakeClipsVisited);
+                if (cached.startFrame <= rangeEnd && cached.endFrame >= rangeStart)
+                    selectedClips.push_back(cachedIndex);
+            }
+        }
+    }
+
+    metrics.add(AviQtl::Core::PerformanceCounter::BakeClipsActive, selectedClips.size());
 
     auto &ecs = ECS::instance();
     ecs.clearEffectParams();
 
-    for (const auto &clip : scene->clips) {
-        if (clip.id < 0 || clip.id >= MAX_CLIP_ID)
+    for (const std::size_t cachedIndex : selectedClips) {
+        if (cachedIndex >= m_cache->clips.size())
             continue;
+        const auto &cachedClip = m_cache->clips[cachedIndex];
+        if (cachedClip.sceneClipIndex >= scene->clips.size())
+            continue;
+        const auto &clip = scene->clips[cachedClip.sceneClipIndex];
 
-        bool shouldBake = false;
-        if (isFullBake) {
-            shouldBake = true;
-        } else {
-            const int start = clip.startFrame;
-            const int end = clip.startFrame + clip.durationFrames;
-            const int rangeStart = currentFrame - prefetch;
-            const int rangeEnd = currentFrame + prefetch;
-            if (start <= rangeEnd && end >= rangeStart) {
-                shouldBake = true;
-            }
+        if (!cacheRebuilt)
+            metrics.add(AviQtl::Core::PerformanceCounter::BakeTrackCacheHits, cachedClip.effects.size());
+        aliveFlags.set(static_cast<std::size_t>(clip.id));
+
+        const double relTime = static_cast<double>(std::max(0, currentFrame - clip.startFrame));
+        ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
+
+        if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("video")) {
+            const AudioComponent audio = bakeAudioState(clip, cachedClip, currentFrame, fps);
+            ecs.updateAudioClipState(clip.id, audio);
         }
 
-        if (shouldBake) {
-            aliveFlags.set(static_cast<std::size_t>(clip.id));
-
-            const double relTime = static_cast<double>(std::max(0, currentFrame - clip.startFrame));
-            ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
-
-            if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("video")) {
-                const AudioComponent audio = bakeAudioState(clip, currentFrame, fps);
-                ecs.updateAudioClipState(clip.id, audio);
-            }
-
-            RenderComponent render;
-            bakeClipEffects(clip, currentFrame, fps, render, ecs.editState().effectParams);
-            ecs.updateRenderState(clip.id, render);
-        }
+        RenderComponent render;
+        render.effectStartIndex = static_cast<uint32_t>(ecs.editState().effectParams.entries.size());
+        bakeClipEffects(clip, cachedClip, currentFrame, fps, render, ecs.editState().effectParams);
+        ecs.updateRenderState(clip.id, render);
     }
 
     ecs.syncClipIds(aliveFlags);
-
-    // Index effect params by clipId for O(1) lookup in bridge
-    auto &entries = ecs.editState().effectParams.entries;
-    std::sort(entries.begin(), entries.end(), [](const EffectParamEntry &a, const EffectParamEntry &b) {
-        if (a.clipId != b.clipId)
-            return a.clipId < b.clipId;
-        if (a.effectIndex != b.effectIndex)
-            return a.effectIndex < b.effectIndex;
-        return std::strncmp(a.paramName, b.paramName, sizeof(a.paramName)) < 0;
-    });
-
-    // Build per-clip start index
-    uint32_t lastClipId = UINT32_MAX;
-    for (std::size_t i = 0; i < entries.size(); ++i) {
-        const auto &e = entries[i];
-        if (e.clipId != lastClipId) {
-            lastClipId = e.clipId;
-            auto *rc = ecs.editState().renderStates.find(static_cast<int>(e.clipId));
-            if (rc) {
-                rc->effectStartIndex = static_cast<uint32_t>(i);
-            }
-        }
-    }
 
     ecs.commit();
 

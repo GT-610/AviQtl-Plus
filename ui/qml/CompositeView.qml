@@ -22,6 +22,21 @@ Item {
     property var groupControls: []
     property var cameraControls: []
     property var ecsRenderData: ({})
+    readonly property real previewRenderScale: {
+        if (root.exportMode || typeof SettingsManager === "undefined" || !SettingsManager)
+            return 1.0;
+        const settings = SettingsManager.settings;
+        const value = settings.previewRenderScale !== undefined ? settings.previewRenderScale : 1.0;
+        const scale = Number(value);
+        return Number.isNaN(scale) ? 1.0 : Math.max(0.25, Math.min(1.0, scale));
+    }
+    readonly property int previewMsaaSamples: {
+        if (typeof SettingsManager === "undefined" || !SettingsManager)
+            return 0;
+        const settings = SettingsManager.settings;
+        const samples = Number(settings.previewMsaaSamples !== undefined ? settings.previewMsaaSamples : 0);
+        return samples === 2 || samples === 4 || samples === 8 ? samples : 0;
+    }
     readonly property bool _isInputFocused: {
         var item = Qt.application.focusItem;
         if (!item)
@@ -143,6 +158,8 @@ Item {
         property int projW: root.projectWidth
         property int projH: root.projectHeight
         property double aspect: projW / projH
+        readonly property real fittedWidth: Math.min(parent.width, parent.height * aspect)
+        readonly property real fittedHeight: Math.min(parent.height, parent.width / aspect)
         property double currentClipTimeRatio: (Workspace.currentTimeline) ? Math.max(0, Math.min(1, (root.currentFrame - Workspace.currentTimeline.clipStartFrame) / Workspace.currentTimeline.clipDurationFrames)) : 0
 
         // [FIX-17] activeCameraControl.camera へのアクセス前に camera プロパティの
@@ -154,8 +171,9 @@ Item {
 
             return mainCamera;
         }
-        width: root.exportMode ? projW : Math.min(parent.width, parent.height * aspect)
-        height: root.exportMode ? projH : Math.min(parent.height, parent.width / aspect)
+        width: root.exportMode ? projW : Math.max(1, fittedWidth * root.previewRenderScale)
+        height: root.exportMode ? projH : Math.max(1, fittedHeight * root.previewRenderScale)
+        scale: root.exportMode ? 1.0 : 1.0 / root.previewRenderScale
         anchors.centerIn: parent
         focus: true
         Keys.onSpacePressed: {
@@ -657,8 +675,10 @@ Item {
 
             backgroundMode: SceneEnvironment.Color
             clearColor: "#000000"
-            antialiasingMode: SceneEnvironment.MSAA
-            antialiasingQuality: SceneEnvironment.High
+            antialiasingMode: (root.exportMode || root.previewMsaaSamples > 1) ? SceneEnvironment.MSAA : SceneEnvironment.NoAA
+            antialiasingQuality: root.exportMode || root.previewMsaaSamples === 4 ? SceneEnvironment.High
+                                                                                : root.previewMsaaSamples === 8 ? SceneEnvironment.VeryHigh
+                                                                                                                : SceneEnvironment.Medium
         }
 
     }
