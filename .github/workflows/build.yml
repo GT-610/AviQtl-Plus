@@ -21,6 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install Dependencies
         run: |
           pacman-key --init
@@ -35,6 +38,7 @@ jobs:
 
       - name: Run Tests
         run: |
+          cargo test --manifest-path rust/Cargo.toml --locked --workspace
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
           cmake --build build
           cd build && ctest --output-on-failure
@@ -68,6 +72,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Rust
+        if: matrix.platform != 'windows'
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install Dependencies (Linux)
         if: matrix.platform == 'linux'
         run: |
@@ -95,6 +103,7 @@ jobs:
           update: true
           install: >-
             mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-rust
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1

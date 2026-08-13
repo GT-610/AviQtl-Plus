@@ -34,6 +34,7 @@ endif()
 find_package(ECM REQUIRED NO_MODULE)
 list(APPEND CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 find_package(PkgConfig REQUIRED)
+find_program(CARGO_EXECUTABLE cargo REQUIRED)
 
 pkg_check_modules(FFMPEG IMPORTED_TARGET REQUIRED libavcodec>=61.12 libavformat libavutil libswscale libswresample)
 pkg_check_modules(LUAJIT IMPORTED_TARGET REQUIRED luajit)
@@ -72,6 +73,59 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)  # Disable C++20 modules for clang-tidy compatibility
+
+# --- Rust Core ---
+# Keep Cargo output inside the CMake build tree so parallel configurations do
+# not share artifacts and cleaning the build directory removes Rust outputs.
+set(AVIQTL_RUST_MANIFEST "${CMAKE_SOURCE_DIR}/rust/Cargo.toml")
+set(AVIQTL_RUST_TARGET_DIR "${CMAKE_BINARY_DIR}/rust-target")
+if(CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR "The Rust pilot currently requires a single-config generator such as Ninja")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(AVIQTL_RUST_PROFILE "debug")
+    set(AVIQTL_RUST_BUILD_ARGS "")
+else()
+    set(AVIQTL_RUST_PROFILE "release")
+    set(AVIQTL_RUST_BUILD_ARGS "--release")
+endif()
+set(AVIQTL_RUST_CORE_LIBRARY
+    "${AVIQTL_RUST_TARGET_DIR}/${AVIQTL_RUST_PROFILE}/${CMAKE_STATIC_LIBRARY_PREFIX}aviqtl_rust_core${CMAKE_STATIC_LIBRARY_SUFFIX}"
+)
+
+file(GLOB_RECURSE AVIQTL_RUST_CORE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/rust/aviqtl-core/src/*.rs"
+)
+add_custom_command(
+    OUTPUT "${AVIQTL_RUST_CORE_LIBRARY}"
+    COMMAND ${CMAKE_COMMAND} -E env
+        "CARGO_TARGET_DIR=${AVIQTL_RUST_TARGET_DIR}"
+        ${CARGO_EXECUTABLE} build
+        --manifest-path "${AVIQTL_RUST_MANIFEST}"
+        --locked
+        ${AVIQTL_RUST_BUILD_ARGS}
+        --package aviqtl-rust-core
+    DEPENDS
+        "${AVIQTL_RUST_MANIFEST}"
+        "${CMAKE_SOURCE_DIR}/rust/Cargo.lock"
+        "${CMAKE_SOURCE_DIR}/rust/aviqtl-core/Cargo.toml"
+        ${AVIQTL_RUST_CORE_SOURCES}
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/rust"
+    COMMENT "Building AviQtl Rust core"
+    VERBATIM
+)
+add_custom_target(AviQtl_RustCore_Build DEPENDS "${AVIQTL_RUST_CORE_LIBRARY}")
+add_library(AviQtl_RustCore STATIC IMPORTED GLOBAL)
+set_target_properties(AviQtl_RustCore PROPERTIES IMPORTED_LOCATION "${AVIQTL_RUST_CORE_LIBRARY}")
+add_dependencies(AviQtl_RustCore AviQtl_RustCore_Build)
+if(WIN32)
+    target_link_libraries(AviQtl_RustCore INTERFACE
+        ws2_32 userenv bcrypt ntdll synchronization
+    )
+elseif(UNIX AND NOT APPLE)
+    target_link_libraries(AviQtl_RustCore INTERFACE
+        dl pthread m rt util
+    )
+endif()
 
 # Helper to apply consistent warning flags across all AviQtl targets
 function(aviqtl_target_warning_flags target)
@@ -114,6 +168,7 @@ set(CORE_SOURCES
     core/include/permission_manager.hpp
     core/include/preset_manager.hpp
     core/include/project_serializer.hpp
+    core/include/rust_keyframe_core.hpp
     core/include/settings_manager.hpp
     core/include/shader_compiler.hpp
     core/include/theme_controller.hpp
@@ -123,7 +178,7 @@ set(CORE_SOURCES
 
 add_library(AviQtl_Core STATIC ${CORE_SOURCES})
 target_include_directories(AviQtl_Core PUBLIC core/include ${CMAKE_SOURCE_DIR})
-target_link_libraries(AviQtl_Core PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
+target_link_libraries(AviQtl_Core PUBLIC AviQtl_RustCore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Concurrent Qt6::Network Qt6::Multimedia Qt6::Qml PkgConfig::FFMPEG PkgConfig::LUAJIT)
 target_link_libraries(AviQtl_Core PRIVATE Qt6::CorePrivate Qt6::ShaderToolsPrivate)
 aviqtl_target_warning_flags(AviQtl_Core)
 

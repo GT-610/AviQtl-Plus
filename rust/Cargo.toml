@@ -1,0 +1,9 @@
+[workspace]
+resolver = "3"
+members = ["aviqtl-core"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

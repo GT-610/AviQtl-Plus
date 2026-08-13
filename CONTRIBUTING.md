@@ -14,6 +14,7 @@ Thank you for your interest in contributing!
 ## Development Environment
 
 - **C++ Standard**: C++23
+- **Rust**: stable toolchain (Cargo builds the native core through CMake)
 - **Qt**: 6.x (Qt Quick + QRhi)
 - **Build**: CMake 3.21+, Ninja
 - **Dependencies**: FFmpeg, LuaJIT, Carla, Vulkan
@@ -28,6 +29,7 @@ Thank you for your interest in contributing!
 
 ```
 core/          - FFmpeg decoders, document model, effect registry, settings
+rust/          - Rust workspace for native, Qt-independent core logic
 engine/        - Audio mixer, audio plugins, ECS system, keyframe evaluation
 scripting/     - LuaJIT host, mod engine
 ui/            - Qt Quick controllers, QML views, undo/redo commands
