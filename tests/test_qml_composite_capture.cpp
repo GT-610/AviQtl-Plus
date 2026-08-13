@@ -39,6 +39,85 @@ extern "C" {
 using namespace AviQtl;
 using namespace AviQtl::UI;
 
+class TestSettingsManager : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QVariantMap settings READ settings CONSTANT)
+
+  public:
+    explicit TestSettingsManager(QObject *parent = nullptr) : QObject(parent) {
+        m_settings.insert(QStringLiteral("shortcuts"), QVariantMap{});
+        m_settings.insert(QStringLiteral("showConfirmOnClose"), true);
+        m_settings.insert(QStringLiteral("timelineHeaderHeight"), 28);
+        m_settings.insert(QStringLiteral("previewRenderScale"), 1.0);
+        m_settings.insert(QStringLiteral("previewMsaaSamples"), 0);
+    }
+
+    QVariantMap settings() const { return m_settings; }
+    Q_INVOKABLE QVariant value(const QString &key, const QVariant &fallback = {}) const { return m_settings.value(key, fallback); }
+
+  private:
+    QVariantMap m_settings;
+};
+
+class TestWindowManager : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool timelineVisible READ timelineVisible WRITE setTimelineVisible NOTIFY timelineVisibleChanged)
+    Q_PROPERTY(bool projectSettingsVisible READ projectSettingsVisible WRITE setProjectSettingsVisible NOTIFY projectSettingsVisibleChanged)
+    Q_PROPERTY(bool objectSettingsVisible READ objectSettingsVisible WRITE setObjectSettingsVisible NOTIFY objectSettingsVisibleChanged)
+    Q_PROPERTY(bool systemSettingsVisible READ systemSettingsVisible WRITE setSystemSettingsVisible NOTIFY systemSettingsVisibleChanged)
+
+  public:
+    using QObject::QObject;
+
+    bool timelineVisible() const { return m_timelineVisible; }
+    bool projectSettingsVisible() const { return m_projectSettingsVisible; }
+    bool objectSettingsVisible() const { return m_objectSettingsVisible; }
+    bool systemSettingsVisible() const { return m_systemSettingsVisible; }
+    int quitRequests() const { return m_quitRequests; }
+
+    Q_INVOKABLE QObject *getWindow(const QString &) const { return nullptr; }
+    Q_INVOKABLE void showLauncher() {}
+    Q_INVOKABLE void requestQuit() { ++m_quitRequests; }
+
+    void setTimelineVisible(bool value) {
+        if (m_timelineVisible == value)
+            return;
+        m_timelineVisible = value;
+        emit timelineVisibleChanged();
+    }
+    void setProjectSettingsVisible(bool value) {
+        if (m_projectSettingsVisible == value)
+            return;
+        m_projectSettingsVisible = value;
+        emit projectSettingsVisibleChanged();
+    }
+    void setObjectSettingsVisible(bool value) {
+        if (m_objectSettingsVisible == value)
+            return;
+        m_objectSettingsVisible = value;
+        emit objectSettingsVisibleChanged();
+    }
+    void setSystemSettingsVisible(bool value) {
+        if (m_systemSettingsVisible == value)
+            return;
+        m_systemSettingsVisible = value;
+        emit systemSettingsVisibleChanged();
+    }
+
+  signals:
+    void timelineVisibleChanged();
+    void projectSettingsVisibleChanged();
+    void objectSettingsVisibleChanged();
+    void systemSettingsVisibleChanged();
+
+  private:
+    bool m_timelineVisible = false;
+    bool m_projectSettingsVisible = false;
+    bool m_objectSettingsVisible = false;
+    bool m_systemSettingsVisible = false;
+    int m_quitRequests = 0;
+};
+
 class TestQmlCompositeCapture : public QObject {
     Q_OBJECT
 
@@ -49,6 +128,8 @@ class TestQmlCompositeCapture : public QObject {
     void capturesCompositeView3DOutput();
     void capturesAnimatedTextAndMonochromeEffect();
     void exportsAnimatedTextAndDecodesDistinctFrames();
+    void discardingUnsavedProjectsCompletesApplicationQuit();
+    void savingUnsavedProjectCompletesApplicationQuit();
 
   private:
     struct DecodedVideo {
@@ -67,9 +148,37 @@ class TestQmlCompositeCapture : public QObject {
     static QVector3D averageVisibleColor(const QImage &image, int minimumBrightness = 20);
     static QVariantMap syncEcsRenderData(QQuickItem *compositeView);
     static DecodedVideo decodeVideo(const QString &path);
+    static QObject *findSaveConfirmDialog(QObject *root);
+    static QObject *findSaveDialog(QObject *root);
 };
 
+namespace {
+std::unique_ptr<QObject> createMainWindow(QQmlEngine &engine, Workspace &workspace, TestSettingsManager &settings, TestWindowManager &windowManager, QString *error) {
+    QQmlContext *context = engine.rootContext();
+    context->setContextProperty(QStringLiteral("Workspace"), &workspace);
+    context->setContextProperty(QStringLiteral("SettingsManager"), &settings);
+    context->setContextProperty(QStringLiteral("WindowManager"), &windowManager);
+    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
+    context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
+    context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
+    context->setContextProperty(QStringLiteral("DefaultTotalFrames"), 1'800);
+    context->setContextProperty(QStringLiteral("DefaultFps"), 60.0);
+    context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
+
+    QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/MainWindow.qml")));
+    if (!component.isReady()) {
+        *error = component.errorString();
+        return {};
+    }
+    std::unique_ptr<QObject> root(component.create(context));
+    if (!root)
+        *error = component.errorString();
+    return root;
+}
+} // namespace
+
 void TestQmlCompositeCapture::initTestCase() {
+    qmlRegisterType<Core::VideoEncoder>("AviQtl.Core", 1, 0, "VideoEncoder");
     qmlRegisterUncreatableType<TimelineController>("AviQtl.UI", 1, 0, "TimelineController", "Managed by C++");
     qmlRegisterSingletonInstance<ECSRenderBridge>("AviQtl.UI", 1, 0, "ECSRenderBridge", &ECSRenderBridge::instance());
 
@@ -650,6 +759,86 @@ void TestQmlCompositeCapture::exportsAnimatedTextAndDecodesDistinctFrames() {
     QVERIFY(lastCenterX >= 0.0);
     QVERIFY2(lastCenterX > firstCenterX + 40.0,
              qPrintable(QStringLiteral("decoded text center did not move: frame 0=%1, frame 1=%2").arg(firstCenterX).arg(lastCenterX)));
+}
+
+QObject *TestQmlCompositeCapture::findSaveConfirmDialog(QObject *root) {
+    const QList<QObject *> objects = root->findChildren<QObject *>();
+    const auto it = std::ranges::find_if(objects, [](QObject *object) { return object->metaObject()->indexOfProperty("pendingAction") >= 0; });
+    return it == objects.cend() ? nullptr : *it;
+}
+
+QObject *TestQmlCompositeCapture::findSaveDialog(QObject *root) {
+    const QList<QObject *> objects = root->findChildren<QObject *>();
+    const auto it = std::ranges::find_if(objects, [](QObject *object) { return object->metaObject()->indexOfProperty("_nextAction") >= 0; });
+    return it == objects.cend() ? nullptr : *it;
+}
+
+void TestQmlCompositeCapture::discardingUnsavedProjectsCompletesApplicationQuit() {
+    QQmlEngine engine;
+    Workspace workspace;
+    TestSettingsManager settings;
+    TestWindowManager windowManager;
+
+    workspace.newProject();
+    workspace.currentTimeline()->createScene(QStringLiteral("First dirty project"));
+    workspace.newProject();
+    workspace.currentTimeline()->createScene(QStringLiteral("Second dirty project"));
+    QCOMPARE(workspace.tabs().size(), 2);
+    QVERIFY(workspace.tabs().at(0).toMap().value(QStringLiteral("hasUnsavedChanges")).toBool());
+    QVERIFY(workspace.tabs().at(1).toMap().value(QStringLiteral("hasUnsavedChanges")).toBool());
+
+    QString error;
+    std::unique_ptr<QObject> root = createMainWindow(engine, workspace, settings, windowManager, &error);
+    QVERIFY2(root != nullptr, qPrintable(error));
+    auto *mainWindow = qobject_cast<QQuickWindow *>(root.get());
+    QVERIFY(mainWindow != nullptr);
+    QObject *saveConfirmDialog = findSaveConfirmDialog(root.get());
+    QVERIFY(saveConfirmDialog != nullptr);
+
+    QVERIFY(!mainWindow->close());
+    QCOMPARE(workspace.currentIndex(), 0);
+    QVERIFY(QMetaObject::invokeMethod(saveConfirmDialog, "discarded"));
+    QCOMPARE(workspace.currentIndex(), 1);
+    QCOMPARE(windowManager.quitRequests(), 0);
+
+    QVERIFY(QMetaObject::invokeMethod(saveConfirmDialog, "discarded"));
+    QCOMPARE(windowManager.quitRequests(), 1);
+    QCOMPARE(root->property("quitInProgress").toBool(), true);
+}
+
+void TestQmlCompositeCapture::savingUnsavedProjectCompletesApplicationQuit() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString projectUrl = QUrl::fromLocalFile(dir.filePath(QStringLiteral("quit-after-save.aviqtl"))).toString();
+
+    QQmlEngine engine;
+    Workspace workspace;
+    TestSettingsManager settings;
+    TestWindowManager windowManager;
+    workspace.newProject();
+    workspace.currentTimeline()->createScene(QStringLiteral("Unsaved scene"));
+    QVERIFY(workspace.currentTimeline()->hasUnsavedChanges());
+    QVERIFY(workspace.currentTimeline()->currentProjectUrl().isEmpty());
+
+    QString error;
+    std::unique_ptr<QObject> root = createMainWindow(engine, workspace, settings, windowManager, &error);
+    QVERIFY2(root != nullptr, qPrintable(error));
+    auto *mainWindow = qobject_cast<QQuickWindow *>(root.get());
+    QVERIFY(mainWindow != nullptr);
+    QObject *saveConfirmDialog = findSaveConfirmDialog(root.get());
+    QVERIFY(saveConfirmDialog != nullptr);
+    QObject *saveDialog = findSaveDialog(root.get());
+    QVERIFY(saveDialog != nullptr);
+
+    QVERIFY(!mainWindow->close());
+    QVERIFY(QMetaObject::invokeMethod(saveConfirmDialog, "accepted"));
+    QCOMPARE(windowManager.quitRequests(), 0);
+    QVERIFY(saveDialog->setProperty("file", QUrl(projectUrl)));
+    QVERIFY(QMetaObject::invokeMethod(saveDialog, "accepted"));
+    QCOMPARE(windowManager.quitRequests(), 1);
+    QCOMPARE(root->property("quitInProgress").toBool(), true);
+    QVERIFY(!workspace.currentTimeline()->hasUnsavedChanges());
+    QVERIFY(QFileInfo::exists(QUrl(projectUrl).toLocalFile()));
 }
 
 QTEST_MAIN(TestQmlCompositeCapture)
