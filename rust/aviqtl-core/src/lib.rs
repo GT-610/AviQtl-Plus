@@ -1,3 +1,5 @@
+mod audio;
+
 use std::f64::consts::PI;
 
 const DEFAULT_ELASTIC_PERIOD: f64 = 0.3;

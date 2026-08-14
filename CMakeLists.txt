@@ -168,6 +168,7 @@ set(CORE_SOURCES
     core/include/permission_manager.hpp
     core/include/preset_manager.hpp
     core/include/project_serializer.hpp
+    core/include/rust_audio_dsp.hpp
     core/include/rust_keyframe_core.hpp
     core/include/settings_manager.hpp
     core/include/shader_compiler.hpp
