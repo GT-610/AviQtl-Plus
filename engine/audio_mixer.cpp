@@ -1,4 +1,5 @@
 #include "audio_mixer.hpp"
+#include "core/include/rust_audio_dsp.hpp"
 #include "core/include/constants.hpp"
 #include "core/include/audio_decoder.hpp"
 #include "core/include/settings_manager.hpp"
@@ -12,21 +13,6 @@
 #include <vector>
 
 namespace AviQtl::Engine {
-
-namespace {
-
-auto fadeGainForTime(double relTime, double duration, float fadeInSec, float fadeOutSec) -> float {
-    double gain = 1.0;
-    if (fadeInSec > 0.0F) {
-        gain = std::min(gain, std::clamp(relTime / static_cast<double>(fadeInSec), 0.0, 1.0));
-    }
-    if (fadeOutSec > 0.0F) {
-        gain = std::min(gain, std::clamp((duration - relTime) / static_cast<double>(fadeOutSec), 0.0, 1.0));
-    }
-    return static_cast<float>(gain);
-}
-
-} // namespace
 
 Q_LOGGING_CATEGORY(lcAudioMixer, "aviqtl.audio_mixer")
 
@@ -189,29 +175,11 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
             fetchRawSamples(decoder, startTime, neededSamples * 2); // Stereo
 
             m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
-            int availableSrcSamples = static_cast<int>(m_rawSamples.size() / 2);
-
-            for (int i = 0; i < samplesPerFrame; ++i) {
-                double srcIdx = i * sourceRate;
-                int idx0 = static_cast<int>(srcIdx);
-                int idx1 = idx0 + 1;
-
-                // クランプして範囲外アクセス（SIGSEGV）を防止
-                if (idx0 >= availableSrcSamples) {
-                    idx0 = availableSrcSamples - 1;
-                }
-                if (idx1 >= availableSrcSamples) {
-                    idx1 = availableSrcSamples - 1;
-                }
-                idx0 = std::max(idx0, 0);
-                idx1 = std::max(idx1, 0);
-
-                double t = srcIdx - idx0;
-
-                // L ch
-                m_clipSamples[static_cast<std::size_t>(i) * 2] = static_cast<float>((m_rawSamples[static_cast<std::size_t>(idx0) * 2] * (1.0 - t)) + (m_rawSamples[static_cast<std::size_t>(idx1) * 2] * t));
-                // R ch
-                m_clipSamples[(static_cast<std::size_t>(i) * 2) + 1] = static_cast<float>((m_rawSamples[(static_cast<std::size_t>(idx0) * 2) + 1] * (1.0 - t)) + (m_rawSamples[(static_cast<std::size_t>(idx1) * 2) + 1] * t));
+            const auto status = AviQtl::RustCore::resampleStereoLinear(m_rawSamples, m_clipSamples, sourceRate);
+            if (status != AviQtl::RustCore::AudioStatus::Ok) {
+                qCWarning(lcAudioMixer) << "Rust audio resampling failed with status"
+                                        << static_cast<std::uint32_t>(status);
+                std::fill(m_clipSamples.begin(), m_clipSamples.end(), 0.0F);
             }
             // 次のフレームのための開始位置を進める（m_playbackSpeed 分の秒数）
             m_clipPhase[clipId] = startTime + ((static_cast<double>(samplesPerFrame) / m_format.sampleRate()) * sourceRate);
@@ -229,40 +197,27 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
         }
 
         const double clipDurationSec = fps > 0.0 ? static_cast<double>(audio.durationFrames) / fps : 0.0;
-        const float fadeGain = fadeGainForTime(relTime, clipDurationSec, audio.fadeInSec, audio.fadeOutSec);
-        const float outputVolume = audio.volume * audio.masterVolume * fadeGain;
-        float leftVol = outputVolume * (audio.pan <= 0 ? 1.0F : 1.0F - audio.pan);
-        float rightVol = outputVolume * (audio.pan >= 0 ? 1.0F : 1.0F + audio.pan);
-        float peakLeft = 0.0F;
-        float peakRight = 0.0F;
-        double squareLeft = 0.0;
-        double squareRight = 0.0;
-
-        for (size_t i = 0; i < m_clipSamples.size() && i < masterBuffer.size(); i += 2) {
-            float left = m_clipSamples[i] * leftVol;
-            if (audio.limiter) {
-                left = std::clamp(left, -1.0F, 1.0F);
-            }
-            const float absLeft = std::abs(left);
-            peakLeft = std::max(peakLeft, absLeft);
-            squareLeft += static_cast<double>(left) * static_cast<double>(left);
-            masterBuffer[i] += left;
-            float right = m_clipSamples[i + 1] * rightVol;
-            if (audio.limiter) {
-                right = std::clamp(right, -1.0F, 1.0F);
-            }
-            const float absRight = std::abs(right);
-            peakRight = std::max(peakRight, absRight);
-            squareRight += static_cast<double>(right) * static_cast<double>(right);
-            masterBuffer[i + 1] += right;
-        }
-
-        if (!m_clipSamples.empty()) {
-            const auto frames = static_cast<double>(samplesPerFrame);
-            const float rmsLeft = static_cast<float>(std::sqrt(squareLeft / frames));
-            const float rmsRight = static_cast<float>(std::sqrt(squareRight / frames));
-            emit audioMeterChanged(clipId, peakLeft, peakRight, rmsLeft, rmsRight);
+        AviQtl::RustCore::AudioMeter meter{};
+        const auto mixStatus = AviQtl::RustCore::mixStereo(
+            m_clipSamples,
+            masterBuffer,
+            {
+                .relative_time = relTime,
+                .duration = clipDurationSec,
+                .fade_in_seconds = audio.fadeInSec,
+                .fade_out_seconds = audio.fadeOutSec,
+                .volume = audio.volume,
+                .master_volume = audio.masterVolume,
+                .pan = audio.pan,
+                .limiter = audio.limiter ? 1U : 0U,
+            },
+            meter);
+        if (mixStatus == AviQtl::RustCore::AudioStatus::Ok) {
+            emit audioMeterChanged(clipId, meter.peak_left, meter.peak_right,
+                                   meter.rms_left, meter.rms_right);
         } else {
+            qCWarning(lcAudioMixer) << "Rust audio mixing failed with status"
+                                    << static_cast<std::uint32_t>(mixStatus);
             emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
         }
     }
