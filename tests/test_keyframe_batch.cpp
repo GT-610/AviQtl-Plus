@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QTest>
 #include <QTextStream>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>
