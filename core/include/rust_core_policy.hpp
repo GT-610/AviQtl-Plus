@@ -51,6 +51,20 @@ inline int maxVideoDurationFrames(int totalFrameCount, double sourceFps, double 
                                                   projectFps);
 }
 
+inline int clampVideoDurationFrames(int requestedDuration, int totalFrameCount, double sourceFps,
+                                    bool directMode, double startFrame, double speed,
+                                    int projectFps) {
+    return aviqtl_media_clamp_video_duration_frames(
+        requestedDuration, totalFrameCount, sourceFps, directMode ? 1U : 0U, startFrame, speed,
+        projectFps);
+}
+
+inline int clampAudioDurationFrames(int requestedDuration, double totalSeconds, bool directMode,
+                                    double startTime, double speed, int projectFps) {
+    return aviqtl_media_clamp_audio_duration_frames(
+        requestedDuration, totalSeconds, directMode ? 1U : 0U, startTime, speed, projectFps);
+}
+
 inline int permissionFromName(QStringView value) {
     const QByteArray encoded = utf8(value);
     return aviqtl_permission_from_name(

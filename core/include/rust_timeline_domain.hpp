@@ -37,6 +37,23 @@ using IdAllocation = AviQtlIdAllocation;
         aviqtl_timeline_normalize_scene_settings(&input, &output));
 }
 
+[[nodiscard]] inline std::int32_t snapFrame(double frame, bool ignoreSnap,
+                                            const SceneSettings &settings,
+                                            double timelineScale) {
+    return aviqtl_timeline_snap_frame(frame, ignoreSnap ? 1U : 0U, &settings, timelineScale);
+}
+
+[[nodiscard]] inline std::int32_t timelineDuration(
+    std::span<const AviQtlTimelineClipGeometry> clips) {
+    return aviqtl_timeline_duration(clips.data(), clips.size());
+}
+
+[[nodiscard]] inline std::int32_t clampSceneDuration(std::int32_t requestedDuration,
+                                                     std::int32_t sceneDuration, double speed,
+                                                     std::int32_t offset) {
+    return aviqtl_timeline_clamp_scene_duration(requestedDuration, sceneDuration, speed, offset);
+}
+
 template <typename Planner>
 [[nodiscard]] inline TimelineDomainStatus planIds(std::size_t capacity,
                                                   std::vector<std::int32_t> &output,

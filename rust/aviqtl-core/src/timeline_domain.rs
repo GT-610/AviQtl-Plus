@@ -1,6 +1,6 @@
 use crate::abi::{
-    AviQtlIdAllocation, AviQtlSceneSettings, STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT,
-    STATUS_OK, STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
+    AviQtlIdAllocation, AviQtlSceneSettings, AviQtlTimelineClipGeometry, STATUS_BUFFER_TOO_SMALL,
+    STATUS_INVALID_ARGUMENT, STATUS_OK, STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
 use std::collections::BTreeSet;
 
@@ -77,6 +77,89 @@ fn normalize_scene_settings(input: AviQtlSceneSettings) -> AviQtlSceneSettings {
             10,
         ),
     }
+}
+
+fn rounded_non_negative(value: f64) -> i32 {
+    if !value.is_finite() {
+        return 0;
+    }
+    value.round().clamp(0.0, f64::from(i32::MAX)) as i32
+}
+
+fn snap_frame(
+    frame: f64,
+    ignore_snap: bool,
+    settings: AviQtlSceneSettings,
+    timeline_scale: f64,
+) -> i32 {
+    if ignore_snap || settings.enable_snap == 0 {
+        return rounded_non_negative(frame);
+    }
+
+    let fps = if settings.fps.is_finite() {
+        settings.fps.max(1.0)
+    } else {
+        DEFAULT_FPS
+    };
+    let scale = if timeline_scale.is_finite() {
+        timeline_scale
+    } else {
+        1.0
+    };
+    let mut step = 1.0;
+    let mut offset = 0.0;
+    match settings.grid_mode {
+        1 => {
+            let bpm = if settings.grid_bpm.is_finite() {
+                settings.grid_bpm.max(1.0)
+            } else {
+                120.0
+            };
+            let subdivision = if scale > 3.0 {
+                4.0
+            } else if scale > 1.5 {
+                2.0
+            } else {
+                1.0
+            };
+            step = (fps / (bpm / 60.0)) / subdivision;
+            offset = if settings.grid_offset.is_finite() {
+                settings.grid_offset * fps
+            } else {
+                0.0
+            };
+        }
+        2 => step = f64::from(settings.grid_interval.max(1)),
+        _ if scale < 0.5 => step = fps.ceil(),
+        _ if scale < 1.5 => step = 10.0,
+        _ if scale < 3.0 => step = 5.0,
+        _ => {}
+    }
+    rounded_non_negative(((frame - offset) / step).round() * step + offset)
+}
+
+fn timeline_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
+    clips
+        .iter()
+        .filter(|clip| clip.duration_frames > 0)
+        .map(|clip| clip.start_frame.saturating_add(clip.duration_frames))
+        .max()
+        .unwrap_or(0)
+        .max(1)
+}
+
+fn clamp_scene_duration(
+    requested_duration: i32,
+    scene_duration: i32,
+    speed: f64,
+    offset: i32,
+) -> i32 {
+    if scene_duration <= 0 || !speed.is_finite() || speed <= 0.0 {
+        return requested_duration;
+    }
+    let remaining = f64::from(scene_duration.saturating_sub(1).saturating_sub(offset));
+    let maximum = ((remaining / speed) as i32).saturating_add(1).max(1);
+    requested_duration.min(maximum)
 }
 
 fn normalize_selection(ids: &[i32], requested_primary: i32) -> (Vec<i32>, i32) {
@@ -333,6 +416,62 @@ pub unsafe extern "C" fn aviqtl_timeline_normalize_scene_settings(
     // SAFETY: The output was validated and checked against the input.
     unsafe { output.write(normalized) };
     STATUS_OK
+}
+
+/// Snaps a frame using normalized scene-grid semantics.
+///
+/// # Safety
+///
+/// The settings pointer must be readable for one element.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_timeline_snap_frame(
+    frame: f64,
+    ignore_snap: u32,
+    settings: *const AviQtlSceneSettings,
+    timeline_scale: f64,
+) -> i32 {
+    if !slice_is_valid(settings, 1) {
+        return rounded_non_negative(frame);
+    }
+    // SAFETY: The settings pointer was validated above and is only read for this call.
+    snap_frame(
+        frame,
+        ignore_snap != 0,
+        unsafe { *settings },
+        timeline_scale,
+    )
+}
+
+/// Computes the visible timeline duration from clip geometry.
+///
+/// # Safety
+///
+/// The clip range must be readable for `clips_length` elements.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_timeline_duration(
+    clips: *const AviQtlTimelineClipGeometry,
+    clips_length: usize,
+) -> i32 {
+    if !slice_is_valid(clips, clips_length) {
+        return 1;
+    }
+    let clips = if clips_length == 0 {
+        &[]
+    } else {
+        // SAFETY: The clip range was validated above and is only borrowed for this call.
+        unsafe { std::slice::from_raw_parts(clips, clips_length) }
+    };
+    timeline_duration(clips)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_timeline_clamp_scene_duration(
+    requested_duration: i32,
+    scene_duration: i32,
+    speed: f64,
+    offset: i32,
+) -> i32 {
+    clamp_scene_duration(requested_duration, scene_duration, speed, offset)
 }
 
 /// Replaces a selection while preserving the first occurrence of each non-negative ID.
@@ -599,6 +738,43 @@ mod tests {
         assert_eq!(normalized.grid_subdivision, 4);
         assert_eq!(normalized.enable_snap, 1);
         assert_eq!(normalized.magnetic_snap_range, 10);
+    }
+
+    #[test]
+    fn grid_snapping_and_duration_rules_match_the_timeline() {
+        let settings = AviQtlSceneSettings {
+            width: DEFAULT_WIDTH,
+            height: DEFAULT_HEIGHT,
+            fps: 30.0,
+            total_frames: DEFAULT_TOTAL_FRAMES,
+            grid_mode: 2,
+            grid_bpm: 120.0,
+            grid_offset: 0.0,
+            grid_interval: 10,
+            grid_subdivision: 4,
+            enable_snap: 1,
+            magnetic_snap_range: 10,
+        };
+        assert_eq!(snap_frame(16.0, false, settings, 1.0), 20);
+        assert_eq!(snap_frame(16.0, true, settings, 1.0), 16);
+
+        let clips = [
+            AviQtlTimelineClipGeometry {
+                clip_id: 1,
+                layer: 0,
+                start_frame: 5,
+                duration_frames: 10,
+            },
+            AviQtlTimelineClipGeometry {
+                clip_id: 2,
+                layer: 1,
+                start_frame: 20,
+                duration_frames: 30,
+            },
+        ];
+        assert_eq!(timeline_duration(&clips), 50);
+        assert_eq!(timeline_duration(&[]), 1);
+        assert_eq!(clamp_scene_duration(100, 60, 2.0, 9), 26);
     }
 
     #[test]

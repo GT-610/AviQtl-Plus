@@ -2,6 +2,8 @@
 #include "commands.hpp"
 #include "constants.hpp"
 #include "core/include/media_utils.hpp"
+#include "core/include/rust_core_policy.hpp"
+#include "core/include/rust_timeline_domain.hpp"
 #include "effect_registry.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
 #include "engine/timeline/ecs.hpp"
@@ -657,22 +659,9 @@ int TimelineController::clampVideoDuration(int clipId, int requestedDuration, in
     if (srcFps <= 0.0) {
         srcFps = projectFps;
     }
-    int maxDuration = requestedDuration;
-
-    if (isDirectMode) {
-        const double totalSec = static_cast<double>(vid->totalFrameCount()) / srcFps;
-        maxDuration = static_cast<int>(totalSec * projectFps);
-    } else if (speed > 0.0) {
-        const double startSec = static_cast<double>(startVideoFrame) / srcFps;
-        const double remainingSec = (static_cast<double>(vid->totalFrameCount()) / srcFps) - startSec;
-        if (remainingSec > 0.0) {
-            maxDuration = static_cast<int>(remainingSec / (speed / AviQtl::kDefaultSpeed) * projectFps);
-        }
-    }
-    if (maxDuration > 0 && requestedDuration > maxDuration) {
-        return maxDuration;
-    }
-    return requestedDuration;
+    return AviQtl::RustCore::Policy::clampVideoDurationFrames(
+        requestedDuration, vid->totalFrameCount(), srcFps, isDirectMode, startVideoFrame, speed,
+        projectFps);
 }
 
 int TimelineController::clampAudioDuration(int clipId, int requestedDuration, int projectFps) const {
@@ -701,21 +690,8 @@ int TimelineController::clampAudioDuration(int clipId, int requestedDuration, in
         break;
     }
 
-    const double totalSec = aud->totalDurationSec();
-    int maxDuration = requestedDuration;
-
-    if (isDirectMode) {
-        maxDuration = static_cast<int>(totalSec * projectFps);
-    } else if (speed > 0.0) {
-        const double remainingSec = totalSec - startTime;
-        if (remainingSec > 0.0) {
-            maxDuration = static_cast<int>(remainingSec / (speed / AviQtl::kDefaultSpeed) * projectFps);
-        }
-    }
-    if (maxDuration > 0 && requestedDuration > maxDuration) {
-        return maxDuration;
-    }
-    return requestedDuration;
+    return AviQtl::RustCore::Policy::clampAudioDurationFrames(
+        requestedDuration, aud->totalDurationSec(), isDirectMode, startTime, speed, projectFps);
 }
 
 int TimelineController::clampSceneDuration(const ClipData *clip, int requestedDuration) const {
@@ -735,12 +711,7 @@ int TimelineController::clampSceneDuration(const ClipData *clip, int requestedDu
     }
 
     const int sceneDur = getSceneDuration(targetSceneId);
-    if (sceneDur > 0 && speed > 0.0) {
-        const double rhs = (static_cast<double>(sceneDur - 1 - offset)) / speed;
-        int maxDuration = std::max(static_cast<int>(rhs) + 1, 1);
-        return std::min(requestedDuration, maxDuration);
-    }
-    return requestedDuration;
+    return AviQtl::RustCore::clampSceneDuration(requestedDuration, sceneDur, speed, offset);
 }
 
 void TimelineController::updateClip(int id, int layer, int startFrame, int duration) {

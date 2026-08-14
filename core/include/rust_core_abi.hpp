@@ -332,6 +332,9 @@ std::uint32_t aviqtl_timeline_split_clip(const AviQtlTimelineClipGeometry *clip,
 
 std::uint32_t aviqtl_timeline_allocate_id(const std::int32_t *existingIds, std::size_t existingIdsLength, std::int32_t nextHint, std::int32_t minimumId, AviQtlIdAllocation *output);
 std::uint32_t aviqtl_timeline_normalize_scene_settings(const AviQtlSceneSettings *input, AviQtlSceneSettings *output);
+std::int32_t aviqtl_timeline_snap_frame(double frame, std::uint32_t ignoreSnap, const AviQtlSceneSettings *settings, double timelineScale);
+std::int32_t aviqtl_timeline_duration(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength);
+std::int32_t aviqtl_timeline_clamp_scene_duration(std::int32_t requestedDuration, std::int32_t sceneDuration, double speed, std::int32_t offset);
 std::uint32_t aviqtl_selection_replace(const std::int32_t *ids, std::size_t idsLength, std::int32_t requestedPrimary, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::int32_t *outputPrimary);
 std::uint32_t aviqtl_selection_toggle(const std::int32_t *currentIds, std::size_t currentIdsLength, std::int32_t currentPrimary, std::int32_t toggledId, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength,
                                       std::int32_t *outputPrimary);
@@ -347,6 +350,8 @@ std::uint32_t aviqtl_media_is_video_file(const std::uint8_t *value, std::size_t 
 double aviqtl_media_resolve_audio_time(double relativeTime, std::uint32_t directMode, double directTime, double startTime, double speed);
 double aviqtl_media_resolve_video_time(std::int32_t relativeFrame, double sourceFps, std::uint32_t directMode, double directFrame, double startFrame, double speed);
 std::int32_t aviqtl_media_max_video_duration_frames(std::int32_t totalFrameCount, double sourceFps, double speed, double startFrame, std::int32_t projectFps);
+std::int32_t aviqtl_media_clamp_video_duration_frames(std::int32_t requestedDuration, std::int32_t totalFrameCount, double sourceFps, std::uint32_t directMode, double startFrame, double speed, std::int32_t projectFps);
+std::int32_t aviqtl_media_clamp_audio_duration_frames(std::int32_t requestedDuration, double totalSeconds, std::uint32_t directMode, double startTime, double speed, std::int32_t projectFps);
 
 std::int32_t aviqtl_permission_from_name(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_permission_for_api(const std::uint8_t *value, std::size_t valueLength);

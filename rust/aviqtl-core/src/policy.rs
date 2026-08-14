@@ -141,6 +141,67 @@ fn max_video_duration_frames(
     }
 }
 
+fn clamp_video_duration_frames(
+    requested_duration: i32,
+    total_frame_count: i32,
+    source_fps: f64,
+    direct_mode: bool,
+    start_frame: f64,
+    speed: f64,
+    project_fps: i32,
+) -> i32 {
+    if total_frame_count <= 0 || !source_fps.is_finite() || source_fps <= 0.0 || project_fps <= 0 {
+        return requested_duration;
+    }
+    let maximum = if direct_mode {
+        f64::from(total_frame_count) / source_fps * f64::from(project_fps)
+    } else if speed.is_finite() && speed > 0.0 && start_frame.is_finite() {
+        let remaining = f64::from(total_frame_count) / source_fps - start_frame / source_fps;
+        if remaining <= 0.0 {
+            return requested_duration;
+        }
+        remaining / (speed / DEFAULT_SPEED) * f64::from(project_fps)
+    } else {
+        return requested_duration;
+    };
+    let maximum = maximum.clamp(0.0, f64::from(i32::MAX)) as i32;
+    if maximum > 0 && requested_duration > maximum {
+        maximum
+    } else {
+        requested_duration
+    }
+}
+
+fn clamp_audio_duration_frames(
+    requested_duration: i32,
+    total_seconds: f64,
+    direct_mode: bool,
+    start_time: f64,
+    speed: f64,
+    project_fps: i32,
+) -> i32 {
+    if !total_seconds.is_finite() || total_seconds <= 0.0 || project_fps <= 0 {
+        return requested_duration;
+    }
+    let maximum = if direct_mode {
+        total_seconds * f64::from(project_fps)
+    } else if speed.is_finite() && speed > 0.0 && start_time.is_finite() {
+        let remaining = total_seconds - start_time;
+        if remaining <= 0.0 {
+            return requested_duration;
+        }
+        remaining / (speed / DEFAULT_SPEED) * f64::from(project_fps)
+    } else {
+        return requested_duration;
+    };
+    let maximum = maximum.clamp(0.0, f64::from(i32::MAX)) as i32;
+    if maximum > 0 && requested_duration > maximum {
+        maximum
+    } else {
+        requested_duration
+    }
+}
+
 fn permission_from_name(value: &str) -> i32 {
     PERMISSION_NAMES
         .iter()
@@ -269,6 +330,46 @@ pub extern "C" fn aviqtl_media_max_video_duration_frames(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_clamp_video_duration_frames(
+    requested_duration: i32,
+    total_frame_count: i32,
+    source_fps: f64,
+    direct_mode: u32,
+    start_frame: f64,
+    speed: f64,
+    project_fps: i32,
+) -> i32 {
+    clamp_video_duration_frames(
+        requested_duration,
+        total_frame_count,
+        source_fps,
+        direct_mode != 0,
+        start_frame,
+        speed,
+        project_fps,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_clamp_audio_duration_frames(
+    requested_duration: i32,
+    total_seconds: f64,
+    direct_mode: u32,
+    start_time: f64,
+    speed: f64,
+    project_fps: i32,
+) -> i32 {
+    clamp_audio_duration_frames(
+        requested_duration,
+        total_seconds,
+        direct_mode != 0,
+        start_time,
+        speed,
+        project_fps,
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_permission_from_name(value: *const u8, value_length: usize) -> i32 {
     utf8(value, value_length).map_or(-1, permission_from_name)
 }
@@ -335,6 +436,22 @@ mod tests {
         assert_eq!(resolve_audio_time(2.0, false, 0.0, 1.0, 200.0), 5.0);
         assert_eq!(resolve_video_time(30, 30.0, false, 0.0, 60.0, 100.0), 3.0);
         assert_eq!(max_video_duration_frames(100, 30.0, 100.0, 30.0, 30), 70);
+        assert_eq!(
+            clamp_video_duration_frames(200, 100, 25.0, true, 0.0, 100.0, 50),
+            200
+        );
+        assert_eq!(
+            clamp_video_duration_frames(200, 100, 25.0, false, 25.0, 100.0, 50),
+            150
+        );
+        assert_eq!(
+            clamp_audio_duration_frames(500, 10.0, true, 0.0, 100.0, 30),
+            300
+        );
+        assert_eq!(
+            clamp_audio_duration_frames(500, 10.0, false, 2.0, 200.0, 30),
+            120
+        );
     }
 
     #[test]
