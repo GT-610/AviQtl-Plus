@@ -6,32 +6,13 @@
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
-#include <algorithm>
 #include <vector>
 
 namespace AviQtl::Core::KeyframeUtils {
 
-inline bool isStructuredTrack(const QVariant &raw) {
-    const QVariantMap m = raw.toMap();
-    return m.contains(QStringLiteral("start")) && m.contains(QStringLiteral("points"));
-}
-
-inline QVariantList sortPoints(QVariantList points) {
-    std::sort(points.begin(), points.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt();
-    });
-    return points;
-}
-
 inline int inferredDurationForTrack(const QVariant &raw) {
     const auto result = RustKeyframeDocument::inspect(raw, QVariant(), 0);
     return result ? result->inferredDuration : 1;
-}
-
-inline QVariantList flattenStructuredTrack(const QVariantMap &track) {
-    const QVariant fallback = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("value"));
-    const auto result = RustKeyframeDocument::inspect(track, fallback, 0);
-    return result ? result->flat : QVariantList();
 }
 
 inline double solveBezierT(double x, double x1, double x2) {
@@ -127,11 +108,6 @@ inline QVariant numericResultWithSourceType(const QVariantList &track, int frame
         break;
     }
     return value;
-}
-
-inline QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) {
-    const auto result = RustKeyframeDocument::normalize(rawTrack, fallback, durationFrames);
-    return result ? result->track : QVariantMap();
 }
 
 // Resolve one track to its flattened evaluation-ready form.

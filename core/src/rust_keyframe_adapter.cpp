@@ -80,16 +80,14 @@ std::optional<NumericTrackStorage> buildNumericTrack(const QVariantList &track) 
 }
 
 std::optional<double> evaluateNumericTrack(const QVariantList &track, int frame,
-                                           const QVariant &fallback) {
+                                           const QVariant &fallback, bool discrete) {
     std::optional<NumericTrackStorage> storage = buildNumericTrack(track);
     if (!storage)
         return std::nullopt;
     const double fallbackValue = isNumericValue(fallback) ? fallback.toDouble() : 0.0;
     const RustCore::NumericTrackView view = storage->view(fallbackValue);
     double output = 0.0;
-    const auto status = RustCore::evaluateNumericTracks(
-        std::span<const RustCore::NumericTrackView>(&view, 1), frame,
-        std::span<double>(&output, 1));
+    const auto status = RustCore::evaluateNumericTrack(view, frame, discrete, output);
     if (status != RustCore::NumericBatchStatus::Ok)
         return std::nullopt;
     return output;

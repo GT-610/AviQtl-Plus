@@ -6,6 +6,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include "keyframe_utils.hpp"
+#include "rust_keyframe_document.hpp"
 
 using namespace AviQtl::Core::KeyframeUtils;
 
@@ -28,41 +29,15 @@ private:
     static QStringList easingNames() { return AviQtl::RustCore::easingNames(); }
 
 private slots:
-    // --- sortPoints ---
-    void sortPoints_alreadySorted() {
-        QVariantList pts;
-        pts.append(makePoint(0, 1.0));
-        pts.append(makePoint(10, 2.0));
-        pts.append(makePoint(20, 3.0));
-        QVariantList sorted = sortPoints(pts);
-        QCOMPARE(sorted.size(), 3);
-        QCOMPARE(sorted[0].toMap()[QStringLiteral("frame")].toInt(), 0);
-        QCOMPARE(sorted[2].toMap()[QStringLiteral("frame")].toInt(), 20);
-    }
-
-    void sortPoints_unsorted() {
-        QVariantList pts;
-        pts.append(makePoint(20, 3.0));
-        pts.append(makePoint(0, 1.0));
-        pts.append(makePoint(10, 2.0));
-        QVariantList sorted = sortPoints(pts);
-        QCOMPARE(sorted[0].toMap()[QStringLiteral("frame")].toInt(), 0);
-        QCOMPARE(sorted[1].toMap()[QStringLiteral("frame")].toInt(), 10);
-        QCOMPARE(sorted[2].toMap()[QStringLiteral("frame")].toInt(), 20);
-    }
-
-    void sortPoints_empty() {
-        QVariantList sorted = sortPoints(QVariantList());
-        QVERIFY(sorted.isEmpty());
-    }
-
-    // --- flattenStructuredTrack ---
-    void flattenStructuredTrack_basic() {
+    // --- Rust keyframe document bridge ---
+    void keyframeDocument_inspectSortsAndFlattens() {
         QVariantList points;
         points.append(makePoint(20, 3.0));
         points.append(makePoint(10, 2.0));
         QVariantMap track = makeStructuredTrack(1.0, points);
-        QVariantList flat = flattenStructuredTrack(track);
+        const auto result = AviQtl::Core::RustKeyframeDocument::inspect(track, 1.0);
+        QVERIFY(result.has_value());
+        const QVariantList flat = result->flat;
         QCOMPARE(flat.size(), 3);
         QCOMPARE(flat[0].toMap()[QStringLiteral("frame")].toInt(), 0);
         QCOMPARE(flat[0].toMap()[QStringLiteral("value")].toDouble(), 1.0);
@@ -70,9 +45,11 @@ private slots:
         QCOMPARE(flat[2].toMap()[QStringLiteral("frame")].toInt(), 20);
     }
 
-    void flattenStructuredTrack_noPoints() {
+    void keyframeDocument_inspectPreservesStartWithoutPoints() {
         QVariantMap track = makeStructuredTrack(5.0, QVariantList());
-        QVariantList flat = flattenStructuredTrack(track);
+        const auto result = AviQtl::Core::RustKeyframeDocument::inspect(track, 5.0);
+        QVERIFY(result.has_value());
+        const QVariantList flat = result->flat;
         QCOMPARE(flat.size(), 1);
         QCOMPARE(flat[0].toMap()[QStringLiteral("value")].toDouble(), 5.0);
     }
@@ -289,38 +266,41 @@ private slots:
         QCOMPARE(evaluateResolvedParam(params, resolved, QStringLiteral("x"), 0).toDouble(), 42.0);
     }
 
-    // --- normalizeTrackForDuration ---
-    void normalizeTrackForDuration_clipsBeyondDuration() {
+    // --- Rust keyframe normalization ---
+    void keyframeDocument_normalizeClipsBeyondDuration() {
         QVariantList points;
         points.append(makePoint(50, 1.0));
         points.append(makePoint(200, 2.0));
         QVariantMap track = makeStructuredTrack(0.0, points);
 
-        QVariantMap result = normalizeTrackForDuration(QVariant(track), 0.0, 100);
-        QVariantList resultPoints = result[QStringLiteral("points")].toList();
+        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(track, 0.0, 100);
+        QVERIFY(result.has_value());
+        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
         QCOMPARE(resultPoints.size(), 1);
         QCOMPARE(resultPoints[0].toMap()[QStringLiteral("frame")].toInt(), 50);
     }
 
-    void normalizeTrackForDuration_preservesWithinDuration() {
+    void keyframeDocument_normalizePreservesWithinDuration() {
         QVariantList points;
         points.append(makePoint(30, 1.0));
         points.append(makePoint(60, 2.0));
         QVariantMap track = makeStructuredTrack(0.0, points);
 
-        QVariantMap result = normalizeTrackForDuration(QVariant(track), 0.0, 100);
-        QVariantList resultPoints = result[QStringLiteral("points")].toList();
+        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(track, 0.0, 100);
+        QVERIFY(result.has_value());
+        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
         QCOMPARE(resultPoints.size(), 2);
     }
 
-    void normalizeTrackForDuration_flatLegacy() {
+    void keyframeDocument_normalizeFlatLegacy() {
         QVariantList flat;
         flat.append(makePoint(0, 0.0));
         flat.append(makePoint(50, 1.0));
         flat.append(makePoint(200, 2.0));
 
-        QVariantMap result = normalizeTrackForDuration(QVariant(flat), 0.0, 100);
-        QVariantList resultPoints = result[QStringLiteral("points")].toList();
+        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(flat, 0.0, 100);
+        QVERIFY(result.has_value());
+        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
         // frame=0 goes into start, frame=50 stays, frame=200 is clipped
         QCOMPARE(resultPoints.size(), 1);
         QCOMPARE(resultPoints[0].toMap()[QStringLiteral("frame")].toInt(), 50);

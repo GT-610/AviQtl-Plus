@@ -9,21 +9,13 @@
 #include <QQmlEngine>
 #include <QVariant>
 #include <QVariantList>
-#include <algorithm>
-#include <cmath>
 namespace AviQtl::UI {
 
 class EffectModel : public QObject {
     Q_OBJECT
 
   private:
-    // Delegate to shared KeyframeUtils
-    static bool isStructuredTrack(const QVariant &raw) { return Core::KeyframeUtils::isStructuredTrack(raw); }
-    static QVariantList sortPoints(QVariantList points) { return Core::KeyframeUtils::sortPoints(std::move(points)); }
-    static int inferredDurationForTrack(const QVariant &raw) { return Core::KeyframeUtils::inferredDurationForTrack(raw); }
-    static QVariantList flattenStructuredTrack(const QVariantMap &track) { return Core::KeyframeUtils::flattenStructuredTrack(track); }
     static QVariant evaluateTrack(const QVariantList &track, int frame, const QVariant &fallback) { return Core::KeyframeUtils::evaluateTrack(track, frame, fallback); }
-    static QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) { return Core::KeyframeUtils::normalizeTrackForDuration(rawTrack, fallback, durationFrames); }
 
   public:
     Q_PROPERTY(QString id READ id CONSTANT)
@@ -39,15 +31,11 @@ class EffectModel : public QObject {
     explicit EffectModel(const QString &id, const QString &name, const QString &kind, const QStringList &categories, const QVariantMap &params = {}, const QString &qmlSource = "", const QVariantMap &uiDef = {}, QObject *parent = nullptr)
         : QObject(parent), m_id(id), m_name(name), m_kind(kind), m_categories(categories), m_enabled(true), m_params(params), m_qmlSource(qmlSource), m_uiDefinition(uiDef) {
         for (auto it = m_params.begin(); it != m_params.end(); ++it) {
-            QVariantMap track;
-            QVariantMap start;
-            start[QStringLiteral("frame")] = 0;
-            start[QStringLiteral("value")] = it.value();
-            start[QStringLiteral("interp")] = QStringLiteral("none");
-            track[QStringLiteral("start")] = start;
-            // end は設定しない（任意終了点の哲学）
-            track[QStringLiteral("points")] = QVariantList();
-            m_keyframeTracks[it.key()] = track;
+            const auto result = Core::RustKeyframeDocument::normalize(
+                QVariant(), it.value(), 1);
+            if (result) {
+                m_keyframeTracks[it.key()] = result->track;
+            }
         }
     }
 
@@ -71,16 +59,20 @@ class EffectModel : public QObject {
 
     Q_INVOKABLE QVariantList keyframeListForUi(const QString &paramName) const {
         const QVariant raw = m_keyframeTracks.value(paramName);
-        if (isStructuredTrack(raw))
-            return flattenStructuredTrack(raw.toMap());
-        QVariantList list = raw.toList();
-        std::sort(list.begin(), list.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
-        return list;
+        const auto result = Core::RustKeyframeDocument::inspect(
+            raw, m_params.value(paramName), m_lastDuration);
+        return result ? result->flat : QVariantList();
     }
 
     Q_INVOKABLE bool isEndpointFrame(const QString &paramName, int frame) const {
-        const QVariant raw = m_keyframeTracks.value(paramName);
-        const int startFrame = isStructuredTrack(raw) ? raw.toMap().value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt() : 0;
+        const auto result = Core::RustKeyframeDocument::inspect(
+            m_keyframeTracks.value(paramName), m_params.value(paramName), m_lastDuration);
+        const int startFrame = result
+                                   ? result->track.value(QStringLiteral("start"))
+                                         .toMap()
+                                         .value(QStringLiteral("frame"))
+                                         .toInt()
+                                   : 0;
         return frame == startFrame;
     }
 
@@ -142,23 +134,17 @@ class EffectModel : public QObject {
     Q_INVOKABLE void setParam(const QString &key, const QVariant &val) {
         invalidateCache(key);
         if (m_params[key] != val) {
+            const QVariant previous = m_params.value(key);
             m_params[key] = val;
             m_expressionParamsBuilt = false; // Rebuild on next access
 
-            // アニメーショントラックと同期させ、evaluatedParam() 等が常に最新の静値を返すようにする
             auto ktIt = m_keyframeTracks.find(key);
             if (ktIt != m_keyframeTracks.end()) {
-                QVariant trackVar = ktIt.value();
-                if (isStructuredTrack(trackVar)) {
-                    QVariantMap trackMap = trackVar.toMap();
-                    QVariantMap startPoint = trackMap.value(QStringLiteral("start")).toMap();
-                    // 開始フレーム(0)の値を更新
-                    if (startPoint.value(QStringLiteral("frame")).toInt() == 0) {
-                        startPoint[QStringLiteral("value")] = val;
-                        trackMap[QStringLiteral("start")] = startPoint;
-                        m_keyframeTracks[key] = trackMap;
-                        emit keyframeTracksChanged();
-                    }
+                const auto result = Core::RustKeyframeDocument::set(
+                    ktIt.value(), previous, m_lastDuration, 0, val, QVariantMap());
+                if (result && result->accepted) {
+                    ktIt.value() = result->track;
+                    emit keyframeTracksChanged();
                 }
             }
 

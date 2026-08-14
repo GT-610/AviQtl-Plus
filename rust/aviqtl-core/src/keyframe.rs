@@ -295,6 +295,82 @@ fn evaluate_track(track: &AviQtlNumericTrackView, frame: i32) -> f64 {
     }
 }
 
+fn evaluate_discrete_track(track: &AviQtlNumericTrackView, frame: i32) -> f64 {
+    if track.keyframes_length == 0 {
+        return track.fallback_value;
+    }
+    // SAFETY: Every track is fully validated before evaluation.
+    let keyframes = unsafe { std::slice::from_raw_parts(track.keyframes, track.keyframes_length) };
+    if frame <= keyframes[0].frame {
+        return keyframes[0].value;
+    }
+    if frame >= keyframes[keyframes.len() - 1].frame {
+        return keyframes[keyframes.len() - 1].value;
+    }
+
+    let upper = keyframes.partition_point(|keyframe| keyframe.frame < frame);
+    if keyframes[upper].frame == frame {
+        return keyframes[upper].value;
+    }
+    let first = &keyframes[upper - 1];
+    let second = &keyframes[upper];
+    if first.interpolation == INTERPOLATION_NONE {
+        return first.value;
+    }
+    let offset = i64::from(frame) - i64::from(first.frame);
+    let length = i64::from(second.frame) - i64::from(first.frame);
+    if offset.saturating_mul(2) < length {
+        first.value
+    } else {
+        second.value
+    }
+}
+
+/// Evaluates one numeric track with optional discrete-value semantics.
+///
+/// # Safety
+///
+/// `track` and `output` must be aligned and valid for one element. The output must not overlap
+/// the track descriptor or either nested input range.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_numeric_keyframe_evaluate_typed(
+    track: *const AviQtlNumericTrackView,
+    frame: i32,
+    discrete: u32,
+    output: *mut f64,
+) -> u32 {
+    if !slice_is_valid(track, 1) || !slice_is_valid(output, 1) {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    let Some(overlaps) = ranges_overlap(track, 1, output, 1) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    if overlaps {
+        return STATUS_OVERLAPPING_BUFFERS;
+    }
+    // SAFETY: The descriptor range was validated above and is copied before nested validation.
+    let view = unsafe { track.read() };
+    if !validate_track(&view, output, 1) {
+        let nested_overlap = ranges_overlap(view.keyframes, view.keyframes_length, output, 1)
+            .unwrap_or(false)
+            || ranges_overlap(view.custom_points, view.custom_points_length, output, 1)
+                .unwrap_or(false);
+        return if nested_overlap {
+            STATUS_OVERLAPPING_BUFFERS
+        } else {
+            STATUS_INVALID_ARGUMENT
+        };
+    }
+    let value = if discrete != 0 {
+        evaluate_discrete_track(&view, frame)
+    } else {
+        evaluate_track(&view, frame)
+    };
+    // SAFETY: The output pointer was validated and does not overlap any input range.
+    unsafe { output.write(value) };
+    STATUS_OK
+}
+
 /// Evaluates several numeric keyframe tracks into caller-owned output storage.
 ///
 /// # Safety
@@ -468,6 +544,15 @@ mod tests {
         };
         assert_eq!(status, STATUS_OK);
         assert!((output[0] - 50.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn typed_evaluation_preserves_discrete_plugin_values() {
+        let linear = [keyframe(0, 1.0, 0), keyframe(10, 5.0, 0)];
+        let held = [keyframe(0, 2.0, INTERPOLATION_NONE), keyframe(10, 8.0, 0)];
+        assert_eq!(evaluate_discrete_track(&view(&linear, &[], 0.0), 4), 1.0);
+        assert_eq!(evaluate_discrete_track(&view(&linear, &[], 0.0), 5), 5.0);
+        assert_eq!(evaluate_discrete_track(&view(&held, &[], 0.0), 9), 2.0);
     }
 
     #[test]

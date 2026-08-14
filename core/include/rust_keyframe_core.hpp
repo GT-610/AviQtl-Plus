@@ -159,4 +159,11 @@ inline double evaluateEasing(QStringView name, double t, const std::vector<doubl
         tracks.data(), tracks.size(), frame, output.data(), output.size()));
 }
 
+[[nodiscard]] inline NumericBatchStatus evaluateNumericTrack(const NumericTrackView &track,
+                                                              std::int32_t frame, bool discrete,
+                                                              double &output) {
+    return static_cast<NumericBatchStatus>(aviqtl_numeric_keyframe_evaluate_typed(
+        &track, frame, discrete ? 1U : 0U, &output));
+}
+
 } // namespace AviQtl::RustCore

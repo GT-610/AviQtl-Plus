@@ -2,6 +2,26 @@ use crate::abi::slice_is_valid;
 
 const DEFAULT_SPEED: f64 = 100.0;
 
+const AUDIO_DURATION_PARAMETERS: [&str; 5] =
+    ["source", "startTime", "speed", "playMode", "linkedVideo"];
+
+const AUDIO_WAVEFORM_PARAMETERS: [&str; 14] = [
+    "source",
+    "linkedVideo",
+    "playMode",
+    "startTime",
+    "speed",
+    "directTime",
+    "volume",
+    "masterVolume",
+    "pan",
+    "fadeIn",
+    "fadeOut",
+    "mute",
+    "solo",
+    "limiter",
+];
+
 const PERMISSION_NAMES: [&str; 13] = [
     "transport.control",
     "clip.read",
@@ -76,6 +96,14 @@ fn is_video_file(value: &str) -> bool {
     [".mp4", ".mov", ".avi", ".mkv", ".webm", ".wmv"]
         .iter()
         .any(|extension| lower.ends_with(extension))
+}
+
+fn audio_parameter_affects_duration(value: &str) -> bool {
+    AUDIO_DURATION_PARAMETERS.contains(&value)
+}
+
+fn audio_parameter_affects_waveform(value: &str) -> bool {
+    AUDIO_WAVEFORM_PARAMETERS.contains(&value)
 }
 
 fn resolve_audio_time(
@@ -202,6 +230,40 @@ fn clamp_audio_duration_frames(
     }
 }
 
+fn audio_duration_frames(
+    total_seconds: f64,
+    direct_mode: bool,
+    start_time: f64,
+    speed: f64,
+    project_fps: f64,
+) -> i32 {
+    if !total_seconds.is_finite()
+        || total_seconds <= 0.0
+        || !project_fps.is_finite()
+        || project_fps <= 0.0
+    {
+        return 0;
+    }
+    let duration = if direct_mode {
+        total_seconds
+    } else {
+        if !start_time.is_finite() || start_time < 0.0 || !speed.is_finite() || speed <= 0.0 {
+            return 0;
+        }
+        let remaining = total_seconds - start_time;
+        if remaining <= 0.0 {
+            return 0;
+        }
+        remaining / (speed / DEFAULT_SPEED)
+    };
+    let frames = (duration * project_fps).ceil();
+    if !frames.is_finite() || frames <= 0.0 {
+        0
+    } else {
+        frames.clamp(1.0, f64::from(i32::MAX)) as i32
+    }
+}
+
 fn permission_from_name(value: &str) -> i32 {
     PERMISSION_NAMES
         .iter()
@@ -309,6 +371,22 @@ pub extern "C" fn aviqtl_media_is_video_file(value: *const u8, value_length: usi
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_audio_parameter_affects_duration(
+    value: *const u8,
+    value_length: usize,
+) -> u32 {
+    u32::from(utf8(value, value_length).is_some_and(audio_parameter_affects_duration))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_audio_parameter_affects_waveform(
+    value: *const u8,
+    value_length: usize,
+) -> u32 {
+    u32::from(utf8(value, value_length).is_some_and(audio_parameter_affects_waveform))
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_media_resolve_audio_time(
     relative_time: f64,
     direct_mode: u32,
@@ -402,6 +480,23 @@ pub extern "C" fn aviqtl_media_clamp_audio_duration_frames(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_audio_duration_frames(
+    total_seconds: f64,
+    direct_mode: u32,
+    start_time: f64,
+    speed: f64,
+    project_fps: f64,
+) -> i32 {
+    audio_duration_frames(
+        total_seconds,
+        direct_mode != 0,
+        start_time,
+        speed,
+        project_fps,
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_permission_from_name(value: *const u8, value_length: usize) -> i32 {
     utf8(value, value_length).map_or(-1, permission_from_name)
 }
@@ -484,6 +579,10 @@ mod tests {
         assert!(!is_direct_audio_mode("normal"));
         assert!(is_video_file("CLIP.MOV"));
         assert!(!is_video_file("clip.mp4.bak"));
+        assert!(audio_parameter_affects_duration("startTime"));
+        assert!(!audio_parameter_affects_duration("volume"));
+        assert!(audio_parameter_affects_waveform("volume"));
+        assert!(!audio_parameter_affects_waveform("unrelated"));
         assert_eq!(resolve_audio_time(2.0, false, 0.0, 1.0, 200.0), 5.0);
         assert_eq!(resolve_video_time(30, 30.0, false, 0.0, 60.0, 100.0), 3.0);
         assert_eq!(max_video_duration_frames(100, 30.0, 100.0, 30.0, 30), 70);
@@ -503,6 +602,9 @@ mod tests {
             clamp_audio_duration_frames(500, 10.0, false, 2.0, 200.0, 30),
             120
         );
+        assert_eq!(audio_duration_frames(10.01, true, 0.0, 100.0, 30.0), 301);
+        assert_eq!(audio_duration_frames(10.0, false, 2.0, 200.0, 30.0), 120);
+        assert_eq!(audio_duration_frames(10.0, false, f64::NAN, 100.0, 30.0), 0);
     }
 
     #[test]

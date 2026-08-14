@@ -1,16 +1,15 @@
 #include "commands.hpp"
 #include "constants.hpp"
 #include "core/include/media_utils.hpp"
+#include "core/include/rust_core_policy.hpp"
 #include "effect_registry.hpp"
 #include "rust_keyframe_document.hpp"
 #include "rust_timeline_domain.hpp"
 #include "selection_service.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
-#include <QSet>
 #include <algorithm>
 #include <cstdint>
-#include <cmath>
 #include <vector>
 
 extern "C" {
@@ -38,14 +37,7 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
         return false;
     }
 
-    static const QSet<QString> durationKeys = {
-        QStringLiteral("source"),
-        QStringLiteral("startTime"),
-        QStringLiteral("speed"),
-        QStringLiteral("playMode"),
-        QStringLiteral("linkedVideo"),
-    };
-    if (!durationKeys.contains(paramName)) {
+    if (!AviQtl::RustCore::Policy::audioParameterAffectsDuration(paramName)) {
         return false;
     }
 
@@ -57,21 +49,19 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
     }
 
     const double fps = sceneFpsForClip(timeline, clip);
-    int newDuration = 0;
-    if (AviQtl::Core::MediaUtils::isDirectAudioMode(params.value(QStringLiteral("playMode")).toString())) {
-        newDuration = std::max(1, static_cast<int>(std::ceil(totalSec * fps)));
-    } else {
-        const double startTime = std::max(0.0, params.value(QStringLiteral("startTime"), 0.0).toDouble());
-        const QString sourceLower = source.toLower();
-        const bool sourceIsVideo = sourceLower.endsWith(QStringLiteral(".mp4")) || sourceLower.endsWith(QStringLiteral(".mov")) || sourceLower.endsWith(QStringLiteral(".avi")) || sourceLower.endsWith(QStringLiteral(".mkv")) ||
-                                   sourceLower.endsWith(QStringLiteral(".webm")) || sourceLower.endsWith(QStringLiteral(".wmv"));
-        const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
-        const double speed = linkedVideo ? AviQtl::kDefaultSpeed : params.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed).toDouble();
-        if (speed <= 0.0 || startTime >= totalSec) {
-            return false;
-        }
-
-        newDuration = std::max(1, static_cast<int>(std::ceil((totalSec - startTime) / (speed / AviQtl::kDefaultSpeed) * fps)));
+    const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(
+        params.value(QStringLiteral("playMode")).toString());
+    const bool linkedVideo = AviQtl::Core::MediaUtils::isVideoFile(source) &&
+                             params.value(QStringLiteral("linkedVideo"), false).toBool();
+    const double speed = linkedVideo
+                             ? AviQtl::kDefaultSpeed
+                             : params.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed)
+                                   .toDouble();
+    const int newDuration = AviQtl::RustCore::Policy::audioDurationFrames(
+        totalSec, directMode, params.value(QStringLiteral("startTime"), 0.0).toDouble(), speed,
+        fps);
+    if (newDuration <= 0) {
+        return false;
     }
     if (newDuration == clip.durationFrames) {
         return false;
@@ -91,23 +81,7 @@ bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const
         return false;
     }
 
-    static const QSet<QString> waveformKeys = {
-        QStringLiteral("source"),
-        QStringLiteral("linkedVideo"),
-        QStringLiteral("playMode"),
-        QStringLiteral("startTime"),
-        QStringLiteral("speed"),
-        QStringLiteral("directTime"),
-        QStringLiteral("volume"),
-        QStringLiteral("masterVolume"),
-        QStringLiteral("pan"),
-        QStringLiteral("fadeIn"),
-        QStringLiteral("fadeOut"),
-        QStringLiteral("mute"),
-        QStringLiteral("solo"),
-        QStringLiteral("limiter"),
-    };
-    return waveformKeys.contains(paramName);
+    return AviQtl::RustCore::Policy::audioParameterAffectsWaveform(paramName);
 }
 
 } // namespace

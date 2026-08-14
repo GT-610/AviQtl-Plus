@@ -33,6 +33,20 @@ inline bool isVideoFile(QStringView value) {
                static_cast<std::size_t>(encoded.size())) != 0;
 }
 
+inline bool audioParameterAffectsDuration(QStringView value) {
+    const QByteArray encoded = utf8(value);
+    return aviqtl_audio_parameter_affects_duration(
+               reinterpret_cast<const std::uint8_t *>(encoded.constData()),
+               static_cast<std::size_t>(encoded.size())) != 0;
+}
+
+inline bool audioParameterAffectsWaveform(QStringView value) {
+    const QByteArray encoded = utf8(value);
+    return aviqtl_audio_parameter_affects_waveform(
+               reinterpret_cast<const std::uint8_t *>(encoded.constData()),
+               static_cast<std::size_t>(encoded.size())) != 0;
+}
+
 inline double resolveAudioTime(double relativeTime, bool directMode, double directTime,
                                double startTime, double speed) {
     return aviqtl_media_resolve_audio_time(relativeTime, directMode ? 1U : 0U, directTime,
@@ -63,6 +77,12 @@ inline int clampAudioDurationFrames(int requestedDuration, double totalSeconds, 
                                     double startTime, double speed, int projectFps) {
     return aviqtl_media_clamp_audio_duration_frames(
         requestedDuration, totalSeconds, directMode ? 1U : 0U, startTime, speed, projectFps);
+}
+
+inline int audioDurationFrames(double totalSeconds, bool directMode, double startTime,
+                               double speed, double projectFps) {
+    return aviqtl_media_audio_duration_frames(totalSeconds, directMode ? 1U : 0U, startTime,
+                                              speed, projectFps);
 }
 
 inline int permissionFromName(QStringView value) {

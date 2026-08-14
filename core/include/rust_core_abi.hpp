@@ -310,6 +310,7 @@ std::uint32_t aviqtl_audio_mix_stereo(const float *clip, std::size_t clipLength,
 std::uint32_t aviqtl_audio_mix_stereo_batch(const AviQtlAudioBatchTrack *tracks, std::size_t tracksLength, float *master, std::size_t masterLength, AviQtlAudioBatchResult *results, std::size_t resultsLength);
 
 std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks, std::size_t tracksLength, std::int32_t frame, double *output, std::size_t outputLength);
+std::uint32_t aviqtl_numeric_keyframe_evaluate_typed(const AviQtlNumericTrackView *track, std::int32_t frame, std::uint32_t discrete, double *output);
 std::uint32_t aviqtl_numeric_interpolation_from_name(const std::uint8_t *value, std::size_t valueLength);
 
 std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input, AviQtlRenderBakeOutput *output);
@@ -352,11 +353,14 @@ std::uint32_t aviqtl_keyframe_document_apply_json(const std::uint8_t *input, std
 
 std::uint32_t aviqtl_media_is_direct_audio_mode(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_media_is_video_file(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_audio_parameter_affects_duration(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_audio_parameter_affects_waveform(const std::uint8_t *value, std::size_t valueLength);
 double aviqtl_media_resolve_audio_time(double relativeTime, std::uint32_t directMode, double directTime, double startTime, double speed);
 double aviqtl_media_resolve_video_time(std::int32_t relativeFrame, double sourceFps, std::uint32_t directMode, double directFrame, double startFrame, double speed);
 std::int32_t aviqtl_media_max_video_duration_frames(std::int32_t totalFrameCount, double sourceFps, double speed, double startFrame, std::int32_t projectFps);
 std::int32_t aviqtl_media_clamp_video_duration_frames(std::int32_t requestedDuration, std::int32_t totalFrameCount, double sourceFps, std::uint32_t directMode, double startFrame, double speed, std::int32_t projectFps);
 std::int32_t aviqtl_media_clamp_audio_duration_frames(std::int32_t requestedDuration, double totalSeconds, std::uint32_t directMode, double startTime, double speed, std::int32_t projectFps);
+std::int32_t aviqtl_media_audio_duration_frames(double totalSeconds, std::uint32_t directMode, double startTime, double speed, double projectFps);
 
 std::int32_t aviqtl_permission_from_name(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_permission_for_api(const std::uint8_t *value, std::size_t valueLength);

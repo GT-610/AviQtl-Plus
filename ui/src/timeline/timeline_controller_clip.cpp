@@ -3,6 +3,8 @@
 #include "constants.hpp"
 #include "core/include/media_utils.hpp"
 #include "core/include/rust_core_policy.hpp"
+#include "core/include/rust_keyframe_adapter.hpp"
+#include "core/include/rust_keyframe_document.hpp"
 #include "core/include/rust_timeline_domain.hpp"
 #include "effect_registry.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
@@ -19,6 +21,7 @@
 #include <QtGlobal>
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 extern "C" {
 #include <libavutil/avutil.h>
@@ -54,75 +57,21 @@ static auto audioPluginTrackPoints(const AudioPluginState &plugin, const QString
         return cached.value();
     }
 
-    const QVariant raw = plugin.keyframeTracks.value(paramKey);
-    QVariantList points;
-    if (AviQtl::Core::KeyframeUtils::isStructuredTrack(raw)) {
-        const QVariantMap track = raw.toMap();
-        points.append(track.value(QStringLiteral("start")));
-        points.append(track.value(QStringLiteral("points")).toList());
-    } else {
-        points = raw.toList();
-    }
-
-    const auto frameOf = [](const QVariant &point) {
-        return point.toMap().value(QStringLiteral("frame")).toInt();
-    };
-    if (!std::is_sorted(points.cbegin(), points.cend(), [&frameOf](const QVariant &lhs, const QVariant &rhs) {
-            return frameOf(lhs) < frameOf(rhs);
-        })) {
-        std::sort(points.begin(), points.end(), [&frameOf](const QVariant &lhs, const QVariant &rhs) {
-            return frameOf(lhs) < frameOf(rhs);
-        });
-    }
+    const QVariant fallback = plugin.params.value(paramKey);
+    const auto inspected = AviQtl::Core::RustKeyframeDocument::inspect(
+        plugin.keyframeTracks.value(paramKey), fallback);
+    const QVariantList points = inspected ? inspected->flat : QVariantList();
     plugin.resolvedKeyframeTracks.insert(paramKey, points);
     return points;
 }
 
 static auto evaluateAudioPluginTrack(const QVariantList &points, int frame, const QVariant &fallback) -> QVariant {
-    if (points.isEmpty()) {
-        return fallback;
-    }
-
-    const auto frameOf = [](const QVariant &point) {
-        return point.toMap().value(QStringLiteral("frame")).toInt();
-    };
-    const auto next = std::lower_bound(points.cbegin(), points.cend(), frame,
-                                       [&frameOf](const QVariant &point, int targetFrame) {
-                                           return frameOf(point) < targetFrame;
-                                       });
-    if (next == points.cbegin()) {
-        return next->toMap().value(QStringLiteral("value"), fallback);
-    }
-    if (next == points.cend()) {
-        return points.constLast().toMap().value(QStringLiteral("value"), fallback);
-    }
-
-    const QVariantMap nextPoint = next->toMap();
-    if (frameOf(*next) == frame) {
-        return nextPoint.value(QStringLiteral("value"), fallback);
-    }
-
-    const QVariantMap currentPoint = std::prev(next)->toMap();
-    const int currentFrame = currentPoint.value(QStringLiteral("frame")).toInt();
-    const int nextFrame = nextPoint.value(QStringLiteral("frame")).toInt();
-    if (nextFrame <= currentFrame) {
-        return currentPoint.value(QStringLiteral("value"), fallback);
-    }
-    if (currentPoint.value(QStringLiteral("interp")).toString() == QStringLiteral("none")) {
-        return currentPoint.value(QStringLiteral("value"), fallback);
-    }
-
-    const double t = static_cast<double>(frame - currentFrame) /
-                     static_cast<double>(nextFrame - currentFrame);
-    const double currentValue = currentPoint.value(QStringLiteral("value"), fallback).toDouble();
-    const double nextValue = nextPoint.value(QStringLiteral("value"), fallback).toDouble();
-    if (fallback.typeId() == QMetaType::Bool) {
-        return t < 0.5 ? currentValue : nextValue;
-    }
-    if (fallback.typeId() == QMetaType::Int || fallback.typeId() == QMetaType::LongLong) {
-        return t < 0.5 ? std::floor(currentValue) : std::floor(nextValue);
-    }
-    return currentValue + (nextValue - currentValue) * t;
+    const bool discrete = fallback.typeId() == QMetaType::Bool ||
+                          fallback.typeId() == QMetaType::Int ||
+                          fallback.typeId() == QMetaType::LongLong;
+    const std::optional<double> value =
+        AviQtl::Core::RustKeyframes::evaluateNumericTrack(points, frame, fallback, discrete);
+    return value ? QVariant(*value) : fallback;
 }
 
 static QVariantMap clipToVariantMap(const ClipData &clip) {
