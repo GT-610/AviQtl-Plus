@@ -181,6 +181,7 @@ set(CORE_SOURCES
     core/include/rust_project_document.hpp
     core/include/rust_preset_document.hpp
     core/include/rust_settings_document.hpp
+    core/include/rust_script_document.hpp
     core/include/rust_timeline_bake.hpp
     core/include/rust_timeline_domain.hpp
     core/include/rust_timeline_edit.hpp

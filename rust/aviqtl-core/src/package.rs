@@ -463,6 +463,12 @@ fn apply(input: &Map<String, Value>) -> Option<Map<String, Value>> {
                 .expect("operation output is an object"),
             )
         }
+        "compareVersions" => Some(
+            json!({"value": compare_versions(&text(input.get("left")), &text(input.get("right")))})
+                .as_object()
+                .cloned()
+                .expect("operation output is an object"),
+        ),
         "hasUpdates" => Some(
             json!({"value": has_updates(&catalog)})
                 .as_object()

@@ -9,6 +9,7 @@ mod package;
 mod policy;
 mod preset;
 mod project;
+mod script;
 mod settings;
 mod timeline;
 mod timeline_domain;

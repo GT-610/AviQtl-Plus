@@ -75,6 +75,15 @@ inline bool hasUpdates(const QVariantList &catalog) {
     return result.has_value() && result->value(QStringLiteral("value")).toBool();
 }
 
+inline int compareVersions(const QString &left, const QString &right) {
+    const auto result = apply({
+        {QStringLiteral("operation"), QStringLiteral("compareVersions")},
+        {QStringLiteral("left"), left},
+        {QStringLiteral("right"), right},
+    });
+    return result.has_value() ? result->value(QStringLiteral("value")).toInt() : 0;
+}
+
 inline QStringList upgradeIds(const QVariantList &catalog) {
     const auto result = apply({
         {QStringLiteral("operation"), QStringLiteral("upgradeIds")},

@@ -1,9 +1,10 @@
 #include "mod_engine.hpp"
-#include "lua_host.hpp"
-#include "../ui/include/timeline_controller.hpp"
-#include "../core/include/settings_manager.hpp"
 #include "../core/include/permission_manager.hpp"
+#include "../core/include/rust_package_document.hpp"
+#include "../core/include/settings_manager.hpp"
 #include "../core/include/version.hpp"
+#include "../ui/include/timeline_controller.hpp"
+#include "lua_host.hpp"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QPointer>
@@ -18,52 +19,16 @@ namespace AviQtl::Scripting {
 // Lua から参照できるグローバルポインタ (QPointer で lifetime 安全に監視)
 static QPointer<AviQtl::UI::TimelineController> g_ctrl;
 
-// Compare dotted version strings (e.g. "1.2.0"). Returns <0, 0, >0.
-static int compareVersions(const QString &v1, const QString &v2) {
-    if (v1 == v2)
-        return 0;
-    auto sanitize = [](QString v) {
-        if (v.startsWith(QLatin1Char('v')))
-            v.remove(0, 1);
-        return v;
-    };
-    const QStringList parts1 = sanitize(v1).split(QLatin1Char('.'));
-    const QStringList parts2 = sanitize(v2).split(QLatin1Char('.'));
-    int i = 0;
-    while (i < parts1.size() && i < parts2.size()) {
-        bool ok1 = false;
-        bool ok2 = false;
-        const int num1 = parts1[i].toInt(&ok1);
-        const int num2 = parts2[i].toInt(&ok2);
-        if (ok1 && ok2) {
-            if (num1 < num2) return -1;
-            if (num1 > num2) return 1;
-        } else {
-            if (parts1[i] < parts2[i]) return -1;
-            if (parts1[i] > parts2[i]) return 1;
-        }
-        i++;
-    }
-    if (parts1.size() > parts2.size()) return 1;
-    if (parts1.size() < parts2.size()) return -1;
-    return 0;
-}
-
 // A plugin is compatible unless it demands a newer app version than we run.
 static bool isPluginCompatible(const PluginManifest &manifest) {
     if (manifest.minAppVersion.isEmpty())
         return true;
     const QString appVersion = QString::fromUtf8(AviQtl::VERSION_STRING);
-    return compareVersions(appVersion, manifest.minAppVersion) >= 0;
+    return AviQtl::RustCore::Package::compareVersions(appVersion, manifest.minAppVersion) >= 0;
 }
 
 static constexpr std::array<const char *, 6> kPluginHookNames = {
-    "AviQtlUpdateHook",
-    "AviQtlOnLoad",
-    "AviQtlOnUnload",
-    "AviQtlOnProjectOpen",
-    "AviQtlOnProjectSave",
-    "AviQtlOnClipChange",
+    "AviQtlUpdateHook", "AviQtlOnLoad", "AviQtlOnUnload", "AviQtlOnProjectOpen", "AviQtlOnProjectSave", "AviQtlOnClipChange",
 };
 
 // C API Wrappers (used by Lua bindings)
@@ -534,8 +499,7 @@ void ModEngine::registerController(AviQtl::UI::TimelineController *controller) {
     QObject::disconnect(m_clipChangeConnection);
     g_ctrl = controller;
     if (controller != nullptr && controller->timeline() != nullptr) {
-        m_clipChangeConnection = QObject::connect(controller->timeline(), &AviQtl::UI::TimelineService::clipsChanged,
-                                                  [this]() { onClipChange(); });
+        m_clipChangeConnection = QObject::connect(controller->timeline(), &AviQtl::UI::TimelineService::clipsChanged, [this]() { onClipChange(); });
     }
     if (L != nullptr && !m_apiRegistered) {
         registerAviQtlAPI();
@@ -745,8 +709,7 @@ void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &plugin
         return;
     }
     if (!isPluginCompatible(m)) {
-        qWarning() << "[ModEngine] Skipping plugin" << subdir << ": requires AviQtl" << m.minAppVersion
-                   << "or newer (current:" << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
+        qWarning() << "[ModEngine] Skipping plugin" << subdir << ": requires AviQtl" << m.minAppVersion << "or newer (current:" << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
         return;
     }
     for (const PluginManifest &loaded : std::as_const(m_loadedPlugins)) {
@@ -1020,9 +983,7 @@ void ModEngine::callHooks(const char *hookName, const QString *argument) {
         const QString previousPluginId = m_currentPluginId;
         m_currentPluginId = runtime.pluginId;
         if (lua_pcall(L, argumentCount, 0, 0) != 0) {
-            qCritical() << "[ModEngine] Hook" << hookName << "for plugin"
-                        << (runtime.pluginId.isEmpty() ? QStringLiteral("<legacy>") : runtime.pluginId)
-                        << "failed:" << lua_tostring(L, -1);
+            qCritical() << "[ModEngine] Hook" << hookName << "for plugin" << (runtime.pluginId.isEmpty() ? QStringLiteral("<legacy>") : runtime.pluginId) << "failed:" << lua_tostring(L, -1);
             lua_pop(L, 1);
         }
         m_currentPluginId = previousPluginId;
