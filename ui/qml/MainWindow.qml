@@ -58,18 +58,20 @@ ApplicationWindow {
     }
 
     // 全タブ横断で未保存確認し、全て処理済みになってから finalAction を実行
-    function checkAllUnsavedAndExecute(finalAction) {
+    function checkAllUnsavedAndExecute(finalAction, startIndex) {
         if (!Workspace || !Workspace.tabs) {
             finalAction();
             return ;
         }
-        for (var i = 0; i < Workspace.tabs.length; i++) {
+        var firstIndex = startIndex === undefined ? 0 : startIndex;
+        for (var i = firstIndex; i < Workspace.tabs.length; i++) {
             if (Workspace.tabs[i].hasUnsavedChanges) {
                 // 対象タブをアクティブにしてダイアログを出す
                 Workspace.currentIndex = i;
+                var nextIndex = i + 1;
                 saveConfirmDialog.pendingAction = function() {
                     // 保存/破棄が完了したら次の未保存タブへ進む
-                    checkAllUnsavedAndExecute(finalAction);
+                    checkAllUnsavedAndExecute(finalAction, nextIndex);
                 };
                 saveConfirmDialog.open();
                 return ; // ダイアログ完了を待つ（Cancelは pendingAction=null で自然停止）
@@ -685,8 +687,8 @@ ApplicationWindow {
                     saveDialog._nextAction = action;
                     saveDialog.open();
                 } else {
-                    Workspace.currentTimeline.saveProject("");
-                    if (action)
+                    var saved = Workspace.currentTimeline.saveProject("");
+                    if (saved && action)
                         action();
 
                 }
@@ -764,13 +766,12 @@ ApplicationWindow {
         nameFilters: [qsTr("AviQtl Plus Project files (*.aviqtl)"), qsTr("JSON files (*.json)")]
         defaultSuffix: "aviqtl"
         onAccepted: {
-            if (Workspace.currentTimeline)
-                Workspace.currentTimeline.saveProject(file);
-
-            if (_nextAction)
-                _nextAction();
-
+            var action = _nextAction;
             _nextAction = null;
+            var saved = Workspace.currentTimeline && Workspace.currentTimeline.saveProject(file);
+
+            if (saved && action)
+                action();
         }
         onRejected: {
             _nextAction = null;

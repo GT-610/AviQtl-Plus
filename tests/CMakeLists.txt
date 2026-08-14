@@ -134,6 +134,9 @@ aviqtl_add_test(
     SOURCES test_keyframe_utils.cpp
     LINKS AviQtl_Core
 )
+target_compile_definitions(AviQtl_Test_keyframe_utils PRIVATE
+    AVIQTL_KEYFRAME_EASING_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/data/keyframe_easing_cpp_golden.txt"
+)
 
 aviqtl_add_test(
     NAME effect_model

@@ -519,6 +519,7 @@ class ArchBuilder(LinuxBuilderBase):
         self.logger.log("Running pacman -Syu --needed...")
         deps = [
             "base-devel", "git", "cmake", "ninja", "clang", "mold", "zip",
+            "rust",
             "mesa", "vulkan-devel", "spirv-tools", "libxkbcommon", "wayland", "wayland-protocols",
             "libffi", "ffmpeg", "luajit", "fftw",
             "qt6-base", "qt6-wayland", "qt6-declarative", "qt6-quick3d", "qt6-multimedia",
@@ -569,6 +570,7 @@ class Msys2Builder(PlatformBuilder):
         deps = [
             "mingw-w64-ucrt-x86_64-toolchain", "mingw-w64-ucrt-x86_64-cmake",
             "mingw-w64-ucrt-x86_64-ninja", "git",
+            "mingw-w64-ucrt-x86_64-rust",
             "mingw-w64-ucrt-x86_64-qt6",
             "mingw-w64-ucrt-x86_64-ffmpeg", "mingw-w64-ucrt-x86_64-luajit",
             "mingw-w64-ucrt-x86_64-vulkan-loader", "mingw-w64-ucrt-x86_64-vulkan-headers",
@@ -1396,7 +1398,7 @@ class XcodeBuilder(PlatformBuilder):
             raise RuntimeError("Homebrew not found")
         self.logger.log("Running brew install...")
         deps = [
-            "cmake", "ninja", "qt6", "ffmpeg", "luajit",
+            "cmake", "ninja", "rust", "qt6", "ffmpeg", "luajit",
             "vulkan-headers", "vulkan-loader", "spirv-tools", "pkg-config",
             "lilv", "extra-cmake-modules", "carla",
         ]
