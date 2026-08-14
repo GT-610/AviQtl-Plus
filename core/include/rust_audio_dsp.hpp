@@ -14,6 +14,8 @@ enum class AudioStatus : std::uint32_t {
 
 using AudioMixParameters = AviQtlAudioMixParameters;
 using AudioMeter = AviQtlAudioMeter;
+using AudioBatchTrack = AviQtlAudioBatchTrack;
+using AudioBatchResult = AviQtlAudioBatchResult;
 
 [[nodiscard]] inline AudioStatus resampleStereoLinear(std::span<const float> input,
                                                       std::span<float> output,
@@ -28,6 +30,14 @@ using AudioMeter = AviQtlAudioMeter;
                                            AudioMeter &meter) {
     return static_cast<AudioStatus>(aviqtl_audio_mix_stereo(
         clip.data(), clip.size(), master.data(), master.size(), parameters, &meter));
+}
+
+[[nodiscard]] inline AudioStatus mixStereoBatch(std::span<const AudioBatchTrack> tracks,
+                                                std::span<float> master,
+                                                std::span<AudioBatchResult> results) {
+    return static_cast<AudioStatus>(aviqtl_audio_mix_stereo_batch(
+        tracks.data(), tracks.size(), master.data(), master.size(), results.data(),
+        results.size()));
 }
 
 } // namespace AviQtl::RustCore

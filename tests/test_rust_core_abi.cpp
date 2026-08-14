@@ -12,6 +12,8 @@ private slots:
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_AUDIO_DSP);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_NUMERIC_KEYFRAME_BATCH);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_BAKE);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX);
     }
 
     void exposesExpectedLayouts() {
@@ -21,6 +23,12 @@ private slots:
         QCOMPARE(alignof(AviQtlAudioMixParameters), std::size_t{8});
         QCOMPARE(sizeof(AviQtlAudioMeter), std::size_t{16});
         QCOMPARE(alignof(AviQtlAudioMeter), std::size_t{4});
+        if constexpr (sizeof(void *) == 8) {
+            QCOMPARE(sizeof(AviQtlAudioBatchTrack), std::size_t{72});
+            QCOMPARE(alignof(AviQtlAudioBatchTrack), std::size_t{8});
+        }
+        QCOMPARE(sizeof(AviQtlAudioBatchResult), std::size_t{24});
+        QCOMPARE(alignof(AviQtlAudioBatchResult), std::size_t{4});
         QCOMPARE(sizeof(AviQtlNumericKeyframe), std::size_t{48});
         QCOMPARE(alignof(AviQtlNumericKeyframe), std::size_t{8});
         if constexpr (sizeof(void *) == 8) {

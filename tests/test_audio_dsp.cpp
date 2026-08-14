@@ -2,6 +2,7 @@
 #include <QFile>
 #include <QTest>
 #include <QTextStream>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -167,6 +168,84 @@ private slots:
         QCOMPARE(meter.peak_right, 0.0F);
         QCOMPARE(meter.rms_left, 0.0F);
         QCOMPARE(meter.rms_right, 0.0F);
+    }
+
+    void mixesBatchWithSoloMuteAndPerTrackMeters() {
+        const std::vector<float> soloSamples = {0.5F, -0.5F, 0.25F, -0.25F};
+        const std::vector<float> skippedSamples = {1.0F, 1.0F, 1.0F, 1.0F};
+        AudioMixParameters unity{
+            .relative_time = 0.0,
+            .duration = 1.0,
+            .fade_in_seconds = 0.0F,
+            .fade_out_seconds = 0.0F,
+            .volume = 1.0F,
+            .master_volume = 1.0F,
+            .pan = 0.0F,
+            .limiter = 0,
+        };
+        const std::array<AudioBatchTrack, 3> tracks = {{
+            {
+                .samples = soloSamples.data(),
+                .samples_length = soloSamples.size(),
+                .parameters = unity,
+                .clip_id = 10,
+                .mute = 0,
+                .solo = 1,
+                .reserved = 0,
+            },
+            {
+                .samples = skippedSamples.data(),
+                .samples_length = skippedSamples.size(),
+                .parameters = unity,
+                .clip_id = 11,
+                .mute = 0,
+                .solo = 0,
+                .reserved = 0,
+            },
+            {
+                .samples = skippedSamples.data(),
+                .samples_length = skippedSamples.size(),
+                .parameters = unity,
+                .clip_id = 12,
+                .mute = 1,
+                .solo = 1,
+                .reserved = 0,
+            },
+        }};
+        std::vector<float> master(4, 0.0F);
+        std::array<AudioBatchResult, 3> results{};
+
+        QCOMPARE(static_cast<std::uint32_t>(mixStereoBatch(tracks, master, results)),
+                 static_cast<std::uint32_t>(AudioStatus::Ok));
+        QString error;
+        QVERIFY2(samplesMatch(master, soloSamples, error), qPrintable(error));
+        QCOMPARE(results[0].clip_id, 10);
+        QCOMPARE(results[0].mixed, std::uint32_t{1});
+        QCOMPARE(results[0].meter.peak_left, 0.5F);
+        QCOMPARE(results[1].clip_id, 11);
+        QCOMPARE(results[1].mixed, std::uint32_t{0});
+        QCOMPARE(results[1].meter.peak_left, 0.0F);
+        QCOMPARE(results[2].clip_id, 12);
+        QCOMPARE(results[2].mixed, std::uint32_t{0});
+    }
+
+    void rejectsInvalidBatchResultCount() {
+        const std::vector<float> samples = {0.0F, 0.0F};
+        const std::array<AudioBatchTrack, 1> tracks = {{
+            {
+                .samples = samples.data(),
+                .samples_length = samples.size(),
+                .parameters = {},
+                .clip_id = 1,
+                .mute = 0,
+                .solo = 0,
+                .reserved = 0,
+            },
+        }};
+        std::vector<float> master(2, 0.0F);
+        std::span<AudioBatchResult> noResults;
+        QCOMPARE(static_cast<std::uint32_t>(mixStereoBatch(tracks, master, noResults)),
+                 static_cast<std::uint32_t>(AudioStatus::InvalidArgument));
     }
 };
 

@@ -10,12 +10,17 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_DSP = 1ULL << 1,
     AVIQTL_RUST_CORE_CAPABILITY_NUMERIC_KEYFRAME_BATCH = 1ULL << 2,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_BAKE = 1ULL << 3,
+    AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT = 1ULL << 4,
+    AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX = 1ULL << 5,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
     AVIQTL_RUST_CORE_STATUS_OK = 0,
     AVIQTL_RUST_CORE_STATUS_INVALID_ARGUMENT = 1,
     AVIQTL_RUST_CORE_STATUS_OVERLAPPING_BUFFERS = 2,
+    AVIQTL_RUST_CORE_STATUS_BUFFER_TOO_SMALL = 3,
+    AVIQTL_RUST_CORE_STATUS_INVALID_JSON = 4,
+    AVIQTL_RUST_CORE_STATUS_UNSUPPORTED_VERSION = 5,
 };
 
 struct AviQtlEasingParameters {
@@ -54,6 +59,34 @@ static_assert(sizeof(AviQtlAudioMeter) == 16);
 static_assert(alignof(AviQtlAudioMeter) == 4);
 static_assert(offsetof(AviQtlAudioMeter, peak_left) == 0);
 static_assert(offsetof(AviQtlAudioMeter, rms_right) == 12);
+
+struct AviQtlAudioBatchTrack {
+    const float *samples;
+    std::size_t samples_length;
+    AviQtlAudioMixParameters parameters;
+    std::int32_t clip_id;
+    std::uint32_t mute;
+    std::uint32_t solo;
+    std::uint32_t reserved;
+};
+static_assert(offsetof(AviQtlAudioBatchTrack, samples) == 0);
+#if INTPTR_MAX == INT64_MAX
+static_assert(sizeof(AviQtlAudioBatchTrack) == 72);
+static_assert(alignof(AviQtlAudioBatchTrack) == 8);
+static_assert(offsetof(AviQtlAudioBatchTrack, parameters) == 16);
+static_assert(offsetof(AviQtlAudioBatchTrack, clip_id) == 56);
+static_assert(offsetof(AviQtlAudioBatchTrack, reserved) == 68);
+#endif
+
+struct AviQtlAudioBatchResult {
+    std::int32_t clip_id;
+    std::uint32_t mixed;
+    AviQtlAudioMeter meter;
+};
+static_assert(sizeof(AviQtlAudioBatchResult) == 24);
+static_assert(alignof(AviQtlAudioBatchResult) == 4);
+static_assert(offsetof(AviQtlAudioBatchResult, clip_id) == 0);
+static_assert(offsetof(AviQtlAudioBatchResult, meter) == 8);
 
 struct AviQtlNumericKeyframe {
     std::int32_t frame;
@@ -208,6 +241,12 @@ std::uint32_t aviqtl_audio_mix_stereo(const float *clip, std::size_t clipLength,
                                      float *master, std::size_t masterLength,
                                      AviQtlAudioMixParameters parameters,
                                      AviQtlAudioMeter *meter);
+std::uint32_t aviqtl_audio_mix_stereo_batch(const AviQtlAudioBatchTrack *tracks,
+                                           std::size_t tracksLength,
+                                           float *master,
+                                           std::size_t masterLength,
+                                           AviQtlAudioBatchResult *results,
+                                           std::size_t resultsLength);
 
 std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks,
                                                      std::size_t tracksLength,
@@ -219,5 +258,11 @@ std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input,
                                           AviQtlRenderBakeOutput *output);
 std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input,
                                          AviQtlAudioBakeOutput *output);
+
+std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input,
+                                            std::size_t inputLength,
+                                            std::uint8_t *output,
+                                            std::size_t outputCapacity,
+                                            std::size_t *outputLength);
 
 }

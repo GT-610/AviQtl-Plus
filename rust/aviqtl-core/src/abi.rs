@@ -5,14 +5,21 @@ pub const CAPABILITY_EASING: u64 = 1 << 0;
 pub const CAPABILITY_AUDIO_DSP: u64 = 1 << 1;
 pub const CAPABILITY_NUMERIC_KEYFRAME_BATCH: u64 = 1 << 2;
 pub const CAPABILITY_TIMELINE_BAKE: u64 = 1 << 3;
+pub const CAPABILITY_PROJECT_DOCUMENT: u64 = 1 << 4;
+pub const CAPABILITY_AUDIO_BATCH_MIX: u64 = 1 << 5;
 pub const CAPABILITIES: u64 = CAPABILITY_EASING
     | CAPABILITY_AUDIO_DSP
     | CAPABILITY_NUMERIC_KEYFRAME_BATCH
-    | CAPABILITY_TIMELINE_BAKE;
+    | CAPABILITY_TIMELINE_BAKE
+    | CAPABILITY_PROJECT_DOCUMENT
+    | CAPABILITY_AUDIO_BATCH_MIX;
 
 pub const STATUS_OK: u32 = 0;
 pub const STATUS_INVALID_ARGUMENT: u32 = 1;
 pub const STATUS_OVERLAPPING_BUFFERS: u32 = 2;
+pub const STATUS_BUFFER_TOO_SMALL: u32 = 3;
+pub const STATUS_INVALID_JSON: u32 = 4;
+pub const STATUS_UNSUPPORTED_VERSION: u32 = 5;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -41,6 +48,26 @@ pub struct AviQtlAudioMeter {
     pub peak_right: f32,
     pub rms_left: f32,
     pub rms_right: f32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AviQtlAudioBatchTrack {
+    pub samples: *const f32,
+    pub samples_length: usize,
+    pub parameters: AviQtlAudioMixParameters,
+    pub clip_id: i32,
+    pub mute: u32,
+    pub solo: u32,
+    pub reserved: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlAudioBatchResult {
+    pub clip_id: i32,
+    pub mixed: u32,
+    pub meter: AviQtlAudioMeter,
 }
 
 #[repr(C)]
@@ -219,6 +246,21 @@ mod tests {
         assert_eq!(align_of::<AviQtlAudioMeter>(), 4);
         assert_eq!(offset_of!(AviQtlAudioMeter, peak_left), 0);
         assert_eq!(offset_of!(AviQtlAudioMeter, rms_right), 12);
+
+        #[cfg(target_pointer_width = "64")]
+        {
+            assert_eq!(size_of::<AviQtlAudioBatchTrack>(), 72);
+            assert_eq!(align_of::<AviQtlAudioBatchTrack>(), 8);
+            assert_eq!(offset_of!(AviQtlAudioBatchTrack, samples), 0);
+            assert_eq!(offset_of!(AviQtlAudioBatchTrack, parameters), 16);
+            assert_eq!(offset_of!(AviQtlAudioBatchTrack, clip_id), 56);
+            assert_eq!(offset_of!(AviQtlAudioBatchTrack, reserved), 68);
+        }
+
+        assert_eq!(size_of::<AviQtlAudioBatchResult>(), 24);
+        assert_eq!(align_of::<AviQtlAudioBatchResult>(), 4);
+        assert_eq!(offset_of!(AviQtlAudioBatchResult, clip_id), 0);
+        assert_eq!(offset_of!(AviQtlAudioBatchResult, meter), 8);
 
         assert_eq!(size_of::<AviQtlNumericKeyframe>(), 48);
         assert_eq!(align_of::<AviQtlNumericKeyframe>(), 8);
