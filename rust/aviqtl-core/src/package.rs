@@ -3,6 +3,7 @@ use crate::abi::{
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
 use crate::policy::valid_package_id;
+use semver::Version;
 use serde_json::{Map, Value, json};
 
 fn text(value: Option<&Value>) -> String {
@@ -49,6 +50,13 @@ fn compare_versions(left: &str, right: &str) -> i32 {
     }
     let left = left.strip_prefix('v').unwrap_or(left);
     let right = right.strip_prefix('v').unwrap_or(right);
+    if let (Ok(left), Ok(right)) = (Version::parse(left), Version::parse(right)) {
+        return match left.cmp_precedence(&right) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        };
+    }
     let left_parts: Vec<_> = left.split('.').collect();
     let right_parts: Vec<_> = right.split('.').collect();
     for (left, right) in left_parts.iter().zip(&right_parts) {
@@ -104,12 +112,11 @@ fn installed_version(installed: &Map<String, Value>, id: &str, app_version: &str
         .unwrap_or_default()
 }
 
-fn repository_priority(repositories: &[Map<String, Value>], url: &str) -> i32 {
+fn repository_priority(repositories: &[Map<String, Value>], url: &str) -> Option<i32> {
     repositories
         .iter()
         .find(|repository| text(repository.get("url")) == url)
         .map(|repository| integer(repository.get("priority"), 10))
-        .unwrap_or(i32::MAX)
 }
 
 fn merge_catalog_package(
@@ -127,7 +134,8 @@ fn merge_catalog_package(
         return catalog;
     }
     let repository_url = text(repository.get("url"));
-    let new_repository_priority = integer(repository.get("priority"), 10);
+    let new_repository_priority = repository_priority(repositories, &repository_url)
+        .unwrap_or_else(|| integer(repository.get("priority"), 10));
     let version = text(package.get("version"));
     let mut sources = package
         .get("_sources")
@@ -188,7 +196,8 @@ fn merge_catalog_package(
     existing.insert("_sources".to_owned(), Value::Object(existing_sources));
 
     let existing_primary = text(existing.get("_primary_repo"));
-    let existing_priority = repository_priority(repositories, &existing_primary);
+    let existing_priority =
+        repository_priority(repositories, &existing_primary).unwrap_or(i32::MAX);
     let existing_latest = text(existing.get("latest_version"));
     match compare_versions(&version, &existing_latest) {
         value if value > 0 => {
@@ -196,13 +205,22 @@ fn merge_catalog_package(
             existing.insert("version".to_owned(), Value::String(version));
             existing.insert("_primary_repo".to_owned(), Value::String(repository_url));
             existing.insert(
-                "metadata_url".to_owned(),
-                copy_value(package, "metadata_url"),
+                "display_name".to_owned(),
+                Value::String(localized(package.get("display_name"), &id, language)),
             );
             existing.insert(
-                "metadata_sha256".to_owned(),
-                copy_value(package, "metadata_sha256"),
+                "description".to_owned(),
+                Value::String(localized(package.get("short_description"), "", language)),
             );
+            for key in [
+                "author",
+                "categories",
+                "min_app_version",
+                "metadata_url",
+                "metadata_sha256",
+            ] {
+                existing.insert(key.to_owned(), copy_value(package, key));
+            }
         }
         0 if new_repository_priority < existing_priority => {
             existing.insert("_primary_repo".to_owned(), Value::String(repository_url));
@@ -219,6 +237,29 @@ fn merge_catalog_package(
             existing.insert("_primary_repo".to_owned(), Value::String(repository_url));
         }
         _ => {}
+    }
+    catalog
+}
+
+fn merge_catalog_packages(
+    mut catalog: Vec<Map<String, Value>>,
+    packages: &[Map<String, Value>],
+    repository: &Map<String, Value>,
+    repositories: &[Map<String, Value>],
+    installed: &Map<String, Value>,
+    language: &str,
+    app_version: &str,
+) -> Vec<Map<String, Value>> {
+    for package in packages {
+        catalog = merge_catalog_package(
+            catalog,
+            package,
+            repository,
+            repositories,
+            installed,
+            language,
+            app_version,
+        );
     }
     catalog
 }
@@ -306,7 +347,7 @@ fn mutate_repositories(
     url: &str,
     enabled: bool,
     priority: i32,
-) -> (Vec<Value>, bool) {
+) -> Option<(Vec<Value>, bool)> {
     let index = repositories
         .iter()
         .position(|repository| text(repository.get("url")) == url);
@@ -344,12 +385,20 @@ fn mutate_repositories(
                 true
             }
         }),
-        _ => false,
+        "add" => false,
+        _ => return None,
     };
-    (
+    Some((
         repositories.into_iter().map(Value::Object).collect(),
         changed,
-    )
+    ))
+}
+
+fn object(value: Value) -> Option<Map<String, Value>> {
+    match value {
+        Value::Object(value) => Some(value),
+        _ => None,
+    }
 }
 
 fn enabled_repositories(mut repositories: Vec<Map<String, Value>>) -> Vec<Value> {
@@ -454,59 +503,47 @@ fn apply(input: &Map<String, Value>) -> Option<Map<String, Value>> {
             let installed = input.get("installed")?.as_object()?;
             let language = text(input.get("language"));
             let app_version = text(input.get("appVersion"));
-            Some(
-                json!({
-                    "catalog": merge_catalog_package(catalog, package, repository, &repositories, installed, &language, &app_version)
-                })
-                .as_object()
-                .cloned()
-                .expect("operation output is an object"),
-            )
+            object(json!({
+                "catalog": merge_catalog_package(catalog, package, repository, &repositories, installed, &language, &app_version)
+            }))
         }
-        "compareVersions" => Some(
-            json!({"value": compare_versions(&text(input.get("left")), &text(input.get("right")))})
-                .as_object()
-                .cloned()
-                .expect("operation output is an object"),
-        ),
-        "hasUpdates" => Some(
-            json!({"value": has_updates(&catalog)})
-                .as_object()
-                .cloned()
-                .expect("operation output is an object"),
-        ),
-        "upgradeIds" => Some(
-            json!({"ids": upgrade_ids(&catalog)})
-                .as_object()
-                .cloned()
-                .expect("operation output is an object"),
-        ),
-        "filter" => Some(
-            json!({"catalog": filter_catalog(&catalog, &text(input.get("filter")))})
-                .as_object()
-                .cloned()
-                .expect("operation output is an object"),
-        ),
-        "find" => Some(
-            json!({
-                "package": find_package(&catalog, &text(input.get("packageId")), &text(input.get("sourceRepository")))
-            })
-            .as_object()
-            .cloned()
-            .expect("operation output is an object"),
-        ),
-        "setInstalled" => Some(
-            json!({
-                "catalog": set_installed(
+        "mergeCatalogBatch" => {
+            let packages = objects(input.get("packages"));
+            let repository = input.get("repository")?.as_object()?;
+            let repositories = objects(input.get("repositories"));
+            let installed = input.get("installed")?.as_object()?;
+            let language = text(input.get("language"));
+            let app_version = text(input.get("appVersion"));
+            object(json!({
+                "catalog": merge_catalog_packages(
                     catalog,
-                    &text(input.get("packageId")),
-                    input.get("version").and_then(Value::as_str)
+                    &packages,
+                    repository,
+                    &repositories,
+                    installed,
+                    &language,
+                    &app_version,
                 )
-            })
-            .as_object()
-            .cloned()
-            .expect("operation output is an object"),
+            }))
+        }
+        "compareVersions" => object(
+            json!({"value": compare_versions(&text(input.get("left")), &text(input.get("right")))}),
         ),
+        "hasUpdates" => object(json!({"value": has_updates(&catalog)})),
+        "upgradeIds" => object(json!({"ids": upgrade_ids(&catalog)})),
+        "filter" => object(json!({
+            "catalog": filter_catalog(&catalog, &text(input.get("filter")))
+        })),
+        "find" => object(json!({
+            "package": find_package(&catalog, &text(input.get("packageId")), &text(input.get("sourceRepository")))
+        })),
+        "setInstalled" => object(json!({
+            "catalog": set_installed(
+                catalog,
+                &text(input.get("packageId")),
+                input.get("version").and_then(Value::as_str)
+            )
+        })),
         "repositories" => {
             let (repositories, changed) = mutate_repositories(
                 objects(input.get("repositories")),
@@ -514,41 +551,23 @@ fn apply(input: &Map<String, Value>) -> Option<Map<String, Value>> {
                 &text(input.get("url")),
                 boolean(input.get("enabled"), true),
                 integer(input.get("priority"), 10),
-            );
-            Some(
-                json!({"repositories": repositories, "changed": changed})
-                    .as_object()
-                    .cloned()
-                    .expect("operation output is an object"),
-            )
+            )?;
+            object(json!({"repositories": repositories, "changed": changed}))
         }
-        "enabledRepositories" => Some(
-            json!({"repositories": enabled_repositories(objects(input.get("repositories")))})
-                .as_object()
-                .cloned()
-                .expect("operation output is an object"),
+        "enabledRepositories" => object(
+            json!({"repositories": enabled_repositories(objects(input.get("repositories")))}),
         ),
         "normalizeMetadata" => {
             let detail = normalize_metadata(input.get("detail")?.as_object()?)?;
-            Some(
-                json!({"detail": detail})
-                    .as_object()
-                    .cloned()
-                    .expect("operation output is an object"),
-            )
+            object(json!({"detail": detail}))
         }
-        "selectInstall" => Some(
-            json!({
-                "selection": select_install(
-                    input.get("detail")?.as_object()?,
-                    &text(input.get("requestedVersion")),
-                    &text(input.get("appVersion"))
-                )
-            })
-            .as_object()
-            .cloned()
-            .expect("operation output is an object"),
-        ),
+        "selectInstall" => object(json!({
+            "selection": select_install(
+                input.get("detail")?.as_object()?,
+                &text(input.get("requestedVersion")),
+                &text(input.get("appVersion"))
+            )
+        })),
         _ => None,
     }
 }
@@ -616,6 +635,8 @@ mod tests {
     #[test]
     fn version_comparison_preserves_existing_component_rules() {
         assert_eq!(compare_versions("v1.2.0", "1.1.9"), 1);
+        assert_eq!(compare_versions("2.0.0-rc.1", "2.0.0"), -1);
+        assert_eq!(compare_versions("2.0.0+build.1", "2.0.0+build.2"), 0);
         assert_eq!(compare_versions("1.0", "1"), 1);
         assert_eq!(compare_versions("1.beta", "1.alpha"), 1);
         assert_eq!(compare_versions("1.0", "1.0"), 0);
@@ -649,7 +670,13 @@ mod tests {
             "id": "org.aviqtl.effect",
             "type": "effect",
             "version": "2.0.0",
-            "metadata_url": "https://high/metadata.json"
+            "display_name": {"en": "New Effect"},
+            "short_description": {"en": "New description"},
+            "author": "New Author",
+            "categories": ["New"],
+            "min_app_version": "0.6.0",
+            "metadata_url": "https://high/metadata.json",
+            "metadata_sha256": "abcd"
         });
         let catalog = merge_catalog_package(
             catalog,
@@ -664,6 +691,10 @@ mod tests {
         );
         assert_eq!(text(catalog[0].get("latest_version")), "2.0.0");
         assert_eq!(text(catalog[0].get("_primary_repo")), "https://high");
+        assert_eq!(text(catalog[0].get("display_name")), "New Effect");
+        assert_eq!(text(catalog[0].get("description")), "New description");
+        assert_eq!(text(catalog[0].get("author")), "New Author");
+        assert_eq!(text(catalog[0].get("min_app_version")), "0.6.0");
         assert_eq!(
             catalog[0]
                 .get("_sources")
@@ -671,6 +702,56 @@ mod tests {
                 .map(Map::len),
             Some(2)
         );
+
+        let priority_catalog = merge_catalog_package(
+            Vec::new(),
+            package.as_object().expect("fixture"),
+            json!({"url": "https://low"}).as_object().expect("fixture"),
+            &repositories,
+            &Map::new(),
+            "en",
+            "0.5.9",
+        );
+        let same_version = json!({
+            "id": "org.aviqtl.effect",
+            "type": "effect",
+            "version": "1.0.0",
+            "metadata_url": "https://high/metadata.json"
+        });
+        let priority_catalog = merge_catalog_package(
+            priority_catalog,
+            same_version.as_object().expect("fixture"),
+            json!({"url": "https://high"}).as_object().expect("fixture"),
+            &repositories,
+            &Map::new(),
+            "en",
+            "0.5.9",
+        );
+        assert_eq!(
+            text(priority_catalog[0].get("_primary_repo")),
+            "https://high"
+        );
+    }
+
+    #[test]
+    fn catalog_batch_merges_every_package_in_one_operation() {
+        let packages = objects(Some(&json!([
+            {"id": "org.aviqtl.one", "type": "effect", "version": "1.0.0"},
+            {"id": "org.aviqtl.two", "type": "object", "version": "2.0.0"}
+        ])));
+        let repository = json!({"url": "https://repo", "priority": 1});
+        let catalog = merge_catalog_packages(
+            Vec::new(),
+            &packages,
+            repository.as_object().expect("fixture"),
+            &objects(Some(&json!([{"url": "https://repo", "priority": 1}]))),
+            &Map::new(),
+            "en",
+            "0.5.9",
+        );
+        assert_eq!(catalog.len(), 2);
+        assert_eq!(text(catalog[0].get("id")), "org.aviqtl.one");
+        assert_eq!(text(catalog[1].get("id")), "org.aviqtl.two");
     }
 
     #[test]
@@ -696,12 +777,19 @@ mod tests {
     #[test]
     fn repository_mutations_are_idempotent() {
         let (repositories, changed) =
-            mutate_repositories(Vec::new(), "add", "https://example/repo.json", true, 5);
+            mutate_repositories(Vec::new(), "add", "https://example/repo.json", true, 5).unwrap();
         assert!(changed);
         let repositories = objects(Some(&Value::Array(repositories)));
-        let (_, changed) =
-            mutate_repositories(repositories, "add", "https://example/repo.json", true, 5);
+        let (_, changed) = mutate_repositories(
+            repositories.clone(),
+            "add",
+            "https://example/repo.json",
+            true,
+            5,
+        )
+        .unwrap();
         assert!(!changed);
+        assert!(mutate_repositories(repositories, "typo", "", true, 10).is_none());
 
         let enabled = enabled_repositories(objects(Some(&json!([
             {"url": "disabled", "enabled": false, "priority": 0},
@@ -716,5 +804,51 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["first", "later"]
         );
+    }
+
+    #[test]
+    fn catalog_query_operations_cover_user_visible_results() {
+        let catalog = objects(Some(&json!([
+            {
+                "id": "effect.one",
+                "type": "effect",
+                "installed_version": "1.0.0",
+                "latest_version": "2.0.0",
+                "_primary_repo": "https://one"
+            },
+            {"id": "object.two", "type": "object", "latest_version": "1.0.0"}
+        ])));
+
+        assert_eq!(filter_catalog(&catalog, "effect").len(), 1);
+        assert!(filter_catalog(&catalog, "").is_empty());
+        assert_eq!(filter_catalog(&catalog, "installed").len(), 1);
+        assert_eq!(
+            find_package(&catalog, "effect.one", "https://missing")
+                .get("id")
+                .and_then(Value::as_str),
+            Some("effect.one")
+        );
+
+        let removed = set_installed(catalog.clone(), "effect.one", None);
+        assert!(removed[0].get("installed_version").is_none());
+        let installed = set_installed(catalog.clone(), "object.two", Some("1.0.0"));
+        assert_eq!(
+            installed[1]
+                .get("installed_version")
+                .and_then(Value::as_str),
+            Some("1.0.0")
+        );
+
+        let normalized = normalize_metadata(
+            json!({"type": "effect", "versions": [{"version": "1.0.0"}]})
+                .as_object()
+                .expect("fixture"),
+        );
+        assert!(normalized.is_some());
+        assert!(
+            normalize_metadata(json!({"type": "unknown"}).as_object().expect("fixture")).is_none()
+        );
+        assert!(has_updates(&catalog));
+        assert_eq!(upgrade_ids(&catalog), [json!("effect.one")]);
     }
 }

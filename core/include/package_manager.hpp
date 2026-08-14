@@ -66,7 +66,8 @@ class PackageManager : public QObject {
     void setHasUpdatesAvailable(bool available);
     void processUpgradeQueue();
     void saveRepositories(const QVariantList &repos);
-    void mergeCatalogPackage(const QVariantMap &pkg, const QVariantMap &repo, const QVariantMap &installed);
+    void mergeCatalogPackages(const QVariantList &packages, const QVariantMap &repo,
+                              const QVariantList &repositories, const QVariantMap &installed);
     void onCatalogFetched(const QVariantMap &repoInfo, const QByteArray &data, const QVariantMap &installed);
     void tryFinishSyncLegacy(const QVariantMap &installed);
     void updateUpdateState();

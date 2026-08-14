@@ -6,6 +6,7 @@ version = 4
 name = "aviqtl-rust-core"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_json",
 ]
@@ -39,6 +40,12 @@ checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "serde"

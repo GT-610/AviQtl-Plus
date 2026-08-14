@@ -23,6 +23,7 @@
 #include <QTimer>
 #include <QXmlStreamReader>
 #include <algorithm>
+#include <memory>
 
 namespace AviQtl::Core {
 
@@ -154,6 +155,7 @@ void PackageManager::loadCachedPackages() {
     // Load cached catalog files
     QDir dir(cacheDir);
     const QStringList files = dir.entryList({QStringLiteral("catalog_*.json")}, QDir::Files);
+    const QVariantList configuredRepositories = repositories();
     for (const QString &fileName : files) {
         QFile file(dir.absoluteFilePath(fileName));
         if (!file.open(QIODevice::ReadOnly))
@@ -165,11 +167,14 @@ void PackageManager::loadCachedPackages() {
         QString repoUrl = doc.object().value(QStringLiteral("_repo_url")).toString();
         QVariantMap repoInfo;
         repoInfo[QStringLiteral("url")] = repoUrl;
+        QVariantList catalogPackages;
+        catalogPackages.reserve(packages.size());
         for (const auto &pVal : packages) {
             QVariantMap p = pVal.toObject().toVariantMap();
             p[QStringLiteral("_repo_url")] = repoUrl;
-            mergeCatalogPackage(p, repoInfo, installed);
+            catalogPackages.append(p);
         }
+        mergeCatalogPackages(catalogPackages, repoInfo, configuredRepositories, installed);
     }
     emit packageListChanged();
     updateUpdateState();
@@ -322,15 +327,22 @@ void PackageManager::onCatalogFetched(const QVariantMap &repoInfo, const QByteAr
     if (!doc.isObject())
         return;
     QJsonArray packages = doc.object().value(QStringLiteral("packages")).toArray();
+    QVariantList catalogPackages;
+    catalogPackages.reserve(packages.size());
     for (const auto &pVal : packages) {
         QVariantMap p = pVal.toObject().toVariantMap();
         p[QStringLiteral("_repo_url")] = repoInfo.value(QStringLiteral("url")).toString();
-        mergeCatalogPackage(p, repoInfo, installed);
+        catalogPackages.append(p);
     }
+    mergeCatalogPackages(catalogPackages, repoInfo, repositories(), installed);
 }
 
-void PackageManager::mergeCatalogPackage(const QVariantMap &pkg, const QVariantMap &repoInfo, const QVariantMap &installed) {
-    const auto merged = RustCore::Package::mergeCatalog(m_packageList, pkg, repoInfo, repositories(), installed, QLocale::system().name().left(2), appVersionString());
+void PackageManager::mergeCatalogPackages(const QVariantList &packages, const QVariantMap &repoInfo,
+                                          const QVariantList &repositories,
+                                          const QVariantMap &installed) {
+    const auto merged = RustCore::Package::mergeCatalogBatch(
+        m_packageList, packages, repoInfo, repositories, installed,
+        QLocale::system().name().left(2), appVersionString());
     if (merged.has_value())
         m_packageList = *merged;
 }
@@ -435,21 +447,22 @@ void PackageManager::fetchPackageMetadataForInstall(const QString &packageId, co
         return;
     }
 
-    QMetaObject::Connection *conn = new QMetaObject::Connection();
-    QMetaObject::Connection *errConn = new QMetaObject::Connection();
+    auto conn = std::make_shared<QMetaObject::Connection>();
+    auto errConn = std::make_shared<QMetaObject::Connection>();
+    const auto disconnectHandlers = [conn, errConn]() {
+        if (*conn) {
+            QObject::disconnect(*conn);
+            *conn = {};
+        }
+        if (*errConn) {
+            QObject::disconnect(*errConn);
+            *errConn = {};
+        }
+    };
 
-    *conn = connect(this, &PackageManager::packageDetailReady, this, [this, conn, errConn, packageId, sourceRepo, version](const QString &readyId, const QString &readyRepo, const QVariantMap &detail) {
+    *conn = connect(this, &PackageManager::packageDetailReady, this, [this, disconnectHandlers, packageId, sourceRepo, version](const QString &readyId, const QString &readyRepo, const QVariantMap &detail) {
         if (readyId == packageId && readyRepo == sourceRepo) {
-            if (*conn) {
-                disconnect(*conn);
-                *conn = {};
-            }
-            if (*errConn) {
-                disconnect(*errConn);
-                *errConn = {};
-            }
-            delete conn;
-            delete errConn;
+            disconnectHandlers();
             if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId)
                 continueInstallWithMetadata(packageId, sourceRepo, version, detail);
         }
@@ -457,19 +470,10 @@ void PackageManager::fetchPackageMetadataForInstall(const QString &packageId, co
 
     // Clean up and abort the install flow when metadata fetch fails so the
     // pending install/upgrade queue is not left silently waiting.
-    *errConn = connect(this, &PackageManager::errorOccurred, this, [this, conn, errConn, packageId](const QString &message) {
+    *errConn = connect(this, &PackageManager::errorOccurred, this, [this, disconnectHandlers, packageId](const QString &message) {
         Q_UNUSED(message)
         if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId) {
-            if (*conn) {
-                disconnect(*conn);
-                *conn = {};
-            }
-            if (*errConn) {
-                disconnect(*errConn);
-                *errConn = {};
-            }
-            delete conn;
-            delete errConn;
+            disconnectHandlers();
             setBusy(false);
             // Advance the upgrade queue if we were in an upgrade flow
             if (!m_upgradeQueue.isEmpty())
@@ -498,6 +502,11 @@ void PackageManager::continueInstallWithMetadata(const QString &packageId, const
     if (selection->status == QStringLiteral("requires_newer_app")) {
         setBusy(false);
         emit errorOccurred(tr("Package %1 requires AviQtl %2 or newer (current: %3)").arg(packageId, selection->minAppVersion, appVersionString()));
+        return;
+    }
+    if (selection->status != QStringLiteral("ok")) {
+        setBusy(false);
+        emit errorOccurred(tr("Package installation could not be validated."));
         return;
     }
 

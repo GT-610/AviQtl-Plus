@@ -67,6 +67,20 @@ inline std::optional<QVariantList> mergeCatalog(const QVariantList &catalog, con
     return result.has_value() ? std::optional<QVariantList>{result->value(QStringLiteral("catalog")).toList()} : std::nullopt;
 }
 
+inline std::optional<QVariantList> mergeCatalogBatch(const QVariantList &catalog, const QVariantList &packages, const QVariantMap &repository, const QVariantList &repositories, const QVariantMap &installed, const QString &language, const QString &appVersion) {
+    const auto result = apply({
+        {QStringLiteral("operation"), QStringLiteral("mergeCatalogBatch")},
+        {QStringLiteral("catalog"), catalog},
+        {QStringLiteral("packages"), packages},
+        {QStringLiteral("repository"), repository},
+        {QStringLiteral("repositories"), repositories},
+        {QStringLiteral("installed"), installed},
+        {QStringLiteral("language"), language},
+        {QStringLiteral("appVersion"), appVersion},
+    });
+    return result.has_value() ? std::optional<QVariantList>{result->value(QStringLiteral("catalog")).toList()} : std::nullopt;
+}
+
 inline bool hasUpdates(const QVariantList &catalog) {
     const auto result = apply({
         {QStringLiteral("operation"), QStringLiteral("hasUpdates")},
