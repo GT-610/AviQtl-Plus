@@ -19,6 +19,7 @@ constexpr std::array<const char *, kPerformanceCounterCount> kCounterNames = {
     "bake_rust_keyframe_tracks",
     "bake_rust_timeline_render_calls",
     "bake_rust_timeline_audio_calls",
+    "bake_rust_timeline_failures",
     "ecs_bridge_syncs",
     "ecs_bridge_nanoseconds",
     "ecs_bridge_states_reused",

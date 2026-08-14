@@ -547,7 +547,9 @@ mod tests {
             );
             let bytes = [0_u8; size_of::<f64>() + align_of::<f64>()];
             let misaligned_offset = (0..align_of::<f64>())
-                .find(|offset| (bytes.as_ptr() as usize + offset) % align_of::<f64>() != 0)
+                .find(|offset| {
+                    !(bytes.as_ptr() as usize + offset).is_multiple_of(align_of::<f64>())
+                })
                 .expect("a misaligned offset");
             assert_eq!(
                 aviqtl_easing_evaluate(

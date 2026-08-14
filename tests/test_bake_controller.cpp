@@ -299,6 +299,7 @@ class TestBakeController : public QObject {
         const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
         QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineRenderCalls), quint64{1});
         QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineAudioCalls), quint64{1});
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineFailures), quint64{0});
     }
 
     void rustTimelineKernelBuildsTransformAndClampedAudioState() {

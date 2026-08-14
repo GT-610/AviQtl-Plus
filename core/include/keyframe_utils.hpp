@@ -171,6 +171,39 @@ inline QVariant evaluateTrack(const QVariantList &track, int frame, const QVaria
     return getValue(track.back());
 }
 
+inline QVariant numericResultWithSourceType(const QVariantList &track, int frame, double value) {
+    if (track.isEmpty())
+        return value;
+
+    auto pointFrame = [](const QVariant &point) {
+        return point.toMap().value(QStringLiteral("frame")).toInt();
+    };
+    auto pointValue = [](const QVariant &point) {
+        return point.toMap().value(QStringLiteral("value"));
+    };
+    if (frame <= pointFrame(track.front()))
+        return pointValue(track.front());
+    if (frame >= pointFrame(track.back()))
+        return pointValue(track.back());
+
+    for (int index = 0; index + 1 < track.size(); ++index) {
+        const QVariantMap first = track[index].toMap();
+        const QVariantMap second = track[index + 1].toMap();
+        const int firstFrame = first.value(QStringLiteral("frame")).toInt();
+        const int secondFrame = second.value(QStringLiteral("frame")).toInt();
+        if (frame < firstFrame || frame > secondFrame)
+            continue;
+        if (firstFrame == secondFrame)
+            return first.value(QStringLiteral("value"));
+        if (first.value(QStringLiteral("interp")).toString() == QStringLiteral("none")) {
+            return frame < secondFrame ? first.value(QStringLiteral("value"))
+                                       : second.value(QStringLiteral("value"));
+        }
+        break;
+    }
+    return value;
+}
+
 inline QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) {
     if (isStructuredTrack(rawTrack)) {
         QVariantMap raw = rawTrack.toMap();

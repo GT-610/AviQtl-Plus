@@ -95,6 +95,8 @@ std::optional<NumericTrackStorage> buildNumericTrack(const QVariantList &track) 
                     1.0,
                 };
             }
+            if (customValues.size() < 6 || customValues.size() % 6 != 0)
+                return std::nullopt;
             if (customOffset > std::numeric_limits<std::uint32_t>::max() ||
                 static_cast<std::size_t>(customValues.size()) >
                     std::numeric_limits<std::uint32_t>::max() - customOffset) {
@@ -124,12 +126,11 @@ std::optional<NumericTrackStorage> buildNumericTrack(const QVariantList &track) 
 
 std::optional<double> evaluateNumericTrack(const QVariantList &track, int frame,
                                            const QVariant &fallback) {
-    if (!isNumericValue(fallback))
-        return std::nullopt;
     std::optional<NumericTrackStorage> storage = buildNumericTrack(track);
     if (!storage)
         return std::nullopt;
-    const RustCore::NumericTrackView view = storage->view(fallback.toDouble());
+    const double fallbackValue = isNumericValue(fallback) ? fallback.toDouble() : 0.0;
+    const RustCore::NumericTrackView view = storage->view(fallbackValue);
     double output = 0.0;
     const auto status = RustCore::evaluateNumericTracks(
         std::span<const RustCore::NumericTrackView>(&view, 1), frame,
@@ -180,14 +181,12 @@ void NumericTrackBatch::rebuild(const QVariantMap &params,
     m_fallbacks.reserve(static_cast<std::size_t>(resolvedTracks.size()));
     for (auto it = resolvedTracks.constBegin(); it != resolvedTracks.constEnd(); ++it) {
         const QVariant fallback = params.value(it.key());
-        if (!isNumericValue(fallback))
-            continue;
         std::optional<NumericTrackStorage> track = buildNumericTrack(it.value());
         if (!track)
             continue;
         m_indices.insert(it.key(), m_tracks.size());
         m_tracks.push_back(std::move(*track));
-        m_fallbacks.push_back(fallback.toDouble());
+        m_fallbacks.push_back(isNumericValue(fallback) ? fallback.toDouble() : 0.0);
     }
     m_output.resize(m_tracks.size());
     rebuildViews();

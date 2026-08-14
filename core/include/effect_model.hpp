@@ -198,7 +198,6 @@ class EffectModel : public QObject {
     }
 
     void setEnabled(bool e) {
-        invalidateCache({});
         if (m_enabled != e) {
             m_enabled = e;
             emit enabledChanged();
@@ -354,10 +353,12 @@ class EffectModel : public QObject {
         ensureEvaluationCache();
         static_cast<void>(m_numericTrackBatch.evaluate(frame));
         QVariant baseValue = fallback;
+        const auto resolved = m_resolvedCache.constFind(paramName);
         if (const std::optional<double> numeric = m_numericTrackBatch.value(paramName)) {
-            baseValue = *numeric;
+            baseValue = resolved == m_resolvedCache.constEnd()
+                            ? QVariant(*numeric)
+                            : Core::KeyframeUtils::numericResultWithSourceType(*resolved, frame, *numeric);
         } else {
-            const auto resolved = m_resolvedCache.constFind(paramName);
             if (resolved != m_resolvedCache.constEnd())
                 baseValue = evaluateTrack(*resolved, frame, fallback);
         }

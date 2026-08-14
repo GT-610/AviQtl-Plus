@@ -12,6 +12,7 @@
 #include <bitset>
 #include <limits>
 #include <optional>
+#include <QDebug>
 #include <QSet>
 #include <unordered_map>
 
@@ -129,10 +130,11 @@ struct CachedClip {
     std::vector<CachedEffect> effects;
 };
 
-void bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps,
-                      RenderComponent &render, EffectParamBuffer &paramBuf) {
+bool bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps,
+                     RenderComponent &render, EffectParamBuffer &paramBuf) {
     Q_UNUSED(fps);
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
+    const std::size_t initialParamCount = paramBuf.entries.size();
     auto &registry = AviQtl::Core::EffectRegistry::instance();
 
     AviQtl::RustCore::RenderBakeInput renderInput{
@@ -226,31 +228,38 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedCli
 
     renderInput.effect_count = effectIdx;
     AviQtl::RustCore::RenderBakeOutput output{};
-    if (AviQtl::RustCore::bakeRender(renderInput, output) ==
-        AviQtl::RustCore::TimelineBakeStatus::Ok) {
-        auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
-        metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineRenderCalls);
-        render.clipId = output.clip_id;
-        render.layer = output.layer;
-        render.timePosition = output.time_position;
-        render.startFrame = output.start_frame;
-        render.durationFrames = output.duration_frames;
-        render.x = output.x;
-        render.y = output.y;
-        render.z = output.z;
-        render.rotX = output.rotation_x;
-        render.rotY = output.rotation_y;
-        render.rotZ = output.rotation_z;
-        render.scaleX = output.scale_x;
-        render.scaleY = output.scale_y;
-        render.opacity = output.opacity;
-        render.clipByUpperObject = output.clip_by_upper_object != 0;
-        render.effectCount = output.effect_count;
-        render.effectStartIndex = output.effect_start_index;
+    const auto status = AviQtl::RustCore::bakeRender(renderInput, output);
+    auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
+    if (status != AviQtl::RustCore::TimelineBakeStatus::Ok) {
+        paramBuf.entries.resize(initialParamCount);
+        metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineFailures);
+        qWarning() << "Rust render timeline bake failed for clip" << clip.id
+                   << "with status" << static_cast<std::uint32_t>(status);
+        return false;
     }
+    metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineRenderCalls);
+    render.clipId = output.clip_id;
+    render.layer = output.layer;
+    render.timePosition = output.time_position;
+    render.startFrame = output.start_frame;
+    render.durationFrames = output.duration_frames;
+    render.x = output.x;
+    render.y = output.y;
+    render.z = output.z;
+    render.rotX = output.rotation_x;
+    render.rotY = output.rotation_y;
+    render.rotZ = output.rotation_z;
+    render.scaleX = output.scale_x;
+    render.scaleY = output.scale_y;
+    render.opacity = output.opacity;
+    render.clipByUpperObject = output.clip_by_upper_object != 0;
+    render.effectCount = output.effect_count;
+    render.effectStartIndex = output.effect_start_index;
+    return true;
 }
 
-AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps) {
+std::optional<AudioComponent> bakeAudioState(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip,
+                                             int currentFrame, double fps) {
     AviQtl::RustCore::AudioBakeInput input{
         .clip_id = clip.id,
         .start_frame = clip.startFrame,
@@ -301,26 +310,30 @@ AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, const CachedClip &
 
     AviQtl::RustCore::AudioBakeOutput output{};
     AudioComponent audio;
-    if (AviQtl::RustCore::bakeAudio(input, output) ==
-        AviQtl::RustCore::TimelineBakeStatus::Ok) {
-        auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
-        metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineAudioCalls);
-        audio.clipId = output.clip_id;
-        audio.startFrame = output.start_frame;
-        audio.durationFrames = output.duration_frames;
-        audio.sourceStartTime = output.source_start_time;
-        audio.playbackSpeed = output.playback_speed;
-        audio.directTime = output.direct_time;
-        audio.volume = output.volume;
-        audio.masterVolume = output.master_volume;
-        audio.pan = output.pan;
-        audio.fadeInSec = output.fade_in_seconds;
-        audio.fadeOutSec = output.fade_out_seconds;
-        audio.mute = output.mute != 0;
-        audio.solo = output.solo != 0;
-        audio.limiter = output.limiter != 0;
-        audio.directMode = output.direct_mode != 0;
+    const auto status = AviQtl::RustCore::bakeAudio(input, output);
+    auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
+    if (status != AviQtl::RustCore::TimelineBakeStatus::Ok) {
+        metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineFailures);
+        qWarning() << "Rust audio timeline bake failed for clip" << clip.id
+                   << "with status" << static_cast<std::uint32_t>(status);
+        return std::nullopt;
     }
+    metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineAudioCalls);
+    audio.clipId = output.clip_id;
+    audio.startFrame = output.start_frame;
+    audio.durationFrames = output.duration_frames;
+    audio.sourceStartTime = output.source_start_time;
+    audio.playbackSpeed = output.playback_speed;
+    audio.directTime = output.direct_time;
+    audio.volume = output.volume;
+    audio.masterVolume = output.master_volume;
+    audio.pan = output.pan;
+    audio.fadeInSec = output.fade_in_seconds;
+    audio.fadeOutSec = output.fade_out_seconds;
+    audio.mute = output.mute != 0;
+    audio.solo = output.solo != 0;
+    audio.limiter = output.limiter != 0;
+    audio.directMode = output.direct_mode != 0;
     return audio;
 }
 
@@ -455,17 +468,20 @@ void BakeController::bake(int sceneId, int currentFrame) {
         const int relFrame = static_cast<int>(relTime);
         for (CachedEffect &effect : cachedClip.effects)
             evaluateNumericTracks(effect.tracks, relFrame);
-        ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
-
         if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("video")) {
-            const AudioComponent audio = bakeAudioState(clip, cachedClip, currentFrame, fps);
-            ecs.updateAudioClipState(clip.id, audio);
+            if (const std::optional<AudioComponent> audio =
+                    bakeAudioState(clip, cachedClip, currentFrame, fps)) {
+                ecs.updateAudioClipState(clip.id, *audio);
+            }
         }
 
         RenderComponent render;
         render.effectStartIndex = static_cast<uint32_t>(ecs.editState().effectParams.entries.size());
-        bakeClipEffects(clip, cachedClip, currentFrame, fps, render, ecs.editState().effectParams);
-        ecs.updateRenderState(clip.id, render);
+        if (bakeClipEffects(clip, cachedClip, currentFrame, fps, render,
+                            ecs.editState().effectParams)) {
+            ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
+            ecs.updateRenderState(clip.id, render);
+        }
     }
 
     ecs.syncClipIds(aliveFlags);

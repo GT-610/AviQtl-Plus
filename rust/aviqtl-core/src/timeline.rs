@@ -98,6 +98,8 @@ pub unsafe extern "C" fn aviqtl_timeline_bake_audio(
     // SAFETY: Both single-value ranges were validated above and do not overlap.
     let input = unsafe { input.read() };
     let mut baked = audio_defaults();
+    // Preserve the legacy C++ `fps <= 0.0` guard exactly: NaN and positive infinity
+    // follow the active path.
     if matches!(input.fps.partial_cmp(&0.0), Some(Ordering::Greater) | None) {
         baked.clip_id = input.clip_id;
         baked.start_frame = input.start_frame;
