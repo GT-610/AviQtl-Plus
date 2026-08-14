@@ -3,6 +3,7 @@
 #include "../../ui/include/timeline_service.hpp"
 #include "effect_model.hpp"
 #include "effect_registry.hpp"
+#include "rust_project_document.hpp"
 #include "settings_manager.hpp"
 #include <QDebug>
 #include <QDir>
@@ -14,39 +15,30 @@
 #include <QSaveFile>
 #include <QUrl>
 #include <algorithm>
-#include <cmath>
+#include <cstdint>
+#include <span>
+#include <vector>
 
 namespace AviQtl::Core {
 
 inline constexpr int PROJECT_VERSION = 3;
 
 namespace {
-constexpr int kMaxDimension = 32768;
-constexpr double kMaxFps = 1000.0;
-constexpr int kMaxSampleRate = 192000;
-constexpr double kMaxGridBpm = 1000.0;
-constexpr double kMaxGridOffset = 86400.0;
-constexpr int kMaxGridInterval = 1'000'000;
-constexpr int kMaxGridSubdivision = 128;
-constexpr int kMaxMagneticSnapRange = 100;
 
-int clampDimension(int value, int fallback) {
-    return (value <= 0 || value > kMaxDimension) ? fallback : value;
-}
-double clampFps(double value, double fallback) {
-    return (value <= 0.0 || value > kMaxFps) ? fallback : value;
-}
-int clampSampleRate(int value, int fallback) {
-    return (value <= 0 || value > kMaxSampleRate) ? fallback : value;
-}
-double clampPositiveGridValue(double value, double maximum, double fallback) {
-    return (!std::isfinite(value) || value <= 0.0 || value > maximum) ? fallback : value;
-}
-double clampGridOffset(double value, double fallback) {
-    return (!std::isfinite(value) || value < 0.0 || value > kMaxGridOffset) ? fallback : value;
-}
-int clampPositiveGridValue(int value, int maximum, int fallback) {
-    return (value <= 0 || value > maximum) ? fallback : value;
+QString projectNormalizationError(RustCore::ProjectStatus status) {
+    switch (status) {
+    case RustCore::ProjectStatus::InvalidJson:
+        return QStringLiteral("Invalid project JSON");
+    case RustCore::ProjectStatus::UnsupportedVersion:
+        return QStringLiteral("Unsupported project version");
+    case RustCore::ProjectStatus::InvalidArgument:
+    case RustCore::ProjectStatus::OverlappingBuffers:
+    case RustCore::ProjectStatus::BufferTooSmall:
+    case RustCore::ProjectStatus::Ok:
+        return QStringLiteral("Rust project normalization failed with status %1")
+            .arg(static_cast<std::uint32_t>(status));
+    }
+    return QStringLiteral("Rust project normalization failed");
 }
 } // namespace
 
@@ -283,35 +275,38 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     }
 
     const QByteArray jsonData = file.readAll();
-    QJsonParseError parseError;
-    const QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
-    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+    const auto input = std::span(
+        reinterpret_cast<const std::uint8_t *>(jsonData.constData()),
+        static_cast<std::size_t>(jsonData.size()));
+    std::vector<std::uint8_t> normalizedJson;
+    const RustCore::ProjectStatus normalizationStatus =
+        RustCore::normalizeProjectJson(input, normalizedJson);
+    if (normalizationStatus != RustCore::ProjectStatus::Ok) {
         if (errorMessage != nullptr) {
-            *errorMessage = parseError.error != QJsonParseError::NoError ? parseError.errorString() : QStringLiteral("Project root must be a JSON object");
+            *errorMessage = projectNormalizationError(normalizationStatus);
+        }
+        return false;
+    }
+    const QByteArray normalizedData(
+        reinterpret_cast<const char *>(normalizedJson.data()),
+        static_cast<qsizetype>(normalizedJson.size()));
+    const QJsonDocument doc = QJsonDocument::fromJson(normalizedData);
+    if (!doc.isObject()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Rust project normalization returned invalid JSON");
         }
         return false;
     }
     QJsonObject root = doc.object();
 
-    const int version = root.value(QStringLiteral("version")).toInt(1);
-    if (version < 1 || version > PROJECT_VERSION) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Unsupported project version: %1 (supported: 1-%2)").arg(version).arg(PROJECT_VERSION);
-        }
-        return false;
-    }
+    const int version = root.value(QStringLiteral("version")).toInt();
     const QString projectDir = QFileInfo(path).absolutePath();
 
     QJsonObject s = root.value(QStringLiteral("settings")).toObject();
-    int w = s.value(QStringLiteral("width")).toInt(AviQtl::kDefaultWidth);
-    int h = s.value(QStringLiteral("height")).toInt(AviQtl::kDefaultHeight);
-    double fps = s.value(QStringLiteral("fps")).toDouble(AviQtl::kDefaultFps);
-    int sampleRate = s.value(QStringLiteral("sampleRate")).toInt(AviQtl::kDefaultSampleRate);
-
-    w = clampDimension(w, AviQtl::kDefaultWidth);
-    h = clampDimension(h, AviQtl::kDefaultHeight);
-    fps = clampFps(fps, AviQtl::kDefaultFps);
-    sampleRate = clampSampleRate(sampleRate, AviQtl::kDefaultSampleRate);
+    const int w = s.value(QStringLiteral("width")).toInt();
+    const int h = s.value(QStringLiteral("height")).toInt();
+    const double fps = s.value(QStringLiteral("fps")).toDouble();
+    const int sampleRate = s.value(QStringLiteral("sampleRate")).toInt();
 
     project->setWidth(w);
     project->setHeight(h);
@@ -326,24 +321,21 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         UI::SceneData scene;
         scene.id = sobj.value(QStringLiteral("id")).toInt();
         scene.name = sobj.value(QStringLiteral("name")).toString();
-        scene.width = clampDimension(sobj.value(QStringLiteral("width")).toInt(project->width()), project->width());
-        scene.height = clampDimension(sobj.value(QStringLiteral("height")).toInt(project->height()), project->height());
-        scene.fps = clampFps(sobj.value(QStringLiteral("fps")).toDouble(project->fps()), project->fps());
-        scene.startFrame = sobj.value(QStringLiteral("start")).toInt(0);
-        const int totalFrames = sobj.value(QStringLiteral("duration")).toInt(AviQtl::kDefaultTotalFrames);
-        scene.totalFrames = totalFrames > 0 ? totalFrames : AviQtl::kDefaultTotalFrames;
-        if (version >= 3) {
-            scene.durationFrames = std::max(0, sobj.value(QStringLiteral("nestedDuration")).toInt(0));
-            scene.lockedLayers = layerSetFromJson(sobj.value(QStringLiteral("lockedLayers")));
-            scene.hiddenLayers = layerSetFromJson(sobj.value(QStringLiteral("hiddenLayers")));
-            scene.gridMode = sobj.value(QStringLiteral("gridMode")).toString(QStringLiteral("Auto"));
-            scene.gridBpm = clampPositiveGridValue(sobj.value(QStringLiteral("gridBpm")).toDouble(120.0), kMaxGridBpm, 120.0);
-            scene.gridOffset = clampGridOffset(sobj.value(QStringLiteral("gridOffset")).toDouble(0.0), 0.0);
-            scene.gridInterval = clampPositiveGridValue(sobj.value(QStringLiteral("gridInterval")).toInt(10), kMaxGridInterval, 10);
-            scene.gridSubdivision = clampPositiveGridValue(sobj.value(QStringLiteral("gridSubdivision")).toInt(4), kMaxGridSubdivision, 4);
-            scene.enableSnap = sobj.value(QStringLiteral("enableSnap")).toBool(true);
-            scene.magneticSnapRange = clampPositiveGridValue(sobj.value(QStringLiteral("magneticSnapRange")).toInt(10), kMaxMagneticSnapRange, 10);
-        }
+        scene.width = sobj.value(QStringLiteral("width")).toInt();
+        scene.height = sobj.value(QStringLiteral("height")).toInt();
+        scene.fps = sobj.value(QStringLiteral("fps")).toDouble();
+        scene.startFrame = sobj.value(QStringLiteral("start")).toInt();
+        scene.totalFrames = sobj.value(QStringLiteral("duration")).toInt();
+        scene.durationFrames = sobj.value(QStringLiteral("nestedDuration")).toInt();
+        scene.lockedLayers = layerSetFromJson(sobj.value(QStringLiteral("lockedLayers")));
+        scene.hiddenLayers = layerSetFromJson(sobj.value(QStringLiteral("hiddenLayers")));
+        scene.gridMode = sobj.value(QStringLiteral("gridMode")).toString();
+        scene.gridBpm = sobj.value(QStringLiteral("gridBpm")).toDouble();
+        scene.gridOffset = sobj.value(QStringLiteral("gridOffset")).toDouble();
+        scene.gridInterval = sobj.value(QStringLiteral("gridInterval")).toInt();
+        scene.gridSubdivision = sobj.value(QStringLiteral("gridSubdivision")).toInt();
+        scene.enableSnap = sobj.value(QStringLiteral("enableSnap")).toBool();
+        scene.magneticSnapRange = sobj.value(QStringLiteral("magneticSnapRange")).toInt();
         tempScenes.append(scene);
         maxSceneId = std::max(scene.id, maxSceneId);
     }
@@ -357,13 +349,10 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         clip.sceneId = c.value(QStringLiteral("sceneId")).toInt(0);
         maxClipId = std::max(clip.id, maxClipId);
         clip.type = c.value(QStringLiteral("type")).toString();
-        if (clip.type == QLatin1String("camera")) {
-            clip.type = QStringLiteral("camera_control");
-        }
         clip.startFrame = c.value(QStringLiteral("start")).toInt();
         clip.durationFrames = c.value(QStringLiteral("duration")).toInt();
-        clip.layer = std::clamp(c.value(QStringLiteral("layer")).toInt(), 0, 127);
-        clip.clipByUpperObject = c.value(QStringLiteral("clipByUpperObject")).toBool(false);
+        clip.layer = c.value(QStringLiteral("layer")).toInt();
+        clip.clipByUpperObject = c.value(QStringLiteral("clipByUpperObject")).toBool();
         clip.params = c.value(QStringLiteral("params")).toObject().toVariantMap();
 
         if (version >= 2) {
@@ -390,9 +379,6 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         for (const auto &ev : std::as_const(effArr)) {
             QJsonObject eObj = ev.toObject();
             QString effId = eObj.value(QStringLiteral("id")).toString();
-            if (effId == QLatin1String("camera")) {
-                effId = QStringLiteral("camera_control");
-            }
             EffectMetadata meta = EffectRegistry::instance().getEffect(effId);
             if (effId.isEmpty() || meta.id.isEmpty()) {
                 qWarning().noquote() << QStringLiteral("Skipping missing effect while loading project:") << effId;

@@ -173,6 +173,7 @@ set(CORE_SOURCES
     core/include/rust_audio_dsp.hpp
     core/include/rust_keyframe_adapter.hpp
     core/include/rust_keyframe_core.hpp
+    core/include/rust_project_document.hpp
     core/include/rust_timeline_bake.hpp
     core/include/settings_manager.hpp
     core/include/shader_compiler.hpp

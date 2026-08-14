@@ -24,6 +24,8 @@ class TestProjectSerializer : public QObject {
     void sceneStateAndMediaPathsRoundTrip();
     void invalidGridSettingsUseDefaults();
     void invalidJsonDoesNotReplaceProjectState();
+    void legacyProjectValuesAreNormalizedByRust();
+    void unsupportedVersionDoesNotReplaceProjectState();
 };
 
 void TestProjectSerializer::atomicSaveReplacesAnExistingProject() {
@@ -143,6 +145,68 @@ void TestProjectSerializer::invalidJsonDoesNotReplaceProjectState() {
     QString error;
     QVERIFY(!ProjectSerializer::load(path, &timeline, &project, &error));
     QVERIFY(!error.isEmpty());
+    QCOMPARE(project.width(), 1234);
+    QCOMPARE(timeline.getAllScenes().size(), 1);
+}
+
+void TestProjectSerializer::legacyProjectValuesAreNormalizedByRust() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("legacy.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    const QByteArray document = R"({
+        "version": 1,
+        "settings": {"width": 0, "height": 50000, "fps": 0, "sampleRate": 500000},
+        "scenes": [{
+            "id": 7, "name": "Legacy", "duration": -1,
+            "lockedLayers": [2], "gridBpm": 200
+        }],
+        "clips": [{
+            "id": 9, "sceneId": 7, "type": "camera", "start": 3,
+            "duration": 12, "layer": 500
+        }]
+    })";
+    QCOMPARE(file.write(document), document.size());
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    QString error;
+    QVERIFY2(ProjectSerializer::load(path, &timeline, &project, &error), qPrintable(error));
+
+    QCOMPARE(project.width(), AviQtl::kDefaultWidth);
+    QCOMPARE(project.height(), AviQtl::kDefaultHeight);
+    QCOMPARE(project.fps(), AviQtl::kDefaultFps);
+    QCOMPARE(project.sampleRate(), AviQtl::kDefaultSampleRate);
+    QCOMPARE(timeline.getAllScenes().size(), 1);
+    const SceneData &scene = timeline.getAllScenes().first();
+    QCOMPARE(scene.id, 7);
+    QCOMPARE(scene.totalFrames, AviQtl::kDefaultTotalFrames);
+    QVERIFY(scene.lockedLayers.isEmpty());
+    QCOMPARE(scene.gridBpm, 120.0);
+    QCOMPARE(scene.clips.size(), 1);
+    QCOMPARE(scene.clips.first().type, QStringLiteral("camera_control"));
+    QCOMPARE(scene.clips.first().layer, 127);
+}
+
+void TestProjectSerializer::unsupportedVersionDoesNotReplaceProjectState() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("future.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QCOMPARE(file.write(R"({"version":4})"), qint64{13});
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    project.setWidth(1234);
+    QString error;
+    QVERIFY(!ProjectSerializer::load(path, &timeline, &project, &error));
+    QVERIFY(error.contains(QStringLiteral("Unsupported")));
     QCOMPARE(project.width(), 1234);
     QCOMPARE(timeline.getAllScenes().size(), 1);
 }

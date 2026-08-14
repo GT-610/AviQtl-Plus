@@ -12,6 +12,7 @@ private slots:
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_AUDIO_DSP);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_NUMERIC_KEYFRAME_BATCH);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_BAKE);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT);
     }
 
     void exposesExpectedLayouts() {

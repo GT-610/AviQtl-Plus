@@ -10,12 +10,16 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_DSP = 1ULL << 1,
     AVIQTL_RUST_CORE_CAPABILITY_NUMERIC_KEYFRAME_BATCH = 1ULL << 2,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_BAKE = 1ULL << 3,
+    AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT = 1ULL << 4,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
     AVIQTL_RUST_CORE_STATUS_OK = 0,
     AVIQTL_RUST_CORE_STATUS_INVALID_ARGUMENT = 1,
     AVIQTL_RUST_CORE_STATUS_OVERLAPPING_BUFFERS = 2,
+    AVIQTL_RUST_CORE_STATUS_BUFFER_TOO_SMALL = 3,
+    AVIQTL_RUST_CORE_STATUS_INVALID_JSON = 4,
+    AVIQTL_RUST_CORE_STATUS_UNSUPPORTED_VERSION = 5,
 };
 
 struct AviQtlEasingParameters {
@@ -219,5 +223,11 @@ std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input,
                                           AviQtlRenderBakeOutput *output);
 std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input,
                                          AviQtlAudioBakeOutput *output);
+
+std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input,
+                                            std::size_t inputLength,
+                                            std::uint8_t *output,
+                                            std::size_t outputCapacity,
+                                            std::size_t *outputLength);
 
 }
