@@ -139,6 +139,15 @@ target_compile_definitions(AviQtl_Test_keyframe_utils PRIVATE
 )
 
 aviqtl_add_test(
+    NAME keyframe_batch
+    SOURCES test_keyframe_batch.cpp
+    LINKS AviQtl_Core
+)
+target_compile_definitions(AviQtl_Test_keyframe_batch PRIVATE
+    AVIQTL_KEYFRAME_EASING_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/data/keyframe_easing_cpp_golden.txt"
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI
@@ -188,6 +197,12 @@ aviqtl_add_test(
 )
 target_compile_definitions(AviQtl_Test_audio_dsp PRIVATE
     AVIQTL_AUDIO_DSP_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/data/audio_dsp_cpp_golden.txt"
+)
+
+aviqtl_add_test(
+    NAME rust_core_abi
+    SOURCES test_rust_core_abi.cpp
+    LINKS AviQtl_Core
 )
 
 aviqtl_add_test(

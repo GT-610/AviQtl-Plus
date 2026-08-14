@@ -8,6 +8,7 @@
 #include <QTest>
 #include <algorithm>
 #include <bitset>
+#include <limits>
 
 using namespace AviQtl::Core;
 using namespace AviQtl::Engine::Timeline;
@@ -379,6 +380,47 @@ class TestBakeController : public QObject {
         const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
         QCOMPARE(snapshot.value(PerformanceCounter::BakeTrackCacheMisses), quint64{1});
         QCOMPARE(snapshot.value(PerformanceCounter::BakeTrackCacheHits), quint64{1});
+    }
+
+    void numericKeyframesUseOneRustBatchPerEffect() {
+        SceneSettings scene;
+        scene.id = 12;
+
+        Clip clip;
+        clip.id = 81;
+        clip.durationFrames = 101;
+        Effect effect;
+        effect.id = QStringLiteral("cache-test");
+        effect.params.insert(QStringLiteral("value"), 0.0);
+        effect.params.insert(QStringLiteral("other"), 10.0);
+        effect.keyframes[QStringLiteral("value")] = {
+            {.frame = 0, .value = 0.0F, .interpolation = QStringLiteral("linear")},
+            {.frame = 100, .value = 100.0F, .interpolation = QStringLiteral("linear")},
+        };
+        effect.keyframes[QStringLiteral("other")] = {
+            {.frame = 0, .value = 10.0F, .interpolation = QStringLiteral("linear")},
+            {.frame = 100, .value = 30.0F, .interpolation = QStringLiteral("linear")},
+        };
+        clip.effects.push_back(std::move(effect));
+        scene.clips.push_back(std::move(clip));
+        DocumentModel::instance().addScene(scene);
+        PerformanceMetrics::instance().reset();
+
+        BakeController::instance().bake(scene.id, 50);
+
+        const auto &entries = ECS::instance().editState().effectParams.entries;
+        const auto valueFor = [&entries](const QString &name) {
+            const auto it = std::find_if(entries.cbegin(), entries.cend(), [&name](const EffectParamEntry &entry) {
+                return entry.clipId == 81 && QString::fromUtf8(entry.paramName) == name;
+            });
+            return it == entries.cend() ? std::numeric_limits<float>::quiet_NaN() : it->value[0];
+        };
+        QCOMPARE(valueFor(QStringLiteral("value")), 50.0F);
+        QCOMPARE(valueFor(QStringLiteral("other")), 20.0F);
+
+        const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustKeyframeBatchCalls), quint64{1});
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustKeyframeTracks), quint64{2});
     }
 };
 

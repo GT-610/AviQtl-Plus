@@ -41,6 +41,8 @@ class TestPerformanceMetrics : public QObject {
         QCOMPARE(counters.value(QStringLiteral("decode_requests_coalesced")).toInteger(), qint64{2});
         QVERIFY(counters.contains(QStringLiteral("rhi_pipeline_rebuilds")));
         QVERIFY(counters.contains(QStringLiteral("export_frame_wait_nanoseconds")));
+        QVERIFY(counters.contains(QStringLiteral("bake_rust_keyframe_batch_calls")));
+        QVERIFY(counters.contains(QStringLiteral("bake_rust_keyframe_tracks")));
     }
 };
 
