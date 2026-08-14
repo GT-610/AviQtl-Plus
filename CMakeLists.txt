@@ -153,6 +153,7 @@ set(CORE_SOURCES
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
     core/src/rust_keyframe_adapter.cpp
+    core/src/rust_keyframe_document.cpp
     core/src/settings_manager.cpp
     core/src/shader_compiler.cpp
     core/src/theme_controller.cpp
@@ -173,6 +174,7 @@ set(CORE_SOURCES
     core/include/rust_audio_dsp.hpp
     core/include/rust_keyframe_adapter.hpp
     core/include/rust_keyframe_core.hpp
+    core/include/rust_keyframe_document.hpp
     core/include/rust_project_document.hpp
     core/include/rust_timeline_bake.hpp
     core/include/rust_timeline_domain.hpp

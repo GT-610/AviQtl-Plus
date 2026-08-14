@@ -32,6 +32,7 @@ class TestDailyEditingWorkflow : public QObject {
     void linkedVideoImportRedoKeepsClipsSynchronized();
     void audioPluginStateSurvivesClipCopies();
     void audioPluginKeyframeEvaluationIsCompatible();
+    void audioPluginKeyframeMutationsAreUndoable();
     void pasteReportsResolvedClipEditTarget();
     void catalogItemsExposeProductMetadata();
     void catalogQueryFiltersMetadataAndCategories();
@@ -508,6 +509,57 @@ void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {
     }
     QVERIFY(checksum > 0.0);
     qInfo() << "audio_plugin_keyframes points=10000 evaluations=200 elapsed_ms=" << timer.elapsed();
+}
+
+void TestDailyEditingWorkflow::audioPluginKeyframeMutationsAreUndoable() {
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("audio"), 0, 0);
+
+    auto *clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    AudioPluginState plugin;
+    plugin.id = QStringLiteral("test.mutations");
+    plugin.params.insert(QStringLiteral("0"), 0);
+    clip->audioPlugins.append(plugin);
+    controller.timeline()->undoStack()->clear();
+
+    const QVariantList customPoints{0.2, 0.1, 0.7, 0.9, 1.0, 1.0};
+    const QVariantMap modeParams{{QStringLiteral("stepFrames"), 3}};
+    controller.timeline()->setAudioPluginKeyframe(
+        clipId, 0, QStringLiteral("0"), 0, 1,
+        {{QStringLiteral("interp"), QStringLiteral("linear")}});
+    controller.timeline()->setAudioPluginKeyframe(
+        clipId, 0, QStringLiteral("0"), 10, 100,
+        {{QStringLiteral("interp"), QStringLiteral("custom")},
+         {QStringLiteral("points"), customPoints},
+         {QStringLiteral("modeParams"), modeParams}});
+
+    clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->audioPlugins.first().params.value(QStringLiteral("0")).typeId(),
+             QMetaType::Int);
+    QVariantList points = controller.audioPluginKeyframeListForUi(
+        clipId, 0, QStringLiteral("0"));
+    QCOMPARE(points.size(), 2);
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("value")).typeId(), QMetaType::Int);
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("points")).toList(), customPoints);
+
+    controller.timeline()->moveAudioPluginKeyframe(clipId, 0, QStringLiteral("0"), 10, 8);
+    points = controller.audioPluginKeyframeListForUi(clipId, 0, QStringLiteral("0"));
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("frame")).toInt(), 8);
+    controller.timeline()->undo();
+    points = controller.audioPluginKeyframeListForUi(clipId, 0, QStringLiteral("0"));
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("frame")).toInt(), 10);
+    controller.timeline()->redo();
+
+    controller.timeline()->removeAudioPluginKeyframe(clipId, 0, QStringLiteral("0"), 8);
+    QCOMPARE(controller.audioPluginKeyframeListForUi(clipId, 0, QStringLiteral("0")).size(), 1);
+    controller.timeline()->undo();
+    points = controller.audioPluginKeyframeListForUi(clipId, 0, QStringLiteral("0"));
+    QCOMPARE(points.size(), 2);
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("frame")).toInt(), 8);
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("modeParams")).toMap(), modeParams);
 }
 
 void TestDailyEditingWorkflow::pasteReportsResolvedClipEditTarget() {

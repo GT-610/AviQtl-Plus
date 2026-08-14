@@ -145,6 +145,67 @@ fn random_interpolation(a: f64, b: f64, f0: i32, f1: i32, step_index: i32) -> f6
     a.min(b) + (a.max(b) - a.min(b)) * fraction
 }
 
+pub(crate) struct NumericSegment<'a> {
+    pub interpolation: &'a str,
+    pub first_value: f64,
+    pub second_value: f64,
+    pub first_frame: i32,
+    pub second_frame: i32,
+    pub frame: i32,
+    pub custom_points: &'a [f64],
+    pub amplitude: f64,
+    pub period: f64,
+    pub step_frames: i32,
+}
+
+pub(crate) fn evaluate_numeric_segment(segment: NumericSegment<'_>) -> f64 {
+    if segment.first_frame == segment.second_frame {
+        return segment.first_value;
+    }
+    let frame_offset = i64::from(segment.frame) - i64::from(segment.first_frame);
+    let frame_delta = i64::from(segment.second_frame) - i64::from(segment.first_frame);
+    let t = frame_offset as f64 / frame_delta as f64;
+    match segment.interpolation {
+        "none" => segment.first_value,
+        "random" => {
+            if scaled_random_value(segment.first_value).is_none()
+                || scaled_random_value(segment.second_value).is_none()
+            {
+                return segment.first_value;
+            }
+            let step_frames = i64::from(segment.step_frames.max(1));
+            random_interpolation(
+                segment.first_value,
+                segment.second_value,
+                segment.first_frame,
+                segment.second_frame,
+                (frame_offset / step_frames) as i32,
+            )
+        }
+        "alternate" => {
+            let step_frames = i64::from(segment.step_frames.max(1));
+            if (frame_offset / step_frames) % 2 == 0 {
+                segment.first_value
+            } else {
+                segment.second_value
+            }
+        }
+        name => {
+            let kind = EasingKind::from_name(name).unwrap_or(EasingKind::Linear);
+            let eased = evaluate(
+                kind,
+                t,
+                segment.custom_points,
+                AviQtlEasingParameters {
+                    amplitude: segment.amplitude,
+                    period: segment.period,
+                },
+            );
+            segment.first_value + (segment.second_value - segment.first_value) * eased
+        }
+    }
+}
+
 fn evaluate_track(track: &AviQtlNumericTrackView, frame: i32) -> f64 {
     if track.keyframes_length == 0 {
         return track.fallback_value;

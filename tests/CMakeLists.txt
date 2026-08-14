@@ -148,6 +148,12 @@ target_compile_definitions(AviQtl_Test_keyframe_batch PRIVATE
 )
 
 aviqtl_add_test(
+    NAME rust_keyframe_document
+    SOURCES test_rust_keyframe_document.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI

@@ -94,37 +94,12 @@ class EffectModel : public QObject {
         invalidateCache({});
         const int oldDuration = m_lastDuration;
         m_lastDuration = durationFrames;
-        // 未初期化トラックを初期化し、旧終端フレームにある中間点を新終端フレームへ追従させる
         for (auto it = m_params.begin(); it != m_params.end(); ++it) {
             const QString &key = it.key();
-            auto ktIt = m_keyframeTracks.find(key);
-            if (ktIt == m_keyframeTracks.end() || !isStructuredTrack(ktIt.value())) {
-                QVariantMap start;
-                start[QStringLiteral("frame")] = 0;
-                start[QStringLiteral("value")] = it.value();
-                start[QStringLiteral("interp")] = QStringLiteral("none");
-                QVariantMap track;
-                track[QStringLiteral("start")] = start;
-                track[QStringLiteral("points")] = QVariantList();
-                m_keyframeTracks[key] = track;
-            } else if (oldDuration > 0 && oldDuration != durationFrames) {
-                // 旧終端フレームにある中間点を新終端フレームへ追従させる
-                QVariantMap track = ktIt.value().toMap();
-                QVariantList points = track[QStringLiteral("points")].toList();
-                bool changed = false;
-                for (int i = 0; i < points.size(); ++i) {
-                    QVariantMap kf = points[i].toMap();
-                    if (kf[QStringLiteral("frame")].toInt() == oldDuration) {
-                        kf[QStringLiteral("frame")] = durationFrames;
-                        points[i] = kf;
-                        changed = true;
-                        break;
-                    }
-                }
-                if (changed) {
-                    track[QStringLiteral("points")] = sortPoints(points);
-                    m_keyframeTracks[key] = track;
-                }
+            const auto result = Core::RustKeyframeDocument::sync(
+                m_keyframeTracks.value(key), it.value(), oldDuration, durationFrames);
+            if (result) {
+                m_keyframeTracks[key] = result->track;
             }
         }
         emit keyframeTracksChanged();
@@ -135,51 +110,19 @@ class EffectModel : public QObject {
         QVariantMap secondHalfTracks;
         if (originalDuration < 1)
             return secondHalfTracks;
-
-        const int firstEndFrame = std::max(0, firstHalfDuration - 1);
-        const int secondHalfDur = std::max(1, originalDuration - firstHalfDuration);
-        const int secondEndFrame = std::max(0, secondHalfDur - 1);
         QVariantMap currentTracks = m_keyframeTracks;
 
         for (auto it = m_params.begin(); it != m_params.end(); ++it) {
             const QString key = it.key();
             const QVariant fallback = it.value();
-            QVariantMap track = normalizeTrackForDuration(currentTracks.value(key), fallback, originalDuration);
-            QVariantList flat = flattenStructuredTrack(track);
-            QVariantMap start = track.value(QStringLiteral("start")).toMap();
-            QVariantList points = track.value(QStringLiteral("points")).toList();
-            // 前半トラック
-            QVariantMap firstTrack;
-            QVariantList firstPoints;
-            for (const auto &v : std::as_const(points)) {
-                const int f = v.toMap().value(QStringLiteral("frame")).toInt();
-                if (f > 0 && f < firstEndFrame)
-                    firstPoints.append(v.toMap());
-            }
-            firstTrack[QStringLiteral("start")] = start;
-            firstTrack[QStringLiteral("points")] = firstPoints;
-            currentTracks[key] = firstTrack;
-
-            // 後半トラック
-            QVariantMap secondTrack;
-            QVariantMap secondStart;
-            secondStart[QStringLiteral("frame")] = 0;
-            secondStart[QStringLiteral("value")] = evaluateTrack(flat, firstHalfDuration, fallback);
-            secondStart[QStringLiteral("interp")] = start.value(QStringLiteral("interp"), QStringLiteral("none"));
-            QVariantList secondPoints;
-            for (const auto &v : std::as_const(points)) {
-                auto m = v.toMap();
-                const int f = m.value(QStringLiteral("frame")).toInt();
-                if (f > firstHalfDuration && f < std::max(0, originalDuration - 1)) {
-                    m[QStringLiteral("frame")] = f - firstHalfDuration;
-                    const int nf = m.value(QStringLiteral("frame")).toInt();
-                    if (nf > 0 && nf < secondEndFrame)
-                        secondPoints.append(m);
+            const auto result = Core::RustKeyframeDocument::split(
+                currentTracks.value(key), fallback, firstHalfDuration, originalDuration);
+            if (result) {
+                currentTracks[key] = result->track;
+                if (result->secondaryTrack) {
+                    secondHalfTracks[key] = *result->secondaryTrack;
                 }
             }
-            secondTrack[QStringLiteral("start")] = secondStart;
-            secondTrack[QStringLiteral("points")] = secondPoints;
-            secondHalfTracks[key] = secondTrack;
         }
         m_keyframeTracks = currentTracks;
         emit keyframeTracksChanged();
@@ -235,67 +178,27 @@ class EffectModel : public QObject {
     Q_INVOKABLE void setKeyframe(const QString &paramName, int frame, const QVariant &value, const QVariantMap &options) {
         invalidateCache(paramName);
         const QVariant fallback = m_params.value(paramName);
-        QVariantMap track = normalizeTrackForDuration(m_keyframeTracks.value(paramName), fallback, inferredDurationForTrack(m_keyframeTracks.value(paramName)));
-
-        QVariantMap start = track.value(QStringLiteral("start")).toMap();
-        QVariantList points = track.value(QStringLiteral("points")).toList();
-        const QString interp = options.value(QStringLiteral("interp"), QStringLiteral("none")).toString();
-
-        const int startFrame = start.value(QStringLiteral("frame")).toInt();
-
-        if (frame <= startFrame) {
-            start[QStringLiteral("value")] = value;
-            start[QStringLiteral("interp")] = options.value(QStringLiteral("interp"), start.value(QStringLiteral("interp"), QStringLiteral("none")));
-
-            m_params[paramName] = value; // ベース値も同期
-
-            track[QStringLiteral("start")] = start;
-            m_keyframeTracks[paramName] = track;
-            emit keyframeTracksChanged();
+        const auto result = Core::RustKeyframeDocument::set(
+            m_keyframeTracks.value(paramName), fallback, 0, frame, value, options);
+        if (!result || !result->accepted) {
             return;
         }
-
-        QVariantMap kf;
-        kf[QStringLiteral("frame")] = frame;
-        kf[QStringLiteral("value")] = value;
-        kf[QStringLiteral("interp")] = interp;
-        auto it = options.find(QStringLiteral("points"));
-        if (it != options.end())
-            kf[QStringLiteral("points")] = it.value();
-        it = options.find(QStringLiteral("modeParams"));
-        if (it != options.end())
-            kf[QStringLiteral("modeParams")] = it.value();
-
-        bool updated = false;
-        for (int i = 0; i < points.size(); ++i) {
-            if (points[i].toMap().value(QStringLiteral("frame")).toInt() == frame) {
-                points[i] = kf;
-                updated = true;
-                break;
-            }
+        if (result->baseValue) {
+            m_params[paramName] = *result->baseValue;
         }
-        if (!updated)
-            points.append(kf);
-
-        track[QStringLiteral("points")] = sortPoints(points);
-        m_keyframeTracks[paramName] = track;
+        m_keyframeTracks[paramName] = result->track;
         emit keyframeTracksChanged();
     }
 
     Q_INVOKABLE void removeKeyframe(const QString &paramName, int frame) {
         invalidateCache(paramName);
         const QVariant fallback = m_params.value(paramName);
-        QVariantMap track = normalizeTrackForDuration(m_keyframeTracks.value(paramName), fallback, inferredDurationForTrack(m_keyframeTracks.value(paramName)));
-
-        const int startFrame = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
-        if (frame <= startFrame)
+        const auto result = Core::RustKeyframeDocument::remove(
+            m_keyframeTracks.value(paramName), fallback, 0, frame);
+        if (!result || !result->accepted) {
             return;
-        QVariantList points = track.value(QStringLiteral("points")).toList(), next;
-        for (const auto &v : std::as_const(points))
-            if (v.toMap().value(QStringLiteral("frame")).toInt() != frame)
-                next.append(v);
-        track[QStringLiteral("points")] = next;
-        m_keyframeTracks[paramName] = track;
+        }
+        m_keyframeTracks[paramName] = result->track;
         emit keyframeTracksChanged();
     }
 
@@ -305,31 +208,15 @@ class EffectModel : public QObject {
 
         invalidateCache(paramName);
         const QVariant fallback = m_params.value(paramName);
-        QVariantMap track = normalizeTrackForDuration(m_keyframeTracks.value(paramName), fallback, inferredDurationForTrack(m_keyframeTracks.value(paramName)));
-
-        const int startFrame = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
-        if (oldFrame <= startFrame || newFrame <= startFrame)
+        const auto result = Core::RustKeyframeDocument::move(
+            m_keyframeTracks.value(paramName), fallback, 0, oldFrame, newFrame);
+        if (!result || !result->accepted) {
             return false;
-
-        QVariantList points = track.value(QStringLiteral("points")).toList();
-        int sourceIndex = -1;
-        for (int i = 0; i < points.size(); ++i) {
-            const int frame = points[i].toMap().value(QStringLiteral("frame")).toInt();
-            if (frame == newFrame)
-                return false;
-            if (frame == oldFrame)
-                sourceIndex = i;
         }
-
-        if (sourceIndex < 0)
-            return false;
-
-        QVariantMap moved = points[sourceIndex].toMap();
-        moved[QStringLiteral("frame")] = newFrame;
-        points[sourceIndex] = moved;
-        track[QStringLiteral("points")] = sortPoints(points);
-        m_keyframeTracks[paramName] = track;
-        emit keyframeTracksChanged();
+        if (result->changed) {
+            m_keyframeTracks[paramName] = result->track;
+            emit keyframeTracksChanged();
+        }
         return true;
     }
 

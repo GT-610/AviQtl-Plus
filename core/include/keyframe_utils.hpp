@@ -1,5 +1,6 @@
 #pragma once
 #include "rust_keyframe_adapter.hpp"
+#include "rust_keyframe_document.hpp"
 #include <QColor>
 #include <QHash>
 #include <QVariant>
@@ -26,30 +27,14 @@ inline QVariantList sortPoints(QVariantList points) {
 }
 
 inline int inferredDurationForTrack(const QVariant &raw) {
-    if (isStructuredTrack(raw)) {
-        const QVariantList points = raw.toMap().value(QStringLiteral("points")).toList();
-        int maxFrame = 0;
-        for (const auto &v : std::as_const(points))
-            maxFrame = std::max(maxFrame, v.toMap().value(QStringLiteral("frame")).toInt());
-        return std::max(1, maxFrame + 1);
-    }
-    const QVariantList list = raw.toList();
-    if (list.isEmpty())
-        return 1;
-    int maxFrame = 0;
-    for (const auto &v : std::as_const(list))
-        maxFrame = std::max(maxFrame, v.toMap().value(QStringLiteral("frame")).toInt());
-    return std::max(1, maxFrame + 1);
+    const auto result = RustKeyframeDocument::inspect(raw, QVariant(), 0);
+    return result ? result->inferredDuration : 1;
 }
 
 inline QVariantList flattenStructuredTrack(const QVariantMap &track) {
-    QVariantList out;
-    out.append(track.value(QStringLiteral("start")));
-    QVariantList points = track.value(QStringLiteral("points")).toList();
-    points = sortPoints(points);
-    for (const auto &v : std::as_const(points))
-        out.append(v);
-    return out;
+    const QVariant fallback = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("value"));
+    const auto result = RustKeyframeDocument::inspect(track, fallback, 0);
+    return result ? result->flat : QVariantList();
 }
 
 inline double solveBezierT(double x, double x1, double x2) {
@@ -205,59 +190,16 @@ inline QVariant numericResultWithSourceType(const QVariantList &track, int frame
 }
 
 inline QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) {
-    if (isStructuredTrack(rawTrack)) {
-        QVariantMap raw = rawTrack.toMap();
-        QVariantMap start = raw.value(QStringLiteral("start")).toMap();
-        QVariantList points = raw.value(QStringLiteral("points")).toList(), nextPoints;
-        start[QStringLiteral("frame")] = 0;
-        if (!start.contains(QStringLiteral("value")))
-            start[QStringLiteral("value")] = fallback;
-
-        const int ceiling = durationFrames;
-        for (const auto &v : std::as_const(points)) {
-            const int f = v.toMap().value(QStringLiteral("frame")).toInt();
-            if (f > 0 && f <= ceiling)
-                nextPoints.append(v);
-        }
-        QVariantMap out;
-        out[QStringLiteral("start")] = start;
-        out[QStringLiteral("points")] = sortPoints(nextPoints);
-        return out;
-    }
-    QVariantList legacy = sortPoints(rawTrack.toList()), points;
-    QVariantMap start;
-    start[QStringLiteral("frame")] = 0;
-    start[QStringLiteral("value")] = legacy.isEmpty() ? fallback : evaluateTrack(legacy, 0, fallback);
-    // Preserve interp from existing frame-0 key if present, otherwise default to linear
-    QString startInterp = QStringLiteral("linear");
-    for (const auto &v : std::as_const(legacy)) {
-        if (v.toMap().value(QStringLiteral("frame")).toInt() == 0) {
-            startInterp = v.toMap().value(QStringLiteral("interp"), QStringLiteral("linear")).toString();
-            break;
-        }
-    }
-    start[QStringLiteral("interp")] = startInterp;
-    for (const auto &v : std::as_const(legacy)) {
-        const int f = v.toMap().value(QStringLiteral("frame")).toInt();
-        if (f > 0 && f < durationFrames)
-            points.append(v);
-    }
-    QVariantMap out;
-    out[QStringLiteral("start")] = start;
-    out[QStringLiteral("points")] = sortPoints(points);
-    return out;
+    const auto result = RustKeyframeDocument::normalize(rawTrack, fallback, durationFrames);
+    return result ? result->track : QVariantMap();
 }
 
 // Resolve one track to its flattened evaluation-ready form.
 // This is the expensive step (normalize + flatten) and should be cached
 // when evaluating many frames or many parameters of the same track.
 inline QVariantList resolveTrack(const QVariant &raw, const QVariant &fallback, int durationFrames) {
-    if (isStructuredTrack(raw)) {
-        int d = (durationFrames > 0) ? durationFrames : inferredDurationForTrack(raw);
-        QVariantMap normalized = normalizeTrackForDuration(raw, fallback, d);
-        return flattenStructuredTrack(normalized);
-    }
-    return sortPoints(raw.toList());
+    const auto result = RustKeyframeDocument::inspect(raw, fallback, durationFrames);
+    return result ? result->flat : QVariantList();
 }
 
 // Resolve every keyframe track in a single pass. The returned hash maps each

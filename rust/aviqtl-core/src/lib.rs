@@ -1,6 +1,7 @@
 mod abi;
 mod audio;
 mod keyframe;
+mod keyframe_document;
 mod project;
 mod timeline;
 mod timeline_domain;
@@ -106,6 +107,57 @@ impl EasingKind {
 
     pub(crate) fn from_abi(value: u32) -> Option<Self> {
         Self::ALL.get(value as usize).copied()
+    }
+
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        const NAMES: [&str; 42] = [
+            "linear",
+            "ease_in_sine",
+            "ease_out_sine",
+            "ease_in_out_sine",
+            "ease_out_in_sine",
+            "ease_in_quad",
+            "ease_out_quad",
+            "ease_in_out_quad",
+            "ease_out_in_quad",
+            "ease_in_cubic",
+            "ease_out_cubic",
+            "ease_in_out_cubic",
+            "ease_out_in_cubic",
+            "ease_in_quart",
+            "ease_out_quart",
+            "ease_in_out_quart",
+            "ease_out_in_quart",
+            "ease_in_quint",
+            "ease_out_quint",
+            "ease_in_out_quint",
+            "ease_out_in_quint",
+            "ease_in_expo",
+            "ease_out_expo",
+            "ease_in_out_expo",
+            "ease_out_in_expo",
+            "ease_in_circ",
+            "ease_out_circ",
+            "ease_in_out_circ",
+            "ease_out_in_circ",
+            "ease_in_back",
+            "ease_out_back",
+            "ease_in_out_back",
+            "ease_out_in_back",
+            "ease_in_elastic",
+            "ease_out_elastic",
+            "ease_in_out_elastic",
+            "ease_out_in_elastic",
+            "ease_out_bounce",
+            "ease_in_bounce",
+            "ease_in_out_bounce",
+            "ease_out_in_bounce",
+            "custom",
+        ];
+        NAMES
+            .iter()
+            .position(|candidate| *candidate == name)
+            .and_then(|index| Self::ALL.get(index).copied())
     }
 }
 

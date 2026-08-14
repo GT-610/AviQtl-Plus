@@ -14,6 +14,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX = 1ULL << 5,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_EDIT = 1ULL << 6,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_DOMAIN = 1ULL << 7,
+    AVIQTL_RUST_CORE_CAPABILITY_KEYFRAME_DOCUMENT = 1ULL << 8,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -332,6 +333,8 @@ std::uint32_t aviqtl_timeline_normalize_removal_indices(std::size_t length, cons
 std::uint32_t aviqtl_timeline_plan_index_move(std::size_t length, std::int32_t oldIndex, std::int32_t newIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo);
 std::uint32_t aviqtl_timeline_plan_multi_reorder(std::size_t length, const std::int32_t *indices, std::size_t indicesLength, std::int32_t targetIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo,
                                                  std::size_t *outputSelectedCount);
+
+std::uint32_t aviqtl_keyframe_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
