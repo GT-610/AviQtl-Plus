@@ -15,6 +15,8 @@ constexpr std::array<const char *, kPerformanceCounterCount> kCounterNames = {
     "bake_clips_active",
     "bake_track_cache_hits",
     "bake_track_cache_misses",
+    "bake_rust_keyframe_batch_calls",
+    "bake_rust_keyframe_tracks",
     "ecs_bridge_syncs",
     "ecs_bridge_nanoseconds",
     "ecs_bridge_states_reused",
