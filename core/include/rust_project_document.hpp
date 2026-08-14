@@ -16,19 +16,18 @@ enum class ProjectStatus : std::uint32_t {
     UnsupportedVersion = AVIQTL_RUST_CORE_STATUS_UNSUPPORTED_VERSION,
 };
 
-inline ProjectStatus normalizeProjectJson(std::span<const std::uint8_t> input,
-                                          std::vector<std::uint8_t> &output) {
+[[nodiscard]] inline std::int32_t currentProjectVersion() { return aviqtl_project_current_version(); }
+
+inline ProjectStatus normalizeProjectJson(std::span<const std::uint8_t> input, std::vector<std::uint8_t> &output) {
     output.clear();
     std::size_t required = 0;
-    auto status = static_cast<ProjectStatus>(aviqtl_project_normalize_json(
-        input.data(), input.size(), nullptr, 0, &required));
+    auto status = static_cast<ProjectStatus>(aviqtl_project_normalize_json(input.data(), input.size(), nullptr, 0, &required));
     if (status != ProjectStatus::BufferTooSmall)
         return status;
 
     output.resize(required);
     std::size_t written = 0;
-    status = static_cast<ProjectStatus>(aviqtl_project_normalize_json(
-        input.data(), input.size(), output.data(), output.size(), &written));
+    status = static_cast<ProjectStatus>(aviqtl_project_normalize_json(input.data(), input.size(), output.data(), output.size(), &written));
     if (status != ProjectStatus::Ok || written != output.size()) {
         output.clear();
         return status == ProjectStatus::Ok ? ProjectStatus::InvalidArgument : status;

@@ -2,8 +2,9 @@ use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_INVALID_JSON, STATUS_OK,
     STATUS_OVERLAPPING_BUFFERS, STATUS_UNSUPPORTED_VERSION, ranges_overlap, slice_is_valid,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 const MIN_PROJECT_VERSION: i32 = 1;
 const MAX_PROJECT_VERSION: i32 = 3;
@@ -30,6 +31,105 @@ const MAX_MAGNETIC_SNAP_RANGE: i32 = 100;
 enum ProjectError {
     InvalidJson,
     UnsupportedVersion,
+}
+
+type ExtraFields = BTreeMap<String, Value>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct ProjectDocument {
+    version: i32,
+    settings: ProjectSettings,
+    scenes: Vec<SceneDocument>,
+    clips: Vec<ClipDocument>,
+    #[serde(flatten)]
+    extra: ExtraFields,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct ProjectSettings {
+    width: i32,
+    height: i32,
+    fps: f64,
+    #[serde(rename = "sampleRate")]
+    sample_rate: i32,
+    #[serde(flatten)]
+    extra: ExtraFields,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct SceneDocument {
+    id: i32,
+    name: String,
+    width: i32,
+    height: i32,
+    fps: f64,
+    start: i32,
+    duration: i32,
+    #[serde(rename = "nestedDuration")]
+    nested_duration: i32,
+    #[serde(rename = "lockedLayers")]
+    locked_layers: Vec<i32>,
+    #[serde(rename = "hiddenLayers")]
+    hidden_layers: Vec<i32>,
+    #[serde(rename = "gridMode")]
+    grid_mode: String,
+    #[serde(rename = "gridBpm")]
+    grid_bpm: f64,
+    #[serde(rename = "gridOffset")]
+    grid_offset: f64,
+    #[serde(rename = "gridInterval")]
+    grid_interval: i32,
+    #[serde(rename = "gridSubdivision")]
+    grid_subdivision: i32,
+    #[serde(rename = "enableSnap")]
+    enable_snap: bool,
+    #[serde(rename = "magneticSnapRange")]
+    magnetic_snap_range: i32,
+    #[serde(flatten)]
+    extra: ExtraFields,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct ClipDocument {
+    id: i32,
+    #[serde(rename = "sceneId")]
+    scene_id: i32,
+    #[serde(rename = "type")]
+    clip_type: String,
+    start: i32,
+    duration: i32,
+    layer: i32,
+    #[serde(rename = "clipByUpperObject")]
+    clip_by_upper_object: bool,
+    params: Map<String, Value>,
+    #[serde(rename = "audioPlugins")]
+    audio_plugins: Vec<AudioPluginDocument>,
+    effects: Vec<EffectDocument>,
+    #[serde(flatten)]
+    extra: ExtraFields,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct AudioPluginDocument {
+    id: String,
+    enabled: bool,
+    params: Map<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    keyframes: Option<Map<String, Value>>,
+    #[serde(flatten)]
+    extra: ExtraFields,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct EffectDocument {
+    id: String,
+    name: String,
+    enabled: bool,
+    params: Map<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    keyframes: Option<Map<String, Value>>,
+    #[serde(flatten)]
+    extra: ExtraFields,
 }
 
 fn integer(value: Option<&Value>, fallback: i32) -> i32 {
@@ -380,18 +480,31 @@ fn normalize_clips(root: &mut Map<String, Value>) {
     root.insert("clips".to_owned(), Value::Array(clips));
 }
 
-fn normalize_project_json(input: &[u8]) -> Result<Vec<u8>, ProjectError> {
+fn parse_project_document(input: &[u8]) -> Result<ProjectDocument, ProjectError> {
     let mut root: Value = serde_json::from_slice(input).map_err(|_| ProjectError::InvalidJson)?;
-    let root = root.as_object_mut().ok_or(ProjectError::InvalidJson)?;
-    let version = integer(root.get("version"), MIN_PROJECT_VERSION);
-    if !(MIN_PROJECT_VERSION..=MAX_PROJECT_VERSION).contains(&version) {
-        return Err(ProjectError::UnsupportedVersion);
+    {
+        let root = root.as_object_mut().ok_or(ProjectError::InvalidJson)?;
+        let version = integer(root.get("version"), MIN_PROJECT_VERSION);
+        if !(MIN_PROJECT_VERSION..=MAX_PROJECT_VERSION).contains(&version) {
+            return Err(ProjectError::UnsupportedVersion);
+        }
+        set_integer(root, "version", version);
+        let (width, height, fps, _) = normalize_settings(root);
+        normalize_scenes(root, version, width, height, fps);
+        normalize_clips(root);
     }
-    set_integer(root, "version", version);
-    let (width, height, fps, _) = normalize_settings(root);
-    normalize_scenes(root, version, width, height, fps);
-    normalize_clips(root);
-    serde_json::to_vec(root).map_err(|_| ProjectError::InvalidJson)
+    serde_json::from_value(root).map_err(|_| ProjectError::InvalidJson)
+}
+
+fn normalize_project_json(input: &[u8]) -> Result<Vec<u8>, ProjectError> {
+    let document = parse_project_document(input)?;
+    serde_json::to_vec(&document).map_err(|_| ProjectError::InvalidJson)
+}
+
+/// Returns the project file-format version emitted by the Rust document core.
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_project_current_version() -> i32 {
+    MAX_PROJECT_VERSION
 }
 
 /// Parses and normalizes a project document into caller-owned UTF-8 JSON storage.
@@ -498,6 +611,31 @@ mod tests {
             1
         );
         assert_eq!(normalized["clips"][0]["effects"][0]["id"], "camera_control");
+    }
+
+    #[test]
+    fn typed_document_preserves_extension_fields() {
+        let input = r#"{
+            "version": 3,
+            "settings": {"width": 1920, "height": 1080, "fps": 60,
+                "sampleRate": 48000, "settingsExtension": 1},
+            "scenes": [{"id": 1, "name": "Scene", "sceneExtension": true}],
+            "clips": [{"id": 2, "sceneId": 1, "type": "object", "start": 0,
+                "duration": 10, "layer": 0, "clipExtension": "kept",
+                "effects": [{"id": "object", "effectExtension": 7}]}],
+            "documentExtension": {"owner": "plugin"}
+        }"#;
+        let document = parse_project_document(input.as_bytes()).expect("typed project document");
+        assert_eq!(document.version, aviqtl_project_current_version());
+        assert_eq!(document.scenes[0].id, 1);
+        assert_eq!(document.clips[0].scene_id, 1);
+        assert_eq!(document.extra["documentExtension"]["owner"], "plugin");
+
+        let normalized = normalize(input);
+        assert_eq!(normalized["settings"]["settingsExtension"], 1);
+        assert_eq!(normalized["scenes"][0]["sceneExtension"], true);
+        assert_eq!(normalized["clips"][0]["clipExtension"], "kept");
+        assert_eq!(normalized["clips"][0]["effects"][0]["effectExtension"], 7);
     }
 
     #[test]

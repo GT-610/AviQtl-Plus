@@ -15,6 +15,7 @@ class TestRustCoreAbi : public QObject {
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_EDIT);
+        QCOMPARE(aviqtl_project_current_version(), std::int32_t{3});
     }
 
     void exposesExpectedLayouts() {

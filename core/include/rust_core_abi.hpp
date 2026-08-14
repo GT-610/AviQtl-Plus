@@ -295,5 +295,6 @@ std::uint32_t aviqtl_timeline_plan_clipboard_placement(const AviQtlTimelineClipG
                                                        AviQtlTimelineClipGeometry *output, std::size_t outputLength, std::int32_t *outputFrame);
 std::uint32_t aviqtl_timeline_split_clip(const AviQtlTimelineClipGeometry *clip, std::int32_t frame, AviQtlTimelineClipGeometry *first, AviQtlTimelineClipGeometry *second);
 
+std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 }

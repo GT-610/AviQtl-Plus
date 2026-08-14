@@ -1,6 +1,7 @@
-#include "project_serializer.hpp"
 #include "effect_registry.hpp"
+#include "project_serializer.hpp"
 #include "project_service.hpp"
+#include "rust_project_document.hpp"
 #include "selection_service.hpp"
 #include "timeline_service.hpp"
 #include <QDir>
@@ -20,6 +21,7 @@ class TestProjectSerializer : public QObject {
 
   private slots:
     void atomicSaveReplacesAnExistingProject();
+    void saveSnapshotIsCanonicalizedByRust();
     void saveFailureLeavesAnInvalidTargetUntouched();
     void sceneStateAndMediaPathsRoundTrip();
     void invalidGridSettingsUseDefaults();
@@ -49,6 +51,37 @@ void TestProjectSerializer::atomicSaveReplacesAnExistingProject() {
     const QJsonDocument document = QJsonDocument::fromJson(saved.readAll());
     QVERIFY(document.isObject());
     QCOMPARE(document.object().value(QStringLiteral("version")).toInt(), 3);
+}
+
+void TestProjectSerializer::saveSnapshotIsCanonicalizedByRust() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    QVariantMap snapshot{
+        {QStringLiteral("version"), AviQtl::RustCore::currentProjectVersion()},
+        {QStringLiteral("settings"), QVariantMap{{QStringLiteral("width"), 0}, {QStringLiteral("height"), 50000}, {QStringLiteral("fps"), 0}, {QStringLiteral("sampleRate"), 500000}}},
+        {QStringLiteral("scenes"), QVariantList{QVariantMap{{QStringLiteral("id"), 4}, {QStringLiteral("duration"), -1}}}},
+        {QStringLiteral("clips"), QVariantList{QVariantMap{{QStringLiteral("id"), 8}, {QStringLiteral("sceneId"), 4}, {QStringLiteral("type"), QStringLiteral("camera")}, {QStringLiteral("layer"), 500}}}},
+    };
+
+    const QString path = dir.filePath(QStringLiteral("canonical.aviqtl"));
+    QString error;
+    QVERIFY2(ProjectSerializer::saveSnapshot(path, snapshot, &error), qPrintable(error));
+
+    QFile saved(path);
+    QVERIFY(saved.open(QIODevice::ReadOnly));
+    const QJsonObject root = QJsonDocument::fromJson(saved.readAll()).object();
+    QCOMPARE(root.value(QStringLiteral("version")).toInt(), AviQtl::RustCore::currentProjectVersion());
+    const QJsonObject settings = root.value(QStringLiteral("settings")).toObject();
+    QCOMPARE(settings.value(QStringLiteral("width")).toInt(), AviQtl::kDefaultWidth);
+    QCOMPARE(settings.value(QStringLiteral("height")).toInt(), AviQtl::kDefaultHeight);
+    QCOMPARE(settings.value(QStringLiteral("fps")).toDouble(), AviQtl::kDefaultFps);
+    QCOMPARE(settings.value(QStringLiteral("sampleRate")).toInt(), AviQtl::kDefaultSampleRate);
+    const QJsonObject scene = root.value(QStringLiteral("scenes")).toArray().first().toObject();
+    QCOMPARE(scene.value(QStringLiteral("duration")).toInt(), AviQtl::kDefaultTotalFrames);
+    const QJsonObject clip = root.value(QStringLiteral("clips")).toArray().first().toObject();
+    QCOMPARE(clip.value(QStringLiteral("type")).toString(), QStringLiteral("camera_control"));
+    QCOMPARE(clip.value(QStringLiteral("layer")).toInt(), 127);
 }
 
 void TestProjectSerializer::sceneStateAndMediaPathsRoundTrip() {
