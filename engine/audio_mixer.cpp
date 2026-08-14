@@ -1,5 +1,4 @@
 #include "audio_mixer.hpp"
-#include "core/include/rust_audio_dsp.hpp"
 #include "core/include/constants.hpp"
 #include "core/include/audio_decoder.hpp"
 #include "core/include/settings_manager.hpp"
@@ -124,6 +123,9 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
         std::fill(m_masterBuffer.begin(), m_masterBuffer.end(), 0.0F);
     }
     auto &masterBuffer = m_masterBuffer;
+    m_batchTracks.clear();
+    m_batchResults.clear();
+    m_batchReportMeters.clear();
 
     const auto *state = Timeline::ECS::instance().getSnapshot();
     if (state == nullptr) {
@@ -138,27 +140,19 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
         }
     }
 
-    struct PreparedTrack {
-        AviQtl::RustCore::AudioBatchTrack descriptor{};
-        bool reportMeter = false;
-    };
-    std::vector<PreparedTrack> preparedTracks;
-
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
         if (audio.mute || (hasSolo && !audio.solo)) {
-            preparedTracks.push_back({
-                .descriptor = {
-                    .samples = nullptr,
-                    .samples_length = 0,
-                    .parameters = {},
-                    .clip_id = clipId,
-                    .mute = audio.mute ? 1U : 0U,
-                    .solo = audio.solo ? 1U : 0U,
-                    .reserved = 0,
-                },
-                .reportMeter = true,
+            m_batchTracks.push_back({
+                .samples = nullptr,
+                .samples_length = 0,
+                .parameters = {},
+                .clip_id = clipId,
+                .mute = audio.mute ? 1U : 0U,
+                .solo = audio.solo ? 1U : 0U,
+                .reserved = 0,
             });
+            m_batchReportMeters.push_back(1U);
             continue;
         }
         if (currentFrame < audio.startFrame || currentFrame >= audio.startFrame + audio.durationFrames) {
@@ -167,18 +161,16 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
 
         auto decIt = m_decoders.find(clipId);
         if (decIt == m_decoders.end() || decIt.value().isNull()) {
-            preparedTracks.push_back({
-                .descriptor = {
-                    .samples = nullptr,
-                    .samples_length = 0,
-                    .parameters = {},
-                    .clip_id = clipId,
-                    .mute = 0,
-                    .solo = audio.solo ? 1U : 0U,
-                    .reserved = 0,
-                },
-                .reportMeter = false,
+            m_batchTracks.push_back({
+                .samples = nullptr,
+                .samples_length = 0,
+                .parameters = {},
+                .clip_id = clipId,
+                .mute = 0,
+                .solo = audio.solo ? 1U : 0U,
+                .reserved = 0,
             });
+            m_batchReportMeters.push_back(0U);
             continue;
         }
 
@@ -228,54 +220,50 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
         }
 
         const double clipDurationSec = fps > 0.0 ? static_cast<double>(audio.durationFrames) / fps : 0.0;
-        preparedTracks.push_back({
-            .descriptor = {
-                .samples = clipSamples.data(),
-                .samples_length = clipSamples.size(),
-                .parameters = {
-                    .relative_time = relTime,
-                    .duration = clipDurationSec,
-                    .fade_in_seconds = audio.fadeInSec,
-                    .fade_out_seconds = audio.fadeOutSec,
-                    .volume = audio.volume,
-                    .master_volume = audio.masterVolume,
-                    .pan = audio.pan,
-                    .limiter = audio.limiter ? 1U : 0U,
-                },
-                .clip_id = clipId,
-                .mute = 0,
-                .solo = audio.solo ? 1U : 0U,
-                .reserved = 0,
+        m_batchTracks.push_back({
+            .samples = clipSamples.data(),
+            .samples_length = clipSamples.size(),
+            .parameters = {
+                .relative_time = relTime,
+                .duration = clipDurationSec,
+                .fade_in_seconds = audio.fadeInSec,
+                .fade_out_seconds = audio.fadeOutSec,
+                .volume = audio.volume,
+                .master_volume = audio.masterVolume,
+                .pan = audio.pan,
+                .limiter = audio.limiter ? 1U : 0U,
             },
-            .reportMeter = true,
+            .clip_id = clipId,
+            .mute = 0,
+            .solo = audio.solo ? 1U : 0U,
+            .reserved = 0,
         });
+        m_batchReportMeters.push_back(1U);
     }
 
-    std::vector<AviQtl::RustCore::AudioBatchTrack> batchTracks;
-    batchTracks.reserve(preparedTracks.size());
-    for (const PreparedTrack &track : preparedTracks) {
-        batchTracks.push_back(track.descriptor);
-    }
-    std::vector<AviQtl::RustCore::AudioBatchResult> batchResults(batchTracks.size());
+    m_batchResults.resize(m_batchTracks.size());
     const auto mixStatus = AviQtl::RustCore::mixStereoBatch(
-        batchTracks, masterBuffer, batchResults);
+        m_batchTracks, masterBuffer, m_batchResults);
     if (mixStatus != AviQtl::RustCore::AudioStatus::Ok) {
         qCWarning(lcAudioMixer) << "Rust audio batch mixing failed with status"
                                 << static_cast<std::uint32_t>(mixStatus);
     }
-    for (std::size_t index = 0; index < preparedTracks.size(); ++index) {
-        if (!preparedTracks[index].reportMeter) {
+    for (std::size_t index = 0; index < m_batchTracks.size(); ++index) {
+        if (m_batchReportMeters[index] == 0U) {
             continue;
         }
-        if (mixStatus == AviQtl::RustCore::AudioStatus::Ok && batchResults[index].mixed != 0) {
-            const auto &meter = batchResults[index].meter;
-            emit audioMeterChanged(batchResults[index].clip_id, meter.peak_left,
+        if (mixStatus == AviQtl::RustCore::AudioStatus::Ok && m_batchResults[index].mixed != 0) {
+            const auto &meter = m_batchResults[index].meter;
+            emit audioMeterChanged(m_batchResults[index].clip_id, meter.peak_left,
                                    meter.peak_right, meter.rms_left, meter.rms_right);
         } else {
-            emit audioMeterChanged(preparedTracks[index].descriptor.clip_id,
+            emit audioMeterChanged(m_batchTracks[index].clip_id,
                                    0.0f, 0.0f, 0.0f, 0.0f);
         }
     }
+    m_batchTracks.clear();
+    m_batchResults.clear();
+    m_batchReportMeters.clear();
     return masterBuffer;
 }
 

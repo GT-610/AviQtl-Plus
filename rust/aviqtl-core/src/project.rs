@@ -7,10 +7,15 @@ use std::collections::BTreeSet;
 
 const MIN_PROJECT_VERSION: i32 = 1;
 const MAX_PROJECT_VERSION: i32 = 3;
+// Keep in sync with AviQtl::kDefaultWidth in core/include/constants.hpp.
 const DEFAULT_WIDTH: i32 = 1920;
+// Keep in sync with AviQtl::kDefaultHeight in core/include/constants.hpp.
 const DEFAULT_HEIGHT: i32 = 1080;
+// Keep in sync with AviQtl::kDefaultSampleRate in core/include/constants.hpp.
 const DEFAULT_SAMPLE_RATE: i32 = 48_000;
+// Keep in sync with AviQtl::kDefaultTotalFrames in core/include/constants.hpp.
 const DEFAULT_TOTAL_FRAMES: i32 = 300;
+// Keep in sync with AviQtl::kDefaultFps in core/include/constants.hpp.
 const DEFAULT_FPS: f64 = 60.0;
 const MAX_DIMENSION: i32 = 32_768;
 const MAX_FPS: f64 = 1_000.0;
@@ -79,7 +84,8 @@ fn set_integer(map: &mut Map<String, Value>, key: &str, value: i32) {
 }
 
 fn set_floating(map: &mut Map<String, Value>, key: &str, value: f64) {
-    let number = Number::from_f64(value).expect("normalized project numbers are finite");
+    let value = if value.is_finite() { value } else { 0.0 };
+    let number = Number::from_f64(value).unwrap_or(Number::from(0));
     map.insert(key.to_owned(), Value::Number(number));
 }
 
@@ -525,7 +531,24 @@ mod tests {
             )
         };
         assert_eq!(status, STATUS_BUFFER_TOO_SMALL);
-        assert!(required > 0);
+        assert!(required > 1);
+
+        let mut undersized = vec![0xA5_u8; required - 1];
+        let original_undersized = undersized.clone();
+        let mut reported = 0_usize;
+        // SAFETY: The non-empty output is valid and disjoint but deliberately too small.
+        let status = unsafe {
+            aviqtl_project_normalize_json(
+                input.as_ptr(),
+                input.len(),
+                undersized.as_mut_ptr(),
+                undersized.len(),
+                &mut reported,
+            )
+        };
+        assert_eq!(status, STATUS_BUFFER_TOO_SMALL);
+        assert_eq!(reported, required);
+        assert_eq!(undersized, original_undersized);
 
         let mut output = vec![0_u8; required];
         // SAFETY: All ranges are valid, writable where required, and disjoint.

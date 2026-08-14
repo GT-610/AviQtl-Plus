@@ -186,6 +186,7 @@ void TestProjectSerializer::legacyProjectValuesAreNormalizedByRust() {
     QCOMPARE(scene.totalFrames, AviQtl::kDefaultTotalFrames);
     QVERIFY(scene.lockedLayers.isEmpty());
     QCOMPARE(scene.gridBpm, 120.0);
+    QVERIFY(scene.enableSnap);
     QCOMPARE(scene.clips.size(), 1);
     QCOMPARE(scene.clips.first().type, QStringLiteral("camera_control"));
     QCOMPARE(scene.clips.first().layer, 127);
