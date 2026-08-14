@@ -300,6 +300,9 @@ std::uint32_t aviqtl_core_abi_version();
 std::uint64_t aviqtl_core_capabilities();
 
 double aviqtl_solve_bezier_t(double x, double x1, double x2);
+std::int32_t aviqtl_easing_kind_from_name(const std::uint8_t *value, std::size_t valueLength);
+std::size_t aviqtl_easing_count();
+const std::uint8_t *aviqtl_easing_name(std::uint32_t kind, std::size_t *outputLength);
 double aviqtl_easing_evaluate(std::uint32_t kind, double t, const double *points, std::size_t pointsLength, AviQtlEasingParameters parameters);
 
 std::uint32_t aviqtl_audio_resample_stereo_linear(const float *input, std::size_t inputLength, float *output, std::size_t outputLength, double sourceRate);
@@ -307,6 +310,7 @@ std::uint32_t aviqtl_audio_mix_stereo(const float *clip, std::size_t clipLength,
 std::uint32_t aviqtl_audio_mix_stereo_batch(const AviQtlAudioBatchTrack *tracks, std::size_t tracksLength, float *master, std::size_t masterLength, AviQtlAudioBatchResult *results, std::size_t resultsLength);
 
 std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks, std::size_t tracksLength, std::int32_t frame, double *output, std::size_t outputLength);
+std::uint32_t aviqtl_numeric_interpolation_from_name(const std::uint8_t *value, std::size_t valueLength);
 
 std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input, AviQtlRenderBakeOutput *output);
 std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input, AviQtlAudioBakeOutput *output);
@@ -362,6 +366,8 @@ const std::uint8_t *aviqtl_permission_name(std::int32_t permission, std::size_t 
 std::uint32_t aviqtl_package_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_package_type(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_recovery_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_recovery_snapshot_name_is_valid(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *fileName, std::size_t fileNameLength);
 
 std::uint32_t aviqtl_settings_defaults_json(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 std::uint32_t aviqtl_settings_merge_json(const std::uint8_t *base, std::size_t baseLength, const std::uint8_t *loaded, std::size_t loadedLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::uint32_t *migrated);

@@ -10,55 +10,10 @@ bool isNumericValue(const QVariant &value) {
 }
 
 RustCore::NumericInterpolation interpolationForName(QStringView name) {
-    using enum RustCore::NumericInterpolation;
-    static const QHash<QString, RustCore::NumericInterpolation> kinds = {
-        {QStringLiteral("linear"), Linear},
-        {QStringLiteral("ease_in_sine"), EaseInSine},
-        {QStringLiteral("ease_out_sine"), EaseOutSine},
-        {QStringLiteral("ease_in_out_sine"), EaseInOutSine},
-        {QStringLiteral("ease_out_in_sine"), EaseOutInSine},
-        {QStringLiteral("ease_in_quad"), EaseInQuad},
-        {QStringLiteral("ease_out_quad"), EaseOutQuad},
-        {QStringLiteral("ease_in_out_quad"), EaseInOutQuad},
-        {QStringLiteral("ease_out_in_quad"), EaseOutInQuad},
-        {QStringLiteral("ease_in_cubic"), EaseInCubic},
-        {QStringLiteral("ease_out_cubic"), EaseOutCubic},
-        {QStringLiteral("ease_in_out_cubic"), EaseInOutCubic},
-        {QStringLiteral("ease_out_in_cubic"), EaseOutInCubic},
-        {QStringLiteral("ease_in_quart"), EaseInQuart},
-        {QStringLiteral("ease_out_quart"), EaseOutQuart},
-        {QStringLiteral("ease_in_out_quart"), EaseInOutQuart},
-        {QStringLiteral("ease_out_in_quart"), EaseOutInQuart},
-        {QStringLiteral("ease_in_quint"), EaseInQuint},
-        {QStringLiteral("ease_out_quint"), EaseOutQuint},
-        {QStringLiteral("ease_in_out_quint"), EaseInOutQuint},
-        {QStringLiteral("ease_out_in_quint"), EaseOutInQuint},
-        {QStringLiteral("ease_in_expo"), EaseInExpo},
-        {QStringLiteral("ease_out_expo"), EaseOutExpo},
-        {QStringLiteral("ease_in_out_expo"), EaseInOutExpo},
-        {QStringLiteral("ease_out_in_expo"), EaseOutInExpo},
-        {QStringLiteral("ease_in_circ"), EaseInCirc},
-        {QStringLiteral("ease_out_circ"), EaseOutCirc},
-        {QStringLiteral("ease_in_out_circ"), EaseInOutCirc},
-        {QStringLiteral("ease_out_in_circ"), EaseOutInCirc},
-        {QStringLiteral("ease_in_back"), EaseInBack},
-        {QStringLiteral("ease_out_back"), EaseOutBack},
-        {QStringLiteral("ease_in_out_back"), EaseInOutBack},
-        {QStringLiteral("ease_out_in_back"), EaseOutInBack},
-        {QStringLiteral("ease_in_elastic"), EaseInElastic},
-        {QStringLiteral("ease_out_elastic"), EaseOutElastic},
-        {QStringLiteral("ease_in_out_elastic"), EaseInOutElastic},
-        {QStringLiteral("ease_out_in_elastic"), EaseOutInElastic},
-        {QStringLiteral("ease_out_bounce"), EaseOutBounce},
-        {QStringLiteral("ease_in_bounce"), EaseInBounce},
-        {QStringLiteral("ease_in_out_bounce"), EaseInOutBounce},
-        {QStringLiteral("ease_out_in_bounce"), EaseOutInBounce},
-        {QStringLiteral("custom"), Custom},
-        {QStringLiteral("none"), None},
-        {QStringLiteral("random"), Random},
-        {QStringLiteral("alternate"), Alternate},
-    };
-    return kinds.value(name.toString(), Linear);
+    const QByteArray encoded = name.toString().toUtf8();
+    return static_cast<RustCore::NumericInterpolation>(aviqtl_numeric_interpolation_from_name(
+        reinterpret_cast<const std::uint8_t *>(encoded.constData()),
+        static_cast<std::size_t>(encoded.size())));
 }
 
 RustCore::NumericTrackView NumericTrackStorage::view(double fallback) const {

@@ -7,12 +7,9 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <algorithm>
-#include <functional>
 #include <vector>
 
 namespace AviQtl::Core::KeyframeUtils {
-
-using EasingFunction = std::function<double(double, const std::vector<double> &, const QVariantMap &)>;
 
 inline bool isStructuredTrack(const QVariant &raw) {
     const QVariantMap m = raw.toMap();
@@ -39,63 +36,6 @@ inline QVariantList flattenStructuredTrack(const QVariantMap &track) {
 
 inline double solveBezierT(double x, double x1, double x2) {
     return RustCore::solveBezierT(x, x1, x2);
-}
-
-inline EasingFunction rustEasingFunction(RustCore::EasingKind kind) {
-    return [kind](double t, const std::vector<double> &points, const QVariantMap &modeParams) {
-        const double amplitude = modeParams.value(QStringLiteral("amplitude"), 1.0).toDouble();
-        const double period = modeParams.value(QStringLiteral("period"), 0.3).toDouble();
-        return RustCore::evaluateEasing(kind, t, points, amplitude, period);
-    };
-}
-
-inline const QHash<QString, EasingFunction> &easingFunctions() {
-    using enum RustCore::EasingKind;
-    static const QHash<QString, EasingFunction> funcs = {
-        {QStringLiteral("linear"), rustEasingFunction(Linear)},
-        {QStringLiteral("ease_in_sine"), rustEasingFunction(EaseInSine)},
-        {QStringLiteral("ease_out_sine"), rustEasingFunction(EaseOutSine)},
-        {QStringLiteral("ease_in_out_sine"), rustEasingFunction(EaseInOutSine)},
-        {QStringLiteral("ease_out_in_sine"), rustEasingFunction(EaseOutInSine)},
-        {QStringLiteral("ease_in_quad"), rustEasingFunction(EaseInQuad)},
-        {QStringLiteral("ease_out_quad"), rustEasingFunction(EaseOutQuad)},
-        {QStringLiteral("ease_in_out_quad"), rustEasingFunction(EaseInOutQuad)},
-        {QStringLiteral("ease_out_in_quad"), rustEasingFunction(EaseOutInQuad)},
-        {QStringLiteral("ease_in_cubic"), rustEasingFunction(EaseInCubic)},
-        {QStringLiteral("ease_out_cubic"), rustEasingFunction(EaseOutCubic)},
-        {QStringLiteral("ease_in_out_cubic"), rustEasingFunction(EaseInOutCubic)},
-        {QStringLiteral("ease_out_in_cubic"), rustEasingFunction(EaseOutInCubic)},
-        {QStringLiteral("ease_in_quart"), rustEasingFunction(EaseInQuart)},
-        {QStringLiteral("ease_out_quart"), rustEasingFunction(EaseOutQuart)},
-        {QStringLiteral("ease_in_out_quart"), rustEasingFunction(EaseInOutQuart)},
-        {QStringLiteral("ease_out_in_quart"), rustEasingFunction(EaseOutInQuart)},
-        {QStringLiteral("ease_in_quint"), rustEasingFunction(EaseInQuint)},
-        {QStringLiteral("ease_out_quint"), rustEasingFunction(EaseOutQuint)},
-        {QStringLiteral("ease_in_out_quint"), rustEasingFunction(EaseInOutQuint)},
-        {QStringLiteral("ease_out_in_quint"), rustEasingFunction(EaseOutInQuint)},
-        {QStringLiteral("ease_in_expo"), rustEasingFunction(EaseInExpo)},
-        {QStringLiteral("ease_out_expo"), rustEasingFunction(EaseOutExpo)},
-        {QStringLiteral("ease_in_out_expo"), rustEasingFunction(EaseInOutExpo)},
-        {QStringLiteral("ease_out_in_expo"), rustEasingFunction(EaseOutInExpo)},
-        {QStringLiteral("ease_in_circ"), rustEasingFunction(EaseInCirc)},
-        {QStringLiteral("ease_out_circ"), rustEasingFunction(EaseOutCirc)},
-        {QStringLiteral("ease_in_out_circ"), rustEasingFunction(EaseInOutCirc)},
-        {QStringLiteral("ease_out_in_circ"), rustEasingFunction(EaseOutInCirc)},
-        {QStringLiteral("ease_in_back"), rustEasingFunction(EaseInBack)},
-        {QStringLiteral("ease_out_back"), rustEasingFunction(EaseOutBack)},
-        {QStringLiteral("ease_in_out_back"), rustEasingFunction(EaseInOutBack)},
-        {QStringLiteral("ease_out_in_back"), rustEasingFunction(EaseOutInBack)},
-        {QStringLiteral("ease_in_elastic"), rustEasingFunction(EaseInElastic)},
-        {QStringLiteral("ease_out_elastic"), rustEasingFunction(EaseOutElastic)},
-        {QStringLiteral("ease_in_out_elastic"), rustEasingFunction(EaseInOutElastic)},
-        {QStringLiteral("ease_out_in_elastic"), rustEasingFunction(EaseOutInElastic)},
-        {QStringLiteral("ease_out_bounce"), rustEasingFunction(EaseOutBounce)},
-        {QStringLiteral("ease_in_bounce"), rustEasingFunction(EaseInBounce)},
-        {QStringLiteral("ease_in_out_bounce"), rustEasingFunction(EaseInOutBounce)},
-        {QStringLiteral("ease_out_in_bounce"), rustEasingFunction(EaseOutInBounce)},
-        {QStringLiteral("custom"), rustEasingFunction(Custom)},
-    };
-    return funcs;
 }
 
 inline QVariant evaluateTrack(const QVariantList &track, int frame, const QVariant &fallback) {
@@ -142,10 +82,10 @@ inline QVariant evaluateTrack(const QVariantList &track, int frame, const QVaria
                                   m_i.value(QStringLiteral("bzx2"), 0.66).toDouble(), m_i.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
                     }
                 }
-                const auto &funcs = easingFunctions();
-                auto efIt = funcs.find(type);
-                if (efIt == funcs.end()) { type = QStringLiteral("linear"); efIt = funcs.find(type); }
-                const double t = efIt.value()(tRaw, params, modeParams);
+                const double t = RustCore::evaluateEasing(
+                    type, tRaw, params,
+                    modeParams.value(QStringLiteral("amplitude"), 1.0).toDouble(),
+                    modeParams.value(QStringLiteral("period"), 0.3).toDouble());
                 return QColor(static_cast<int>(c0.red() + (c1.red() - c0.red()) * t), static_cast<int>(c0.green() + (c1.green() - c0.green()) * t),
                               static_cast<int>(c0.blue() + (c1.blue() - c0.blue()) * t), static_cast<int>(c0.alpha() + (c1.alpha() - c0.alpha()) * t))
                     .name(QColor::HexArgb);

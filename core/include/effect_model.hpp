@@ -11,12 +11,7 @@
 #include <QVariantList>
 #include <algorithm>
 #include <cmath>
-#include <functional>
-
 namespace AviQtl::UI {
-
-// イージング関数シグネチャ: double function(t, params)
-using EasingFunction = std::function<double(double, const std::vector<double> &, const QVariantMap &)>;
 
 class EffectModel : public QObject {
     Q_OBJECT
@@ -27,7 +22,6 @@ class EffectModel : public QObject {
     static QVariantList sortPoints(QVariantList points) { return Core::KeyframeUtils::sortPoints(std::move(points)); }
     static int inferredDurationForTrack(const QVariant &raw) { return Core::KeyframeUtils::inferredDurationForTrack(raw); }
     static QVariantList flattenStructuredTrack(const QVariantMap &track) { return Core::KeyframeUtils::flattenStructuredTrack(track); }
-    static const QHash<QString, EasingFunction> &easingFunctions() { return Core::KeyframeUtils::easingFunctions(); }
     static QVariant evaluateTrack(const QVariantList &track, int frame, const QVariant &fallback) { return Core::KeyframeUtils::evaluateTrack(track, frame, fallback); }
     static QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) { return Core::KeyframeUtils::normalizeTrackForDuration(rawTrack, fallback, durationFrames); }
 
@@ -133,9 +127,7 @@ class EffectModel : public QObject {
     Q_INVOKABLE QStringList availableEasings() const {
         QStringList keys;
         keys << QStringLiteral("none");
-        const auto &funcs = easingFunctions();
-        for (auto it = funcs.begin(); it != funcs.end(); ++it)
-            keys << it.key();
+        keys.append(AviQtl::RustCore::easingNames());
         keys << QStringLiteral("random") << QStringLiteral("alternate");
         return keys;
     }

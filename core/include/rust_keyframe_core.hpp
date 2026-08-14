@@ -1,7 +1,11 @@
 #pragma once
 
 #include "rust_core_abi.hpp"
+#include <QByteArray>
+#include <QStringList>
+#include <QStringView>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -113,11 +117,40 @@ inline double solveBezierT(double x, double x1, double x2) {
     return aviqtl_solve_bezier_t(x, x1, x2);
 }
 
+[[nodiscard]] inline std::optional<EasingKind> easingKindForName(QStringView name) {
+    const QByteArray encoded = name.toString().toUtf8();
+    const std::int32_t kind = aviqtl_easing_kind_from_name(
+        reinterpret_cast<const std::uint8_t *>(encoded.constData()),
+        static_cast<std::size_t>(encoded.size()));
+    return kind < 0 ? std::nullopt : std::optional<EasingKind>{static_cast<EasingKind>(kind)};
+}
+
+[[nodiscard]] inline QStringList easingNames() {
+    QStringList names;
+    const std::size_t count = aviqtl_easing_count();
+    names.reserve(static_cast<qsizetype>(count));
+    for (std::size_t index = 0; index < count; ++index) {
+        std::size_t length = 0;
+        const std::uint8_t *name = aviqtl_easing_name(static_cast<std::uint32_t>(index), &length);
+        if (name != nullptr) {
+            names.append(QString::fromUtf8(reinterpret_cast<const char *>(name),
+                                           static_cast<qsizetype>(length)));
+        }
+    }
+    return names;
+}
+
 inline double evaluateEasing(EasingKind kind, double t, const std::vector<double> &points,
                              double amplitude, double period) {
     const double *data = points.empty() ? nullptr : points.data();
     return aviqtl_easing_evaluate(static_cast<std::uint32_t>(kind), t, data, points.size(),
                                   {.amplitude = amplitude, .period = period});
+}
+
+inline double evaluateEasing(QStringView name, double t, const std::vector<double> &points,
+                             double amplitude, double period) {
+    return evaluateEasing(easingKindForName(name).value_or(EasingKind::Linear), t, points,
+                          amplitude, period);
 }
 
 [[nodiscard]] inline NumericBatchStatus evaluateNumericTracks(

@@ -14,6 +14,35 @@ fn interpolation_is_valid(value: u32) -> bool {
     value < INTERPOLATION_COUNT
 }
 
+fn interpolation_from_name(name: &str) -> u32 {
+    EasingKind::from_name(name).map_or_else(
+        || match name {
+            "none" => INTERPOLATION_NONE,
+            "random" => INTERPOLATION_RANDOM,
+            "alternate" => INTERPOLATION_ALTERNATE,
+            _ => EasingKind::Linear as u32,
+        },
+        |kind| kind as u32,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_numeric_interpolation_from_name(
+    value: *const u8,
+    value_length: usize,
+) -> u32 {
+    if !slice_is_valid(value, value_length) {
+        return EasingKind::Linear as u32;
+    }
+    let bytes = if value_length == 0 {
+        &[]
+    } else {
+        // SAFETY: The range was validated and is only borrowed for this call.
+        unsafe { std::slice::from_raw_parts(value, value_length) }
+    };
+    std::str::from_utf8(bytes).map_or(EasingKind::Linear as u32, interpolation_from_name)
+}
+
 fn checked_custom_points<'a>(
     track: &'a AviQtlNumericTrackView,
     keyframe: &AviQtlNumericKeyframe,
@@ -439,6 +468,22 @@ mod tests {
         };
         assert_eq!(status, STATUS_OK);
         assert!((output[0] - 50.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn interpolation_names_are_owned_by_the_rust_core() {
+        assert_eq!(interpolation_from_name("ease_out_bounce"), 37);
+        assert_eq!(interpolation_from_name("custom"), 41);
+        assert_eq!(interpolation_from_name("none"), INTERPOLATION_NONE);
+        assert_eq!(interpolation_from_name("random"), INTERPOLATION_RANDOM);
+        assert_eq!(
+            interpolation_from_name("alternate"),
+            INTERPOLATION_ALTERNATE
+        );
+        assert_eq!(
+            interpolation_from_name("unknown"),
+            EasingKind::Linear as u32
+        );
     }
 
     #[test]

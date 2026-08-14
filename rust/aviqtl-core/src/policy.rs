@@ -266,6 +266,38 @@ fn safe_archive_path(value: &str) -> bool {
     true
 }
 
+fn valid_recovery_id(value: &str) -> bool {
+    if value.len() != 36
+        || !value.bytes().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => byte == b'-',
+            _ => byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte),
+        })
+    {
+        return false;
+    }
+    value.bytes().any(|byte| byte != b'0' && byte != b'-')
+}
+
+fn valid_recovery_snapshot_name(id: &str, file_name: &str) -> bool {
+    if !valid_recovery_id(id)
+        || file_name.contains('/')
+        || file_name.contains('\\')
+        || file_name.contains('\0')
+    {
+        return false;
+    }
+    if file_name == format!("{id}.aviqtl") {
+        return true;
+    }
+    let Some(generation) = file_name
+        .strip_prefix(&format!("{id}-"))
+        .and_then(|name| name.strip_suffix(".aviqtl"))
+    else {
+        return false;
+    };
+    valid_recovery_id(generation)
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_media_is_direct_audio_mode(value: *const u8, value_length: usize) -> u32 {
     u32::from(utf8(value, value_length).is_some_and(is_direct_audio_mode))
@@ -423,6 +455,25 @@ pub extern "C" fn aviqtl_package_archive_path_is_safe(
     u32::from(utf8(value, value_length).is_some_and(safe_archive_path))
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_recovery_id_is_valid(value: *const u8, value_length: usize) -> u32 {
+    u32::from(utf8(value, value_length).is_some_and(valid_recovery_id))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_recovery_snapshot_name_is_valid(
+    id: *const u8,
+    id_length: usize,
+    file_name: *const u8,
+    file_name_length: usize,
+) -> u32 {
+    u32::from(
+        utf8(id, id_length)
+            .zip(utf8(file_name, file_name_length))
+            .is_some_and(|(id, file_name)| valid_recovery_snapshot_name(id, file_name)),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -474,5 +525,27 @@ mod tests {
         assert!(!safe_archive_path("effect\\main.qml"));
         assert!(!safe_archive_path("/absolute/main.qml"));
         assert!(!safe_archive_path("C:/absolute/main.qml"));
+    }
+
+    #[test]
+    fn recovery_policy_accepts_only_canonical_ids_and_owned_snapshots() {
+        let id = "01234567-89ab-cdef-0123-456789abcdef";
+        let generation = "fedcba98-7654-3210-fedc-ba9876543210";
+        assert!(valid_recovery_id(id));
+        assert!(!valid_recovery_id("00000000-0000-0000-0000-000000000000"));
+        assert!(!valid_recovery_id("01234567-89AB-cdef-0123-456789abcdef"));
+        assert!(valid_recovery_snapshot_name(id, &format!("{id}.aviqtl")));
+        assert!(valid_recovery_snapshot_name(
+            id,
+            &format!("{id}-{generation}.aviqtl")
+        ));
+        assert!(!valid_recovery_snapshot_name(
+            id,
+            &format!("../{id}.aviqtl")
+        ));
+        assert!(!valid_recovery_snapshot_name(
+            id,
+            &format!("{generation}.aviqtl")
+        ));
     }
 }

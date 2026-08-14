@@ -118,4 +118,21 @@ inline bool isSafeArchivePath(QStringView value) {
                static_cast<std::size_t>(encoded.size())) != 0;
 }
 
+inline bool isValidRecoveryId(QStringView value) {
+    const QByteArray encoded = utf8(value);
+    return aviqtl_recovery_id_is_valid(
+               reinterpret_cast<const std::uint8_t *>(encoded.constData()),
+               static_cast<std::size_t>(encoded.size())) != 0;
+}
+
+inline bool isValidRecoverySnapshotName(QStringView id, QStringView fileName) {
+    const QByteArray encodedId = utf8(id);
+    const QByteArray encodedName = utf8(fileName);
+    return aviqtl_recovery_snapshot_name_is_valid(
+               reinterpret_cast<const std::uint8_t *>(encodedId.constData()),
+               static_cast<std::size_t>(encodedId.size()),
+               reinterpret_cast<const std::uint8_t *>(encodedName.constData()),
+               static_cast<std::size_t>(encodedName.size())) != 0;
+}
+
 } // namespace AviQtl::RustCore::Policy

@@ -118,56 +118,70 @@ impl EasingKind {
         Self::ALL.get(value as usize).copied()
     }
 
+    pub(crate) const NAMES: [&'static str; 42] = [
+        "linear",
+        "ease_in_sine",
+        "ease_out_sine",
+        "ease_in_out_sine",
+        "ease_out_in_sine",
+        "ease_in_quad",
+        "ease_out_quad",
+        "ease_in_out_quad",
+        "ease_out_in_quad",
+        "ease_in_cubic",
+        "ease_out_cubic",
+        "ease_in_out_cubic",
+        "ease_out_in_cubic",
+        "ease_in_quart",
+        "ease_out_quart",
+        "ease_in_out_quart",
+        "ease_out_in_quart",
+        "ease_in_quint",
+        "ease_out_quint",
+        "ease_in_out_quint",
+        "ease_out_in_quint",
+        "ease_in_expo",
+        "ease_out_expo",
+        "ease_in_out_expo",
+        "ease_out_in_expo",
+        "ease_in_circ",
+        "ease_out_circ",
+        "ease_in_out_circ",
+        "ease_out_in_circ",
+        "ease_in_back",
+        "ease_out_back",
+        "ease_in_out_back",
+        "ease_out_in_back",
+        "ease_in_elastic",
+        "ease_out_elastic",
+        "ease_in_out_elastic",
+        "ease_out_in_elastic",
+        "ease_out_bounce",
+        "ease_in_bounce",
+        "ease_in_out_bounce",
+        "ease_out_in_bounce",
+        "custom",
+    ];
+
     pub(crate) fn from_name(name: &str) -> Option<Self> {
-        const NAMES: [&str; 42] = [
-            "linear",
-            "ease_in_sine",
-            "ease_out_sine",
-            "ease_in_out_sine",
-            "ease_out_in_sine",
-            "ease_in_quad",
-            "ease_out_quad",
-            "ease_in_out_quad",
-            "ease_out_in_quad",
-            "ease_in_cubic",
-            "ease_out_cubic",
-            "ease_in_out_cubic",
-            "ease_out_in_cubic",
-            "ease_in_quart",
-            "ease_out_quart",
-            "ease_in_out_quart",
-            "ease_out_in_quart",
-            "ease_in_quint",
-            "ease_out_quint",
-            "ease_in_out_quint",
-            "ease_out_in_quint",
-            "ease_in_expo",
-            "ease_out_expo",
-            "ease_in_out_expo",
-            "ease_out_in_expo",
-            "ease_in_circ",
-            "ease_out_circ",
-            "ease_in_out_circ",
-            "ease_out_in_circ",
-            "ease_in_back",
-            "ease_out_back",
-            "ease_in_out_back",
-            "ease_out_in_back",
-            "ease_in_elastic",
-            "ease_out_elastic",
-            "ease_in_out_elastic",
-            "ease_out_in_elastic",
-            "ease_out_bounce",
-            "ease_in_bounce",
-            "ease_in_out_bounce",
-            "ease_out_in_bounce",
-            "custom",
-        ];
-        NAMES
+        Self::NAMES
             .iter()
             .position(|candidate| *candidate == name)
             .and_then(|index| Self::ALL.get(index).copied())
     }
+}
+
+fn utf8<'a>(value: *const u8, length: usize) -> Option<&'a str> {
+    if !slice_is_valid(value, length) {
+        return None;
+    }
+    let bytes = if length == 0 {
+        &[]
+    } else {
+        // SAFETY: The range was validated and is only borrowed for this call.
+        unsafe { std::slice::from_raw_parts(value, length) }
+    };
+    std::str::from_utf8(bytes).ok()
 }
 
 fn solve_bezier_t(x: f64, x1: f64, x2: f64) -> f64 {
@@ -501,6 +515,38 @@ pub(crate) fn evaluate(
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_solve_bezier_t(x: f64, x1: f64, x2: f64) -> f64 {
     solve_bezier_t(x, x1, x2)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_easing_kind_from_name(value: *const u8, value_length: usize) -> i32 {
+    utf8(value, value_length)
+        .and_then(EasingKind::from_name)
+        .map_or(-1, |kind| kind as i32)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_easing_count() -> usize {
+    EasingKind::NAMES.len()
+}
+
+/// Returns one static easing name.
+///
+/// # Safety
+///
+/// `output_length` must be writable for one element.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_easing_name(kind: u32, output_length: *mut usize) -> *const u8 {
+    if !slice_is_valid(output_length, 1) {
+        return std::ptr::null();
+    }
+    let Some(name) = EasingKind::NAMES.get(kind as usize) else {
+        // SAFETY: The output pointer was validated above.
+        unsafe { output_length.write(0) };
+        return std::ptr::null();
+    };
+    // SAFETY: The output pointer was validated above. Names have static lifetime.
+    unsafe { output_length.write(name.len()) };
+    name.as_ptr()
 }
 
 #[unsafe(no_mangle)]
