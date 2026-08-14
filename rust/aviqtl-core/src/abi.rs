@@ -3,7 +3,9 @@ use std::mem::{align_of, size_of};
 pub const ABI_VERSION: u32 = 1;
 pub const CAPABILITY_EASING: u64 = 1 << 0;
 pub const CAPABILITY_AUDIO_DSP: u64 = 1 << 1;
-pub const CAPABILITIES: u64 = CAPABILITY_EASING | CAPABILITY_AUDIO_DSP;
+pub const CAPABILITY_NUMERIC_KEYFRAME_BATCH: u64 = 1 << 2;
+pub const CAPABILITIES: u64 =
+    CAPABILITY_EASING | CAPABILITY_AUDIO_DSP | CAPABILITY_NUMERIC_KEYFRAME_BATCH;
 
 pub const STATUS_OK: u32 = 0;
 pub const STATUS_INVALID_ARGUMENT: u32 = 1;
@@ -36,6 +38,30 @@ pub struct AviQtlAudioMeter {
     pub peak_right: f32,
     pub rms_left: f32,
     pub rms_right: f32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AviQtlNumericKeyframe {
+    pub frame: i32,
+    pub interpolation: u32,
+    pub step_frames: u32,
+    pub custom_points_offset: u32,
+    pub custom_points_length: u32,
+    pub reserved: u32,
+    pub value: f64,
+    pub amplitude: f64,
+    pub period: f64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AviQtlNumericTrackView {
+    pub keyframes: *const AviQtlNumericKeyframe,
+    pub keyframes_length: usize,
+    pub custom_points: *const f64,
+    pub custom_points_length: usize,
+    pub fallback_value: f64,
 }
 
 pub fn pointer_is_valid<T>(pointer: *const T, length: usize) -> bool {
@@ -95,6 +121,25 @@ mod tests {
         assert_eq!(align_of::<AviQtlAudioMeter>(), 4);
         assert_eq!(offset_of!(AviQtlAudioMeter, peak_left), 0);
         assert_eq!(offset_of!(AviQtlAudioMeter, rms_right), 12);
+
+        assert_eq!(size_of::<AviQtlNumericKeyframe>(), 48);
+        assert_eq!(align_of::<AviQtlNumericKeyframe>(), 8);
+        assert_eq!(offset_of!(AviQtlNumericKeyframe, frame), 0);
+        assert_eq!(offset_of!(AviQtlNumericKeyframe, interpolation), 4);
+        assert_eq!(offset_of!(AviQtlNumericKeyframe, custom_points_length), 16);
+        assert_eq!(offset_of!(AviQtlNumericKeyframe, value), 24);
+        assert_eq!(offset_of!(AviQtlNumericKeyframe, period), 40);
+
+        #[cfg(target_pointer_width = "64")]
+        {
+            assert_eq!(size_of::<AviQtlNumericTrackView>(), 40);
+            assert_eq!(align_of::<AviQtlNumericTrackView>(), 8);
+            assert_eq!(offset_of!(AviQtlNumericTrackView, keyframes), 0);
+            assert_eq!(offset_of!(AviQtlNumericTrackView, keyframes_length), 8);
+            assert_eq!(offset_of!(AviQtlNumericTrackView, custom_points), 16);
+            assert_eq!(offset_of!(AviQtlNumericTrackView, custom_points_length), 24);
+            assert_eq!(offset_of!(AviQtlNumericTrackView, fallback_value), 32);
+        }
     }
 
     #[test]

@@ -139,6 +139,15 @@ target_compile_definitions(AviQtl_Test_keyframe_utils PRIVATE
 )
 
 aviqtl_add_test(
+    NAME keyframe_batch
+    SOURCES test_keyframe_batch.cpp
+    LINKS AviQtl_Core
+)
+target_compile_definitions(AviQtl_Test_keyframe_batch PRIVATE
+    AVIQTL_KEYFRAME_EASING_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/data/keyframe_easing_cpp_golden.txt"
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI

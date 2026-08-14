@@ -1,5 +1,6 @@
 mod abi;
 mod audio;
+mod keyframe;
 
 use abi::AviQtlEasingParameters;
 use std::f64::consts::PI;
@@ -8,7 +9,7 @@ const DEFAULT_ELASTIC_PERIOD: f64 = 0.3;
 
 #[repr(u32)]
 #[derive(Clone, Copy)]
-enum EasingKind {
+pub(crate) enum EasingKind {
     Linear = 0,
     EaseInSine,
     EaseOutSine,
@@ -99,7 +100,7 @@ impl EasingKind {
         Self::Custom,
     ];
 
-    fn from_abi(value: u32) -> Option<Self> {
+    pub(crate) fn from_abi(value: u32) -> Option<Self> {
         Self::ALL.get(value as usize).copied()
     }
 }
@@ -178,7 +179,12 @@ fn custom_easing(x: f64, points: &[f64]) -> f64 {
     x
 }
 
-fn evaluate(kind: EasingKind, t: f64, points: &[f64], parameters: AviQtlEasingParameters) -> f64 {
+pub(crate) fn evaluate(
+    kind: EasingKind,
+    t: f64,
+    points: &[f64],
+    parameters: AviQtlEasingParameters,
+) -> f64 {
     let elastic_period = if parameters.period > 0.0 {
         parameters.period
     } else {

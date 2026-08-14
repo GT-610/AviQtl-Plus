@@ -8,6 +8,7 @@ inline constexpr std::uint32_t AVIQTL_RUST_CORE_ABI_VERSION = 1;
 enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_EASING = 1ULL << 0,
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_DSP = 1ULL << 1,
+    AVIQTL_RUST_CORE_CAPABILITY_NUMERIC_KEYFRAME_BATCH = 1ULL << 2,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -53,6 +54,39 @@ static_assert(alignof(AviQtlAudioMeter) == 4);
 static_assert(offsetof(AviQtlAudioMeter, peak_left) == 0);
 static_assert(offsetof(AviQtlAudioMeter, rms_right) == 12);
 
+struct AviQtlNumericKeyframe {
+    std::int32_t frame;
+    std::uint32_t interpolation;
+    std::uint32_t step_frames;
+    std::uint32_t custom_points_offset;
+    std::uint32_t custom_points_length;
+    std::uint32_t reserved;
+    double value;
+    double amplitude;
+    double period;
+};
+static_assert(sizeof(AviQtlNumericKeyframe) == 48);
+static_assert(alignof(AviQtlNumericKeyframe) == 8);
+static_assert(offsetof(AviQtlNumericKeyframe, frame) == 0);
+static_assert(offsetof(AviQtlNumericKeyframe, interpolation) == 4);
+static_assert(offsetof(AviQtlNumericKeyframe, custom_points_length) == 16);
+static_assert(offsetof(AviQtlNumericKeyframe, value) == 24);
+static_assert(offsetof(AviQtlNumericKeyframe, period) == 40);
+
+struct AviQtlNumericTrackView {
+    const AviQtlNumericKeyframe *keyframes;
+    std::size_t keyframes_length;
+    const double *custom_points;
+    std::size_t custom_points_length;
+    double fallback_value;
+};
+static_assert(offsetof(AviQtlNumericTrackView, keyframes) == 0);
+static_assert(offsetof(AviQtlNumericTrackView, fallback_value) == sizeof(void *) * 2 + sizeof(std::size_t) * 2);
+#if INTPTR_MAX == INT64_MAX
+static_assert(sizeof(AviQtlNumericTrackView) == 40);
+static_assert(alignof(AviQtlNumericTrackView) == 8);
+#endif
+
 extern "C" {
 
 std::uint32_t aviqtl_core_abi_version();
@@ -69,5 +103,11 @@ std::uint32_t aviqtl_audio_mix_stereo(const float *clip, std::size_t clipLength,
                                      float *master, std::size_t masterLength,
                                      AviQtlAudioMixParameters parameters,
                                      AviQtlAudioMeter *meter);
+
+std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks,
+                                                     std::size_t tracksLength,
+                                                     std::int32_t frame,
+                                                     double *output,
+                                                     std::size_t outputLength);
 
 }
