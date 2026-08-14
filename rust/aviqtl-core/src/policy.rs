@@ -1,0 +1,361 @@
+use crate::abi::slice_is_valid;
+
+const DEFAULT_SPEED: f64 = 100.0;
+
+const PERMISSION_NAMES: [&str; 13] = [
+    "transport.control",
+    "clip.read",
+    "clip.modify",
+    "effect.modify",
+    "project.read",
+    "project.save",
+    "project.load",
+    "scene.manage",
+    "settings.read",
+    "settings.write",
+    "clipboard.access",
+    "history.control",
+    "log.output",
+];
+
+const API_PERMISSIONS: [(&str, i32); 33] = [
+    ("transport_play", 0),
+    ("transport_pause", 0),
+    ("transport_toggle", 0),
+    ("transport_seek", 0),
+    ("transport_get_frame", 0),
+    ("transport_is_playing", 0),
+    ("clip_list", 1),
+    ("clip_select", 1),
+    ("clip_create", 2),
+    ("clip_delete", 2),
+    ("clip_update", 2),
+    ("clip_split", 2),
+    ("clip_copy", 10),
+    ("clip_cut", 10),
+    ("clip_paste", 10),
+    ("effect_add", 3),
+    ("effect_remove", 3),
+    ("effect_set_param", 3),
+    ("project_width", 4),
+    ("project_height", 4),
+    ("project_fps", 4),
+    ("project_save", 5),
+    ("project_load", 6),
+    ("scene_create", 7),
+    ("scene_remove", 7),
+    ("scene_switch", 7),
+    ("settings_set", 9),
+    ("settings_get", 8),
+    ("undo", 11),
+    ("redo", 11),
+    ("command_begin_group", 11),
+    ("command_end_group", 11),
+    ("log", 12),
+];
+
+fn utf8<'a>(value: *const u8, length: usize) -> Option<&'a str> {
+    if !slice_is_valid(value, length) {
+        return None;
+    }
+    let bytes = if length == 0 {
+        &[]
+    } else {
+        // SAFETY: The range was validated and is only borrowed for this call.
+        unsafe { std::slice::from_raw_parts(value, length) }
+    };
+    std::str::from_utf8(bytes).ok()
+}
+
+fn is_direct_audio_mode(value: &str) -> bool {
+    value.contains("直接")
+}
+
+fn is_video_file(value: &str) -> bool {
+    let lower = value.to_lowercase();
+    [".mp4", ".mov", ".avi", ".mkv", ".webm", ".wmv"]
+        .iter()
+        .any(|extension| lower.ends_with(extension))
+}
+
+fn resolve_audio_time(
+    relative_time: f64,
+    direct_mode: bool,
+    direct_time: f64,
+    start_time: f64,
+    speed: f64,
+) -> f64 {
+    if direct_mode {
+        direct_time
+    } else {
+        relative_time * (speed / DEFAULT_SPEED) + start_time
+    }
+}
+
+fn resolve_video_time(
+    relative_frame: i32,
+    source_fps: f64,
+    direct_mode: bool,
+    direct_frame: f64,
+    start_frame: f64,
+    speed: f64,
+) -> f64 {
+    if !source_fps.is_finite() || source_fps <= 0.0 {
+        return 0.0;
+    }
+    if direct_mode {
+        return direct_frame / source_fps;
+    }
+    let start_seconds = start_frame / source_fps;
+    let relative_time = f64::from(relative_frame) / source_fps;
+    start_seconds + relative_time * (speed / DEFAULT_SPEED)
+}
+
+fn max_video_duration_frames(
+    total_frame_count: i32,
+    source_fps: f64,
+    speed: f64,
+    start_frame: f64,
+    project_fps: i32,
+) -> i32 {
+    if total_frame_count <= 0
+        || !speed.is_finite()
+        || speed <= 0.0
+        || !source_fps.is_finite()
+        || source_fps <= 0.0
+        || !start_frame.is_finite()
+        || project_fps <= 0
+    {
+        return 0;
+    }
+    let start_seconds = start_frame / source_fps;
+    let remaining_seconds = f64::from(total_frame_count) / source_fps - start_seconds;
+    if remaining_seconds <= 0.0 {
+        return 0;
+    }
+    let frames = remaining_seconds / (speed / DEFAULT_SPEED) * f64::from(project_fps);
+    if !frames.is_finite() || frames <= 0.0 {
+        0
+    } else {
+        frames.min(f64::from(i32::MAX)) as i32
+    }
+}
+
+fn permission_from_name(value: &str) -> i32 {
+    PERMISSION_NAMES
+        .iter()
+        .position(|name| *name == value)
+        .and_then(|index| i32::try_from(index).ok())
+        .unwrap_or(-1)
+}
+
+fn permission_for_api(value: &str) -> i32 {
+    API_PERMISSIONS
+        .iter()
+        .find_map(|(name, permission)| (*name == value).then_some(*permission))
+        .unwrap_or(-1)
+}
+
+fn valid_package_id(value: &str) -> bool {
+    !value.is_empty()
+        && value != "."
+        && value != ".."
+        && value
+            .chars()
+            .all(|character| character.is_alphanumeric() || matches!(character, '.' | '-' | '_'))
+}
+
+fn package_type(value: &str) -> i32 {
+    match value {
+        "mod" => 0,
+        "effect" => 1,
+        "object" => 2,
+        _ => -1,
+    }
+}
+
+fn safe_archive_path(value: &str) -> bool {
+    let has_drive_prefix = value.as_bytes().get(1) == Some(&b':')
+        && value
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphabetic);
+    if value.is_empty()
+        || value.contains('\0')
+        || value.contains('\\')
+        || value.starts_with('/')
+        || value.starts_with("//")
+        || has_drive_prefix
+    {
+        return false;
+    }
+    let mut depth = 0_usize;
+    for component in value.split('/') {
+        match component {
+            "" | "." => {}
+            ".." => {
+                let Some(next_depth) = depth.checked_sub(1) else {
+                    return false;
+                };
+                depth = next_depth;
+            }
+            _ => depth += 1,
+        }
+    }
+    true
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_is_direct_audio_mode(value: *const u8, value_length: usize) -> u32 {
+    u32::from(utf8(value, value_length).is_some_and(is_direct_audio_mode))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_is_video_file(value: *const u8, value_length: usize) -> u32 {
+    u32::from(utf8(value, value_length).is_some_and(is_video_file))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_resolve_audio_time(
+    relative_time: f64,
+    direct_mode: u32,
+    direct_time: f64,
+    start_time: f64,
+    speed: f64,
+) -> f64 {
+    resolve_audio_time(
+        relative_time,
+        direct_mode != 0,
+        direct_time,
+        start_time,
+        speed,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_resolve_video_time(
+    relative_frame: i32,
+    source_fps: f64,
+    direct_mode: u32,
+    direct_frame: f64,
+    start_frame: f64,
+    speed: f64,
+) -> f64 {
+    resolve_video_time(
+        relative_frame,
+        source_fps,
+        direct_mode != 0,
+        direct_frame,
+        start_frame,
+        speed,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_media_max_video_duration_frames(
+    total_frame_count: i32,
+    source_fps: f64,
+    speed: f64,
+    start_frame: f64,
+    project_fps: i32,
+) -> i32 {
+    max_video_duration_frames(
+        total_frame_count,
+        source_fps,
+        speed,
+        start_frame,
+        project_fps,
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_permission_from_name(value: *const u8, value_length: usize) -> i32 {
+    utf8(value, value_length).map_or(-1, permission_from_name)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_permission_for_api(value: *const u8, value_length: usize) -> i32 {
+    utf8(value, value_length).map_or(-1, permission_for_api)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_permission_count() -> i32 {
+    PERMISSION_NAMES.len() as i32
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_permission_name(
+    permission: i32,
+    output_length: *mut usize,
+) -> *const u8 {
+    if !slice_is_valid(output_length, 1) {
+        return std::ptr::null();
+    }
+    let Some(name) = usize::try_from(permission)
+        .ok()
+        .and_then(|permission| PERMISSION_NAMES.get(permission))
+    else {
+        // SAFETY: The output was validated above.
+        unsafe { output_length.write(0) };
+        return std::ptr::null();
+    };
+    // SAFETY: The output was validated above. The returned string has static lifetime.
+    unsafe { output_length.write(name.len()) };
+    name.as_ptr()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_package_id_is_valid(value: *const u8, value_length: usize) -> u32 {
+    u32::from(utf8(value, value_length).is_some_and(valid_package_id))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_package_type(value: *const u8, value_length: usize) -> i32 {
+    utf8(value, value_length).map_or(-1, package_type)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_package_archive_path_is_safe(
+    value: *const u8,
+    value_length: usize,
+) -> u32 {
+    u32::from(utf8(value, value_length).is_some_and(safe_archive_path))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn media_policy_matches_timeline_semantics() {
+        assert!(is_direct_audio_mode("モード: 直接"));
+        assert!(!is_direct_audio_mode("normal"));
+        assert!(is_video_file("CLIP.MOV"));
+        assert!(!is_video_file("clip.mp4.bak"));
+        assert_eq!(resolve_audio_time(2.0, false, 0.0, 1.0, 200.0), 5.0);
+        assert_eq!(resolve_video_time(30, 30.0, false, 0.0, 60.0, 100.0), 3.0);
+        assert_eq!(max_video_duration_frames(100, 30.0, 100.0, 30.0, 30), 70);
+    }
+
+    #[test]
+    fn permission_tables_are_complete_and_reversible() {
+        for (index, name) in PERMISSION_NAMES.iter().enumerate() {
+            assert_eq!(permission_from_name(name), index as i32);
+        }
+        assert_eq!(permission_for_api("clip_copy"), 10);
+        assert_eq!(permission_for_api("unknown"), -1);
+    }
+
+    #[test]
+    fn package_policy_rejects_escape_paths_and_invalid_ids() {
+        assert!(valid_package_id("org.aviqtl.example-1"));
+        assert!(!valid_package_id("../example"));
+        assert_eq!(package_type("effect"), 1);
+        assert_eq!(package_type("unsupported"), -1);
+        assert!(safe_archive_path("wrapper/../effect/main.qml"));
+        assert!(!safe_archive_path("../effect/main.qml"));
+        assert!(!safe_archive_path("effect\\main.qml"));
+        assert!(!safe_archive_path("/absolute/main.qml"));
+        assert!(!safe_archive_path("C:/absolute/main.qml"));
+    }
+}

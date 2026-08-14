@@ -15,6 +15,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_EDIT = 1ULL << 6,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_DOMAIN = 1ULL << 7,
     AVIQTL_RUST_CORE_CAPABILITY_KEYFRAME_DOCUMENT = 1ULL << 8,
+    AVIQTL_RUST_CORE_CAPABILITY_CORE_POLICY = 1ULL << 9,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -335,6 +336,21 @@ std::uint32_t aviqtl_timeline_plan_multi_reorder(std::size_t length, const std::
                                                  std::size_t *outputSelectedCount);
 
 std::uint32_t aviqtl_keyframe_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_media_is_direct_audio_mode(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_media_is_video_file(const std::uint8_t *value, std::size_t valueLength);
+double aviqtl_media_resolve_audio_time(double relativeTime, std::uint32_t directMode, double directTime, double startTime, double speed);
+double aviqtl_media_resolve_video_time(std::int32_t relativeFrame, double sourceFps, std::uint32_t directMode, double directFrame, double startFrame, double speed);
+std::int32_t aviqtl_media_max_video_duration_frames(std::int32_t totalFrameCount, double sourceFps, double speed, double startFrame, std::int32_t projectFps);
+
+std::int32_t aviqtl_permission_from_name(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_permission_for_api(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_permission_count();
+const std::uint8_t *aviqtl_permission_name(std::int32_t permission, std::size_t *outputLength);
+
+std::uint32_t aviqtl_package_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_package_type(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std::size_t valueLength);
 
 std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);

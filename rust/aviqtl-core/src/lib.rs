@@ -2,6 +2,7 @@ mod abi;
 mod audio;
 mod keyframe;
 mod keyframe_document;
+mod policy;
 mod project;
 mod timeline;
 mod timeline_domain;

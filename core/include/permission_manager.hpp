@@ -7,20 +7,20 @@
 
 namespace AviQtl::Core {
 
-enum class PluginPermission {
-    TransportControl,  // Play, pause, seek
-    ClipRead,          // List and read clip information
-    ClipModify,        // Create, delete, update clips
-    EffectModify,      // Add, remove, modify effects
-    ProjectRead,       // Read project info (resolution, fps)
-    ProjectSave,       // Save project files
-    ProjectLoad,       // Load project files
-    SceneManage,       // Create, remove, switch scenes
-    SettingsRead,      // Read plugin settings
-    SettingsWrite,     // Write plugin settings
-    ClipboardAccess,   // Copy, cut, paste operations
-    HistoryControl,    // Undo, redo, and command grouping
-    LogOutput,         // Write to console log
+enum class PluginPermission : int {
+    TransportControl = 0, // Play, pause, seek
+    ClipRead = 1,         // List and read clip information
+    ClipModify = 2,       // Create, delete, update clips
+    EffectModify = 3,     // Add, remove, modify effects
+    ProjectRead = 4,      // Read project info (resolution, fps)
+    ProjectSave = 5,      // Save project files
+    ProjectLoad = 6,      // Load project files
+    SceneManage = 7,      // Create, remove, switch scenes
+    SettingsRead = 8,     // Read plugin settings
+    SettingsWrite = 9,    // Write plugin settings
+    ClipboardAccess = 10, // Copy, cut, paste operations
+    HistoryControl = 11,  // Undo, redo, and command grouping
+    LogOutput = 12,       // Write to console log
 };
 
 class PermissionManager : public QObject {

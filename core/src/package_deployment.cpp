@@ -1,4 +1,5 @@
 #include "package_deployment.hpp"
+#include "rust_core_policy.hpp"
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -47,28 +48,26 @@ bool copyDirectory(const QString &srcPath, const QString &destPath) {
 } // namespace
 
 bool PackageDeployment::isValidPackageId(const QString &packageId) {
-    if (packageId.isEmpty() || packageId == QStringLiteral(".") || packageId == QStringLiteral(".."))
-        return false;
-    for (const QChar ch : packageId) {
-        if (!ch.isLetterOrNumber() && ch != QLatin1Char('.') && ch != QLatin1Char('-') && ch != QLatin1Char('_'))
-            return false;
-    }
-    return true;
+    return AviQtl::RustCore::Policy::isValidPackageId(packageId);
 }
 
 bool PackageDeployment::isValidPackageType(const QString &packageType) {
-    return packageType == QStringLiteral("mod") || packageType == QStringLiteral("effect") ||
-           packageType == QStringLiteral("object");
+    return AviQtl::RustCore::Policy::packageType(packageType) !=
+           AviQtl::RustCore::Policy::PackageType::Invalid;
 }
 
 QString PackageDeployment::deployDirectory(const QString &packageType) {
     const QString appDir = QCoreApplication::applicationDirPath();
-    if (packageType == QStringLiteral("mod"))
+    switch (AviQtl::RustCore::Policy::packageType(packageType)) {
+    case AviQtl::RustCore::Policy::PackageType::Mod:
         return QDir(appDir).filePath(QStringLiteral("plugins"));
-    if (packageType == QStringLiteral("effect"))
+    case AviQtl::RustCore::Policy::PackageType::Effect:
         return QDir(appDir).filePath(QStringLiteral("effects"));
-    if (packageType == QStringLiteral("object"))
+    case AviQtl::RustCore::Policy::PackageType::Object:
         return QDir(appDir).filePath(QStringLiteral("objects"));
+    case AviQtl::RustCore::Policy::PackageType::Invalid:
+        return {};
+    }
     return {};
 }
 
@@ -173,11 +172,7 @@ bool PackageDeployment::extractArchive(const QString &archivePath, const QString
 }
 
 bool PackageDeployment::isSafeArchivePath(const QString &path) {
-    if (path.isEmpty() || QDir::isAbsolutePath(path) || path.contains(QLatin1Char('\\')))
-        return false;
-    const QString normalized = QDir::cleanPath(path);
-    return normalized != QStringLiteral("..") && !normalized.startsWith(QStringLiteral("../")) &&
-           !normalized.contains(QStringLiteral("/../"));
+    return AviQtl::RustCore::Policy::isSafeArchivePath(path);
 }
 
 PackageDeployment::FileOperationResult PackageDeployment::runFileTransaction(
