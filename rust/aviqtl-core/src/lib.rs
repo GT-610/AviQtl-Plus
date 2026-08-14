@@ -5,6 +5,7 @@ mod audio;
 mod keyframe;
 mod keyframe_document;
 mod policy;
+mod preset;
 mod project;
 mod settings;
 mod timeline;

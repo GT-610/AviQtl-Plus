@@ -17,6 +17,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_KEYFRAME_DOCUMENT = 1ULL << 8,
     AVIQTL_RUST_CORE_CAPABILITY_CORE_POLICY = 1ULL << 9,
     AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_DOCUMENT = 1ULL << 10,
+    AVIQTL_RUST_CORE_CAPABILITY_PRESET_DOCUMENT = 1ULL << 11,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -356,6 +357,10 @@ std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std
 std::uint32_t aviqtl_settings_defaults_json(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 std::uint32_t aviqtl_settings_merge_json(const std::uint8_t *base, std::size_t baseLength, const std::uint8_t *loaded, std::size_t loadedLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::uint32_t *migrated);
 std::uint32_t aviqtl_settings_persistent_json(const std::uint8_t *settings, std::size_t settingsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_preset_name_is_safe(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_preset_build_json(const std::uint8_t *effectId, std::size_t effectIdLength, const std::uint8_t *name, std::size_t nameLength, std::uint32_t enabled, const std::uint8_t *params, std::size_t paramsLength, const std::uint8_t *keyframes, std::size_t keyframesLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_preset_normalize_json(const std::uint8_t *effectId, std::size_t effectIdLength, const std::uint8_t *name, std::size_t nameLength, const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);

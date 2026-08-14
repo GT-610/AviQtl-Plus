@@ -1,19 +1,15 @@
 #include "preset_manager.hpp"
+#include "rust_preset_document.hpp"
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QSaveFile>
 #include <QStandardPaths>
 
 namespace AviQtl::Core {
 
 namespace {
-bool isUnsafeName(const QString &s) {
-    return s.isEmpty() || s.contains(QLatin1Char('/')) || s.contains(QLatin1Char('\\'))
-        || s.contains(QLatin1String("..")) || s.startsWith(QLatin1Char('.'));
-}
+bool isUnsafeName(const QString &s) { return !RustCore::Preset::isSafeName(s); }
 
 bool isPathWithin(const QString &basePath, const QString &candidatePath) {
     const QString base = QDir::fromNativeSeparators(QDir::cleanPath(basePath));
@@ -58,8 +54,7 @@ QString PresetManager::presetPath(const QString &effectId, const QString &name) 
 
     const QString canonicalBase = QDir(basePath).canonicalPath();
     const QString canonicalDir = QDir(candidateDir).canonicalPath();
-    if (!canonicalBase.isEmpty() && !canonicalDir.isEmpty() &&
-        !isPathWithin(canonicalBase, canonicalDir))
+    if (!canonicalBase.isEmpty() && !canonicalDir.isEmpty() && !isPathWithin(canonicalBase, canonicalDir))
         return {};
 
     const QString path = QDir(dir).filePath(name + QStringLiteral(".json"));
@@ -87,11 +82,8 @@ QVariantMap PresetManager::loadPreset(const QString &effectId, const QString &na
     if (!f.open(QIODevice::ReadOnly))
         return {};
 
-    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
-    if (!doc.isObject())
-        return {};
-
-    return doc.object().toVariantMap();
+    const auto preset = RustCore::Preset::normalize(effectId, name, f.readAll());
+    return preset.value_or(QVariantMap{});
 }
 
 bool PresetManager::savePreset(const QString &effectId, const QString &name, const QVariantMap &params, const QVariantMap &keyframes, bool enabled) {
@@ -101,20 +93,15 @@ bool PresetManager::savePreset(const QString &effectId, const QString &name, con
 
     QDir().mkpath(presetDir(effectId));
 
-    QJsonObject obj;
-    obj[QStringLiteral("version")] = 1;
-    obj[QStringLiteral("effectId")] = effectId;
-    obj[QStringLiteral("name")] = name;
-    obj[QStringLiteral("enabled")] = enabled;
-    obj[QStringLiteral("params")] = QJsonObject::fromVariantMap(params);
-    obj[QStringLiteral("keyframes")] = QJsonObject::fromVariantMap(keyframes);
+    const auto payload = RustCore::Preset::build(effectId, name, params, keyframes, enabled);
+    if (!payload.has_value())
+        return false;
 
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly))
         return false;
 
-    const QByteArray payload = QJsonDocument(obj).toJson(QJsonDocument::Compact);
-    if (file.write(payload) != payload.size() || !file.commit())
+    if (file.write(*payload) != payload->size() || !file.commit())
         return false;
 
     emit presetsChanged(effectId);
