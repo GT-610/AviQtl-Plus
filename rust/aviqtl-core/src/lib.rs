@@ -1,15 +1,10 @@
+mod abi;
 mod audio;
 
+use abi::AviQtlEasingParameters;
 use std::f64::consts::PI;
 
 const DEFAULT_ELASTIC_PERIOD: f64 = 0.3;
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct AviQtlEasingParameters {
-    pub amplitude: f64,
-    pub period: f64,
-}
 
 #[repr(u32)]
 #[derive(Clone, Copy)]

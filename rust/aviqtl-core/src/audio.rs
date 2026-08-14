@@ -1,54 +1,7 @@
-use std::mem::{align_of, size_of};
-
-const STATUS_OK: u32 = 0;
-const STATUS_INVALID_ARGUMENT: u32 = 1;
-const STATUS_OVERLAPPING_BUFFERS: u32 = 2;
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct AviQtlAudioMixParameters {
-    pub relative_time: f64,
-    pub duration: f64,
-    pub fade_in_seconds: f32,
-    pub fade_out_seconds: f32,
-    pub volume: f32,
-    pub master_volume: f32,
-    pub pan: f32,
-    pub limiter: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-pub struct AviQtlAudioMeter {
-    pub peak_left: f32,
-    pub peak_right: f32,
-    pub rms_left: f32,
-    pub rms_right: f32,
-}
-
-fn pointer_is_valid<T>(pointer: *const T, length: usize) -> bool {
-    length == 0 || (!pointer.is_null() && (pointer as usize) & (align_of::<T>() - 1) == 0)
-}
-
-fn byte_range<T>(pointer: *const T, length: usize) -> Option<(usize, usize)> {
-    let byte_length = length.checked_mul(size_of::<T>())?;
-    let start = pointer as usize;
-    Some((start, start.checked_add(byte_length)?))
-}
-
-fn ranges_overlap<T, U>(
-    first: *const T,
-    first_length: usize,
-    second: *const U,
-    second_length: usize,
-) -> Option<bool> {
-    if first_length == 0 || second_length == 0 {
-        return Some(false);
-    }
-    let (first_start, first_end) = byte_range(first, first_length)?;
-    let (second_start, second_end) = byte_range(second, second_length)?;
-    Some(first_start < second_end && second_start < first_end)
-}
+use crate::abi::{
+    AviQtlAudioMeter, AviQtlAudioMixParameters, STATUS_INVALID_ARGUMENT, STATUS_OK,
+    STATUS_OVERLAPPING_BUFFERS, pointer_is_valid, ranges_overlap,
+};
 
 fn fade_gain(parameters: AviQtlAudioMixParameters) -> f32 {
     let mut gain: f64 = 1.0;

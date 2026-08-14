@@ -191,6 +191,12 @@ target_compile_definitions(AviQtl_Test_audio_dsp PRIVATE
 )
 
 aviqtl_add_test(
+    NAME rust_core_abi
+    SOURCES test_rust_core_abi.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME bake_controller
     SOURCES test_bake_controller.cpp
     LINKS AviQtl_Engine AviQtl_UI

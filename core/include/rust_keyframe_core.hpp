@@ -1,22 +1,8 @@
 #pragma once
 
-#include <cstddef>
+#include "rust_core_abi.hpp"
 #include <cstdint>
 #include <vector>
-
-extern "C" {
-
-struct AviQtlEasingParameters {
-    double amplitude;
-    double period;
-};
-static_assert(sizeof(AviQtlEasingParameters) == sizeof(double) * 2);
-
-double aviqtl_solve_bezier_t(double x, double x1, double x2);
-double aviqtl_easing_evaluate(std::uint32_t kind, double t, const double *points,
-                              std::size_t pointsLength, AviQtlEasingParameters parameters);
-
-}
 
 namespace AviQtl::RustCore {
 

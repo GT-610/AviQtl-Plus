@@ -1,44 +1,8 @@
 #pragma once
 
-#include <cstddef>
+#include "rust_core_abi.hpp"
 #include <cstdint>
 #include <span>
-
-extern "C" {
-
-struct AviQtlAudioMixParameters {
-    double relative_time;
-    double duration;
-    float fade_in_seconds;
-    float fade_out_seconds;
-    float volume;
-    float master_volume;
-    float pan;
-    std::uint32_t limiter;
-};
-static_assert(sizeof(AviQtlAudioMixParameters) == 40);
-static_assert(offsetof(AviQtlAudioMixParameters, relative_time) == 0);
-static_assert(offsetof(AviQtlAudioMixParameters, duration) == 8);
-static_assert(offsetof(AviQtlAudioMixParameters, fade_in_seconds) == 16);
-static_assert(offsetof(AviQtlAudioMixParameters, limiter) == 36);
-
-struct AviQtlAudioMeter {
-    float peak_left;
-    float peak_right;
-    float rms_left;
-    float rms_right;
-};
-static_assert(sizeof(AviQtlAudioMeter) == sizeof(float) * 4);
-
-std::uint32_t aviqtl_audio_resample_stereo_linear(const float *input, std::size_t inputLength,
-                                                  float *output, std::size_t outputLength,
-                                                  double sourceRate);
-std::uint32_t aviqtl_audio_mix_stereo(const float *clip, std::size_t clipLength,
-                                     float *master, std::size_t masterLength,
-                                     AviQtlAudioMixParameters parameters,
-                                     AviQtlAudioMeter *meter);
-
-}
 
 namespace AviQtl::RustCore {
 
