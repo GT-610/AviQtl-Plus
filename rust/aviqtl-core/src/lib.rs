@@ -2,6 +2,7 @@
 
 mod abi;
 mod audio;
+mod effect;
 mod keyframe;
 mod keyframe_document;
 mod package;

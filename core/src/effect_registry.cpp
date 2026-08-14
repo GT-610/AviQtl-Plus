@@ -1,16 +1,13 @@
 #include "effect_registry.hpp"
+#include "rust_effect_document.hpp"
 #include "shader_compiler.hpp"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
-#include <QLoggingCategory>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QRegularExpression>
+#include <QLoggingCategory>
 #include <QSet>
 #include <QUrl>
 #include <utility>
@@ -73,6 +70,11 @@ auto localizeUiMetadataValue(const QVariant &value) -> QVariant {
     return value;
 }
 
+auto stringOrDefault(const QVariantMap &metadata, const QString &key, const QString &fallback) -> QString {
+    const QVariant value = metadata.value(key);
+    return value.metaType().id() == QMetaType::QString ? value.toString() : fallback;
+}
+
 QString resolvedPathIdentity(const QString &path) {
     QFileInfo current(path);
     const QString canonicalPath = current.canonicalFilePath();
@@ -118,56 +120,23 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
             continue;
         }
 
-        QJsonParseError error;
         const auto data = file.readAll();
-        const auto doc = QJsonDocument::fromJson(data, &error);
-
-        if (error.error != QJsonParseError::NoError || !doc.isObject()) {
-            qWarning().noquote() << QStringLiteral("Invalid JSON in") << file.fileName() << QStringLiteral(":") << error.errorString();
+        const auto normalized = RustCore::Effect::normalizeMetadata(data);
+        if (!normalized.has_value()) {
+            qWarning().noquote() << QStringLiteral("Skipping invalid effect definition:") << file.fileName();
             continue;
         }
-
-        QJsonObject obj = doc.object();
-        QString id = obj.value(QStringLiteral("id")).toString();
-        QString name = obj.value(QStringLiteral("name")).toString();
-        QString qmlFileName = obj.value(QStringLiteral("qml")).toString();
-        QVariantMap params = obj.value(QStringLiteral("params")).toObject().toVariantMap();
-        QVariantMap uiDef = obj.value(QStringLiteral("ui")).toObject().toVariantMap();
-
-        if (!uiDef.contains(QStringLiteral("controls"))) {
-            qWarning().noquote() << QStringLiteral("Skipping invalid definition (ui.controls missing):") << file.fileName();
-            continue;
-        }
-
-        QString version = obj.value(QStringLiteral("version")).toString();
-        QRegularExpression versionRegex(QStringLiteral("^\\d+\\.\\d+\\.\\d+$"));
-        if (!versionRegex.match(version).hasMatch()) {
-            qWarning().noquote() << QStringLiteral("Version format is invalid or missing (x.x.x required):") << file.fileName();
-            continue;
-        }
-
-        QString kind = obj.value(QStringLiteral("kind")).toString();
-        if (kind != QStringLiteral("effect") && kind != QStringLiteral("object")) {
-            qWarning().noquote() << QStringLiteral("Invalid kind ('effect' or 'object' required):") << file.fileName();
-            continue;
-        }
-
+        const QVariantMap &definition = *normalized;
+        const QString id = definition.value(QStringLiteral("id")).toString();
+        const QString name = definition.value(QStringLiteral("name")).toString();
+        const QString qmlFileName = definition.value(QStringLiteral("qml")).toString();
+        const QString version = definition.value(QStringLiteral("version")).toString();
+        const QString kind = definition.value(QStringLiteral("kind")).toString();
+        const QVariantMap params = definition.value(QStringLiteral("params")).toMap();
+        const QVariantMap uiDef = definition.value(QStringLiteral("ui")).toMap();
         QStringList categories;
-        QJsonArray catArray = obj.value(QStringLiteral("categories")).toArray();
-        for (const auto &val : catArray) {
-            if (val.isString()) {
-                categories.append(val.toString());
-            }
-        }
-        if (categories.isEmpty()) {
-            qWarning().noquote() << QStringLiteral("Categories is empty or missing (at least one category required):") << file.fileName();
-            continue;
-        }
-
-        if (id.isEmpty() || name.isEmpty() || qmlFileName.isEmpty()) {
-            qWarning().noquote() << QStringLiteral("Skipping incomplete definition:") << file.fileName();
-            continue;
-        }
+        for (const QVariant &category : definition.value(QStringLiteral("categories")).toList())
+            categories.append(category.toString());
 
         EffectMetadata meta;
         meta.version = version;
@@ -180,13 +149,13 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         meta.categories = categories;
         meta.defaultParams = params;
         meta.uiDefinition = localizeUiMetadataValue(uiDef).toMap();
-        meta.color = obj.value(QStringLiteral("color")).toString();
-        meta.packageId = obj.value(QStringLiteral("packageId")).toString();
+        meta.color = definition.value(QStringLiteral("color")).toString();
+        meta.packageId = definition.value(QStringLiteral("packageId")).toString();
 
         // qrc: で始まる場合は絶対パスとしてそのまま使用
         if (qmlFileName.startsWith(QStringLiteral("qrc:"))) {
             meta.qmlSource = qmlFileName;
-            meta.source = obj.value(QStringLiteral("source")).toString(QStringLiteral("built-in"));
+            meta.source = stringOrDefault(definition, QStringLiteral("source"), QStringLiteral("built-in"));
             meta.sourcePath = resolvedPathIdentity(file.fileName());
             registerEffect(meta);
             loadedCount++;
@@ -202,16 +171,14 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         QFileInfo qmlInfo(absoluteQmlPath);
         QString canonicalQmlPath = qmlInfo.canonicalFilePath();
         QString canonicalBaseDir = jsonDir.canonicalPath();
-        if (!canonicalQmlPath.isEmpty() &&
-            !canonicalQmlPath.startsWith(canonicalBaseDir + QLatin1Char('/')) &&
-            canonicalQmlPath != canonicalBaseDir) {
+        if (!canonicalQmlPath.isEmpty() && !canonicalQmlPath.startsWith(canonicalBaseDir + QLatin1Char('/')) && canonicalQmlPath != canonicalBaseDir) {
             qWarning().noquote() << "[EffectRegistry] Path traversal detected in QML reference. Effect:" << id << "Path:" << qmlFileName;
             continue;
         }
 
         if (QFile::exists(absoluteQmlPath)) {
             meta.qmlSource = QUrl::fromLocalFile(absoluteQmlPath).toString();
-            meta.source = obj.value(QStringLiteral("source")).toString(QStringLiteral("package"));
+            meta.source = stringOrDefault(definition, QStringLiteral("source"), QStringLiteral("package"));
             meta.sourcePath = resolvedPathIdentity(file.fileName());
             if (meta.packageId.isEmpty()) {
                 const QString relativePath = QDir(resolvedRootPath).relativeFilePath(resolvedPathIdentity(jsonInfo.absolutePath()));
@@ -244,12 +211,8 @@ void EffectRegistry::removeEffectsFromDirectory(const QString &path) {
     const QDir directory(resolvedPathIdentity(path));
     for (auto it = m_orderedIds.begin(); it != m_orderedIds.end();) {
         const auto effectIt = m_effects.constFind(*it);
-        const QString relativeSourcePath = effectIt == m_effects.cend()
-            ? QStringLiteral("..")
-            : QDir::cleanPath(directory.relativeFilePath(resolvedPathIdentity(effectIt->sourcePath)));
-        if (relativeSourcePath != QStringLiteral("..") &&
-            !relativeSourcePath.startsWith(QStringLiteral("../")) &&
-            !QDir::isAbsolutePath(relativeSourcePath)) {
+        const QString relativeSourcePath = effectIt == m_effects.cend() ? QStringLiteral("..") : QDir::cleanPath(directory.relativeFilePath(resolvedPathIdentity(effectIt->sourcePath)));
+        if (relativeSourcePath != QStringLiteral("..") && !relativeSourcePath.startsWith(QStringLiteral("../")) && !QDir::isAbsolutePath(relativeSourcePath)) {
             m_effects.remove(*it);
             it = m_orderedIds.erase(it);
         } else {
