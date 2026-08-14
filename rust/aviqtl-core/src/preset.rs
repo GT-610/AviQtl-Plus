@@ -1,6 +1,6 @@
 use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_INVALID_JSON, STATUS_OK,
-    STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
+    STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid, utf8,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -14,8 +14,11 @@ struct PresetDocument {
     #[serde(rename = "effectId")]
     effect_id: String,
     name: String,
+    #[serde(default)]
     enabled: bool,
+    #[serde(default)]
     params: Map<String, Value>,
+    #[serde(default)]
     keyframes: Map<String, Value>,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
@@ -72,19 +75,6 @@ fn normalize_document(input: &[u8], effect_id: &str, name: &str) -> Option<Prese
         return None;
     }
     Some(document)
-}
-
-fn utf8<'a>(input: *const u8, input_length: usize) -> Option<&'a str> {
-    if !slice_is_valid(input, input_length) {
-        return None;
-    }
-    let bytes = if input_length == 0 {
-        &[]
-    } else {
-        // SAFETY: The full input range was validated above.
-        unsafe { std::slice::from_raw_parts(input, input_length) }
-    };
-    std::str::from_utf8(bytes).ok()
 }
 
 unsafe fn bytes<'a>(input: *const u8, input_length: usize) -> &'a [u8] {
@@ -153,7 +143,8 @@ unsafe fn write_json(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_preset_name_is_safe(value: *const u8, value_length: usize) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(safe_name))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(safe_name))
 }
 
 #[unsafe(no_mangle)]
@@ -181,10 +172,12 @@ pub unsafe extern "C" fn aviqtl_preset_build_json(
     {
         return status;
     }
-    let Some(effect_id) = utf8(effect_id, effect_id_length) else {
+    // SAFETY: The input ranges were validated above and remain alive for this call.
+    let Some(effect_id) = (unsafe { utf8(effect_id, effect_id_length) }) else {
         return STATUS_INVALID_ARGUMENT;
     };
-    let Some(name) = utf8(name, name_length) else {
+    // SAFETY: The input ranges were validated above and remain alive for this call.
+    let Some(name) = (unsafe { utf8(name, name_length) }) else {
         return STATUS_INVALID_ARGUMENT;
     };
     // SAFETY: JSON input ranges were validated above.
@@ -225,10 +218,12 @@ pub unsafe extern "C" fn aviqtl_preset_normalize_json(
     {
         return status;
     }
-    let Some(effect_id) = utf8(effect_id, effect_id_length) else {
+    // SAFETY: The input ranges were validated above and remain alive for this call.
+    let Some(effect_id) = (unsafe { utf8(effect_id, effect_id_length) }) else {
         return STATUS_INVALID_ARGUMENT;
     };
-    let Some(name) = utf8(name, name_length) else {
+    // SAFETY: The input ranges were validated above and remain alive for this call.
+    let Some(name) = (unsafe { utf8(name, name_length) }) else {
         return STATUS_INVALID_ARGUMENT;
     };
     // SAFETY: The document input range was validated above.
@@ -271,6 +266,21 @@ mod tests {
             Some(document)
         );
         assert!(normalize_document(&json, "effect.other", "Warm Look").is_none());
+
+        let manually_edited = json!({
+            "version": 1,
+            "effectId": "effect.test",
+            "name": "Warm Look"
+        });
+        let normalized = normalize_document(
+            &serde_json::to_vec(&manually_edited).expect("serialize fixture"),
+            "effect.test",
+            "Warm Look",
+        )
+        .expect("omitted fields use defaults");
+        assert!(!normalized.enabled);
+        assert!(normalized.params.is_empty());
+        assert!(normalized.keyframes.is_empty());
 
         let unsupported = json!({
             "version": 2,

@@ -5,6 +5,8 @@ use crate::abi::{
 use serde::Serialize;
 use serde_json::{Number, Value};
 
+const DEFAULT_COLOR: u32 = 0x00ff_ffff;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 enum ParameterType {
@@ -157,11 +159,11 @@ fn parse_color(definition: &str) -> Parameter {
     let rest = definition[colon + 1..].trim();
     if let Some(comma) = rest.rfind(',').filter(|comma| *comma > 0) {
         parameter.label = rest[..comma].trim().to_owned();
-        let color = u32::from_str_radix(rest[comma + 1..].trim(), 16).unwrap_or(0);
+        let color = u32::from_str_radix(rest[comma + 1..].trim(), 16).unwrap_or(DEFAULT_COLOR);
         parameter.default_value = Value::Number(color.into());
     } else {
         parameter.label = rest.to_owned();
-        parameter.default_value = Value::Number(0x00ff_ffff_u32.into());
+        parameter.default_value = Value::Number(DEFAULT_COLOR.into());
     }
     parameter
 }
@@ -331,11 +333,19 @@ fn parse_metadata(input: &str) -> Metadata {
                 let default_expanded = parts
                     .next()
                     .is_none_or(|value| value.trim().eq_ignore_ascii_case("true"));
-                metadata.groups.push(Group {
-                    name: current_group.clone(),
-                    default_expanded,
-                    params: Vec::new(),
-                });
+                if let Some(group) = metadata
+                    .groups
+                    .iter_mut()
+                    .find(|group| group.name == current_group)
+                {
+                    group.default_expanded = default_expanded;
+                } else {
+                    metadata.groups.push(Group {
+                        name: current_group.clone(),
+                        default_expanded,
+                        params: Vec::new(),
+                    });
+                }
             }
             continue;
         }
@@ -455,5 +465,19 @@ local loaded = true
         let metadata = parse_metadata("--track@a:A,0,1,0\nlocal x = 1\n--check@b:B,true");
         assert_eq!(metadata.params.len(), 1);
         assert_eq!(metadata.params[0].var_name, "a");
+    }
+
+    #[test]
+    fn repeated_groups_are_reused_and_invalid_colors_use_the_default() {
+        let metadata = parse_metadata(
+            "--group:Shared,true\n--track@first:First,0,1,0\n--group:Shared,false\n--color@color:Color,not-hex",
+        );
+        assert_eq!(metadata.groups.len(), 1);
+        assert!(!metadata.groups[0].default_expanded);
+        assert_eq!(metadata.groups[0].params.len(), 2);
+        assert_eq!(
+            metadata.params[1].default_value,
+            Value::Number(DEFAULT_COLOR.into())
+        );
     }
 }

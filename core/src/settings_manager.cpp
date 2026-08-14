@@ -54,6 +54,8 @@ auto SettingsManager::instance() -> SettingsManager & {
 
 SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
     const auto defaults = RustCore::Settings::defaults(platformDefaultSettings());
+    // Defaults are required to establish the complete settings schema; continuing with a
+    // partial map would make later reads silently depend on unrelated caller fallbacks.
     if (!defaults.has_value())
         qFatal("[SettingsManager] Rust core failed to construct the settings document");
     m_settings = *defaults;
@@ -101,7 +103,9 @@ void SettingsManager::load() {
         return;
     }
 
-    const auto merged = RustCore::Settings::merge(m_settings, file.readAll());
+    const QByteArray contents = file.readAll();
+    file.close();
+    const auto merged = RustCore::Settings::merge(m_settings, contents);
     if (!merged.has_value()) {
         qWarning() << "Failed to parse settings:" << path;
         return;

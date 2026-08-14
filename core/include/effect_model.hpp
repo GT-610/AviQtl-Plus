@@ -65,15 +65,8 @@ class EffectModel : public QObject {
     }
 
     Q_INVOKABLE bool isEndpointFrame(const QString &paramName, int frame) const {
-        const auto result = Core::RustKeyframeDocument::inspect(
-            m_keyframeTracks.value(paramName), m_params.value(paramName), m_lastDuration);
-        const int startFrame = result
-                                   ? result->track.value(QStringLiteral("start"))
-                                         .toMap()
-                                         .value(QStringLiteral("frame"))
-                                         .toInt()
-                                   : 0;
-        return frame == startFrame;
+        Q_UNUSED(paramName)
+        return frame == 0;
     }
 
     Q_INVOKABLE void syncTrackEndpoints(int durationFrames) {

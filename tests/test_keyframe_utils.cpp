@@ -395,7 +395,7 @@ private slots:
             seen[static_cast<std::size_t>(kind)] = true;
 
             const QString &name = names.at(kind);
-            const auto &points = kind == easingCount - 1 ? customPoints : noPoints;
+            const auto &points = name == QStringLiteral("custom") ? customPoints : noPoints;
             for (std::size_t index = 0; index < samples.size(); ++index) {
                 const double expected = fields[static_cast<qsizetype>(index + 1)].toDouble(&ok);
                 QVERIFY2(ok, qPrintable(QStringLiteral("Invalid golden value for kind %1").arg(kind)));

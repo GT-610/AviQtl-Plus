@@ -94,26 +94,25 @@ float evalFloatOr(const ResolvedTracks &rt, const QString &key, float fallback, 
 }
 
 ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int clipDuration) {
+    Q_UNUSED(clipDuration)
     ResolvedTracks out;
     out.params = effect.params;
     out.allKeys.insert(QStringLiteral("time"));
 
-    int trackDuration = clipDuration;
-    QVariantMap tracks;
     for (auto it = effect.params.constBegin(); it != effect.params.constEnd(); ++it) {
         out.allKeys.insert(it.key());
     }
     for (auto it = effect.keyframes.begin(); it != effect.keyframes.end(); ++it) {
         out.allKeys.insert(it->first);
         const QVariant fallback = effect.params.value(it->first);
-        QVariantMap track = keyframesToTrack(it->second, fallback);
-        trackDuration = std::max(trackDuration, AviQtl::Core::KeyframeUtils::inferredDurationForTrack(track));
-        tracks.insert(it->first, track);
+        const QVariantMap track = keyframesToTrack(it->second, fallback);
+        const auto inspected =
+            AviQtl::Core::RustKeyframeDocument::inspect(track, fallback, 0);
+        out.resolved.insert(it->first, inspected ? inspected->flat : QVariantList{});
     }
 
-    // Resolve every track once (normalize + flatten); subsequent per-frame
-    // evaluations only walk the flattened list and apply easing.
-    out.resolved = AviQtl::Core::KeyframeUtils::resolveAllTracks(out.params, tracks, trackDuration);
+    // Each track crosses the document boundary once; subsequent per-frame evaluations only
+    // walk the flattened list and apply easing.
     out.numericBatch.rebuild(out.params, out.resolved);
     return out;
 }

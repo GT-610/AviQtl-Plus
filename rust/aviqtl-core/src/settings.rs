@@ -177,11 +177,12 @@ fn merge_settings(
     let migrated = loaded.contains_key("packageRepositoryUrls");
     if let Some(legacy) = loaded.get("packageRepositoryUrls") {
         if !loaded.contains_key("packageRepositories") {
-            let repositories = legacy
+            let repositories: Vec<Value> = legacy
                 .as_array()
                 .into_iter()
                 .flatten()
                 .filter_map(Value::as_str)
+                .filter(|url| !url.is_empty())
                 .map(|url| {
                     json!({
                         "url": url,
@@ -191,7 +192,9 @@ fn merge_settings(
                     })
                 })
                 .collect();
-            settings.insert("packageRepositories".to_owned(), Value::Array(repositories));
+            if !repositories.is_empty() {
+                settings.insert("packageRepositories".to_owned(), Value::Array(repositories));
+            }
         }
         settings.remove("packageRepositoryUrls");
     }
@@ -446,6 +449,36 @@ mod tests {
                 .and_then(|repository| repository.get("name")),
             Some(&json!("https://example.invalid/repo.json"))
         );
+
+        for invalid in [json!("not-an-array"), json!([]), json!([""])] {
+            let loaded = json!({"packageRepositoryUrls": invalid});
+            let (merged, migrated) =
+                merge_settings(&base, loaded.as_object().expect("fixture object"));
+            assert!(migrated);
+            assert_eq!(
+                merged.get("packageRepositories"),
+                base.get("packageRepositories")
+            );
+            assert!(!merged.contains_key("packageRepositoryUrls"));
+        }
+    }
+
+    #[test]
+    fn rust_defaults_match_cpp_constants() {
+        let constants = include_str!("../../../core/include/constants.hpp");
+        for (name, value) in [
+            ("kDefaultWidth", DEFAULT_WIDTH.to_string()),
+            ("kDefaultHeight", DEFAULT_HEIGHT.to_string()),
+            ("kDefaultSampleRate", DEFAULT_SAMPLE_RATE.to_string()),
+            ("kDefaultClipDuration", DEFAULT_CLIP_DURATION.to_string()),
+            ("kAudioMaxBlockSize", AUDIO_MAX_BLOCK_SIZE.to_string()),
+        ] {
+            assert!(
+                constants.contains(&format!("constexpr int {name} = {value};")),
+                "C++ constant {name} differs from the Rust default"
+            );
+        }
+        assert!(constants.contains(&format!("constexpr double kDefaultFps = {DEFAULT_FPS:.1};")));
     }
 
     #[test]

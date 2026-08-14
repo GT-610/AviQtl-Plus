@@ -366,7 +366,7 @@ fn normalize_track(track: &Value, fallback: &Value, duration: i32) -> Value {
     );
     legacy.retain(|point| {
         let frame = point_frame(point);
-        frame > 0 && frame < duration
+        frame > 0 && frame <= duration
     });
     let mut normalized = Map::new();
     normalized.insert("start".to_owned(), Value::Object(start));
@@ -639,7 +639,7 @@ fn apply(request: Request) -> Response {
                 .iter()
                 .filter(|point| {
                     let frame = point_frame(point);
-                    frame > 0 && frame < first_end
+                    frame > 0 && frame <= first_end
                 })
                 .cloned()
                 .collect();
@@ -763,6 +763,19 @@ mod tests {
         assert_eq!(point_frame(&inspected.flat[0]), 0);
         assert_eq!(point_frame(&inspected.flat[2]), 20);
 
+        let endpoint = apply(Request::Inspect {
+            track: json!([
+                {"frame": 0, "value": 0.0, "interp": "linear"},
+                {"frame": 20, "value": 20.0, "interp": "none"}
+            ]),
+            fallback: json!(0.0),
+            duration: 20,
+        });
+        assert_eq!(
+            endpoint.flat.iter().map(point_frame).collect::<Vec<_>>(),
+            [0, 20]
+        );
+
         let set = apply(Request::Set {
             track: inspected.track,
             fallback: json!(0.0),
@@ -796,6 +809,7 @@ mod tests {
         let track = json!({
             "start": {"frame": 0, "value": 0.0, "interp": "linear"},
             "points": [
+                {"frame": 9, "value": 90.0, "interp": "linear"},
                 {"frame": 10, "value": 100.0, "interp": "linear"},
                 {"frame": 20, "value": 200.0, "interp": "none"}
             ]
@@ -808,7 +822,7 @@ mod tests {
         });
         assert_eq!(
             synced.flat.iter().map(point_frame).collect::<Vec<_>>(),
-            [0, 10, 30]
+            [0, 9, 10, 30]
         );
 
         let split = apply(Request::Split {
@@ -817,6 +831,10 @@ mod tests {
             first_half_duration: 10,
             original_duration: 21,
         });
+        assert_eq!(
+            split.flat.iter().map(point_frame).collect::<Vec<_>>(),
+            [0, 9]
+        );
         let second = split.secondary_track.unwrap();
         assert_eq!(second["start"]["value"].as_f64(), Some(100.0));
     }

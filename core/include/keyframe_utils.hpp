@@ -10,11 +10,6 @@
 
 namespace AviQtl::Core::KeyframeUtils {
 
-inline int inferredDurationForTrack(const QVariant &raw) {
-    const auto result = RustKeyframeDocument::inspect(raw, QVariant(), 0);
-    return result ? result->inferredDuration : 1;
-}
-
 inline double solveBezierT(double x, double x1, double x2) {
     return RustCore::solveBezierT(x, x1, x2);
 }
