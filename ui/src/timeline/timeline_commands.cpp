@@ -7,8 +7,7 @@ namespace AviQtl::UI {
 
 AddClipCommand::AddClipCommand(TimelineService *service, int clipId, QString type, int startFrame, int layer, const QString &clipName, int duration, QString effectId,
                                QVariantMap effectParams) // NOLINT(bugprone-easily-swappable-parameters)
-    : m_service(service), m_clipId(clipId), m_type(std::move(type)), m_startFrame(startFrame), m_layer(layer), m_clipName(clipName), m_duration(duration), m_effectId(std::move(effectId)),
-      m_effectParams(std::move(effectParams)) {
+    : m_service(service), m_clipId(clipId), m_type(std::move(type)), m_startFrame(startFrame), m_layer(layer), m_clipName(clipName), m_duration(duration), m_effectId(std::move(effectId)), m_effectParams(std::move(effectParams)) {
     setText(QObject::tr("クリップ追加: %1").arg(clipName));
 }
 void AddClipCommand::undo() { m_service->deleteClipInternal(m_clipId); }
@@ -36,12 +35,12 @@ void AddClipCommand::redo() {
     emit m_service->clipCreated(clip->id, clip->layer, clip->startFrame, clip->durationFrames, clip->type);
 }
 
-MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int oldLayer, int oldStart, int oldDuration, int newLayer, int newStart, int newDuration, const QString &clipName) // NOLINT(bugprone-easily-swappable-parameters)
-    : m_service(service), m_clipId(clipId), m_oldLayer(oldLayer), m_oldStart(oldStart), m_oldDuration(oldDuration), m_newLayer(newLayer), m_newStart(newStart), m_newDuration(newDuration), m_clipName(clipName) {
+MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int oldLayer, int oldStart, int oldDuration, int newLayer, int newStart, int newDuration, const QString &clipName, bool prevalidated) // NOLINT(bugprone-easily-swappable-parameters)
+    : m_service(service), m_clipId(clipId), m_oldLayer(oldLayer), m_oldStart(oldStart), m_oldDuration(oldDuration), m_newLayer(newLayer), m_newStart(newStart), m_newDuration(newDuration), m_clipName(clipName), m_prevalidated(prevalidated) {
     setText(QObject::tr("クリップ移動: %1").arg(clipName));
 }
 void MoveClipCommand::undo() { m_service->updateClipInternal(m_clipId, m_oldLayer, m_oldStart, m_oldDuration, true, true); }
-void MoveClipCommand::redo() { m_service->updateClipInternal(m_clipId, m_newLayer, m_newStart, m_newDuration); }
+void MoveClipCommand::redo() { m_service->updateClipInternal(m_clipId, m_newLayer, m_newStart, m_newDuration, true, m_prevalidated); }
 
 SetClipByUpperObjectCommand::SetClipByUpperObjectCommand(TimelineService *service, int clipId, bool enabled) : m_service(service), m_clipId(clipId), m_enabled(enabled) {
     setText(enabled ? QObject::tr("上のオブジェクトでクリッピング") : QObject::tr("上のオブジェクトでクリッピング解除"));
@@ -138,8 +137,9 @@ UpdateLayerStateCommand::UpdateLayerStateCommand(TimelineService *service, int s
 void UpdateLayerStateCommand::undo() { m_service->setLayerStateInternal(m_sceneId, m_layer, !m_value, m_type); }
 void UpdateLayerStateCommand::redo() { m_service->setLayerStateInternal(m_sceneId, m_layer, m_value, m_type); }
 
-SplitClipCommand::SplitClipCommand(TimelineService *service, int clipId, int frame, const QString &clipName)
-    : m_service(service), m_originalClipId(clipId), m_newClipId(-1), m_splitFrame(frame), m_originalDuration(0), m_clipName(clipName) { // NOLINT(bugprone-easily-swappable-parameters)
+SplitClipCommand::SplitClipCommand(TimelineService *service, int clipId, int frame, int originalDuration, int firstDuration, int secondDuration, const QString &clipName)
+    : m_service(service), m_originalClipId(clipId), m_newClipId(-1), m_splitFrame(frame), m_originalDuration(originalDuration), m_firstDuration(firstDuration), m_secondDuration(secondDuration),
+      m_clipName(clipName) { // NOLINT(bugprone-easily-swappable-parameters)
     setText(QObject::tr("クリップ分割: %1").arg(clipName));
 }
 
@@ -164,17 +164,13 @@ void SplitClipCommand::redo() {
     if (m_newClipId == -1) {
         m_newClipId = m_service->nextClipId();
         m_service->setNextClipId(m_newClipId + 1);
-        m_originalDuration = it->durationFrames;
     }
-
-    int firstHalfDuration = m_splitFrame - it->startFrame;
-    int secondHalfDuration = m_originalDuration - firstHalfDuration;
 
     // 後半部分のクリップを作成
     ClipData newClip = m_service->deepCopyClip(*it);
     newClip.id = m_newClipId;
     newClip.startFrame = m_splitFrame;
-    newClip.durationFrames = secondHalfDuration;
+    newClip.durationFrames = m_secondDuration;
 
     for (int i = 0; i < it->effects.size() && i < newClip.effects.size(); ++i) {
         auto *originalEffect = it->effects.value(i);
@@ -183,13 +179,13 @@ void SplitClipCommand::redo() {
             continue;
         }
 
-        QVariantMap secondHalfTracks = originalEffect->splitTracks(firstHalfDuration, m_originalDuration);
-        originalEffect->syncTrackEndpoints(firstHalfDuration);
+        QVariantMap secondHalfTracks = originalEffect->splitTracks(m_firstDuration, m_originalDuration);
+        originalEffect->syncTrackEndpoints(m_firstDuration);
         newEffect->setKeyframeTracks(secondHalfTracks);
-        newEffect->syncTrackEndpoints(secondHalfDuration);
+        newEffect->syncTrackEndpoints(m_secondDuration);
     }
 
-    m_service->updateClipInternal(m_originalClipId, it->layer, it->startFrame, firstHalfDuration);
+    m_service->updateClipInternal(m_originalClipId, it->layer, it->startFrame, m_firstDuration);
     m_service->addClipDirectInternal(newClip);
 }
 
@@ -365,15 +361,13 @@ auto SetAudioPluginParamCommand::mergeWith(const QUndoCommand *other) -> bool {
     return true;
 }
 
-AddAudioPluginCommand::AddAudioPluginCommand(TimelineService *service, int clipId, const AudioPluginState &state, const QString &pluginName)
-    : m_service(service), m_clipId(clipId), m_state(state), m_insertedIndex(-1) {
+AddAudioPluginCommand::AddAudioPluginCommand(TimelineService *service, int clipId, const AudioPluginState &state, const QString &pluginName) : m_service(service), m_clipId(clipId), m_state(state), m_insertedIndex(-1) {
     setText(QObject::tr("オーディオプラグイン追加: %1").arg(pluginName));
 }
 void AddAudioPluginCommand::redo() { m_insertedIndex = m_service->addAudioPluginStateInternal(m_clipId, m_state); }
 void AddAudioPluginCommand::undo() { m_service->removeAudioPluginStateInternal(m_clipId, m_insertedIndex); }
 
-RemoveAudioPluginCommand::RemoveAudioPluginCommand(TimelineService *service, int clipId, int index, const QString &pluginName)
-    : m_service(service), m_clipId(clipId), m_index(index), m_valid(false) {
+RemoveAudioPluginCommand::RemoveAudioPluginCommand(TimelineService *service, int clipId, int index, const QString &pluginName) : m_service(service), m_clipId(clipId), m_index(index), m_valid(false) {
     setText(QObject::tr("オーディオプラグイン削除: %1").arg(pluginName));
     const auto *clip = service->findClipById(clipId);
     if (clip != nullptr && index >= 0 && index < clip->audioPlugins.size()) {

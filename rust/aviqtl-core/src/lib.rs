@@ -3,6 +3,7 @@ mod audio;
 mod keyframe;
 mod project;
 mod timeline;
+mod timeline_edit;
 
 use abi::{AviQtlEasingParameters, slice_is_valid};
 use std::f64::consts::PI;

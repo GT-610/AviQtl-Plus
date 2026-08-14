@@ -206,6 +206,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME rust_timeline_edit
+    SOURCES test_rust_timeline_edit.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME bake_controller
     SOURCES test_bake_controller.cpp
     LINKS AviQtl_Engine AviQtl_UI
@@ -360,7 +366,7 @@ aviqtl_label_tests(unit
     effect_registry shader_compiler document_model settings_manager performance_metrics
     theme_controller media_decoder media_utils keyframe_utils effect_model
     video_frame_store dense_component_map audio_plugin_chain audio_dsp triple_buffer
-    lua_host plugin_manifest mod_engine permission_manager selection_service
+    rust_timeline_edit lua_host plugin_manifest mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
     project_recovery build_version
 )

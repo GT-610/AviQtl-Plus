@@ -175,6 +175,7 @@ set(CORE_SOURCES
     core/include/rust_keyframe_core.hpp
     core/include/rust_project_document.hpp
     core/include/rust_timeline_bake.hpp
+    core/include/rust_timeline_edit.hpp
     core/include/settings_manager.hpp
     core/include/shader_compiler.hpp
     core/include/theme_controller.hpp

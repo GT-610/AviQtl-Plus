@@ -166,6 +166,5 @@ class TimelineService : public QObject {
     QList<ClipData> m_clipboard;
     std::unique_ptr<EffectModel> m_effectClipboard;
     SelectionService *m_selection;
-    QSet<int> m_batchExcludes;
 };
 } // namespace AviQtl::UI

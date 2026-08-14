@@ -7,12 +7,14 @@ pub const CAPABILITY_NUMERIC_KEYFRAME_BATCH: u64 = 1 << 2;
 pub const CAPABILITY_TIMELINE_BAKE: u64 = 1 << 3;
 pub const CAPABILITY_PROJECT_DOCUMENT: u64 = 1 << 4;
 pub const CAPABILITY_AUDIO_BATCH_MIX: u64 = 1 << 5;
+pub const CAPABILITY_TIMELINE_EDIT: u64 = 1 << 6;
 pub const CAPABILITIES: u64 = CAPABILITY_EASING
     | CAPABILITY_AUDIO_DSP
     | CAPABILITY_NUMERIC_KEYFRAME_BATCH
     | CAPABILITY_TIMELINE_BAKE
     | CAPABILITY_PROJECT_DOCUMENT
-    | CAPABILITY_AUDIO_BATCH_MIX;
+    | CAPABILITY_AUDIO_BATCH_MIX
+    | CAPABILITY_TIMELINE_EDIT;
 
 pub const STATUS_OK: u32 = 0;
 pub const STATUS_INVALID_ARGUMENT: u32 = 1;
@@ -20,6 +22,7 @@ pub const STATUS_OVERLAPPING_BUFFERS: u32 = 2;
 pub const STATUS_BUFFER_TOO_SMALL: u32 = 3;
 pub const STATUS_INVALID_JSON: u32 = 4;
 pub const STATUS_UNSUPPORTED_VERSION: u32 = 5;
+pub const STATUS_LOCKED_LAYER: u32 = 6;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -182,6 +185,33 @@ pub struct AviQtlAudioBakeOutput {
     pub direct_mode: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlTimelineClipGeometry {
+    pub clip_id: i32,
+    pub layer: i32,
+    pub start_frame: i32,
+    pub duration_frames: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlTimelineMoveInput {
+    pub clip_id: i32,
+    pub old_layer: i32,
+    pub old_start_frame: i32,
+    pub duration_frames: i32,
+    pub target_layer: i32,
+    pub target_start_frame: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlTimelinePosition {
+    pub frame: i32,
+    pub layer: i32,
+}
+
 pub fn pointer_is_valid<T>(pointer: *const T, length: usize) -> bool {
     length == 0 || (!pointer.is_null() && (pointer as usize) & (align_of::<T>() - 1) == 0)
 }
@@ -297,6 +327,19 @@ mod tests {
         assert_eq!(offset_of!(AviQtlAudioBakeOutput, source_start_time), 12);
         assert_eq!(offset_of!(AviQtlAudioBakeOutput, mute), 44);
         assert_eq!(offset_of!(AviQtlAudioBakeOutput, direct_mode), 56);
+
+        assert_eq!(size_of::<AviQtlTimelineClipGeometry>(), 16);
+        assert_eq!(align_of::<AviQtlTimelineClipGeometry>(), 4);
+        assert_eq!(offset_of!(AviQtlTimelineClipGeometry, clip_id), 0);
+        assert_eq!(offset_of!(AviQtlTimelineClipGeometry, duration_frames), 12);
+
+        assert_eq!(size_of::<AviQtlTimelineMoveInput>(), 24);
+        assert_eq!(align_of::<AviQtlTimelineMoveInput>(), 4);
+        assert_eq!(offset_of!(AviQtlTimelineMoveInput, clip_id), 0);
+        assert_eq!(offset_of!(AviQtlTimelineMoveInput, target_layer), 16);
+
+        assert_eq!(size_of::<AviQtlTimelinePosition>(), 8);
+        assert_eq!(align_of::<AviQtlTimelinePosition>(), 4);
 
         #[cfg(target_pointer_width = "64")]
         {
