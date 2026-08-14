@@ -1,5 +1,47 @@
 # AviQtl Rust core
 
+The Rust workspace is the portable domain foundation of AviQtl. New validation, normalization,
+planning, interpolation, serialization, catalog, and DSP rules belong here unless they require a
+native framework object to perform their work. C++ must not keep a second implementation of a
+Rust-owned rule.
+
+## Ownership boundary
+
+Rust owns the behavior that can be expressed with platform-neutral data:
+
+- project, settings, preset, package, effect, script, plugin, and keyframe documents;
+- project migrations, defaults, schema normalization, and deterministic serialization;
+- timeline edit planning, selection, scene settings, snapping, duration limits, and ID allocation;
+- keyframe normalization, mutation, easing names, interpolation, typed numeric evaluation, and
+  batch evaluation;
+- audio resampling, mixing, metering, and batch-mix policy;
+- media time/duration calculations, permission lookup, recovery identifier validation, package
+  safety decisions, and catalog ordering/filtering.
+
+Qt/C++ is an adapter layer. It converts `QString`, `QVariant`, `QJson*`, and QObject state to the
+fixed-layout or JSON inputs accepted by Rust, then publishes the result to QML and native
+subsystems. It also retains operations that inherently require native framework handles:
+
+- QML, QObject ownership, signals, `QUndoStack`, translations, dialogs, and window lifecycle;
+- filesystem path canonicalization, atomic Qt file writes, networking, ZIP deployment, and
+  platform directories;
+- FFmpeg decoder/encoder contexts and frame ownership;
+- QRhi, QImage, QVideoFrame, shaders, and render-thread resources;
+- Carla process discovery, plugin instances, and host callbacks;
+- Lua VM execution and other third-party C/C++ object lifecycles.
+
+`DocumentModel` is a Qt render projection of the current timeline. It exists to publish QObject
+change notifications and provide Qt-shaped input to the baking adapter; it is not an independent
+project source of truth. Project-document rules and persisted ownership live in Rust.
+
+The C++ ECS is likewise a native render/audio projection cache. Its POD components are produced by
+Rust timeline baking and consumed directly by the QRhi/QML and Carla/Qt audio boundaries. It must
+not acquire project editing, validation, or serialization rules.
+
+When adding behavior, prefer one of the existing Rust document or fixed-layout batch APIs. A C++
+implementation is appropriate only when the operation needs a native handle or is presentation
+logic. Conversion loops at the ABI edge are adapters, not alternative domain implementations.
+
 ## C ABI contract
 
 `core/include/rust_core_abi.hpp` is the single raw C ABI surface shared by the C++ application and `aviqtl-rust-core`.
@@ -10,3 +52,15 @@
 - A null pointer is accepted only when its matching length is zero. Non-empty buffers must be correctly aligned and valid for the duration of the call.
 - Mutable output ranges must not overlap any input or other output range. Violations return `AVIQTL_RUST_CORE_STATUS_OVERLAPPING_BUFFERS` where the operation has a status result.
 - Adding or reordering fields, changing a function signature, or changing a discriminant requires an ABI version increment. Additive functions or capabilities that leave existing layouts intact may use a new capability bit.
+
+## Toolchain and validation
+
+The workspace uses Rust edition 2024 and has an MSRV of Rust 1.87. Changes to the core must pass:
+
+```sh
+cargo +1.87.0 fmt --all --check
+cargo +1.87.0 test --workspace
+cargo +1.87.0 clippy --workspace --all-targets -- -D warnings
+```
+
+The C++ adapters and consumers must then pass the normal CMake build and complete CTest suite.
