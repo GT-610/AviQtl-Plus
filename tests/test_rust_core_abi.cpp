@@ -15,6 +15,7 @@ class TestRustCoreAbi : public QObject {
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_EDIT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_DOMAIN);
         QCOMPARE(aviqtl_project_current_version(), std::int32_t{3});
     }
 
@@ -51,6 +52,10 @@ class TestRustCoreAbi : public QObject {
         QCOMPARE(alignof(AviQtlTimelineMoveInput), std::size_t{4});
         QCOMPARE(sizeof(AviQtlTimelinePosition), std::size_t{8});
         QCOMPARE(alignof(AviQtlTimelinePosition), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlSceneSettings), std::size_t{56});
+        QCOMPARE(alignof(AviQtlSceneSettings), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlIdAllocation), std::size_t{8});
+        QCOMPARE(alignof(AviQtlIdAllocation), std::size_t{4});
     }
 };
 

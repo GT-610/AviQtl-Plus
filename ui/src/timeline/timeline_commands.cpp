@@ -90,12 +90,6 @@ void RemoveMultipleEffectsCommand::redo() { m_service->removeMultipleEffectsInte
 
 void RemoveMultipleEffectsCommand::undo() { m_service->restoreMultipleEffectsInternal(m_clipId, m_removedEffectsData); }
 
-ReorderEffectCommand::ReorderEffectCommand(TimelineService *service, int clipId, int oldIndex, int newIndex) : m_service(service), m_clipId(clipId), m_oldIndex(oldIndex), m_newIndex(newIndex) {
-    setText(QObject::tr("エフェクト順序変更"));
-} // NOLINT(bugprone-easily-swappable-parameters)
-void ReorderEffectCommand::undo() { m_service->reorderEffectsInternal(m_clipId, m_newIndex, m_oldIndex); }
-void ReorderEffectCommand::redo() { m_service->reorderEffectsInternal(m_clipId, m_oldIndex, m_newIndex); }
-
 ReorderMultipleEffectsCommand::ReorderMultipleEffectsCommand(TimelineService *service, int clipId, QList<int> redoPerm, QList<int> undoPerm, const QString &text)
     : m_service(service), m_clipId(clipId), m_redoPerm(std::move(redoPerm)), m_undoPerm(std::move(undoPerm)) {
     setText(text);
@@ -103,11 +97,12 @@ ReorderMultipleEffectsCommand::ReorderMultipleEffectsCommand(TimelineService *se
 void ReorderMultipleEffectsCommand::undo() { m_service->applyPermutationInternal(m_clipId, m_undoPerm); }
 void ReorderMultipleEffectsCommand::redo() { m_service->applyPermutationInternal(m_clipId, m_redoPerm); }
 
-ReorderAudioPluginCommand::ReorderAudioPluginCommand(TimelineService *service, int clipId, int oldIndex, int newIndex) : m_service(service), m_clipId(clipId), m_oldIndex(oldIndex), m_newIndex(newIndex) { // NOLINT(bugprone-easily-swappable-parameters)
+ReorderAudioPluginCommand::ReorderAudioPluginCommand(TimelineService *service, int clipId, QList<int> redoPerm, QList<int> undoPerm)
+    : m_service(service), m_clipId(clipId), m_redoPerm(std::move(redoPerm)), m_undoPerm(std::move(undoPerm)) {
     setText(QObject::tr("オーディオプラグイン順序変更"));
 }
-void ReorderAudioPluginCommand::undo() { m_service->reorderAudioPluginsInternal(m_clipId, m_newIndex, m_oldIndex); }
-void ReorderAudioPluginCommand::redo() { m_service->reorderAudioPluginsInternal(m_clipId, m_oldIndex, m_newIndex); }
+void ReorderAudioPluginCommand::undo() { m_service->applyAudioPluginPermutationInternal(m_clipId, m_undoPerm); }
+void ReorderAudioPluginCommand::redo() { m_service->applyAudioPluginPermutationInternal(m_clipId, m_redoPerm); }
 
 SetEffectEnabledCommand::SetEffectEnabledCommand(TimelineService *service, int clipId, int effectIndex, bool enabled) : m_service(service), m_clipId(clipId), m_effectIndex(effectIndex), m_enabled(enabled) { // NOLINT(bugprone-easily-swappable-parameters)
     setText(QObject::tr("エフェクト有効/無効切り替え"));
@@ -162,8 +157,10 @@ void SplitClipCommand::redo() {
 
     // 分割前の状態を保存・計算
     if (m_newClipId == -1) {
-        m_newClipId = m_service->nextClipId();
-        m_service->setNextClipId(m_newClipId + 1);
+        m_newClipId = m_service->allocateClipId();
+        if (m_newClipId < 0) {
+            return;
+        }
     }
 
     // 後半部分のクリップを作成

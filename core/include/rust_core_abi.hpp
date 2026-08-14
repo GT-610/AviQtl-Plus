@@ -13,6 +13,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT = 1ULL << 4,
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX = 1ULL << 5,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_EDIT = 1ULL << 6,
+    AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_DOMAIN = 1ULL << 7,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -258,6 +259,33 @@ struct AviQtlTimelinePosition {
 static_assert(sizeof(AviQtlTimelinePosition) == 8);
 static_assert(alignof(AviQtlTimelinePosition) == 4);
 
+struct AviQtlSceneSettings {
+    std::int32_t width;
+    std::int32_t height;
+    double fps;
+    std::int32_t total_frames;
+    std::uint32_t grid_mode;
+    double grid_bpm;
+    double grid_offset;
+    std::int32_t grid_interval;
+    std::int32_t grid_subdivision;
+    std::uint32_t enable_snap;
+    std::int32_t magnetic_snap_range;
+};
+static_assert(sizeof(AviQtlSceneSettings) == 56);
+static_assert(alignof(AviQtlSceneSettings) == 8);
+static_assert(offsetof(AviQtlSceneSettings, width) == 0);
+static_assert(offsetof(AviQtlSceneSettings, fps) == 8);
+static_assert(offsetof(AviQtlSceneSettings, grid_bpm) == 24);
+static_assert(offsetof(AviQtlSceneSettings, magnetic_snap_range) == 52);
+
+struct AviQtlIdAllocation {
+    std::int32_t allocated_id;
+    std::int32_t next_id;
+};
+static_assert(sizeof(AviQtlIdAllocation) == 8);
+static_assert(alignof(AviQtlIdAllocation) == 4);
+
 extern "C" {
 
 std::uint32_t aviqtl_core_abi_version();
@@ -294,6 +322,16 @@ std::uint32_t aviqtl_timeline_find_vacant_clipboard_frame(const AviQtlTimelineCl
 std::uint32_t aviqtl_timeline_plan_clipboard_placement(const AviQtlTimelineClipGeometry *existing, std::size_t existingLength, const AviQtlTimelineClipGeometry *clipboard, std::size_t clipboardLength, std::int32_t requestedFrame, std::int32_t layerOffset,
                                                        AviQtlTimelineClipGeometry *output, std::size_t outputLength, std::int32_t *outputFrame);
 std::uint32_t aviqtl_timeline_split_clip(const AviQtlTimelineClipGeometry *clip, std::int32_t frame, AviQtlTimelineClipGeometry *first, AviQtlTimelineClipGeometry *second);
+
+std::uint32_t aviqtl_timeline_allocate_id(const std::int32_t *existingIds, std::size_t existingIdsLength, std::int32_t nextHint, std::int32_t minimumId, AviQtlIdAllocation *output);
+std::uint32_t aviqtl_timeline_normalize_scene_settings(const AviQtlSceneSettings *input, AviQtlSceneSettings *output);
+std::uint32_t aviqtl_selection_replace(const std::int32_t *ids, std::size_t idsLength, std::int32_t requestedPrimary, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::int32_t *outputPrimary);
+std::uint32_t aviqtl_selection_toggle(const std::int32_t *currentIds, std::size_t currentIdsLength, std::int32_t currentPrimary, std::int32_t toggledId, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength,
+                                      std::int32_t *outputPrimary);
+std::uint32_t aviqtl_timeline_normalize_removal_indices(std::size_t length, const std::int32_t *indices, std::size_t indicesLength, std::int32_t minimumIndex, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_plan_index_move(std::size_t length, std::int32_t oldIndex, std::int32_t newIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo);
+std::uint32_t aviqtl_timeline_plan_multi_reorder(std::size_t length, const std::int32_t *indices, std::size_t indicesLength, std::int32_t targetIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo,
+                                                 std::size_t *outputSelectedCount);
 
 std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);

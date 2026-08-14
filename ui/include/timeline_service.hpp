@@ -116,7 +116,7 @@ class TimelineService : public QObject {
     void setAudioPluginEnabledInternal(int clipId, int index, bool enabled);
     void reorderEffectsInternal(int clipId, int oldIndex, int newIndex);
     void applyPermutationInternal(int clipId, const QList<int> &perm);
-    void reorderAudioPluginsInternal(int clipId, int oldIndex, int newIndex);
+    void applyAudioPluginPermutationInternal(int clipId, const QList<int> &perm);
     void updateEffectParamInternal(int clipId, int effectIndex, const QString &paramName, const QVariant &value);
     void setClipboard(const ClipData &clip);
     void setClipboard(const QList<ClipData> &clips);
@@ -141,6 +141,9 @@ class TimelineService : public QObject {
     void setNextClipId(int id) { m_nextClipId = id; }
     int nextSceneId() const { return m_nextSceneId; }
     void setNextSceneId(int id) { m_nextSceneId = id; }
+    int allocateClipId();
+    QList<int> allocateClipIds(qsizetype count);
+    int allocateSceneId();
 
   signals:
     void clipsChanged();

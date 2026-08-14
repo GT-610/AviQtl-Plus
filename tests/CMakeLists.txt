@@ -212,6 +212,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME rust_timeline_domain
+    SOURCES test_rust_timeline_domain.cpp
+    LINKS AviQtl_UI
+)
+
+aviqtl_add_test(
     NAME bake_controller
     SOURCES test_bake_controller.cpp
     LINKS AviQtl_Engine AviQtl_UI

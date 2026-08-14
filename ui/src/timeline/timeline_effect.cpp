@@ -2,12 +2,15 @@
 #include "constants.hpp"
 #include "core/include/media_utils.hpp"
 #include "effect_registry.hpp"
+#include "rust_timeline_domain.hpp"
 #include "selection_service.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
 #include <QSet>
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
+#include <vector>
 
 extern "C" {
 #include <libavutil/avutil.h>
@@ -193,17 +196,23 @@ void TimelineService::removeMultipleEffects(int clipId, const QList<int> &indice
         return;
     }
 
-    QList<int> sorted;
+    std::vector<std::int32_t> requested;
+    requested.reserve(static_cast<std::size_t>(indices.size()));
     for (int idx : indices) {
-        if (idx >= 0 && idx < static_cast<int>(clip->effects.size())) {
-            sorted.append(idx);
-        }
+        requested.push_back(idx);
     }
-    if (sorted.isEmpty()) {
+    const int minimumIndex = !clip->effects.isEmpty() &&
+                                     clip->effects.first()->id() == QLatin1String("transform")
+                                 ? 1
+                                 : 0;
+    std::vector<std::int32_t> normalized;
+    if (AviQtl::RustCore::normalizeRemovalIndices(
+            static_cast<std::size_t>(clip->effects.size()), requested, minimumIndex, normalized) !=
+            AviQtl::RustCore::TimelineDomainStatus::Ok ||
+        normalized.empty()) {
         return;
     }
-    std::sort(sorted.begin(), sorted.end(), std::greater<int>());
-    sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
+    const QList<int> sorted(normalized.cbegin(), normalized.cend());
 
     auto *cmd = new RemoveMultipleEffectsCommand(this, clipId, sorted, QObject::tr("エフェクト削除 (%1件)").arg(sorted.size()));
     m_undoStack->push(cmd);
@@ -277,7 +286,24 @@ void TimelineService::reorderEffects(int clipId, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) {
         return;
     }
-    m_undoStack->push(new ReorderEffectCommand(this, clipId, oldIndex, newIndex));
+    const auto *clip = findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    const int minimumIndex = !clip->effects.isEmpty() &&
+                                     clip->effects.first()->id() == QLatin1String("transform")
+                                 ? 1
+                                 : 0;
+    std::vector<std::int32_t> redo;
+    std::vector<std::int32_t> undo;
+    if (AviQtl::RustCore::planIndexMove(
+            static_cast<std::size_t>(clip->effects.size()), oldIndex, newIndex, minimumIndex,
+            redo, undo) != AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        return;
+    }
+    m_undoStack->push(new ReorderMultipleEffectsCommand(
+        this, clipId, QList<int>(redo.cbegin(), redo.cend()),
+        QList<int>(undo.cbegin(), undo.cend()), QObject::tr("エフェクト順序変更")));
 }
 
 void TimelineService::reorderMultipleEffects(int clipId, const QVariantList &indicesList, int targetIndex) {
@@ -286,85 +312,43 @@ void TimelineService::reorderMultipleEffects(int clipId, const QVariantList &ind
         return;
     }
 
-    const int n = static_cast<int>(clip->effects.size());
-
-    // QVariantList を int に変換
-    QList<int> indices;
+    const std::size_t length = static_cast<std::size_t>(clip->effects.size());
+    std::vector<std::int32_t> indices;
+    indices.reserve(static_cast<std::size_t>(indicesList.size()));
     for (const QVariant &v : indicesList) {
         bool ok = false;
-        int val = v.toInt(&ok);
+        const int val = v.toInt(&ok);
         if (ok) {
-            indices.append(val);
+            indices.push_back(val);
         }
     }
-
-    // Transform (index 0) は移動不可として除外し、重複も除去して昇順ソート
-    QList<int> valid;
-    for (int idx : indices) {
-        if (idx > 0 && idx < n) {
-            valid.append(idx);
-        }
-    }
-    if (valid.isEmpty()) {
+    const int minimumIndex = !clip->effects.isEmpty() &&
+                                     clip->effects.first()->id() == QLatin1String("transform")
+                                 ? 1
+                                 : 0;
+    std::vector<std::int32_t> redo;
+    std::vector<std::int32_t> undo;
+    std::size_t selectedCount = 0;
+    if (AviQtl::RustCore::planMultiReorder(
+            length, indices, targetIndex, minimumIndex, redo, undo, selectedCount) !=
+        AviQtl::RustCore::TimelineDomainStatus::Ok) {
         return;
     }
-    std::sort(valid.begin(), valid.end());
-    valid.erase(std::unique(valid.begin(), valid.end()), valid.end());
-
-    // 選択アイテムのセット（O(1) 検索用）
-    const QSet<int> selectedSet(valid.begin(), valid.end());
-
-    // 選択アイテムを昇順で収集
-    QList<EffectModel *> selected;
-    selected.reserve(valid.size());
-    for (int idx : valid) {
-        selected.append(clip->effects.at(idx));
-    }
-
-    // 非選択アイテムを収集（Transform を含む）
-    QList<EffectModel *> remaining;
-    remaining.reserve(n - valid.size());
-    for (int i = 0; i < n; i++) {
-        if (!selectedSet.contains(i)) {
-            remaining.append(clip->effects.at(i));
+    bool unchanged = true;
+    for (std::size_t index = 0; index < redo.size(); ++index) {
+        if (redo[index] != static_cast<std::int32_t>(index)) {
+            unchanged = false;
+            break;
         }
     }
-
-    int countBefore = 0;
-    for (int idx : valid) {
-        if (idx < targetIndex) {
-            countBefore++;
-        }
-    }
-    // Transform より前への挿入を禁止（insertAt >= 1）
-    const int insertAt = std::clamp(targetIndex - countBefore, 1, static_cast<int>(remaining.size()));
-
-    // 新順序を構築
-    QList<EffectModel *> newOrder;
-    newOrder.reserve(n);
-    for (int i = 0; i < insertAt; i++) {
-        newOrder.append(remaining.at(i));
-    }
-    for (auto *eff : std::as_const(selected)) {
-        newOrder.append(eff);
-    }
-    for (int i = insertAt; i < static_cast<int>(remaining.size()); i++) {
-        newOrder.append(remaining.at(i));
-    }
-
-    if (newOrder == clip->effects) {
+    if (unchanged) {
         return;
     }
-
-    const QList<EffectModel *> &oldOrder = clip->effects;
-    QList<int> redoPerm, undoPerm;
-    redoPerm.resize(n);
-    undoPerm.resize(n);
-    for (int i = 0; i < n; i++) {
-        redoPerm[i] = static_cast<int>(oldOrder.indexOf(newOrder.at(i)));
-        undoPerm[i] = static_cast<int>(newOrder.indexOf(oldOrder.at(i)));
-    }
-    m_undoStack->push(new ReorderMultipleEffectsCommand(this, clipId, std::move(redoPerm), std::move(undoPerm), QObject::tr("エフェクト順序変更 (%1件)").arg(valid.size())));
+    m_undoStack->push(new ReorderMultipleEffectsCommand(
+        this, clipId, QList<int>(redo.cbegin(), redo.cend()),
+        QList<int>(undo.cbegin(), undo.cend()),
+        QObject::tr("エフェクト順序変更 (%1件)")
+            .arg(static_cast<qsizetype>(selectedCount))));
 }
 
 void TimelineService::applyPermutationInternal(int clipId, const QList<int> &perm) {
@@ -386,7 +370,20 @@ void TimelineService::reorderAudioPlugins(int clipId, int oldIndex, int newIndex
     if (oldIndex == newIndex) {
         return;
     }
-    m_undoStack->push(new ReorderAudioPluginCommand(this, clipId, oldIndex, newIndex));
+    const auto *clip = findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    std::vector<std::int32_t> redo;
+    std::vector<std::int32_t> undo;
+    if (AviQtl::RustCore::planIndexMove(
+            static_cast<std::size_t>(clip->audioPlugins.size()), oldIndex, newIndex, 0, redo,
+            undo) != AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        return;
+    }
+    m_undoStack->push(new ReorderAudioPluginCommand(
+        this, clipId, QList<int>(redo.cbegin(), redo.cend()),
+        QList<int>(undo.cbegin(), undo.cend())));
 }
 
 void TimelineService::reorderEffectsInternal(int clipId, int oldIndex, int newIndex) { // NOLINT(bugprone-easily-swappable-parameters)
@@ -472,15 +469,20 @@ void TimelineService::setAudioPluginParamInternal(int clipId, int index, int par
     emit clipsChanged();
 }
 
-void TimelineService::reorderAudioPluginsInternal(int clipId, int oldIndex, int newIndex) { // NOLINT(bugprone-easily-swappable-parameters)
+void TimelineService::applyAudioPluginPermutationInternal(int clipId, const QList<int> &perm) {
     auto *clip = findClipById(clipId);
-    if ((clip == nullptr) || oldIndex < 0 || oldIndex >= static_cast<int>(clip->audioPlugins.size()) || newIndex < 0 || newIndex >= static_cast<int>(clip->audioPlugins.size())) {
+    if (clip == nullptr || perm.size() != clip->audioPlugins.size()) {
         return;
     }
-
-    clip->audioPlugins.move(oldIndex, newIndex);
-
-    // UI更新通知
+    QList<AudioPluginState> reordered;
+    reordered.reserve(perm.size());
+    for (int index : perm) {
+        if (index < 0 || index >= clip->audioPlugins.size()) {
+            return;
+        }
+        reordered.append(clip->audioPlugins.at(index));
+    }
+    clip->audioPlugins = std::move(reordered);
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }

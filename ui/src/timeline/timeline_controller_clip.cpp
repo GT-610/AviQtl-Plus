@@ -400,21 +400,23 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     static const QSet<QString> imageExts = {QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("bmp"), QStringLiteral("gif"), QStringLiteral("webp"), QStringLiteral("svg")};
 
     if (AviQtl::Core::MediaUtils::isVideoFile(filePath)) {
-        m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
-
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_VIDEO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = findVacantFrameForLinkedMedia(m_timeline, layer, startFrame, importDuration);
 
-        int videoClipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(videoClipId + 1);
+        const QList<int> clipIds = m_timeline->allocateClipIds(2);
+        if (clipIds.size() != 2) {
+            return {{QStringLiteral("ok"), false}};
+        }
+        const int videoClipId = clipIds.at(0);
+        const int audioClipId = clipIds.at(1);
+
+        m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, videoClipId, QStringLiteral("video"), startFrame, layer, tr("動画"), importDuration, QStringLiteral("video"),
                                                         {{QStringLiteral("path"), filePath}}));
 
-        int audioClipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(audioClipId + 1);
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, audioClipId, QStringLiteral("audio"), startFrame, layer + 1, tr("音声"), importDuration, QStringLiteral("audio"),
                                                         {{QStringLiteral("source"), filePath},
                                                          {QStringLiteral("linkedVideo"), true},
@@ -431,8 +433,11 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
-        int clipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(clipId + 1);
+        const int clipId = m_timeline->allocateClipId();
+        if (clipId < 0) {
+            m_timeline->undoStack()->endMacro();
+            return {{QStringLiteral("ok"), false}};
+        }
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("audio"), startFrame, layer, tr("音声"), importDuration, QStringLiteral("audio"),
                                                         {{QStringLiteral("source"), filePath}}));
 
@@ -444,8 +449,11 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         const int importDuration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
-        int clipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(clipId + 1);
+        const int clipId = m_timeline->allocateClipId();
+        if (clipId < 0) {
+            m_timeline->undoStack()->endMacro();
+            return {{QStringLiteral("ok"), false}};
+        }
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("image"), startFrame, layer, tr("画像"), importDuration, QStringLiteral("image"),
                                                         {{QStringLiteral("path"), filePath}}));
 

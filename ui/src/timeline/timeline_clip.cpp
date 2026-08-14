@@ -59,7 +59,10 @@ void applyPlannedMoves(TimelineService *service, std::span<const AviQtl::RustCor
 } // namespace
 
 int TimelineService::createClip(const QString &type, int startFrame, int layer) {
-    int id = m_nextClipId++;
+    const int id = allocateClipId();
+    if (id < 0) {
+        return startFrame;
+    }
     QString clipName = type;
     auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(type);
     if (!meta.name.isEmpty()) {
@@ -688,15 +691,21 @@ int TimelineService::pasteClip(int frame, int layer) {
     }
 
     if (pending.size() == 1) {
-        int newId = m_nextClipId++;
+        const int newId = allocateClipId();
+        if (newId < 0) {
+            return frame;
+        }
         m_undoStack->push(new PasteClipCommand(this, newId, pending.first()));
         return safeFrame;
     }
 
+    const QList<int> newIds = allocateClipIds(pending.size());
+    if (newIds.size() != pending.size()) {
+        return frame;
+    }
     m_undoStack->beginMacro(QObject::tr("複数クリップ貼り付け: %1").arg(pending.size()));
-    for (const auto &clip : std::as_const(pending)) {
-        int newId = m_nextClipId++;
-        m_undoStack->push(new PasteClipCommand(this, newId, clip));
+    for (qsizetype index = 0; index < pending.size(); ++index) {
+        m_undoStack->push(new PasteClipCommand(this, newIds.at(index), pending.at(index)));
     }
     m_undoStack->endMacro();
     return safeFrame;

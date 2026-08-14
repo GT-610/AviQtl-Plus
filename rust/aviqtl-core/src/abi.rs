@@ -8,13 +8,15 @@ pub const CAPABILITY_TIMELINE_BAKE: u64 = 1 << 3;
 pub const CAPABILITY_PROJECT_DOCUMENT: u64 = 1 << 4;
 pub const CAPABILITY_AUDIO_BATCH_MIX: u64 = 1 << 5;
 pub const CAPABILITY_TIMELINE_EDIT: u64 = 1 << 6;
+pub const CAPABILITY_TIMELINE_DOMAIN: u64 = 1 << 7;
 pub const CAPABILITIES: u64 = CAPABILITY_EASING
     | CAPABILITY_AUDIO_DSP
     | CAPABILITY_NUMERIC_KEYFRAME_BATCH
     | CAPABILITY_TIMELINE_BAKE
     | CAPABILITY_PROJECT_DOCUMENT
     | CAPABILITY_AUDIO_BATCH_MIX
-    | CAPABILITY_TIMELINE_EDIT;
+    | CAPABILITY_TIMELINE_EDIT
+    | CAPABILITY_TIMELINE_DOMAIN;
 
 pub const STATUS_OK: u32 = 0;
 pub const STATUS_INVALID_ARGUMENT: u32 = 1;
@@ -212,6 +214,29 @@ pub struct AviQtlTimelinePosition {
     pub layer: i32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+pub struct AviQtlSceneSettings {
+    pub width: i32,
+    pub height: i32,
+    pub fps: f64,
+    pub total_frames: i32,
+    pub grid_mode: u32,
+    pub grid_bpm: f64,
+    pub grid_offset: f64,
+    pub grid_interval: i32,
+    pub grid_subdivision: i32,
+    pub enable_snap: u32,
+    pub magnetic_snap_range: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlIdAllocation {
+    pub allocated_id: i32,
+    pub next_id: i32,
+}
+
 pub fn pointer_is_valid<T>(pointer: *const T, length: usize) -> bool {
     length == 0 || (!pointer.is_null() && (pointer as usize) & (align_of::<T>() - 1) == 0)
 }
@@ -340,6 +365,16 @@ mod tests {
 
         assert_eq!(size_of::<AviQtlTimelinePosition>(), 8);
         assert_eq!(align_of::<AviQtlTimelinePosition>(), 4);
+
+        assert_eq!(size_of::<AviQtlSceneSettings>(), 56);
+        assert_eq!(align_of::<AviQtlSceneSettings>(), 8);
+        assert_eq!(offset_of!(AviQtlSceneSettings, width), 0);
+        assert_eq!(offset_of!(AviQtlSceneSettings, fps), 8);
+        assert_eq!(offset_of!(AviQtlSceneSettings, grid_bpm), 24);
+        assert_eq!(offset_of!(AviQtlSceneSettings, magnetic_snap_range), 52);
+
+        assert_eq!(size_of::<AviQtlIdAllocation>(), 8);
+        assert_eq!(align_of::<AviQtlIdAllocation>(), 4);
 
         #[cfg(target_pointer_width = "64")]
         {

@@ -1,4 +1,7 @@
 #include "selection_service.hpp"
+#include "rust_timeline_domain.hpp"
+#include <cstdint>
+#include <vector>
 
 namespace AviQtl::UI {
 
@@ -40,33 +43,28 @@ void SelectionService::clearSelection() {
 void SelectionService::select(int id, const QVariantMap &data) { replaceSelection(QVariantList{id}, id, data); }
 
 void SelectionService::toggleSelection(int id, const QVariantMap &data) {
-    if (id < 0) {
-        clearSelection();
+    std::vector<std::int32_t> currentIds;
+    currentIds.reserve(static_cast<std::size_t>(m_selectedClipIds.size()));
+    for (int selectedId : std::as_const(m_selectedClipIds)) {
+        currentIds.push_back(selectedId);
+    }
+    const bool wasSelected = m_selectedClipIds.contains(id);
+    const int previousPrimary = m_selectedClipId;
+    std::vector<std::int32_t> planned;
+    std::int32_t nextPrimary = previousPrimary;
+    if (AviQtl::RustCore::toggleSelection(currentIds, previousPrimary, id, planned, nextPrimary) !=
+        AviQtl::RustCore::TimelineDomainStatus::Ok) {
         return;
     }
 
-    bool changed = false;
-    if (m_selectedClipIds.contains(id)) {
-        m_selectedClipIds.removeOne(id);
-        changed = true;
-        if (m_selectedClipId == id) {
-            if (m_selectedClipIds.isEmpty()) {
-                updatePrimarySelection(-1, QVariantMap());
-            } else {
-                // Promote next clip; data will be repopulated by refreshSelectionData()
-                updatePrimarySelection(m_selectedClipIds.first(), QVariantMap());
-            }
-        }
-    } else {
-        if (!m_selectedClipIds.contains(id)) {
-            m_selectedClipIds.append(id);
-        }
-        changed = true;
-        updatePrimarySelection(id, data);
-    }
-
-    if (changed) {
+    const QList<int> nextIds(planned.cbegin(), planned.cend());
+    if (m_selectedClipIds != nextIds) {
+        m_selectedClipIds = nextIds;
         emit selectedClipIdsChanged();
+    }
+    if (nextPrimary != previousPrimary) {
+        const QVariantMap nextData = !wasSelected && nextPrimary == id ? data : QVariantMap();
+        updatePrimarySelection(nextPrimary, nextData);
     }
 }
 
@@ -83,20 +81,22 @@ void SelectionService::refreshSelectionData(int id, const QVariantMap &data) {
 }
 
 void SelectionService::replaceSelection(const QVariantList &ids, int primaryId, const QVariantMap &primaryData) {
-    QList<int> nextIds;
+    std::vector<std::int32_t> requested;
+    requested.reserve(static_cast<std::size_t>(ids.size()));
     for (const QVariant &value : ids) {
-        const int id = value.toInt();
-        if (id >= 0 && !nextIds.contains(id)) {
-            nextIds.append(id);
-        }
+        requested.push_back(value.toInt());
     }
+    std::vector<std::int32_t> planned;
+    std::int32_t nextPrimary = primaryId;
+    if (AviQtl::RustCore::replaceSelection(requested, primaryId, planned, nextPrimary) !=
+        AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        return;
+    }
+    const QList<int> nextIds(planned.cbegin(), planned.cend());
     if (m_selectedClipIds != nextIds) {
         m_selectedClipIds = nextIds;
         emit selectedClipIdsChanged();
     }
-    if (!m_selectedClipIds.contains(primaryId)) {
-        primaryId = m_selectedClipIds.isEmpty() ? -1 : m_selectedClipIds.first();
-    }
-    updatePrimarySelection(primaryId, primaryId >= 0 ? primaryData : QVariantMap());
+    updatePrimarySelection(nextPrimary, nextPrimary >= 0 ? primaryData : QVariantMap());
 }
 } // namespace AviQtl::UI

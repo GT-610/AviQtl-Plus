@@ -110,18 +110,6 @@ class RemoveMultipleEffectsCommand : public QUndoCommand {
     QList<QVariantMap> m_removedEffectsData;
 };
 
-class ReorderEffectCommand : public QUndoCommand {
-  public:
-    ReorderEffectCommand(TimelineService *service, int clipId, int oldIndex, int newIndex);
-    void undo() override;
-    void redo() override;
-
-  private:
-    TimelineService *m_service;
-    int m_clipId;
-    int m_oldIndex, m_newIndex;
-};
-
 class ReorderMultipleEffectsCommand : public QUndoCommand {
   public:
     ReorderMultipleEffectsCommand(TimelineService *service, int clipId, QList<int> redoPerm, QList<int> undoPerm, const QString &text);
@@ -137,14 +125,15 @@ class ReorderMultipleEffectsCommand : public QUndoCommand {
 
 class ReorderAudioPluginCommand : public QUndoCommand {
   public:
-    ReorderAudioPluginCommand(TimelineService *service, int clipId, int oldIndex, int newIndex);
+    ReorderAudioPluginCommand(TimelineService *service, int clipId, QList<int> redoPerm, QList<int> undoPerm);
     void undo() override;
     void redo() override;
 
   private:
     TimelineService *m_service;
     int m_clipId;
-    int m_oldIndex, m_newIndex;
+    QList<int> m_redoPerm;
+    QList<int> m_undoPerm;
 };
 
 class SetEffectEnabledCommand : public QUndoCommand {
