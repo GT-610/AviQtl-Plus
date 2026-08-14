@@ -84,6 +84,19 @@ void TestAudioPluginScan::scansLargeDirectoryAndIgnoresMalformedPlugins() {
         const QVariantMap plugin = entry.toMap();
         return plugin.value(QStringLiteral("format")) == QStringLiteral("VST2") && plugin.value(QStringLiteral("category")) == QStringLiteral("Filter");
     }));
+    QCOMPARE(AudioPluginManager::instance().getCategories(), QVariantList{QStringLiteral("Filter")});
+    const QVariantList filtered =
+        AudioPluginManager::instance().getPluginsInCategory(QStringLiteral("filter"));
+    QCOMPARE(filtered.size(), kPluginFileCount - 1);
+    QVERIFY(std::is_sorted(filtered.cbegin(), filtered.cend(), [](const QVariant &left,
+                                                                  const QVariant &right) {
+        return left.toMap().value(QStringLiteral("name")).toString().compare(
+                   right.toMap().value(QStringLiteral("name")).toString(),
+                   Qt::CaseInsensitive) < 0;
+    }));
+    QVERIFY(AudioPluginManager::instance()
+                .getPluginsInCategory(QStringLiteral("unknown category"))
+                .isEmpty());
 
     timer.restart();
     AudioPluginManager::instance().scanPlugins();

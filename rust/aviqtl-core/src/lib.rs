@@ -6,6 +6,7 @@ mod effect;
 mod keyframe;
 mod keyframe_document;
 mod package;
+mod plugin;
 mod policy;
 mod preset;
 mod project;
