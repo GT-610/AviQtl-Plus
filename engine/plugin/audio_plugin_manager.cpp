@@ -645,28 +645,42 @@ void AudioPluginManager::scanPlugins() {
 
     newPlugins = pluginInfosFromList(
         AviQtl::RustCore::Plugin::deduplicate(pluginInfosToList(newPlugins)));
+    QVariantList pluginProjection = pluginInfosToList(newPlugins);
 
     {
         QMutexLocker lock(&m_pluginsMutex);
         m_plugins = std::move(newPlugins);
+        m_pluginProjection = std::move(pluginProjection);
     }
     qCInfo(lcPluginManager) << "Plugins detected:" << m_plugins.size();
     m_scanning = false;
 }
 
 auto AudioPluginManager::getPluginList() const -> QVariantList {
-    QMutexLocker lock(&m_pluginsMutex);
-    return AviQtl::RustCore::Plugin::publicList(pluginInfosToList(m_plugins));
+    QVariantList plugins;
+    {
+        QMutexLocker lock(&m_pluginsMutex);
+        plugins = m_pluginProjection;
+    }
+    return AviQtl::RustCore::Plugin::publicList(plugins);
 }
 
 auto AudioPluginManager::getCategories() const -> QVariantList {
-    QMutexLocker lock(&m_pluginsMutex);
-    return AviQtl::RustCore::Plugin::categories(pluginInfosToList(m_plugins));
+    QVariantList plugins;
+    {
+        QMutexLocker lock(&m_pluginsMutex);
+        plugins = m_pluginProjection;
+    }
+    return AviQtl::RustCore::Plugin::categories(plugins);
 }
 
 auto AudioPluginManager::getPluginsInCategory(const QString &category) const -> QVariantList {
-    QMutexLocker lock(&m_pluginsMutex);
-    return AviQtl::RustCore::Plugin::filter(pluginInfosToList(m_plugins), category);
+    QVariantList plugins;
+    {
+        QMutexLocker lock(&m_pluginsMutex);
+        plugins = m_pluginProjection;
+    }
+    return AviQtl::RustCore::Plugin::filter(plugins, category);
 }
 
 auto AudioPluginManager::createPlugin(const QString &id) -> std::unique_ptr<IAudioPlugin> {

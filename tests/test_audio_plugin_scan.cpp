@@ -62,6 +62,10 @@ void TestAudioPluginScan::scansLargeDirectoryAndIgnoresMalformedPlugins() {
         QVERIFY(file.open(QIODevice::WriteOnly));
         QCOMPARE(file.write("fixture"), 7);
     }
+    QFile uppercaseFile(root + QStringLiteral("/nested/Plugin_zzz.so"));
+    QVERIFY(uppercaseFile.open(QIODevice::WriteOnly));
+    QCOMPARE(uppercaseFile.write("fixture"), 7);
+    uppercaseFile.close();
 
     SettingsManager &settings = SettingsManager::instance();
     const QVariantMap originalSettings = settings.settings();
@@ -79,7 +83,7 @@ void TestAudioPluginScan::scansLargeDirectoryAndIgnoresMalformedPlugins() {
     AudioPluginManager::instance().scanPlugins();
     const qint64 firstScanMs = timer.elapsed();
     const QVariantList first = AudioPluginManager::instance().getPluginList();
-    QCOMPARE(first.size(), kPluginFileCount - 1);
+    QCOMPARE(first.size(), kPluginFileCount);
     QVERIFY(std::all_of(first.cbegin(), first.cend(), [](const QVariant &entry) {
         const QVariantMap plugin = entry.toMap();
         return plugin.value(QStringLiteral("format")) == QStringLiteral("VST2") && plugin.value(QStringLiteral("category")) == QStringLiteral("Filter");
@@ -87,7 +91,7 @@ void TestAudioPluginScan::scansLargeDirectoryAndIgnoresMalformedPlugins() {
     QCOMPARE(AudioPluginManager::instance().getCategories(), QVariantList{QStringLiteral("Filter")});
     const QVariantList filtered =
         AudioPluginManager::instance().getPluginsInCategory(QStringLiteral("filter"));
-    QCOMPARE(filtered.size(), kPluginFileCount - 1);
+    QCOMPARE(filtered.size(), kPluginFileCount);
     QVERIFY(std::is_sorted(filtered.cbegin(), filtered.cend(), [](const QVariant &left,
                                                                   const QVariant &right) {
         return left.toMap().value(QStringLiteral("name")).toString().compare(
@@ -101,7 +105,7 @@ void TestAudioPluginScan::scansLargeDirectoryAndIgnoresMalformedPlugins() {
     timer.restart();
     AudioPluginManager::instance().scanPlugins();
     const qint64 repeatScanMs = timer.elapsed();
-    QCOMPARE(AudioPluginManager::instance().getPluginList().size(), kPluginFileCount - 1);
+    QCOMPARE(AudioPluginManager::instance().getPluginList().size(), kPluginFileCount);
 
     QTextStream(stdout) << "audio_plugin_scan targets=" << kPluginFileCount << " valid=" << first.size() << " first_ms=" << firstScanMs << " repeat_ms=" << repeatScanMs << " threads=8" << Qt::endl;
 }

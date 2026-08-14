@@ -53,6 +53,7 @@ class AudioPluginManager : public QObject {
     std::atomic<bool> m_stopRequested{false};
     mutable QMutex m_pluginsMutex;
     QList<PluginInfo> m_plugins;
+    QVariantList m_pluginProjection;
 };
 
 } // namespace AviQtl::Engine::Plugin

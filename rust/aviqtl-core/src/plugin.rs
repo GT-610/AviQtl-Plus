@@ -36,7 +36,13 @@ fn normalize_category(category: &str) -> String {
         "modulator" | "modulation" => "Modulator".to_owned(),
         "utility" | "tools" | "tool" => "Utility".to_owned(),
         "" | "other" | "unknown" | "misc" | "none" | "null" => "Other".to_owned(),
-        _ => category.to_owned(),
+        _ => {
+            let mut characters = lower.chars();
+            match characters.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + characters.as_str(),
+                None => "Other".to_owned(),
+            }
+        }
     }
 }
 
@@ -152,7 +158,6 @@ fn parse_discovery_output(
                 let category = trimmed
                     .parse::<i32>()
                     .ok()
-                    .filter(|_| trimmed != "0")
                     .map(carla_category)
                     .unwrap_or(trimmed);
                 current.insert(
@@ -367,6 +372,14 @@ carla-discovery::end";
         assert_eq!(text(plugins[0].get("category")), "Filter");
         assert_eq!(text(plugins[0].get("id")), "VST3:Example::Stereo:42");
         assert_eq!(integer(plugins[0].get("audioIns")), 2);
+
+        let uncategorized = parse_discovery_output(
+            "carla-discovery::init\ncarla-discovery::name::No Category\ncarla-discovery::category::0\ncarla-discovery::end",
+            "VST2",
+            "/tmp/no-category.so",
+            "no-category",
+        );
+        assert_eq!(text(uncategorized[0].get("category")), "Other");
     }
 
     #[test]
@@ -375,12 +388,17 @@ carla-discovery::end";
             {"id":"first","name":"Zulu","category":"reverb","format":"LV2"},
             {"id":"second","name":"Alpha","category":"delay","format":"VST3"},
             {"id":"first","name":"Duplicate","category":"filter","format":"VST2"},
-            {"id":"third","name":"EQ","category":"eq","format":"LV2"}
+            {"id":"third","name":"EQ","category":"eq","format":"LV2"},
+            {"id":"fourth","name":"Custom One","category":"Custom","format":"LV2"},
+            {"id":"fifth","name":"Custom Two","category":"custom","format":"LV2"}
         ])));
         let plugins = deduplicate(plugins);
-        assert_eq!(plugins.len(), 3);
-        assert_eq!(categories(&plugins), vec![json!("EQ"), json!("Delay")]);
-        let filtered = filtered_plugins(plugins, "Delay");
+        assert_eq!(plugins.len(), 5);
+        assert_eq!(
+            categories(&plugins),
+            vec![json!("EQ"), json!("Delay"), json!("Custom")]
+        );
+        let filtered = filtered_plugins(plugins.clone(), "Delay");
         assert_eq!(
             filtered
                 .iter()
@@ -388,5 +406,6 @@ carla-discovery::end";
                 .collect::<Vec<_>>(),
             ["Alpha", "Zulu"]
         );
+        assert_eq!(filtered_plugins(plugins, "CUSTOM").len(), 2);
     }
 }
