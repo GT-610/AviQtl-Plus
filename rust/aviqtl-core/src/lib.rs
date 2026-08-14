@@ -16,7 +16,7 @@ mod timeline;
 mod timeline_domain;
 mod timeline_edit;
 
-use abi::{AviQtlEasingParameters, slice_is_valid};
+use abi::{AviQtlEasingParameters, slice_is_valid, utf8};
 use std::f64::consts::PI;
 
 const DEFAULT_ELASTIC_PERIOD: f64 = 0.3;
@@ -169,19 +169,6 @@ impl EasingKind {
             .position(|candidate| *candidate == name)
             .and_then(|index| Self::ALL.get(index).copied())
     }
-}
-
-fn utf8<'a>(value: *const u8, length: usize) -> Option<&'a str> {
-    if !slice_is_valid(value, length) {
-        return None;
-    }
-    let bytes = if length == 0 {
-        &[]
-    } else {
-        // SAFETY: The range was validated and is only borrowed for this call.
-        unsafe { std::slice::from_raw_parts(value, length) }
-    };
-    std::str::from_utf8(bytes).ok()
 }
 
 fn solve_bezier_t(x: f64, x1: f64, x2: f64) -> f64 {
@@ -517,9 +504,18 @@ pub extern "C" fn aviqtl_solve_bezier_t(x: f64, x1: f64, x2: f64) -> f64 {
     solve_bezier_t(x, x1, x2)
 }
 
+/// Resolves an easing kind from a UTF-8 name.
+///
+/// # Safety
+///
+/// `value` must be valid for `value_length` readable bytes for the duration of the call.
 #[unsafe(no_mangle)]
-pub extern "C" fn aviqtl_easing_kind_from_name(value: *const u8, value_length: usize) -> i32 {
-    utf8(value, value_length)
+pub unsafe extern "C" fn aviqtl_easing_kind_from_name(
+    value: *const u8,
+    value_length: usize,
+) -> i32 {
+    // SAFETY: The caller upholds the byte-range contract above.
+    unsafe { utf8(value, value_length) }
         .and_then(EasingKind::from_name)
         .map_or(-1, |kind| kind as i32)
 }
@@ -529,7 +525,8 @@ pub extern "C" fn aviqtl_easing_count() -> usize {
     EasingKind::NAMES.len()
 }
 
-/// Returns one static easing name.
+/// Returns one static easing name. The returned bytes are not NUL-terminated and must be
+/// consumed using the length written to `output_length`.
 ///
 /// # Safety
 ///

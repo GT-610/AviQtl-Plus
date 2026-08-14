@@ -58,9 +58,9 @@ logic. Conversion loops at the ABI edge are adapters, not alternative domain imp
 The workspace uses Rust edition 2024 and has an MSRV of Rust 1.87. Changes to the core must pass:
 
 ```sh
-cargo +1.87.0 fmt --all --check
-cargo +1.87.0 test --workspace
-cargo +1.87.0 clippy --workspace --all-targets -- -D warnings
+rustup run 1.87.0 cargo fmt --all --check
+rustup run 1.87.0 cargo test --workspace
+rustup run 1.87.0 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
 The C++ adapters and consumers must then pass the normal CMake build and complete CTest suite.

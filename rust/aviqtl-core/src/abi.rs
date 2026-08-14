@@ -42,6 +42,25 @@ pub const STATUS_INVALID_JSON: u32 = 4;
 pub const STATUS_UNSUPPORTED_VERSION: u32 = 5;
 pub const STATUS_LOCKED_LAYER: u32 = 6;
 
+/// Decodes a caller-provided UTF-8 byte range.
+///
+/// # Safety
+///
+/// `value` must be valid for `length` readable bytes and remain alive for the returned
+/// reference's lifetime. A null pointer is permitted only when `length` is zero.
+pub(crate) unsafe fn utf8<'a>(value: *const u8, length: usize) -> Option<&'a str> {
+    if !slice_is_valid(value, length) {
+        return None;
+    }
+    let bytes = if length == 0 {
+        &[]
+    } else {
+        // SAFETY: The caller upholds the readable-range and lifetime contract.
+        unsafe { std::slice::from_raw_parts(value, length) }
+    };
+    std::str::from_utf8(bytes).ok()
+}
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct AviQtlEasingParameters {

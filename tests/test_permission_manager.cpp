@@ -143,7 +143,9 @@ void TestPermissionManager::permissionMetadata() {
     QFETCH(QString, permissionName);
     const auto permission = static_cast<PluginPermission>(permissionValue);
     QCOMPARE(PermissionManager::permissionName(permission), permissionName);
-    QCOMPARE(PermissionManager::permissionFromName(permissionName), permission);
+    const auto resolved = PermissionManager::permissionFromName(permissionName);
+    QVERIFY(resolved.has_value());
+    QCOMPARE(*resolved, permission);
     QVERIFY(!PermissionManager::permissionDescription(permission).isEmpty());
 }
 
@@ -162,6 +164,7 @@ void TestPermissionManager::unknownPermissionNamesAreRejected() {
     PermissionManager &pm = PermissionManager::instance();
     const QString pluginId = QStringLiteral("test.unknown");
     const QString unknown = QStringLiteral("unknown.permission");
+    QVERIFY(!PermissionManager::permissionFromName(unknown).has_value());
     QVERIFY(!pm.hasPermission(pluginId, unknown));
     pm.grantPermission(pluginId, unknown);
     QVERIFY(!pm.isPluginAuthorized(pluginId));

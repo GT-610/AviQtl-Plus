@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
+#include <optional>
 
 namespace AviQtl::Core {
 
@@ -21,6 +22,7 @@ enum class PluginPermission : int {
     ClipboardAccess = 10, // Copy, cut, paste operations
     HistoryControl = 11,  // Undo, redo, and command grouping
     LogOutput = 12,       // Write to console log
+    Count = 13,
 };
 
 class PermissionManager : public QObject {
@@ -46,7 +48,7 @@ class PermissionManager : public QObject {
 
     // Permission name conversion
     static QString permissionName(PluginPermission permission);
-    static PluginPermission permissionFromName(const QString &name);
+    static std::optional<PluginPermission> permissionFromName(const QString &name);
     static QStringList allPermissionNames();
     static QString permissionDescription(PluginPermission permission);
 

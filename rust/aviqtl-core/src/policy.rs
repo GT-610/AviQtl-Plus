@@ -1,4 +1,4 @@
-use crate::abi::slice_is_valid;
+use crate::abi::{slice_is_valid, utf8};
 
 const DEFAULT_SPEED: f64 = 100.0;
 
@@ -38,54 +38,41 @@ const PERMISSION_NAMES: [&str; 13] = [
     "log.output",
 ];
 
-const API_PERMISSIONS: [(&str, i32); 33] = [
-    ("transport_play", 0),
-    ("transport_pause", 0),
-    ("transport_toggle", 0),
-    ("transport_seek", 0),
-    ("transport_get_frame", 0),
-    ("transport_is_playing", 0),
-    ("clip_list", 1),
-    ("clip_select", 1),
-    ("clip_create", 2),
-    ("clip_delete", 2),
-    ("clip_update", 2),
-    ("clip_split", 2),
-    ("clip_copy", 10),
-    ("clip_cut", 10),
-    ("clip_paste", 10),
-    ("effect_add", 3),
-    ("effect_remove", 3),
-    ("effect_set_param", 3),
-    ("project_width", 4),
-    ("project_height", 4),
-    ("project_fps", 4),
-    ("project_save", 5),
-    ("project_load", 6),
-    ("scene_create", 7),
-    ("scene_remove", 7),
-    ("scene_switch", 7),
-    ("settings_set", 9),
-    ("settings_get", 8),
-    ("undo", 11),
-    ("redo", 11),
-    ("command_begin_group", 11),
-    ("command_end_group", 11),
-    ("log", 12),
+const API_PERMISSIONS: [(&str, &str); 33] = [
+    ("transport_play", "transport.control"),
+    ("transport_pause", "transport.control"),
+    ("transport_toggle", "transport.control"),
+    ("transport_seek", "transport.control"),
+    ("transport_get_frame", "transport.control"),
+    ("transport_is_playing", "transport.control"),
+    ("clip_list", "clip.read"),
+    ("clip_select", "clip.read"),
+    ("clip_create", "clip.modify"),
+    ("clip_delete", "clip.modify"),
+    ("clip_update", "clip.modify"),
+    ("clip_split", "clip.modify"),
+    ("clip_copy", "clipboard.access"),
+    ("clip_cut", "clipboard.access"),
+    ("clip_paste", "clipboard.access"),
+    ("effect_add", "effect.modify"),
+    ("effect_remove", "effect.modify"),
+    ("effect_set_param", "effect.modify"),
+    ("project_width", "project.read"),
+    ("project_height", "project.read"),
+    ("project_fps", "project.read"),
+    ("project_save", "project.save"),
+    ("project_load", "project.load"),
+    ("scene_create", "scene.manage"),
+    ("scene_remove", "scene.manage"),
+    ("scene_switch", "scene.manage"),
+    ("settings_set", "settings.write"),
+    ("settings_get", "settings.read"),
+    ("undo", "history.control"),
+    ("redo", "history.control"),
+    ("command_begin_group", "history.control"),
+    ("command_end_group", "history.control"),
+    ("log", "log.output"),
 ];
-
-fn utf8<'a>(value: *const u8, length: usize) -> Option<&'a str> {
-    if !slice_is_valid(value, length) {
-        return None;
-    }
-    let bytes = if length == 0 {
-        &[]
-    } else {
-        // SAFETY: The range was validated and is only borrowed for this call.
-        unsafe { std::slice::from_raw_parts(value, length) }
-    };
-    std::str::from_utf8(bytes).ok()
-}
 
 fn is_direct_audio_mode(value: &str) -> bool {
     value.contains("直接")
@@ -275,7 +262,7 @@ fn permission_from_name(value: &str) -> i32 {
 fn permission_for_api(value: &str) -> i32 {
     API_PERMISSIONS
         .iter()
-        .find_map(|(name, permission)| (*name == value).then_some(*permission))
+        .find_map(|(name, permission)| (*name == value).then(|| permission_from_name(permission)))
         .unwrap_or(-1)
 }
 
@@ -362,12 +349,14 @@ fn valid_recovery_snapshot_name(id: &str, file_name: &str) -> bool {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_media_is_direct_audio_mode(value: *const u8, value_length: usize) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(is_direct_audio_mode))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(is_direct_audio_mode))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_media_is_video_file(value: *const u8, value_length: usize) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(is_video_file))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(is_video_file))
 }
 
 #[unsafe(no_mangle)]
@@ -375,7 +364,8 @@ pub extern "C" fn aviqtl_audio_parameter_affects_duration(
     value: *const u8,
     value_length: usize,
 ) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(audio_parameter_affects_duration))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(audio_parameter_affects_duration))
 }
 
 #[unsafe(no_mangle)]
@@ -383,7 +373,8 @@ pub extern "C" fn aviqtl_audio_parameter_affects_waveform(
     value: *const u8,
     value_length: usize,
 ) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(audio_parameter_affects_waveform))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(audio_parameter_affects_waveform))
 }
 
 #[unsafe(no_mangle)]
@@ -498,12 +489,14 @@ pub extern "C" fn aviqtl_media_audio_duration_frames(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_permission_from_name(value: *const u8, value_length: usize) -> i32 {
-    utf8(value, value_length).map_or(-1, permission_from_name)
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    unsafe { utf8(value, value_length) }.map_or(-1, permission_from_name)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_permission_for_api(value: *const u8, value_length: usize) -> i32 {
-    utf8(value, value_length).map_or(-1, permission_for_api)
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    unsafe { utf8(value, value_length) }.map_or(-1, permission_for_api)
 }
 
 #[unsafe(no_mangle)]
@@ -534,12 +527,14 @@ pub unsafe extern "C" fn aviqtl_permission_name(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_package_id_is_valid(value: *const u8, value_length: usize) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(valid_package_id))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(valid_package_id))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_package_type(value: *const u8, value_length: usize) -> i32 {
-    utf8(value, value_length).map_or(-1, package_type)
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    unsafe { utf8(value, value_length) }.map_or(-1, package_type)
 }
 
 #[unsafe(no_mangle)]
@@ -547,12 +542,14 @@ pub extern "C" fn aviqtl_package_archive_path_is_safe(
     value: *const u8,
     value_length: usize,
 ) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(safe_archive_path))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(safe_archive_path))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_recovery_id_is_valid(value: *const u8, value_length: usize) -> u32 {
-    u32::from(utf8(value, value_length).is_some_and(valid_recovery_id))
+    // SAFETY: The helper validates the pointer/length pair before borrowing it.
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(valid_recovery_id))
 }
 
 #[unsafe(no_mangle)]
@@ -562,9 +559,10 @@ pub extern "C" fn aviqtl_recovery_snapshot_name_is_valid(
     file_name: *const u8,
     file_name_length: usize,
 ) -> u32 {
+    // SAFETY: Both helpers validate their pointer/length pairs before borrowing them.
     u32::from(
-        utf8(id, id_length)
-            .zip(utf8(file_name, file_name_length))
+        unsafe { utf8(id, id_length) }
+            .zip(unsafe { utf8(file_name, file_name_length) })
             .is_some_and(|(id, file_name)| valid_recovery_snapshot_name(id, file_name)),
     )
 }
@@ -611,6 +609,9 @@ mod tests {
     fn permission_tables_are_complete_and_reversible() {
         for (index, name) in PERMISSION_NAMES.iter().enumerate() {
             assert_eq!(permission_from_name(name), index as i32);
+        }
+        for (api, permission) in API_PERMISSIONS {
+            assert_eq!(permission_for_api(api), permission_from_name(permission));
         }
         assert_eq!(permission_for_api("clip_copy"), 10);
         assert_eq!(permission_for_api("unknown"), -1);

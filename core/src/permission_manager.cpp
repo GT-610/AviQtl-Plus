@@ -7,12 +7,27 @@
 
 namespace AviQtl::Core {
 
+namespace {
+constexpr int kPermissionCount = static_cast<int>(PluginPermission::Count);
+
+std::optional<PluginPermission> checkedPermission(int permission) {
+    if (permission < 0 || permission >= kPermissionCount) {
+        return std::nullopt;
+    }
+    return static_cast<PluginPermission>(permission);
+}
+} // namespace
+
 PermissionManager &PermissionManager::instance() {
     static PermissionManager inst;
     return inst;
 }
 
 PermissionManager::PermissionManager(QObject *parent) : QObject(parent) {
+    if (RustCore::Policy::permissionCount() != kPermissionCount) {
+        qCritical() << "Rust/C++ permission table size mismatch:" << RustCore::Policy::permissionCount()
+                    << "!=" << kPermissionCount;
+    }
     loadPermissions();
 }
 
@@ -25,18 +40,18 @@ bool PermissionManager::hasPermission(const QString &pluginId, PluginPermission 
 }
 
 bool PermissionManager::hasPermission(const QString &pluginId, const QString &permissionName) const {
-    const int permission = RustCore::Policy::permissionFromName(permissionName);
-    if (permission < 0) {
+    const auto permission = permissionFromName(permissionName);
+    if (!permission.has_value()) {
         qWarning() << "[PermissionManager] Unknown permission name:" << permissionName;
         return false;
     }
-    return hasPermission(pluginId, static_cast<PluginPermission>(permission));
+    return hasPermission(pluginId, *permission);
 }
 
 bool PermissionManager::hasApiPermission(const QString &pluginId, const char *apiName) const {
-    const int permission = RustCore::Policy::permissionForApi(apiName);
-    if (permission >= 0)
-        return hasPermission(pluginId, static_cast<PluginPermission>(permission));
+    const auto permission = checkedPermission(RustCore::Policy::permissionForApi(apiName));
+    if (permission.has_value())
+        return hasPermission(pluginId, *permission);
     qWarning() << "[PermissionManager] Unknown API name:" << (apiName == nullptr ? "<null>" : apiName);
     return false;
 }
@@ -48,12 +63,12 @@ void PermissionManager::grantPermission(const QString &pluginId, PluginPermissio
 }
 
 void PermissionManager::grantPermission(const QString &pluginId, const QString &permissionName) {
-    const int permission = RustCore::Policy::permissionFromName(permissionName);
-    if (permission < 0) {
+    const auto permission = permissionFromName(permissionName);
+    if (!permission.has_value()) {
         qWarning() << "[PermissionManager] Unknown permission name:" << permissionName;
         return;
     }
-    grantPermission(pluginId, static_cast<PluginPermission>(permission));
+    grantPermission(pluginId, *permission);
 }
 
 void PermissionManager::revokePermission(const QString &pluginId, PluginPermission permission) {
@@ -69,17 +84,17 @@ void PermissionManager::revokePermission(const QString &pluginId, PluginPermissi
 }
 
 void PermissionManager::revokePermission(const QString &pluginId, const QString &permissionName) {
-    const int permission = RustCore::Policy::permissionFromName(permissionName);
-    if (permission < 0) {
+    const auto permission = permissionFromName(permissionName);
+    if (!permission.has_value()) {
         qWarning() << "[PermissionManager] Unknown permission name:" << permissionName;
         return;
     }
-    revokePermission(pluginId, static_cast<PluginPermission>(permission));
+    revokePermission(pluginId, *permission);
 }
 
 void PermissionManager::grantAllPermissions(const QString &pluginId) {
     QSet<PluginPermission> allPerms;
-    for (int permission = 0; permission < RustCore::Policy::permissionCount(); ++permission)
+    for (int permission = 0; permission < kPermissionCount; ++permission)
         allPerms.insert(static_cast<PluginPermission>(permission));
     m_permissions[pluginId] = allPerms;
     savePermissions();
@@ -108,8 +123,8 @@ QString PermissionManager::permissionName(PluginPermission permission) {
     return name.isEmpty() ? QStringLiteral("unknown") : name;
 }
 
-PluginPermission PermissionManager::permissionFromName(const QString &name) {
-    return static_cast<PluginPermission>(RustCore::Policy::permissionFromName(name));
+std::optional<PluginPermission> PermissionManager::permissionFromName(const QString &name) {
+    return checkedPermission(RustCore::Policy::permissionFromName(name));
 }
 
 QStringList PermissionManager::allPermissionNames() {
@@ -160,8 +175,8 @@ void PermissionManager::loadPermissions() {
         QSet<PluginPermission> perms;
         for (const QString &name : permNames) {
             const auto permission = permissionFromName(name);
-            if (static_cast<int>(permission) >= 0)
-                perms.insert(permission);
+            if (permission.has_value())
+                perms.insert(*permission);
         }
         m_permissions[pluginId] = perms;
     }
