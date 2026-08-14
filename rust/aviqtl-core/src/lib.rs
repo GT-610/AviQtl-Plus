@@ -1,5 +1,7 @@
 use std::f64::consts::PI;
 
+const DEFAULT_ELASTIC_PERIOD: f64 = 0.3;
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct AviQtlEasingParameters {
@@ -55,52 +57,53 @@ enum EasingKind {
 }
 
 impl EasingKind {
+    const ALL: [Self; 42] = [
+        Self::Linear,
+        Self::EaseInSine,
+        Self::EaseOutSine,
+        Self::EaseInOutSine,
+        Self::EaseOutInSine,
+        Self::EaseInQuad,
+        Self::EaseOutQuad,
+        Self::EaseInOutQuad,
+        Self::EaseOutInQuad,
+        Self::EaseInCubic,
+        Self::EaseOutCubic,
+        Self::EaseInOutCubic,
+        Self::EaseOutInCubic,
+        Self::EaseInQuart,
+        Self::EaseOutQuart,
+        Self::EaseInOutQuart,
+        Self::EaseOutInQuart,
+        Self::EaseInQuint,
+        Self::EaseOutQuint,
+        Self::EaseInOutQuint,
+        Self::EaseOutInQuint,
+        Self::EaseInExpo,
+        Self::EaseOutExpo,
+        Self::EaseInOutExpo,
+        Self::EaseOutInExpo,
+        Self::EaseInCirc,
+        Self::EaseOutCirc,
+        Self::EaseInOutCirc,
+        Self::EaseOutInCirc,
+        Self::EaseInBack,
+        Self::EaseOutBack,
+        Self::EaseInOutBack,
+        Self::EaseOutInBack,
+        Self::EaseInElastic,
+        Self::EaseOutElastic,
+        Self::EaseInOutElastic,
+        Self::EaseOutInElastic,
+        Self::EaseOutBounce,
+        Self::EaseInBounce,
+        Self::EaseInOutBounce,
+        Self::EaseOutInBounce,
+        Self::Custom,
+    ];
+
     fn from_abi(value: u32) -> Option<Self> {
-        Some(match value {
-            0 => Self::Linear,
-            1 => Self::EaseInSine,
-            2 => Self::EaseOutSine,
-            3 => Self::EaseInOutSine,
-            4 => Self::EaseOutInSine,
-            5 => Self::EaseInQuad,
-            6 => Self::EaseOutQuad,
-            7 => Self::EaseInOutQuad,
-            8 => Self::EaseOutInQuad,
-            9 => Self::EaseInCubic,
-            10 => Self::EaseOutCubic,
-            11 => Self::EaseInOutCubic,
-            12 => Self::EaseOutInCubic,
-            13 => Self::EaseInQuart,
-            14 => Self::EaseOutQuart,
-            15 => Self::EaseInOutQuart,
-            16 => Self::EaseOutInQuart,
-            17 => Self::EaseInQuint,
-            18 => Self::EaseOutQuint,
-            19 => Self::EaseInOutQuint,
-            20 => Self::EaseOutInQuint,
-            21 => Self::EaseInExpo,
-            22 => Self::EaseOutExpo,
-            23 => Self::EaseInOutExpo,
-            24 => Self::EaseOutInExpo,
-            25 => Self::EaseInCirc,
-            26 => Self::EaseOutCirc,
-            27 => Self::EaseInOutCirc,
-            28 => Self::EaseOutInCirc,
-            29 => Self::EaseInBack,
-            30 => Self::EaseOutBack,
-            31 => Self::EaseInOutBack,
-            32 => Self::EaseOutInBack,
-            33 => Self::EaseInElastic,
-            34 => Self::EaseOutElastic,
-            35 => Self::EaseInOutElastic,
-            36 => Self::EaseOutInElastic,
-            37 => Self::EaseOutBounce,
-            38 => Self::EaseInBounce,
-            39 => Self::EaseInOutBounce,
-            40 => Self::EaseOutInBounce,
-            41 => Self::Custom,
-            _ => return None,
-        })
+        Self::ALL.get(value as usize).copied()
     }
 }
 
@@ -179,6 +182,12 @@ fn custom_easing(x: f64, points: &[f64]) -> f64 {
 }
 
 fn evaluate(kind: EasingKind, t: f64, points: &[f64], parameters: AviQtlEasingParameters) -> f64 {
+    let elastic_period = if parameters.period > 0.0 {
+        parameters.period
+    } else {
+        DEFAULT_ELASTIC_PERIOD
+    };
+
     match kind {
         EasingKind::Linear => t,
         EasingKind::EaseInSine => 1.0 - (t * PI / 2.0).cos(),
@@ -334,7 +343,7 @@ fn evaluate(kind: EasingKind, t: f64, points: &[f64], parameters: AviQtlEasingPa
             }
         }
         EasingKind::EaseInElastic => {
-            let c4 = 2.0 * PI / parameters.period;
+            let c4 = 2.0 * PI / elastic_period;
             if t == 0.0 {
                 0.0
             } else if t == 1.0 {
@@ -342,11 +351,11 @@ fn evaluate(kind: EasingKind, t: f64, points: &[f64], parameters: AviQtlEasingPa
             } else {
                 -parameters.amplitude
                     * 2.0_f64.powf(10.0 * t - 10.0)
-                    * ((t - 1.0 - parameters.period / 4.0) * c4).sin()
+                    * ((t - 1.0 - elastic_period / 4.0) * c4).sin()
             }
         }
         EasingKind::EaseOutElastic => {
-            let c4 = 2.0 * PI / parameters.period;
+            let c4 = 2.0 * PI / elastic_period;
             if t == 0.0 {
                 0.0
             } else if t == 1.0 {
@@ -354,12 +363,12 @@ fn evaluate(kind: EasingKind, t: f64, points: &[f64], parameters: AviQtlEasingPa
             } else {
                 parameters.amplitude
                     * 2.0_f64.powf(-10.0 * t)
-                    * ((t - parameters.period / 4.0) * c4).sin()
+                    * ((t - elastic_period / 4.0) * c4).sin()
                     + 1.0
             }
         }
         EasingKind::EaseInOutElastic => {
-            let period = parameters.period * 1.5;
+            let period = elastic_period * 1.5;
             let c5 = 2.0 * PI / period;
             if t == 0.0 {
                 0.0
@@ -379,17 +388,17 @@ fn evaluate(kind: EasingKind, t: f64, points: &[f64], parameters: AviQtlEasingPa
             }
         }
         EasingKind::EaseOutInElastic => {
-            let c4 = 2.0 * PI / parameters.period;
+            let c4 = 2.0 * PI / elastic_period;
             let ease_out = |u: f64| {
                 parameters.amplitude
                     * 2.0_f64.powf(-10.0 * u)
-                    * ((u - parameters.period / 4.0) * c4).sin()
+                    * ((u - elastic_period / 4.0) * c4).sin()
                     + 1.0
             };
             let ease_in = |u: f64| {
                 -parameters.amplitude
                     * 2.0_f64.powf(10.0 * u - 10.0)
-                    * ((u - 1.0 - parameters.period / 4.0) * c4).sin()
+                    * ((u - 1.0 - elastic_period / 4.0) * c4).sin()
             };
             if t == 0.0 {
                 0.0
@@ -531,6 +540,37 @@ mod tests {
                 ),
                 0.25
             );
+        }
+    }
+
+    #[test]
+    fn elastic_easings_use_default_for_non_positive_periods() {
+        let kinds = [
+            EasingKind::EaseInElastic,
+            EasingKind::EaseOutElastic,
+            EasingKind::EaseInOutElastic,
+            EasingKind::EaseOutInElastic,
+        ];
+        let fallback_parameters = AviQtlEasingParameters {
+            amplitude: 0.8,
+            period: DEFAULT_ELASTIC_PERIOD,
+        };
+
+        for kind in kinds {
+            let expected = evaluate(kind, 0.37, &[], fallback_parameters);
+            for period in [0.0, -0.42] {
+                let actual = evaluate(
+                    kind,
+                    0.37,
+                    &[],
+                    AviQtlEasingParameters {
+                        amplitude: 0.8,
+                        period,
+                    },
+                );
+                assert!(actual.is_finite());
+                assert_close(actual, expected);
+            }
         }
     }
 }

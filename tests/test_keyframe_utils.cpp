@@ -1,5 +1,7 @@
 #include <QColor>
+#include <QFile>
 #include <QTest>
+#include <QTextStream>
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
@@ -21,6 +23,34 @@ private:
         start[QStringLiteral("value")] = startValue;
         start[QStringLiteral("interp")] = QStringLiteral("linear");
         return {{QStringLiteral("start"), start}, {QStringLiteral("points"), points}};
+    }
+
+    static const QStringList &easingNames() {
+        static const QStringList names = {
+            QStringLiteral("linear"),
+            QStringLiteral("ease_in_sine"), QStringLiteral("ease_out_sine"),
+            QStringLiteral("ease_in_out_sine"), QStringLiteral("ease_out_in_sine"),
+            QStringLiteral("ease_in_quad"), QStringLiteral("ease_out_quad"),
+            QStringLiteral("ease_in_out_quad"), QStringLiteral("ease_out_in_quad"),
+            QStringLiteral("ease_in_cubic"), QStringLiteral("ease_out_cubic"),
+            QStringLiteral("ease_in_out_cubic"), QStringLiteral("ease_out_in_cubic"),
+            QStringLiteral("ease_in_quart"), QStringLiteral("ease_out_quart"),
+            QStringLiteral("ease_in_out_quart"), QStringLiteral("ease_out_in_quart"),
+            QStringLiteral("ease_in_quint"), QStringLiteral("ease_out_quint"),
+            QStringLiteral("ease_in_out_quint"), QStringLiteral("ease_out_in_quint"),
+            QStringLiteral("ease_in_expo"), QStringLiteral("ease_out_expo"),
+            QStringLiteral("ease_in_out_expo"), QStringLiteral("ease_out_in_expo"),
+            QStringLiteral("ease_in_circ"), QStringLiteral("ease_out_circ"),
+            QStringLiteral("ease_in_out_circ"), QStringLiteral("ease_out_in_circ"),
+            QStringLiteral("ease_in_back"), QStringLiteral("ease_out_back"),
+            QStringLiteral("ease_in_out_back"), QStringLiteral("ease_out_in_back"),
+            QStringLiteral("ease_in_elastic"), QStringLiteral("ease_out_elastic"),
+            QStringLiteral("ease_in_out_elastic"), QStringLiteral("ease_out_in_elastic"),
+            QStringLiteral("ease_out_bounce"), QStringLiteral("ease_in_bounce"),
+            QStringLiteral("ease_in_out_bounce"), QStringLiteral("ease_out_in_bounce"),
+            QStringLiteral("custom")
+        };
+        return names;
     }
 
 private slots:
@@ -325,30 +355,7 @@ private slots:
     // --- easingFunctions completeness ---
     void easingFunctions_allPresent() {
         const auto &funcs = easingFunctions();
-        QStringList expected = {
-            QStringLiteral("linear"),
-            QStringLiteral("ease_in_sine"), QStringLiteral("ease_out_sine"),
-            QStringLiteral("ease_in_out_sine"), QStringLiteral("ease_out_in_sine"),
-            QStringLiteral("ease_in_quad"), QStringLiteral("ease_out_quad"),
-            QStringLiteral("ease_in_out_quad"), QStringLiteral("ease_out_in_quad"),
-            QStringLiteral("ease_in_cubic"), QStringLiteral("ease_out_cubic"),
-            QStringLiteral("ease_in_out_cubic"), QStringLiteral("ease_out_in_cubic"),
-            QStringLiteral("ease_in_quart"), QStringLiteral("ease_out_quart"),
-            QStringLiteral("ease_in_out_quart"), QStringLiteral("ease_out_in_quart"),
-            QStringLiteral("ease_in_quint"), QStringLiteral("ease_out_quint"),
-            QStringLiteral("ease_in_out_quint"), QStringLiteral("ease_out_in_quint"),
-            QStringLiteral("ease_in_expo"), QStringLiteral("ease_out_expo"),
-            QStringLiteral("ease_in_out_expo"), QStringLiteral("ease_out_in_expo"),
-            QStringLiteral("ease_in_circ"), QStringLiteral("ease_out_circ"),
-            QStringLiteral("ease_in_out_circ"), QStringLiteral("ease_out_in_circ"),
-            QStringLiteral("ease_in_back"), QStringLiteral("ease_out_back"),
-            QStringLiteral("ease_in_out_back"), QStringLiteral("ease_out_in_back"),
-            QStringLiteral("ease_in_elastic"), QStringLiteral("ease_out_elastic"),
-            QStringLiteral("ease_in_out_elastic"), QStringLiteral("ease_out_in_elastic"),
-            QStringLiteral("ease_out_bounce"), QStringLiteral("ease_in_bounce"),
-            QStringLiteral("ease_in_out_bounce"), QStringLiteral("ease_out_in_bounce"),
-            QStringLiteral("custom")
-        };
+        const auto &expected = easingNames();
         for (const auto &name : expected) {
             QVERIFY2(funcs.contains(name), qPrintable(QStringLiteral("Missing easing: ") + name));
         }
@@ -401,46 +408,66 @@ private slots:
 
     void rustEasing_matchesCppGoldenValues() {
         const auto &functions = easingFunctions();
+        const auto &names = easingNames();
         const std::vector<double> samples = {0.1, 0.25, 0.5, 0.75, 0.9};
         const std::vector<double> noPoints;
         const QVariantMap modeParams{
             {QStringLiteral("amplitude"), 0.8},
             {QStringLiteral("period"), 0.42},
         };
-        const QHash<QString, std::vector<double>> goldenValues = {
-            {QStringLiteral("ease_in_out_sine"), {0.024471741852423234, 0.14644660940672621, 0.49999999999999994, 0.85355339059327373, 0.97552825814757682}},
-            {QStringLiteral("ease_out_in_cubic"), {0.24399999999999994, 0.4375, 0.5, 0.5625, 0.756}},
-            {QStringLiteral("ease_in_out_back"), {-0.037518552, -0.09968184375, 0.5, 1.09968184375, 1.037518552}},
-            {QStringLiteral("ease_in_out_elastic"), {0.00015557476030596967, -0.0123100969126526, 1.3899711648727295, 1.0101492250714481, 0.99918525749471954}},
-            {QStringLiteral("ease_out_in_bounce"), {0.15125, 0.3828125, 0.5, 0.6171875, 0.84875}},
-        };
-
-        for (auto it = goldenValues.constBegin(); it != goldenValues.constEnd(); ++it) {
-            QVERIFY(functions.contains(it.key()));
-            for (std::size_t index = 0; index < samples.size(); ++index) {
-                const double actual = functions.value(it.key())(samples[index], noPoints, modeParams);
-                const double expected = it.value()[index];
-                QVERIFY2(std::abs(actual - expected) < 1e-12,
-                         qPrintable(QStringLiteral("%1 at t=%2: Rust=%3 C++ golden=%4")
-                                        .arg(it.key())
-                                        .arg(samples[index], 0, 'g', 17)
-                                        .arg(actual, 0, 'g', 17)
-                                        .arg(expected, 0, 'g', 17)));
-            }
-        }
-
         const std::vector<double> customPoints = {
             0.1, 0.2, 0.4, 0.5, 0.6, 0.7,
             0.7, 0.8, 0.9, 0.95, 1.0, 1.0,
         };
-        const std::vector<double> customGolden = {
-            0.1553154190309913, 0.33605293706206962, 0.59961776441838821,
-            0.83031371321648051, 0.93986991458908498,
-        };
-        for (std::size_t index = 0; index < samples.size(); ++index) {
-            const double actual = functions.value(QStringLiteral("custom"))(samples[index], customPoints, modeParams);
-            QVERIFY(std::abs(actual - customGolden[index]) < 1e-12);
+
+        QFile fixture(QString::fromUtf8(AVIQTL_KEYFRAME_EASING_FIXTURE));
+        QVERIFY2(fixture.open(QIODevice::ReadOnly | QIODevice::Text),
+                 qPrintable(QStringLiteral("Failed to open %1: %2")
+                                .arg(fixture.fileName())
+                                .arg(fixture.errorString())));
+
+        QTextStream input(&fixture);
+        const int easingCount = static_cast<int>(names.size());
+        std::vector<bool> seen(static_cast<std::size_t>(easingCount), false);
+        int caseCount = 0;
+        while (!input.atEnd()) {
+            const QString line = input.readLine().trimmed();
+            if (line.isEmpty() || line.startsWith(QLatin1Char('#'))) {
+                continue;
+            }
+
+            const QStringList fields = line.simplified().split(QLatin1Char(' '), Qt::SkipEmptyParts);
+            QCOMPARE(fields.size(), static_cast<qsizetype>(samples.size() + 1));
+
+            bool ok = false;
+            const int kind = fields[0].toInt(&ok);
+            QVERIFY2(ok, qPrintable(QStringLiteral("Invalid easing kind: %1").arg(fields[0])));
+            QVERIFY2(kind >= 0 && kind < easingCount,
+                     qPrintable(QStringLiteral("Easing kind out of range: %1").arg(kind)));
+            QVERIFY2(!seen[static_cast<std::size_t>(kind)],
+                     qPrintable(QStringLiteral("Duplicate easing kind: %1").arg(kind)));
+            seen[static_cast<std::size_t>(kind)] = true;
+
+            const QString &name = names.at(kind);
+            const auto function = functions.constFind(name);
+            QVERIFY2(function != functions.constEnd(), qPrintable(QStringLiteral("Missing easing: %1").arg(name)));
+            const auto &points = kind == easingCount - 1 ? customPoints : noPoints;
+            for (std::size_t index = 0; index < samples.size(); ++index) {
+                const double expected = fields[static_cast<qsizetype>(index + 1)].toDouble(&ok);
+                QVERIFY2(ok, qPrintable(QStringLiteral("Invalid golden value for kind %1").arg(kind)));
+                const double actual = function.value()(samples[index], points, modeParams);
+                QVERIFY2(std::abs(actual - expected) < 1e-12,
+                         qPrintable(QStringLiteral("%1 at t=%2: Rust=%3 C++ golden=%4")
+                                        .arg(name)
+                                        .arg(samples[index], 0, 'g', 17)
+                                        .arg(actual, 0, 'g', 17)
+                                        .arg(expected, 0, 'g', 17)));
+            }
+            ++caseCount;
         }
+
+        QCOMPARE(caseCount, easingCount);
+        QVERIFY(std::all_of(seen.cbegin(), seen.cend(), [](bool value) { return value; }));
     }
 };
 
