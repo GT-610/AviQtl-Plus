@@ -4,8 +4,11 @@ pub const ABI_VERSION: u32 = 1;
 pub const CAPABILITY_EASING: u64 = 1 << 0;
 pub const CAPABILITY_AUDIO_DSP: u64 = 1 << 1;
 pub const CAPABILITY_NUMERIC_KEYFRAME_BATCH: u64 = 1 << 2;
-pub const CAPABILITIES: u64 =
-    CAPABILITY_EASING | CAPABILITY_AUDIO_DSP | CAPABILITY_NUMERIC_KEYFRAME_BATCH;
+pub const CAPABILITY_TIMELINE_BAKE: u64 = 1 << 3;
+pub const CAPABILITIES: u64 = CAPABILITY_EASING
+    | CAPABILITY_AUDIO_DSP
+    | CAPABILITY_NUMERIC_KEYFRAME_BATCH
+    | CAPABILITY_TIMELINE_BAKE;
 
 pub const STATUS_OK: u32 = 0;
 pub const STATUS_INVALID_ARGUMENT: u32 = 1;
@@ -62,6 +65,94 @@ pub struct AviQtlNumericTrackView {
     pub custom_points: *const f64,
     pub custom_points_length: usize,
     pub fallback_value: f64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AviQtlRenderBakeInput {
+    pub clip_id: i32,
+    pub layer: i32,
+    pub current_frame: i32,
+    pub start_frame: i32,
+    pub duration_frames: i32,
+    pub clip_by_upper_object: u32,
+    pub effect_count: u16,
+    pub reserved: u16,
+    pub effect_start_index: u32,
+    pub has_transform: u32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub rotation_x: f32,
+    pub rotation_y: f32,
+    pub rotation_z: f32,
+    pub scale: f32,
+    pub opacity: f32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlRenderBakeOutput {
+    pub clip_id: i32,
+    pub layer: i32,
+    pub time_position: f64,
+    pub start_frame: i32,
+    pub duration_frames: i32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub rotation_x: f32,
+    pub rotation_y: f32,
+    pub rotation_z: f32,
+    pub scale_x: f32,
+    pub scale_y: f32,
+    pub opacity: f32,
+    pub clip_by_upper_object: u32,
+    pub effect_count: u16,
+    pub reserved: u16,
+    pub effect_start_index: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AviQtlAudioBakeInput {
+    pub clip_id: i32,
+    pub start_frame: i32,
+    pub duration_frames: i32,
+    pub has_audio_effect: u32,
+    pub fps: f64,
+    pub source_start_time: f32,
+    pub speed_percent: f32,
+    pub direct_time: f32,
+    pub volume: f32,
+    pub master_volume: f32,
+    pub pan: f32,
+    pub fade_in_seconds: f32,
+    pub fade_out_seconds: f32,
+    pub direct_mode: u32,
+    pub mute: u32,
+    pub solo: u32,
+    pub limiter: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlAudioBakeOutput {
+    pub clip_id: i32,
+    pub start_frame: i32,
+    pub duration_frames: i32,
+    pub source_start_time: f32,
+    pub playback_speed: f32,
+    pub direct_time: f32,
+    pub volume: f32,
+    pub master_volume: f32,
+    pub pan: f32,
+    pub fade_in_seconds: f32,
+    pub fade_out_seconds: f32,
+    pub mute: u32,
+    pub solo: u32,
+    pub limiter: u32,
+    pub direct_mode: u32,
 }
 
 pub fn pointer_is_valid<T>(pointer: *const T, length: usize) -> bool {
@@ -136,6 +227,34 @@ mod tests {
         assert_eq!(offset_of!(AviQtlNumericKeyframe, custom_points_length), 16);
         assert_eq!(offset_of!(AviQtlNumericKeyframe, value), 24);
         assert_eq!(offset_of!(AviQtlNumericKeyframe, period), 40);
+
+        assert_eq!(size_of::<AviQtlRenderBakeInput>(), 68);
+        assert_eq!(align_of::<AviQtlRenderBakeInput>(), 4);
+        assert_eq!(offset_of!(AviQtlRenderBakeInput, clip_id), 0);
+        assert_eq!(offset_of!(AviQtlRenderBakeInput, effect_count), 24);
+        assert_eq!(offset_of!(AviQtlRenderBakeInput, effect_start_index), 28);
+        assert_eq!(offset_of!(AviQtlRenderBakeInput, x), 36);
+        assert_eq!(offset_of!(AviQtlRenderBakeInput, opacity), 64);
+
+        assert_eq!(size_of::<AviQtlRenderBakeOutput>(), 72);
+        assert_eq!(align_of::<AviQtlRenderBakeOutput>(), 8);
+        assert_eq!(offset_of!(AviQtlRenderBakeOutput, time_position), 8);
+        assert_eq!(offset_of!(AviQtlRenderBakeOutput, x), 24);
+        assert_eq!(offset_of!(AviQtlRenderBakeOutput, clip_by_upper_object), 60);
+        assert_eq!(offset_of!(AviQtlRenderBakeOutput, effect_start_index), 68);
+
+        assert_eq!(size_of::<AviQtlAudioBakeInput>(), 72);
+        assert_eq!(align_of::<AviQtlAudioBakeInput>(), 8);
+        assert_eq!(offset_of!(AviQtlAudioBakeInput, fps), 16);
+        assert_eq!(offset_of!(AviQtlAudioBakeInput, source_start_time), 24);
+        assert_eq!(offset_of!(AviQtlAudioBakeInput, direct_mode), 56);
+        assert_eq!(offset_of!(AviQtlAudioBakeInput, limiter), 68);
+
+        assert_eq!(size_of::<AviQtlAudioBakeOutput>(), 60);
+        assert_eq!(align_of::<AviQtlAudioBakeOutput>(), 4);
+        assert_eq!(offset_of!(AviQtlAudioBakeOutput, source_start_time), 12);
+        assert_eq!(offset_of!(AviQtlAudioBakeOutput, mute), 44);
+        assert_eq!(offset_of!(AviQtlAudioBakeOutput, direct_mode), 56);
 
         #[cfg(target_pointer_width = "64")]
         {

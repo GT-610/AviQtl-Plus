@@ -9,6 +9,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_EASING = 1ULL << 0,
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_DSP = 1ULL << 1,
     AVIQTL_RUST_CORE_CAPABILITY_NUMERIC_KEYFRAME_BATCH = 1ULL << 2,
+    AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_BAKE = 1ULL << 3,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -87,6 +88,110 @@ static_assert(sizeof(AviQtlNumericTrackView) == 40);
 static_assert(alignof(AviQtlNumericTrackView) == 8);
 #endif
 
+struct AviQtlRenderBakeInput {
+    std::int32_t clip_id;
+    std::int32_t layer;
+    std::int32_t current_frame;
+    std::int32_t start_frame;
+    std::int32_t duration_frames;
+    std::uint32_t clip_by_upper_object;
+    std::uint16_t effect_count;
+    std::uint16_t reserved;
+    std::uint32_t effect_start_index;
+    std::uint32_t has_transform;
+    float x;
+    float y;
+    float z;
+    float rotation_x;
+    float rotation_y;
+    float rotation_z;
+    float scale;
+    float opacity;
+};
+static_assert(sizeof(AviQtlRenderBakeInput) == 68);
+static_assert(alignof(AviQtlRenderBakeInput) == 4);
+static_assert(offsetof(AviQtlRenderBakeInput, clip_id) == 0);
+static_assert(offsetof(AviQtlRenderBakeInput, effect_count) == 24);
+static_assert(offsetof(AviQtlRenderBakeInput, effect_start_index) == 28);
+static_assert(offsetof(AviQtlRenderBakeInput, x) == 36);
+static_assert(offsetof(AviQtlRenderBakeInput, opacity) == 64);
+
+struct AviQtlRenderBakeOutput {
+    std::int32_t clip_id;
+    std::int32_t layer;
+    double time_position;
+    std::int32_t start_frame;
+    std::int32_t duration_frames;
+    float x;
+    float y;
+    float z;
+    float rotation_x;
+    float rotation_y;
+    float rotation_z;
+    float scale_x;
+    float scale_y;
+    float opacity;
+    std::uint32_t clip_by_upper_object;
+    std::uint16_t effect_count;
+    std::uint16_t reserved;
+    std::uint32_t effect_start_index;
+};
+static_assert(sizeof(AviQtlRenderBakeOutput) == 72);
+static_assert(alignof(AviQtlRenderBakeOutput) == 8);
+static_assert(offsetof(AviQtlRenderBakeOutput, time_position) == 8);
+static_assert(offsetof(AviQtlRenderBakeOutput, x) == 24);
+static_assert(offsetof(AviQtlRenderBakeOutput, clip_by_upper_object) == 60);
+static_assert(offsetof(AviQtlRenderBakeOutput, effect_start_index) == 68);
+
+struct AviQtlAudioBakeInput {
+    std::int32_t clip_id;
+    std::int32_t start_frame;
+    std::int32_t duration_frames;
+    std::uint32_t has_audio_effect;
+    double fps;
+    float source_start_time;
+    float speed_percent;
+    float direct_time;
+    float volume;
+    float master_volume;
+    float pan;
+    float fade_in_seconds;
+    float fade_out_seconds;
+    std::uint32_t direct_mode;
+    std::uint32_t mute;
+    std::uint32_t solo;
+    std::uint32_t limiter;
+};
+static_assert(sizeof(AviQtlAudioBakeInput) == 72);
+static_assert(alignof(AviQtlAudioBakeInput) == 8);
+static_assert(offsetof(AviQtlAudioBakeInput, fps) == 16);
+static_assert(offsetof(AviQtlAudioBakeInput, source_start_time) == 24);
+static_assert(offsetof(AviQtlAudioBakeInput, direct_mode) == 56);
+static_assert(offsetof(AviQtlAudioBakeInput, limiter) == 68);
+
+struct AviQtlAudioBakeOutput {
+    std::int32_t clip_id;
+    std::int32_t start_frame;
+    std::int32_t duration_frames;
+    float source_start_time;
+    float playback_speed;
+    float direct_time;
+    float volume;
+    float master_volume;
+    float pan;
+    float fade_in_seconds;
+    float fade_out_seconds;
+    std::uint32_t mute;
+    std::uint32_t solo;
+    std::uint32_t limiter;
+    std::uint32_t direct_mode;
+};
+static_assert(sizeof(AviQtlAudioBakeOutput) == 60);
+static_assert(alignof(AviQtlAudioBakeOutput) == 4);
+static_assert(offsetof(AviQtlAudioBakeOutput, source_start_time) == 12);
+static_assert(offsetof(AviQtlAudioBakeOutput, mute) == 44);
+static_assert(offsetof(AviQtlAudioBakeOutput, direct_mode) == 56);
+
 extern "C" {
 
 std::uint32_t aviqtl_core_abi_version();
@@ -109,5 +214,10 @@ std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackVie
                                                      std::int32_t frame,
                                                      double *output,
                                                      std::size_t outputLength);
+
+std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input,
+                                          AviQtlRenderBakeOutput *output);
+std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input,
+                                         AviQtlAudioBakeOutput *output);
 
 }

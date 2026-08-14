@@ -8,6 +8,7 @@ const INTERPOLATION_NONE: u32 = 42;
 const INTERPOLATION_RANDOM: u32 = 43;
 const INTERPOLATION_ALTERNATE: u32 = 44;
 const INTERPOLATION_COUNT: u32 = 45;
+const CUSTOM_POINT_STRIDE: u32 = 6;
 
 fn interpolation_is_valid(value: u32) -> bool {
     value < INTERPOLATION_COUNT
@@ -108,6 +109,11 @@ fn validate_track(track: &AviQtlNumericTrackView, output: *mut f64, output_lengt
     for (index, keyframe) in keyframes.iter().enumerate() {
         if !interpolation_is_valid(keyframe.interpolation)
             || checked_custom_points(track, keyframe).is_none()
+            || (keyframe.interpolation == EasingKind::Custom as u32
+                && (keyframe.custom_points_length < CUSTOM_POINT_STRIDE
+                    || !keyframe
+                        .custom_points_length
+                        .is_multiple_of(CUSTOM_POINT_STRIDE)))
             || (index != 0 && keyframes[index - 1].frame > keyframe.frame)
             || (index != 0
                 && i64::from(keyframe.frame) - i64::from(keyframes[index - 1].frame)
@@ -393,6 +399,27 @@ mod tests {
         assert_eq!(status, STATUS_INVALID_ARGUMENT);
         assert_eq!(output, [91.0, 92.0]);
 
+        let short_custom_points = [0.33, 0.0, 0.66, 1.0];
+        let mut invalid_custom = [
+            keyframe(0, 0.0, EasingKind::Custom as u32),
+            keyframe(10, 10.0, 0),
+        ];
+        invalid_custom[0].custom_points_length = short_custom_points.len() as u32;
+        let invalid_custom_track = view(&invalid_custom, &short_custom_points, 0.0);
+        let mut custom_output = [17.0];
+        // SAFETY: The ranges are valid; the custom-point count is semantically invalid.
+        let status = unsafe {
+            aviqtl_numeric_keyframe_batch_evaluate(
+                &invalid_custom_track,
+                1,
+                5,
+                custom_output.as_mut_ptr(),
+                custom_output.len(),
+            )
+        };
+        assert_eq!(status, STATUS_INVALID_ARGUMENT);
+        assert_eq!(custom_output, [17.0]);
+
         let invalid_view = AviQtlNumericTrackView {
             keyframes: std::ptr::null(),
             keyframes_length: 1,
@@ -473,9 +500,8 @@ mod tests {
             [0_u8; size_of::<AviQtlNumericTrackView>() + align_of::<AviQtlNumericTrackView>()];
         let top_level_offset = (0..align_of::<AviQtlNumericTrackView>())
             .find(|offset| {
-                (top_level_storage.as_ptr() as usize + offset)
-                    % align_of::<AviQtlNumericTrackView>()
-                    != 0
+                !(top_level_storage.as_ptr() as usize + offset)
+                    .is_multiple_of(align_of::<AviQtlNumericTrackView>())
             })
             .expect("a misaligned offset");
         // SAFETY: The deliberately misaligned descriptor pointer must be rejected before use.
@@ -494,8 +520,8 @@ mod tests {
             [0_u8; size_of::<AviQtlNumericKeyframe>() + align_of::<AviQtlNumericKeyframe>()];
         let nested_offset = (0..align_of::<AviQtlNumericKeyframe>())
             .find(|offset| {
-                (nested_storage.as_ptr() as usize + offset) % align_of::<AviQtlNumericKeyframe>()
-                    != 0
+                !(nested_storage.as_ptr() as usize + offset)
+                    .is_multiple_of(align_of::<AviQtlNumericKeyframe>())
             })
             .expect("a misaligned offset");
         let nested_track = AviQtlNumericTrackView {

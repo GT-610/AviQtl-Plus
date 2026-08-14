@@ -1,4 +1,5 @@
 #include "keyframe_utils.hpp"
+#include "rust_keyframe_adapter.hpp"
 #include "rust_keyframe_core.hpp"
 #include <QFile>
 #include <QTest>
@@ -219,6 +220,24 @@ private slots:
                  std::uint32_t{AVIQTL_RUST_CORE_STATUS_INVALID_ARGUMENT});
         QCOMPARE(aviqtl_numeric_keyframe_batch_evaluate(&badTrack, 1, 5, &value, 0),
                  std::uint32_t{AVIQTL_RUST_CORE_STATUS_INVALID_ARGUMENT});
+    }
+
+    void rejectsIncompleteCustomPointGroupsDuringConversion() {
+        QVariantMap customStart = makePoint(0, 0.0, QStringLiteral("custom"));
+        customStart.insert(QStringLiteral("points"), QVariantList{0.2, 0.3, 0.7, 0.8});
+        const QVariantList invalidTrack = {
+            customStart,
+            makePoint(10, 10.0, QStringLiteral("linear")),
+        };
+        QVERIFY(!AviQtl::Core::RustKeyframes::buildNumericTrack(invalidTrack).has_value());
+
+        customStart.insert(QStringLiteral("points"),
+                           QVariantList{0.2, 0.3, 0.7, 0.8, 1.0, 1.0});
+        const QVariantList validTrack = {
+            customStart,
+            makePoint(10, 10.0, QStringLiteral("linear")),
+        };
+        QVERIFY(AviQtl::Core::RustKeyframes::buildNumericTrack(validTrack).has_value());
     }
 
     void rejectsOverlappingOutput() {

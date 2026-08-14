@@ -4,12 +4,15 @@
 #include "core/include/keyframe_utils.hpp"
 #include "core/include/media_utils.hpp"
 #include "core/include/performance_metrics.hpp"
+#include "core/include/rust_keyframe_adapter.hpp"
+#include "core/include/rust_timeline_bake.hpp"
 #include "core/include/settings_manager.hpp"
 #include "ecs.hpp"
 #include <algorithm>
 #include <bitset>
 #include <limits>
 #include <optional>
+#include <QDebug>
 #include <QSet>
 #include <unordered_map>
 
@@ -53,165 +56,28 @@ QVariantMap keyframesToTrack(const std::vector<AviQtl::Core::Keyframe> &kfs, con
     return track;
 }
 
-// Per-effect cache of resolved (normalized + flattened) keyframe tracks.
-// Building this once per effect avoids repeating the expensive resolve step
-// for every parameter evaluated below (e.g. transform reads ~8 params from
-// the same set of tracks).
-struct NumericTrackStorage {
-    std::vector<AviQtl::RustCore::NumericKeyframe> keyframes;
-    std::vector<double> customPoints;
-
-    [[nodiscard]] AviQtl::RustCore::NumericTrackView view(double fallback) const {
-        return {
-            .keyframes = keyframes.data(),
-            .keyframes_length = keyframes.size(),
-            .custom_points = customPoints.data(),
-            .custom_points_length = customPoints.size(),
-            .fallback_value = fallback,
-        };
-    }
-};
-
 struct ResolvedTracks {
     QVariantMap params;
     QHash<QString, QVariantList> resolved;
     QSet<QString> allKeys;
-    std::vector<NumericTrackStorage> numericTracks;
-    std::vector<AviQtl::RustCore::NumericTrackView> numericViews;
-    QHash<QString, std::size_t> numericIndices;
-    std::vector<double> numericOutput;
-    bool numericBatchValid = false;
+    AviQtl::Core::RustKeyframes::NumericTrackBatch numericBatch;
 };
 
-bool isNumericValue(const QVariant &value) {
-    return value.isValid() && value.typeId() != QMetaType::QString && value.canConvert<double>();
-}
-
-AviQtl::RustCore::NumericInterpolation numericInterpolation(const QString &name) {
-    using enum AviQtl::RustCore::NumericInterpolation;
-    static const QHash<QString, AviQtl::RustCore::NumericInterpolation> kinds = {
-        {QStringLiteral("linear"), Linear},
-        {QStringLiteral("ease_in_sine"), EaseInSine},
-        {QStringLiteral("ease_out_sine"), EaseOutSine},
-        {QStringLiteral("ease_in_out_sine"), EaseInOutSine},
-        {QStringLiteral("ease_out_in_sine"), EaseOutInSine},
-        {QStringLiteral("ease_in_quad"), EaseInQuad},
-        {QStringLiteral("ease_out_quad"), EaseOutQuad},
-        {QStringLiteral("ease_in_out_quad"), EaseInOutQuad},
-        {QStringLiteral("ease_out_in_quad"), EaseOutInQuad},
-        {QStringLiteral("ease_in_cubic"), EaseInCubic},
-        {QStringLiteral("ease_out_cubic"), EaseOutCubic},
-        {QStringLiteral("ease_in_out_cubic"), EaseInOutCubic},
-        {QStringLiteral("ease_out_in_cubic"), EaseOutInCubic},
-        {QStringLiteral("ease_in_quart"), EaseInQuart},
-        {QStringLiteral("ease_out_quart"), EaseOutQuart},
-        {QStringLiteral("ease_in_out_quart"), EaseInOutQuart},
-        {QStringLiteral("ease_out_in_quart"), EaseOutInQuart},
-        {QStringLiteral("ease_in_quint"), EaseInQuint},
-        {QStringLiteral("ease_out_quint"), EaseOutQuint},
-        {QStringLiteral("ease_in_out_quint"), EaseInOutQuint},
-        {QStringLiteral("ease_out_in_quint"), EaseOutInQuint},
-        {QStringLiteral("ease_in_expo"), EaseInExpo},
-        {QStringLiteral("ease_out_expo"), EaseOutExpo},
-        {QStringLiteral("ease_in_out_expo"), EaseInOutExpo},
-        {QStringLiteral("ease_out_in_expo"), EaseOutInExpo},
-        {QStringLiteral("ease_in_circ"), EaseInCirc},
-        {QStringLiteral("ease_out_circ"), EaseOutCirc},
-        {QStringLiteral("ease_in_out_circ"), EaseInOutCirc},
-        {QStringLiteral("ease_out_in_circ"), EaseOutInCirc},
-        {QStringLiteral("ease_in_back"), EaseInBack},
-        {QStringLiteral("ease_out_back"), EaseOutBack},
-        {QStringLiteral("ease_in_out_back"), EaseInOutBack},
-        {QStringLiteral("ease_out_in_back"), EaseOutInBack},
-        {QStringLiteral("ease_in_elastic"), EaseInElastic},
-        {QStringLiteral("ease_out_elastic"), EaseOutElastic},
-        {QStringLiteral("ease_in_out_elastic"), EaseInOutElastic},
-        {QStringLiteral("ease_out_in_elastic"), EaseOutInElastic},
-        {QStringLiteral("ease_out_bounce"), EaseOutBounce},
-        {QStringLiteral("ease_in_bounce"), EaseInBounce},
-        {QStringLiteral("ease_in_out_bounce"), EaseInOutBounce},
-        {QStringLiteral("ease_out_in_bounce"), EaseOutInBounce},
-        {QStringLiteral("custom"), Custom},
-        {QStringLiteral("none"), None},
-        {QStringLiteral("random"), Random},
-        {QStringLiteral("alternate"), Alternate},
-    };
-    return kinds.value(name, Linear);
-}
-
-std::optional<NumericTrackStorage> buildNumericTrack(const QVariantList &track) {
-    NumericTrackStorage storage;
-    storage.keyframes.reserve(static_cast<std::size_t>(track.size()));
-    for (const QVariant &pointValue : track) {
-        const QVariantMap point = pointValue.toMap();
-        const QVariant value = point.value(QStringLiteral("value"));
-        if (!isNumericValue(value))
-            return std::nullopt;
-
-        const QString interpolationName = point.value(QStringLiteral("interp")).toString();
-        const auto interpolation = numericInterpolation(interpolationName);
-        const QVariantMap modeParams = point.value(QStringLiteral("modeParams")).toMap();
-        const std::size_t customOffset = storage.customPoints.size();
-        if (interpolation == AviQtl::RustCore::NumericInterpolation::Custom) {
-            QVariantList customValues = point.value(QStringLiteral("points")).toList();
-            if (customValues.isEmpty()) {
-                customValues = {
-                    point.value(QStringLiteral("bzx1"), 0.33),
-                    point.value(QStringLiteral("bzy1"), 0.0),
-                    point.value(QStringLiteral("bzx2"), 0.66),
-                    point.value(QStringLiteral("bzy2"), 1.0),
-                    1.0,
-                    1.0,
-                };
-            }
-            if (customOffset > std::numeric_limits<std::uint32_t>::max() ||
-                static_cast<std::size_t>(customValues.size()) >
-                    std::numeric_limits<std::uint32_t>::max() - customOffset) {
-                return std::nullopt;
-            }
-            storage.customPoints.reserve(customOffset + static_cast<std::size_t>(customValues.size()));
-            for (const QVariant &customValue : std::as_const(customValues))
-                storage.customPoints.push_back(customValue.toDouble());
-        }
-        const std::size_t customLength = storage.customPoints.size() - customOffset;
-        storage.keyframes.push_back({
-            .frame = point.value(QStringLiteral("frame")).toInt(),
-            .interpolation = static_cast<std::uint32_t>(interpolation),
-            .step_frames = static_cast<std::uint32_t>(
-                std::max(1, modeParams.value(QStringLiteral("stepFrames"), 1).toInt())),
-            .custom_points_offset = static_cast<std::uint32_t>(customOffset),
-            .custom_points_length = static_cast<std::uint32_t>(customLength),
-            .reserved = 0,
-            .value = value.toDouble(),
-            .amplitude = modeParams.value(QStringLiteral("amplitude"), 1.0).toDouble(),
-            .period = modeParams.value(QStringLiteral("period"), 0.3).toDouble(),
-        });
-    }
-    return storage;
-}
-
 void evaluateNumericTracks(ResolvedTracks &tracks, int frame) {
-    tracks.numericBatchValid = tracks.numericViews.empty();
-    if (tracks.numericViews.empty())
+    const auto result = tracks.numericBatch.evaluate(frame);
+    if (result != AviQtl::Core::RustKeyframes::NumericTrackBatch::Evaluation::Evaluated)
         return;
-
     auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
     metrics.add(AviQtl::Core::PerformanceCounter::BakeRustKeyframeBatchCalls);
-    const auto status = AviQtl::RustCore::evaluateNumericTracks(
-        tracks.numericViews, static_cast<std::int32_t>(frame), tracks.numericOutput);
-    tracks.numericBatchValid = status == AviQtl::RustCore::NumericBatchStatus::Ok;
-    if (tracks.numericBatchValid) {
-        metrics.add(AviQtl::Core::PerformanceCounter::BakeRustKeyframeTracks,
-                    tracks.numericViews.size());
-    }
+    metrics.add(AviQtl::Core::PerformanceCounter::BakeRustKeyframeTracks,
+                tracks.numericBatch.size());
 }
 
 QVariant evalValue(const ResolvedTracks &rt, const QString &key, int frame) {
     if (key == QStringLiteral("time"))
         return frame;
-    const auto numeric = rt.numericIndices.constFind(key);
-    if (rt.numericBatchValid && numeric != rt.numericIndices.constEnd())
-        return rt.numericOutput[*numeric];
+    if (const std::optional<double> numeric = rt.numericBatch.value(key))
+        return *numeric;
     return AviQtl::Core::KeyframeUtils::evaluateResolvedParam(rt.params, rt.resolved, key, frame);
 }
 
@@ -248,25 +114,7 @@ ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int clipD
     // Resolve every track once (normalize + flatten); subsequent per-frame
     // evaluations only walk the flattened list and apply easing.
     out.resolved = AviQtl::Core::KeyframeUtils::resolveAllTracks(out.params, tracks, trackDuration);
-    out.numericTracks.reserve(static_cast<std::size_t>(out.resolved.size()));
-    for (auto it = out.resolved.constBegin(); it != out.resolved.constEnd(); ++it) {
-        const QVariant fallback = out.params.value(it.key());
-        if (!isNumericValue(fallback))
-            continue;
-        std::optional<NumericTrackStorage> numericTrack = buildNumericTrack(it.value());
-        if (!numericTrack)
-            continue;
-        out.numericIndices.insert(it.key(), out.numericTracks.size());
-        out.numericTracks.push_back(std::move(*numericTrack));
-    }
-    out.numericViews.resize(out.numericTracks.size());
-    out.numericOutput.resize(out.numericTracks.size());
-    for (auto it = out.numericIndices.constBegin(); it != out.numericIndices.constEnd(); ++it) {
-        const std::size_t index = *it;
-        if (index >= out.numericTracks.size())
-            continue;
-        out.numericViews[index] = out.numericTracks[index].view(out.params.value(it.key()).toDouble());
-    }
+    out.numericBatch.rebuild(out.params, out.resolved);
     return out;
 }
 
@@ -282,21 +130,33 @@ struct CachedClip {
     std::vector<CachedEffect> effects;
 };
 
-void bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps,
-                      RenderComponent &render, EffectParamBuffer &paramBuf) {
+bool bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps,
+                     RenderComponent &render, EffectParamBuffer &paramBuf) {
     Q_UNUSED(fps);
     const int relFrame = std::max(0, currentFrame - clip.startFrame);
-    const double relTime = static_cast<double>(relFrame);
+    const std::size_t initialParamCount = paramBuf.entries.size();
     auto &registry = AviQtl::Core::EffectRegistry::instance();
 
-    render.clipId = clip.id;
-    render.layer = clip.layer;
-    render.startFrame = clip.startFrame;
-    render.durationFrames = clip.durationFrames;
-    render.clipByUpperObject = clip.clipByUpperObject;
-    render.timePosition = relTime;
-
-    bool hasTransform = false;
+    AviQtl::RustCore::RenderBakeInput renderInput{
+        .clip_id = clip.id,
+        .layer = clip.layer,
+        .current_frame = currentFrame,
+        .start_frame = clip.startFrame,
+        .duration_frames = clip.durationFrames,
+        .clip_by_upper_object = static_cast<std::uint32_t>(clip.clipByUpperObject),
+        .effect_count = 0,
+        .reserved = 0,
+        .effect_start_index = render.effectStartIndex,
+        .has_transform = 0,
+        .x = 0.0F,
+        .y = 0.0F,
+        .z = 0.0F,
+        .rotation_x = 0.0F,
+        .rotation_y = 0.0F,
+        .rotation_z = 0.0F,
+        .scale = 100.0F,
+        .opacity = 1.0F,
+    };
     uint16_t effectIdx = 0;
 
     for (std::size_t effectIndex = 0; effectIndex < clip.effects.size(); ++effectIndex) {
@@ -319,17 +179,15 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedCli
         const ResolvedTracks &rt = cachedClip.effects[effectIndex].tracks;
 
         if (effect.id == QStringLiteral("transform")) {
-            hasTransform = true;
-            render.x = evalFloat(rt, QStringLiteral("x"), relFrame);
-            render.y = evalFloat(rt, QStringLiteral("y"), relFrame);
-            render.z = evalFloat(rt, QStringLiteral("z"), relFrame);
-            render.rotX = evalFloat(rt, QStringLiteral("rotationX"), relFrame);
-            render.rotY = evalFloat(rt, QStringLiteral("rotationY"), relFrame);
-            render.rotZ = evalFloat(rt, QStringLiteral("rotationZ"), relFrame);
-            const float scale = evalFloat(rt, QStringLiteral("scale"), relFrame);
-            render.scaleX = scale * 0.01f;
-            render.scaleY = scale * 0.01f;
-            render.opacity = evalFloat(rt, QStringLiteral("opacity"), relFrame);
+            renderInput.has_transform = 1;
+            renderInput.x = evalFloat(rt, QStringLiteral("x"), relFrame);
+            renderInput.y = evalFloat(rt, QStringLiteral("y"), relFrame);
+            renderInput.z = evalFloat(rt, QStringLiteral("z"), relFrame);
+            renderInput.rotation_x = evalFloat(rt, QStringLiteral("rotationX"), relFrame);
+            renderInput.rotation_y = evalFloat(rt, QStringLiteral("rotationY"), relFrame);
+            renderInput.rotation_z = evalFloat(rt, QStringLiteral("rotationZ"), relFrame);
+            renderInput.scale = evalFloat(rt, QStringLiteral("scale"), relFrame);
+            renderInput.opacity = evalFloat(rt, QStringLiteral("opacity"), relFrame);
         }
 
         for (const auto &key : std::as_const(rt.allKeys)) {
@@ -368,56 +226,114 @@ void bakeClipEffects(const AviQtl::Core::Clip &clip, const CachedClip &cachedCli
         ++effectIdx;
     }
 
-    render.effectCount = effectIdx;
-
-    if (!hasTransform) {
-        render.x = 0;
-        render.y = 0;
-        render.z = 0;
-        render.rotX = 0;
-        render.rotY = 0;
-        render.rotZ = 0;
-        render.scaleX = 1;
-        render.scaleY = 1;
-        render.opacity = 1;
+    renderInput.effect_count = effectIdx;
+    AviQtl::RustCore::RenderBakeOutput output{};
+    const auto status = AviQtl::RustCore::bakeRender(renderInput, output);
+    auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
+    if (status != AviQtl::RustCore::TimelineBakeStatus::Ok) {
+        paramBuf.entries.resize(initialParamCount);
+        metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineFailures);
+        qWarning() << "Rust render timeline bake failed for clip" << clip.id
+                   << "with status" << static_cast<std::uint32_t>(status);
+        return false;
     }
+    metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineRenderCalls);
+    render.clipId = output.clip_id;
+    render.layer = output.layer;
+    render.timePosition = output.time_position;
+    render.startFrame = output.start_frame;
+    render.durationFrames = output.duration_frames;
+    render.x = output.x;
+    render.y = output.y;
+    render.z = output.z;
+    render.rotX = output.rotation_x;
+    render.rotY = output.rotation_y;
+    render.rotZ = output.rotation_z;
+    render.scaleX = output.scale_x;
+    render.scaleY = output.scale_y;
+    render.opacity = output.opacity;
+    render.clipByUpperObject = output.clip_by_upper_object != 0;
+    render.effectCount = output.effect_count;
+    render.effectStartIndex = output.effect_start_index;
+    return true;
 }
 
-AudioComponent bakeAudioState(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip, int currentFrame, double fps) {
-    if (fps <= 0.0) {
-        return {};
+std::optional<AudioComponent> bakeAudioState(const AviQtl::Core::Clip &clip, const CachedClip &cachedClip,
+                                             int currentFrame, double fps) {
+    AviQtl::RustCore::AudioBakeInput input{
+        .clip_id = clip.id,
+        .start_frame = clip.startFrame,
+        .duration_frames = clip.durationFrames,
+        .has_audio_effect = 0,
+        .fps = fps,
+        .source_start_time = 0.0F,
+        .speed_percent = static_cast<float>(AviQtl::kDefaultSpeed),
+        .direct_time = 0.0F,
+        .volume = 1.0F,
+        .master_volume = 1.0F,
+        .pan = 0.0F,
+        .fade_in_seconds = 0.0F,
+        .fade_out_seconds = 0.0F,
+        .direct_mode = 0,
+        .mute = 0,
+        .solo = 0,
+        .limiter = 0,
+    };
+    if (!(fps <= 0.0)) {
+        const int relFrame = std::max(0, currentFrame - clip.startFrame);
+        auto it = std::find_if(clip.effects.begin(), clip.effects.end(),
+            [](const auto &e) { return e.enabled && e.id == QStringLiteral("audio"); });
+        if (it != clip.effects.end()) {
+            const auto &effect = *it;
+            const std::size_t effectIndex = static_cast<std::size_t>(std::distance(clip.effects.begin(), it));
+            if (effectIndex < cachedClip.effects.size()) {
+                const ResolvedTracks &rt = cachedClip.effects[effectIndex].tracks;
+                input.has_audio_effect = 1;
+                const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
+                input.direct_mode = static_cast<std::uint32_t>(
+                    AviQtl::Core::MediaUtils::isDirectAudioMode(playMode));
+                input.source_start_time = evalFloatOr(rt, QStringLiteral("startTime"), 0.0F, relFrame);
+                input.speed_percent = evalFloatOr(
+                    rt, QStringLiteral("speed"), static_cast<float>(AviQtl::kDefaultSpeed), relFrame);
+                input.direct_time = evalFloatOr(rt, QStringLiteral("directTime"), 0.0F, relFrame);
+                input.volume = evalFloatOr(rt, QStringLiteral("volume"), 1.0F, relFrame);
+                input.master_volume = evalFloatOr(rt, QStringLiteral("masterVolume"), 1.0F, relFrame);
+                input.pan = evalFloatOr(rt, QStringLiteral("pan"), 0.0F, relFrame);
+                input.fade_in_seconds = evalFloatOr(rt, QStringLiteral("fadeIn"), 0.0F, relFrame);
+                input.fade_out_seconds = evalFloatOr(rt, QStringLiteral("fadeOut"), 0.0F, relFrame);
+                input.mute = static_cast<std::uint32_t>(effect.params.value(QStringLiteral("mute"), false).toBool());
+                input.solo = static_cast<std::uint32_t>(effect.params.value(QStringLiteral("solo"), false).toBool());
+                input.limiter = static_cast<std::uint32_t>(effect.params.value(QStringLiteral("limiter"), true).toBool());
+            }
+        }
     }
 
-    const int relFrame = std::max(0, currentFrame - clip.startFrame);
-
+    AviQtl::RustCore::AudioBakeOutput output{};
     AudioComponent audio;
-    audio.clipId = clip.id;
-    audio.startFrame = clip.startFrame;
-    audio.durationFrames = clip.durationFrames;
-    auto it = std::find_if(clip.effects.begin(), clip.effects.end(),
-        [](const auto &e) { return e.enabled && e.id == QStringLiteral("audio"); });
-    if (it != clip.effects.end()) {
-        const auto &effect = *it;
-        const std::size_t effectIndex = static_cast<std::size_t>(std::distance(clip.effects.begin(), it));
-        if (effectIndex >= cachedClip.effects.size())
-            return audio;
-        const ResolvedTracks &rt = cachedClip.effects[effectIndex].tracks;
-
-        const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
-        audio.directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
-        audio.sourceStartTime = std::max(0.0f, evalFloatOr(rt, QStringLiteral("startTime"), 0.0f, relFrame));
-        audio.playbackSpeed = std::max(0.0f, evalFloatOr(rt, QStringLiteral("speed"), AviQtl::kDefaultSpeed, relFrame) / static_cast<float>(AviQtl::kDefaultSpeed));
-        audio.directTime = std::max(0.0f, evalFloatOr(rt, QStringLiteral("directTime"), 0.0f, relFrame));
-        audio.volume = std::max(0.0f, evalFloatOr(rt, QStringLiteral("volume"), 1.0f, relFrame));
-        audio.masterVolume = std::max(0.0f, evalFloatOr(rt, QStringLiteral("masterVolume"), 1.0f, relFrame));
-        audio.pan = std::clamp(evalFloatOr(rt, QStringLiteral("pan"), 0.0f, relFrame), -1.0f, 1.0f);
-        audio.fadeInSec = std::max(0.0f, evalFloatOr(rt, QStringLiteral("fadeIn"), 0.0f, relFrame));
-        audio.fadeOutSec = std::max(0.0f, evalFloatOr(rt, QStringLiteral("fadeOut"), 0.0f, relFrame));
-        audio.mute = effect.params.value(QStringLiteral("mute"), false).toBool();
-        audio.solo = effect.params.value(QStringLiteral("solo"), false).toBool();
-        audio.limiter = effect.params.value(QStringLiteral("limiter"), true).toBool();
+    const auto status = AviQtl::RustCore::bakeAudio(input, output);
+    auto &metrics = AviQtl::Core::PerformanceMetrics::instance();
+    if (status != AviQtl::RustCore::TimelineBakeStatus::Ok) {
+        metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineFailures);
+        qWarning() << "Rust audio timeline bake failed for clip" << clip.id
+                   << "with status" << static_cast<std::uint32_t>(status);
+        return std::nullopt;
     }
-
+    metrics.add(AviQtl::Core::PerformanceCounter::BakeRustTimelineAudioCalls);
+    audio.clipId = output.clip_id;
+    audio.startFrame = output.start_frame;
+    audio.durationFrames = output.duration_frames;
+    audio.sourceStartTime = output.source_start_time;
+    audio.playbackSpeed = output.playback_speed;
+    audio.directTime = output.direct_time;
+    audio.volume = output.volume;
+    audio.masterVolume = output.master_volume;
+    audio.pan = output.pan;
+    audio.fadeInSec = output.fade_in_seconds;
+    audio.fadeOutSec = output.fade_out_seconds;
+    audio.mute = output.mute != 0;
+    audio.solo = output.solo != 0;
+    audio.limiter = output.limiter != 0;
+    audio.directMode = output.direct_mode != 0;
     return audio;
 }
 
@@ -552,17 +468,20 @@ void BakeController::bake(int sceneId, int currentFrame) {
         const int relFrame = static_cast<int>(relTime);
         for (CachedEffect &effect : cachedClip.effects)
             evaluateNumericTracks(effect.tracks, relFrame);
-        ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
-
         if (clip.type == QStringLiteral("audio") || clip.type == QStringLiteral("video")) {
-            const AudioComponent audio = bakeAudioState(clip, cachedClip, currentFrame, fps);
-            ecs.updateAudioClipState(clip.id, audio);
+            if (const std::optional<AudioComponent> audio =
+                    bakeAudioState(clip, cachedClip, currentFrame, fps)) {
+                ecs.updateAudioClipState(clip.id, *audio);
+            }
         }
 
         RenderComponent render;
         render.effectStartIndex = static_cast<uint32_t>(ecs.editState().effectParams.entries.size());
-        bakeClipEffects(clip, cachedClip, currentFrame, fps, render, ecs.editState().effectParams);
-        ecs.updateRenderState(clip.id, render);
+        if (bakeClipEffects(clip, cachedClip, currentFrame, fps, render,
+                            ecs.editState().effectParams)) {
+            ecs.updateClipState(clip.id, clip.layer, relTime, clip.startFrame, clip.durationFrames);
+            ecs.updateRenderState(clip.id, render);
+        }
     }
 
     ecs.syncClipIds(aliveFlags);

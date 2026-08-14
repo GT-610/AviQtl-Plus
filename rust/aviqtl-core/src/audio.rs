@@ -97,8 +97,8 @@ pub unsafe extern "C" fn aviqtl_audio_resample_stereo_linear(
     output_length: usize,
     source_rate: f64,
 ) -> u32 {
-    if input_length % 2 != 0
-        || output_length % 2 != 0
+    if !input_length.is_multiple_of(2)
+        || !output_length.is_multiple_of(2)
         || !source_rate.is_finite()
         || source_rate < 0.0
         || !slice_is_valid(input, input_length)
@@ -150,8 +150,8 @@ pub unsafe extern "C" fn aviqtl_audio_mix_stereo(
     parameters: AviQtlAudioMixParameters,
     meter: *mut AviQtlAudioMeter,
 ) -> u32 {
-    if clip_length % 2 != 0
-        || master_length % 2 != 0
+    if !clip_length.is_multiple_of(2)
+        || !master_length.is_multiple_of(2)
         || !slice_is_valid(clip, clip_length)
         || !slice_is_valid(master, master_length)
         || !slice_is_valid(meter, 1)

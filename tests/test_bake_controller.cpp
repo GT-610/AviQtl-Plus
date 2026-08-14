@@ -2,13 +2,16 @@
 #include "core/include/effect_registry.hpp"
 #include "core/include/performance_metrics.hpp"
 #include "core/include/settings_manager.hpp"
+#include "core/include/effect_model.hpp"
 #include "engine/timeline/bake_controller.hpp"
 #include "engine/timeline/ecs.hpp"
 #include <QSignalSpy>
 #include <QTest>
 #include <algorithm>
 #include <bitset>
+#include <cmath>
 #include <limits>
+#include <memory>
 
 using namespace AviQtl::Core;
 using namespace AviQtl::Engine::Timeline;
@@ -293,6 +296,98 @@ class TestBakeController : public QObject {
         QCOMPARE(a->pan, -0.25f);
         QVERIFY(a->mute);
         QVERIFY(!a->directMode);
+        const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineRenderCalls), quint64{1});
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineAudioCalls), quint64{1});
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineFailures), quint64{0});
+    }
+
+    void rustTimelineKernelBuildsTransformAndClampedAudioState() {
+        EffectRegistry::instance().registerEffect({
+            .id = QStringLiteral("transform"),
+            .name = QStringLiteral("Transform"),
+            .kind = QStringLiteral("effect"),
+            .categories = {QStringLiteral("test")},
+            .defaultParams = {},
+        });
+
+        SceneSettings scene;
+        scene.id = 14;
+        scene.fps = 60.0;
+        Clip clip;
+        clip.id = 83;
+        clip.layer = 4;
+        clip.startFrame = 10;
+        clip.durationFrames = 90;
+        clip.clipByUpperObject = true;
+        clip.type = QStringLiteral("video");
+
+        Effect transform;
+        transform.id = QStringLiteral("transform");
+        transform.params = {
+            {QStringLiteral("x"), 1.0},
+            {QStringLiteral("y"), 2.0},
+            {QStringLiteral("z"), 3.0},
+            {QStringLiteral("rotationX"), 4.0},
+            {QStringLiteral("rotationY"), 5.0},
+            {QStringLiteral("rotationZ"), 6.0},
+            {QStringLiteral("scale"), 125.0},
+            {QStringLiteral("opacity"), 0.75},
+        };
+        clip.effects.push_back(std::move(transform));
+
+        Effect audio;
+        audio.id = QStringLiteral("audio");
+        audio.params = {
+            {QStringLiteral("playMode"), QStringLiteral("直接指定")},
+            {QStringLiteral("startTime"), -2.0},
+            {QStringLiteral("speed"), -50.0},
+            {QStringLiteral("directTime"), -3.0},
+            {QStringLiteral("volume"), -1.0},
+            {QStringLiteral("masterVolume"), 0.5},
+            {QStringLiteral("pan"), 2.0},
+            {QStringLiteral("fadeIn"), -4.0},
+            {QStringLiteral("fadeOut"), 5.0},
+            {QStringLiteral("mute"), true},
+            {QStringLiteral("solo"), true},
+            {QStringLiteral("limiter"), true},
+        };
+        clip.effects.push_back(std::move(audio));
+        scene.clips.push_back(std::move(clip));
+        DocumentModel::instance().addScene(scene);
+
+        BakeController::instance().bake(scene.id, 5);
+
+        const auto &state = ECS::instance().editState();
+        const RenderComponent *render = state.renderStates.find(83);
+        QVERIFY(render != nullptr);
+        QCOMPARE(render->timePosition, 0.0);
+        QCOMPARE(render->x, 1.0F);
+        QCOMPARE(render->rotZ, 6.0F);
+        QCOMPARE(render->scaleX, 1.25F);
+        QCOMPARE(render->scaleY, 1.25F);
+        QCOMPARE(render->opacity, 0.75F);
+        QVERIFY(render->clipByUpperObject);
+        QCOMPARE(render->effectCount, std::uint16_t{2});
+
+        const AudioComponent *bakedAudio = state.audioStates.find(83);
+        QVERIFY(bakedAudio != nullptr);
+        QCOMPARE(bakedAudio->sourceStartTime, 0.0F);
+        QCOMPARE(bakedAudio->playbackSpeed, 0.0F);
+        QCOMPARE(bakedAudio->directTime, 0.0F);
+        QCOMPARE(bakedAudio->volume, 0.0F);
+        QCOMPARE(bakedAudio->masterVolume, 0.5F);
+        QCOMPARE(bakedAudio->pan, 1.0F);
+        QCOMPARE(bakedAudio->fadeInSec, 0.0F);
+        QCOMPARE(bakedAudio->fadeOutSec, 5.0F);
+        QVERIFY(bakedAudio->mute);
+        QVERIFY(bakedAudio->solo);
+        QVERIFY(bakedAudio->limiter);
+        QVERIFY(bakedAudio->directMode);
+
+        const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineRenderCalls), quint64{1});
+        QCOMPARE(snapshot.value(PerformanceCounter::BakeRustTimelineAudioCalls), quint64{1});
     }
 
     void resolvedTracksAreReusedAndInvalidatedByRevision() {
@@ -421,6 +516,89 @@ class TestBakeController : public QObject {
         const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
         QCOMPARE(snapshot.value(PerformanceCounter::BakeRustKeyframeBatchCalls), quint64{1});
         QCOMPARE(snapshot.value(PerformanceCounter::BakeRustKeyframeTracks), quint64{2});
+    }
+
+    void effectModelAndBakeControllerShareNumericEvaluation() {
+        SceneSettings scene;
+        scene.id = 13;
+
+        Clip clip;
+        clip.id = 82;
+        clip.durationFrames = 101;
+
+        const QStringList interpolations = {
+            QStringLiteral("ease_in_out_cubic"),
+            QStringLiteral("custom"),
+            QStringLiteral("random"),
+            QStringLiteral("alternate"),
+        };
+        std::vector<std::unique_ptr<AviQtl::UI::EffectModel>> models;
+        models.reserve(static_cast<std::size_t>(interpolations.size()));
+
+        constexpr float bzx1 = 0.2F;
+        constexpr float bzy1 = 0.1F;
+        constexpr float bzx2 = 0.7F;
+        constexpr float bzy2 = 0.9F;
+        for (const QString &interpolation : interpolations) {
+            Effect effect;
+            effect.id = QStringLiteral("cache-test");
+            effect.params.insert(QStringLiteral("value"), 0.0);
+            Keyframe start{.frame = 0, .value = 0.0F, .interpolation = interpolation};
+            if (interpolation == QStringLiteral("custom")) {
+                start.bzx1 = bzx1;
+                start.bzy1 = bzy1;
+                start.bzx2 = bzx2;
+                start.bzy2 = bzy2;
+            }
+            effect.keyframes[QStringLiteral("value")] = {
+                start,
+                {.frame = 100, .value = 100.0F, .interpolation = QStringLiteral("linear")},
+            };
+            clip.effects.push_back(std::move(effect));
+
+            auto model = std::make_unique<AviQtl::UI::EffectModel>(
+                QStringLiteral("cache-test"), QStringLiteral("Cache Test"),
+                QStringLiteral("effect"), QStringList(),
+                QVariantMap{{QStringLiteral("value"), 0.0}});
+            QVariantMap startPoint{
+                {QStringLiteral("frame"), 0},
+                {QStringLiteral("value"), 0.0},
+                {QStringLiteral("interp"), interpolation},
+            };
+            if (interpolation == QStringLiteral("custom")) {
+                startPoint.insert(QStringLiteral("points"),
+                                  QVariantList{static_cast<double>(bzx1), static_cast<double>(bzy1),
+                                               static_cast<double>(bzx2), static_cast<double>(bzy2),
+                                               1.0, 1.0});
+            }
+            const QVariantMap endPoint{
+                {QStringLiteral("frame"), 100},
+                {QStringLiteral("value"), 100.0},
+                {QStringLiteral("interp"), QStringLiteral("linear")},
+            };
+            model->setKeyframeTracks({
+                {QStringLiteral("value"),
+                 QVariantMap{{QStringLiteral("start"), startPoint},
+                             {QStringLiteral("points"), QVariantList{endPoint}}}},
+            });
+            models.push_back(std::move(model));
+        }
+
+        scene.clips.push_back(std::move(clip));
+        DocumentModel::instance().addScene(scene);
+        BakeController::instance().bake(scene.id, 37);
+
+        const auto &entries = ECS::instance().editState().effectParams.entries;
+        for (std::size_t index = 0; index < models.size(); ++index) {
+            const auto entry = std::find_if(entries.cbegin(), entries.cend(), [index](const EffectParamEntry &candidate) {
+                return candidate.clipId == 82 && candidate.effectIndex == index &&
+                       QString::fromUtf8(candidate.paramName) == QStringLiteral("value");
+            });
+            QVERIFY(entry != entries.cend());
+            const double modelValue = models[index]->evaluatedParam(QStringLiteral("value"), 37).toDouble();
+            QVERIFY2(std::abs(static_cast<double>(entry->value[0]) - modelValue) < 1e-4,
+                     qPrintable(interpolations[static_cast<qsizetype>(index)]));
+        }
     }
 };
 

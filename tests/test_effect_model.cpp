@@ -123,6 +123,77 @@ class TestEffectModel : public QObject {
         }
         QCOMPARE(m.evaluatedParam(QStringLiteral("pos"), 5).toDouble(), 50.0);
     }
+
+    void numericBatchPreservesRawIntegerTypes() {
+        EffectModel m(QStringLiteral("x"), QStringLiteral("Y"), QStringLiteral("effect"),
+                      QStringList(), {{QStringLiteral("pos"), 0}});
+        m.setKeyframe(QStringLiteral("pos"), 0, 0,
+                      {{QStringLiteral("interp"), QStringLiteral("linear")}});
+        m.setKeyframe(QStringLiteral("pos"), 10, 100,
+                      {{QStringLiteral("interp"), QStringLiteral("none")}});
+
+        QCOMPARE(m.evaluatedParam(QStringLiteral("pos"), 0).typeId(), QMetaType::Int);
+        QCOMPARE(m.evaluatedParam(QStringLiteral("pos"), 10).typeId(), QMetaType::Int);
+        QCOMPARE(m.evaluatedParam(QStringLiteral("pos"), 5).typeId(), QMetaType::Double);
+
+        m.setKeyframe(QStringLiteral("pos"), 0, 0,
+                      {{QStringLiteral("interp"), QStringLiteral("none")}});
+        const QVariant held = m.evaluatedParam(QStringLiteral("pos"), 5);
+        QCOMPARE(held.typeId(), QMetaType::Int);
+        QCOMPARE(held.toInt(), 0);
+    }
+
+    void numericTrackWithoutDefaultStillInterpolates() {
+        EffectModel m(QStringLiteral("x"), QStringLiteral("Y"), QStringLiteral("effect"),
+                      QStringList());
+        const QVariantMap start{
+            {QStringLiteral("frame"), 0},
+            {QStringLiteral("value"), 0.0},
+            {QStringLiteral("interp"), QStringLiteral("linear")},
+        };
+        const QVariantMap end{
+            {QStringLiteral("frame"), 10},
+            {QStringLiteral("value"), 100.0},
+            {QStringLiteral("interp"), QStringLiteral("none")},
+        };
+        m.setKeyframeTracks({
+            {QStringLiteral("orphan"),
+             QVariantMap{{QStringLiteral("start"), start},
+                         {QStringLiteral("points"), QVariantList{end}}}},
+        });
+
+        QCOMPARE(m.evaluatedParam(QStringLiteral("orphan"), 5).toDouble(), 50.0);
+        m.setKeyframe(QStringLiteral("orphan"), 10, 200.0,
+                      {{QStringLiteral("interp"), QStringLiteral("none")}});
+        QCOMPARE(m.evaluatedParam(QStringLiteral("orphan"), 5).toDouble(), 100.0);
+    }
+
+    void numericBatchInvalidatesAfterTrackMutations() {
+        EffectModel m(QStringLiteral("x"), QStringLiteral("Y"), QStringLiteral("effect"),
+                      QStringList(), {{QStringLiteral("value"), 0.0},
+                                      {QStringLiteral("other"), 10.0}});
+        m.setKeyframe(QStringLiteral("value"), 0, 0.0,
+                      {{QStringLiteral("interp"), QStringLiteral("linear")}});
+        m.setKeyframe(QStringLiteral("value"), 10, 100.0,
+                      {{QStringLiteral("interp"), QStringLiteral("none")}});
+        m.setKeyframe(QStringLiteral("other"), 0, 10.0,
+                      {{QStringLiteral("interp"), QStringLiteral("linear")}});
+        m.setKeyframe(QStringLiteral("other"), 10, 20.0,
+                      {{QStringLiteral("interp"), QStringLiteral("none")}});
+
+        const QVariantMap initial = m.evaluatedParams(5);
+        QCOMPARE(initial.value(QStringLiteral("value")).toDouble(), 50.0);
+        QCOMPARE(initial.value(QStringLiteral("other")).toDouble(), 15.0);
+        QCOMPARE(m.evaluatedParam(QStringLiteral("value"), 5).toDouble(), 50.0);
+
+        m.setKeyframe(QStringLiteral("value"), 10, 200.0,
+                      {{QStringLiteral("interp"), QStringLiteral("none")}});
+        QCOMPARE(m.evaluatedParam(QStringLiteral("value"), 5).toDouble(), 100.0);
+        QCOMPARE(m.evaluatedParam(QStringLiteral("other"), 5).toDouble(), 15.0);
+
+        QVERIFY(m.moveKeyframe(QStringLiteral("other"), 10, 20));
+        QCOMPARE(m.evaluatedParam(QStringLiteral("other"), 5).toDouble(), 12.5);
+    }
 };
 
 QTEST_MAIN(TestEffectModel)
