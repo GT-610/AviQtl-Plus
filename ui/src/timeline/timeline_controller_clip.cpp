@@ -376,8 +376,6 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         m_timeline->undoStack()->endMacro();
         return editResult(startFrame, layer, importDuration);
     } else if (audioExts.contains(suffix)) {
-        m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
-
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_AUDIO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
@@ -386,25 +384,23 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
 
         const int clipId = m_timeline->allocateClipId();
         if (clipId < 0) {
-            m_timeline->undoStack()->endMacro();
             return {{QStringLiteral("ok"), false}};
         }
+        m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("audio"), startFrame, layer, tr("音声"), importDuration, QStringLiteral("audio"),
                                                         {{QStringLiteral("source"), filePath}}));
 
         m_timeline->undoStack()->endMacro();
         return editResult(startFrame, layer, importDuration);
     } else if (imageExts.contains(suffix)) {
-        m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
-
         const int importDuration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
         const int clipId = m_timeline->allocateClipId();
         if (clipId < 0) {
-            m_timeline->undoStack()->endMacro();
             return {{QStringLiteral("ok"), false}};
         }
+        m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("image"), startFrame, layer, tr("画像"), importDuration, QStringLiteral("image"),
                                                         {{QStringLiteral("path"), filePath}}));
 

@@ -49,7 +49,12 @@ using TimelinePosition = AviQtlTimelinePosition;
 template <typename Planner> [[nodiscard]] inline TimelineEditStatus planVariable(std::span<const TimelineClipGeometry> clips, std::vector<TimelineClipGeometry> &output, Planner &&planner) {
     output.resize(clips.size());
     std::size_t written = 0;
-    const auto status = static_cast<TimelineEditStatus>(planner(output.data(), output.size(), &written));
+    auto status = static_cast<TimelineEditStatus>(planner(output.data(), output.size(), &written));
+    if (status == TimelineEditStatus::BufferTooSmall && written > output.size()) {
+        output.resize(written);
+        written = 0;
+        status = static_cast<TimelineEditStatus>(planner(output.data(), output.size(), &written));
+    }
     if (status != TimelineEditStatus::Ok || written > output.size()) {
         output.clear();
         return status == TimelineEditStatus::Ok ? TimelineEditStatus::InvalidArgument : status;

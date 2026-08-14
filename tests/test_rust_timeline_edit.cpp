@@ -19,6 +19,7 @@ class TestRustTimelineEdit : public QObject {
   private slots:
     void plansDeltaMovesAndLockedLayers();
     void reportsRequiredDeltaMoveCapacityWithoutPartialWrite();
+    void variablePlannerRetriesWithReportedCapacity();
     void plansClipboardPlacementAndRejectsInternalOverlap();
     void splitsWithoutPartialWrites();
 };
@@ -52,6 +53,28 @@ void TestRustTimelineEdit::reportsRequiredDeltaMoveCapacityWithoutPartialWrite()
     QCOMPARE(output[0].layer, 99);
     QCOMPARE(output[0].start_frame, 99);
     QCOMPARE(output[0].duration_frames, 99);
+}
+
+void TestRustTimelineEdit::variablePlannerRetriesWithReportedCapacity() {
+    const std::array clips{clip(1, 0, 0, 10)};
+    std::vector<TimelineClipGeometry> output;
+    int calls = 0;
+    const auto status = AviQtl::RustCore::planVariable(
+        clips, output,
+        [&](TimelineClipGeometry *data, std::size_t capacity, std::size_t *written) {
+            ++calls;
+            *written = 2;
+            if (capacity < 2) {
+                return AVIQTL_RUST_CORE_STATUS_BUFFER_TOO_SMALL;
+            }
+            data[0] = clip(1, 1, 0, 10);
+            data[1] = clip(2, 2, 10, 10);
+            return AVIQTL_RUST_CORE_STATUS_OK;
+        });
+    QCOMPARE(status, TimelineEditStatus::Ok);
+    QCOMPARE(calls, 2);
+    QCOMPARE(output.size(), std::size_t{2});
+    QCOMPARE(output[1].clip_id, 2);
 }
 
 void TestRustTimelineEdit::plansClipboardPlacementAndRejectsInternalOverlap() {

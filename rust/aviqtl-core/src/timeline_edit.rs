@@ -120,13 +120,19 @@ fn plan_batch_move(
     }) {
         return Err(STATUS_LOCKED_LAYER);
     }
+    if moves
+        .iter()
+        .any(|movement| !(MIN_LAYER..=MAX_LAYER).contains(&movement.target_layer))
+    {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
 
     let push = i64::from(group_push(clips, moves));
     let planned: Vec<_> = moves
         .iter()
         .map(|movement| AviQtlTimelineClipGeometry {
             clip_id: movement.clip_id,
-            layer: movement.target_layer.max(MIN_LAYER),
+            layer: movement.target_layer,
             start_frame: clamp_i64((i64::from(movement.target_start_frame) + push).max(0)),
             duration_frames: movement.duration_frames.max(1),
         })
@@ -224,9 +230,9 @@ fn plan_insert_layers(
     target_layer: i32,
     count: i32,
     above: bool,
-) -> Vec<AviQtlTimelineClipGeometry> {
+) -> Result<Vec<AviQtlTimelineClipGeometry>, u32> {
     if count <= 0 {
-        return Vec::new();
+        return Ok(Vec::new());
     }
     let mut planned: Vec<_> = clips
         .iter()
@@ -241,9 +247,15 @@ fn plan_insert_layers(
         .collect();
     planned.sort_by_key(|clip| std::cmp::Reverse(clip.layer));
     for clip in &mut planned {
-        clip.layer = clip.layer.saturating_add(count);
+        let Some(layer) = clip.layer.checked_add(count) else {
+            return Err(STATUS_INVALID_ARGUMENT);
+        };
+        if !(MIN_LAYER..=MAX_LAYER).contains(&layer) {
+            return Err(STATUS_INVALID_ARGUMENT);
+        }
+        clip.layer = layer;
     }
-    planned
+    Ok(planned)
 }
 
 fn plan_shift_layers(
@@ -251,9 +263,9 @@ fn plan_shift_layers(
     start_layer: i32,
     end_layer: i32,
     delta: i32,
-) -> Vec<AviQtlTimelineClipGeometry> {
+) -> Result<Vec<AviQtlTimelineClipGeometry>, u32> {
     if delta == 0 || start_layer > end_layer {
-        return Vec::new();
+        return Ok(Vec::new());
     }
     let mut planned: Vec<_> = clips
         .iter()
@@ -266,9 +278,15 @@ fn plan_shift_layers(
         planned.sort_by_key(|clip| clip.layer);
     }
     for clip in &mut planned {
-        clip.layer = clip.layer.saturating_add(delta).max(MIN_LAYER);
+        let Some(layer) = clip.layer.checked_add(delta) else {
+            return Err(STATUS_INVALID_ARGUMENT);
+        };
+        if !(MIN_LAYER..=MAX_LAYER).contains(&layer) {
+            return Err(STATUS_INVALID_ARGUMENT);
+        }
+        clip.layer = layer;
     }
-    planned
+    Ok(planned)
 }
 
 fn clipboard_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
@@ -279,32 +297,50 @@ fn clipboard_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
     clamp_i64(maximum_end.saturating_sub(minimum_start).max(0))
 }
 
+#[derive(Clone, Copy)]
+struct ClipboardLayout {
+    minimum_start: i32,
+    minimum_layer: i32,
+}
+
+fn clipboard_layout(clips: &[AviQtlTimelineClipGeometry]) -> Option<ClipboardLayout> {
+    Some(ClipboardLayout {
+        minimum_start: clips.iter().map(|clip| clip.start_frame).min()?,
+        minimum_layer: clips.iter().map(|clip| clip.layer).min()?,
+    })
+}
+
+fn clipboard_layer(
+    source: &AviQtlTimelineClipGeometry,
+    layout: ClipboardLayout,
+    layer_offset: i32,
+) -> Result<i32, u32> {
+    let layer = i64::from(layer_offset) + i64::from(source.layer) - i64::from(layout.minimum_layer);
+    if !(i64::from(MIN_LAYER)..=i64::from(MAX_LAYER)).contains(&layer) {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+    Ok(layer as i32)
+}
+
 fn find_vacant_clipboard_frame(
     existing: &[AviQtlTimelineClipGeometry],
     clipboard: &[AviQtlTimelineClipGeometry],
     requested_frame: i32,
     layer_offset: i32,
-) -> i32 {
+) -> Result<i32, u32> {
     if clipboard.is_empty() {
-        return requested_frame;
+        return Ok(requested_frame);
     }
-    let minimum_start = clipboard
-        .iter()
-        .map(|clip| clip.start_frame)
-        .min()
-        .unwrap_or(0);
-    let minimum_layer = clipboard.iter().map(|clip| clip.layer).min().unwrap_or(0);
+    let layout = clipboard_layout(clipboard).ok_or(STATUS_INVALID_ARGUMENT)?;
     let mut safe_frame = i64::from(requested_frame.max(0));
 
     loop {
         let mut next_jump = safe_frame.saturating_add(1);
         let mut colliding = false;
         for source in clipboard {
-            let relative_start = i64::from(source.start_frame) - i64::from(minimum_start);
+            let relative_start = i64::from(source.start_frame) - i64::from(layout.minimum_start);
             let clip_start = safe_frame + relative_start;
-            let clip_layer = layer_offset
-                .saturating_add(source.layer.saturating_sub(minimum_layer))
-                .max(MIN_LAYER);
+            let clip_layer = clipboard_layer(source, layout, layer_offset)?;
             for obstacle in existing {
                 if obstacle.layer == clip_layer
                     && overlaps(
@@ -320,7 +356,7 @@ fn find_vacant_clipboard_frame(
             }
         }
         if !colliding || safe_frame >= i64::from(i32::MAX) {
-            return clamp_i64(safe_frame);
+            return Ok(clamp_i64(safe_frame));
         }
         safe_frame = next_jump.min(i64::from(i32::MAX));
     }
@@ -338,27 +374,23 @@ fn plan_clipboard_placement(
     if clipboard.is_empty() {
         return Ok((requested_frame.max(0), Vec::new()));
     }
-    let minimum_start = clipboard
-        .iter()
-        .map(|clip| clip.start_frame)
-        .min()
-        .unwrap_or(0);
-    let minimum_layer = clipboard.iter().map(|clip| clip.layer).min().unwrap_or(0);
+    let layout = clipboard_layout(clipboard).ok_or(STATUS_INVALID_ARGUMENT)?;
     let safe_frame =
-        find_vacant_clipboard_frame(existing, clipboard, requested_frame, layer_offset);
+        find_vacant_clipboard_frame(existing, clipboard, requested_frame, layer_offset)?;
     let planned = clipboard
         .iter()
-        .map(|source| AviQtlTimelineClipGeometry {
-            clip_id: source.clip_id,
-            layer: layer_offset
-                .saturating_add(source.layer.saturating_sub(minimum_layer))
-                .max(MIN_LAYER),
-            start_frame: clamp_i64(
-                i64::from(safe_frame) + i64::from(source.start_frame) - i64::from(minimum_start),
-            ),
-            duration_frames: source.duration_frames.max(1),
+        .map(|source| {
+            Ok(AviQtlTimelineClipGeometry {
+                clip_id: source.clip_id,
+                layer: clipboard_layer(source, layout, layer_offset)?,
+                start_frame: clamp_i64(
+                    i64::from(safe_frame) + i64::from(source.start_frame)
+                        - i64::from(layout.minimum_start),
+                ),
+                duration_frames: source.duration_frames.max(1),
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, u32>>()?;
     Ok((safe_frame, planned))
 }
 
@@ -761,7 +793,10 @@ pub unsafe extern "C" fn aviqtl_timeline_plan_insert_layers(
         // SAFETY: The input range was validated. Output overlap is checked before writes.
         unsafe { std::slice::from_raw_parts(clips, clips_length) }
     };
-    let planned = plan_insert_layers(clips_slice, target_layer, count, above != 0);
+    let planned = match plan_insert_layers(clips_slice, target_layer, count, above != 0) {
+        Ok(planned) => planned,
+        Err(status) => return status,
+    };
     // SAFETY: The helper validates every range before writing.
     unsafe {
         write_variable_plan(
@@ -800,7 +835,10 @@ pub unsafe extern "C" fn aviqtl_timeline_plan_shift_layers(
         // SAFETY: The input range was validated. Output overlap is checked before writes.
         unsafe { std::slice::from_raw_parts(clips, clips_length) }
     };
-    let planned = plan_shift_layers(clips_slice, start_layer, end_layer, delta);
+    let planned = match plan_shift_layers(clips_slice, start_layer, end_layer, delta) {
+        Ok(planned) => planned,
+        Err(status) => return status,
+    };
     // SAFETY: The helper validates every range before writing.
     unsafe {
         write_variable_plan(
@@ -888,7 +926,11 @@ pub unsafe extern "C" fn aviqtl_timeline_find_vacant_clipboard_frame(
         // SAFETY: The range was validated and checked against the output.
         unsafe { std::slice::from_raw_parts(clipboard, clipboard_length) }
     };
-    let result = find_vacant_clipboard_frame(existing, clipboard, requested_frame, layer_offset);
+    let result =
+        match find_vacant_clipboard_frame(existing, clipboard, requested_frame, layer_offset) {
+            Ok(result) => result,
+            Err(status) => return status,
+        };
     // SAFETY: The output was validated and checked against both inputs.
     unsafe { output_frame.write(result) };
     STATUS_OK
@@ -1128,7 +1170,7 @@ mod tests {
         assert_eq!(resized[0].start_frame, 21);
         assert_eq!(resized[0].duration_frames, 14);
 
-        let inserted = plan_insert_layers(&clips, 1, 2, true);
+        let inserted = plan_insert_layers(&clips, 1, 2, true).unwrap();
         assert_eq!(
             inserted.iter().map(|clip| clip.clip_id).collect::<Vec<_>>(),
             [2, 3]
@@ -1136,13 +1178,13 @@ mod tests {
         assert_eq!(inserted[0].layer, 4);
         assert_eq!(inserted[1].layer, 3);
 
-        let shifted = plan_shift_layers(&clips, 0, 2, -2);
+        let shifted = plan_shift_layers(&clips, 1, 2, -1).unwrap();
         assert_eq!(
             shifted.iter().map(|clip| clip.clip_id).collect::<Vec<_>>(),
-            [1, 3, 2]
+            [3, 2]
         );
         assert_eq!(shifted[0].layer, 0);
-        assert_eq!(shifted[1].layer, 0);
+        assert_eq!(shifted[1].layer, 1);
     }
 
     #[test]
@@ -1152,7 +1194,7 @@ mod tests {
         let existing = [clip(3, 0, 15, 10)];
         assert_eq!(
             find_vacant_clipboard_frame(&existing, &clipboard, 10, 0),
-            25
+            Ok(25)
         );
 
         let (safe_frame, planned) = plan_clipboard_placement(&existing, &clipboard, 10, 0).unwrap();
@@ -1162,6 +1204,35 @@ mod tests {
         let overlapping = [clip(1, 0, 0, 10), clip(2, 0, 5, 10)];
         assert_eq!(
             plan_clipboard_placement(&[], &overlapping, 0, 0),
+            Err(STATUS_INVALID_ARGUMENT)
+        );
+    }
+
+    #[test]
+    fn every_plan_rejects_layers_outside_the_domain() {
+        let clips = [clip(1, 127, 0, 10)];
+        let movement = [AviQtlTimelineMoveInput {
+            clip_id: 1,
+            old_layer: 127,
+            old_start_frame: 0,
+            duration_frames: 10,
+            target_layer: 128,
+            target_start_frame: 0,
+        }];
+        assert_eq!(
+            plan_batch_move(&clips, &movement, &[]),
+            Err(STATUS_INVALID_ARGUMENT)
+        );
+        assert_eq!(
+            plan_insert_layers(&clips, 127, 1, true),
+            Err(STATUS_INVALID_ARGUMENT)
+        );
+        assert_eq!(
+            plan_shift_layers(&clips, 127, 127, 1),
+            Err(STATUS_INVALID_ARGUMENT)
+        );
+        assert_eq!(
+            plan_clipboard_placement(&[], &clips, 0, 128),
             Err(STATUS_INVALID_ARGUMENT)
         );
     }

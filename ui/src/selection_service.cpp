@@ -1,5 +1,6 @@
 #include "selection_service.hpp"
 #include "rust_timeline_domain.hpp"
+#include <QDebug>
 #include <cstdint>
 #include <vector>
 
@@ -54,6 +55,7 @@ void SelectionService::toggleSelection(int id, const QVariantMap &data) {
     std::int32_t nextPrimary = previousPrimary;
     if (AviQtl::RustCore::toggleSelection(currentIds, previousPrimary, id, planned, nextPrimary) !=
         AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        qWarning() << "Rust selection toggle planning failed for id" << id;
         return;
     }
 
@@ -84,12 +86,17 @@ void SelectionService::replaceSelection(const QVariantList &ids, int primaryId, 
     std::vector<std::int32_t> requested;
     requested.reserve(static_cast<std::size_t>(ids.size()));
     for (const QVariant &value : ids) {
-        requested.push_back(value.toInt());
+        bool ok = false;
+        const int id = value.toInt(&ok);
+        if (ok) {
+            requested.push_back(id);
+        }
     }
     std::vector<std::int32_t> planned;
     std::int32_t nextPrimary = primaryId;
     if (AviQtl::RustCore::replaceSelection(requested, primaryId, planned, nextPrimary) !=
         AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        qWarning() << "Rust selection replacement planning failed";
         return;
     }
     const QList<int> nextIds(planned.cbegin(), planned.cend());

@@ -10,16 +10,6 @@ namespace AviQtl::UI {
 
 namespace {
 
-auto sceneGridMode(const QString &mode) -> AviQtl::RustCore::SceneGridMode {
-    if (mode == QLatin1String("BPM")) {
-        return AviQtl::RustCore::SceneGridMode::Bpm;
-    }
-    if (mode == QLatin1String("Frame")) {
-        return AviQtl::RustCore::SceneGridMode::Frame;
-    }
-    return AviQtl::RustCore::SceneGridMode::Auto;
-}
-
 auto sceneGridModeName(std::uint32_t mode) -> QString {
     switch (static_cast<AviQtl::RustCore::SceneGridMode>(mode)) {
     case AviQtl::RustCore::SceneGridMode::Bpm:
@@ -170,7 +160,7 @@ void TimelineService::updateSceneSettings(int sceneId, const QString &name, int 
         .height = height,
         .fps = fps,
         .total_frames = totalFrames,
-        .grid_mode = static_cast<std::uint32_t>(sceneGridMode(gridMode)),
+        .grid_mode = static_cast<std::uint32_t>(AviQtl::RustCore::sceneGridMode(gridMode)),
         .grid_bpm = gridBpm,
         .grid_offset = gridOffset,
         .grid_interval = gridInterval,

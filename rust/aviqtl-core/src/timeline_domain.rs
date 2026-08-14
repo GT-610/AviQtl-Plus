@@ -205,12 +205,18 @@ fn normalize_removal_indices(length: usize, indices: &[i32], minimum_index: i32)
     normalized.into_iter().rev().collect()
 }
 
-fn inverse_permutation(permutation: &[i32]) -> Vec<i32> {
-    let mut inverse = vec![0_i32; permutation.len()];
+fn inverse_permutation(permutation: &[i32]) -> Option<Vec<i32>> {
+    let mut inverse = vec![-1_i32; permutation.len()];
     for (new_index, old_index) in permutation.iter().copied().enumerate() {
-        inverse[old_index as usize] = new_index as i32;
+        let slot = usize::try_from(old_index)
+            .ok()
+            .and_then(|index| inverse.get_mut(index))?;
+        if *slot >= 0 {
+            return None;
+        }
+        *slot = i32::try_from(new_index).ok()?;
     }
-    inverse
+    inverse.iter().all(|index| *index >= 0).then_some(inverse)
 }
 
 fn plan_index_move(
@@ -230,7 +236,7 @@ fn plan_index_move(
     let mut permutation: Vec<_> = (0..length as i32).collect();
     let moved = permutation.remove(old_index as usize);
     permutation.insert(new_index as usize, moved);
-    let inverse = inverse_permutation(&permutation);
+    let inverse = inverse_permutation(&permutation)?;
     Some((permutation, inverse))
 }
 
@@ -264,7 +270,7 @@ fn plan_multi_reorder(
     permutation.extend_from_slice(&remaining[..insert_at]);
     permutation.extend_from_slice(&selected_ascending);
     permutation.extend_from_slice(&remaining[insert_at..]);
-    let inverse = inverse_permutation(&permutation);
+    let inverse = inverse_permutation(&permutation)?;
     Some((permutation, inverse, selected_ascending.len()))
 }
 
@@ -464,6 +470,8 @@ pub unsafe extern "C" fn aviqtl_timeline_duration(
     timeline_duration(clips)
 }
 
+/// Clamps an output duration to the remaining source-scene frames, where `speed` is source
+/// frames consumed per output frame and `offset` is measured in source frames.
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_timeline_clamp_scene_duration(
     requested_duration: i32,
@@ -784,6 +792,31 @@ mod tests {
         assert_eq!(toggle_selection(&[7, 3], 7, 7), (vec![3], 3));
         assert_eq!(toggle_selection(&[7, 3], 7, 5), (vec![7, 3, 5], 5));
         assert_eq!(toggle_selection(&[7, 3], 7, -1), (Vec::new(), -1));
+    }
+
+    #[test]
+    fn selection_replace_reports_required_capacity_without_partial_writes() {
+        let ids = [7_i32, 3_i32, 7_i32];
+        let mut output = [99_i32];
+        let original = output;
+        let mut required = 0_usize;
+        let mut primary = 99_i32;
+        // SAFETY: Every range is valid and disjoint; the ID output is intentionally undersized.
+        let status = unsafe {
+            aviqtl_selection_replace(
+                ids.as_ptr(),
+                ids.len(),
+                7,
+                output.as_mut_ptr(),
+                output.len(),
+                &mut required,
+                &mut primary,
+            )
+        };
+        assert_eq!(status, STATUS_BUFFER_TOO_SMALL);
+        assert_eq!(required, 2);
+        assert_eq!(output, original);
+        assert_eq!(primary, 99);
     }
 
     #[test]

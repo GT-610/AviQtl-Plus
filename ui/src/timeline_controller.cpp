@@ -247,11 +247,8 @@ auto TimelineController::snapFrame(double frame, bool ignoreSnap) const -> int {
         .height = scene.height,
         .fps = scene.fps,
         .total_frames = scene.totalFrames,
-        .grid_mode = scene.gridMode == QLatin1String("BPM")
-                         ? static_cast<std::uint32_t>(AviQtl::RustCore::SceneGridMode::Bpm)
-                         : scene.gridMode == QLatin1String("Frame")
-                               ? static_cast<std::uint32_t>(AviQtl::RustCore::SceneGridMode::Frame)
-                               : static_cast<std::uint32_t>(AviQtl::RustCore::SceneGridMode::Auto),
+        .grid_mode = static_cast<std::uint32_t>(
+            AviQtl::RustCore::sceneGridMode(scene.gridMode)),
         .grid_bpm = scene.gridBpm,
         .grid_offset = scene.gridOffset,
         .grid_interval = scene.gridInterval,

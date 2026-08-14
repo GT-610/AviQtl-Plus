@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rust_core_abi.hpp"
+#include <QStringView>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -19,6 +20,16 @@ enum class SceneGridMode : std::uint32_t {
     Bpm = 1,
     Frame = 2,
 };
+
+[[nodiscard]] inline SceneGridMode sceneGridMode(QStringView mode) {
+    if (mode == QStringView(u"BPM")) {
+        return SceneGridMode::Bpm;
+    }
+    if (mode == QStringView(u"Frame")) {
+        return SceneGridMode::Frame;
+    }
+    return SceneGridMode::Auto;
+}
 
 using SceneSettings = AviQtlSceneSettings;
 using IdAllocation = AviQtlIdAllocation;

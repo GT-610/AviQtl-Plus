@@ -158,11 +158,8 @@ void TimelineService::insertLayers(int targetLayer, int count, bool above) {
         return;
     }
 
-    m_undoStack->beginMacro(above ? tr("レイヤーを上に挿入") : tr("レイヤーを下に挿入"));
-    for (const auto &clip : planned) {
-        updateClip(clip.clip_id, clip.layer, clip.start_frame, clip.duration_frames);
-    }
-    m_undoStack->endMacro();
+    applyPlannedMoves(this, planned,
+                      above ? tr("レイヤーを上に挿入") : tr("レイヤーを下に挿入"), true);
 }
 
 void TimelineService::shiftLayers(int startLayer, int endLayer, int delta) {
@@ -176,11 +173,10 @@ void TimelineService::shiftLayers(int startLayer, int endLayer, int delta) {
         return;
     }
 
-    m_undoStack->beginMacro(delta > 0 ? tr("レイヤーをまとめて下へ移動") : tr("レイヤーをまとめて上へ移動"));
-    for (const auto &clip : planned) {
-        updateClip(clip.clip_id, clip.layer, clip.start_frame, clip.duration_frames);
-    }
-    m_undoStack->endMacro();
+    applyPlannedMoves(this, planned,
+                      delta > 0 ? tr("レイヤーをまとめて下へ移動")
+                                : tr("レイヤーをまとめて上へ移動"),
+                      true);
 }
 
 void TimelineService::applyClipBatchMove(const QVariantList &moves) {
@@ -196,11 +192,16 @@ void TimelineService::applyClipBatchMove(const QVariantList &moves) {
         const int id = move.value(QStringLiteral("id")).toInt();
         const auto *clip = findClipById(id);
         if (clip != nullptr) {
+            bool durationOk = false;
+            const int requestedDuration =
+                move.value(QStringLiteral("duration")).toInt(&durationOk);
             AviQtl::RustCore::TimelineMoveInput movement{
                 .clip_id = id,
                 .old_layer = clip->layer,
                 .old_start_frame = clip->startFrame,
-                .duration_frames = move.value(QStringLiteral("duration")).toInt(),
+                .duration_frames = durationOk && requestedDuration > 0
+                                       ? requestedDuration
+                                       : clip->durationFrames,
                 .target_layer = move.value(QStringLiteral("layer")).toInt(),
                 .target_start_frame = move.value(QStringLiteral("startFrame")).toInt(),
             };

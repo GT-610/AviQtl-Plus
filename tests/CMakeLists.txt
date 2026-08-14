@@ -378,7 +378,8 @@ aviqtl_label_tests(unit
     effect_registry shader_compiler document_model settings_manager performance_metrics
     theme_controller media_decoder media_utils keyframe_utils effect_model
     video_frame_store dense_component_map audio_plugin_chain audio_dsp triple_buffer
-    rust_timeline_edit lua_host plugin_manifest mod_engine permission_manager selection_service
+    rust_timeline_edit rust_timeline_domain rust_keyframe_document lua_host plugin_manifest
+    mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
     project_recovery build_version
 )
