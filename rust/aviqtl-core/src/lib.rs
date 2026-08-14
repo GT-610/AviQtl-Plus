@@ -4,6 +4,7 @@ mod abi;
 mod audio;
 mod keyframe;
 mod keyframe_document;
+mod package;
 mod policy;
 mod preset;
 mod project;

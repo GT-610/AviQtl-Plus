@@ -1,28 +1,28 @@
 #include "package_manager.hpp"
+#include "effect_registry.hpp"
 #include "package_deployment.hpp"
 #include "package_url_utils.hpp"
-#include "effect_registry.hpp"
+#include "rust_package_document.hpp"
 #include "settings_manager.hpp"
 #include "shader_compiler.hpp"
 #include "version.hpp"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
-#include <algorithm>
-#include <limits>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLocale>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QSaveFile>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QXmlStreamReader>
-#include <utility>
+#include <algorithm>
 
 namespace AviQtl::Core {
 
@@ -54,20 +54,13 @@ void enforceReplySizeLimit(QNetworkReply *reply, qint64 maxBytes) {
             reply->abort();
         }
     };
-    QObject::connect(reply, &QNetworkReply::metaDataChanged, reply, [reply, abortIfTooLarge]() {
-        abortIfTooLarge(reply->bytesAvailable(), reply->header(QNetworkRequest::ContentLengthHeader).toLongLong());
-    });
+    QObject::connect(reply, &QNetworkReply::metaDataChanged, reply, [reply, abortIfTooLarge]() { abortIfTooLarge(reply->bytesAvailable(), reply->header(QNetworkRequest::ContentLengthHeader).toLongLong()); });
     QObject::connect(reply, &QNetworkReply::downloadProgress, reply, abortIfTooLarge);
 }
 
 const QString &appVersionString() {
     static const QString cached = QString::fromUtf8(AviQtl::VERSION_STRING);
     return cached;
-}
-
-bool isSupportedCatalogPackageType(const QString &packageType) {
-    return packageType == QStringLiteral("application") ||
-           Internal::PackageDeployment::isValidPackageType(packageType);
 }
 
 bool isPathWithinDirectory(const QString &path, const QString &directoryPath) {
@@ -77,9 +70,7 @@ bool isPathWithinDirectory(const QString &path, const QString &directoryPath) {
         return false;
     }
     const QString relativePath = QDir(canonicalDirectory).relativeFilePath(canonicalPath);
-    return relativePath != QStringLiteral("..") &&
-           !relativePath.startsWith(QStringLiteral("../")) &&
-           !QDir::isAbsolutePath(relativePath);
+    return relativePath != QStringLiteral("..") && !relativePath.startsWith(QStringLiteral("../")) && !QDir::isAbsolutePath(relativePath);
 }
 
 QString getInstalledPackagesPath() {
@@ -94,35 +85,6 @@ QString getReposCachePath() {
     return path;
 }
 
-int compareVersions(const QString &v1, const QString &v2) {
-    if (v1 == v2)
-        return 0;
-    auto sanitize = [](QString v) {
-        if (v.startsWith('v'))
-            v.remove(0, 1);
-        return v;
-    };
-    QStringList parts1 = sanitize(v1).split('.');
-    QStringList parts2 = sanitize(v2).split('.');
-    int i = 0;
-    while (i < parts1.size() && i < parts2.size()) {
-        bool ok1, ok2;
-        int num1 = parts1[i].toInt(&ok1);
-        int num2 = parts2[i].toInt(&ok2);
-        if (ok1 && ok2) {
-            if (num1 < num2) return -1;
-            if (num1 > num2) return 1;
-        } else {
-            if (parts1[i] < parts2[i]) return -1;
-            if (parts1[i] > parts2[i]) return 1;
-        }
-        i++;
-    }
-    if (parts1.size() > parts2.size()) return 1;
-    if (parts1.size() < parts2.size()) return -1;
-    return 0;
-}
-
 QVariantMap loadInstalledPackagesFromFile() {
     const QString installedPath = getInstalledPackagesPath();
     QFile file(installedPath);
@@ -132,22 +94,6 @@ QVariantMap loadInstalledPackagesFromFile() {
         file.close();
     }
     return installed;
-}
-
-QString resolveLanguageField(const QVariant &field, const QString &fallback) {
-    if (field.metaType().id() == QMetaType::QVariantMap) {
-        QVariantMap map = field.toMap();
-        const QString lang = QLocale::system().name().left(2);
-        if (map.contains(lang))
-            return map[lang].toString();
-        if (map.contains("en"))
-            return map["en"].toString();
-        for (auto it = map.begin(); it != map.end(); ++it)
-            return it.value().toString();
-        return fallback;
-    }
-    QString s = field.toString();
-    return s.isEmpty() ? fallback : s;
 }
 
 QString sha256OfFile(const QString &path) {
@@ -174,25 +120,29 @@ PackageManager::PackageManager(QObject *parent) : QObject(parent) {
 }
 
 void PackageManager::setBusy(bool busy) {
-    if (m_isBusy == busy) return;
+    if (m_isBusy == busy)
+        return;
     m_isBusy = busy;
     emit isBusyChanged();
 }
 
 void PackageManager::setStatus(const QString &status) {
-    if (m_statusText == status) return;
+    if (m_statusText == status)
+        return;
     m_statusText = status;
     emit statusTextChanged();
 }
 
 void PackageManager::setProgress(double p) {
-    if (m_progress == p) return;
+    if (m_progress == p)
+        return;
     m_progress = p;
     emit progressChanged();
 }
 
 void PackageManager::setHasUpdatesAvailable(bool available) {
-    if (m_hasUpdatesAvailable == available) return;
+    if (m_hasUpdatesAvailable == available)
+        return;
     m_hasUpdatesAvailable = available;
     emit hasUpdatesAvailableChanged();
 }
@@ -226,18 +176,7 @@ void PackageManager::loadCachedPackages() {
     setStatus(tr("Packages loaded from cache (Press Sync to check for updates)"));
 }
 
-QVariantList PackageManager::repositories() const {
-    return SettingsManager::instance().value(
-        QStringLiteral("packageRepositories"),
-        QVariantList{
-            QVariantMap{
-                {QStringLiteral("url"), QStringLiteral("https://raw.githubusercontent.com/GT-610/AviQtl-Plus/main/repos/repo.json")},
-                {QStringLiteral("name"), QStringLiteral("AviQtl Official")},
-                {QStringLiteral("enabled"), true},
-                {QStringLiteral("priority"), 10}
-            }
-        }).toList();
-}
+QVariantList PackageManager::repositories() const { return SettingsManager::instance().value(QStringLiteral("packageRepositories"), QVariantList{}).toList(); }
 
 void PackageManager::saveRepositories(const QVariantList &repos) {
     SettingsManager::instance().setValue(QStringLiteral("packageRepositories"), repos);
@@ -249,66 +188,32 @@ void PackageManager::addRepository(const QString &url, bool enabled, int priorit
         emit errorOccurred(tr("Repository URL must use HTTPS: %1").arg(url));
         return;
     }
-    QVariantList repos = repositories();
-    for (const auto &r : repos) {
-        if (r.toMap().value(QStringLiteral("url")).toString() == url)
-            return;
-    }
-    QVariantMap entry;
-    entry[QStringLiteral("url")] = url;
-    entry[QStringLiteral("name")] = url; // will be updated on first sync
-    entry[QStringLiteral("enabled")] = enabled;
-    entry[QStringLiteral("priority")] = priority;
-    repos.append(entry);
-    saveRepositories(repos);
+    const auto mutation = RustCore::Package::mutateRepositories(repositories(), RustCore::Package::RepositoryOperation::Add, url, enabled, priority);
+    if (mutation.changed)
+        saveRepositories(mutation.repositories);
 }
 
 void PackageManager::removeRepository(const QString &url) {
-    QVariantList repos = repositories();
-    QVariantList filtered;
-    for (const auto &r : repos) {
-        if (r.toMap().value(QStringLiteral("url")).toString() != url)
-            filtered.append(r);
-    }
-    if (filtered.size() != repos.size())
-        saveRepositories(filtered);
+    const auto mutation = RustCore::Package::mutateRepositories(repositories(), RustCore::Package::RepositoryOperation::Remove, url);
+    if (mutation.changed)
+        saveRepositories(mutation.repositories);
 }
 
 void PackageManager::setRepositoryEnabled(const QString &url, bool enabled) {
-    QVariantList repos = repositories();
-    for (int i = 0; i < repos.size(); ++i) {
-        QVariantMap r = repos[i].toMap();
-        if (r.value(QStringLiteral("url")).toString() == url) {
-            if (r.value(QStringLiteral("enabled"), true).toBool() == enabled)
-                return;
-            r[QStringLiteral("enabled")] = enabled;
-            repos[i] = r;
-            saveRepositories(repos);
-            return;
-        }
-    }
+    const auto mutation = RustCore::Package::mutateRepositories(repositories(), RustCore::Package::RepositoryOperation::Enabled, url, enabled);
+    if (mutation.changed)
+        saveRepositories(mutation.repositories);
 }
 
 void PackageManager::setRepositoryPriority(const QString &url, int priority) {
-    QVariantList repos = repositories();
-    for (int i = 0; i < repos.size(); ++i) {
-        QVariantMap r = repos[i].toMap();
-        if (r.value(QStringLiteral("url")).toString() == url) {
-            if (r.value(QStringLiteral("priority"), 10).toInt() == priority)
-                return;
-            r[QStringLiteral("priority")] = priority;
-            repos[i] = r;
-            saveRepositories(repos);
-            return;
-        }
-    }
+    const auto mutation = RustCore::Package::mutateRepositories(repositories(), RustCore::Package::RepositoryOperation::Priority, url, true, priority);
+    if (mutation.changed)
+        saveRepositories(mutation.repositories);
 }
 
 // --- Sync Pipeline ---
 
-void PackageManager::sync() {
-    refreshRepositories();
-}
+void PackageManager::sync() { refreshRepositories(); }
 
 void PackageManager::refreshRepositories() {
     // Backward compatible alias using the old repo.json-at-packages-list format
@@ -324,19 +229,8 @@ void PackageManager::refreshRepositories() {
     setStatus(tr("Syncing repository..."));
     setProgress(0.0);
 
-    QVariantList repos = repositories();
-    // Sort by ascending priority so higher-priority repos are synced first
-    // and win tie-breaks in mergeCatalogPackage.
-    std::sort(repos.begin(), repos.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value(QStringLiteral("priority"), 10).toInt()
-             < b.toMap().value(QStringLiteral("priority"), 10).toInt();
-    });
-    int enabledCount = 0;
-    for (const auto &r : repos) {
-        if (r.toMap().value(QStringLiteral("enabled"), true).toBool())
-            enabledCount++;
-    }
-    if (enabledCount == 0) {
+    const QVariantList repos = RustCore::Package::enabledRepositories(repositories());
+    if (repos.isEmpty()) {
         m_pendingRequests = 0;
         updateUpdateState();
         setProgress(1.0);
@@ -345,13 +239,10 @@ void PackageManager::refreshRepositories() {
         emit repositoryRefreshed();
         return;
     }
-    m_pendingRequests = enabledCount;
+    m_pendingRequests = repos.size();
 
     for (const auto &r : repos) {
         QVariantMap repo = r.toMap();
-        if (!repo.value(QStringLiteral("enabled"), true).toBool())
-            continue;
-
         QString repoUrl = repo.value(QStringLiteral("url")).toString();
         struct SyncCtx {
             QVariantMap repoInfo;
@@ -409,13 +300,8 @@ void PackageManager::refreshRepositories() {
                                     cacheObj[QStringLiteral("packages")] = catDoc.object().value(QStringLiteral("packages"));
                                 else
                                     cacheObj[QStringLiteral("packages")] = QJsonArray();
-                                QString cacheName = QStringLiteral("catalog_") +
-                                    QString::fromLatin1(QCryptographicHash::hash(
-                                        ctx->repoInfo.value(QStringLiteral("url")).toString().toUtf8(),
-                                        QCryptographicHash::Sha256).toHex()) +
-                                    QStringLiteral(".json");
-                                writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName,
-                                                    QJsonDocument(cacheObj));
+                                QString cacheName = QStringLiteral("catalog_") + QString::fromLatin1(QCryptographicHash::hash(ctx->repoInfo.value(QStringLiteral("url")).toString().toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".json");
+                                writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName, QJsonDocument(cacheObj));
                             }
                             onCatalogFetched(ctx->repoInfo, ctx->catalogData, installed);
                             tryFinishSyncLegacy(installed);
@@ -439,111 +325,14 @@ void PackageManager::onCatalogFetched(const QVariantMap &repoInfo, const QByteAr
     for (const auto &pVal : packages) {
         QVariantMap p = pVal.toObject().toVariantMap();
         p[QStringLiteral("_repo_url")] = repoInfo.value(QStringLiteral("url")).toString();
-        if (p.value(QStringLiteral("id")).toString() == QStringLiteral("org.aviqtl.app")) {
-            p[QStringLiteral("installed_version")] = appVersionString();
-        } else if (installed.contains(p.value(QStringLiteral("id")).toString())) {
-            p[QStringLiteral("installed_version")] = installed.value(p.value(QStringLiteral("id")).toString()).toMap().value(QStringLiteral("version"));
-        }
         mergeCatalogPackage(p, repoInfo, installed);
     }
 }
 
 void PackageManager::mergeCatalogPackage(const QVariantMap &pkg, const QVariantMap &repoInfo, const QVariantMap &installed) {
-    const QString id = pkg.value(QStringLiteral("id")).toString();
-    const QString packageType = pkg.value(QStringLiteral("type")).toString();
-    if (!isSupportedCatalogPackageType(packageType)) {
-        qWarning() << "[PackageManager] Skipping package with unsupported type:" << id << packageType;
-        return;
-    }
-    const QString repoUrl = repoInfo.value(QStringLiteral("url")).toString();
-    const int repoPriority = repoInfo.value(QStringLiteral("priority"), 10).toInt();
-
-    // Find existing entry for this ID
-    int existingIdx = -1;
-    for (int i = 0; i < m_packageList.size(); ++i) {
-        if (m_packageList[i].toMap().value(QStringLiteral("id")).toString() == id) {
-            existingIdx = i;
-            break;
-        }
-    }
-
-    // Resolve display fields
-    QString displayName = resolveLanguageField(pkg.value(QStringLiteral("display_name")), id);
-    QString description = resolveLanguageField(pkg.value(QStringLiteral("short_description")), {});
-
-    QVariantMap sources = pkg.value(QStringLiteral("_sources")).toMap();
-    sources[repoUrl] = pkg.value(QStringLiteral("version")).toString();
-
-    QVariantMap entry;
-    entry[QStringLiteral("id")] = id;
-    entry[QStringLiteral("type")] = pkg.value(QStringLiteral("type"));
-    entry[QStringLiteral("display_name")] = displayName;
-    entry[QStringLiteral("description")] = description;
-    entry[QStringLiteral("author")] = pkg.value(QStringLiteral("author"));
-    entry[QStringLiteral("version")] = pkg.value(QStringLiteral("version"));
-    entry[QStringLiteral("categories")] = pkg.value(QStringLiteral("categories"));
-    entry[QStringLiteral("min_app_version")] = pkg.value(QStringLiteral("min_app_version"));
-    entry[QStringLiteral("metadata_url")] = pkg.value(QStringLiteral("metadata_url"));
-    entry[QStringLiteral("metadata_sha256")] = pkg.value(QStringLiteral("metadata_sha256"));
-    entry[QStringLiteral("_sources")] = sources;
-    entry[QStringLiteral("_primary_repo")] = repoUrl;
-
-    // Hydrate installed version
-    if (id == QStringLiteral("org.aviqtl.app")) {
-        entry[QStringLiteral("installed_version")] = appVersionString();
-    } else if (installed.contains(id)) {
-        entry[QStringLiteral("installed_version")] = installed.value(id).toMap().value(QStringLiteral("version"));
-    }
-
-    // Latest version: prefer the highest seen
-    entry[QStringLiteral("latest_version")] = pkg.value(QStringLiteral("version"));
-
-    if (existingIdx >= 0) {
-        QVariantMap existing = m_packageList[existingIdx].toMap();
-        QVariantMap existingSources = existing.value(QStringLiteral("_sources")).toMap();
-        for (auto it = sources.constBegin(); it != sources.constEnd(); ++it)
-            existingSources.insert(it.key(), it.value());
-        existing[QStringLiteral("_sources")] = existingSources;
-
-        // Determine the priority of the currently-stored primary repo so we
-        // can make precedence explicit instead of relying on arrival order.
-        const QString existingPrimaryRepo = existing.value(QStringLiteral("_primary_repo")).toString();
-        int existingPriority = std::numeric_limits<int>::max();
-        for (const auto &r : repositories()) {
-            QVariantMap rm = r.toMap();
-            if (rm.value(QStringLiteral("url")).toString() == existingPrimaryRepo) {
-                existingPriority = rm.value(QStringLiteral("priority"), 10).toInt();
-                break;
-            }
-        }
-
-        // Take highest version as latest; on ties prefer the higher-priority
-        // repo (lower priority number wins).
-        QString existingLatest = existing.value(QStringLiteral("latest_version")).toString();
-        QString newVersion = pkg.value(QStringLiteral("version")).toString();
-        int cmp = compareVersions(newVersion, existingLatest);
-        if (cmp > 0) {
-            // Newer version: adopt the winning package's metadata fields so the
-            // merged record stays consistent with the chosen source.
-            existing[QStringLiteral("latest_version")] = newVersion;
-            existing[QStringLiteral("version")] = newVersion;
-            existing[QStringLiteral("_primary_repo")] = repoUrl;
-            existing[QStringLiteral("metadata_url")] = pkg.value(QStringLiteral("metadata_url"));
-            existing[QStringLiteral("metadata_sha256")] = pkg.value(QStringLiteral("metadata_sha256"));
-        } else if (cmp == 0) {
-            // Same version: keep the higher-priority repo as _primary_repo.
-            if (repoPriority < existingPriority) {
-                existing[QStringLiteral("_primary_repo")] = repoUrl;
-                existing[QStringLiteral("metadata_url")] = pkg.value(QStringLiteral("metadata_url"));
-                existing[QStringLiteral("metadata_sha256")] = pkg.value(QStringLiteral("metadata_sha256"));
-            } else if (existingPrimaryRepo.isEmpty()) {
-                existing[QStringLiteral("_primary_repo")] = repoUrl;
-            }
-        }
-        m_packageList[existingIdx] = existing;
-    } else {
-        m_packageList.append(entry);
-    }
+    const auto merged = RustCore::Package::mergeCatalog(m_packageList, pkg, repoInfo, repositories(), installed, QLocale::system().name().left(2), appVersionString());
+    if (merged.has_value())
+        m_packageList = *merged;
 }
 
 void PackageManager::tryFinishSyncLegacy(const QVariantMap &installed) {
@@ -558,19 +347,7 @@ void PackageManager::tryFinishSyncLegacy(const QVariantMap &installed) {
     emit repositoryRefreshed();
 }
 
-void PackageManager::updateUpdateState() {
-    bool anyUpdates = false;
-    for (const auto &p : m_packageList) {
-        const QVariantMap item = p.toMap();
-        const QString instVer = item.value(QStringLiteral("installed_version")).toString();
-        const QString latVer = item.value(QStringLiteral("latest_version")).toString();
-        if (!instVer.isEmpty() && !latVer.isEmpty() && compareVersions(latVer, instVer) > 0) {
-            anyUpdates = true;
-            break;
-        }
-    }
-    setHasUpdatesAvailable(anyUpdates);
-}
+void PackageManager::updateUpdateState() { setHasUpdatesAvailable(RustCore::Package::hasUpdates(m_packageList)); }
 
 // --- Metadata Fetching ---
 
@@ -587,26 +364,7 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
         return;
     }
 
-    // Find catalog entry to get metadata_url; prefer the entry whose
-    // _primary_repo matches sourceRepo when disambiguating same-ID packages.
-    QVariantMap catalogEntry;
-    for (const auto &p : std::as_const(m_packageList)) {
-        QVariantMap pm = p.toMap();
-        if (pm.value(QStringLiteral("id")).toString() == packageId) {
-            if (!sourceRepo.isEmpty()) {
-                if (pm.value(QStringLiteral("_primary_repo")).toString() == sourceRepo) {
-                    catalogEntry = pm;
-                    break;
-                }
-                // Keep looking for a repo match, but fall back to first hit.
-                if (catalogEntry.isEmpty())
-                    catalogEntry = pm;
-            } else {
-                catalogEntry = pm;
-                break;
-            }
-        }
-    }
+    const QVariantMap catalogEntry = RustCore::Package::find(m_packageList, packageId, sourceRepo);
     if (catalogEntry.isEmpty()) {
         emit errorOccurred(tr("Package not found: %1").arg(packageId));
         return;
@@ -639,40 +397,37 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
         // Verify metadata checksum if the catalog provided one, so a
         // tampered payload cannot be trusted or cached.
         if (!expectedMetadataSha256.isEmpty()) {
-            const QString actualSha256 = QString::fromLatin1(
-                QCryptographicHash::hash(body, QCryptographicHash::Sha256).toHex());
+            const QString actualSha256 = QString::fromLatin1(QCryptographicHash::hash(body, QCryptographicHash::Sha256).toHex());
             if (actualSha256 != expectedMetadataSha256) {
-                emit errorOccurred(tr("Metadata checksum mismatch for package %1: expected %2, got %3")
-                                       .arg(packageId, expectedMetadataSha256, actualSha256));
+                emit errorOccurred(tr("Metadata checksum mismatch for package %1: expected %2, got %3").arg(packageId, expectedMetadataSha256, actualSha256));
                 return;
             }
         }
 
-        QJsonDocument doc = QJsonDocument::fromJson(body);
-        if (!doc.isObject()) {
+        const QJsonDocument document = QJsonDocument::fromJson(body);
+        if (!document.isObject()) {
             emit errorOccurred(tr("Invalid metadata format for package: %1").arg(packageId));
             return;
         }
 
-        QVariantMap detail = doc.object().toVariantMap();
+        const auto normalized = RustCore::Package::normalizeMetadata(document.object().toVariantMap());
+        if (!normalized.has_value()) {
+            emit errorOccurred(tr("Invalid metadata format for package: %1").arg(packageId));
+            return;
+        }
+        const QVariantMap detail = *normalized;
         m_packageDetails[cacheKey] = detail;
 
         // Cache to repos directory
-        QString cacheName = QStringLiteral("detail_") +
-            QString::fromLatin1(QCryptographicHash::hash(metadataUrl.toUtf8(), QCryptographicHash::Sha256).toHex()) +
-            QStringLiteral(".json");
-        writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName, doc);
+        QString cacheName = QStringLiteral("detail_") + QString::fromLatin1(QCryptographicHash::hash(metadataUrl.toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".json");
+        writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName, QJsonDocument::fromVariant(detail));
 
         emit packageDetailReady(packageId, sourceRepo, detail);
     });
 }
 
 void PackageManager::fetchPackageMetadataForInstall(const QString &packageId, const QString &sourceRepo, const QString &version) {
-    m_pendingInstall = {
-        {QStringLiteral("id"), packageId},
-        {QStringLiteral("sourceRepo"), sourceRepo},
-        {QStringLiteral("version"), version}
-    };
+    m_pendingInstall = {{QStringLiteral("id"), packageId}, {QStringLiteral("sourceRepo"), sourceRepo}, {QStringLiteral("version"), version}};
 
     const QString cacheKey = detailCacheKey(packageId, sourceRepo);
     if (m_packageDetails.contains(cacheKey)) {
@@ -683,34 +438,44 @@ void PackageManager::fetchPackageMetadataForInstall(const QString &packageId, co
     QMetaObject::Connection *conn = new QMetaObject::Connection();
     QMetaObject::Connection *errConn = new QMetaObject::Connection();
 
-    *conn = connect(this, &PackageManager::packageDetailReady, this,
-        [this, conn, errConn, packageId, sourceRepo, version](const QString &readyId, const QString &readyRepo, const QVariantMap &detail) {
-            if (readyId == packageId && readyRepo == sourceRepo) {
-                if (*conn) { disconnect(*conn); *conn = {}; }
-                if (*errConn) { disconnect(*errConn); *errConn = {}; }
-                delete conn;
-                delete errConn;
-                if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId)
-                    continueInstallWithMetadata(packageId, sourceRepo, version, detail);
+    *conn = connect(this, &PackageManager::packageDetailReady, this, [this, conn, errConn, packageId, sourceRepo, version](const QString &readyId, const QString &readyRepo, const QVariantMap &detail) {
+        if (readyId == packageId && readyRepo == sourceRepo) {
+            if (*conn) {
+                disconnect(*conn);
+                *conn = {};
             }
-        });
+            if (*errConn) {
+                disconnect(*errConn);
+                *errConn = {};
+            }
+            delete conn;
+            delete errConn;
+            if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId)
+                continueInstallWithMetadata(packageId, sourceRepo, version, detail);
+        }
+    });
 
     // Clean up and abort the install flow when metadata fetch fails so the
     // pending install/upgrade queue is not left silently waiting.
-    *errConn = connect(this, &PackageManager::errorOccurred, this,
-        [this, conn, errConn, packageId](const QString &message) {
-            Q_UNUSED(message)
-            if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId) {
-                if (*conn) { disconnect(*conn); *conn = {}; }
-                if (*errConn) { disconnect(*errConn); *errConn = {}; }
-                delete conn;
-                delete errConn;
-                setBusy(false);
-                // Advance the upgrade queue if we were in an upgrade flow
-                if (!m_upgradeQueue.isEmpty())
-                    processUpgradeQueue();
+    *errConn = connect(this, &PackageManager::errorOccurred, this, [this, conn, errConn, packageId](const QString &message) {
+        Q_UNUSED(message)
+        if (m_pendingInstall.value(QStringLiteral("id")).toString() == packageId) {
+            if (*conn) {
+                disconnect(*conn);
+                *conn = {};
             }
-        });
+            if (*errConn) {
+                disconnect(*errConn);
+                *errConn = {};
+            }
+            delete conn;
+            delete errConn;
+            setBusy(false);
+            // Advance the upgrade queue if we were in an upgrade flow
+            if (!m_upgradeQueue.isEmpty())
+                processUpgradeQueue();
+        }
+    });
 
     fetchPackageMetadata(packageId, sourceRepo);
 }
@@ -719,66 +484,25 @@ void PackageManager::continueInstallWithMetadata(const QString &packageId, const
     if (version.isEmpty())
         m_pendingInstall[QStringLiteral("version")] = QString(); // use latest from detail
 
-    QString targetVersion = version;
-    QString downloadUrl;
-    QString sha256;
-    QString minAppVersion;
-
-    QVariantList versions = detail.value(QStringLiteral("versions")).toList();
-    if (versions.isEmpty()) {
-        // Legacy flat format: use top-level fields
-        downloadUrl = detail.value(QStringLiteral("download_url")).toString();
-        sha256 = detail.value(QStringLiteral("download_sha256")).toString();
-        minAppVersion = detail.value(QStringLiteral("min_app_version")).toString();
-        if (targetVersion.isEmpty())
-            targetVersion = detail.value(QStringLiteral("version")).toString();
-    } else {
-        if (targetVersion.isEmpty()) {
-            // Find highest version
-            QString bestVer;
-            QVariantMap bestEntry;
-            for (const auto &v : versions) {
-                QVariantMap ve = v.toMap();
-                QString ver = ve.value(QStringLiteral("version")).toString();
-                if (bestVer.isEmpty() || compareVersions(ver, bestVer) > 0) {
-                    bestVer = ver;
-                    bestEntry = ve;
-                }
-            }
-            targetVersion = bestVer;
-            downloadUrl = bestEntry.value(QStringLiteral("download_url")).toString();
-            sha256 = bestEntry.value(QStringLiteral("download_sha256")).toString();
-            minAppVersion = bestEntry.value(QStringLiteral("min_app_version")).toString();
-        } else {
-            for (const auto &v : versions) {
-                QVariantMap ve = v.toMap();
-                if (ve.value(QStringLiteral("version")).toString() == targetVersion) {
-                    downloadUrl = ve.value(QStringLiteral("download_url")).toString();
-                    sha256 = ve.value(QStringLiteral("download_sha256")).toString();
-                    minAppVersion = ve.value(QStringLiteral("min_app_version")).toString();
-                    break;
-                }
-            }
-        }
-    }
-
-    if (downloadUrl.isEmpty()) {
+    const auto selection = RustCore::Package::selectInstall(detail, version, appVersionString());
+    if (!selection.has_value() || selection->status == QStringLiteral("invalid_type")) {
         setBusy(false);
-        emit errorOccurred(tr("No download URL found for package %1 version %2").arg(packageId, targetVersion));
+        emit errorOccurred(tr("Invalid package ID or type."));
+        return;
+    }
+    if (selection->status == QStringLiteral("no_download")) {
+        setBusy(false);
+        emit errorOccurred(tr("No download URL found for package %1 version %2").arg(packageId, selection->version));
+        return;
+    }
+    if (selection->status == QStringLiteral("requires_newer_app")) {
+        setBusy(false);
+        emit errorOccurred(tr("Package %1 requires AviQtl %2 or newer (current: %3)").arg(packageId, selection->minAppVersion, appVersionString()));
         return;
     }
 
-    // Check min app version
-    if (!minAppVersion.isEmpty() && compareVersions(appVersionString(), minAppVersion) < 0) {
-        setBusy(false);
-        emit errorOccurred(tr("Package %1 requires AviQtl %2 or newer (current: %3)").arg(packageId, minAppVersion, appVersionString()));
-        return;
-    }
-
-    QString packageType = detail.value(QStringLiteral("type")).toString();
-    QString effectiveRepo = sourceRepo.isEmpty() ? m_pendingInstall.value(QStringLiteral("sourceRepo")).toString() : sourceRepo;
-
-    downloadPackage(packageId, QUrl(downloadUrl), sha256, packageType, targetVersion, effectiveRepo);
+    const QString effectiveRepo = sourceRepo.isEmpty() ? m_pendingInstall.value(QStringLiteral("sourceRepo")).toString() : sourceRepo;
+    downloadPackage(packageId, QUrl(selection->downloadUrl), selection->sha256, selection->type, selection->version, effectiveRepo);
 }
 
 // --- Package Installation ---
@@ -801,15 +525,13 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
         return;
     }
 
-    const auto packageIt = std::find_if(m_packageList.cbegin(), m_packageList.cend(), [&packageId](const QVariant &entry) {
-        return entry.toMap().value(QStringLiteral("id")).toString() == packageId;
-    });
-    if (packageIt == m_packageList.cend()) {
+    const QVariantMap package = RustCore::Package::find(m_packageList, packageId, sourceRepo);
+    if (package.isEmpty()) {
         m_pendingInstall.clear();
         emit errorOccurred(tr("Package not found: %1").arg(packageId));
         return;
     }
-    const QString packageType = packageIt->toMap().value(QStringLiteral("type")).toString();
+    const QString packageType = package.value(QStringLiteral("type")).toString();
     if (!Internal::PackageDeployment::isValidPackageType(packageType)) {
         m_pendingInstall.clear();
         emit errorOccurred(tr("Invalid package ID or type."));
@@ -818,11 +540,7 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
 
     setBusy(true);
     setProgress(0.0);
-    m_pendingInstall = {
-        {QStringLiteral("id"), packageId},
-        {QStringLiteral("sourceRepo"), sourceRepo},
-        {QStringLiteral("version"), version}
-    };
+    m_pendingInstall = {{QStringLiteral("id"), packageId}, {QStringLiteral("sourceRepo"), sourceRepo}, {QStringLiteral("version"), version}};
 
     fetchPackageMetadataForInstall(packageId, sourceRepo, version);
 }
@@ -871,7 +589,8 @@ void PackageManager::downloadPackage(const QString &packageId, const QUrl &url, 
         }
 
         QString fileName = url.fileName();
-        if (fileName.isEmpty()) fileName = QStringLiteral("package.zip");
+        if (fileName.isEmpty())
+            fileName = QStringLiteral("package.zip");
         const QString archivePath = tempDir.path() + QStringLiteral("/") + fileName;
         QFile file(archivePath);
         if (!file.open(QIODevice::WriteOnly)) {
@@ -942,9 +661,8 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
 
     setStatus(tr("Deploying package files..."));
     setProgress(0.8);
-    const Internal::PackageDeployment::FileOperationResult deployResult = Internal::PackageDeployment::deployFiles(packageId, extractDir.path(), packageType, [installed]() {
-            return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(installed));
-        });
+    const Internal::PackageDeployment::FileOperationResult deployResult =
+        Internal::PackageDeployment::deployFiles(packageId, extractDir.path(), packageType, [installed]() { return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(installed)); });
     if (deployResult != Internal::PackageDeployment::FileOperationResult::Success) {
         qWarning() << "[PackageManager] Failed to deploy package or atomically save installation state.";
         setBusy(false);
@@ -971,15 +689,8 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     setStatus(tr("Installation complete: %1").arg(packageId));
     setBusy(false);
 
-    // Update list state
-    for (int i = 0; i < m_packageList.size(); ++i) {
-        QVariantMap item = m_packageList[i].toMap();
-        if (item.value(QStringLiteral("id")).toString() == packageId) {
-            item[QStringLiteral("installed_version")] = version;
-            m_packageList[i] = item;
-            emit packageListChanged();
-        }
-    }
+    m_packageList = RustCore::Package::setInstalled(m_packageList, packageId, version);
+    emit packageListChanged();
 
     emit packageInstalled(packageId);
     updateUpdateState();
@@ -990,9 +701,11 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
 }
 
 void PackageManager::removePackage(const QString &packageId) {
-    if (m_isBusy || packageId == QStringLiteral("org.aviqtl.app")) return;
+    if (m_isBusy || packageId == QStringLiteral("org.aviqtl.app"))
+        return;
     if (!Internal::PackageDeployment::isValidPackageId(packageId)) {
-        emit errorOccurred(tr("Invalid package ID.")); return;
+        emit errorOccurred(tr("Invalid package ID."));
+        return;
     }
     const QVariantMap currentInstalled = loadInstalledPackagesFromFile();
     const QVariantMap installedPackage = currentInstalled.value(packageId).toMap();
@@ -1005,9 +718,8 @@ void PackageManager::removePackage(const QString &packageId) {
     setStatus(tr("Removing package: %1").arg(packageId));
     QVariantMap updatedInstalled = currentInstalled;
     updatedInstalled.remove(packageId);
-    const Internal::PackageDeployment::FileOperationResult removalResult = Internal::PackageDeployment::removeFiles(packageId, packageType, [updatedInstalled]() {
-        return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(updatedInstalled));
-    });
+    const Internal::PackageDeployment::FileOperationResult removalResult =
+        Internal::PackageDeployment::removeFiles(packageId, packageType, [updatedInstalled]() { return writeJsonAtomically(getInstalledPackagesPath(), QJsonDocument::fromVariant(updatedInstalled)); });
     if (removalResult != Internal::PackageDeployment::FileOperationResult::Success) {
         setBusy(false);
         if (removalResult == Internal::PackageDeployment::FileOperationResult::RollbackFailed)
@@ -1016,15 +728,8 @@ void PackageManager::removePackage(const QString &packageId) {
             emit errorOccurred(tr("Failed to remove package; the installed state and files were restored."));
         return;
     }
-    for (int i = 0; i < m_packageList.size(); ++i) {
-        QVariantMap item = m_packageList[i].toMap();
-        if (item.value(QStringLiteral("id")).toString() == packageId) {
-            item.remove(QStringLiteral("installed_version"));
-            m_packageList[i] = item;
-            emit packageListChanged();
-            break;
-        }
-    }
+    m_packageList = RustCore::Package::setInstalled(m_packageList, packageId, std::nullopt);
+    emit packageListChanged();
     updateUpdateState();
     if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
         const QString deployDir = Internal::PackageDeployment::deployDirectory(packageType);
@@ -1038,24 +743,13 @@ void PackageManager::removePackage(const QString &packageId) {
 }
 
 QVariantList PackageManager::getPackagesByType(const QString &type) const {
-    QVariantList result;
-    for (const auto &p : m_packageList) {
-        QVariantMap pkg = p.toMap();
-        if (type == QStringLiteral("installed")) {
-            if (!pkg.value(QStringLiteral("installed_version")).toString().isEmpty())
-                result.append(pkg);
-        } else {
-            if (pkg.value(QStringLiteral("type")).toString() == type)
-                result.append(pkg);
-        }
-    }
+    QVariantList result = RustCore::Package::filter(m_packageList, type);
     if (type == QStringLiteral("installed") || type == QStringLiteral("mod")) {
         const QDir pluginsDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")));
         QStringList installedModDirectories;
         const QVariantMap installedPackages = loadInstalledPackagesFromFile();
         for (auto it = installedPackages.cbegin(); it != installedPackages.cend(); ++it) {
-            if (it.value().toMap().value(QStringLiteral("type")).toString() != QStringLiteral("mod") ||
-                !Internal::PackageDeployment::isValidPackageId(it.key())) {
+            if (it.value().toMap().value(QStringLiteral("type")).toString() != QStringLiteral("mod") || !Internal::PackageDeployment::isValidPackageId(it.key())) {
                 continue;
             }
             const QString packageDirectory = pluginsDir.filePath(it.key());
@@ -1065,16 +759,12 @@ QVariantList PackageManager::getPackagesByType(const QString &type) const {
         }
         const QFileInfoList filePlugins = pluginsDir.entryInfoList({QStringLiteral("*.lua")}, QDir::Files, QDir::Name);
         for (const QFileInfo &fileInfo : filePlugins) {
-            const bool providedByInstalledPackage = std::any_of(
-                installedModDirectories.cbegin(), installedModDirectories.cend(), [&fileInfo](const QString &packageDirectory) {
-                    return isPathWithinDirectory(fileInfo.absoluteFilePath(), packageDirectory);
-                });
+            const bool providedByInstalledPackage =
+                std::any_of(installedModDirectories.cbegin(), installedModDirectories.cend(), [&fileInfo](const QString &packageDirectory) { return isPathWithinDirectory(fileInfo.absoluteFilePath(), packageDirectory); });
             if (providedByInstalledPackage)
                 continue;
             const QString pluginId = QStringLiteral("file:%1").arg(fileInfo.fileName());
-            const bool alreadyPresent = std::any_of(result.cbegin(), result.cend(), [&pluginId](const QVariant &entry) {
-                return entry.toMap().value(QStringLiteral("id")).toString() == pluginId;
-            });
+            const bool alreadyPresent = std::any_of(result.cbegin(), result.cend(), [&pluginId](const QVariant &entry) { return entry.toMap().value(QStringLiteral("id")).toString() == pluginId; });
             if (alreadyPresent)
                 continue;
             result.append(QVariantMap{
@@ -1091,16 +781,15 @@ QVariantList PackageManager::getPackagesByType(const QString &type) const {
 }
 
 void PackageManager::upgradeAllPackages() {
-    if (m_isBusy) return;
+    if (m_isBusy)
+        return;
     m_upgradeQueue.clear();
-    for (const auto &p : m_packageList) {
-        const QVariantMap item = p.toMap();
-        const QString installedVer = item.value(QStringLiteral("installed_version")).toString();
-        const QString latestVer = item.value(QStringLiteral("latest_version")).toString();
-        if (!installedVer.isEmpty() && !latestVer.isEmpty() && compareVersions(latestVer, installedVer) > 0)
-            m_upgradeQueue.enqueue(item.value(QStringLiteral("id")).toString());
+    for (const QString &packageId : RustCore::Package::upgradeIds(m_packageList))
+        m_upgradeQueue.enqueue(packageId);
+    if (m_upgradeQueue.isEmpty()) {
+        setStatus(tr("No packages to upgrade."));
+        return;
     }
-    if (m_upgradeQueue.isEmpty()) { setStatus(tr("No packages to upgrade.")); return; }
     setBusy(true);
     setStatus(tr("Upgrading all packages..."));
     processUpgradeQueue();
@@ -1119,11 +808,7 @@ void PackageManager::processUpgradeQueue() {
     // m_isBusy, so we must bypass installPackage's busy guard to keep the
     // queue advancing through the existing m_pendingInstall flow.
     setProgress(0.0);
-    m_pendingInstall = {
-        {QStringLiteral("id"), nextPackageId},
-        {QStringLiteral("sourceRepo"), QString()},
-        {QStringLiteral("version"), QString()}
-    };
+    m_pendingInstall = {{QStringLiteral("id"), nextPackageId}, {QStringLiteral("sourceRepo"), QString()}, {QStringLiteral("version"), QString()}};
     fetchPackageMetadataForInstall(nextPackageId, QString(), QString());
 }
 
@@ -1134,10 +819,17 @@ void PackageManager::compileShadersInDirectory(const QString &directory) {
     while (it.hasNext()) {
         const QString sourcePath = it.next();
         const QString qsbPath = sourcePath + QStringLiteral(".qsb");
-        if (!ShaderCompiler::needsRecompile(sourcePath, qsbPath)) { skipped++; continue; }
+        if (!ShaderCompiler::needsRecompile(sourcePath, qsbPath)) {
+            skipped++;
+            continue;
+        }
         QString error;
-        if (ShaderCompiler::compileToFile(sourcePath, qsbPath, &error)) compiled++;
-        else { qWarning().noquote() << "[PackageManager] Shader compilation failed:" << sourcePath << ":" << error; failed++; }
+        if (ShaderCompiler::compileToFile(sourcePath, qsbPath, &error))
+            compiled++;
+        else {
+            qWarning().noquote() << "[PackageManager] Shader compilation failed:" << sourcePath << ":" << error;
+            failed++;
+        }
     }
     if (compiled > 0 || failed > 0)
         qDebug().noquote() << "[PackageManager] Shaders compiled:" << compiled << "skipped:" << skipped << "failed:" << failed;

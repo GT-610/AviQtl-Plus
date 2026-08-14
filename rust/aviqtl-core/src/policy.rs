@@ -156,7 +156,7 @@ fn permission_for_api(value: &str) -> i32 {
         .unwrap_or(-1)
 }
 
-fn valid_package_id(value: &str) -> bool {
+pub(crate) fn valid_package_id(value: &str) -> bool {
     !value.is_empty()
         && value != "."
         && value != ".."

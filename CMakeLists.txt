@@ -176,6 +176,7 @@ set(CORE_SOURCES
     core/include/rust_keyframe_adapter.hpp
     core/include/rust_keyframe_core.hpp
     core/include/rust_keyframe_document.hpp
+    core/include/rust_package_document.hpp
     core/include/rust_project_document.hpp
     core/include/rust_preset_document.hpp
     core/include/rust_settings_document.hpp

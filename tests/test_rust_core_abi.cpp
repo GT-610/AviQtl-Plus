@@ -20,6 +20,7 @@ class TestRustCoreAbi : public QObject {
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_CORE_POLICY);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_DOCUMENT);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PRESET_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_DOCUMENT);
         QCOMPARE(aviqtl_project_current_version(), std::int32_t{3});
     }
 
