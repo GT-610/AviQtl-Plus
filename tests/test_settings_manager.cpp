@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTest>

@@ -1,9 +1,12 @@
+#![recursion_limit = "256"]
+
 mod abi;
 mod audio;
 mod keyframe;
 mod keyframe_document;
 mod policy;
 mod project;
+mod settings;
 mod timeline;
 mod timeline_domain;
 mod timeline_edit;

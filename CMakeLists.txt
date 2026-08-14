@@ -177,6 +177,7 @@ set(CORE_SOURCES
     core/include/rust_keyframe_core.hpp
     core/include/rust_keyframe_document.hpp
     core/include/rust_project_document.hpp
+    core/include/rust_settings_document.hpp
     core/include/rust_timeline_bake.hpp
     core/include/rust_timeline_domain.hpp
     core/include/rust_timeline_edit.hpp

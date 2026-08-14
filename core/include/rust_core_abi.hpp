@@ -16,6 +16,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_DOMAIN = 1ULL << 7,
     AVIQTL_RUST_CORE_CAPABILITY_KEYFRAME_DOCUMENT = 1ULL << 8,
     AVIQTL_RUST_CORE_CAPABILITY_CORE_POLICY = 1ULL << 9,
+    AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_DOCUMENT = 1ULL << 10,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -351,6 +352,10 @@ const std::uint8_t *aviqtl_permission_name(std::int32_t permission, std::size_t 
 std::uint32_t aviqtl_package_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_package_type(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std::size_t valueLength);
+
+std::uint32_t aviqtl_settings_defaults_json(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_settings_merge_json(const std::uint8_t *base, std::size_t baseLength, const std::uint8_t *loaded, std::size_t loadedLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::uint32_t *migrated);
+std::uint32_t aviqtl_settings_persistent_json(const std::uint8_t *settings, std::size_t settingsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
