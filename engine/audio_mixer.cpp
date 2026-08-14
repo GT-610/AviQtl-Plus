@@ -96,12 +96,14 @@ void AudioMixer::registerDecoder(int clipId, AviQtl::Core::AudioDecoder *decoder
 void AudioMixer::unregisterDecoder(int clipId) {
     std::unique_lock lock(m_mutex);
     m_decoders.remove(clipId);
+    m_clipBuffers.erase(clipId);
 }
 
-void AudioMixer::fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double startTime, int sampleCount) {
-    m_rawSamples.resize(static_cast<std::size_t>(std::max(sampleCount, 0)));
+void AudioMixer::fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double startTime,
+                                 int sampleCount, std::vector<float> &output) {
+    output.resize(static_cast<std::size_t>(std::max(sampleCount, 0)));
     if (sampleCount > 0) {
-        decoder->getSamplesInto(startTime, sampleCount, m_rawSamples.data());
+        decoder->getSamplesInto(startTime, sampleCount, output.data());
     }
 }
 
@@ -136,18 +138,47 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
         }
     }
 
+    struct PreparedTrack {
+        AviQtl::RustCore::AudioBatchTrack descriptor{};
+        bool reportMeter = false;
+    };
+    std::vector<PreparedTrack> preparedTracks;
+
     for (const auto &audio : audioStates) {
         int clipId = audio.clipId;
         if (audio.mute || (hasSolo && !audio.solo)) {
-            emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
+            preparedTracks.push_back({
+                .descriptor = {
+                    .samples = nullptr,
+                    .samples_length = 0,
+                    .parameters = {},
+                    .clip_id = clipId,
+                    .mute = audio.mute ? 1U : 0U,
+                    .solo = audio.solo ? 1U : 0U,
+                    .reserved = 0,
+                },
+                .reportMeter = true,
+            });
             continue;
         }
-        auto decIt = m_decoders.find(clipId);
-        if (decIt == m_decoders.end() || decIt.value().isNull()) {
+        if (currentFrame < audio.startFrame || currentFrame >= audio.startFrame + audio.durationFrames) {
             continue;
         }
 
-        if (currentFrame < audio.startFrame || currentFrame >= audio.startFrame + audio.durationFrames) {
+        auto decIt = m_decoders.find(clipId);
+        if (decIt == m_decoders.end() || decIt.value().isNull()) {
+            preparedTracks.push_back({
+                .descriptor = {
+                    .samples = nullptr,
+                    .samples_length = 0,
+                    .parameters = {},
+                    .clip_id = clipId,
+                    .mute = 0,
+                    .solo = audio.solo ? 1U : 0U,
+                    .reserved = 0,
+                },
+                .reportMeter = false,
+            });
             continue;
         }
 
@@ -167,58 +198,82 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
         m_clipLastFrame[clipId] = currentFrame;
 
         auto *decoder = decIt.value().data();
+        auto &clipSamples = m_clipBuffers[clipId];
 
         if (std::abs(sourceRate - 1.0) > 0.01) {
             // リサンプリングが必要な場合
             // 必要ソースサンプル数を計算（補間用に2サンプル余分に要求）
             int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * sourceRate)) + 2;
-            fetchRawSamples(decoder, startTime, neededSamples * 2); // Stereo
+            fetchRawSamples(decoder, startTime, neededSamples * 2, m_rawSamples); // Stereo
 
-            m_clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
-            const auto status = AviQtl::RustCore::resampleStereoLinear(m_rawSamples, m_clipSamples, sourceRate);
+            clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
+            const auto status = AviQtl::RustCore::resampleStereoLinear(m_rawSamples, clipSamples, sourceRate);
             if (status != AviQtl::RustCore::AudioStatus::Ok) {
                 qCWarning(lcAudioMixer) << "Rust audio resampling failed with status"
                                         << static_cast<std::uint32_t>(status);
-                std::fill(m_clipSamples.begin(), m_clipSamples.end(), 0.0F);
+                std::fill(clipSamples.begin(), clipSamples.end(), 0.0F);
             }
             // 次のフレームのための開始位置を進める（m_playbackSpeed 分の秒数）
             m_clipPhase[clipId] = startTime + ((static_cast<double>(samplesPerFrame) / m_format.sampleRate()) * sourceRate);
         } else {
             // 1倍速の場合はそのまま取得
             int neededSamples = samplesPerFrame;
-            fetchRawSamples(decoder, startTime, neededSamples * 2);
-            m_clipSamples.swap(m_rawSamples);
+            fetchRawSamples(decoder, startTime, neededSamples * 2, clipSamples);
             m_clipPhase[clipId] = startTime + (static_cast<double>(samplesPerFrame) / m_format.sampleRate());
         }
 
         auto chainIt = m_chains.find(clipId);
         if (chainIt != m_chains.end()) {
-            chainIt.value()->process(m_clipSamples.data(), samplesPerFrame);
+            chainIt.value()->process(clipSamples.data(), samplesPerFrame);
         }
 
         const double clipDurationSec = fps > 0.0 ? static_cast<double>(audio.durationFrames) / fps : 0.0;
-        AviQtl::RustCore::AudioMeter meter{};
-        const auto mixStatus = AviQtl::RustCore::mixStereo(
-            m_clipSamples,
-            masterBuffer,
-            {
-                .relative_time = relTime,
-                .duration = clipDurationSec,
-                .fade_in_seconds = audio.fadeInSec,
-                .fade_out_seconds = audio.fadeOutSec,
-                .volume = audio.volume,
-                .master_volume = audio.masterVolume,
-                .pan = audio.pan,
-                .limiter = audio.limiter ? 1U : 0U,
+        preparedTracks.push_back({
+            .descriptor = {
+                .samples = clipSamples.data(),
+                .samples_length = clipSamples.size(),
+                .parameters = {
+                    .relative_time = relTime,
+                    .duration = clipDurationSec,
+                    .fade_in_seconds = audio.fadeInSec,
+                    .fade_out_seconds = audio.fadeOutSec,
+                    .volume = audio.volume,
+                    .master_volume = audio.masterVolume,
+                    .pan = audio.pan,
+                    .limiter = audio.limiter ? 1U : 0U,
+                },
+                .clip_id = clipId,
+                .mute = 0,
+                .solo = audio.solo ? 1U : 0U,
+                .reserved = 0,
             },
-            meter);
-        if (mixStatus == AviQtl::RustCore::AudioStatus::Ok) {
-            emit audioMeterChanged(clipId, meter.peak_left, meter.peak_right,
-                                   meter.rms_left, meter.rms_right);
+            .reportMeter = true,
+        });
+    }
+
+    std::vector<AviQtl::RustCore::AudioBatchTrack> batchTracks;
+    batchTracks.reserve(preparedTracks.size());
+    for (const PreparedTrack &track : preparedTracks) {
+        batchTracks.push_back(track.descriptor);
+    }
+    std::vector<AviQtl::RustCore::AudioBatchResult> batchResults(batchTracks.size());
+    const auto mixStatus = AviQtl::RustCore::mixStereoBatch(
+        batchTracks, masterBuffer, batchResults);
+    if (mixStatus != AviQtl::RustCore::AudioStatus::Ok) {
+        qCWarning(lcAudioMixer) << "Rust audio batch mixing failed with status"
+                                << static_cast<std::uint32_t>(mixStatus);
+    }
+    for (std::size_t index = 0; index < preparedTracks.size(); ++index) {
+        if (!preparedTracks[index].reportMeter) {
+            continue;
+        }
+        if (mixStatus == AviQtl::RustCore::AudioStatus::Ok && batchResults[index].mixed != 0) {
+            const auto &meter = batchResults[index].meter;
+            emit audioMeterChanged(batchResults[index].clip_id, meter.peak_left,
+                                   meter.peak_right, meter.rms_left, meter.rms_right);
         } else {
-            qCWarning(lcAudioMixer) << "Rust audio mixing failed with status"
-                                    << static_cast<std::uint32_t>(mixStatus);
-            emit audioMeterChanged(clipId, 0.0f, 0.0f, 0.0f, 0.0f);
+            emit audioMeterChanged(preparedTracks[index].descriptor.clip_id,
+                                   0.0f, 0.0f, 0.0f, 0.0f);
         }
     }
     return masterBuffer;

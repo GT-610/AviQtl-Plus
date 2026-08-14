@@ -11,6 +11,8 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <unordered_map>
+#include <vector>
 
 Q_DECLARE_LOGGING_CATEGORY(lcAudioMixer)
 
@@ -45,7 +47,8 @@ class AudioMixer : public QObject {
     void audioMeterChanged(int clipId, float peakLeft, float peakRight, float rmsLeft, float rmsRight);
 
   private:
-    void fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double startTime, int sampleCount);
+    static void fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double startTime,
+                                int sampleCount, std::vector<float> &output);
 
     std::unique_ptr<QAudioSink> m_audioSink;
     QIODevice *m_audioOutput = nullptr;
@@ -58,8 +61,8 @@ class AudioMixer : public QObject {
     QHash<int, int> m_clipLastFrame;
 
     std::vector<float> m_masterBuffer;
-    std::vector<float> m_clipSamples;
     std::vector<float> m_rawSamples;
+    std::unordered_map<int, std::vector<float>> m_clipBuffers;
     int m_lastSamplesPerFrame = 0;
 
     // Mutex to protect shared state between UI and audio threads

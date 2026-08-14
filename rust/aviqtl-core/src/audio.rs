@@ -1,6 +1,6 @@
 use crate::abi::{
-    AviQtlAudioMeter, AviQtlAudioMixParameters, STATUS_INVALID_ARGUMENT, STATUS_OK,
-    STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
+    AviQtlAudioBatchResult, AviQtlAudioBatchTrack, AviQtlAudioMeter, AviQtlAudioMixParameters,
+    STATUS_INVALID_ARGUMENT, STATUS_OK, STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
 
 fn fade_gain(parameters: AviQtlAudioMixParameters) -> f32 {
@@ -191,6 +191,116 @@ pub unsafe extern "C" fn aviqtl_audio_mix_stereo(
     STATUS_OK
 }
 
+/// Mixes multiple interleaved stereo clips into one caller-owned master buffer.
+///
+/// Solo and mute selection is evaluated for the complete batch. One result is
+/// written per input track, including a zero meter for tracks that were skipped.
+///
+/// # Safety
+///
+/// Non-zero lengths require aligned, initialized input ranges and writable output
+/// ranges. Track descriptors, nested sample buffers, the master buffer, and results
+/// must remain valid and must not overlap any mutable range for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_audio_mix_stereo_batch(
+    tracks: *const AviQtlAudioBatchTrack,
+    tracks_length: usize,
+    master: *mut f32,
+    master_length: usize,
+    results: *mut AviQtlAudioBatchResult,
+    results_length: usize,
+) -> u32 {
+    if tracks_length != results_length
+        || !master_length.is_multiple_of(2)
+        || !slice_is_valid(tracks, tracks_length)
+        || !slice_is_valid(master, master_length)
+        || !slice_is_valid(results, results_length)
+    {
+        return STATUS_INVALID_ARGUMENT;
+    }
+
+    let top_level_overlaps = [
+        ranges_overlap(tracks, tracks_length, master, master_length),
+        ranges_overlap(tracks, tracks_length, results, results_length),
+        ranges_overlap(master, master_length, results, results_length),
+    ];
+    if top_level_overlaps.iter().any(Option::is_none) {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    if top_level_overlaps
+        .into_iter()
+        .flatten()
+        .any(|overlap| overlap)
+    {
+        return STATUS_OVERLAPPING_BUFFERS;
+    }
+
+    let tracks = if tracks_length == 0 {
+        &[]
+    } else {
+        // SAFETY: The descriptor range was validated and checked against both outputs.
+        unsafe { std::slice::from_raw_parts(tracks, tracks_length) }
+    };
+    for track in tracks {
+        if !track.samples_length.is_multiple_of(2)
+            || !slice_is_valid(track.samples, track.samples_length)
+        {
+            return STATUS_INVALID_ARGUMENT;
+        }
+        let nested_overlaps = [
+            ranges_overlap(
+                track.samples,
+                track.samples_length,
+                tracks.as_ptr(),
+                tracks.len(),
+            ),
+            ranges_overlap(track.samples, track.samples_length, master, master_length),
+            ranges_overlap(track.samples, track.samples_length, results, results_length),
+        ];
+        if nested_overlaps.iter().any(Option::is_none) {
+            return STATUS_INVALID_ARGUMENT;
+        }
+        if nested_overlaps.into_iter().flatten().any(|overlap| overlap) {
+            return STATUS_OVERLAPPING_BUFFERS;
+        }
+    }
+
+    let has_solo = tracks
+        .iter()
+        .any(|track| track.solo != 0 && track.mute == 0);
+    let master = if master_length == 0 {
+        &mut []
+    } else {
+        // SAFETY: The master range was validated and checked against every input/output.
+        unsafe { std::slice::from_raw_parts_mut(master, master_length) }
+    };
+    let results = if results_length == 0 {
+        &mut []
+    } else {
+        // SAFETY: The result range was validated and checked against every input/output.
+        unsafe { std::slice::from_raw_parts_mut(results, results_length) }
+    };
+
+    for (track, result) in tracks.iter().zip(results) {
+        let mut output = AviQtlAudioBatchResult {
+            clip_id: track.clip_id,
+            ..AviQtlAudioBatchResult::default()
+        };
+        if track.mute == 0 && (!has_solo || track.solo != 0) {
+            let samples = if track.samples_length == 0 {
+                &[]
+            } else {
+                // SAFETY: This nested range was validated and checked against outputs above.
+                unsafe { std::slice::from_raw_parts(track.samples, track.samples_length) }
+            };
+            output.mixed = 1;
+            output.meter = mix_stereo(samples, master, track.parameters);
+        }
+        *result = output;
+    }
+    STATUS_OK
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,5 +481,129 @@ mod tests {
         assert_close(meter.peak_right, 0.0);
         assert_close(meter.rms_left, 0.0);
         assert_close(meter.rms_right, 0.0);
+    }
+
+    #[test]
+    fn batch_mixing_applies_solo_mute_and_reports_each_track() {
+        let solo_samples = [0.5_f32, -0.5, 0.25, -0.25];
+        let skipped_samples = [1.0_f32, 1.0, 1.0, 1.0];
+        let tracks = [
+            AviQtlAudioBatchTrack {
+                samples: solo_samples.as_ptr(),
+                samples_length: solo_samples.len(),
+                parameters: AviQtlAudioMixParameters {
+                    relative_time: 0.0,
+                    duration: 1.0,
+                    fade_in_seconds: 0.0,
+                    fade_out_seconds: 0.0,
+                    volume: 1.0,
+                    master_volume: 1.0,
+                    pan: 0.0,
+                    limiter: 0,
+                },
+                clip_id: 10,
+                mute: 0,
+                solo: 1,
+                reserved: 0,
+            },
+            AviQtlAudioBatchTrack {
+                samples: skipped_samples.as_ptr(),
+                samples_length: skipped_samples.len(),
+                parameters: mix_parameters(),
+                clip_id: 11,
+                mute: 0,
+                solo: 0,
+                reserved: 0,
+            },
+            AviQtlAudioBatchTrack {
+                samples: skipped_samples.as_ptr(),
+                samples_length: skipped_samples.len(),
+                parameters: mix_parameters(),
+                clip_id: 12,
+                mute: 1,
+                solo: 1,
+                reserved: 0,
+            },
+        ];
+        let mut master = [0.0_f32; 4];
+        let mut results = [AviQtlAudioBatchResult::default(); 3];
+        // SAFETY: All descriptor, nested input, and output ranges are valid and disjoint.
+        let status = unsafe {
+            aviqtl_audio_mix_stereo_batch(
+                tracks.as_ptr(),
+                tracks.len(),
+                master.as_mut_ptr(),
+                master.len(),
+                results.as_mut_ptr(),
+                results.len(),
+            )
+        };
+        assert_eq!(status, STATUS_OK);
+        assert_eq!(master, solo_samples);
+        assert_eq!(results[0].clip_id, 10);
+        assert_eq!(results[0].mixed, 1);
+        assert_close(results[0].meter.peak_left, 0.5);
+        assert_eq!(results[1].clip_id, 11);
+        assert_eq!(results[1].mixed, 0);
+        assert_close(results[1].meter.peak_left, 0.0);
+        assert_eq!(results[2].clip_id, 12);
+        assert_eq!(results[2].mixed, 0);
+    }
+
+    #[test]
+    fn batch_mixing_rejects_nested_output_overlap_without_writes() {
+        let mut master = [0.25_f32, -0.25, 0.5, -0.5];
+        let valid_samples = [1.0_f32, 1.0, 1.0, 1.0];
+        let tracks = [
+            AviQtlAudioBatchTrack {
+                samples: valid_samples.as_ptr(),
+                samples_length: valid_samples.len(),
+                parameters: mix_parameters(),
+                clip_id: 6,
+                mute: 0,
+                solo: 0,
+                reserved: 0,
+            },
+            AviQtlAudioBatchTrack {
+                samples: master.as_ptr(),
+                samples_length: master.len(),
+                parameters: mix_parameters(),
+                clip_id: 7,
+                mute: 0,
+                solo: 0,
+                reserved: 0,
+            },
+        ];
+        let mut results = [
+            AviQtlAudioBatchResult {
+                clip_id: 98,
+                mixed: 98,
+                meter: AviQtlAudioMeter::default(),
+            },
+            AviQtlAudioBatchResult {
+                clip_id: 99,
+                mixed: 99,
+                meter: AviQtlAudioMeter::default(),
+            },
+        ];
+        let original_master = master;
+        // SAFETY: The second track's deliberate overlap must reject the whole batch
+        // before the valid first track can modify either output.
+        let status = unsafe {
+            aviqtl_audio_mix_stereo_batch(
+                tracks.as_ptr(),
+                tracks.len(),
+                master.as_mut_ptr(),
+                master.len(),
+                results.as_mut_ptr(),
+                results.len(),
+            )
+        };
+        assert_eq!(status, STATUS_OVERLAPPING_BUFFERS);
+        assert_eq!(master, original_master);
+        assert_eq!(results[0].clip_id, 98);
+        assert_eq!(results[0].mixed, 98);
+        assert_eq!(results[1].clip_id, 99);
+        assert_eq!(results[1].mixed, 99);
     }
 }
