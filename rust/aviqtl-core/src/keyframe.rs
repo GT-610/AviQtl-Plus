@@ -1,6 +1,6 @@
 use crate::abi::{
     AviQtlEasingParameters, AviQtlNumericKeyframe, AviQtlNumericTrackView, STATUS_INVALID_ARGUMENT,
-    STATUS_OK, STATUS_OVERLAPPING_BUFFERS, pointer_is_valid, ranges_overlap,
+    STATUS_OK, STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
 use crate::{EasingKind, evaluate};
 
@@ -74,8 +74,8 @@ fn scaled_random_value(value: f64) -> Option<i64> {
 }
 
 fn validate_track(track: &AviQtlNumericTrackView, output: *mut f64, output_length: usize) -> bool {
-    if !pointer_is_valid(track.keyframes, track.keyframes_length)
-        || !pointer_is_valid(track.custom_points, track.custom_points_length)
+    if !slice_is_valid(track.keyframes, track.keyframes_length)
+        || !slice_is_valid(track.custom_points, track.custom_points_length)
     {
         return false;
     }
@@ -215,8 +215,8 @@ pub unsafe extern "C" fn aviqtl_numeric_keyframe_batch_evaluate(
     output_length: usize,
 ) -> u32 {
     if tracks_length != output_length
-        || !pointer_is_valid(tracks, tracks_length)
-        || !pointer_is_valid(output, output_length)
+        || !slice_is_valid(tracks, tracks_length)
+        || !slice_is_valid(output, output_length)
     {
         return STATUS_INVALID_ARGUMENT;
     }

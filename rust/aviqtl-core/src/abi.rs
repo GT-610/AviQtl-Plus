@@ -70,8 +70,15 @@ pub fn pointer_is_valid<T>(pointer: *const T, length: usize) -> bool {
 
 fn byte_range<T>(pointer: *const T, length: usize) -> Option<(usize, usize)> {
     let byte_length = length.checked_mul(size_of::<T>())?;
+    if byte_length > isize::MAX as usize {
+        return None;
+    }
     let start = pointer as usize;
     Some((start, start.checked_add(byte_length)?))
+}
+
+pub fn slice_is_valid<T>(pointer: *const T, length: usize) -> bool {
+    pointer_is_valid(pointer, length) && (length == 0 || byte_range(pointer, length).is_some())
 }
 
 pub fn ranges_overlap<T, U>(

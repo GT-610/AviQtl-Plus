@@ -2,7 +2,7 @@ mod abi;
 mod audio;
 mod keyframe;
 
-use abi::AviQtlEasingParameters;
+use abi::{AviQtlEasingParameters, slice_is_valid};
 use std::f64::consts::PI;
 
 const DEFAULT_ELASTIC_PERIOD: f64 = 0.3;
@@ -456,10 +456,10 @@ pub unsafe extern "C" fn aviqtl_easing_evaluate(
     let Some(kind) = EasingKind::from_abi(kind) else {
         return t;
     };
-    let points = if points_len == 0 {
-        &[]
-    } else if points.is_null() {
+    let points = if !slice_is_valid(points, points_len) {
         return t;
+    } else if points_len == 0 {
+        &[]
     } else {
         // SAFETY: The C++ adapter supplies a pointer to `points_len` contiguous
         // doubles and keeps the vector alive for the duration of this call.
@@ -471,6 +471,7 @@ pub unsafe extern "C" fn aviqtl_easing_evaluate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::mem::{align_of, size_of};
 
     fn assert_close(actual: f64, expected: f64) {
         assert!(
@@ -539,6 +540,30 @@ mod tests {
                     0.25,
                     std::ptr::null(),
                     6,
+                    parameters,
+                ),
+                0.25
+            );
+            let bytes = [0_u8; size_of::<f64>() + align_of::<f64>()];
+            let misaligned_offset = (0..align_of::<f64>())
+                .find(|offset| (bytes.as_ptr() as usize + offset) % align_of::<f64>() != 0)
+                .expect("a misaligned offset");
+            assert_eq!(
+                aviqtl_easing_evaluate(
+                    EasingKind::Custom as u32,
+                    0.25,
+                    bytes.as_ptr().add(misaligned_offset).cast(),
+                    1,
+                    parameters,
+                ),
+                0.25
+            );
+            assert_eq!(
+                aviqtl_easing_evaluate(
+                    EasingKind::Custom as u32,
+                    0.25,
+                    std::ptr::NonNull::<f64>::dangling().as_ptr(),
+                    isize::MAX as usize / size_of::<f64>() + 1,
                     parameters,
                 ),
                 0.25

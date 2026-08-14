@@ -1,6 +1,6 @@
 use crate::abi::{
     AviQtlAudioMeter, AviQtlAudioMixParameters, STATUS_INVALID_ARGUMENT, STATUS_OK,
-    STATUS_OVERLAPPING_BUFFERS, pointer_is_valid, ranges_overlap,
+    STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
 
 fn fade_gain(parameters: AviQtlAudioMixParameters) -> f32 {
@@ -101,8 +101,8 @@ pub unsafe extern "C" fn aviqtl_audio_resample_stereo_linear(
         || output_length % 2 != 0
         || !source_rate.is_finite()
         || source_rate < 0.0
-        || !pointer_is_valid(input, input_length)
-        || !pointer_is_valid(output, output_length)
+        || !slice_is_valid(input, input_length)
+        || !slice_is_valid(output, output_length)
     {
         return STATUS_INVALID_ARGUMENT;
     }
@@ -152,9 +152,9 @@ pub unsafe extern "C" fn aviqtl_audio_mix_stereo(
 ) -> u32 {
     if clip_length % 2 != 0
         || master_length % 2 != 0
-        || !pointer_is_valid(clip, clip_length)
-        || !pointer_is_valid(master, master_length)
-        || !pointer_is_valid(meter, 1)
+        || !slice_is_valid(clip, clip_length)
+        || !slice_is_valid(master, master_length)
+        || !slice_is_valid(meter, 1)
     {
         return STATUS_INVALID_ARGUMENT;
     }
