@@ -2,6 +2,7 @@
 #include "../../scripting/lua_host.hpp"
 #include "constants.hpp"
 #include "keyframe_utils.hpp"
+#include "rust_keyframe_adapter.hpp"
 #include <QColor>
 #include <QHash>
 #include <QObject>
@@ -90,7 +91,7 @@ class EffectModel : public QObject {
     }
 
     Q_INVOKABLE void syncTrackEndpoints(int durationFrames) {
-        m_resolvedCache.clear();
+        invalidateCache({});
         const int oldDuration = m_lastDuration;
         m_lastDuration = durationFrames;
         // 未初期化トラックを初期化し、旧終端フレームにある中間点を新終端フレームへ追従させる
@@ -130,7 +131,7 @@ class EffectModel : public QObject {
     }
 
     Q_INVOKABLE QVariantMap splitTracks(int firstHalfDuration, int originalDuration) {
-        m_resolvedCache.clear();
+        invalidateCache({});
         QVariantMap secondHalfTracks;
         if (originalDuration < 1)
             return secondHalfTracks;
@@ -197,8 +198,7 @@ class EffectModel : public QObject {
     }
 
     void setEnabled(bool e) {
-        m_resolvedCache.clear();
-        m_trackPointCache.clear();
+        invalidateCache({});
         if (m_enabled != e) {
             m_enabled = e;
             emit enabledChanged();
@@ -335,6 +335,8 @@ class EffectModel : public QObject {
     }
 
     Q_INVOKABLE QVariantMap evaluatedParams(int frame, double fps = AviQtl::kDefaultFps) const {
+        ensureEvaluationCache();
+        static_cast<void>(m_numericTrackBatch.evaluate(frame));
         QVariantMap out;
         // 全てのキーを網羅するために m_params から開始 (avoid temporary QList from keys())
         for (auto it = m_params.cbegin(); it != m_params.cend(); ++it) {
@@ -349,27 +351,15 @@ class EffectModel : public QObject {
         if (ktIt == m_keyframeTracks.end())
             return fallback;
 
-        auto rcIt = m_resolvedCache.find(paramName);
-        if (rcIt == m_resolvedCache.end()) {
-            const QVariant raw = ktIt.value();
-            if (isStructuredTrack(raw)) {
-                int d = (m_lastDuration > 0) ? m_lastDuration : inferredDurationForTrack(raw);
-                QVariantMap normalized = normalizeTrackForDuration(raw, fallback, d);
-                rcIt = m_resolvedCache.insert(paramName, flattenStructuredTrack(normalized));
-            } else {
-                rcIt = m_resolvedCache.insert(paramName, sortPoints(raw.toList()));
-            }
-            // Rebuild track point cache for this parameter
-            m_trackPointCache.insert(paramName, Core::KeyframeUtils::extractTrackPoints(rcIt.value()));
-        }
-
-        // Use fast path with pre-extracted track points and binary search
-        auto tpIt = m_trackPointCache.find(paramName);
-        QVariant baseValue;
-        if (tpIt != m_trackPointCache.end()) {
-            baseValue = Core::KeyframeUtils::evaluateTrackFast(tpIt.value(), frame, fallback);
+        ensureEvaluationCache();
+        static_cast<void>(m_numericTrackBatch.evaluate(frame));
+        QVariant baseValue = fallback;
+        if (const std::optional<double> numeric = m_numericTrackBatch.value(paramName)) {
+            baseValue = *numeric;
         } else {
-            baseValue = evaluateTrack(rcIt.value(), frame, fallback);
+            const auto resolved = m_resolvedCache.constFind(paramName);
+            if (resolved != m_resolvedCache.constEnd())
+                baseValue = evaluateTrack(*resolved, frame, fallback);
         }
 
         // Check expression only if param is known to be an expression
@@ -388,16 +378,12 @@ class EffectModel : public QObject {
 
     void setKeyframeTracks(const QVariantMap &tracks) {
         m_keyframeTracks = tracks;
-        m_resolvedCache.clear();
-        m_trackPointCache.clear();
+        invalidateCache({});
         emit keyframeTracksChanged();
     }
 
-    void invalidateCache(const QString &paramName) const {
-        if (!paramName.isEmpty()) {
-            m_resolvedCache.remove(paramName);
-            m_trackPointCache.remove(paramName);
-        }
+    void invalidateCache(const QString &) const {
+        m_evaluationCacheDirty = true;
     }
 
   signals:
@@ -407,6 +393,15 @@ class EffectModel : public QObject {
     void keyframeTracksChanged();
 
   private:
+    void ensureEvaluationCache() const {
+        if (!m_evaluationCacheDirty)
+            return;
+        m_resolvedCache = Core::KeyframeUtils::resolveAllTracks(
+            m_params, m_keyframeTracks, m_lastDuration);
+        m_numericTrackBatch.rebuild(m_params, m_resolvedCache);
+        m_evaluationCacheDirty = false;
+    }
+
     void rebuildExpressionSet() const {
         m_expressionParams.clear();
         for (auto it = m_params.constBegin(); it != m_params.constEnd(); ++it) {
@@ -428,7 +423,8 @@ class EffectModel : public QObject {
 
     mutable int m_lastDuration = -1;
     mutable QHash<QString, QVariantList> m_resolvedCache;
-    mutable QHash<QString, std::vector<Core::KeyframeUtils::TrackPoint>> m_trackPointCache;
+    mutable Core::RustKeyframes::NumericTrackBatch m_numericTrackBatch;
+    mutable bool m_evaluationCacheDirty = true;
     mutable QSet<QString> m_expressionParams;
     mutable bool m_expressionParamsBuilt = false;
 };

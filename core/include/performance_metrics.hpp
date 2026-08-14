@@ -18,6 +18,8 @@ enum class PerformanceCounter : std::size_t {
     BakeTrackCacheMisses,
     BakeRustKeyframeBatchCalls,
     BakeRustKeyframeTracks,
+    BakeRustTimelineRenderCalls,
+    BakeRustTimelineAudioCalls,
     EcsBridgeSyncs,
     EcsBridgeNanoseconds,
     EcsBridgeStatesReused,
