@@ -182,6 +182,15 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME audio_dsp
+    SOURCES test_audio_dsp.cpp
+    LINKS AviQtl_Core
+)
+target_compile_definitions(AviQtl_Test_audio_dsp PRIVATE
+    AVIQTL_AUDIO_DSP_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/data/audio_dsp_cpp_golden.txt"
+)
+
+aviqtl_add_test(
     NAME bake_controller
     SOURCES test_bake_controller.cpp
     LINKS AviQtl_Engine AviQtl_UI
@@ -335,7 +344,7 @@ endfunction()
 aviqtl_label_tests(unit
     effect_registry shader_compiler document_model settings_manager performance_metrics
     theme_controller media_decoder media_utils keyframe_utils effect_model
-    video_frame_store dense_component_map audio_plugin_chain triple_buffer
+    video_frame_store dense_component_map audio_plugin_chain audio_dsp triple_buffer
     lua_host plugin_manifest mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
     project_recovery build_version
@@ -350,7 +359,7 @@ aviqtl_label_tests(integration
 
 aviqtl_label_tests(media
     video_encoder audio_decoder video_decoder video_frame_store
-    audio_plugin_chain bake_controller ecs_render daily_editing_workflow
+    audio_plugin_chain audio_dsp bake_controller ecs_render daily_editing_workflow
     export_workflow qml_composite_capture
 )
 
