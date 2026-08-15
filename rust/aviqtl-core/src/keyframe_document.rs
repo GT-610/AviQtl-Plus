@@ -78,10 +78,12 @@ fn integer(value: Option<&Value>, fallback: i32) -> i32 {
     if let Some(number) = value.as_u64().and_then(|number| i32::try_from(number).ok()) {
         return number;
     }
-    if let Some(number) = value.as_f64() {
-        if number.is_finite() && number >= f64::from(i32::MIN) && number <= f64::from(i32::MAX) {
-            return number as i32;
-        }
+    if let Some(number) = value.as_f64()
+        && number.is_finite()
+        && number >= f64::from(i32::MIN)
+        && number <= f64::from(i32::MAX)
+    {
+        return number as i32;
     }
     value
         .as_str()

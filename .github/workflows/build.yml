@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
 
       - name: Install Dependencies
         run: |
@@ -74,7 +74,7 @@ jobs:
 
       - name: Install Rust
         if: matrix.platform != 'windows'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
 
       - name: Install Dependencies (Linux)
         if: matrix.platform == 'linux'

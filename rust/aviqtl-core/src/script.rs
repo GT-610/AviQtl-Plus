@@ -173,12 +173,11 @@ fn parse_option_value(value: &str) -> Value {
     if let Ok(integer) = value.parse::<i32>() {
         return Value::Number(integer.into());
     }
-    if let Ok(floating) = value.parse::<f64>() {
-        if floating.is_finite() {
-            if let Some(number) = Number::from_f64(floating) {
-                return Value::Number(number);
-            }
-        }
+    if let Ok(floating) = value.parse::<f64>()
+        && floating.is_finite()
+        && let Some(number) = Number::from_f64(floating)
+    {
+        return Value::Number(number);
     }
     match value.to_ascii_lowercase().as_str() {
         "true" => Value::Bool(true),
