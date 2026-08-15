@@ -384,7 +384,7 @@ QVariantMap pluginInfoToMap(const PluginInfo &info) {
         {QStringLiteral("path"), info.path},
         {QStringLiteral("label"), info.label},
         {QStringLiteral("maker"), info.maker},
-        {QStringLiteral("uniqueId"), info.uniqueId},
+        {QStringLiteral("uniqueId"), QVariant::fromValue(static_cast<qlonglong>(info.uniqueId))},
         {QStringLiteral("index"), info.index},
         {QStringLiteral("audioIns"), info.audioIns},
         {QStringLiteral("audioOuts"), info.audioOuts},

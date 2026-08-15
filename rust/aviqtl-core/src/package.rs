@@ -112,11 +112,12 @@ fn installed_version(installed: &Map<String, Value>, id: &str, app_version: &str
         .unwrap_or_default()
 }
 
-fn repository_priority(repositories: &[Map<String, Value>], url: &str) -> Option<i32> {
+fn resolved_repository_priority(repositories: &[Map<String, Value>], url: &str) -> i32 {
     repositories
         .iter()
         .find(|repository| text(repository.get("url")) == url)
         .map(|repository| integer(repository.get("priority"), 10))
+        .unwrap_or(i32::MAX)
 }
 
 fn merge_catalog_package(
@@ -134,8 +135,7 @@ fn merge_catalog_package(
         return catalog;
     }
     let repository_url = text(repository.get("url"));
-    let new_repository_priority = repository_priority(repositories, &repository_url)
-        .unwrap_or_else(|| integer(repository.get("priority"), 10));
+    let new_repository_priority = resolved_repository_priority(repositories, &repository_url);
     let version = text(package.get("version"));
     let mut sources = package
         .get("_sources")
@@ -196,8 +196,7 @@ fn merge_catalog_package(
     existing.insert("_sources".to_owned(), Value::Object(existing_sources));
 
     let existing_primary = text(existing.get("_primary_repo"));
-    let existing_priority =
-        repository_priority(repositories, &existing_primary).unwrap_or(i32::MAX);
+    let existing_priority = resolved_repository_priority(repositories, &existing_primary);
     let existing_latest = text(existing.get("latest_version"));
     match compare_versions(&version, &existing_latest) {
         value if value > 0 => {
@@ -655,6 +654,14 @@ mod tests {
             {"url": "https://high", "priority": 1},
             {"url": "https://low", "priority": 10}
         ])));
+        assert_eq!(
+            resolved_repository_priority(&repositories, "https://high"),
+            1
+        );
+        assert_eq!(
+            resolved_repository_priority(&repositories, "https://unknown"),
+            i32::MAX
+        );
         let catalog = merge_catalog_package(
             Vec::new(),
             package.as_object().expect("fixture"),

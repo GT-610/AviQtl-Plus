@@ -94,7 +94,6 @@ float evalFloatOr(const ResolvedTracks &rt, const QString &key, float fallback, 
 }
 
 ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int clipDuration) {
-    Q_UNUSED(clipDuration)
     ResolvedTracks out;
     out.params = effect.params;
     out.allKeys.insert(QStringLiteral("time"));
@@ -107,7 +106,7 @@ ResolvedTracks buildResolvedTracks(const AviQtl::Core::Effect &effect, int clipD
         const QVariant fallback = effect.params.value(it->first);
         const QVariantMap track = keyframesToTrack(it->second, fallback);
         const auto inspected =
-            AviQtl::Core::RustKeyframeDocument::inspect(track, fallback, 0);
+            AviQtl::Core::RustKeyframeDocument::inspect(track, fallback, clipDuration);
         out.resolved.insert(it->first, inspected ? inspected->flat : QVariantList{});
     }
 
