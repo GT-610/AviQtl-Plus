@@ -10,6 +10,56 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # --- Dependencies ---
+find_program(CARGO_EXECUTABLE cargo REQUIRED)
+
+if(MSVC)
+    set(AVIQTL_RUST_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/rust-toolchain.toml")
+    file(STRINGS "${AVIQTL_RUST_TOOLCHAIN_FILE}" AVIQTL_RUST_CHANNEL_LINE
+        REGEX "^[ \\t]*channel[ \\t]*=")
+    string(REGEX MATCH "\"([^\"]+)\"" _rust_channel_match "${AVIQTL_RUST_CHANNEL_LINE}")
+    set(AVIQTL_REQUIRED_RUST_VERSION "${CMAKE_MATCH_1}")
+    if(NOT AVIQTL_REQUIRED_RUST_VERSION)
+        message(FATAL_ERROR "Could not read the pinned Rust version from ${AVIQTL_RUST_TOOLCHAIN_FILE}")
+    endif()
+
+    find_program(RUSTC_EXECUTABLE rustc REQUIRED)
+    execute_process(
+        COMMAND "${RUSTC_EXECUTABLE}" --version --verbose
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        RESULT_VARIABLE AVIQTL_RUSTC_RESULT
+        OUTPUT_VARIABLE AVIQTL_RUSTC_VERSION
+        ERROR_VARIABLE AVIQTL_RUSTC_ERROR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT AVIQTL_RUSTC_RESULT EQUAL 0)
+        message(FATAL_ERROR "rustc version check failed: ${AVIQTL_RUSTC_ERROR}")
+    endif()
+    if(NOT AVIQTL_RUSTC_VERSION MATCHES "^rustc ${AVIQTL_REQUIRED_RUST_VERSION} ")
+        message(FATAL_ERROR
+            "MSVC builds require rustc ${AVIQTL_REQUIRED_RUST_VERSION}; detected:\n${AVIQTL_RUSTC_VERSION}")
+    endif()
+    string(REGEX MATCH "host: ([^\r\n]+)" _rust_host_match "${AVIQTL_RUSTC_VERSION}")
+    if(NOT CMAKE_MATCH_1 STREQUAL "x86_64-pc-windows-msvc")
+        message(FATAL_ERROR
+            "MSVC builds require the x86_64-pc-windows-msvc Rust host; detected '${CMAKE_MATCH_1}'")
+    endif()
+
+    execute_process(
+        COMMAND "${CARGO_EXECUTABLE}" --version
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        RESULT_VARIABLE AVIQTL_CARGO_RESULT
+        OUTPUT_VARIABLE AVIQTL_CARGO_VERSION
+        ERROR_VARIABLE AVIQTL_CARGO_ERROR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT AVIQTL_CARGO_RESULT EQUAL 0
+            OR NOT AVIQTL_CARGO_VERSION MATCHES "^cargo ${AVIQTL_REQUIRED_RUST_VERSION} ")
+        message(FATAL_ERROR
+            "MSVC builds require cargo ${AVIQTL_REQUIRED_RUST_VERSION}; detected '${AVIQTL_CARGO_VERSION}'. "
+            "${AVIQTL_CARGO_ERROR}")
+    endif()
+endif()
+
 set(EXTRA_QT_COMPONENTS "")
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND EXTRA_QT_COMPONENTS WaylandClient)
@@ -34,7 +84,6 @@ endif()
 find_package(ECM REQUIRED NO_MODULE)
 list(APPEND CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 find_package(PkgConfig REQUIRED)
-find_program(CARGO_EXECUTABLE cargo REQUIRED)
 
 pkg_check_modules(FFMPEG IMPORTED_TARGET REQUIRED libavcodec>=61.12 libavformat libavutil libswscale libswresample)
 pkg_check_modules(LUAJIT IMPORTED_TARGET REQUIRED luajit)
@@ -50,20 +99,35 @@ if(WIN32)
     # CarlaBackend.h comes from source/backend/, CarlaNativePlugin.h comes from source/includes/
     if(EXISTS "${CARLA_SDK_DIR}/include/CarlaNativePlugin.h")
         set(CARLA_INCLUDE_DIRS "${CARLA_SDK_DIR}/include")
+    else()
+        message(FATAL_ERROR "Carla headers not found under ${CARLA_SDK_DIR}/include")
     endif()
-    # MSYS2/MinGW links .dll directly (no .lib/.dll.a available)
     set(_carla_dll_dir "${CARLA_SDK_DIR}/lib")
+    if(MSVC)
+        if(NOT CARLA_IMPORT_LIB_DIR)
+            set(CARLA_IMPORT_LIB_DIR "${CMAKE_BINARY_DIR}/carla-import-libs")
+        else()
+            file(TO_CMAKE_PATH "${CARLA_IMPORT_LIB_DIR}" CARLA_IMPORT_LIB_DIR)
+        endif()
+        set(_carla_link_dir "${CARLA_IMPORT_LIB_DIR}")
+        set(_carla_link_suffix ".lib")
+    else()
+        # MSYS2/MinGW links the bundled DLLs directly (no .dll.a is shipped).
+        set(_carla_link_dir "${_carla_dll_dir}")
+        set(_carla_link_suffix ".dll")
+    endif()
     foreach(_carla_name
             libcarla_standalone2
             libcarla_native-plugin
             libcarla_host-plugin
             libcarla_utils)
-        # MSVC prefers .lib import library; other environments fall back to .dll
-        if(EXISTS "${_carla_dll_dir}/${_carla_name}.lib")
-            list(APPEND CARLA_LIBRARIES "${_carla_dll_dir}/${_carla_name}.lib")
-        elseif(EXISTS "${_carla_dll_dir}/${_carla_name}.dll")
-            list(APPEND CARLA_LIBRARIES "${_carla_dll_dir}/${_carla_name}.dll")
+        set(_carla_link_file "${_carla_link_dir}/${_carla_name}${_carla_link_suffix}")
+        if(NOT EXISTS "${_carla_link_file}")
+            message(FATAL_ERROR
+                "Required Carla link library not found: ${_carla_link_file}. "
+                "For MSVC builds, run BUILD.py so import libraries are generated in the build tree.")
         endif()
+        list(APPEND CARLA_LIBRARIES "${_carla_link_file}")
     endforeach()
 else()
     pkg_check_modules(CARLA IMPORTED_TARGET REQUIRED carla-standalone carla-native-plugin carla-host-plugin carla-utils)
@@ -79,6 +143,11 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)  # Disable C++20 modules for clang-tidy comp
 # not share artifacts and cleaning the build directory removes Rust outputs.
 set(AVIQTL_RUST_MANIFEST "${CMAKE_SOURCE_DIR}/rust/Cargo.toml")
 set(AVIQTL_RUST_TARGET_DIR "${CMAKE_BINARY_DIR}/rust-target")
+option(AVIQTL_CARGO_OFFLINE "Prevent Cargo from accessing the network" OFF)
+set(AVIQTL_RUST_NETWORK_ARGS "")
+if(AVIQTL_CARGO_OFFLINE)
+    list(APPEND AVIQTL_RUST_NETWORK_ARGS --offline)
+endif()
 if(CMAKE_CONFIGURATION_TYPES)
     message(FATAL_ERROR "The Rust pilot currently requires a single-config generator such as Ninja")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -102,6 +171,7 @@ add_custom_command(
         ${CARGO_EXECUTABLE} build
         --manifest-path "${AVIQTL_RUST_MANIFEST}"
         --locked
+        ${AVIQTL_RUST_NETWORK_ARGS}
         ${AVIQTL_RUST_BUILD_ARGS}
         --package aviqtl-rust-core
     DEPENDS
