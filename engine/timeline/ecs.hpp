@@ -168,6 +168,9 @@ struct ECSState {
     EffectParamBuffer effectParams;
 };
 
+// Native projection cache at the QRhi/QML and Qt audio/Carla boundary. Rust owns the timeline
+// baking and domain decisions that produce these POD components; this class only publishes them
+// across native consumer threads.
 class ECS {
   public:
     static ECS &instance();

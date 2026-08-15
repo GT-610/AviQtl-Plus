@@ -6,6 +6,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include "keyframe_utils.hpp"
+#include "rust_keyframe_document.hpp"
 
 using namespace AviQtl::Core::KeyframeUtils;
 
@@ -25,70 +26,18 @@ private:
         return {{QStringLiteral("start"), start}, {QStringLiteral("points"), points}};
     }
 
-    static const QStringList &easingNames() {
-        static const QStringList names = {
-            QStringLiteral("linear"),
-            QStringLiteral("ease_in_sine"), QStringLiteral("ease_out_sine"),
-            QStringLiteral("ease_in_out_sine"), QStringLiteral("ease_out_in_sine"),
-            QStringLiteral("ease_in_quad"), QStringLiteral("ease_out_quad"),
-            QStringLiteral("ease_in_out_quad"), QStringLiteral("ease_out_in_quad"),
-            QStringLiteral("ease_in_cubic"), QStringLiteral("ease_out_cubic"),
-            QStringLiteral("ease_in_out_cubic"), QStringLiteral("ease_out_in_cubic"),
-            QStringLiteral("ease_in_quart"), QStringLiteral("ease_out_quart"),
-            QStringLiteral("ease_in_out_quart"), QStringLiteral("ease_out_in_quart"),
-            QStringLiteral("ease_in_quint"), QStringLiteral("ease_out_quint"),
-            QStringLiteral("ease_in_out_quint"), QStringLiteral("ease_out_in_quint"),
-            QStringLiteral("ease_in_expo"), QStringLiteral("ease_out_expo"),
-            QStringLiteral("ease_in_out_expo"), QStringLiteral("ease_out_in_expo"),
-            QStringLiteral("ease_in_circ"), QStringLiteral("ease_out_circ"),
-            QStringLiteral("ease_in_out_circ"), QStringLiteral("ease_out_in_circ"),
-            QStringLiteral("ease_in_back"), QStringLiteral("ease_out_back"),
-            QStringLiteral("ease_in_out_back"), QStringLiteral("ease_out_in_back"),
-            QStringLiteral("ease_in_elastic"), QStringLiteral("ease_out_elastic"),
-            QStringLiteral("ease_in_out_elastic"), QStringLiteral("ease_out_in_elastic"),
-            QStringLiteral("ease_out_bounce"), QStringLiteral("ease_in_bounce"),
-            QStringLiteral("ease_in_out_bounce"), QStringLiteral("ease_out_in_bounce"),
-            QStringLiteral("custom")
-        };
-        return names;
-    }
+    static QStringList easingNames() { return AviQtl::RustCore::easingNames(); }
 
 private slots:
-    // --- sortPoints ---
-    void sortPoints_alreadySorted() {
-        QVariantList pts;
-        pts.append(makePoint(0, 1.0));
-        pts.append(makePoint(10, 2.0));
-        pts.append(makePoint(20, 3.0));
-        QVariantList sorted = sortPoints(pts);
-        QCOMPARE(sorted.size(), 3);
-        QCOMPARE(sorted[0].toMap()[QStringLiteral("frame")].toInt(), 0);
-        QCOMPARE(sorted[2].toMap()[QStringLiteral("frame")].toInt(), 20);
-    }
-
-    void sortPoints_unsorted() {
-        QVariantList pts;
-        pts.append(makePoint(20, 3.0));
-        pts.append(makePoint(0, 1.0));
-        pts.append(makePoint(10, 2.0));
-        QVariantList sorted = sortPoints(pts);
-        QCOMPARE(sorted[0].toMap()[QStringLiteral("frame")].toInt(), 0);
-        QCOMPARE(sorted[1].toMap()[QStringLiteral("frame")].toInt(), 10);
-        QCOMPARE(sorted[2].toMap()[QStringLiteral("frame")].toInt(), 20);
-    }
-
-    void sortPoints_empty() {
-        QVariantList sorted = sortPoints(QVariantList());
-        QVERIFY(sorted.isEmpty());
-    }
-
-    // --- flattenStructuredTrack ---
-    void flattenStructuredTrack_basic() {
+    // --- Rust keyframe document bridge ---
+    void keyframeDocument_inspectSortsAndFlattens() {
         QVariantList points;
         points.append(makePoint(20, 3.0));
         points.append(makePoint(10, 2.0));
         QVariantMap track = makeStructuredTrack(1.0, points);
-        QVariantList flat = flattenStructuredTrack(track);
+        const auto result = AviQtl::Core::RustKeyframeDocument::inspect(track, 1.0);
+        QVERIFY(result.has_value());
+        const QVariantList flat = result->flat;
         QCOMPARE(flat.size(), 3);
         QCOMPARE(flat[0].toMap()[QStringLiteral("frame")].toInt(), 0);
         QCOMPARE(flat[0].toMap()[QStringLiteral("value")].toDouble(), 1.0);
@@ -96,9 +45,11 @@ private slots:
         QCOMPARE(flat[2].toMap()[QStringLiteral("frame")].toInt(), 20);
     }
 
-    void flattenStructuredTrack_noPoints() {
+    void keyframeDocument_inspectPreservesStartWithoutPoints() {
         QVariantMap track = makeStructuredTrack(5.0, QVariantList());
-        QVariantList flat = flattenStructuredTrack(track);
+        const auto result = AviQtl::Core::RustKeyframeDocument::inspect(track, 5.0);
+        QVERIFY(result.has_value());
+        const QVariantList flat = result->flat;
         QCOMPARE(flat.size(), 1);
         QCOMPARE(flat[0].toMap()[QStringLiteral("value")].toDouble(), 5.0);
     }
@@ -315,57 +266,58 @@ private slots:
         QCOMPARE(evaluateResolvedParam(params, resolved, QStringLiteral("x"), 0).toDouble(), 42.0);
     }
 
-    // --- normalizeTrackForDuration ---
-    void normalizeTrackForDuration_clipsBeyondDuration() {
+    // --- Rust keyframe normalization ---
+    void keyframeDocument_normalizeClipsBeyondDuration() {
         QVariantList points;
         points.append(makePoint(50, 1.0));
         points.append(makePoint(200, 2.0));
         QVariantMap track = makeStructuredTrack(0.0, points);
 
-        QVariantMap result = normalizeTrackForDuration(QVariant(track), 0.0, 100);
-        QVariantList resultPoints = result[QStringLiteral("points")].toList();
+        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(track, 0.0, 100);
+        QVERIFY(result.has_value());
+        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
         QCOMPARE(resultPoints.size(), 1);
         QCOMPARE(resultPoints[0].toMap()[QStringLiteral("frame")].toInt(), 50);
     }
 
-    void normalizeTrackForDuration_preservesWithinDuration() {
+    void keyframeDocument_normalizePreservesWithinDuration() {
         QVariantList points;
         points.append(makePoint(30, 1.0));
         points.append(makePoint(60, 2.0));
         QVariantMap track = makeStructuredTrack(0.0, points);
 
-        QVariantMap result = normalizeTrackForDuration(QVariant(track), 0.0, 100);
-        QVariantList resultPoints = result[QStringLiteral("points")].toList();
+        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(track, 0.0, 100);
+        QVERIFY(result.has_value());
+        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
         QCOMPARE(resultPoints.size(), 2);
     }
 
-    void normalizeTrackForDuration_flatLegacy() {
+    void keyframeDocument_normalizeFlatLegacy() {
         QVariantList flat;
         flat.append(makePoint(0, 0.0));
         flat.append(makePoint(50, 1.0));
         flat.append(makePoint(200, 2.0));
 
-        QVariantMap result = normalizeTrackForDuration(QVariant(flat), 0.0, 100);
-        QVariantList resultPoints = result[QStringLiteral("points")].toList();
+        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(flat, 0.0, 100);
+        QVERIFY(result.has_value());
+        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
         // frame=0 goes into start, frame=50 stays, frame=200 is clipped
         QCOMPARE(resultPoints.size(), 1);
         QCOMPARE(resultPoints[0].toMap()[QStringLiteral("frame")].toInt(), 50);
     }
 
-    // --- easingFunctions completeness ---
+    // --- Rust-owned easing names ---
     void easingFunctions_allPresent() {
-        const auto &funcs = easingFunctions();
-        const auto &expected = easingNames();
-        for (const auto &name : expected) {
-            QVERIFY2(funcs.contains(name), qPrintable(QStringLiteral("Missing easing: ") + name));
-        }
-        QCOMPARE(funcs.size(), expected.size());
+        const QStringList names = easingNames();
+        QCOMPARE(names.size(), 42);
+        for (const QString &name : names)
+            QVERIFY2(AviQtl::RustCore::easingKindForName(name).has_value(),
+                     qPrintable(QStringLiteral("Missing easing: ") + name));
+        QVERIFY(!AviQtl::RustCore::easingKindForName(QStringLiteral("unknown")).has_value());
     }
 
     void easingFunctions_endpoints() {
-        const auto &funcs = easingFunctions();
         std::vector<double> p;
-        QVariantMap mp;
         // Every easing should map 0->0 and 1->1 (except custom which depends on params)
         QStringList standard = {
             QStringLiteral("linear"), QStringLiteral("ease_in_sine"), QStringLiteral("ease_out_sine"),
@@ -377,19 +329,15 @@ private slots:
             QStringLiteral("ease_out_bounce"), QStringLiteral("ease_in_bounce")
         };
         for (const auto &name : standard) {
-            auto it = funcs.find(name);
-            QVERIFY(it != funcs.end());
-            double v0 = it.value()(0.0, p, mp);
-            double v1 = it.value()(1.0, p, mp);
+            double v0 = AviQtl::RustCore::evaluateEasing(name, 0.0, p, 1.0, 0.3);
+            double v1 = AviQtl::RustCore::evaluateEasing(name, 1.0, p, 1.0, 0.3);
             QVERIFY2(std::abs(v0) < 1e-6, qPrintable(name + QStringLiteral(": f(0) = %1").arg(v0)));
             QVERIFY2(std::abs(v1 - 1.0) < 1e-6, qPrintable(name + QStringLiteral(": f(1) = %1").arg(v1)));
         }
     }
 
     void easingFunctions_midpoints() {
-        const auto &funcs = easingFunctions();
         std::vector<double> p;
-        QVariantMap mp;
         // Monotonically increasing easings: f(0.5) should be between 0 and 1
         QStringList monotone = {
             QStringLiteral("linear"), QStringLiteral("ease_in_sine"), QStringLiteral("ease_out_sine"),
@@ -398,17 +346,15 @@ private slots:
             QStringLiteral("ease_in_expo"), QStringLiteral("ease_out_expo")
         };
         for (const auto &name : monotone) {
-            auto it = funcs.find(name);
-            double v = it.value()(0.5, p, mp);
+            double v = AviQtl::RustCore::evaluateEasing(name, 0.5, p, 1.0, 0.3);
             QVERIFY2(v > 0.0 && v < 1.0, qPrintable(name + QStringLiteral(": f(0.5) = %1").arg(v)));
         }
         // linear at 0.5 should be exactly 0.5
-        QCOMPARE(funcs[QStringLiteral("linear")](0.5, p, mp), 0.5);
+        QCOMPARE(AviQtl::RustCore::evaluateEasing(QStringLiteral("linear"), 0.5, p, 1.0, 0.3), 0.5);
     }
 
     void rustEasing_matchesCppGoldenValues() {
-        const auto &functions = easingFunctions();
-        const auto &names = easingNames();
+        const QStringList names = easingNames();
         const std::vector<double> samples = {0.1, 0.25, 0.5, 0.75, 0.9};
         const std::vector<double> noPoints;
         const QVariantMap modeParams{
@@ -449,13 +395,14 @@ private slots:
             seen[static_cast<std::size_t>(kind)] = true;
 
             const QString &name = names.at(kind);
-            const auto function = functions.constFind(name);
-            QVERIFY2(function != functions.constEnd(), qPrintable(QStringLiteral("Missing easing: %1").arg(name)));
-            const auto &points = kind == easingCount - 1 ? customPoints : noPoints;
+            const auto &points = name == QStringLiteral("custom") ? customPoints : noPoints;
             for (std::size_t index = 0; index < samples.size(); ++index) {
                 const double expected = fields[static_cast<qsizetype>(index + 1)].toDouble(&ok);
                 QVERIFY2(ok, qPrintable(QStringLiteral("Invalid golden value for kind %1").arg(kind)));
-                const double actual = function.value()(samples[index], points, modeParams);
+                const double actual = AviQtl::RustCore::evaluateEasing(
+                    name, samples[index], points,
+                    modeParams.value(QStringLiteral("amplitude")).toDouble(),
+                    modeParams.value(QStringLiteral("period")).toDouble());
                 QVERIFY2(std::abs(actual - expected) < 1e-12,
                          qPrintable(QStringLiteral("%1 at t=%2: Rust=%3 C++ golden=%4")
                                         .arg(name)

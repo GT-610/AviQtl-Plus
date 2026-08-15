@@ -1,5 +1,6 @@
 #include "project_recovery_manager.hpp"
 #include "project_serializer.hpp"
+#include "rust_core_policy.hpp"
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -20,22 +21,11 @@ QString generatedSnapshotFileName(const QString &id) { return id + QLatin1Char('
 QString snapshotPath(const QString &fileName) { return QDir(ProjectRecoveryManager::recoveryRoot()).filePath(fileName); }
 
 bool isValidRecoveryId(const QString &id) {
-    const QUuid uuid = QUuid::fromString(id);
-    return !uuid.isNull() && uuid.toString(QUuid::WithoutBraces) == id;
+    return AviQtl::RustCore::Policy::isValidRecoveryId(id);
 }
 
 bool isValidSnapshotFileName(const QString &id, const QString &fileName) {
-    if (!isValidRecoveryId(id) || QFileInfo(fileName).fileName() != fileName)
-        return false;
-    if (fileName == legacySnapshotFileName(id))
-        return true;
-
-    const QString prefix = id + QLatin1Char('-');
-    const QString suffix = QStringLiteral(".aviqtl");
-    if (!fileName.startsWith(prefix) || !fileName.endsWith(suffix))
-        return false;
-    const QString generation = fileName.mid(prefix.size(), fileName.size() - prefix.size() - suffix.size());
-    return isValidRecoveryId(generation);
+    return AviQtl::RustCore::Policy::isValidRecoverySnapshotName(id, fileName);
 }
 
 QString snapshotFileNameFromMetadata(const QString &id, const QJsonObject &metadata) {

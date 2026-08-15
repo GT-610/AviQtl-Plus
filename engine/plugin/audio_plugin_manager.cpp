@@ -1,5 +1,6 @@
 #include "audio_plugin_manager.hpp"
 #include "../../core/include/constants.hpp"
+#include "../../core/include/rust_plugin_document.hpp"
 #include "../../core/include/settings_manager.hpp"
 #include <QCoreApplication>
 #include <QDebug>
@@ -374,165 +375,58 @@ auto formats() -> const QList<FormatConfig> & {
     return list;
 }
 
-auto toCategoryStr(int cat) -> QString {
-    switch (static_cast<CarlaBackend::PluginCategory>(cat)) {
-    case CarlaBackend::PLUGIN_CATEGORY_SYNTH:
-        return QStringLiteral("Synth");
-    case CarlaBackend::PLUGIN_CATEGORY_DELAY:
-        return QStringLiteral("Delay");
-    case CarlaBackend::PLUGIN_CATEGORY_EQ:
-        return QStringLiteral("EQ");
-    case CarlaBackend::PLUGIN_CATEGORY_FILTER:
-        return QStringLiteral("Filter");
-    case CarlaBackend::PLUGIN_CATEGORY_DISTORTION:
-        return QStringLiteral("Distortion");
-    case CarlaBackend::PLUGIN_CATEGORY_DYNAMICS:
-        return QStringLiteral("Dynamics");
-    case CarlaBackend::PLUGIN_CATEGORY_MODULATOR:
-        return QStringLiteral("Modulator");
-    case CarlaBackend::PLUGIN_CATEGORY_UTILITY:
-        return QStringLiteral("Utility");
-    case CarlaBackend::PLUGIN_CATEGORY_OTHER: // fall through
-    default:
-        return QStringLiteral("Other");
-    }
+QVariantMap pluginInfoToMap(const PluginInfo &info) {
+    return {
+        {QStringLiteral("id"), info.id},
+        {QStringLiteral("name"), info.name},
+        {QStringLiteral("format"), info.format},
+        {QStringLiteral("category"), info.category},
+        {QStringLiteral("path"), info.path},
+        {QStringLiteral("label"), info.label},
+        {QStringLiteral("maker"), info.maker},
+        {QStringLiteral("uniqueId"), QVariant::fromValue(static_cast<qlonglong>(info.uniqueId))},
+        {QStringLiteral("index"), info.index},
+        {QStringLiteral("audioIns"), info.audioIns},
+        {QStringLiteral("audioOuts"), info.audioOuts},
+    };
 }
 
-auto normalizeCategoryTitle(QString category) -> QString {
-    category = category.trimmed();
-    if (category.isEmpty()) {
-        return QStringLiteral("Other");
-    }
-    const QString lower = category.toLower();
-    if (lower == QLatin1String("synth") || lower == QStringLiteral("instrument")) {
-        return QStringLiteral("Synth");
-    }
-    if (lower == QLatin1String("delay") || lower == QStringLiteral("reverb")) {
-        return QStringLiteral("Delay");
-    }
-    if (lower == QStringLiteral("eq")) {
-        return QStringLiteral("EQ");
-    }
-    if (lower == QStringLiteral("filter")) {
-        return QStringLiteral("Filter");
-    }
-    if (lower == QStringLiteral("distortion")) {
-        return QStringLiteral("Distortion");
-    }
-    if (lower == QStringLiteral("dynamics")) {
-        return QStringLiteral("Dynamics");
-    }
-    if (lower == QLatin1String("modulator") || lower == QStringLiteral("modulation")) {
-        return QStringLiteral("Modulator");
-    }
-    if (lower == QLatin1String("utility") || lower == QLatin1String("tools") || lower == QStringLiteral("tool")) {
-        return QStringLiteral("Utility");
-    }
-    if (lower == QLatin1String("other") || lower == QLatin1String("unknown") || lower == QLatin1String("misc") || lower == QLatin1String("none") || lower == QStringLiteral("null")) {
-        return QStringLiteral("Other");
-    }
-    return category;
+PluginInfo pluginInfoFromMap(const QVariantMap &map) {
+    return {
+        .id = map.value(QStringLiteral("id")).toString(),
+        .name = map.value(QStringLiteral("name")).toString(),
+        .format = map.value(QStringLiteral("format")).toString(),
+        .category = map.value(QStringLiteral("category")).toString(),
+        .path = map.value(QStringLiteral("path")).toString(),
+        .label = map.value(QStringLiteral("label")).toString(),
+        .maker = map.value(QStringLiteral("maker")).toString(),
+        .uniqueId = map.value(QStringLiteral("uniqueId")).toLongLong(),
+        .index = map.value(QStringLiteral("index")).toInt(),
+        .audioIns = map.value(QStringLiteral("audioIns")).toInt(),
+        .audioOuts = map.value(QStringLiteral("audioOuts")).toInt(),
+    };
 }
 
-auto normalizePluginName(QString name, const QString &label, const QString &filePath) -> QString {
-    name = name.trimmed();
-    if (!name.isEmpty()) {
-        return name;
-    }
-    const QString l = label.trimmed();
-    if (!l.isEmpty()) {
-        return l;
-    }
-    return QFileInfo(filePath).completeBaseName().trimmed();
+QVariantList pluginInfosToList(const QList<PluginInfo> &plugins) {
+    QVariantList result;
+    result.reserve(plugins.size());
+    for (const PluginInfo &plugin : plugins)
+        result.append(pluginInfoToMap(plugin));
+    return result;
 }
 
-auto normalizePluginLabel(QString label, const QString &name) -> QString {
-    label = label.trimmed();
-    return label.isEmpty() ? name.trimmed() : label;
-}
-
-auto categoryRank(const QString &category) -> int {
-    const QString c = normalizeCategoryTitle(category);
-    if (c == QStringLiteral("Filter")) {
-        return 0;
-    }
-    if (c == QStringLiteral("EQ")) {
-        return 1;
-    }
-    if (c == QStringLiteral("Dynamics")) {
-        return 2;
-    }
-    if (c == QStringLiteral("Delay")) {
-        return 3;
-    }
-    if (c == QStringLiteral("Distortion")) {
-        return 4;
-    }
-    if (c == QStringLiteral("Modulator")) {
-        return 5;
-    }
-    if (c == QStringLiteral("Utility")) {
-        return 6;
-    }
-    if (c == QStringLiteral("Synth")) {
-        return 7;
-    }
-    return 100;
+QList<PluginInfo> pluginInfosFromList(const QVariantList &plugins) {
+    QList<PluginInfo> result;
+    result.reserve(plugins.size());
+    for (const QVariant &plugin : plugins)
+        result.append(pluginInfoFromMap(plugin.toMap()));
+    return result;
 }
 
 auto parseDiscoveryOutput(const QString &output, const QString &format, const QString &filePath) -> QList<PluginInfo> {
-    QList<PluginInfo> results;
-    PluginInfo current;
-    bool inBlock = false;
-
-    for (const QString &rawLine : output.split('\n')) {
-        const QString line = rawLine.trimmed();
-        if (!line.startsWith(QStringLiteral("carla-discovery::"))) {
-            continue;
-        }
-        const QStringList parts = line.split(QStringLiteral("::"));
-        if (parts.size() < 2) {
-            continue;
-        }
-        const QString &key = parts.at(1);
-        const QString val = parts.size() >= 3 ? parts.mid(2).join(QStringLiteral("::")) : QLatin1String("");
-
-        if (key == QLatin1String("begin") || key == QStringLiteral("init")) {
-            current = PluginInfo{};
-            current.format = format;
-            current.path = filePath;
-            inBlock = true;
-        } else if (!inBlock) {
-            continue;
-        } else if (key == QStringLiteral("name")) {
-            current.name = val;
-        } else if (key == QStringLiteral("label")) {
-            current.label = val;
-        } else if (key == QStringLiteral("maker")) {
-            current.maker = val;
-        } else if (key == QStringLiteral("uniqueId")) {
-            current.uniqueId = val.toLongLong();
-        } else if (key == QStringLiteral("category")) {
-            // 旧APIは整数、新APIは文字列("none","filter"等)で返す
-            bool catIsInt = false;
-            const int catInt = val.toInt(&catIsInt);
-            current.category = (catIsInt && val.trimmed() != QStringLiteral("0")) ? toCategoryStr(catInt) : normalizeCategoryTitle(val);
-        } else if (key == QStringLiteral("audio.ins")) {
-            current.audioIns = val.toInt();
-        } else if (key == QStringLiteral("audio.outs")) {
-            current.audioOuts = val.toInt();
-        } else if (key == QStringLiteral("end")) {
-            current.name = normalizePluginName(current.name, current.label, filePath);
-            current.label = normalizePluginLabel(current.label, current.name);
-            current.category = normalizeCategoryTitle(current.category);
-            if (!current.name.isEmpty()) {
-                current.id = QString(QStringLiteral("%1:%2:%3")).arg(current.format, current.label, QString::number(current.uniqueId));
-                results.append(current);
-            }
-            inBlock = false;
-        }
-    }
-    return results;
+    const auto result = AviQtl::RustCore::Plugin::parseDiscovery(
+        output, format, filePath, QFileInfo(filePath).completeBaseName());
+    return result.has_value() ? pluginInfosFromList(*result) : QList<PluginInfo>{};
 }
 
 auto runDiscovery(const QString &tool, const QString &type, const QString &format, const QString &target, std::atomic<bool> &stopFlag, int waitStartedMs, int timeoutMs, int waitReadyReadMs, int waitFinishedMs) -> QList<PluginInfo> {
@@ -733,7 +627,6 @@ void AudioPluginManager::scanPlugins() {
     qCDebug(lcPluginManager) << "Discovery tool:" << tool;
 
     QList<PluginInfo> newPlugins;
-    QHash<QString, PluginInfo> newMap;
 
     for (const FormatConfig &cfg : std::as_const(formats())) {
         if (m_stopRequested) {
@@ -747,83 +640,47 @@ void AudioPluginManager::scanPlugins() {
         qCDebug(lcPluginManager) << "Scanning:" << cfg.format;
         const QList<PluginInfo> found = discoverFormat(tool, cfg, m_stopRequested);
         qCInfo(lcPluginManager) << cfg.format << "→" << found.size() << "found";
-        for (const PluginInfo &p : std::as_const(found)) {
-            if (!newMap.contains(p.id)) {
-                newPlugins.append(p);
-                newMap.insert(p.id, p);
-            }
-        }
+        newPlugins.append(found);
     }
+
+    newPlugins = pluginInfosFromList(
+        AviQtl::RustCore::Plugin::deduplicate(pluginInfosToList(newPlugins)));
+    QVariantList pluginProjection = pluginInfosToList(newPlugins);
 
     {
         QMutexLocker lock(&m_pluginsMutex);
         m_plugins = std::move(newPlugins);
-        m_pluginMap = std::move(newMap);
+        m_pluginProjection = std::move(pluginProjection);
     }
     qCInfo(lcPluginManager) << "Plugins detected:" << m_plugins.size();
     m_scanning = false;
 }
 
 auto AudioPluginManager::getPluginList() const -> QVariantList {
-    QMutexLocker lock(&m_pluginsMutex);
-    QVariantList list;
-    list.reserve(m_plugins.size());
-    for (const auto &info : std::as_const(m_plugins)) {
-        QVariantMap map;
-        map.insert(QStringLiteral("id"), info.id);
-        map.insert(QStringLiteral("name"), info.name);
-        map.insert(QStringLiteral("format"), info.format);
-        map.insert(QStringLiteral("category"), info.category);
-        map.insert(QStringLiteral("maker"), info.maker);
-        map.insert(QStringLiteral("audioIns"), info.audioIns);
-        map.insert(QStringLiteral("audioOuts"), info.audioOuts);
-        list.append(map);
+    QVariantList plugins;
+    {
+        QMutexLocker lock(&m_pluginsMutex);
+        plugins = m_pluginProjection;
     }
-    return list;
+    return AviQtl::RustCore::Plugin::publicList(plugins);
 }
 
 auto AudioPluginManager::getCategories() const -> QVariantList {
-    QMutexLocker lock(&m_pluginsMutex);
-    QStringList cats;
-    for (const auto &info : std::as_const(m_plugins)) {
-        const QString c = normalizeCategoryTitle(info.category);
-        if (!cats.contains(c)) {
-            cats.append(c);
-        }
+    QVariantList plugins;
+    {
+        QMutexLocker lock(&m_pluginsMutex);
+        plugins = m_pluginProjection;
     }
-    std::ranges::sort(cats, [](const QString &a, const QString &b) -> bool {
-        const int ra = categoryRank(a);
-        const int rb = categoryRank(b);
-        return ra != rb ? ra < rb : a.toLower() < b.toLower();
-    });
-    QVariantList list;
-    for (const auto &c : std::as_const(cats)) {
-        list.append(c);
-    }
-    return list;
+    return AviQtl::RustCore::Plugin::categories(plugins);
 }
 
 auto AudioPluginManager::getPluginsInCategory(const QString &category) const -> QVariantList {
-    QMutexLocker lock(&m_pluginsMutex);
-    const QString wanted = normalizeCategoryTitle(category);
-    QList<PluginInfo> matched;
-    for (const auto &info : std::as_const(m_plugins)) {
-        if (normalizeCategoryTitle(info.category) == wanted) {
-            matched.append(info);
-        }
+    QVariantList plugins;
+    {
+        QMutexLocker lock(&m_pluginsMutex);
+        plugins = m_pluginProjection;
     }
-    std::ranges::sort(matched, [](const PluginInfo &a, const PluginInfo &b) -> bool { return a.name.toLower() < b.name.toLower(); });
-    QVariantList list;
-    for (const auto &info : std::as_const(matched)) {
-        QVariantMap map;
-        map.insert(QStringLiteral("id"), info.id);
-        map.insert(QStringLiteral("name"), normalizePluginName(info.name, info.label, info.path));
-        map.insert(QStringLiteral("format"), info.format);
-        map.insert(QStringLiteral("maker"), info.maker);
-        map.insert(QStringLiteral("category"), normalizeCategoryTitle(info.category));
-        list.append(map);
-    }
-    return list;
+    return AviQtl::RustCore::Plugin::filter(plugins, category);
 }
 
 auto AudioPluginManager::createPlugin(const QString &id) -> std::unique_ptr<IAudioPlugin> {

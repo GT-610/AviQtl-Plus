@@ -4,7 +4,7 @@
 class TestRustCoreAbi : public QObject {
     Q_OBJECT
 
-private slots:
+  private slots:
     void reportsCompatibleVersionAndCapabilities() {
         QCOMPARE(aviqtl_core_abi_version(), AVIQTL_RUST_CORE_ABI_VERSION);
         const std::uint64_t capabilities = aviqtl_core_capabilities();
@@ -14,6 +14,17 @@ private slots:
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_BAKE);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_EDIT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_DOMAIN);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_KEYFRAME_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_CORE_POLICY);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PRESET_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_EFFECT_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PLUGIN_DOCUMENT);
+        QCOMPARE(aviqtl_project_current_version(), std::int32_t{3});
     }
 
     void exposesExpectedLayouts() {
@@ -43,6 +54,16 @@ private slots:
         QCOMPARE(alignof(AviQtlAudioBakeInput), std::size_t{8});
         QCOMPARE(sizeof(AviQtlAudioBakeOutput), std::size_t{60});
         QCOMPARE(alignof(AviQtlAudioBakeOutput), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlTimelineClipGeometry), std::size_t{16});
+        QCOMPARE(alignof(AviQtlTimelineClipGeometry), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlTimelineMoveInput), std::size_t{24});
+        QCOMPARE(alignof(AviQtlTimelineMoveInput), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlTimelinePosition), std::size_t{8});
+        QCOMPARE(alignof(AviQtlTimelinePosition), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlSceneSettings), std::size_t{56});
+        QCOMPARE(alignof(AviQtlSceneSettings), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlIdAllocation), std::size_t{8});
+        QCOMPARE(alignof(AviQtlIdAllocation), std::size_t{4});
     }
 };
 

@@ -518,6 +518,38 @@ class TestBakeController : public QObject {
         QCOMPARE(snapshot.value(PerformanceCounter::BakeRustKeyframeTracks), quint64{2});
     }
 
+    void keyframesBeyondClipDurationAreExcluded() {
+        SceneSettings scene;
+        scene.id = 14;
+
+        Clip clip;
+        clip.id = 83;
+        clip.durationFrames = 20;
+        Effect effect;
+        effect.id = QStringLiteral("cache-test");
+        effect.params.insert(QStringLiteral("value"), 0.0);
+        effect.keyframes[QStringLiteral("value")] = {
+            {.frame = 0, .value = 0.0F, .interpolation = QStringLiteral("linear")},
+            {.frame = 20, .value = 20.0F, .interpolation = QStringLiteral("linear")},
+            {.frame = 25, .value = 100.0F, .interpolation = QStringLiteral("linear")},
+        };
+        clip.effects.push_back(std::move(effect));
+        scene.clips.push_back(std::move(clip));
+        DocumentModel::instance().addScene(scene);
+
+        // FullBake evaluates the cached track past the clip boundary. If frame 25 remains in
+        // the resolved track, frame 23 interpolates toward it instead of holding frame 20.
+        BakeController::instance().bake(scene.id, 23);
+
+        const auto &entries = ECS::instance().editState().effectParams.entries;
+        const auto value = std::find_if(entries.cbegin(), entries.cend(), [](const EffectParamEntry &entry) {
+            return entry.clipId == 83 &&
+                   QString::fromUtf8(entry.paramName) == QStringLiteral("value");
+        });
+        QVERIFY(value != entries.cend());
+        QCOMPARE(value->value[0], 20.0F);
+    }
+
     void effectModelAndBakeControllerShareNumericEvaluation() {
         SceneSettings scene;
         scene.id = 13;

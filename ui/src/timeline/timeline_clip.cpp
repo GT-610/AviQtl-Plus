@@ -1,18 +1,68 @@
 #include "commands.hpp"
 #include "constants.hpp"
 #include "effect_registry.hpp"
+#include "rust_timeline_edit.hpp"
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
 #include <QPoint>
 #include <algorithm>
+#include <cstdint>
 #include <utility>
+#include <vector>
 
 namespace AviQtl::UI {
 
+namespace {
+
+std::vector<AviQtl::RustCore::TimelineClipGeometry> timelineGeometry(const QList<ClipData> &clips) {
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> result;
+    result.reserve(static_cast<std::size_t>(clips.size()));
+    for (const ClipData &clip : clips) {
+        result.push_back({
+            .clip_id = clip.id,
+            .layer = clip.layer,
+            .start_frame = clip.startFrame,
+            .duration_frames = clip.durationFrames,
+        });
+    }
+    return result;
+}
+
+std::vector<std::int32_t> timelineLayers(const QSet<int> &layers) {
+    std::vector<std::int32_t> result;
+    result.reserve(static_cast<std::size_t>(layers.size()));
+    for (int layer : layers) {
+        result.push_back(layer);
+    }
+    return result;
+}
+
+QString clipDisplayName(const ClipData &clip) { return clip.effects.isEmpty() ? clip.type : clip.effects.first()->name(); }
+
+void applyPlannedMoves(TimelineService *service, std::span<const AviQtl::RustCore::TimelineClipGeometry> planned, const QString &macroText, bool prevalidated) {
+    if (planned.empty()) {
+        return;
+    }
+    service->undoStack()->beginMacro(macroText);
+    for (const auto &next : planned) {
+        const auto *old = service->findClipById(next.clip_id);
+        if (old == nullptr) {
+            continue;
+        }
+        service->undoStack()->push(new MoveClipCommand(service, old->id, old->layer, old->startFrame, old->durationFrames, next.layer, next.start_frame, next.duration_frames, clipDisplayName(*old), prevalidated));
+    }
+    service->undoStack()->endMacro();
+}
+
+} // namespace
+
 int TimelineService::createClip(const QString &type, int startFrame, int layer) {
-    int id = m_nextClipId++;
+    const int id = allocateClipId();
+    if (id < 0) {
+        return startFrame;
+    }
     QString clipName = type;
     auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(type);
     if (!meta.name.isEmpty()) {
@@ -101,51 +151,32 @@ void TimelineService::insertLayers(int targetLayer, int count, bool above) {
     if (count <= 0)
         return;
 
-    m_undoStack->beginMacro(above ? tr("レイヤーを上に挿入") : tr("レイヤーを下に挿入"));
-
-    QList<ClipData> sceneClips = clips();
-
-    // レイヤー番号が大きい順にソート（下方向にずらすので、下のものから先に動かせば移動先に既存クリップがいない状態を作れる）
-    std::sort(sceneClips.begin(), sceneClips.end(), [](const ClipData &a, const ClipData &b) { return a.layer > b.layer; });
-
-    for (const auto &clip : sceneClips) {
-        // 「上に挿入」はターゲットレイヤー自体を含む以降をシフト、「下に挿入」はターゲットより下をシフト
-        bool shouldShift = above ? (clip.layer >= targetLayer) : (clip.layer > targetLayer);
-
-        if (shouldShift) {
-            updateClip(clip.id, clip.layer + count, clip.startFrame, clip.durationFrames);
-        }
+    const auto geometry = timelineGeometry(clips());
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> planned;
+    if (AviQtl::RustCore::planInsertLayers(geometry, targetLayer, count, above, planned) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline layer insertion planning failed";
+        return;
     }
 
-    m_undoStack->endMacro();
+    applyPlannedMoves(this, planned,
+                      above ? tr("レイヤーを上に挿入") : tr("レイヤーを下に挿入"), true);
 }
 
 void TimelineService::shiftLayers(int startLayer, int endLayer, int delta) {
     if (delta == 0 || startLayer > endLayer)
         return;
 
-    m_undoStack->beginMacro(delta > 0 ? tr("レイヤーをまとめて下へ移動") : tr("レイヤーをまとめて上へ移動"));
-
-    // 現在のシーンのクリップのコピーを取得
-    QList<ClipData> sceneClips = clips(); // 処理中のリスト変更を避けるためコピー
-
-    if (delta > 0) {
-        // 下方向への移動：下のレイヤーから順に処理
-        std::sort(sceneClips.begin(), sceneClips.end(), [](const ClipData &a, const ClipData &b) { return a.layer > b.layer; });
-    } else {
-        // 上方向への移動：上のレイヤーから順に処理
-        std::sort(sceneClips.begin(), sceneClips.end(), [](const ClipData &a, const ClipData &b) { return a.layer < b.layer; });
+    const auto geometry = timelineGeometry(clips());
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> planned;
+    if (AviQtl::RustCore::planShiftLayers(geometry, startLayer, endLayer, delta, planned) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline layer shift planning failed";
+        return;
     }
 
-    for (const auto &clip : sceneClips) {
-        // 指定された範囲内のレイヤーに属するクリップのみを対象とする
-        if (clip.layer >= startLayer && clip.layer <= endLayer) {
-            int newLayer = std::max(0, clip.layer + delta);
-            updateClip(clip.id, newLayer, clip.startFrame, clip.durationFrames);
-        }
-    }
-
-    m_undoStack->endMacro();
+    applyPlannedMoves(this, planned,
+                      delta > 0 ? tr("レイヤーをまとめて下へ移動")
+                                : tr("レイヤーをまとめて上へ移動"),
+                      true);
 }
 
 void TimelineService::applyClipBatchMove(const QVariantList &moves) {
@@ -153,82 +184,48 @@ void TimelineService::applyClipBatchMove(const QVariantList &moves) {
         return;
     }
 
-    m_batchExcludes.clear();
-    for (const QVariant &vMove : std::as_const(moves)) {
-        m_batchExcludes.insert(vMove.toMap().value(QStringLiteral("id")).toInt());
-    }
-
-    struct PendingOp {
-        int id;
-        int oldLayer;
-        int oldStart;
-        int targetLayer;
-        int targetStart;
-        int duration;
-        QString name;
-    };
-
-    QVector<PendingOp> pending;
-    pending.reserve(moves.size());
+    std::vector<AviQtl::RustCore::TimelineMoveInput> requested;
+    requested.reserve(static_cast<std::size_t>(moves.size()));
 
     for (const QVariant &vMove : std::as_const(moves)) {
-        QVariantMap move = vMove.toMap();
-        int id = move.value(QStringLiteral("id")).toInt();
+        const QVariantMap move = vMove.toMap();
+        const int id = move.value(QStringLiteral("id")).toInt();
         const auto *clip = findClipById(id);
         if (clip != nullptr) {
-            pending.push_back(PendingOp{.id = id,
-                                        .oldLayer = clip->layer,
-                                        .oldStart = clip->startFrame,
-                                        .targetLayer = move.value(QStringLiteral("layer")).toInt(),
-                                        .targetStart = move.value(QStringLiteral("startFrame")).toInt(),
-                                        .duration = move.value(QStringLiteral("duration")).toInt(),
-                                        .name = clip->effects.isEmpty() ? clip->type : clip->effects.first()->name()});
+            bool durationOk = false;
+            const int requestedDuration =
+                move.value(QStringLiteral("duration")).toInt(&durationOk);
+            AviQtl::RustCore::TimelineMoveInput movement{
+                .clip_id = id,
+                .old_layer = clip->layer,
+                .old_start_frame = clip->startFrame,
+                .duration_frames = durationOk && requestedDuration > 0
+                                       ? requestedDuration
+                                       : clip->durationFrames,
+                .target_layer = move.value(QStringLiteral("layer")).toInt(),
+                .target_start_frame = move.value(QStringLiteral("startFrame")).toInt(),
+            };
+            requested.push_back(movement);
         }
     }
 
-    if (pending.isEmpty()) {
-        m_batchExcludes.clear();
+    if (requested.empty()) {
         return;
     }
 
-    for (const PendingOp &op : std::as_const(pending)) {
-        if (isLayerLocked(op.oldLayer) || isLayerLocked(op.targetLayer)) {
-            m_batchExcludes.clear();
-            return;
-        }
+    const auto geometry = timelineGeometry(clips());
+    const auto lockedLayers = timelineLayers(currentScene()->lockedLayers);
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> planned;
+    const auto status = AviQtl::RustCore::planBatchMove(geometry, requested, lockedLayers, planned);
+    if (status == AviQtl::RustCore::TimelineEditStatus::LockedLayer) {
+        return;
+    }
+    if (status != AviQtl::RustCore::TimelineEditStatus::Ok || planned.size() != requested.size()) {
+        qWarning() << "Rust timeline batch move planning failed";
+        return;
     }
 
-    int maxPush = 0;
-    bool needsPush = true;
-    int loopCount = 0;
-
-    while (needsPush && loopCount < 100) {
-        needsPush = false;
-        int currentPush = 0;
-
-        for (const auto &op : std::as_const(pending)) {
-            int testStart = op.targetStart + maxPush;
-            int safeStart = findVacantFrame(op.targetLayer, testStart, op.duration, op.id);
-            if (safeStart > testStart) {
-                int push = safeStart - testStart;
-                currentPush = std::max(push, currentPush);
-            }
-        }
-
-        if (currentPush > 0) {
-            maxPush += currentPush;
-            needsPush = true;
-        }
-        loopCount++;
-    }
-
-    m_undoStack->beginMacro(QObject::tr("複数クリップ絶対移動: %1").arg(pending.size()));
-    for (const auto &op : std::as_const(pending)) {
-        int finalStart = op.targetStart + maxPush;
-        m_undoStack->push(new MoveClipCommand(this, op.id, op.oldLayer, op.oldStart, op.duration, op.targetLayer, finalStart, op.duration, op.name));
-    }
-    m_undoStack->endMacro();
-    m_batchExcludes.clear();
+    applyPlannedMoves(this, planned, QObject::tr("複数クリップ絶対移動: %1").arg(static_cast<qsizetype>(planned.size())), true);
 }
 
 void TimelineService::moveSelectedClips(int deltaLayer, int deltaFrame) {
@@ -236,27 +233,29 @@ void TimelineService::moveSelectedClips(int deltaLayer, int deltaFrame) {
         return;
     }
 
-    const QVariantList ids = m_selection->selectedClipIds();
-    if (ids.isEmpty()) {
+    const QList<int> &selectedIds = m_selection->selectedClipIdsNative();
+    if (selectedIds.isEmpty()) {
         return;
     }
 
-    QVariantList moves;
-    moves.reserve(ids.size());
-
-    for (const QVariant &value : std::as_const(ids)) {
-        const int id = value.toInt();
-        const auto *clip = findClipById(id);
-        if (clip == nullptr) {
-            continue;
-        }
-        moves.append(QVariantMap{{QStringLiteral("id"), id},
-                                 {QStringLiteral("layer"), std::clamp(clip->layer + deltaLayer, 0, 127)},
-                                 {QStringLiteral("startFrame"), std::max(0, clip->startFrame + deltaFrame)},
-                                 {QStringLiteral("duration"), clip->durationFrames}});
+    std::vector<std::int32_t> movingIds;
+    movingIds.reserve(static_cast<std::size_t>(selectedIds.size()));
+    for (int id : selectedIds) {
+        movingIds.push_back(id);
     }
 
-    applyClipBatchMove(moves);
+    const auto geometry = timelineGeometry(clips());
+    const auto lockedLayers = timelineLayers(currentScene()->lockedLayers);
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> planned;
+    const auto status = AviQtl::RustCore::planDeltaMove(geometry, movingIds, lockedLayers, deltaLayer, deltaFrame, planned);
+    if (status == AviQtl::RustCore::TimelineEditStatus::LockedLayer) {
+        return;
+    }
+    if (status != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline delta move planning failed";
+        return;
+    }
+    applyPlannedMoves(this, planned, QObject::tr("複数クリップ絶対移動: %1").arg(static_cast<qsizetype>(planned.size())), true);
 }
 
 void TimelineService::resizeSelectedClips(int deltaStartFrame, int deltaDuration) {
@@ -269,16 +268,8 @@ void TimelineService::resizeSelectedClips(int deltaStartFrame, int deltaDuration
         return;
     }
 
-    struct PendingOp {
-        int id;
-        int oldLayer;
-        int oldStart;
-        int duration;
-        QString name;
-    };
-
-    QVector<PendingOp> pending;
-    pending.reserve(ids.size());
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> selected;
+    selected.reserve(static_cast<std::size_t>(ids.size()));
 
     for (const QVariant &value : std::as_const(ids)) {
         const int id = value.toInt();
@@ -286,36 +277,21 @@ void TimelineService::resizeSelectedClips(int deltaStartFrame, int deltaDuration
         if (clip == nullptr) {
             continue;
         }
-
-        pending.push_back(PendingOp{.id = id, .oldLayer = clip->layer, .oldStart = clip->startFrame, .duration = clip->durationFrames, .name = clip->effects.isEmpty() ? clip->type : clip->effects.first()->name()});
-    }
-
-    // Resize left side -> deltaStartFrame != 0. If deltaStartFrame > 0, left edge moves right.
-    // Resize right side -> deltaStartFrame == 0, deltaDuration != 0.
-    // In any case, order matters if they push each other.
-    if (deltaStartFrame > 0 || deltaDuration > 0) {
-        std::ranges::sort(pending, [](const PendingOp &a, const PendingOp &b) -> bool {
-            if (a.oldStart != b.oldStart) {
-                return a.oldStart > b.oldStart;
-            }
-            return a.oldLayer > b.oldLayer;
-        });
-    } else {
-        std::ranges::sort(pending, [](const PendingOp &a, const PendingOp &b) -> bool {
-            if (a.oldStart != b.oldStart) {
-                return a.oldStart < b.oldStart;
-            }
-            return a.oldLayer < b.oldLayer;
+        selected.push_back({
+            .clip_id = clip->id,
+            .layer = clip->layer,
+            .start_frame = clip->startFrame,
+            .duration_frames = clip->durationFrames,
         });
     }
 
-    m_undoStack->beginMacro(QObject::tr("複数クリップ変形: %1").arg(pending.size()));
-    for (const PendingOp &clip : std::as_const(pending)) {
-        const int newStart = std::max(0, clip.oldStart + deltaStartFrame);
-        const int newDuration = std::max(1, clip.duration + deltaDuration);
-        m_undoStack->push(new MoveClipCommand(this, clip.id, clip.oldLayer, clip.oldStart, clip.duration, clip.oldLayer, newStart, newDuration, clip.name));
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> planned;
+    if (AviQtl::RustCore::planResize(selected, deltaStartFrame, deltaDuration, planned) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline resize planning failed";
+        return;
     }
-    m_undoStack->endMacro();
+
+    applyPlannedMoves(this, planned, QObject::tr("複数クリップ変形: %1").arg(static_cast<qsizetype>(planned.size())), false);
 }
 
 auto TimelineService::resolveDragPosition(int clipId, int targetLayer, int proposedStartFrame, const QVariantList &batchIds) -> QPoint { // NOLINT(bugprone-easily-swappable-parameters)
@@ -324,86 +300,31 @@ auto TimelineService::resolveDragPosition(int clipId, int targetLayer, int propo
         return {proposedStartFrame, targetLayer};
     }
 
-    int deltaLayer = targetLayer - movingClip->layer;
-    int deltaFrame = proposedStartFrame - movingClip->startFrame;
-
-    QSet<int> movingIds;
+    std::vector<std::int32_t> movingIds;
     if (!batchIds.isEmpty()) {
         for (const QVariant &v : std::as_const(batchIds)) {
-            movingIds.insert(v.toInt());
+            movingIds.push_back(v.toInt());
         }
     } else if ((m_selection != nullptr) && m_selection->isSelected(clipId)) {
         for (const QVariant &v : m_selection->selectedClipIds()) {
-            movingIds.insert(v.toInt());
+            movingIds.push_back(v.toInt());
         }
     } else {
-        movingIds.insert(clipId);
+        movingIds.push_back(clipId);
     }
 
-    for (int id : std::as_const(movingIds)) {
-        const auto *clip = findClipById(id);
-        if (clip == nullptr) {
-            continue;
-        }
-        const int destinationLayer = std::clamp(clip->layer + deltaLayer, 0, 127);
-        if (isLayerLocked(clip->layer) || isLayerLocked(destinationLayer)) {
-            return {movingClip->startFrame, movingClip->layer};
-        }
+    const auto geometry = timelineGeometry(clips());
+    const auto lockedLayers = timelineLayers(currentScene()->lockedLayers);
+    AviQtl::RustCore::TimelinePosition position{};
+    const auto status = AviQtl::RustCore::resolveDrag(geometry, movingIds, lockedLayers, clipId, targetLayer, proposedStartFrame, position);
+    if (status == AviQtl::RustCore::TimelineEditStatus::LockedLayer) {
+        return {movingClip->startFrame, movingClip->layer};
     }
-
-    int maxPush = 0;
-    bool needsPush = true;
-    int loopCount = 0;
-
-    QSet<int> backupExcludes = m_batchExcludes;
-
-    while (needsPush && loopCount < 100) {
-        needsPush = false;
-        int currentPush = 0;
-
-        for (int id : std::as_const(movingIds)) {
-            const auto *c = findClipById(id);
-            if (c == nullptr) {
-                continue;
-            }
-
-            int tLayer = c->layer + deltaLayer;
-            tLayer = std::max(tLayer, 0);
-            tLayer = std::min(tLayer, 127);
-
-            // ターゲットレイヤーがロックされている場合は、そのクリップの移動を制限
-            if (isLayerLocked(tLayer) || isLayerLocked(c->layer)) {
-                tLayer = c->layer;
-            }
-
-            int testStart = c->startFrame + deltaFrame + maxPush;
-            testStart = std::max(testStart, 0);
-
-            m_batchExcludes = movingIds;
-            int safeStart = findVacantFrame(tLayer, testStart, c->durationFrames, id);
-            m_batchExcludes = backupExcludes;
-
-            if (safeStart > testStart) {
-                int push = safeStart - testStart;
-                currentPush = std::max(push, currentPush);
-            }
-        }
-
-        if (currentPush > 0) {
-            maxPush += currentPush;
-            needsPush = true;
-        }
-        loopCount++;
+    if (status != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline drag resolution failed";
+        return {proposedStartFrame, targetLayer};
     }
-
-    int finalFrame = proposedStartFrame + maxPush;
-    finalFrame = std::max(finalFrame, 0);
-
-    int finalLayer = targetLayer;
-    finalLayer = std::max(finalLayer, 0);
-    finalLayer = std::min(finalLayer, 127);
-
-    return {finalFrame, finalLayer};
+    return {position.frame, position.layer};
 }
 
 void TimelineService::updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal, bool forcePosition) {
@@ -749,42 +670,43 @@ int TimelineService::pasteClip(int frame, int layer) {
 
     frame = std::max(frame, 0);
     layer = std::max(layer, 0);
-    int safeFrame = findVacantFrameForClipboard(frame, layer);
-
-    auto overlaps = [](int s1, int d1, int s2, int d2) -> bool { return (s1 < (s2 + d2)) && (s2 < (s1 + d1)); };
-
-    int baseFrame = m_clipboard.first().startFrame;
-    int baseLayer = m_clipboard.first().layer;
-    for (const auto &clip : std::as_const(m_clipboard)) {
-        baseFrame = std::min(baseFrame, clip.startFrame);
-        baseLayer = std::min(baseLayer, clip.layer);
+    const auto existing = timelineGeometry(clips());
+    const auto clipboard = timelineGeometry(m_clipboard);
+    std::vector<AviQtl::RustCore::TimelineClipGeometry> placement;
+    std::int32_t safeFrame = frame;
+    if (AviQtl::RustCore::planClipboardPlacement(existing, clipboard, frame, layer, placement, safeFrame) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline clipboard placement failed";
+        return frame;
     }
 
     QList<ClipData> pending;
-    for (const auto &src : std::as_const(m_clipboard)) {
+    pending.reserve(m_clipboard.size());
+    for (qsizetype index = 0; index < m_clipboard.size(); ++index) {
+        const auto &src = m_clipboard[index];
+        const auto &planned = placement[static_cast<std::size_t>(index)];
         ClipData newClip = deepCopyClip(src);
-        newClip.startFrame = safeFrame + (src.startFrame - baseFrame);
-        newClip.layer = std::max(0, layer + (src.layer - baseLayer));
-        for (const auto &c : std::as_const(pending)) {
-            if (c.layer == newClip.layer && overlaps(newClip.startFrame, newClip.durationFrames, c.startFrame, c.durationFrames)) {
-                qWarning() << "Clip paste rejected: target clips overlap";
-                return safeFrame;
-            }
-        }
-
+        newClip.startFrame = planned.start_frame;
+        newClip.layer = planned.layer;
+        newClip.durationFrames = planned.duration_frames;
         pending.append(newClip);
     }
 
     if (pending.size() == 1) {
-        int newId = m_nextClipId++;
+        const int newId = allocateClipId();
+        if (newId < 0) {
+            return frame;
+        }
         m_undoStack->push(new PasteClipCommand(this, newId, pending.first()));
         return safeFrame;
     }
 
+    const QList<int> newIds = allocateClipIds(pending.size());
+    if (newIds.size() != pending.size()) {
+        return frame;
+    }
     m_undoStack->beginMacro(QObject::tr("複数クリップ貼り付け: %1").arg(pending.size()));
-    for (const auto &clip : std::as_const(pending)) {
-        int newId = m_nextClipId++;
-        m_undoStack->push(new PasteClipCommand(this, newId, clip));
+    for (qsizetype index = 0; index < pending.size(); ++index) {
+        m_undoStack->push(new PasteClipCommand(this, newIds.at(index), pending.at(index)));
     }
     m_undoStack->endMacro();
     return safeFrame;
@@ -796,13 +718,18 @@ void TimelineService::splitClip(int clipId, int frame) {
         return;
     }
 
-    if (frame > clip->startFrame && frame < clip->startFrame + clip->durationFrames) {
-        QString clipName = clip->type;
-        if (!clip->effects.isEmpty()) {
-            clipName = clip->effects.first()->name();
-        }
-        m_undoStack->push(new SplitClipCommand(this, clipId, frame, clipName));
+    const AviQtl::RustCore::TimelineClipGeometry geometry{
+        .clip_id = clip->id,
+        .layer = clip->layer,
+        .start_frame = clip->startFrame,
+        .duration_frames = clip->durationFrames,
+    };
+    AviQtl::RustCore::TimelineClipGeometry first{};
+    AviQtl::RustCore::TimelineClipGeometry second{};
+    if (AviQtl::RustCore::splitClip(geometry, frame, first, second) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        return;
     }
+    m_undoStack->push(new SplitClipCommand(this, clipId, frame, clip->durationFrames, first.duration_frames, second.duration_frames, clipDisplayName(*clip)));
 }
 
 auto TimelineService::clips() const -> const QList<ClipData> & { return currentScene()->clips; }
@@ -820,49 +747,22 @@ auto TimelineService::clips(int sceneId) const -> const QList<ClipData> & {
 }
 
 auto TimelineService::findVacantFrame(int layer, int startFrame, int duration, int excludeClipId) const -> int { // NOLINT(bugprone-easily-swappable-parameters)
-    QList<const ClipData *> layerClips;
-
-    // バッチ移動中は明示的に指定された集合を使い、そうでない場合は選択情報を使う
-    bool isBatchMode = !m_batchExcludes.isEmpty();
-    bool isSelected = (m_selection != nullptr) && m_selection->isSelected(excludeClipId);
-    QSet<int> selectedIds;
-    if (isSelected) {
+    std::vector<std::int32_t> excludedIds;
+    excludedIds.push_back(excludeClipId);
+    if ((m_selection != nullptr) && m_selection->isSelected(excludeClipId)) {
         const QList<int> &selection = m_selection->selectedClipIdsNative();
-        selectedIds.reserve(selection.size());
+        excludedIds.reserve(static_cast<std::size_t>(selection.size()) + 1);
         for (int id : selection) {
-            selectedIds.insert(id);
+            excludedIds.push_back(id);
         }
     }
 
-    for (const auto &clip : clips()) {
-        if (clip.id == excludeClipId) {
-            continue;
-        }
-
-        if (isBatchMode) {
-            if (m_batchExcludes.contains(clip.id)) {
-                continue;
-            }
-        } else if (isSelected && selectedIds.contains(clip.id)) {
-            continue;
-        }
-
-        if (clip.layer == layer) {
-            layerClips.append(&clip);
-        }
+    const auto geometry = timelineGeometry(clips());
+    std::int32_t result = std::max(0, startFrame);
+    if (AviQtl::RustCore::findVacantFrame(geometry, excludedIds, layer, startFrame, duration, result) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline vacancy search failed";
     }
-
-    std::ranges::sort(layerClips, [](const ClipData *a, const ClipData *b) -> bool { return a->startFrame < b->startFrame; });
-
-    int candidateStart = std::max(0, startFrame);
-    for (const auto &clip : std::as_const(layerClips)) {
-        int clipEnd = clip->startFrame + clip->durationFrames;
-        int candidateEnd = candidateStart + duration;
-        if (candidateStart < clipEnd && candidateEnd > clip->startFrame) {
-            candidateStart = clipEnd;
-        }
-    }
-    return candidateStart;
+    return result;
 }
 
 void TimelineService::setClipboard(const ClipData &clip) { setClipboard(QList<ClipData>{clip}); }
@@ -883,51 +783,22 @@ void TimelineService::setClipboard(const QList<ClipData> &clips) {
 }
 
 int TimelineService::getClipboardDuration() const {
-    if (m_clipboard.isEmpty())
+    const auto geometry = timelineGeometry(m_clipboard);
+    std::int32_t duration = 0;
+    if (AviQtl::RustCore::clipboardDuration(geometry, duration) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline clipboard duration failed";
         return 0;
-    int minStart = 2147483647;
-    int maxEnd = -2147483648;
-    for (const auto &clip : std::as_const(m_clipboard)) {
-        minStart = std::min(minStart, clip.startFrame);
-        maxEnd = std::max(maxEnd, clip.startFrame + clip.durationFrames);
     }
-    if (maxEnd <= minStart)
-        return 0;
-    return maxEnd - minStart;
+    return duration;
 }
 
 int TimelineService::findVacantFrameForClipboard(int requestedFrame, int layerOffset) const {
-    if (m_clipboard.isEmpty())
+    const auto existing = timelineGeometry(clips());
+    const auto clipboard = timelineGeometry(m_clipboard);
+    std::int32_t safeFrame = requestedFrame;
+    if (AviQtl::RustCore::findVacantClipboardFrame(existing, clipboard, requestedFrame, layerOffset, safeFrame) != AviQtl::RustCore::TimelineEditStatus::Ok) {
+        qWarning() << "Rust timeline clipboard vacancy search failed";
         return requestedFrame;
-
-    int minStart = 2147483647;
-    int minLayer = 2147483647;
-    for (const auto &c : m_clipboard) {
-        minStart = std::min(minStart, c.startFrame);
-        minLayer = std::min(minLayer, c.layer);
-    }
-
-    auto overlaps = [](int s1, int d1, int s2, int d2) -> bool { return (s1 < (s2 + d2)) && (s2 < (s1 + d1)); };
-
-    int safeFrame = std::max(0, requestedFrame);
-    bool colliding = true;
-    while (colliding) {
-        colliding = false;
-        int nextJump = safeFrame + 1;
-        for (const auto &src : m_clipboard) {
-            int clipStart = safeFrame + (src.startFrame - minStart);
-            int clipLayer = std::max(0, layerOffset + (src.layer - minLayer));
-            int clipDur = src.durationFrames;
-
-            for (const auto &c : clips()) {
-                if (c.layer == clipLayer && overlaps(clipStart, clipDur, c.startFrame, c.durationFrames)) {
-                    colliding = true;
-                    nextJump = std::max(nextJump, c.startFrame + c.durationFrames - (src.startFrame - minStart));
-                }
-            }
-        }
-        if (colliding)
-            safeFrame = nextJump;
     }
     return safeFrame;
 }

@@ -1,5 +1,4 @@
 #pragma once
-#include <QJsonObject>
 #include <QLoggingCategory>
 #include <QObject>
 #include <QVariantMap>
@@ -33,7 +32,6 @@ class SettingsManager : public QObject {
   private:
     explicit SettingsManager(QObject *parent = nullptr);
     static QString getSettingsFilePath();
-    static QVariantMap defaultShortcutSettings();
 
     QVariantMap m_settings;
 };

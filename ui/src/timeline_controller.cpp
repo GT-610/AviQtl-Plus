@@ -2,6 +2,7 @@
 #include "bridge/ecs_render_bridge.hpp"
 #include "commands.hpp"
 #include "core/include/document_model.hpp"
+#include "core/include/rust_timeline_domain.hpp"
 #include "project_recovery_manager.hpp"
 #include "settings_manager.hpp"
 #include "engine/timeline/bake_controller.hpp"
@@ -216,14 +217,13 @@ void TimelineController::invalidateTimelineDuration() {
     int oldVal = m_cachedTimelineDuration;
     const auto *scene = AviQtl::Core::DocumentModel::instance().findScene(currentSceneId());
     if (scene) {
-        int maxEnd = 0;
         const auto &sceneClips = m_timeline->clips(currentSceneId());
+        std::vector<AviQtlTimelineClipGeometry> geometry;
+        geometry.reserve(static_cast<std::size_t>(sceneClips.size()));
         for (const auto &clip : sceneClips) {
-            if (clip.durationFrames > 0) {
-                maxEnd = std::max(maxEnd, clip.startFrame + clip.durationFrames);
-            }
+            geometry.push_back({clip.id, clip.layer, clip.startFrame, clip.durationFrames});
         }
-        m_cachedTimelineDuration = std::max(1, maxEnd);
+        m_cachedTimelineDuration = AviQtl::RustCore::timelineDuration(geometry);
     } else {
         m_cachedTimelineDuration = AviQtl::kDefaultTotalFrames; // fallback
     }
@@ -237,32 +237,26 @@ void TimelineController::log(const QString &msg) { qCDebug(lcTimeline) << "[Brid
 auto TimelineController::snapFrame(double frame, bool ignoreSnap) const -> int {
     const auto scenes = m_timeline->getAllScenes();
     const auto sceneIt = std::ranges::find_if(scenes, [this](const SceneData &scene) { return scene.id == currentSceneId(); });
-    if (sceneIt == scenes.end() || ignoreSnap || !sceneIt->enableSnap) {
+    if (sceneIt == scenes.end()) {
         return std::max(0, static_cast<int>(std::round(frame)));
     }
 
     const SceneData &scene = *sceneIt;
-    const double fps = std::max(1.0, scene.fps);
-    const double scale = timelineScale();
-    double step = 1.0;
-    double offset = 0.0;
-
-    if (scene.gridMode == QLatin1String("BPM")) {
-        const double bpm = std::max(1.0, scene.gridBpm);
-        const int subdivision = scale > 3.0 ? 4 : (scale > 1.5 ? 2 : 1);
-        step = (fps / (bpm / 60.0)) / subdivision;
-        offset = scene.gridOffset * fps;
-    } else if (scene.gridMode == QLatin1String("Frame")) {
-        step = std::max(1, scene.gridInterval);
-    } else if (scale < 0.5) {
-        step = std::ceil(fps);
-    } else if (scale < 1.5) {
-        step = 10.0;
-    } else if (scale < 3.0) {
-        step = 5.0;
-    }
-
-    return std::max(0, static_cast<int>(std::round(std::round((frame - offset) / step) * step + offset)));
+    const AviQtl::RustCore::SceneSettings settings{
+        .width = scene.width,
+        .height = scene.height,
+        .fps = scene.fps,
+        .total_frames = scene.totalFrames,
+        .grid_mode = static_cast<std::uint32_t>(
+            AviQtl::RustCore::sceneGridMode(scene.gridMode)),
+        .grid_bpm = scene.gridBpm,
+        .grid_offset = scene.gridOffset,
+        .grid_interval = scene.gridInterval,
+        .grid_subdivision = scene.gridSubdivision,
+        .enable_snap = scene.enableSnap ? 1U : 0U,
+        .magnetic_snap_range = scene.magneticSnapRange,
+    };
+    return AviQtl::RustCore::snapFrame(frame, ignoreSnap, settings, timelineScale());
 }
 
 auto TimelineController::resolveDragPosition(int clipId, int targetLayer, int proposedStartFrame, const QVariantList &batchIds) -> QPoint { return m_timeline->resolveDragPosition(clipId, targetLayer, proposedStartFrame, batchIds); }

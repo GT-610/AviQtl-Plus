@@ -2,6 +2,10 @@
 #include "commands.hpp"
 #include "constants.hpp"
 #include "core/include/media_utils.hpp"
+#include "core/include/rust_core_policy.hpp"
+#include "core/include/rust_keyframe_adapter.hpp"
+#include "core/include/rust_keyframe_document.hpp"
+#include "core/include/rust_timeline_domain.hpp"
 #include "effect_registry.hpp"
 #include "engine/plugin/audio_plugin_manager.hpp"
 #include "engine/timeline/ecs.hpp"
@@ -17,6 +21,7 @@
 #include <QtGlobal>
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 extern "C" {
 #include <libavutil/avutil.h>
@@ -52,75 +57,21 @@ static auto audioPluginTrackPoints(const AudioPluginState &plugin, const QString
         return cached.value();
     }
 
-    const QVariant raw = plugin.keyframeTracks.value(paramKey);
-    QVariantList points;
-    if (AviQtl::Core::KeyframeUtils::isStructuredTrack(raw)) {
-        const QVariantMap track = raw.toMap();
-        points.append(track.value(QStringLiteral("start")));
-        points.append(track.value(QStringLiteral("points")).toList());
-    } else {
-        points = raw.toList();
-    }
-
-    const auto frameOf = [](const QVariant &point) {
-        return point.toMap().value(QStringLiteral("frame")).toInt();
-    };
-    if (!std::is_sorted(points.cbegin(), points.cend(), [&frameOf](const QVariant &lhs, const QVariant &rhs) {
-            return frameOf(lhs) < frameOf(rhs);
-        })) {
-        std::sort(points.begin(), points.end(), [&frameOf](const QVariant &lhs, const QVariant &rhs) {
-            return frameOf(lhs) < frameOf(rhs);
-        });
-    }
+    const QVariant fallback = plugin.params.value(paramKey);
+    const auto inspected = AviQtl::Core::RustKeyframeDocument::inspect(
+        plugin.keyframeTracks.value(paramKey), fallback);
+    const QVariantList points = inspected ? inspected->flat : QVariantList();
     plugin.resolvedKeyframeTracks.insert(paramKey, points);
     return points;
 }
 
 static auto evaluateAudioPluginTrack(const QVariantList &points, int frame, const QVariant &fallback) -> QVariant {
-    if (points.isEmpty()) {
-        return fallback;
-    }
-
-    const auto frameOf = [](const QVariant &point) {
-        return point.toMap().value(QStringLiteral("frame")).toInt();
-    };
-    const auto next = std::lower_bound(points.cbegin(), points.cend(), frame,
-                                       [&frameOf](const QVariant &point, int targetFrame) {
-                                           return frameOf(point) < targetFrame;
-                                       });
-    if (next == points.cbegin()) {
-        return next->toMap().value(QStringLiteral("value"), fallback);
-    }
-    if (next == points.cend()) {
-        return points.constLast().toMap().value(QStringLiteral("value"), fallback);
-    }
-
-    const QVariantMap nextPoint = next->toMap();
-    if (frameOf(*next) == frame) {
-        return nextPoint.value(QStringLiteral("value"), fallback);
-    }
-
-    const QVariantMap currentPoint = std::prev(next)->toMap();
-    const int currentFrame = currentPoint.value(QStringLiteral("frame")).toInt();
-    const int nextFrame = nextPoint.value(QStringLiteral("frame")).toInt();
-    if (nextFrame <= currentFrame) {
-        return currentPoint.value(QStringLiteral("value"), fallback);
-    }
-    if (currentPoint.value(QStringLiteral("interp")).toString() == QStringLiteral("none")) {
-        return currentPoint.value(QStringLiteral("value"), fallback);
-    }
-
-    const double t = static_cast<double>(frame - currentFrame) /
-                     static_cast<double>(nextFrame - currentFrame);
-    const double currentValue = currentPoint.value(QStringLiteral("value"), fallback).toDouble();
-    const double nextValue = nextPoint.value(QStringLiteral("value"), fallback).toDouble();
-    if (fallback.typeId() == QMetaType::Bool) {
-        return t < 0.5 ? currentValue : nextValue;
-    }
-    if (fallback.typeId() == QMetaType::Int || fallback.typeId() == QMetaType::LongLong) {
-        return t < 0.5 ? std::floor(currentValue) : std::floor(nextValue);
-    }
-    return currentValue + (nextValue - currentValue) * t;
+    const bool discrete = fallback.typeId() == QMetaType::Bool ||
+                          fallback.typeId() == QMetaType::Int ||
+                          fallback.typeId() == QMetaType::LongLong;
+    const std::optional<double> value =
+        AviQtl::Core::RustKeyframes::evaluateNumericTrack(points, frame, fallback, discrete);
+    return value ? QVariant(*value) : fallback;
 }
 
 static QVariantMap clipToVariantMap(const ClipData &clip) {
@@ -400,21 +351,23 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
     static const QSet<QString> imageExts = {QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("bmp"), QStringLiteral("gif"), QStringLiteral("webp"), QStringLiteral("svg")};
 
     if (AviQtl::Core::MediaUtils::isVideoFile(filePath)) {
-        m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
-
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_VIDEO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = findVacantFrameForLinkedMedia(m_timeline, layer, startFrame, importDuration);
 
-        int videoClipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(videoClipId + 1);
+        const QList<int> clipIds = m_timeline->allocateClipIds(2);
+        if (clipIds.size() != 2) {
+            return {{QStringLiteral("ok"), false}};
+        }
+        const int videoClipId = clipIds.at(0);
+        const int audioClipId = clipIds.at(1);
+
+        m_timeline->undoStack()->beginMacro(tr("動画をインポート"));
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, videoClipId, QStringLiteral("video"), startFrame, layer, tr("動画"), importDuration, QStringLiteral("video"),
                                                         {{QStringLiteral("path"), filePath}}));
 
-        int audioClipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(audioClipId + 1);
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, audioClipId, QStringLiteral("audio"), startFrame, layer + 1, tr("音声"), importDuration, QStringLiteral("audio"),
                                                         {{QStringLiteral("source"), filePath},
                                                          {QStringLiteral("linkedVideo"), true},
@@ -423,29 +376,31 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         m_timeline->undoStack()->endMacro();
         return editResult(startFrame, layer, importDuration);
     } else if (audioExts.contains(suffix)) {
-        m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
-
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_AUDIO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
         const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
-        int clipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(clipId + 1);
+        const int clipId = m_timeline->allocateClipId();
+        if (clipId < 0) {
+            return {{QStringLiteral("ok"), false}};
+        }
+        m_timeline->undoStack()->beginMacro(tr("音声をインポート"));
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("audio"), startFrame, layer, tr("音声"), importDuration, QStringLiteral("audio"),
                                                         {{QStringLiteral("source"), filePath}}));
 
         m_timeline->undoStack()->endMacro();
         return editResult(startFrame, layer, importDuration);
     } else if (imageExts.contains(suffix)) {
-        m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
-
         const int importDuration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
-        int clipId = m_timeline->nextClipId();
-        m_timeline->setNextClipId(clipId + 1);
+        const int clipId = m_timeline->allocateClipId();
+        if (clipId < 0) {
+            return {{QStringLiteral("ok"), false}};
+        }
+        m_timeline->undoStack()->beginMacro(tr("画像をインポート"));
         m_timeline->undoStack()->push(new AddClipCommand(m_timeline, clipId, QStringLiteral("image"), startFrame, layer, tr("画像"), importDuration, QStringLiteral("image"),
                                                         {{QStringLiteral("path"), filePath}}));
 
@@ -649,22 +604,9 @@ int TimelineController::clampVideoDuration(int clipId, int requestedDuration, in
     if (srcFps <= 0.0) {
         srcFps = projectFps;
     }
-    int maxDuration = requestedDuration;
-
-    if (isDirectMode) {
-        const double totalSec = static_cast<double>(vid->totalFrameCount()) / srcFps;
-        maxDuration = static_cast<int>(totalSec * projectFps);
-    } else if (speed > 0.0) {
-        const double startSec = static_cast<double>(startVideoFrame) / srcFps;
-        const double remainingSec = (static_cast<double>(vid->totalFrameCount()) / srcFps) - startSec;
-        if (remainingSec > 0.0) {
-            maxDuration = static_cast<int>(remainingSec / (speed / AviQtl::kDefaultSpeed) * projectFps);
-        }
-    }
-    if (maxDuration > 0 && requestedDuration > maxDuration) {
-        return maxDuration;
-    }
-    return requestedDuration;
+    return AviQtl::RustCore::Policy::clampVideoDurationFrames(
+        requestedDuration, vid->totalFrameCount(), srcFps, isDirectMode, startVideoFrame, speed,
+        projectFps);
 }
 
 int TimelineController::clampAudioDuration(int clipId, int requestedDuration, int projectFps) const {
@@ -693,21 +635,8 @@ int TimelineController::clampAudioDuration(int clipId, int requestedDuration, in
         break;
     }
 
-    const double totalSec = aud->totalDurationSec();
-    int maxDuration = requestedDuration;
-
-    if (isDirectMode) {
-        maxDuration = static_cast<int>(totalSec * projectFps);
-    } else if (speed > 0.0) {
-        const double remainingSec = totalSec - startTime;
-        if (remainingSec > 0.0) {
-            maxDuration = static_cast<int>(remainingSec / (speed / AviQtl::kDefaultSpeed) * projectFps);
-        }
-    }
-    if (maxDuration > 0 && requestedDuration > maxDuration) {
-        return maxDuration;
-    }
-    return requestedDuration;
+    return AviQtl::RustCore::Policy::clampAudioDurationFrames(
+        requestedDuration, aud->totalDurationSec(), isDirectMode, startTime, speed, projectFps);
 }
 
 int TimelineController::clampSceneDuration(const ClipData *clip, int requestedDuration) const {
@@ -727,12 +656,7 @@ int TimelineController::clampSceneDuration(const ClipData *clip, int requestedDu
     }
 
     const int sceneDur = getSceneDuration(targetSceneId);
-    if (sceneDur > 0 && speed > 0.0) {
-        const double rhs = (static_cast<double>(sceneDur - 1 - offset)) / speed;
-        int maxDuration = std::max(static_cast<int>(rhs) + 1, 1);
-        return std::min(requestedDuration, maxDuration);
-    }
-    return requestedDuration;
+    return AviQtl::RustCore::clampSceneDuration(requestedDuration, sceneDur, speed, offset);
 }
 
 void TimelineController::updateClip(int id, int layer, int startFrame, int duration) {

@@ -7,12 +7,32 @@ pub const CAPABILITY_NUMERIC_KEYFRAME_BATCH: u64 = 1 << 2;
 pub const CAPABILITY_TIMELINE_BAKE: u64 = 1 << 3;
 pub const CAPABILITY_PROJECT_DOCUMENT: u64 = 1 << 4;
 pub const CAPABILITY_AUDIO_BATCH_MIX: u64 = 1 << 5;
+pub const CAPABILITY_TIMELINE_EDIT: u64 = 1 << 6;
+pub const CAPABILITY_TIMELINE_DOMAIN: u64 = 1 << 7;
+pub const CAPABILITY_KEYFRAME_DOCUMENT: u64 = 1 << 8;
+pub const CAPABILITY_CORE_POLICY: u64 = 1 << 9;
+pub const CAPABILITY_SETTINGS_DOCUMENT: u64 = 1 << 10;
+pub const CAPABILITY_PRESET_DOCUMENT: u64 = 1 << 11;
+pub const CAPABILITY_PACKAGE_DOCUMENT: u64 = 1 << 12;
+pub const CAPABILITY_EFFECT_DOCUMENT: u64 = 1 << 13;
+pub const CAPABILITY_SCRIPT_DOCUMENT: u64 = 1 << 14;
+pub const CAPABILITY_PLUGIN_DOCUMENT: u64 = 1 << 15;
 pub const CAPABILITIES: u64 = CAPABILITY_EASING
     | CAPABILITY_AUDIO_DSP
     | CAPABILITY_NUMERIC_KEYFRAME_BATCH
     | CAPABILITY_TIMELINE_BAKE
     | CAPABILITY_PROJECT_DOCUMENT
-    | CAPABILITY_AUDIO_BATCH_MIX;
+    | CAPABILITY_AUDIO_BATCH_MIX
+    | CAPABILITY_TIMELINE_EDIT
+    | CAPABILITY_TIMELINE_DOMAIN
+    | CAPABILITY_KEYFRAME_DOCUMENT
+    | CAPABILITY_CORE_POLICY
+    | CAPABILITY_SETTINGS_DOCUMENT
+    | CAPABILITY_PRESET_DOCUMENT
+    | CAPABILITY_PACKAGE_DOCUMENT
+    | CAPABILITY_EFFECT_DOCUMENT
+    | CAPABILITY_SCRIPT_DOCUMENT
+    | CAPABILITY_PLUGIN_DOCUMENT;
 
 pub const STATUS_OK: u32 = 0;
 pub const STATUS_INVALID_ARGUMENT: u32 = 1;
@@ -20,6 +40,26 @@ pub const STATUS_OVERLAPPING_BUFFERS: u32 = 2;
 pub const STATUS_BUFFER_TOO_SMALL: u32 = 3;
 pub const STATUS_INVALID_JSON: u32 = 4;
 pub const STATUS_UNSUPPORTED_VERSION: u32 = 5;
+pub const STATUS_LOCKED_LAYER: u32 = 6;
+
+/// Decodes a caller-provided UTF-8 byte range.
+///
+/// # Safety
+///
+/// `value` must be valid for `length` readable bytes and remain alive for the returned
+/// reference's lifetime. A null pointer is permitted only when `length` is zero.
+pub(crate) unsafe fn utf8<'a>(value: *const u8, length: usize) -> Option<&'a str> {
+    if !slice_is_valid(value, length) {
+        return None;
+    }
+    let bytes = if length == 0 {
+        &[]
+    } else {
+        // SAFETY: The caller upholds the readable-range and lifetime contract.
+        unsafe { std::slice::from_raw_parts(value, length) }
+    };
+    std::str::from_utf8(bytes).ok()
+}
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -182,6 +222,56 @@ pub struct AviQtlAudioBakeOutput {
     pub direct_mode: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlTimelineClipGeometry {
+    pub clip_id: i32,
+    pub layer: i32,
+    pub start_frame: i32,
+    pub duration_frames: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlTimelineMoveInput {
+    pub clip_id: i32,
+    pub old_layer: i32,
+    pub old_start_frame: i32,
+    pub duration_frames: i32,
+    pub target_layer: i32,
+    pub target_start_frame: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlTimelinePosition {
+    pub frame: i32,
+    pub layer: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+pub struct AviQtlSceneSettings {
+    pub width: i32,
+    pub height: i32,
+    pub fps: f64,
+    pub total_frames: i32,
+    pub grid_mode: u32,
+    pub grid_bpm: f64,
+    pub grid_offset: f64,
+    pub grid_interval: i32,
+    pub grid_subdivision: i32,
+    pub enable_snap: u32,
+    pub magnetic_snap_range: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct AviQtlIdAllocation {
+    pub allocated_id: i32,
+    pub next_id: i32,
+}
+
 pub fn pointer_is_valid<T>(pointer: *const T, length: usize) -> bool {
     length == 0 || (!pointer.is_null() && (pointer as usize) & (align_of::<T>() - 1) == 0)
 }
@@ -297,6 +387,29 @@ mod tests {
         assert_eq!(offset_of!(AviQtlAudioBakeOutput, source_start_time), 12);
         assert_eq!(offset_of!(AviQtlAudioBakeOutput, mute), 44);
         assert_eq!(offset_of!(AviQtlAudioBakeOutput, direct_mode), 56);
+
+        assert_eq!(size_of::<AviQtlTimelineClipGeometry>(), 16);
+        assert_eq!(align_of::<AviQtlTimelineClipGeometry>(), 4);
+        assert_eq!(offset_of!(AviQtlTimelineClipGeometry, clip_id), 0);
+        assert_eq!(offset_of!(AviQtlTimelineClipGeometry, duration_frames), 12);
+
+        assert_eq!(size_of::<AviQtlTimelineMoveInput>(), 24);
+        assert_eq!(align_of::<AviQtlTimelineMoveInput>(), 4);
+        assert_eq!(offset_of!(AviQtlTimelineMoveInput, clip_id), 0);
+        assert_eq!(offset_of!(AviQtlTimelineMoveInput, target_layer), 16);
+
+        assert_eq!(size_of::<AviQtlTimelinePosition>(), 8);
+        assert_eq!(align_of::<AviQtlTimelinePosition>(), 4);
+
+        assert_eq!(size_of::<AviQtlSceneSettings>(), 56);
+        assert_eq!(align_of::<AviQtlSceneSettings>(), 8);
+        assert_eq!(offset_of!(AviQtlSceneSettings, width), 0);
+        assert_eq!(offset_of!(AviQtlSceneSettings, fps), 8);
+        assert_eq!(offset_of!(AviQtlSceneSettings, grid_bpm), 24);
+        assert_eq!(offset_of!(AviQtlSceneSettings, magnetic_snap_range), 52);
+
+        assert_eq!(size_of::<AviQtlIdAllocation>(), 8);
+        assert_eq!(align_of::<AviQtlIdAllocation>(), 4);
 
         #[cfg(target_pointer_width = "64")]
         {

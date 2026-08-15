@@ -1,10 +1,22 @@
+#![recursion_limit = "256"]
+
 mod abi;
 mod audio;
+mod effect;
 mod keyframe;
+mod keyframe_document;
+mod package;
+mod plugin;
+mod policy;
+mod preset;
 mod project;
+mod script;
+mod settings;
 mod timeline;
+mod timeline_domain;
+mod timeline_edit;
 
-use abi::{AviQtlEasingParameters, slice_is_valid};
+use abi::{AviQtlEasingParameters, slice_is_valid, utf8};
 use std::f64::consts::PI;
 
 const DEFAULT_ELASTIC_PERIOD: f64 = 0.3;
@@ -104,6 +116,58 @@ impl EasingKind {
 
     pub(crate) fn from_abi(value: u32) -> Option<Self> {
         Self::ALL.get(value as usize).copied()
+    }
+
+    pub(crate) const NAMES: [&'static str; 42] = [
+        "linear",
+        "ease_in_sine",
+        "ease_out_sine",
+        "ease_in_out_sine",
+        "ease_out_in_sine",
+        "ease_in_quad",
+        "ease_out_quad",
+        "ease_in_out_quad",
+        "ease_out_in_quad",
+        "ease_in_cubic",
+        "ease_out_cubic",
+        "ease_in_out_cubic",
+        "ease_out_in_cubic",
+        "ease_in_quart",
+        "ease_out_quart",
+        "ease_in_out_quart",
+        "ease_out_in_quart",
+        "ease_in_quint",
+        "ease_out_quint",
+        "ease_in_out_quint",
+        "ease_out_in_quint",
+        "ease_in_expo",
+        "ease_out_expo",
+        "ease_in_out_expo",
+        "ease_out_in_expo",
+        "ease_in_circ",
+        "ease_out_circ",
+        "ease_in_out_circ",
+        "ease_out_in_circ",
+        "ease_in_back",
+        "ease_out_back",
+        "ease_in_out_back",
+        "ease_out_in_back",
+        "ease_in_elastic",
+        "ease_out_elastic",
+        "ease_in_out_elastic",
+        "ease_out_in_elastic",
+        "ease_out_bounce",
+        "ease_in_bounce",
+        "ease_in_out_bounce",
+        "ease_out_in_bounce",
+        "custom",
+    ];
+
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        Self::NAMES
+            .iter()
+            .position(|candidate| *candidate == name)
+            .and_then(|index| Self::ALL.get(index).copied())
     }
 }
 
@@ -438,6 +502,48 @@ pub(crate) fn evaluate(
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_solve_bezier_t(x: f64, x1: f64, x2: f64) -> f64 {
     solve_bezier_t(x, x1, x2)
+}
+
+/// Resolves an easing kind from a UTF-8 name.
+///
+/// # Safety
+///
+/// `value` must be valid for `value_length` readable bytes for the duration of the call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_easing_kind_from_name(
+    value: *const u8,
+    value_length: usize,
+) -> i32 {
+    // SAFETY: The caller upholds the byte-range contract above.
+    unsafe { utf8(value, value_length) }
+        .and_then(EasingKind::from_name)
+        .map_or(-1, |kind| kind as i32)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn aviqtl_easing_count() -> usize {
+    EasingKind::NAMES.len()
+}
+
+/// Returns one static easing name. The returned bytes are not NUL-terminated and must be
+/// consumed using the length written to `output_length`.
+///
+/// # Safety
+///
+/// `output_length` must be writable for one element.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_easing_name(kind: u32, output_length: *mut usize) -> *const u8 {
+    if !slice_is_valid(output_length, 1) {
+        return std::ptr::null();
+    }
+    let Some(name) = EasingKind::NAMES.get(kind as usize) else {
+        // SAFETY: The output pointer was validated above.
+        unsafe { output_length.write(0) };
+        return std::ptr::null();
+    };
+    // SAFETY: The output pointer was validated above. Names have static lifetime.
+    unsafe { output_length.write(name.len()) };
+    name.as_ptr()
 }
 
 #[unsafe(no_mangle)]

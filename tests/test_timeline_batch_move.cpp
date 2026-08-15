@@ -12,6 +12,9 @@ class TestTimelineBatchMove : public QObject {
     void preservesLayoutAndUndoRedo();
     void avoidsUnselectedCollisionsAsOneGroup();
     void movesSelectionThroughResolvedBatchPath();
+    void preservesSameLayerLayoutAcrossOldPositions();
+    void preservesDurationWhenBatchMoveOmitsIt();
+    void appliesLayerPlansAsOneUndoableGroup();
     void clampsDragDeltaAtTimelineBounds();
     void rejectsBatchMoveWhenSourceOrTargetLayerIsLocked();
     void snapsFramesUsingCurrentSceneSettings();
@@ -36,9 +39,7 @@ const ClipData &TestTimelineBatchMove::clip(const TimelineService &timeline, int
     return *result;
 }
 
-QVariantMap TestTimelineBatchMove::move(int id, int layer, int startFrame, int duration) {
-    return {{QStringLiteral("id"), id}, {QStringLiteral("layer"), layer}, {QStringLiteral("startFrame"), startFrame}, {QStringLiteral("duration"), duration}};
-}
+QVariantMap TestTimelineBatchMove::move(int id, int layer, int startFrame, int duration) { return {{QStringLiteral("id"), id}, {QStringLiteral("layer"), layer}, {QStringLiteral("startFrame"), startFrame}, {QStringLiteral("duration"), duration}}; }
 
 void TestTimelineBatchMove::preservesLayoutAndUndoRedo() {
     SelectionService selection;
@@ -110,6 +111,59 @@ void TestTimelineBatchMove::movesSelectionThroughResolvedBatchPath() {
     QCOMPARE(clip(timeline, first).layer, 0);
     QCOMPARE(clip(timeline, second).layer, 1);
     QVERIFY(timeline.undoStack()->isClean());
+}
+
+void TestTimelineBatchMove::preservesSameLayerLayoutAcrossOldPositions() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int first = addClip(timeline, QStringLiteral("first"), 0, 0, 10);
+    const int second = addClip(timeline, QStringLiteral("second"), 10, 0, 10);
+    timeline.applySelectionIds({first, second});
+    timeline.undoStack()->clear();
+
+    timeline.moveSelectedClips(0, 5);
+    QCOMPARE(clip(timeline, first).startFrame, 5);
+    QCOMPARE(clip(timeline, second).startFrame, 15);
+    QCOMPARE(clip(timeline, second).startFrame - clip(timeline, first).startFrame, 10);
+
+    timeline.undo();
+    QCOMPARE(clip(timeline, first).startFrame, 0);
+    QCOMPARE(clip(timeline, second).startFrame, 10);
+    timeline.redo();
+    QCOMPARE(clip(timeline, first).startFrame, 5);
+    QCOMPARE(clip(timeline, second).startFrame, 15);
+}
+
+void TestTimelineBatchMove::preservesDurationWhenBatchMoveOmitsIt() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int id = addClip(timeline, QStringLiteral("clip"), 0, 0, 17);
+    timeline.undoStack()->clear();
+
+    const QVariantMap movement{{QStringLiteral("id"), id},
+                               {QStringLiteral("layer"), 1},
+                               {QStringLiteral("startFrame"), 12}};
+    timeline.applyClipBatchMove({movement});
+    QCOMPARE(clip(timeline, id).durationFrames, 17);
+    QCOMPARE(clip(timeline, id).layer, 1);
+    QCOMPARE(clip(timeline, id).startFrame, 12);
+}
+
+void TestTimelineBatchMove::appliesLayerPlansAsOneUndoableGroup() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int first = addClip(timeline, QStringLiteral("first"), 0, 0, 10);
+    const int second = addClip(timeline, QStringLiteral("second"), 0, 1, 10);
+    timeline.undoStack()->clear();
+
+    timeline.shiftLayers(0, 1, 1);
+    QCOMPARE(clip(timeline, first).layer, 1);
+    QCOMPARE(clip(timeline, second).layer, 2);
+    QCOMPARE(timeline.undoStack()->count(), 1);
+
+    timeline.undo();
+    QCOMPARE(clip(timeline, first).layer, 0);
+    QCOMPARE(clip(timeline, second).layer, 1);
 }
 
 void TestTimelineBatchMove::clampsDragDeltaAtTimelineBounds() {

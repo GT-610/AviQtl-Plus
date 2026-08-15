@@ -68,7 +68,9 @@ struct ProjectSettings {
     bool highBitDepth = false; // true の場合 16bit float 処理を有効化
 };
 
-// プロジェクト全体の全データを木構造で保持する唯一の正本
+// Qt-side render projection of the Rust-owned project/timeline domain.
+// This cache supplies QObject notifications and Qt-shaped bake input; it is not a second
+// canonical project document and must not introduce independent normalization rules.
 class DocumentModel : public QObject {
     Q_OBJECT
   public:

@@ -12,6 +12,16 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_BAKE = 1ULL << 3,
     AVIQTL_RUST_CORE_CAPABILITY_PROJECT_DOCUMENT = 1ULL << 4,
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_BATCH_MIX = 1ULL << 5,
+    AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_EDIT = 1ULL << 6,
+    AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_DOMAIN = 1ULL << 7,
+    AVIQTL_RUST_CORE_CAPABILITY_KEYFRAME_DOCUMENT = 1ULL << 8,
+    AVIQTL_RUST_CORE_CAPABILITY_CORE_POLICY = 1ULL << 9,
+    AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_DOCUMENT = 1ULL << 10,
+    AVIQTL_RUST_CORE_CAPABILITY_PRESET_DOCUMENT = 1ULL << 11,
+    AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_DOCUMENT = 1ULL << 12,
+    AVIQTL_RUST_CORE_CAPABILITY_EFFECT_DOCUMENT = 1ULL << 13,
+    AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_DOCUMENT = 1ULL << 14,
+    AVIQTL_RUST_CORE_CAPABILITY_PLUGIN_DOCUMENT = 1ULL << 15,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -21,6 +31,7 @@ enum AviQtlCoreStatus : std::uint32_t {
     AVIQTL_RUST_CORE_STATUS_BUFFER_TOO_SMALL = 3,
     AVIQTL_RUST_CORE_STATUS_INVALID_JSON = 4,
     AVIQTL_RUST_CORE_STATUS_UNSUPPORTED_VERSION = 5,
+    AVIQTL_RUST_CORE_STATUS_LOCKED_LAYER = 6,
 };
 
 struct AviQtlEasingParameters {
@@ -225,44 +236,159 @@ static_assert(offsetof(AviQtlAudioBakeOutput, source_start_time) == 12);
 static_assert(offsetof(AviQtlAudioBakeOutput, mute) == 44);
 static_assert(offsetof(AviQtlAudioBakeOutput, direct_mode) == 56);
 
+struct AviQtlTimelineClipGeometry {
+    std::int32_t clip_id;
+    std::int32_t layer;
+    std::int32_t start_frame;
+    std::int32_t duration_frames;
+};
+static_assert(sizeof(AviQtlTimelineClipGeometry) == 16);
+static_assert(alignof(AviQtlTimelineClipGeometry) == 4);
+static_assert(offsetof(AviQtlTimelineClipGeometry, clip_id) == 0);
+static_assert(offsetof(AviQtlTimelineClipGeometry, duration_frames) == 12);
+
+struct AviQtlTimelineMoveInput {
+    std::int32_t clip_id;
+    std::int32_t old_layer;
+    std::int32_t old_start_frame;
+    std::int32_t duration_frames;
+    std::int32_t target_layer;
+    std::int32_t target_start_frame;
+};
+static_assert(sizeof(AviQtlTimelineMoveInput) == 24);
+static_assert(alignof(AviQtlTimelineMoveInput) == 4);
+static_assert(offsetof(AviQtlTimelineMoveInput, clip_id) == 0);
+static_assert(offsetof(AviQtlTimelineMoveInput, target_layer) == 16);
+
+struct AviQtlTimelinePosition {
+    std::int32_t frame;
+    std::int32_t layer;
+};
+static_assert(sizeof(AviQtlTimelinePosition) == 8);
+static_assert(alignof(AviQtlTimelinePosition) == 4);
+
+struct AviQtlSceneSettings {
+    std::int32_t width;
+    std::int32_t height;
+    double fps;
+    std::int32_t total_frames;
+    std::uint32_t grid_mode;
+    double grid_bpm;
+    double grid_offset;
+    std::int32_t grid_interval;
+    std::int32_t grid_subdivision;
+    std::uint32_t enable_snap;
+    std::int32_t magnetic_snap_range;
+};
+static_assert(sizeof(AviQtlSceneSettings) == 56);
+static_assert(alignof(AviQtlSceneSettings) == 8);
+static_assert(offsetof(AviQtlSceneSettings, width) == 0);
+static_assert(offsetof(AviQtlSceneSettings, fps) == 8);
+static_assert(offsetof(AviQtlSceneSettings, grid_bpm) == 24);
+static_assert(offsetof(AviQtlSceneSettings, magnetic_snap_range) == 52);
+
+struct AviQtlIdAllocation {
+    std::int32_t allocated_id;
+    std::int32_t next_id;
+};
+static_assert(sizeof(AviQtlIdAllocation) == 8);
+static_assert(alignof(AviQtlIdAllocation) == 4);
+
 extern "C" {
 
 std::uint32_t aviqtl_core_abi_version();
 std::uint64_t aviqtl_core_capabilities();
 
 double aviqtl_solve_bezier_t(double x, double x1, double x2);
-double aviqtl_easing_evaluate(std::uint32_t kind, double t, const double *points,
-                              std::size_t pointsLength, AviQtlEasingParameters parameters);
+std::int32_t aviqtl_easing_kind_from_name(const std::uint8_t *value, std::size_t valueLength);
+std::size_t aviqtl_easing_count();
+const std::uint8_t *aviqtl_easing_name(std::uint32_t kind, std::size_t *outputLength);
+double aviqtl_easing_evaluate(std::uint32_t kind, double t, const double *points, std::size_t pointsLength, AviQtlEasingParameters parameters);
 
-std::uint32_t aviqtl_audio_resample_stereo_linear(const float *input, std::size_t inputLength,
-                                                  float *output, std::size_t outputLength,
-                                                  double sourceRate);
-std::uint32_t aviqtl_audio_mix_stereo(const float *clip, std::size_t clipLength,
-                                     float *master, std::size_t masterLength,
-                                     AviQtlAudioMixParameters parameters,
-                                     AviQtlAudioMeter *meter);
-std::uint32_t aviqtl_audio_mix_stereo_batch(const AviQtlAudioBatchTrack *tracks,
-                                           std::size_t tracksLength,
-                                           float *master,
-                                           std::size_t masterLength,
-                                           AviQtlAudioBatchResult *results,
-                                           std::size_t resultsLength);
+std::uint32_t aviqtl_audio_resample_stereo_linear(const float *input, std::size_t inputLength, float *output, std::size_t outputLength, double sourceRate);
+std::uint32_t aviqtl_audio_mix_stereo(const float *clip, std::size_t clipLength, float *master, std::size_t masterLength, AviQtlAudioMixParameters parameters, AviQtlAudioMeter *meter);
+std::uint32_t aviqtl_audio_mix_stereo_batch(const AviQtlAudioBatchTrack *tracks, std::size_t tracksLength, float *master, std::size_t masterLength, AviQtlAudioBatchResult *results, std::size_t resultsLength);
 
-std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks,
-                                                     std::size_t tracksLength,
-                                                     std::int32_t frame,
-                                                     double *output,
-                                                     std::size_t outputLength);
+std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks, std::size_t tracksLength, std::int32_t frame, double *output, std::size_t outputLength);
+std::uint32_t aviqtl_numeric_keyframe_evaluate_typed(const AviQtlNumericTrackView *track, std::int32_t frame, std::uint32_t discrete, double *output);
+std::uint32_t aviqtl_numeric_interpolation_from_name(const std::uint8_t *value, std::size_t valueLength);
 
-std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input,
-                                          AviQtlRenderBakeOutput *output);
-std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input,
-                                         AviQtlAudioBakeOutput *output);
+std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input, AviQtlRenderBakeOutput *output);
+std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input, AviQtlAudioBakeOutput *output);
 
-std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input,
-                                            std::size_t inputLength,
-                                            std::uint8_t *output,
-                                            std::size_t outputCapacity,
-                                            std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_find_vacant_frame(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, const std::int32_t *excludedIds, std::size_t excludedIdsLength, std::int32_t layer, std::int32_t startFrame, std::int32_t durationFrames,
+                                                std::int32_t *outputFrame);
+std::uint32_t aviqtl_timeline_plan_batch_move(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, const AviQtlTimelineMoveInput *moves, std::size_t movesLength, const std::int32_t *lockedLayers, std::size_t lockedLayersLength,
+                                              AviQtlTimelineClipGeometry *output, std::size_t outputLength);
+std::uint32_t aviqtl_timeline_plan_delta_move(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, const std::int32_t *movingIds, std::size_t movingIdsLength, const std::int32_t *lockedLayers, std::size_t lockedLayersLength,
+                                              std::int32_t deltaLayer, std::int32_t deltaFrame, AviQtlTimelineClipGeometry *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_resolve_drag(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, const std::int32_t *movingIds, std::size_t movingIdsLength, const std::int32_t *lockedLayers, std::size_t lockedLayersLength,
+                                           std::int32_t primaryClipId, std::int32_t targetLayer, std::int32_t proposedStartFrame, AviQtlTimelinePosition *output);
+std::uint32_t aviqtl_timeline_plan_resize(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, std::int32_t deltaStartFrame, std::int32_t deltaDurationFrames, AviQtlTimelineClipGeometry *output, std::size_t outputLength);
+std::uint32_t aviqtl_timeline_plan_insert_layers(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, std::int32_t targetLayer, std::int32_t count, std::uint32_t above, AviQtlTimelineClipGeometry *output, std::size_t outputCapacity,
+                                                 std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_plan_shift_layers(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, std::int32_t startLayer, std::int32_t endLayer, std::int32_t delta, AviQtlTimelineClipGeometry *output, std::size_t outputCapacity,
+                                                std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_clipboard_duration(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, std::int32_t *outputDuration);
+std::uint32_t aviqtl_timeline_find_vacant_clipboard_frame(const AviQtlTimelineClipGeometry *existing, std::size_t existingLength, const AviQtlTimelineClipGeometry *clipboard, std::size_t clipboardLength, std::int32_t requestedFrame,
+                                                          std::int32_t layerOffset, std::int32_t *outputFrame);
+std::uint32_t aviqtl_timeline_plan_clipboard_placement(const AviQtlTimelineClipGeometry *existing, std::size_t existingLength, const AviQtlTimelineClipGeometry *clipboard, std::size_t clipboardLength, std::int32_t requestedFrame, std::int32_t layerOffset,
+                                                       AviQtlTimelineClipGeometry *output, std::size_t outputLength, std::int32_t *outputFrame);
+std::uint32_t aviqtl_timeline_split_clip(const AviQtlTimelineClipGeometry *clip, std::int32_t frame, AviQtlTimelineClipGeometry *first, AviQtlTimelineClipGeometry *second);
 
+std::uint32_t aviqtl_timeline_allocate_id(const std::int32_t *existingIds, std::size_t existingIdsLength, std::int32_t nextHint, std::int32_t minimumId, AviQtlIdAllocation *output);
+std::uint32_t aviqtl_timeline_normalize_scene_settings(const AviQtlSceneSettings *input, AviQtlSceneSettings *output);
+std::int32_t aviqtl_timeline_snap_frame(double frame, std::uint32_t ignoreSnap, const AviQtlSceneSettings *settings, double timelineScale);
+std::int32_t aviqtl_timeline_duration(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength);
+std::int32_t aviqtl_timeline_clamp_scene_duration(std::int32_t requestedDuration, std::int32_t sceneDuration, double speed, std::int32_t offset);
+std::uint32_t aviqtl_selection_replace(const std::int32_t *ids, std::size_t idsLength, std::int32_t requestedPrimary, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::int32_t *outputPrimary);
+std::uint32_t aviqtl_selection_toggle(const std::int32_t *currentIds, std::size_t currentIdsLength, std::int32_t currentPrimary, std::int32_t toggledId, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength,
+                                      std::int32_t *outputPrimary);
+std::uint32_t aviqtl_timeline_normalize_removal_indices(std::size_t length, const std::int32_t *indices, std::size_t indicesLength, std::int32_t minimumIndex, std::int32_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_plan_index_move(std::size_t length, std::int32_t oldIndex, std::int32_t newIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo);
+std::uint32_t aviqtl_timeline_plan_multi_reorder(std::size_t length, const std::int32_t *indices, std::size_t indicesLength, std::int32_t targetIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo,
+                                                 std::size_t *outputSelectedCount);
+
+std::uint32_t aviqtl_keyframe_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_media_is_direct_audio_mode(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_media_is_video_file(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_audio_parameter_affects_duration(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_audio_parameter_affects_waveform(const std::uint8_t *value, std::size_t valueLength);
+double aviqtl_media_resolve_audio_time(double relativeTime, std::uint32_t directMode, double directTime, double startTime, double speed);
+double aviqtl_media_resolve_video_time(std::int32_t relativeFrame, double sourceFps, std::uint32_t directMode, double directFrame, double startFrame, double speed);
+std::int32_t aviqtl_media_max_video_duration_frames(std::int32_t totalFrameCount, double sourceFps, double speed, double startFrame, std::int32_t projectFps);
+std::int32_t aviqtl_media_clamp_video_duration_frames(std::int32_t requestedDuration, std::int32_t totalFrameCount, double sourceFps, std::uint32_t directMode, double startFrame, double speed, std::int32_t projectFps);
+std::int32_t aviqtl_media_clamp_audio_duration_frames(std::int32_t requestedDuration, double totalSeconds, std::uint32_t directMode, double startTime, double speed, std::int32_t projectFps);
+std::int32_t aviqtl_media_audio_duration_frames(double totalSeconds, std::uint32_t directMode, double startTime, double speed, double projectFps);
+
+std::int32_t aviqtl_permission_from_name(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_permission_for_api(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_permission_count();
+const std::uint8_t *aviqtl_permission_name(std::int32_t permission, std::size_t *outputLength);
+
+std::uint32_t aviqtl_package_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_package_type(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_recovery_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_recovery_snapshot_name_is_valid(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *fileName, std::size_t fileNameLength);
+
+std::uint32_t aviqtl_settings_defaults_json(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_settings_merge_json(const std::uint8_t *base, std::size_t baseLength, const std::uint8_t *loaded, std::size_t loadedLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::uint32_t *migrated);
+std::uint32_t aviqtl_settings_persistent_json(const std::uint8_t *settings, std::size_t settingsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_preset_name_is_safe(const std::uint8_t *value, std::size_t valueLength);
+std::uint32_t aviqtl_preset_build_json(const std::uint8_t *effectId, std::size_t effectIdLength, const std::uint8_t *name, std::size_t nameLength, std::uint32_t enabled, const std::uint8_t *params, std::size_t paramsLength, const std::uint8_t *keyframes, std::size_t keyframesLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_preset_normalize_json(const std::uint8_t *effectId, std::size_t effectIdLength, const std::uint8_t *name, std::size_t nameLength, const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_package_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_effect_metadata_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_script_metadata_parse_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::uint32_t aviqtl_plugin_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+
+std::int32_t aviqtl_project_current_version();
+std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 }

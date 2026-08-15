@@ -1,13 +1,16 @@
 #include "commands.hpp"
 #include "constants.hpp"
 #include "core/include/media_utils.hpp"
+#include "core/include/rust_core_policy.hpp"
 #include "effect_registry.hpp"
+#include "rust_keyframe_document.hpp"
+#include "rust_timeline_domain.hpp"
 #include "selection_service.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
-#include <QSet>
 #include <algorithm>
-#include <cmath>
+#include <cstdint>
+#include <vector>
 
 extern "C" {
 #include <libavutil/avutil.h>
@@ -34,14 +37,7 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
         return false;
     }
 
-    static const QSet<QString> durationKeys = {
-        QStringLiteral("source"),
-        QStringLiteral("startTime"),
-        QStringLiteral("speed"),
-        QStringLiteral("playMode"),
-        QStringLiteral("linkedVideo"),
-    };
-    if (!durationKeys.contains(paramName)) {
+    if (!AviQtl::RustCore::Policy::audioParameterAffectsDuration(paramName)) {
         return false;
     }
 
@@ -53,21 +49,19 @@ bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, Effe
     }
 
     const double fps = sceneFpsForClip(timeline, clip);
-    int newDuration = 0;
-    if (AviQtl::Core::MediaUtils::isDirectAudioMode(params.value(QStringLiteral("playMode")).toString())) {
-        newDuration = std::max(1, static_cast<int>(std::ceil(totalSec * fps)));
-    } else {
-        const double startTime = std::max(0.0, params.value(QStringLiteral("startTime"), 0.0).toDouble());
-        const QString sourceLower = source.toLower();
-        const bool sourceIsVideo = sourceLower.endsWith(QStringLiteral(".mp4")) || sourceLower.endsWith(QStringLiteral(".mov")) || sourceLower.endsWith(QStringLiteral(".avi")) || sourceLower.endsWith(QStringLiteral(".mkv")) ||
-                                   sourceLower.endsWith(QStringLiteral(".webm")) || sourceLower.endsWith(QStringLiteral(".wmv"));
-        const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
-        const double speed = linkedVideo ? AviQtl::kDefaultSpeed : params.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed).toDouble();
-        if (speed <= 0.0 || startTime >= totalSec) {
-            return false;
-        }
-
-        newDuration = std::max(1, static_cast<int>(std::ceil((totalSec - startTime) / (speed / AviQtl::kDefaultSpeed) * fps)));
+    const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(
+        params.value(QStringLiteral("playMode")).toString());
+    const bool linkedVideo = AviQtl::Core::MediaUtils::isVideoFile(source) &&
+                             params.value(QStringLiteral("linkedVideo"), false).toBool();
+    const double speed = linkedVideo
+                             ? AviQtl::kDefaultSpeed
+                             : params.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed)
+                                   .toDouble();
+    const int newDuration = AviQtl::RustCore::Policy::audioDurationFrames(
+        totalSec, directMode, params.value(QStringLiteral("startTime"), 0.0).toDouble(), speed,
+        fps);
+    if (newDuration <= 0) {
+        return false;
     }
     if (newDuration == clip.durationFrames) {
         return false;
@@ -87,23 +81,7 @@ bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const
         return false;
     }
 
-    static const QSet<QString> waveformKeys = {
-        QStringLiteral("source"),
-        QStringLiteral("linkedVideo"),
-        QStringLiteral("playMode"),
-        QStringLiteral("startTime"),
-        QStringLiteral("speed"),
-        QStringLiteral("directTime"),
-        QStringLiteral("volume"),
-        QStringLiteral("masterVolume"),
-        QStringLiteral("pan"),
-        QStringLiteral("fadeIn"),
-        QStringLiteral("fadeOut"),
-        QStringLiteral("mute"),
-        QStringLiteral("solo"),
-        QStringLiteral("limiter"),
-    };
-    return waveformKeys.contains(paramName);
+    return AviQtl::RustCore::Policy::audioParameterAffectsWaveform(paramName);
 }
 
 } // namespace
@@ -193,17 +171,23 @@ void TimelineService::removeMultipleEffects(int clipId, const QList<int> &indice
         return;
     }
 
-    QList<int> sorted;
+    std::vector<std::int32_t> requested;
+    requested.reserve(static_cast<std::size_t>(indices.size()));
     for (int idx : indices) {
-        if (idx >= 0 && idx < static_cast<int>(clip->effects.size())) {
-            sorted.append(idx);
-        }
+        requested.push_back(idx);
     }
-    if (sorted.isEmpty()) {
+    const int minimumIndex = !clip->effects.isEmpty() &&
+                                     clip->effects.first()->id() == QLatin1String("transform")
+                                 ? 1
+                                 : 0;
+    std::vector<std::int32_t> normalized;
+    if (AviQtl::RustCore::normalizeRemovalIndices(
+            static_cast<std::size_t>(clip->effects.size()), requested, minimumIndex, normalized) !=
+            AviQtl::RustCore::TimelineDomainStatus::Ok ||
+        normalized.empty()) {
         return;
     }
-    std::sort(sorted.begin(), sorted.end(), std::greater<int>());
-    sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
+    const QList<int> sorted(normalized.cbegin(), normalized.cend());
 
     auto *cmd = new RemoveMultipleEffectsCommand(this, clipId, sorted, QObject::tr("エフェクト削除 (%1件)").arg(sorted.size()));
     m_undoStack->push(cmd);
@@ -277,7 +261,24 @@ void TimelineService::reorderEffects(int clipId, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) {
         return;
     }
-    m_undoStack->push(new ReorderEffectCommand(this, clipId, oldIndex, newIndex));
+    const auto *clip = findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    const int minimumIndex = !clip->effects.isEmpty() &&
+                                     clip->effects.first()->id() == QLatin1String("transform")
+                                 ? 1
+                                 : 0;
+    std::vector<std::int32_t> redo;
+    std::vector<std::int32_t> undo;
+    if (AviQtl::RustCore::planIndexMove(
+            static_cast<std::size_t>(clip->effects.size()), oldIndex, newIndex, minimumIndex,
+            redo, undo) != AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        return;
+    }
+    m_undoStack->push(new ReorderMultipleEffectsCommand(
+        this, clipId, QList<int>(redo.cbegin(), redo.cend()),
+        QList<int>(undo.cbegin(), undo.cend()), QObject::tr("エフェクト順序変更")));
 }
 
 void TimelineService::reorderMultipleEffects(int clipId, const QVariantList &indicesList, int targetIndex) {
@@ -286,85 +287,43 @@ void TimelineService::reorderMultipleEffects(int clipId, const QVariantList &ind
         return;
     }
 
-    const int n = static_cast<int>(clip->effects.size());
-
-    // QVariantList を int に変換
-    QList<int> indices;
+    const std::size_t length = static_cast<std::size_t>(clip->effects.size());
+    std::vector<std::int32_t> indices;
+    indices.reserve(static_cast<std::size_t>(indicesList.size()));
     for (const QVariant &v : indicesList) {
         bool ok = false;
-        int val = v.toInt(&ok);
+        const int val = v.toInt(&ok);
         if (ok) {
-            indices.append(val);
+            indices.push_back(val);
         }
     }
-
-    // Transform (index 0) は移動不可として除外し、重複も除去して昇順ソート
-    QList<int> valid;
-    for (int idx : indices) {
-        if (idx > 0 && idx < n) {
-            valid.append(idx);
-        }
-    }
-    if (valid.isEmpty()) {
+    const int minimumIndex = !clip->effects.isEmpty() &&
+                                     clip->effects.first()->id() == QLatin1String("transform")
+                                 ? 1
+                                 : 0;
+    std::vector<std::int32_t> redo;
+    std::vector<std::int32_t> undo;
+    std::size_t selectedCount = 0;
+    if (AviQtl::RustCore::planMultiReorder(
+            length, indices, targetIndex, minimumIndex, redo, undo, selectedCount) !=
+        AviQtl::RustCore::TimelineDomainStatus::Ok) {
         return;
     }
-    std::sort(valid.begin(), valid.end());
-    valid.erase(std::unique(valid.begin(), valid.end()), valid.end());
-
-    // 選択アイテムのセット（O(1) 検索用）
-    const QSet<int> selectedSet(valid.begin(), valid.end());
-
-    // 選択アイテムを昇順で収集
-    QList<EffectModel *> selected;
-    selected.reserve(valid.size());
-    for (int idx : valid) {
-        selected.append(clip->effects.at(idx));
-    }
-
-    // 非選択アイテムを収集（Transform を含む）
-    QList<EffectModel *> remaining;
-    remaining.reserve(n - valid.size());
-    for (int i = 0; i < n; i++) {
-        if (!selectedSet.contains(i)) {
-            remaining.append(clip->effects.at(i));
+    bool unchanged = true;
+    for (std::size_t index = 0; index < redo.size(); ++index) {
+        if (redo[index] != static_cast<std::int32_t>(index)) {
+            unchanged = false;
+            break;
         }
     }
-
-    int countBefore = 0;
-    for (int idx : valid) {
-        if (idx < targetIndex) {
-            countBefore++;
-        }
-    }
-    // Transform より前への挿入を禁止（insertAt >= 1）
-    const int insertAt = std::clamp(targetIndex - countBefore, 1, static_cast<int>(remaining.size()));
-
-    // 新順序を構築
-    QList<EffectModel *> newOrder;
-    newOrder.reserve(n);
-    for (int i = 0; i < insertAt; i++) {
-        newOrder.append(remaining.at(i));
-    }
-    for (auto *eff : std::as_const(selected)) {
-        newOrder.append(eff);
-    }
-    for (int i = insertAt; i < static_cast<int>(remaining.size()); i++) {
-        newOrder.append(remaining.at(i));
-    }
-
-    if (newOrder == clip->effects) {
+    if (unchanged) {
         return;
     }
-
-    const QList<EffectModel *> &oldOrder = clip->effects;
-    QList<int> redoPerm, undoPerm;
-    redoPerm.resize(n);
-    undoPerm.resize(n);
-    for (int i = 0; i < n; i++) {
-        redoPerm[i] = static_cast<int>(oldOrder.indexOf(newOrder.at(i)));
-        undoPerm[i] = static_cast<int>(newOrder.indexOf(oldOrder.at(i)));
-    }
-    m_undoStack->push(new ReorderMultipleEffectsCommand(this, clipId, std::move(redoPerm), std::move(undoPerm), QObject::tr("エフェクト順序変更 (%1件)").arg(valid.size())));
+    m_undoStack->push(new ReorderMultipleEffectsCommand(
+        this, clipId, QList<int>(redo.cbegin(), redo.cend()),
+        QList<int>(undo.cbegin(), undo.cend()),
+        QObject::tr("エフェクト順序変更 (%1件)")
+            .arg(static_cast<qsizetype>(selectedCount))));
 }
 
 void TimelineService::applyPermutationInternal(int clipId, const QList<int> &perm) {
@@ -386,7 +345,20 @@ void TimelineService::reorderAudioPlugins(int clipId, int oldIndex, int newIndex
     if (oldIndex == newIndex) {
         return;
     }
-    m_undoStack->push(new ReorderAudioPluginCommand(this, clipId, oldIndex, newIndex));
+    const auto *clip = findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    std::vector<std::int32_t> redo;
+    std::vector<std::int32_t> undo;
+    if (AviQtl::RustCore::planIndexMove(
+            static_cast<std::size_t>(clip->audioPlugins.size()), oldIndex, newIndex, 0, redo,
+            undo) != AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        return;
+    }
+    m_undoStack->push(new ReorderAudioPluginCommand(
+        this, clipId, QList<int>(redo.cbegin(), redo.cend()),
+        QList<int>(undo.cbegin(), undo.cend())));
 }
 
 void TimelineService::reorderEffectsInternal(int clipId, int oldIndex, int newIndex) { // NOLINT(bugprone-easily-swappable-parameters)
@@ -472,15 +444,20 @@ void TimelineService::setAudioPluginParamInternal(int clipId, int index, int par
     emit clipsChanged();
 }
 
-void TimelineService::reorderAudioPluginsInternal(int clipId, int oldIndex, int newIndex) { // NOLINT(bugprone-easily-swappable-parameters)
+void TimelineService::applyAudioPluginPermutationInternal(int clipId, const QList<int> &perm) {
     auto *clip = findClipById(clipId);
-    if ((clip == nullptr) || oldIndex < 0 || oldIndex >= static_cast<int>(clip->audioPlugins.size()) || newIndex < 0 || newIndex >= static_cast<int>(clip->audioPlugins.size())) {
+    if (clip == nullptr || perm.size() != clip->audioPlugins.size()) {
         return;
     }
-
-    clip->audioPlugins.move(oldIndex, newIndex);
-
-    // UI更新通知
+    QList<AudioPluginState> reordered;
+    reordered.reserve(perm.size());
+    for (int index : perm) {
+        if (index < 0 || index >= clip->audioPlugins.size()) {
+            return;
+        }
+        reordered.append(clip->audioPlugins.at(index));
+    }
+    clip->audioPlugins = std::move(reordered);
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -700,85 +677,6 @@ void TimelineService::moveKeyframeInternal(int clipId, int effectIndex, const QS
     }
 }
 
-// ---- Audio Plugin Keyframe helpers ----
-
-namespace {
-
-using EasingFunction = std::function<double(double, const std::vector<double> &, const QVariantMap &)>;
-
-bool isAudioPluginStructuredTrack(const QVariant &raw) {
-    return raw.typeId() == QMetaType::QVariantMap && raw.toMap().contains(QStringLiteral("start"));
-}
-
-QVariantList sortAudioPluginPoints(QVariantList points) {
-    std::sort(points.begin(), points.end(), [](const QVariant &a, const QVariant &b) { return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt(); });
-    return points;
-}
-
-QVariantList flattenAudioPluginStructuredTrack(const QVariantMap &track) {
-    QVariantList flat;
-    const QVariantMap start = track.value(QStringLiteral("start")).toMap();
-    flat.append(start);
-    const QVariantList points = track.value(QStringLiteral("points")).toList();
-    for (const auto &v : points) {
-        flat.append(v);
-    }
-    return sortAudioPluginPoints(flat);
-}
-
-QVariantMap normalizeAudioPluginTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) {
-    if (isAudioPluginStructuredTrack(rawTrack)) {
-        QVariantMap track = rawTrack.toMap();
-        QVariantMap start = track.value(QStringLiteral("start")).toMap();
-        if (!start.contains(QStringLiteral("frame"))) {
-            start[QStringLiteral("frame")] = 0;
-            start[QStringLiteral("value")] = fallback;
-            start[QStringLiteral("interp")] = QStringLiteral("none");
-            track[QStringLiteral("start")] = start;
-        }
-        return track;
-    }
-    QVariantMap track;
-    QVariantMap start;
-    start[QStringLiteral("frame")] = 0;
-    start[QStringLiteral("value")] = fallback;
-    start[QStringLiteral("interp")] = QStringLiteral("none");
-    track[QStringLiteral("start")] = start;
-    // Preserve existing keyframes if present
-    if (rawTrack.typeId() == QMetaType::QVariantList) {
-        track[QStringLiteral("points")] = rawTrack.toList();
-    } else if (rawTrack.typeId() == QMetaType::QVariantMap) {
-        QVariantMap rawMap = rawTrack.toMap();
-        track[QStringLiteral("points")] = rawMap.value(QStringLiteral("points")).toList();
-    } else {
-        track[QStringLiteral("points")] = QVariantList();
-    }
-    return track;
-}
-
-int inferredDurationForAudioPluginTrack(const QVariant &raw) {
-    if (isAudioPluginStructuredTrack(raw)) {
-        QVariantMap track = raw.toMap();
-        QVariantList points = track.value(QStringLiteral("points")).toList();
-        int maxFrame = 0;
-        for (const auto &v : std::as_const(points)) {
-            maxFrame = std::max(maxFrame, v.toMap().value(QStringLiteral("frame")).toInt());
-        }
-        return std::max(1, maxFrame);
-    }
-    QVariantList list = raw.toList();
-    if (list.isEmpty()) {
-        return 1;
-    }
-    int maxFrame = 0;
-    for (const auto &v : std::as_const(list)) {
-        maxFrame = std::max(maxFrame, v.toMap().value(QStringLiteral("frame")).toInt());
-    }
-    return std::max(1, maxFrame);
-}
-
-} // namespace
-
 void TimelineService::setAudioPluginKeyframe(int clipId, int pluginIndex, const QString &paramKey, int frame, const QVariant &value, const QVariantMap &options) {
     const auto *clip = findClipById(clipId);
     if ((clip == nullptr) || pluginIndex < 0 || pluginIndex >= clip->audioPlugins.size()) {
@@ -789,11 +687,13 @@ void TimelineService::setAudioPluginKeyframe(int clipId, int pluginIndex, const 
     bool wasExisting = false;
     QVariant oldValue;
     QVariantMap oldOptions;
-    const int dur = inferredDurationForAudioPluginTrack(plugin.keyframeTracks.value(paramKey));
     const QVariant fallback = plugin.params.value(paramKey);
-    const QVariantMap track = normalizeAudioPluginTrackForDuration(plugin.keyframeTracks.value(paramKey), fallback, dur);
-    const QVariantList flat = isAudioPluginStructuredTrack(track) ? flattenAudioPluginStructuredTrack(track) : sortAudioPluginPoints(track.value(QStringLiteral("points")).toList());
-    for (const auto &v : std::as_const(flat)) {
+    const auto inspected = AviQtl::Core::RustKeyframeDocument::inspect(
+        plugin.keyframeTracks.value(paramKey), fallback);
+    if (!inspected) {
+        return;
+    }
+    for (const auto &v : inspected->flat) {
         const auto m = v.toMap();
         if (m.value(QStringLiteral("frame")).toInt() == frame) {
             wasExisting = true;
@@ -815,14 +715,16 @@ void TimelineService::removeAudioPluginKeyframe(int clipId, int pluginIndex, con
     QVariant savedValue;
     QVariantMap savedOptions;
     bool foundKeyframe = false;
-    const int dur = inferredDurationForAudioPluginTrack(plugin.keyframeTracks.value(paramKey));
     const QVariant fallback = plugin.params.value(paramKey);
-    const QVariantMap track = normalizeAudioPluginTrackForDuration(plugin.keyframeTracks.value(paramKey), fallback, dur);
-    const QVariantList flat = isAudioPluginStructuredTrack(track) ? flattenAudioPluginStructuredTrack(track) : sortAudioPluginPoints(track.value(QStringLiteral("points")).toList());
-    for (const auto &v : std::as_const(flat)) {
+    const auto inspected = AviQtl::Core::RustKeyframeDocument::inspect(
+        plugin.keyframeTracks.value(paramKey), fallback);
+    if (!inspected) {
+        return;
+    }
+    for (const auto &v : inspected->flat) {
         const auto m = v.toMap();
         if (m.value(QStringLiteral("frame")).toInt() == frame) {
-            const int startFrame = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
+            const int startFrame = inspected->track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
             if (frame == startFrame) {
                 return;
             }
@@ -849,12 +751,14 @@ void TimelineService::moveAudioPluginKeyframe(int clipId, int pluginIndex, const
     const auto &plugin = clip->audioPlugins.at(pluginIndex);
 
     bool foundSource = false;
-    const int dur = inferredDurationForAudioPluginTrack(plugin.keyframeTracks.value(paramKey));
     const QVariant fallback = plugin.params.value(paramKey);
-    const QVariantMap track = normalizeAudioPluginTrackForDuration(plugin.keyframeTracks.value(paramKey), fallback, dur);
-    const QVariantList flat = isAudioPluginStructuredTrack(track) ? flattenAudioPluginStructuredTrack(track) : sortAudioPluginPoints(track.value(QStringLiteral("points")).toList());
-    const int startFrame = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
-    for (const auto &v : std::as_const(flat)) {
+    const auto inspected = AviQtl::Core::RustKeyframeDocument::inspect(
+        plugin.keyframeTracks.value(paramKey), fallback);
+    if (!inspected) {
+        return;
+    }
+    const int startFrame = inspected->track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
+    for (const auto &v : inspected->flat) {
         const int frame = v.toMap().value(QStringLiteral("frame")).toInt();
         if (frame == oldFrame && frame != startFrame) {
             foundSource = true;
@@ -875,46 +779,16 @@ void TimelineService::setAudioPluginKeyframeInternal(int clipId, int pluginIndex
         return;
     }
     auto &plugin = clip->audioPlugins[pluginIndex];
-    const QString interp = options.value(QStringLiteral("interp"), QStringLiteral("none")).toString();
     const QVariant fallback = plugin.params.value(paramKey);
-    const int dur = inferredDurationForAudioPluginTrack(plugin.keyframeTracks.value(paramKey));
-    QVariantMap track = normalizeAudioPluginTrackForDuration(plugin.keyframeTracks.value(paramKey), fallback, dur);
-
-    QVariantMap start = track.value(QStringLiteral("start")).toMap();
-    QVariantList points = track.value(QStringLiteral("points")).toList();
-    const int startFrame = start.value(QStringLiteral("frame")).toInt();
-
-    if (frame <= startFrame) {
-        start[QStringLiteral("value")] = value;
-        start[QStringLiteral("interp")] = options.value(QStringLiteral("interp"), start.value(QStringLiteral("interp"), QStringLiteral("none")));
-        plugin.params[paramKey] = value;
-        track[QStringLiteral("start")] = start;
-        plugin.keyframeTracks[paramKey] = track;
-        plugin.invalidateKeyframeCache();
-        emit clipEffectsChanged(clipId);
-        emit clipsChanged();
+    const auto result = AviQtl::Core::RustKeyframeDocument::set(
+        plugin.keyframeTracks.value(paramKey), fallback, 0, frame, value, options);
+    if (!result || !result->accepted) {
         return;
     }
-
-    QVariantMap kf;
-    kf[QStringLiteral("frame")] = frame;
-    kf[QStringLiteral("value")] = value;
-    kf[QStringLiteral("interp")] = interp;
-
-    bool updated = false;
-    for (int i = 0; i < points.size(); ++i) {
-        if (points[i].toMap().value(QStringLiteral("frame")).toInt() == frame) {
-            points[i] = kf;
-            updated = true;
-            break;
-        }
+    if (result->baseValue) {
+        plugin.params[paramKey] = *result->baseValue;
     }
-    if (!updated) {
-        points.append(kf);
-    }
-
-    track[QStringLiteral("points")] = sortAudioPluginPoints(points);
-    plugin.keyframeTracks[paramKey] = track;
+    plugin.keyframeTracks[paramKey] = result->track;
     plugin.invalidateKeyframeCache();
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
@@ -927,21 +801,12 @@ void TimelineService::removeAudioPluginKeyframeInternal(int clipId, int pluginIn
     }
     auto &plugin = clip->audioPlugins[pluginIndex];
     const QVariant fallback = plugin.params.value(paramKey);
-    const int dur = inferredDurationForAudioPluginTrack(plugin.keyframeTracks.value(paramKey));
-    QVariantMap track = normalizeAudioPluginTrackForDuration(plugin.keyframeTracks.value(paramKey), fallback, dur);
-    const int startFrame = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
-    if (frame <= startFrame) {
+    const auto result = AviQtl::Core::RustKeyframeDocument::remove(
+        plugin.keyframeTracks.value(paramKey), fallback, 0, frame);
+    if (!result || !result->accepted) {
         return;
     }
-    QVariantList points = track.value(QStringLiteral("points")).toList();
-    QVariantList next;
-    for (const auto &v : std::as_const(points)) {
-        if (v.toMap().value(QStringLiteral("frame")).toInt() != frame) {
-            next.append(v);
-        }
-    }
-    track[QStringLiteral("points")] = next;
-    plugin.keyframeTracks[paramKey] = track;
+    plugin.keyframeTracks[paramKey] = result->track;
     plugin.invalidateKeyframeCache();
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
@@ -954,31 +819,12 @@ void TimelineService::moveAudioPluginKeyframeInternal(int clipId, int pluginInde
     }
     auto &plugin = clip->audioPlugins[pluginIndex];
     const QVariant fallback = plugin.params.value(paramKey);
-    const int dur = inferredDurationForAudioPluginTrack(plugin.keyframeTracks.value(paramKey));
-    QVariantMap track = normalizeAudioPluginTrackForDuration(plugin.keyframeTracks.value(paramKey), fallback, dur);
-    const int startFrame = track.value(QStringLiteral("start")).toMap().value(QStringLiteral("frame")).toInt();
-    if (oldFrame <= startFrame || newFrame <= startFrame) {
+    const auto result = AviQtl::Core::RustKeyframeDocument::move(
+        plugin.keyframeTracks.value(paramKey), fallback, 0, oldFrame, newFrame);
+    if (!result || !result->accepted) {
         return;
     }
-    QVariantList points = track.value(QStringLiteral("points")).toList();
-    int sourceIndex = -1;
-    for (int i = 0; i < points.size(); ++i) {
-        const int frame = points[i].toMap().value(QStringLiteral("frame")).toInt();
-        if (frame == newFrame) {
-            return;
-        }
-        if (frame == oldFrame) {
-            sourceIndex = i;
-        }
-    }
-    if (sourceIndex < 0) {
-        return;
-    }
-    QVariantMap moved = points[sourceIndex].toMap();
-    moved[QStringLiteral("frame")] = newFrame;
-    points[sourceIndex] = moved;
-    track[QStringLiteral("points")] = sortAudioPluginPoints(points);
-    plugin.keyframeTracks[paramKey] = track;
+    plugin.keyframeTracks[paramKey] = result->track;
     plugin.invalidateKeyframeCache();
     emit clipEffectsChanged(clipId);
     emit clipsChanged();

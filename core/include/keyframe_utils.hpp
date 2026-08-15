@@ -1,116 +1,17 @@
 #pragma once
 #include "rust_keyframe_adapter.hpp"
+#include "rust_keyframe_document.hpp"
 #include <QColor>
 #include <QHash>
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
-#include <algorithm>
-#include <functional>
 #include <vector>
 
 namespace AviQtl::Core::KeyframeUtils {
 
-using EasingFunction = std::function<double(double, const std::vector<double> &, const QVariantMap &)>;
-
-inline bool isStructuredTrack(const QVariant &raw) {
-    const QVariantMap m = raw.toMap();
-    return m.contains(QStringLiteral("start")) && m.contains(QStringLiteral("points"));
-}
-
-inline QVariantList sortPoints(QVariantList points) {
-    std::sort(points.begin(), points.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value(QStringLiteral("frame")).toInt() < b.toMap().value(QStringLiteral("frame")).toInt();
-    });
-    return points;
-}
-
-inline int inferredDurationForTrack(const QVariant &raw) {
-    if (isStructuredTrack(raw)) {
-        const QVariantList points = raw.toMap().value(QStringLiteral("points")).toList();
-        int maxFrame = 0;
-        for (const auto &v : std::as_const(points))
-            maxFrame = std::max(maxFrame, v.toMap().value(QStringLiteral("frame")).toInt());
-        return std::max(1, maxFrame + 1);
-    }
-    const QVariantList list = raw.toList();
-    if (list.isEmpty())
-        return 1;
-    int maxFrame = 0;
-    for (const auto &v : std::as_const(list))
-        maxFrame = std::max(maxFrame, v.toMap().value(QStringLiteral("frame")).toInt());
-    return std::max(1, maxFrame + 1);
-}
-
-inline QVariantList flattenStructuredTrack(const QVariantMap &track) {
-    QVariantList out;
-    out.append(track.value(QStringLiteral("start")));
-    QVariantList points = track.value(QStringLiteral("points")).toList();
-    points = sortPoints(points);
-    for (const auto &v : std::as_const(points))
-        out.append(v);
-    return out;
-}
-
 inline double solveBezierT(double x, double x1, double x2) {
     return RustCore::solveBezierT(x, x1, x2);
-}
-
-inline EasingFunction rustEasingFunction(RustCore::EasingKind kind) {
-    return [kind](double t, const std::vector<double> &points, const QVariantMap &modeParams) {
-        const double amplitude = modeParams.value(QStringLiteral("amplitude"), 1.0).toDouble();
-        const double period = modeParams.value(QStringLiteral("period"), 0.3).toDouble();
-        return RustCore::evaluateEasing(kind, t, points, amplitude, period);
-    };
-}
-
-inline const QHash<QString, EasingFunction> &easingFunctions() {
-    using enum RustCore::EasingKind;
-    static const QHash<QString, EasingFunction> funcs = {
-        {QStringLiteral("linear"), rustEasingFunction(Linear)},
-        {QStringLiteral("ease_in_sine"), rustEasingFunction(EaseInSine)},
-        {QStringLiteral("ease_out_sine"), rustEasingFunction(EaseOutSine)},
-        {QStringLiteral("ease_in_out_sine"), rustEasingFunction(EaseInOutSine)},
-        {QStringLiteral("ease_out_in_sine"), rustEasingFunction(EaseOutInSine)},
-        {QStringLiteral("ease_in_quad"), rustEasingFunction(EaseInQuad)},
-        {QStringLiteral("ease_out_quad"), rustEasingFunction(EaseOutQuad)},
-        {QStringLiteral("ease_in_out_quad"), rustEasingFunction(EaseInOutQuad)},
-        {QStringLiteral("ease_out_in_quad"), rustEasingFunction(EaseOutInQuad)},
-        {QStringLiteral("ease_in_cubic"), rustEasingFunction(EaseInCubic)},
-        {QStringLiteral("ease_out_cubic"), rustEasingFunction(EaseOutCubic)},
-        {QStringLiteral("ease_in_out_cubic"), rustEasingFunction(EaseInOutCubic)},
-        {QStringLiteral("ease_out_in_cubic"), rustEasingFunction(EaseOutInCubic)},
-        {QStringLiteral("ease_in_quart"), rustEasingFunction(EaseInQuart)},
-        {QStringLiteral("ease_out_quart"), rustEasingFunction(EaseOutQuart)},
-        {QStringLiteral("ease_in_out_quart"), rustEasingFunction(EaseInOutQuart)},
-        {QStringLiteral("ease_out_in_quart"), rustEasingFunction(EaseOutInQuart)},
-        {QStringLiteral("ease_in_quint"), rustEasingFunction(EaseInQuint)},
-        {QStringLiteral("ease_out_quint"), rustEasingFunction(EaseOutQuint)},
-        {QStringLiteral("ease_in_out_quint"), rustEasingFunction(EaseInOutQuint)},
-        {QStringLiteral("ease_out_in_quint"), rustEasingFunction(EaseOutInQuint)},
-        {QStringLiteral("ease_in_expo"), rustEasingFunction(EaseInExpo)},
-        {QStringLiteral("ease_out_expo"), rustEasingFunction(EaseOutExpo)},
-        {QStringLiteral("ease_in_out_expo"), rustEasingFunction(EaseInOutExpo)},
-        {QStringLiteral("ease_out_in_expo"), rustEasingFunction(EaseOutInExpo)},
-        {QStringLiteral("ease_in_circ"), rustEasingFunction(EaseInCirc)},
-        {QStringLiteral("ease_out_circ"), rustEasingFunction(EaseOutCirc)},
-        {QStringLiteral("ease_in_out_circ"), rustEasingFunction(EaseInOutCirc)},
-        {QStringLiteral("ease_out_in_circ"), rustEasingFunction(EaseOutInCirc)},
-        {QStringLiteral("ease_in_back"), rustEasingFunction(EaseInBack)},
-        {QStringLiteral("ease_out_back"), rustEasingFunction(EaseOutBack)},
-        {QStringLiteral("ease_in_out_back"), rustEasingFunction(EaseInOutBack)},
-        {QStringLiteral("ease_out_in_back"), rustEasingFunction(EaseOutInBack)},
-        {QStringLiteral("ease_in_elastic"), rustEasingFunction(EaseInElastic)},
-        {QStringLiteral("ease_out_elastic"), rustEasingFunction(EaseOutElastic)},
-        {QStringLiteral("ease_in_out_elastic"), rustEasingFunction(EaseInOutElastic)},
-        {QStringLiteral("ease_out_in_elastic"), rustEasingFunction(EaseOutInElastic)},
-        {QStringLiteral("ease_out_bounce"), rustEasingFunction(EaseOutBounce)},
-        {QStringLiteral("ease_in_bounce"), rustEasingFunction(EaseInBounce)},
-        {QStringLiteral("ease_in_out_bounce"), rustEasingFunction(EaseInOutBounce)},
-        {QStringLiteral("ease_out_in_bounce"), rustEasingFunction(EaseOutInBounce)},
-        {QStringLiteral("custom"), rustEasingFunction(Custom)},
-    };
-    return funcs;
 }
 
 inline QVariant evaluateTrack(const QVariantList &track, int frame, const QVariant &fallback) {
@@ -157,10 +58,10 @@ inline QVariant evaluateTrack(const QVariantList &track, int frame, const QVaria
                                   m_i.value(QStringLiteral("bzx2"), 0.66).toDouble(), m_i.value(QStringLiteral("bzy2"), 1.0).toDouble(), 1.0, 1.0};
                     }
                 }
-                const auto &funcs = easingFunctions();
-                auto efIt = funcs.find(type);
-                if (efIt == funcs.end()) { type = QStringLiteral("linear"); efIt = funcs.find(type); }
-                const double t = efIt.value()(tRaw, params, modeParams);
+                const double t = RustCore::evaluateEasing(
+                    type, tRaw, params,
+                    modeParams.value(QStringLiteral("amplitude"), 1.0).toDouble(),
+                    modeParams.value(QStringLiteral("period"), 0.3).toDouble());
                 return QColor(static_cast<int>(c0.red() + (c1.red() - c0.red()) * t), static_cast<int>(c0.green() + (c1.green() - c0.green()) * t),
                               static_cast<int>(c0.blue() + (c1.blue() - c0.blue()) * t), static_cast<int>(c0.alpha() + (c1.alpha() - c0.alpha()) * t))
                     .name(QColor::HexArgb);
@@ -204,60 +105,12 @@ inline QVariant numericResultWithSourceType(const QVariantList &track, int frame
     return value;
 }
 
-inline QVariantMap normalizeTrackForDuration(const QVariant &rawTrack, const QVariant &fallback, int durationFrames) {
-    if (isStructuredTrack(rawTrack)) {
-        QVariantMap raw = rawTrack.toMap();
-        QVariantMap start = raw.value(QStringLiteral("start")).toMap();
-        QVariantList points = raw.value(QStringLiteral("points")).toList(), nextPoints;
-        start[QStringLiteral("frame")] = 0;
-        if (!start.contains(QStringLiteral("value")))
-            start[QStringLiteral("value")] = fallback;
-
-        const int ceiling = durationFrames;
-        for (const auto &v : std::as_const(points)) {
-            const int f = v.toMap().value(QStringLiteral("frame")).toInt();
-            if (f > 0 && f <= ceiling)
-                nextPoints.append(v);
-        }
-        QVariantMap out;
-        out[QStringLiteral("start")] = start;
-        out[QStringLiteral("points")] = sortPoints(nextPoints);
-        return out;
-    }
-    QVariantList legacy = sortPoints(rawTrack.toList()), points;
-    QVariantMap start;
-    start[QStringLiteral("frame")] = 0;
-    start[QStringLiteral("value")] = legacy.isEmpty() ? fallback : evaluateTrack(legacy, 0, fallback);
-    // Preserve interp from existing frame-0 key if present, otherwise default to linear
-    QString startInterp = QStringLiteral("linear");
-    for (const auto &v : std::as_const(legacy)) {
-        if (v.toMap().value(QStringLiteral("frame")).toInt() == 0) {
-            startInterp = v.toMap().value(QStringLiteral("interp"), QStringLiteral("linear")).toString();
-            break;
-        }
-    }
-    start[QStringLiteral("interp")] = startInterp;
-    for (const auto &v : std::as_const(legacy)) {
-        const int f = v.toMap().value(QStringLiteral("frame")).toInt();
-        if (f > 0 && f < durationFrames)
-            points.append(v);
-    }
-    QVariantMap out;
-    out[QStringLiteral("start")] = start;
-    out[QStringLiteral("points")] = sortPoints(points);
-    return out;
-}
-
 // Resolve one track to its flattened evaluation-ready form.
 // This is the expensive step (normalize + flatten) and should be cached
 // when evaluating many frames or many parameters of the same track.
 inline QVariantList resolveTrack(const QVariant &raw, const QVariant &fallback, int durationFrames) {
-    if (isStructuredTrack(raw)) {
-        int d = (durationFrames > 0) ? durationFrames : inferredDurationForTrack(raw);
-        QVariantMap normalized = normalizeTrackForDuration(raw, fallback, d);
-        return flattenStructuredTrack(normalized);
-    }
-    return sortPoints(raw.toList());
+    const auto result = RustKeyframeDocument::inspect(raw, fallback, durationFrames);
+    return result ? result->flat : QVariantList();
 }
 
 // Resolve every keyframe track in a single pass. The returned hash maps each

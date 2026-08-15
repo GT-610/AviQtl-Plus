@@ -2,6 +2,7 @@
 #include <QVariant>
 #include "constants.hpp"
 #include "media_utils.hpp"
+#include <limits>
 
 using namespace AviQtl::Core::MediaUtils;
 
@@ -58,6 +59,9 @@ private slots:
     void resolveVideoTime_invalidFps() {
         QCOMPARE(resolveVideoTime(10, 0.0, false, 0.0, 0.0, AviQtl::kDefaultSpeed), 0.0);
         QCOMPARE(resolveVideoTime(10, -1.0, false, 0.0, 0.0, AviQtl::kDefaultSpeed), 0.0);
+        QCOMPARE(resolveVideoTime(10, std::numeric_limits<double>::infinity(), false, 0.0,
+                                  0.0, AviQtl::kDefaultSpeed),
+                 0.0);
     }
 
     void resolveVideoTime_directMode() {
@@ -84,6 +88,9 @@ private slots:
         QCOMPARE(maxVideoDurationFrames(100, 30.0, -1.0, 0.0, 30), 0);
         QCOMPARE(maxVideoDurationFrames(100, 0.0, AviQtl::kDefaultSpeed, 0.0, 30), 0);
         QCOMPARE(maxVideoDurationFrames(100, 30.0, AviQtl::kDefaultSpeed, 0.0, 0), 0);
+        QCOMPARE(maxVideoDurationFrames(100, 30.0,
+                                        std::numeric_limits<double>::quiet_NaN(), 0.0, 30),
+                 0);
     }
 
     void maxVideoDurationFrames_basic() {

@@ -1,11 +1,28 @@
 #include "commands.hpp"
 #include "constants.hpp"
+#include "rust_timeline_domain.hpp"
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
 
 namespace AviQtl::UI {
+
+namespace {
+
+auto sceneGridModeName(std::uint32_t mode) -> QString {
+    switch (static_cast<AviQtl::RustCore::SceneGridMode>(mode)) {
+    case AviQtl::RustCore::SceneGridMode::Bpm:
+        return QStringLiteral("BPM");
+    case AviQtl::RustCore::SceneGridMode::Frame:
+        return QStringLiteral("Frame");
+    case AviQtl::RustCore::SceneGridMode::Auto:
+        return QStringLiteral("Auto");
+    }
+    return QStringLiteral("Auto");
+}
+
+} // namespace
 
 auto TimelineService::currentScene() -> SceneData * {
     if (m_currentSceneCache) {
@@ -87,7 +104,10 @@ void TimelineService::setScenes(const QList<SceneData> &scenes) {
 }
 
 void TimelineService::createScene(const QString &name) {
-    int id = m_nextSceneId++;
+    const int id = allocateSceneId();
+    if (id < 0) {
+        return;
+    }
     m_undoStack->push(new AddSceneCommand(this, id, name));
 }
 
@@ -129,27 +149,46 @@ void TimelineService::switchScene(int sceneId) {
 void TimelineService::updateSceneSettings(int sceneId, const QString &name, int width, int height, double fps, int totalFrames, const QString &gridMode, double gridBpm, double gridOffset, int gridInterval, int gridSubdivision,
                                           bool enableSnap, // NOLINT(bugprone-easily-swappable-parameters)
                                           int magneticSnapRange) {
-    SceneData newData;
-    SceneData oldData;
-    for (const auto &s : getAllScenes()) {
-        if (s.id == sceneId) {
-            oldData = s;
-            break;
-        }
+    const auto sceneIt = std::ranges::find_if(m_scenes, [sceneId](const SceneData &scene) {
+        return scene.id == sceneId;
+    });
+    if (sceneIt == m_scenes.end()) {
+        return;
     }
-    newData = oldData;
+    const AviQtl::RustCore::SceneSettings requested{
+        .width = width,
+        .height = height,
+        .fps = fps,
+        .total_frames = totalFrames,
+        .grid_mode = static_cast<std::uint32_t>(AviQtl::RustCore::sceneGridMode(gridMode)),
+        .grid_bpm = gridBpm,
+        .grid_offset = gridOffset,
+        .grid_interval = gridInterval,
+        .grid_subdivision = gridSubdivision,
+        .enable_snap = enableSnap ? 1U : 0U,
+        .magnetic_snap_range = magneticSnapRange,
+    };
+    AviQtl::RustCore::SceneSettings normalized{};
+    if (AviQtl::RustCore::normalizeSceneSettings(requested, normalized) !=
+        AviQtl::RustCore::TimelineDomainStatus::Ok) {
+        qWarning() << "Rust scene settings normalization failed";
+        return;
+    }
+
+    const SceneData oldData = *sceneIt;
+    SceneData newData = oldData;
     newData.name = name;
-    newData.width = width;
-    newData.height = height;
-    newData.fps = fps;
-    newData.totalFrames = totalFrames;
-    newData.gridMode = gridMode;
-    newData.gridBpm = gridBpm;
-    newData.gridOffset = gridOffset;
-    newData.gridInterval = gridInterval;
-    newData.gridSubdivision = gridSubdivision;
-    newData.enableSnap = enableSnap;
-    newData.magneticSnapRange = magneticSnapRange;
+    newData.width = normalized.width;
+    newData.height = normalized.height;
+    newData.fps = normalized.fps;
+    newData.totalFrames = normalized.total_frames;
+    newData.gridMode = sceneGridModeName(normalized.grid_mode);
+    newData.gridBpm = normalized.grid_bpm;
+    newData.gridOffset = normalized.grid_offset;
+    newData.gridInterval = normalized.grid_interval;
+    newData.gridSubdivision = normalized.grid_subdivision;
+    newData.enableSnap = normalized.enable_snap != 0;
+    newData.magneticSnapRange = normalized.magnetic_snap_range;
     m_undoStack->push(new UpdateSceneSettingsCommand(this, sceneId, oldData, newData));
 }
 

@@ -148,6 +148,12 @@ target_compile_definitions(AviQtl_Test_keyframe_batch PRIVATE
 )
 
 aviqtl_add_test(
+    NAME rust_keyframe_document
+    SOURCES test_rust_keyframe_document.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI
@@ -203,6 +209,18 @@ aviqtl_add_test(
     NAME rust_core_abi
     SOURCES test_rust_core_abi.cpp
     LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME rust_timeline_edit
+    SOURCES test_rust_timeline_edit.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME rust_timeline_domain
+    SOURCES test_rust_timeline_domain.cpp
+    LINKS AviQtl_UI
 )
 
 aviqtl_add_test(
@@ -360,7 +378,8 @@ aviqtl_label_tests(unit
     effect_registry shader_compiler document_model settings_manager performance_metrics
     theme_controller media_decoder media_utils keyframe_utils effect_model
     video_frame_store dense_component_map audio_plugin_chain audio_dsp triple_buffer
-    lua_host plugin_manifest mod_engine permission_manager selection_service
+    rust_timeline_edit rust_timeline_domain rust_keyframe_document lua_host plugin_manifest
+    mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
     project_recovery build_version
 )

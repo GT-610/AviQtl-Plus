@@ -21,8 +21,6 @@
 
 namespace AviQtl::Core {
 
-inline constexpr int PROJECT_VERSION = 3;
-
 namespace {
 
 QString projectNormalizationError(RustCore::ProjectStatus status) {
@@ -35,8 +33,7 @@ QString projectNormalizationError(RustCore::ProjectStatus status) {
     case RustCore::ProjectStatus::OverlappingBuffers:
     case RustCore::ProjectStatus::BufferTooSmall:
     case RustCore::ProjectStatus::Ok:
-        return QStringLiteral("Rust project normalization failed with status %1")
-            .arg(static_cast<std::uint32_t>(status));
+        return QStringLiteral("Rust project normalization failed with status %1").arg(static_cast<std::uint32_t>(status));
     }
     return QStringLiteral("Rust project normalization failed");
 }
@@ -123,7 +120,7 @@ static auto layerSetFromJson(const QJsonValue &value) -> QSet<int> {
 
 QVariantMap ProjectSerializer::captureSnapshot(const UI::TimelineService *timeline, const UI::ProjectService *project) {
     QVariantMap root;
-    root.insert(QStringLiteral("version"), PROJECT_VERSION);
+    root.insert(QStringLiteral("version"), RustCore::currentProjectVersion());
 
     QVariantMap settings;
     settings.insert(QStringLiteral("width"), project->width());
@@ -229,6 +226,17 @@ auto ProjectSerializer::saveSnapshot(const QString &fileUrl, const QVariantMap &
     }
     snapshot.insert(QStringLiteral("clips"), clips);
 
+    const QByteArray capturedDocument = QJsonDocument(QJsonObject::fromVariantMap(snapshot)).toJson(QJsonDocument::Compact);
+    const auto input = std::span(reinterpret_cast<const std::uint8_t *>(capturedDocument.constData()), static_cast<std::size_t>(capturedDocument.size()));
+    std::vector<std::uint8_t> serializedDocument;
+    const RustCore::ProjectStatus serializationStatus = RustCore::normalizeProjectJson(input, serializedDocument);
+    if (serializationStatus != RustCore::ProjectStatus::Ok) {
+        if (errorMessage != nullptr) {
+            *errorMessage = projectNormalizationError(serializationStatus);
+        }
+        return false;
+    }
+
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
         if (errorMessage != nullptr) {
@@ -237,7 +245,7 @@ auto ProjectSerializer::saveSnapshot(const QString &fileUrl, const QVariantMap &
         return false;
     }
 
-    const QByteArray document = QJsonDocument(QJsonObject::fromVariantMap(snapshot)).toJson();
+    const QByteArray document(reinterpret_cast<const char *>(serializedDocument.data()), static_cast<qsizetype>(serializedDocument.size()));
     if (file.write(document) != document.size()) {
         if (errorMessage != nullptr) {
             *errorMessage = file.errorString();
@@ -256,9 +264,7 @@ auto ProjectSerializer::saveSnapshot(const QString &fileUrl, const QVariantMap &
     return true;
 }
 
-auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *timeline, const UI::ProjectService *project, QString *errorMessage) -> bool {
-    return saveSnapshot(fileUrl, captureSnapshot(timeline, project), errorMessage);
-}
+auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *timeline, const UI::ProjectService *project, QString *errorMessage) -> bool { return saveSnapshot(fileUrl, captureSnapshot(timeline, project), errorMessage); }
 
 auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeline, UI::ProjectService *project, QString *errorMessage) -> bool {
     QString path = QUrl(fileUrl).toLocalFile();
@@ -275,21 +281,16 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     }
 
     const QByteArray jsonData = file.readAll();
-    const auto input = std::span(
-        reinterpret_cast<const std::uint8_t *>(jsonData.constData()),
-        static_cast<std::size_t>(jsonData.size()));
+    const auto input = std::span(reinterpret_cast<const std::uint8_t *>(jsonData.constData()), static_cast<std::size_t>(jsonData.size()));
     std::vector<std::uint8_t> normalizedJson;
-    const RustCore::ProjectStatus normalizationStatus =
-        RustCore::normalizeProjectJson(input, normalizedJson);
+    const RustCore::ProjectStatus normalizationStatus = RustCore::normalizeProjectJson(input, normalizedJson);
     if (normalizationStatus != RustCore::ProjectStatus::Ok) {
         if (errorMessage != nullptr) {
             *errorMessage = projectNormalizationError(normalizationStatus);
         }
         return false;
     }
-    const QByteArray normalizedData(
-        reinterpret_cast<const char *>(normalizedJson.data()),
-        static_cast<qsizetype>(normalizedJson.size()));
+    const QByteArray normalizedData(reinterpret_cast<const char *>(normalizedJson.data()), static_cast<qsizetype>(normalizedJson.size()));
     const QJsonDocument doc = QJsonDocument::fromJson(normalizedData);
     if (!doc.isObject()) {
         if (errorMessage != nullptr) {

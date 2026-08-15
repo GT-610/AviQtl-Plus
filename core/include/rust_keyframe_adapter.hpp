@@ -23,7 +23,8 @@ struct NumericTrackStorage {
 
 [[nodiscard]] std::optional<NumericTrackStorage> buildNumericTrack(const QVariantList &track);
 [[nodiscard]] std::optional<double> evaluateNumericTrack(const QVariantList &track, int frame,
-                                                         const QVariant &fallback);
+                                                         const QVariant &fallback,
+                                                         bool discrete = false);
 
 class NumericTrackBatch {
   public:
