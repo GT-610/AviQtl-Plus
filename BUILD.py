@@ -1354,12 +1354,30 @@ class MsvcBuilder(PlatformBuilder):
             str(dest_bin),
             "--dir", str(self.config.output_dir),
         ])
+        self.copy_vcpkg_runtime_files()
         with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
             f.write("[Paths]\nPlugins = .\n")
         self.logger.log(f"Executable: {dest_bin}")
 
     def get_archive_name(self) -> str:
         return "AviQtl-MSVC-x86_64"
+
+    def copy_vcpkg_runtime_files(self):
+        installed = self.vcpkg_installed_dir()
+        runtime_dir = installed / "debug" / "bin" if self.config.is_debug else installed / "bin"
+        if not runtime_dir.is_dir():
+            raise RuntimeError(f"vcpkg runtime directory not found: {runtime_dir}")
+
+        runtime_dlls = sorted(
+            dll for dll in runtime_dir.glob("*.dll")
+            if not dll.name.lower().startswith("pkgconf")
+        )
+        if not runtime_dlls:
+            raise RuntimeError(f"No vcpkg runtime DLLs found in: {runtime_dir}")
+
+        for dll in runtime_dlls:
+            shutil.copy2(dll, self.config.output_dir / dll.name)
+        self.logger.log(f"Bundled vcpkg runtime: {len(runtime_dlls)} DLLs")
 
     def copy_carla_support_files(self):
         carla_lib = self.config.source_dir / "vendor" / "carla" / "lib"

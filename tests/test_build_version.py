@@ -98,6 +98,41 @@ class TestMsvcBuildConfig(unittest.TestCase):
         self.assertEqual(parsed["PATH"], "C:\\MSVC\\bin;C:\\Windows")
         self.assertEqual(parsed["VCTOOLSINSTALLDIR"], "C:\\MSVC\\")
 
+    def test_package_copies_target_runtime_dlls_but_not_host_tools(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_dir = Path(temp_dir)
+            config = BuildConfig(
+                source_dir=source_dir,
+                temp_base=source_dir / ".build_tmp",
+                output_dir=source_dir / "build",
+                target="msvc",
+                is_debug=False,
+                use_container=False,
+                is_offline=True,
+            )
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "VCPKG_DEFAULT_TRIPLET": "x64-windows-release",
+                    "VCPKG_DEFAULT_HOST_TRIPLET": "x64-windows-release",
+                },
+            ):
+                builder = MsvcBuilder(
+                    config, Logger(lambda _message: None, lambda _value, _message: None)
+                )
+            runtime_dir = builder.vcpkg_installed_dir() / "bin"
+            runtime_dir.mkdir(parents=True)
+            config.output_dir.mkdir()
+            (runtime_dir / "avformat-62.dll").write_bytes(b"ffmpeg")
+            (runtime_dir / "lua51.dll").write_bytes(b"luajit")
+            (runtime_dir / "pkgconf-7.dll").write_bytes(b"build tool")
+
+            builder.copy_vcpkg_runtime_files()
+
+            self.assertEqual((config.output_dir / "avformat-62.dll").read_bytes(), b"ffmpeg")
+            self.assertEqual((config.output_dir / "lua51.dll").read_bytes(), b"luajit")
+            self.assertFalse((config.output_dir / "pkgconf-7.dll").exists())
+
     def test_release_uses_committed_manifest_and_offline_guards(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             source_dir = Path(temp_dir)
