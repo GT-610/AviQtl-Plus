@@ -2,9 +2,16 @@
 
 All notable changes to AviQtl-Plus are documented in this file.
 
-## [0.5.10] - 2026-08-08
+## [0.6.0] - 2026-08-16
 
 ### Added
+- Portable Rust core workspace with a stable C ABI for project documents,
+  settings, presets, packages, effects, scripts, plugins, and keyframes
+- Rust timeline planning and baking for editing, selection, snapping, layer
+  operations, duration constraints, ID allocation, render data, and audio data
+- Rust audio DSP for resampling, mixing, metering, and batch-mix policy
+- Reproducible native MSVC builds with committed vcpkg manifests and triplets,
+  complete runtime deployment, and dedicated Windows CI coverage
 - Opt-in representative video and audio performance workloads with repeatable
   startup, seek, waveform, cache, and memory diagnostics
 - Audio plugin scan coverage for large directories, repeated scans, and
@@ -14,6 +21,10 @@ All notable changes to AviQtl-Plus are documented in this file.
 - Visible snap-frame feedback for timeline moves, trims, and media drops
 
 ### Changed
+- Platform-neutral domain rules now live in the Rust core, while Qt/C++ remains
+  responsible for UI, native integration, and framework object lifetimes
+- The Windows release artifact is now built with MSVC instead of MSYS2/UCRT64
+- Rust is pinned to version 1.97.1 with edition 2024 across local and CI builds
 - Windows QML composition capture tests use the OpenGL RHI backend for
   repeatable headless frame capture and encoded-video verification
 - Audio decoder test media is generated in buffered blocks, keeping longer
@@ -23,6 +34,10 @@ All notable changes to AviQtl-Plus are documented in this file.
   and frame-driven composition pipeline
 
 ### Fixed
+- MSVC packages now include the required Qt, FFmpeg, LuaJIT, Vulkan, and Carla
+  runtime libraries without bundling host-only vcpkg tools
+- Windows CTest entries now configure their Qt, vcpkg, and Carla runtime paths
+  independently of the invoking shell environment
 - Relative audio plugin search paths now scan the resolved application-relative
   directory instead of the process working directory
 - Main-window split commands now apply to the complete clip selection

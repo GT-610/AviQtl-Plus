@@ -63,8 +63,8 @@ jobs:
             artifact_path: dist/AviQtl-macOS-Xcode-Universal.zip
           - platform: windows
             runs_on: windows-latest
-            artifact_name: AviQtl-Windows-x86_64
-            artifact_path: dist/AviQtl-MSYS2-UCRT64-x86_64.zip
+            artifact_name: AviQtl-MSVC-Windows-x86_64
+            artifact_path: dist/AviQtl-MSVC-x86_64.zip
     runs-on: ${{ matrix.runs_on }}
     container: ${{ matrix.container }}
     steps:
@@ -73,7 +73,6 @@ jobs:
           fetch-depth: 0
 
       - name: Install Rust
-        if: matrix.platform != 'windows'
         uses: dtolnay/rust-toolchain@1.97.1
 
       - name: Install Dependencies (Linux)
@@ -95,17 +94,58 @@ jobs:
         run: |
           echo "No additional dependencies needed"
 
-      - name: Setup MSYS2 (Windows)
+      - name: Set up Python (Windows)
         if: matrix.platform == 'windows'
-        uses: msys2/setup-msys2@v2
+        uses: actions/setup-python@v5
         with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-python
-            mingw-w64-ucrt-x86_64-rust
+          python-version: "3.13"
+
+      - name: Install Qt (Windows)
+        if: matrix.platform == 'windows'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.10.3"
+          arch: win64_msvc2022_64
+          modules: qt5compat qtmultimedia qtquick3d qtshadertools
+          cache: true
+          setup-python: false
+
+      - name: Locate vcpkg (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          if (-not $vcpkgRoot) {
+            $vcpkgRoot = "C:\vcpkg"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $vcpkgRoot "vcpkg.exe"))) {
+            throw "vcpkg.exe was not found under $vcpkgRoot"
+          }
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore vcpkg caches (Windows)
+        if: matrix.platform == 'windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build_tmp/vcpkg-downloads
+            .build_tmp/vcpkg-binary-cache
+          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'triplets/*.cmake') }}
+
+      - name: Restore Carla SDK (Windows)
+        if: matrix.platform == 'windows'
+        uses: actions/cache@v4
+        with:
+          path: vendor/carla
+          key: windows-carla-${{ hashFiles('BUILD.py') }}
+
+      - name: Prepare vcpkg cache (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path .build_tmp\vcpkg-binary-cache | Out-Null
 
       - name: Setup ccache
+        if: matrix.platform != 'windows'
         uses: hendrikmuhs/ccache-action@v1
         with:
           max-size: 500M
@@ -163,19 +203,58 @@ jobs:
 
       - name: Build (Windows)
         if: matrix.platform == 'windows'
-        shell: msys2 {0}
-        run: |
-          python BUILD.py --msys2 \
-            --version "${{ steps.version.outputs.version }}"
+        shell: pwsh
         env:
           GIT_TERMINAL_PROMPT: 0
+          VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.build_tmp\vcpkg-binary-cache,readwrite
+        run: >-
+          python BUILD.py --msvc
+          --qt-dir "$env:QT_ROOT_DIR"
+          --version "${{ steps.version.outputs.version }}"
 
       - name: Test (Windows)
         if: matrix.platform == 'windows'
-        shell: msys2 {0}
-        run: ctest --test-dir .build_tmp/msys2/Release --output-on-failure
+        shell: pwsh
+        run: ctest --test-dir .build_tmp\msvc\Release --output-on-failure
         env:
           QT_QPA_PLATFORM: offscreen
+
+      - name: Verify packaged runtime (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $required = @(
+            "AviQtl.exe",
+            "Qt6Core.dll",
+            "Qt6Gui.dll",
+            "Qt6Qml.dll",
+            "Qt6Quick.dll",
+            "avcodec-62.dll",
+            "avformat-62.dll",
+            "avutil-60.dll",
+            "swresample-6.dll",
+            "swscale-9.dll",
+            "lua51.dll",
+            "vulkan-1.dll",
+            "libcarla_standalone2.dll",
+            "libcarla_native-plugin.dll",
+            "libcarla_host-plugin.dll",
+            "libcarla_utils.dll"
+          )
+          $missing = @($required | Where-Object {
+            -not (Test-Path -LiteralPath (Join-Path "build" $_))
+          })
+          if ($missing.Count -ne 0) {
+            throw "Packaged runtime files are missing: $($missing -join ', ')"
+          }
+          $x264Dlls = @(Get-ChildItem -LiteralPath build -Filter "*x264*.dll" -File)
+          if ($x264Dlls.Count -eq 0) {
+            throw "The packaged x264 runtime DLL is missing"
+          }
+          $pkgconfDlls = @(Get-ChildItem -LiteralPath build -Filter "pkgconf*.dll" -File)
+          if ($pkgconfDlls.Count -ne 0) {
+            throw "Host-only pkgconf DLLs were packaged: $($pkgconfDlls.Name -join ', ')"
+          }
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
