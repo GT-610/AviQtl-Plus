@@ -5,6 +5,7 @@
 #include "settings_manager.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
+#include <algorithm>
 
 namespace AviQtl::UI {
 
@@ -20,6 +21,30 @@ auto sceneGridModeName(std::uint32_t mode) -> QString {
         return QStringLiteral("Auto");
     }
     return QStringLiteral("Auto");
+}
+
+QSet<EffectModel *> sceneEffects(const QList<SceneData> &scenes) {
+    QSet<EffectModel *> effects;
+    for (const auto &scene : scenes) {
+        for (const auto &clip : scene.clips) {
+            for (auto *effect : clip.effects) {
+                if (effect != nullptr) {
+                    effects.insert(effect);
+                }
+            }
+        }
+    }
+    return effects;
+}
+
+void deleteUnretainedEffects(const QList<SceneData> &source,
+                             const QList<SceneData> &retainedScenes) {
+    const QSet<EffectModel *> retained = sceneEffects(retainedScenes);
+    for (auto *effect : sceneEffects(source)) {
+        if (!retained.contains(effect)) {
+            effect->deleteLater();
+        }
+    }
 }
 
 } // namespace
@@ -71,21 +96,21 @@ auto TimelineService::scenes() const -> QVariantList {
     return list;
 }
 
-void TimelineService::setScenes(const QList<SceneData> &scenes) {
-    for (auto &scene : m_scenes) {
-        for (auto &clip : scene.clips) {
-            for (auto *eff : std::as_const(clip.effects)) {
-                if (eff)
-                    eff->deleteLater();
-            }
-            clip.effects.clear();
-        }
-    }
-
+bool TimelineService::setScenes(const QList<SceneData> &scenes) {
+    const QList<SceneData> previousScenes = m_scenes;
+    const int previousCurrentSceneId = m_currentSceneId;
     m_scenes = scenes;
     invalidateCurrentSceneCache();
     if (m_scenes.isEmpty()) {
-        createScene(QObject::tr("ルート"));
+        const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
+        SceneData rootScene;
+        rootScene.id = 0;
+        rootScene.name = QObject::tr("ルート");
+        rootScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
+        rootScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
+        rootScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
+        m_scenes.append(rootScene);
+        invalidateCurrentSceneCache();
     }
     // 現在のシーンIDが有効か確認
     bool found = false;
@@ -98,9 +123,20 @@ void TimelineService::setScenes(const QList<SceneData> &scenes) {
     if (!found && !m_scenes.isEmpty()) {
         m_currentSceneId = m_scenes.first().id;
     }
+    if (!commitTimelineProjection()) {
+        const QList<SceneData> rejectedScenes = m_scenes;
+        m_scenes = previousScenes;
+        m_currentSceneId = previousCurrentSceneId;
+        invalidateCurrentSceneCache();
+        deleteUnretainedEffects(rejectedScenes, m_scenes);
+        qWarning() << "Failed to commit loaded scenes to Rust timeline state";
+        return false;
+    }
+    deleteUnretainedEffects(previousScenes, m_scenes);
     emit scenesChanged();
     emit currentSceneIdChanged();
     emit clipsChanged();
+    return true;
 }
 
 void TimelineService::createScene(const QString &name) {
@@ -200,8 +236,26 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     newScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
     newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
     newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
+    const qsizetype insertedIndex = m_scenes.size();
     m_scenes.append(newScene);
     invalidateCurrentSceneCache();
+    if (!commitTimelineMutation([this, sceneId, insertedIndex]() {
+            if (insertedIndex < m_scenes.size() && m_scenes.at(insertedIndex).id == sceneId) {
+                m_scenes.removeAt(insertedIndex);
+                invalidateCurrentSceneCache();
+                return;
+            }
+            for (qsizetype index = m_scenes.size(); index > 0; --index) {
+                if (m_scenes.at(index - 1).id == sceneId) {
+                    m_scenes.removeAt(index - 1);
+                    invalidateCurrentSceneCache();
+                    return;
+                }
+            }
+        })) {
+        qWarning() << "Rust rejected scene creation";
+        return;
+    }
     emit scenesChanged();
     switchScene(newScene.id);
 }
@@ -212,29 +266,62 @@ void TimelineService::removeSceneInternal(int sceneId) {
     }
     auto it = std::ranges::find_if(m_scenes, [sceneId](const SceneData &s) -> bool { return s.id == sceneId; });
     if (it != m_scenes.end()) {
-        for (auto &clip : it->clips) {
-            for (auto *eff : std::as_const(clip.effects)) {
-                eff->deleteLater();
-            }
+        const SceneData removed = *it;
+        const auto removedIndex = std::distance(m_scenes.begin(), it);
+        m_scenes.erase(it);
+        invalidateCurrentSceneCache();
+        if (!commitTimelineMutation(
+                [this, removedIndex, removed]() {
+                    m_scenes.insert(std::min<qsizetype>(removedIndex, m_scenes.size()), removed);
+                    invalidateCurrentSceneCache();
+                },
+                [removed]() {
+                    for (const auto &clip : removed.clips) {
+                        for (auto *effect : clip.effects) {
+                            if (effect != nullptr) {
+                                effect->deleteLater();
+                            }
+                        }
+                    }
+                })) {
+            qWarning() << "Rust rejected scene removal";
+            return;
         }
         if (m_currentSceneId == sceneId) {
             switchScene(0);
         }
-        m_scenes.erase(it);
-        invalidateCurrentSceneCache();
         emit scenesChanged();
     }
 }
 
 void TimelineService::restoreSceneInternal(const SceneData &scene) {
+    const qsizetype insertedIndex = m_scenes.size();
     m_scenes.append(scene);
     invalidateCurrentSceneCache();
+    if (!commitTimelineMutation([this, sceneId = scene.id, insertedIndex]() {
+            if (insertedIndex < m_scenes.size() && m_scenes.at(insertedIndex).id == sceneId) {
+                m_scenes.removeAt(insertedIndex);
+                invalidateCurrentSceneCache();
+                return;
+            }
+            for (qsizetype index = m_scenes.size(); index > 0; --index) {
+                if (m_scenes.at(index - 1).id == sceneId) {
+                    m_scenes.removeAt(index - 1);
+                    invalidateCurrentSceneCache();
+                    return;
+                }
+            }
+        })) {
+        qWarning() << "Rust rejected scene restoration";
+        return;
+    }
     emit scenesChanged();
 }
 
 void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &data) {
     for (auto &scene : m_scenes) {
         if (scene.id == sceneId) {
+            const SceneData oldData = scene;
             scene.name = data.name;
             scene.width = data.width;
             scene.height = data.height;
@@ -247,6 +334,18 @@ void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &d
             scene.gridSubdivision = data.gridSubdivision;
             scene.enableSnap = data.enableSnap;
             scene.magneticSnapRange = data.magneticSnapRange;
+            if (!commitTimelineMutation([this, sceneId, oldData]() {
+                    auto restored = std::ranges::find_if(
+                        m_scenes,
+                        [sceneId](const SceneData &candidate) { return candidate.id == sceneId; });
+                    if (restored != m_scenes.end()) {
+                        *restored = oldData;
+                        invalidateCurrentSceneCache();
+                    }
+                })) {
+                qWarning() << "Rust rejected scene settings update";
+                return;
+            }
             emit scenesChanged();
             return;
         }

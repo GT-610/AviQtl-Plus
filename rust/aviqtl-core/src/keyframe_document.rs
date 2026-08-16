@@ -666,10 +666,11 @@ fn apply(request: Request) -> Response {
             let mut second_points = Vec::new();
             for mut point in points {
                 let frame = point_frame(&point);
-                if frame > first_half_duration && frame < original_duration.saturating_sub(1).max(0)
+                if frame > first_half_duration
+                    && frame <= original_duration.saturating_sub(1).max(0)
                 {
                     let next_frame = frame - first_half_duration;
-                    if next_frame > 0 && next_frame < second_end {
+                    if next_frame > 0 && next_frame <= second_end {
                         point
                             .as_object_mut()
                             .expect("keyframe point is an object")
@@ -687,6 +688,38 @@ fn apply(request: Request) -> Response {
             result
         }
     }
+}
+
+pub(crate) fn sync_track(
+    track: Value,
+    fallback: Value,
+    old_duration: i32,
+    new_duration: i32,
+) -> Value {
+    apply(Request::Sync {
+        track,
+        fallback,
+        old_duration,
+        new_duration,
+    })
+    .track
+}
+
+pub(crate) fn split_track(
+    track: Value,
+    fallback: Value,
+    first_half_duration: i32,
+    original_duration: i32,
+) -> Option<(Value, Value)> {
+    let response = apply(Request::Split {
+        track,
+        fallback,
+        first_half_duration,
+        original_duration,
+    });
+    response
+        .accepted
+        .then(|| (response.track, response.secondary_track.unwrap_or_default()))
 }
 
 /// Applies a typed keyframe-document operation encoded as JSON.
@@ -839,6 +872,30 @@ mod tests {
         );
         let second = split.secondary_track.unwrap();
         assert_eq!(second["start"]["value"].as_f64(), Some(100.0));
+        assert_eq!(second["points"][0]["frame"].as_i64(), Some(10));
+        assert_eq!(second["points"][0]["value"].as_f64(), Some(200.0));
+    }
+
+    #[test]
+    fn split_keeps_the_terminal_valid_frame_but_drops_the_duration_endpoint() {
+        let track = json!({
+            "start": {"frame": 0, "value": 0.0, "interp": "linear"},
+            "points": [
+                {"frame": 20, "value": 20.0, "interp": "linear"},
+                {"frame": 21, "value": 21.0, "interp": "none"}
+            ]
+        });
+        let split = apply(Request::Split {
+            track,
+            fallback: json!(0.0),
+            first_half_duration: 10,
+            original_duration: 21,
+        });
+        let second = split.secondary_track.unwrap();
+        let points = second["points"].as_array().unwrap();
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0]["frame"].as_i64(), Some(10));
+        assert_eq!(points[0]["value"].as_f64(), Some(20.0));
     }
 
     #[test]

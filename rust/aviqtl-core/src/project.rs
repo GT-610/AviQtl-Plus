@@ -28,108 +28,108 @@ const MAX_GRID_SUBDIVISION: i32 = 128;
 const MAX_MAGNETIC_SNAP_RANGE: i32 = 100;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProjectError {
+pub(crate) enum ProjectError {
     InvalidJson,
     UnsupportedVersion,
 }
 
-type ExtraFields = BTreeMap<String, Value>;
+pub(crate) type ExtraFields = BTreeMap<String, Value>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct ProjectDocument {
-    version: i32,
-    settings: ProjectSettings,
-    scenes: Vec<SceneDocument>,
-    clips: Vec<ClipDocument>,
+pub(crate) struct ProjectDocument {
+    pub(crate) version: i32,
+    pub(crate) settings: ProjectSettings,
+    pub(crate) scenes: Vec<SceneDocument>,
+    pub(crate) clips: Vec<ClipDocument>,
     #[serde(flatten)]
-    extra: ExtraFields,
+    pub(crate) extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct ProjectSettings {
-    width: i32,
-    height: i32,
-    fps: f64,
+pub(crate) struct ProjectSettings {
+    pub(crate) width: i32,
+    pub(crate) height: i32,
+    pub(crate) fps: f64,
     #[serde(rename = "sampleRate")]
-    sample_rate: i32,
+    pub(crate) sample_rate: i32,
     #[serde(flatten)]
-    extra: ExtraFields,
+    pub(crate) extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct SceneDocument {
-    id: i32,
-    name: String,
-    width: i32,
-    height: i32,
-    fps: f64,
-    start: i32,
-    duration: i32,
+pub(crate) struct SceneDocument {
+    pub(crate) id: i32,
+    pub(crate) name: String,
+    pub(crate) width: i32,
+    pub(crate) height: i32,
+    pub(crate) fps: f64,
+    pub(crate) start: i32,
+    pub(crate) duration: i32,
     #[serde(rename = "nestedDuration")]
-    nested_duration: i32,
+    pub(crate) nested_duration: i32,
     #[serde(rename = "lockedLayers")]
-    locked_layers: Vec<i32>,
+    pub(crate) locked_layers: Vec<i32>,
     #[serde(rename = "hiddenLayers")]
-    hidden_layers: Vec<i32>,
+    pub(crate) hidden_layers: Vec<i32>,
     #[serde(rename = "gridMode")]
-    grid_mode: String,
+    pub(crate) grid_mode: String,
     #[serde(rename = "gridBpm")]
-    grid_bpm: f64,
+    pub(crate) grid_bpm: f64,
     #[serde(rename = "gridOffset")]
-    grid_offset: f64,
+    pub(crate) grid_offset: f64,
     #[serde(rename = "gridInterval")]
-    grid_interval: i32,
+    pub(crate) grid_interval: i32,
     #[serde(rename = "gridSubdivision")]
-    grid_subdivision: i32,
+    pub(crate) grid_subdivision: i32,
     #[serde(rename = "enableSnap")]
-    enable_snap: bool,
+    pub(crate) enable_snap: bool,
     #[serde(rename = "magneticSnapRange")]
-    magnetic_snap_range: i32,
+    pub(crate) magnetic_snap_range: i32,
     #[serde(flatten)]
-    extra: ExtraFields,
+    pub(crate) extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct ClipDocument {
-    id: i32,
+pub(crate) struct ClipDocument {
+    pub(crate) id: i32,
     #[serde(rename = "sceneId")]
-    scene_id: i32,
+    pub(crate) scene_id: i32,
     #[serde(rename = "type")]
-    clip_type: String,
-    start: i32,
-    duration: i32,
-    layer: i32,
+    pub(crate) clip_type: String,
+    pub(crate) start: i32,
+    pub(crate) duration: i32,
+    pub(crate) layer: i32,
     #[serde(rename = "clipByUpperObject")]
-    clip_by_upper_object: bool,
-    params: Map<String, Value>,
+    pub(crate) clip_by_upper_object: bool,
+    pub(crate) params: Map<String, Value>,
     #[serde(rename = "audioPlugins")]
-    audio_plugins: Vec<AudioPluginDocument>,
-    effects: Vec<EffectDocument>,
+    pub(crate) audio_plugins: Vec<AudioPluginDocument>,
+    pub(crate) effects: Vec<EffectDocument>,
     #[serde(flatten)]
-    extra: ExtraFields,
+    pub(crate) extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct AudioPluginDocument {
-    id: String,
-    enabled: bool,
-    params: Map<String, Value>,
+pub(crate) struct AudioPluginDocument {
+    pub(crate) id: String,
+    pub(crate) enabled: bool,
+    pub(crate) params: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    keyframes: Option<Map<String, Value>>,
+    pub(crate) keyframes: Option<Map<String, Value>>,
     #[serde(flatten)]
-    extra: ExtraFields,
+    pub(crate) extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct EffectDocument {
-    id: String,
-    name: String,
-    enabled: bool,
-    params: Map<String, Value>,
+pub(crate) struct EffectDocument {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) enabled: bool,
+    pub(crate) params: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    keyframes: Option<Map<String, Value>>,
+    pub(crate) keyframes: Option<Map<String, Value>>,
     #[serde(flatten)]
-    extra: ExtraFields,
+    pub(crate) extra: ExtraFields,
 }
 
 fn integer(value: Option<&Value>, fallback: i32) -> i32 {
@@ -480,7 +480,7 @@ fn normalize_clips(root: &mut Map<String, Value>) {
     root.insert("clips".to_owned(), Value::Array(clips));
 }
 
-fn parse_project_document(input: &[u8]) -> Result<ProjectDocument, ProjectError> {
+pub(crate) fn parse_project_document(input: &[u8]) -> Result<ProjectDocument, ProjectError> {
     let mut root: Value = serde_json::from_slice(input).map_err(|_| ProjectError::InvalidJson)?;
     {
         let root = root.as_object_mut().ok_or(ProjectError::InvalidJson)?;

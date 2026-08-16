@@ -15,6 +15,7 @@ mod settings;
 mod timeline;
 mod timeline_domain;
 mod timeline_edit;
+mod timeline_state;
 
 use abi::{AviQtlEasingParameters, slice_is_valid, utf8};
 use std::f64::consts::PI;

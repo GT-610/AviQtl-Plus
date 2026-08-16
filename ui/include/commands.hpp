@@ -38,6 +38,31 @@ class MoveClipCommand : public QUndoCommand {
     bool m_prevalidated;
 };
 
+struct ClipMoveChange {
+    int clipId;
+    int oldLayer;
+    int oldStart;
+    int oldDuration;
+    int newLayer;
+    int newStart;
+    int newDuration;
+};
+
+class MoveClipsCommand : public QUndoCommand {
+  public:
+    MoveClipsCommand(TimelineService *service, QList<ClipMoveChange> moves,
+                     QString commandText, bool prevalidated);
+    void undo() override;
+    void redo() override;
+
+  private:
+    void apply(bool forward);
+
+    TimelineService *m_service;
+    QList<ClipMoveChange> m_moves;
+    bool m_prevalidated;
+};
+
 class SetClipByUpperObjectCommand : public QUndoCommand {
   public:
     SetClipByUpperObjectCommand(TimelineService *service, int clipId, bool enabled);
@@ -175,6 +200,7 @@ class SetAudioPluginEnabledCommand : public QUndoCommand {
 class SplitClipCommand : public QUndoCommand {
   public:
     SplitClipCommand(TimelineService *service, int clipId, int frame, int originalDuration, int firstDuration, int secondDuration, const QString &clipName);
+    ~SplitClipCommand() override;
     void undo() override;
     void redo() override;
 
@@ -187,6 +213,7 @@ class SplitClipCommand : public QUndoCommand {
     int m_firstDuration;
     int m_secondDuration;
     QString m_clipName;
+    ClipData m_originalSnapshot;
 };
 
 class DeleteClipsCommand : public QUndoCommand {

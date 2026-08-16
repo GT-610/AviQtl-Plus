@@ -27,6 +27,10 @@ class TestProjectSerializer : public QObject {
     void sceneStateAndMediaPathsRoundTrip();
     void invalidGridSettingsUseDefaults();
     void invalidJsonDoesNotReplaceProjectState();
+    void rejectedTimelineStateDoesNotReplaceProjectSettings();
+    void rejectedTimelineStateDeletesTemporaryEffects();
+    void missingEffectsDoNotShiftRuntimeMetadata();
+    void setScenesRestoresRuntimeStateWhenProjectionIsRejected();
     void legacyProjectValuesAreNormalizedByRust();
     void unsupportedVersionDoesNotReplaceProjectState();
 };
@@ -107,7 +111,7 @@ void TestProjectSerializer::sceneStateAndMediaPathsRoundTrip() {
     QList<SceneData> scenes = timeline.getAllScenes();
     QCOMPARE(scenes.size(), 1);
     scenes[0].durationFrames = 360;
-    timeline.setScenes(scenes);
+    QVERIFY(timeline.setScenes(scenes));
 
     const QString mediaDir = dir.filePath(QStringLiteral("media"));
     QVERIFY(QDir().mkpath(mediaDir));
@@ -181,6 +185,144 @@ void TestProjectSerializer::invalidJsonDoesNotReplaceProjectState() {
     QVERIFY(!error.isEmpty());
     QCOMPARE(project.width(), 1234);
     QCOMPARE(timeline.getAllScenes().size(), 1);
+}
+
+void TestProjectSerializer::rejectedTimelineStateDoesNotReplaceProjectSettings() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("invalid-timeline.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    const QByteArray document = R"({
+        "version": 3,
+        "settings": {"width": 640, "height": 360, "fps": 24, "sampleRate": 44100},
+        "scenes": [{"id": 0, "name": "Root", "duration": 300}],
+        "clips": [{
+            "id": 1, "sceneId": 0, "type": "text", "start": -1,
+            "duration": 10, "layer": 0, "params": {}, "effects": [], "audioPlugins": []
+        }]
+    })";
+    QCOMPARE(file.write(document), document.size());
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    project.setWidth(1234);
+    project.setHeight(567);
+    project.setFps(48.0);
+    project.setSampleRate(96000);
+    const QVariantMap previousTimeline = timeline.timelineStateSnapshot();
+
+    QString error;
+    QVERIFY(!ProjectSerializer::load(path, &timeline, &project, &error));
+    QVERIFY(!error.isEmpty());
+    QCOMPARE(project.width(), 1234);
+    QCOMPARE(project.height(), 567);
+    QCOMPARE(project.fps(), 48.0);
+    QCOMPARE(project.sampleRate(), 96000);
+    QCOMPARE(timeline.timelineStateSnapshot(), previousTimeline);
+}
+
+void TestProjectSerializer::rejectedTimelineStateDeletesTemporaryEffects() {
+    EffectMetadata metadata;
+    metadata.id = QStringLiteral("review.temporary");
+    metadata.name = QStringLiteral("Temporary");
+    metadata.kind = QStringLiteral("effect");
+    metadata.defaultParams = {{QStringLiteral("value"), 0.0}};
+    EffectRegistry::instance().registerEffect(metadata);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("invalid-effect-timeline.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    const QByteArray document = R"({
+        "version": 3,
+        "settings": {"width": 640, "height": 360, "fps": 24, "sampleRate": 44100},
+        "scenes": [{"id": 0, "name": "Root", "duration": 300}],
+        "clips": [{
+            "id": 1, "sceneId": 0, "type": "text", "start": -1,
+            "duration": 10, "layer": 0, "params": {}, "audioPlugins": [],
+            "effects": [{"id": "review.temporary", "params": {"value": 1.0}}]
+        }]
+    })";
+    QCOMPARE(file.write(document), document.size());
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    const qsizetype previousEffectCount = timeline.findChildren<EffectModel *>().size();
+
+    QString error;
+    QVERIFY(!ProjectSerializer::load(path, &timeline, &project, &error));
+    QVERIFY(!error.isEmpty());
+    QCOMPARE(timeline.findChildren<EffectModel *>().size(), previousEffectCount);
+}
+
+void TestProjectSerializer::missingEffectsDoNotShiftRuntimeMetadata() {
+    EffectMetadata known;
+    known.id = QStringLiteral("review.known");
+    known.name = QStringLiteral("Known");
+    known.kind = QStringLiteral("effect");
+    known.defaultParams = {{QStringLiteral("value"), 0.0}};
+    EffectRegistry::instance().registerEffect(known);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("missing-effect.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    const QByteArray document = R"({
+        "version": 3,
+        "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+        "scenes": [{"id": 0, "name": "Root", "duration": 300}],
+        "clips": [{
+            "id": 1, "sceneId": 0, "type": "text", "start": 0, "duration": 30,
+            "layer": 0, "params": {}, "audioPlugins": [],
+            "effects": [
+                {"id": "review.missing", "params": {}, "reviewToken": "missing"},
+                {"id": "review.known", "params": {"value": 2.0}, "reviewToken": "known"}
+            ]
+        }]
+    })";
+    QCOMPARE(file.write(document), document.size());
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    QString error;
+    QVERIFY2(ProjectSerializer::load(path, &timeline, &project, &error), qPrintable(error));
+    const QVariantList effects = timeline.timelineStateSnapshot()
+                                     .value(QStringLiteral("clips"))
+                                     .toList()
+                                     .first()
+                                     .toMap()
+                                     .value(QStringLiteral("effects"))
+                                     .toList();
+    QCOMPARE(effects.size(), 1);
+    QCOMPARE(effects.first().toMap().value(QStringLiteral("id")).toString(), known.id);
+    QCOMPARE(effects.first().toMap().value(QStringLiteral("reviewToken")).toString(),
+             QStringLiteral("known"));
+}
+
+void TestProjectSerializer::setScenesRestoresRuntimeStateWhenProjectionIsRejected() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("audio"), 0, 0);
+    QVERIFY(timeline.findClipById(clipId) != nullptr);
+    const QVariantMap previousState = timeline.timelineStateSnapshot();
+    const QList<SceneData> previousScenes = timeline.getAllScenes();
+    QList<SceneData> rejectedScenes = previousScenes;
+    rejectedScenes[0].clips.append(rejectedScenes[0].clips.first());
+
+    QVERIFY(!timeline.setScenes(rejectedScenes));
+    QCOMPARE(timeline.getAllScenes().size(), previousScenes.size());
+    QCOMPARE(timeline.getAllScenes().first().clips.size(), previousScenes.first().clips.size());
+    QCOMPARE(timeline.timelineStateSnapshot(), previousState);
 }
 
 void TestProjectSerializer::legacyProjectValuesAreNormalizedByRust() {

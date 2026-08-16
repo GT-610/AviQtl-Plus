@@ -28,7 +28,7 @@ class ProjectRecoveryManager {
   public:
     static QString recoveryRoot();
 
-    static QFuture<ProjectRecoveryWriteResult> writeAsync(const QString &id, const QString &originalProjectUrl, const QString &displayName, const TimelineService *timeline, const ProjectService *project);
+    static QFuture<ProjectRecoveryWriteResult> writeAsync(const QString &id, const QString &originalProjectUrl, const QString &displayName, TimelineService *timeline, const ProjectService *project);
     static bool remove(const QString &id);
     static QList<ProjectRecoveryEntry> entries();
     static void cleanupStale(int maximumAgeDays = 30);

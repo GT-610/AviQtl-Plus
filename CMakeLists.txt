@@ -224,6 +224,7 @@ set(CORE_SOURCES
     core/src/project_serializer.cpp
     core/src/rust_keyframe_adapter.cpp
     core/src/rust_keyframe_document.cpp
+    core/src/rust_timeline_state.cpp
     core/src/settings_manager.cpp
     core/src/shader_compiler.cpp
     core/src/theme_controller.cpp
@@ -255,6 +256,7 @@ set(CORE_SOURCES
     core/include/rust_timeline_bake.hpp
     core/include/rust_timeline_domain.hpp
     core/include/rust_timeline_edit.hpp
+    core/include/rust_timeline_state.hpp
     core/include/settings_manager.hpp
     core/include/shader_compiler.hpp
     core/include/theme_controller.hpp

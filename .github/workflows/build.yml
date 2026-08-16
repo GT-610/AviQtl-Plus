@@ -75,6 +75,25 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.97.1
 
+      - name: Select pinned Rust tools (macOS)
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          EXPECTED_RUST_VERSION=$(sed -nE 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml)
+          if [ -z "$EXPECTED_RUST_VERSION" ]; then
+            echo "Could not determine the pinned Rust version" >&2
+            exit 1
+          fi
+          CARGO_PATH=$(rustup which cargo)
+          RUSTC_PATH=$(rustup which rustc)
+          if [ "$(dirname "$CARGO_PATH")" != "$(dirname "$RUSTC_PATH")" ]; then
+            echo "Pinned cargo and rustc were resolved from different toolchains" >&2
+            exit 1
+          fi
+          "$CARGO_PATH" --version | grep -F "cargo $EXPECTED_RUST_VERSION "
+          "$RUSTC_PATH" --version | grep -F "rustc $EXPECTED_RUST_VERSION "
+          echo "$(dirname "$CARGO_PATH")" >> "$GITHUB_PATH"
+
       - name: Install Dependencies (Linux)
         if: matrix.platform == 'linux'
         run: |
