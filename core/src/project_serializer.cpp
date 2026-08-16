@@ -37,6 +37,16 @@ QString projectNormalizationError(RustCore::ProjectStatus status) {
     }
     return QStringLiteral("Rust project normalization failed");
 }
+
+void deleteSceneEffects(const QList<UI::SceneData> &scenes) {
+    for (const auto &scene : scenes) {
+        for (const auto &clip : scene.clips) {
+            for (auto *effect : clip.effects) {
+                delete effect;
+            }
+        }
+    }
+}
 } // namespace
 
 static QString toRelativePath(const QString &absolutePath, const QString &baseDir) {
@@ -443,6 +453,7 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     const int previousNextClipId = timeline->nextClipId();
     const int previousNextSceneId = timeline->nextSceneId();
     if (!timeline->resetTimelineState(runtimeSnapshot, maxClipId + 1, maxSceneId + 1)) {
+        deleteSceneEffects(tempScenes);
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Rust timeline state rejected the loaded project");
         }

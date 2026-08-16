@@ -9,6 +9,7 @@
 #include <QQmlEngine>
 #include <QVariant>
 #include <QVariantList>
+#include <utility>
 namespace AviQtl::UI {
 
 class EffectModel : public QObject {
@@ -150,9 +151,29 @@ class EffectModel : public QObject {
         if (m_params == params) {
             return;
         }
+        QVariantMap updatedTracks = m_keyframeTracks;
+        for (auto it = updatedTracks.begin(); it != updatedTracks.end();) {
+            const auto paramIt = params.constFind(it.key());
+            if (paramIt == params.cend()) {
+                it = updatedTracks.erase(it);
+                continue;
+            }
+            const auto result = Core::RustKeyframeDocument::set(
+                it.value(), m_params.value(it.key()), m_lastDuration, 0, paramIt.value(),
+                QVariantMap());
+            if (result && result->accepted) {
+                it.value() = result->track;
+            }
+            ++it;
+        }
+        const bool tracksChanged = updatedTracks != m_keyframeTracks;
         m_params = params;
+        m_keyframeTracks = std::move(updatedTracks);
         m_expressionParamsBuilt = false;
         invalidateCache({});
+        if (tracksChanged) {
+            emit keyframeTracksChanged();
+        }
         emit paramsChanged();
     }
 

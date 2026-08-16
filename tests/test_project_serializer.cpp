@@ -28,6 +28,7 @@ class TestProjectSerializer : public QObject {
     void invalidGridSettingsUseDefaults();
     void invalidJsonDoesNotReplaceProjectState();
     void rejectedTimelineStateDoesNotReplaceProjectSettings();
+    void rejectedTimelineStateDeletesTemporaryEffects();
     void missingEffectsDoNotShiftRuntimeMetadata();
     void setScenesRestoresRuntimeStateWhenProjectionIsRejected();
     void legacyProjectValuesAreNormalizedByRust();
@@ -221,6 +222,43 @@ void TestProjectSerializer::rejectedTimelineStateDoesNotReplaceProjectSettings()
     QCOMPARE(project.fps(), 48.0);
     QCOMPARE(project.sampleRate(), 96000);
     QCOMPARE(timeline.timelineStateSnapshot(), previousTimeline);
+}
+
+void TestProjectSerializer::rejectedTimelineStateDeletesTemporaryEffects() {
+    EffectMetadata metadata;
+    metadata.id = QStringLiteral("review.temporary");
+    metadata.name = QStringLiteral("Temporary");
+    metadata.kind = QStringLiteral("effect");
+    metadata.defaultParams = {{QStringLiteral("value"), 0.0}};
+    EffectRegistry::instance().registerEffect(metadata);
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("invalid-effect-timeline.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    const QByteArray document = R"({
+        "version": 3,
+        "settings": {"width": 640, "height": 360, "fps": 24, "sampleRate": 44100},
+        "scenes": [{"id": 0, "name": "Root", "duration": 300}],
+        "clips": [{
+            "id": 1, "sceneId": 0, "type": "text", "start": -1,
+            "duration": 10, "layer": 0, "params": {}, "audioPlugins": [],
+            "effects": [{"id": "review.temporary", "params": {"value": 1.0}}]
+        }]
+    })";
+    QCOMPARE(file.write(document), document.size());
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    const qsizetype previousEffectCount = timeline.findChildren<EffectModel *>().size();
+
+    QString error;
+    QVERIFY(!ProjectSerializer::load(path, &timeline, &project, &error));
+    QVERIFY(!error.isEmpty());
+    QCOMPARE(timeline.findChildren<EffectModel *>().size(), previousEffectCount);
 }
 
 void TestProjectSerializer::missingEffectsDoNotShiftRuntimeMetadata() {

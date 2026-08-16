@@ -51,6 +51,29 @@ class TestEffectModel : public QObject {
         QVERIFY(m.keyframeTracks().contains(QStringLiteral("opacity")));
     }
 
+    void setParamsSynchronizesAndRemovesTracks() {
+        EffectModel m(QStringLiteral("x"), QStringLiteral("Y"), QStringLiteral("effect"),
+                      QStringList(), {{QStringLiteral("opacity"), 0},
+                                      {QStringLiteral("removed"), 10}});
+        m.syncTrackEndpoints(20);
+        m.setKeyframe(QStringLiteral("opacity"), 10, 100,
+                      {{QStringLiteral("interp"), QStringLiteral("none")}});
+        QSignalSpy paramsSpy(&m, &EffectModel::paramsChanged);
+        QSignalSpy tracksSpy(&m, &EffectModel::keyframeTracksChanged);
+
+        m.setParams({{QStringLiteral("opacity"), 25}});
+
+        QCOMPARE(paramsSpy.count(), 1);
+        QCOMPARE(tracksSpy.count(), 1);
+        QVERIFY(!m.keyframeTracks().contains(QStringLiteral("removed")));
+        const QVariantList opacityTrack = m.keyframeListForUi(QStringLiteral("opacity"));
+        QCOMPARE(opacityTrack.size(), 2);
+        QCOMPARE(opacityTrack.first().toMap().value(QStringLiteral("frame")).toInt(), 0);
+        QCOMPARE(opacityTrack.first().toMap().value(QStringLiteral("value")).toInt(), 25);
+        QCOMPARE(opacityTrack.last().toMap().value(QStringLiteral("frame")).toInt(), 10);
+        QCOMPARE(opacityTrack.last().toMap().value(QStringLiteral("value")).toInt(), 100);
+    }
+
     void evaluatedParamNoKeyframeReturnsFallback() {
         EffectModel m(QStringLiteral("x"), QStringLiteral("Y"), QStringLiteral("effect"), QStringList(), {{"volume", QVariant(0.8)}});
         QVariant val = m.evaluatedParam(QStringLiteral("volume"), 0);
