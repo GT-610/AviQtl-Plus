@@ -33,6 +33,7 @@ class TestDailyEditingWorkflow : public QObject {
     void audioPluginStateSurvivesClipCopies();
     void audioPluginKeyframeEvaluationIsCompatible();
     void audioPluginKeyframeMutationsAreUndoable();
+    void rejectedProjectionTransactionRestoresRuntimeModel();
     void pasteReportsResolvedClipEditTarget();
     void catalogItemsExposeProductMetadata();
     void catalogQueryFiltersMetadataAndCategories();
@@ -430,7 +431,13 @@ void TestDailyEditingWorkflow::audioPluginStateSurvivesClipCopies() {
     QCOMPARE(split->audioPlugins.size(), 1);
     QCOMPARE(split->audioPlugins.first().params, plugin.params);
     const QVariantMap splitTracks = split->audioPlugins.first().keyframeTracks;
-    QVERIFY(splitTracks != plugin.keyframeTracks);
+    QVERIFY(splitTracks.contains(QStringLiteral("2")));
+    const QVariantList splitPoints = splitTracks.value(QStringLiteral("2")).toMap()
+                                         .value(QStringLiteral("points"))
+                                         .toList();
+    QCOMPARE(splitPoints.size(), 1);
+    QCOMPARE(splitPoints.first().toMap().value(QStringLiteral("frame")).toInt(), 25);
+    QCOMPARE(splitPoints.first().toMap().value(QStringLiteral("value")).toDouble(), 1.0);
 
     controller.timeline()->undo();
     QVERIFY(findClip(controller, splitId) == nullptr);
@@ -442,6 +449,38 @@ void TestDailyEditingWorkflow::audioPluginStateSurvivesClipCopies() {
     QVERIFY(split != nullptr);
     QCOMPARE(split->audioPlugins.size(), 1);
     QCOMPARE(split->audioPlugins.first().keyframeTracks, splitTracks);
+}
+
+void TestDailyEditingWorkflow::rejectedProjectionTransactionRestoresRuntimeModel() {
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("text"), 0, 0);
+
+    auto *clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(clip->effects.size() >= 2);
+    auto *removedEffect = clip->effects.at(1);
+    QVERIFY(removedEffect != nullptr);
+    const bool previousEnabled = removedEffect->isEnabled();
+    const int previousLayer = clip->layer;
+    const int previousStart = clip->startFrame;
+    const int previousDuration = clip->durationFrames;
+
+    controller.timeline()->beginTimelineProjectionTransaction();
+    controller.timeline()->setEffectEnabledInternal(clipId, 1, !previousEnabled);
+    controller.timeline()->removeEffectInternal(clipId, 1);
+    controller.timeline()->updateClipInternal(clipId, 128, previousStart, previousDuration, false,
+                                              true);
+    QVERIFY(!controller.timeline()->endTimelineProjectionTransaction());
+
+    clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->layer, previousLayer);
+    QCOMPARE(clip->startFrame, previousStart);
+    QCOMPARE(clip->durationFrames, previousDuration);
+    QVERIFY(clip->effects.size() >= 2);
+    QCOMPARE(clip->effects.at(1), removedEffect);
+    QCOMPARE(removedEffect->isEnabled(), previousEnabled);
 }
 
 void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {

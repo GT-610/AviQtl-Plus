@@ -6,6 +6,7 @@
 #include <QPointer>
 #include <QSet>
 #include <QUndoStack>
+#include <functional>
 #include <memory>
 
 namespace AviQtl::UI {
@@ -26,7 +27,7 @@ class TimelineService : public QObject {
     int findVacantFrameForClipboard(int requestedFrame, int layerOffset) const;
 
     const QList<SceneData> &getAllScenes() const { return m_scenes; }
-    void setScenes(const QList<SceneData> &scenes);
+    bool setScenes(const QList<SceneData> &scenes);
     QVariantMap timelineStateSnapshot() const;
     bool resetTimelineState(const QVariantMap &document, int nextClipHint = 1,
                             int nextSceneHint = 1);
@@ -148,7 +149,7 @@ class TimelineService : public QObject {
     QList<int> allocateClipIds(qsizetype count);
     int allocateSceneId();
     int nextClipId() const { return m_timelineState.nextClipId(); }
-    void setNextClipId(int id) { m_timelineState.setNextClipHint(id); }
+    void setNextClipId(int id) { static_cast<void>(m_timelineState.setNextClipHint(id)); }
     int nextSceneId() const { return m_timelineState.nextSceneId(); }
 
   signals:
@@ -168,9 +169,13 @@ class TimelineService : public QObject {
     SceneData *currentScene();
     const SceneData *currentScene() const;
     void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
+    bool commitTimelineMutation(std::function<void()> rollback,
+                                std::function<void()> commitAction = {});
 
     AviQtl::RustCore::TimelineState m_timelineState;
     int m_timelineProjectionTransactionDepth = 0;
+    QList<std::function<void()>> m_timelineProjectionRollbacks;
+    QList<std::function<void()>> m_timelineProjectionCommitActions;
     QUndoStack *m_undoStack;
     QList<ClipData> m_clipboard;
     std::unique_ptr<EffectModel> m_effectClipboard;

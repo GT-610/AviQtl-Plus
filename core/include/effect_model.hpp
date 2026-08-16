@@ -146,6 +146,16 @@ class EffectModel : public QObject {
         }
     }
 
+    void setParams(const QVariantMap &params) {
+        if (m_params == params) {
+            return;
+        }
+        m_params = params;
+        m_expressionParamsBuilt = false;
+        invalidateCache({});
+        emit paramsChanged();
+    }
+
     Q_INVOKABLE void setKeyframe(const QString &paramName, int frame, const QVariant &value, const QVariantMap &options) {
         invalidateCache(paramName);
         const QVariant fallback = m_params.value(paramName);

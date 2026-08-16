@@ -172,6 +172,15 @@ SplitClipCommand::SplitClipCommand(TimelineService *service, int clipId, int fra
     setText(QObject::tr("クリップ分割: %1").arg(clipName));
 }
 
+SplitClipCommand::~SplitClipCommand() {
+    for (auto *effect : std::as_const(m_originalSnapshot.effects)) {
+        if (effect != nullptr) {
+            effect->deleteLater();
+        }
+    }
+    m_originalSnapshot.effects.clear();
+}
+
 void SplitClipCommand::undo() {
     m_service->beginTimelineProjectionTransaction();
     if (m_newClipId >= 0) {
@@ -183,6 +192,12 @@ void SplitClipCommand::undo() {
     m_service->addClipDirectInternal(restored, false);
     if (m_service->endTimelineProjectionTransaction()) {
         emit m_service->clipsChanged();
+    } else {
+        for (auto *effect : std::as_const(restored.effects)) {
+            if (effect != nullptr) {
+                effect->deleteLater();
+            }
+        }
     }
 }
 
@@ -249,6 +264,36 @@ void SplitClipCommand::redo() {
     m_service->addClipDirectInternal(newClip, false);
     if (m_service->endTimelineProjectionTransaction()) {
         emit m_service->clipsChanged();
+    } else {
+        if (auto *restored = m_service->findClipById(m_originalClipId); restored != nullptr) {
+            restored->layer = m_originalSnapshot.layer;
+            restored->startFrame = m_originalSnapshot.startFrame;
+            restored->durationFrames = m_originalSnapshot.durationFrames;
+            restored->params = m_originalSnapshot.params;
+            restored->audioPlugins = m_originalSnapshot.audioPlugins;
+            for (auto &plugin : restored->audioPlugins) {
+                plugin.invalidateKeyframeCache();
+            }
+            for (qsizetype index = 0;
+                 index < restored->effects.size() && index < m_originalSnapshot.effects.size();
+                 ++index) {
+                auto *effect = restored->effects.at(index);
+                const auto *snapshotEffect = m_originalSnapshot.effects.at(index);
+                if (effect == nullptr || snapshotEffect == nullptr) {
+                    continue;
+                }
+                effect->setEnabled(snapshotEffect->isEnabled());
+                effect->setParams(snapshotEffect->params());
+                effect->syncTrackEndpoints(m_originalSnapshot.durationFrames);
+                effect->setKeyframeTracks(snapshotEffect->keyframeTracks());
+            }
+        }
+        for (auto *effect : std::as_const(newClip.effects)) {
+            if (effect != nullptr) {
+                effect->deleteLater();
+            }
+        }
+        m_newClipId = -1;
     }
 }
 

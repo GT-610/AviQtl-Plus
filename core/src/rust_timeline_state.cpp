@@ -1,12 +1,13 @@
 #include "rust_timeline_state.hpp"
+#include <functional>
 #include <limits>
 #include <utility>
 
 namespace AviQtl::RustCore {
 namespace {
 
-using JsonCall = std::uint32_t (*)(AviQtlTimelineState *, std::uint8_t *, std::size_t,
-                                   std::size_t *);
+using JsonCall = std::function<std::uint32_t(AviQtlTimelineState *, std::uint8_t *, std::size_t,
+                                             std::size_t *)>;
 
 TimelineStateStatus collectJson(AviQtlTimelineState *handle, JsonCall call, QByteArray &output) {
     output.clear();
@@ -69,23 +70,14 @@ TimelineStateStatus TimelineState::plan(const QByteArray &request, QByteArray &t
     }
     const auto *input = reinterpret_cast<const std::uint8_t *>(request.constData());
     const auto inputLength = static_cast<std::size_t>(request.size());
-    std::size_t required = 0;
-    auto status = static_cast<TimelineStateStatus>(aviqtl_timeline_state_plan_json(
-        m_handle, input, inputLength, nullptr, 0, &required));
-    if (status != TimelineStateStatus::BufferTooSmall || required == 0 ||
-        required > static_cast<std::size_t>(std::numeric_limits<qsizetype>::max())) {
-        return status == TimelineStateStatus::Ok ? TimelineStateStatus::InvalidArgument : status;
-    }
-    transaction.resize(static_cast<qsizetype>(required));
-    std::size_t written = 0;
-    status = static_cast<TimelineStateStatus>(aviqtl_timeline_state_plan_json(
-        m_handle, input, inputLength, reinterpret_cast<std::uint8_t *>(transaction.data()), required,
-        &written));
-    if (status != TimelineStateStatus::Ok || written != required) {
-        transaction.clear();
-        return status == TimelineStateStatus::Ok ? TimelineStateStatus::InvalidArgument : status;
-    }
-    return status;
+    return collectJson(
+        m_handle,
+        [input, inputLength](AviQtlTimelineState *handle, std::uint8_t *output,
+                             std::size_t capacity, std::size_t *length) {
+            return aviqtl_timeline_state_plan_json(handle, input, inputLength, output, capacity,
+                                                   length);
+        },
+        transaction);
 }
 
 TimelineStateStatus TimelineState::applyPatch(const QByteArray &patch) {

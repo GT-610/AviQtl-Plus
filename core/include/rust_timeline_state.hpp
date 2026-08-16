@@ -28,16 +28,20 @@ class TimelineState final {
     ~TimelineState();
 
     [[nodiscard]] bool isValid() const { return m_handle != nullptr; }
-    TimelineStateStatus reset(const QByteArray &projectJson, std::int32_t nextClipHint = 1,
-                              std::int32_t nextSceneHint = 1);
-    TimelineStateStatus snapshot(QByteArray &output) const;
-    TimelineStateStatus plan(const QByteArray &request, QByteArray &transaction) const;
-    TimelineStateStatus applyPatch(const QByteArray &patch);
-    TimelineStateStatus reserveClipIds(std::size_t count, std::vector<std::int32_t> &output);
-    TimelineStateStatus reserveSceneIds(std::size_t count, std::vector<std::int32_t> &output);
+    [[nodiscard]] TimelineStateStatus reset(const QByteArray &projectJson,
+                                            std::int32_t nextClipHint = 1,
+                                            std::int32_t nextSceneHint = 1);
+    [[nodiscard]] TimelineStateStatus snapshot(QByteArray &output) const;
+    [[nodiscard]] TimelineStateStatus plan(const QByteArray &request,
+                                           QByteArray &transaction) const;
+    [[nodiscard]] TimelineStateStatus applyPatch(const QByteArray &patch);
+    [[nodiscard]] TimelineStateStatus reserveClipIds(std::size_t count,
+                                                     std::vector<std::int32_t> &output);
+    [[nodiscard]] TimelineStateStatus reserveSceneIds(std::size_t count,
+                                                      std::vector<std::int32_t> &output);
     [[nodiscard]] std::int32_t nextClipId() const;
     [[nodiscard]] std::int32_t nextSceneId() const;
-    TimelineStateStatus setNextClipHint(std::int32_t nextHint);
+    [[nodiscard]] TimelineStateStatus setNextClipHint(std::int32_t nextHint);
 
   private:
     AviQtlTimelineState *m_handle = nullptr;

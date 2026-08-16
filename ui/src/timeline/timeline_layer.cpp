@@ -16,6 +16,9 @@ void TimelineService::setLayerStateInternal(int sceneId, int layer, bool value, 
     if (it == m_scenes.end()) {
         return;
     }
+    const bool previous = type == UpdateLayerStateCommand::Lock
+                              ? it->lockedLayers.contains(layer)
+                              : it->hiddenLayers.contains(layer);
     if (type == UpdateLayerStateCommand::Lock) {
         if (value) {
             it->lockedLayers.insert(layer);
@@ -29,7 +32,21 @@ void TimelineService::setLayerStateInternal(int sceneId, int layer, bool value, 
             it->hiddenLayers.remove(layer);
         }
     }
-    if (!commitTimelineProjection()) {
+    if (!commitTimelineMutation([this, sceneId, layer, type, previous]() {
+            auto restored = std::ranges::find_if(
+                m_scenes, [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+            if (restored == m_scenes.end()) {
+                return;
+            }
+            QSet<int> &layers = type == UpdateLayerStateCommand::Lock
+                                    ? restored->lockedLayers
+                                    : restored->hiddenLayers;
+            if (previous) {
+                layers.insert(layer);
+            } else {
+                layers.remove(layer);
+            }
+        })) {
         qWarning() << "Rust rejected layer-state update";
         return;
     }

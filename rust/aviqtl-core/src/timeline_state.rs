@@ -307,7 +307,6 @@ impl TimelineState {
     }
 }
 
-#[repr(C)]
 pub struct AviQtlTimelineState {
     state: Mutex<TimelineState>,
 }
@@ -449,6 +448,8 @@ fn replacement_transaction(forward: PatchOperation, inverse: PatchOperation) -> 
     transaction(vec![forward], vec![inverse])
 }
 
+/// Plans a scene and clip replacement while preserving the current version, settings, and extras.
+/// Use `aviqtl_timeline_state_reset` when those document-level fields must also be replaced.
 fn plan_document_replacement(before: &ProjectDocument, mut after: ProjectDocument) -> Transaction {
     after.version = before.version;
     after.settings = before.settings.clone();
@@ -785,6 +786,7 @@ fn validate_document(document: &ProjectDocument) -> Result<(), StateError> {
     let mut clip_ids = BTreeSet::new();
     if document.clips.iter().any(|clip| {
         clip.id < 1
+            || clip.start < 0
             || clip.duration < 1
             || !(0..=127).contains(&clip.layer)
             || !scene_ids.contains(&clip.scene_id)
@@ -1248,6 +1250,23 @@ mod tests {
             ],
         };
         assert_eq!(state.apply_patch(&patch), Err(StateError::Conflict));
+        assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn patch_application_rejects_a_negative_clip_start() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        let before = state.document.clone();
+        let mut changed = before.clips[0].clone();
+        changed.start = -1;
+        let patch = Patch {
+            operations: vec![PatchOperation::ReplaceClip {
+                index: 0,
+                before: before.clips[0].clone(),
+                after: changed,
+            }],
+        };
+        assert_eq!(state.apply_patch(&patch), Err(StateError::InvalidArgument));
         assert_eq!(state.document, before);
     }
 

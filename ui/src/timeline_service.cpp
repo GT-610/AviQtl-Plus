@@ -220,7 +220,16 @@ bool TimelineService::commitTimelineProjection() {
     }
     QVariantMap current = timelineStateSnapshot();
     if (current.isEmpty()) {
-        return resetTimelineState(projectionDocument(m_scenes, {}));
+        int nextClipHint = std::max(1, m_timelineState.nextClipId());
+        int nextSceneHint = std::max(1, m_timelineState.nextSceneId());
+        for (const auto &scene : std::as_const(m_scenes)) {
+            nextSceneHint = std::max(nextSceneHint, scene.id + 1);
+            for (const auto &clip : scene.clips) {
+                nextClipHint = std::max(nextClipHint, clip.id + 1);
+            }
+        }
+        return resetTimelineState(projectionDocument(m_scenes, {}), nextClipHint,
+                                  nextSceneHint);
     }
     const QVariantMap proposed = projectionDocument(m_scenes, current);
     const QVariantMap request{
@@ -248,7 +257,30 @@ bool TimelineService::commitTimelineProjection() {
     return true;
 }
 
+bool TimelineService::commitTimelineMutation(std::function<void()> rollback,
+                                             std::function<void()> commitAction) {
+    if (m_timelineProjectionTransactionDepth > 0) {
+        m_timelineProjectionRollbacks.append(std::move(rollback));
+        m_timelineProjectionCommitActions.append(std::move(commitAction));
+        return true;
+    }
+    if (!commitTimelineProjection()) {
+        if (rollback) {
+            rollback();
+        }
+        return false;
+    }
+    if (commitAction) {
+        commitAction();
+    }
+    return true;
+}
+
 void TimelineService::beginTimelineProjectionTransaction() {
+    if (m_timelineProjectionTransactionDepth == 0) {
+        m_timelineProjectionRollbacks.clear();
+        m_timelineProjectionCommitActions.clear();
+    }
     ++m_timelineProjectionTransactionDepth;
 }
 
@@ -259,7 +291,28 @@ bool TimelineService::endTimelineProjectionTransaction() {
         return false;
     }
     --m_timelineProjectionTransactionDepth;
-    return m_timelineProjectionTransactionDepth > 0 || commitTimelineProjection();
+    if (m_timelineProjectionTransactionDepth > 0) {
+        return true;
+    }
+
+    auto rollbacks = std::move(m_timelineProjectionRollbacks);
+    auto commitActions = std::move(m_timelineProjectionCommitActions);
+    m_timelineProjectionRollbacks.clear();
+    m_timelineProjectionCommitActions.clear();
+    if (commitTimelineProjection()) {
+        for (auto &action : commitActions) {
+            if (action) {
+                action();
+            }
+        }
+        return true;
+    }
+    for (auto it = rollbacks.rbegin(); it != rollbacks.rend(); ++it) {
+        if (*it) {
+            (*it)();
+        }
+    }
+    return false;
 }
 
 int TimelineService::allocateClipId() {
@@ -273,7 +326,8 @@ QList<int> TimelineService::allocateClipIds(qsizetype count) {
     }
     std::vector<std::int32_t> ids;
     if (m_timelineState.reserveClipIds(static_cast<std::size_t>(count), ids) !=
-        AviQtl::RustCore::TimelineStateStatus::Ok) {
+            AviQtl::RustCore::TimelineStateStatus::Ok ||
+        ids.size() != static_cast<std::size_t>(count)) {
         qWarning() << "Rust timeline state clip ID reservation failed";
         return {};
     }

@@ -108,7 +108,28 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
     newClip.layer = layer;
 
     beginTimelineProjectionTransaction();
-    clipsMutable().append(newClip);
+    auto &targetClips = clipsMutable();
+    const int targetSceneId = m_currentSceneId;
+    const qsizetype insertedIndex = targetClips.size();
+    targetClips.append(newClip);
+    static_cast<void>(commitTimelineMutation([this, targetSceneId, insertedIndex, clipId]() {
+        auto sceneIt = std::ranges::find_if(m_scenes, [targetSceneId](const SceneData &scene) {
+            return scene.id == targetSceneId;
+        });
+        if (sceneIt == m_scenes.end()) {
+            return;
+        }
+        if (insertedIndex < sceneIt->clips.size() && sceneIt->clips.at(insertedIndex).id == clipId) {
+            sceneIt->clips.removeAt(insertedIndex);
+            return;
+        }
+        for (qsizetype index = sceneIt->clips.size(); index > 0; --index) {
+            if (sceneIt->clips.at(index - 1).id == clipId) {
+                sceneIt->clips.removeAt(index - 1);
+                return;
+            }
+        }
+    }));
 
     if (type != QLatin1String("audio")) {
         addEffectInternal(clipId, QStringLiteral("transform"));
@@ -381,7 +402,15 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
     for (auto &clip : clipsMutable()) {
         if (clip.id == id) {
             if (clip.layer != layer || clip.startFrame != startFrame || clip.durationFrames != duration) {
+                const int oldLayer = clip.layer;
+                const int oldStartFrame = clip.startFrame;
                 const int oldDuration = clip.durationFrames;
+                QList<QVariantMap> oldEffectTracks;
+                oldEffectTracks.reserve(clip.effects.size());
+                for (const auto *effect : std::as_const(clip.effects)) {
+                    oldEffectTracks.append(effect != nullptr ? effect->keyframeTracks() : QVariantMap{});
+                }
+                const QList<AudioPluginState> oldAudioPlugins = clip.audioPlugins;
                 clip.layer = layer;
                 clip.startFrame = startFrame;
                 clip.durationFrames = duration;
@@ -401,7 +430,29 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
                     }
                     plugin.invalidateKeyframeCache();
                 }
-                if (!commitTimelineProjection()) {
+                if (!commitTimelineMutation(
+                        [this, id, oldLayer, oldStartFrame, oldDuration, oldEffectTracks,
+                         oldAudioPlugins]() {
+                            auto *restored = findClipById(id);
+                            if (restored == nullptr) {
+                                return;
+                            }
+                            restored->layer = oldLayer;
+                            restored->startFrame = oldStartFrame;
+                            restored->durationFrames = oldDuration;
+                            for (qsizetype index = 0;
+                                 index < restored->effects.size() && index < oldEffectTracks.size();
+                                 ++index) {
+                                if (auto *effect = restored->effects.at(index); effect != nullptr) {
+                                    effect->syncTrackEndpoints(oldDuration);
+                                    effect->setKeyframeTracks(oldEffectTracks.at(index));
+                                }
+                            }
+                            restored->audioPlugins = oldAudioPlugins;
+                            for (auto &plugin : restored->audioPlugins) {
+                                plugin.invalidateKeyframeCache();
+                            }
+                        })) {
                     qWarning() << "Rust rejected clip geometry update";
                     return;
                 }
@@ -441,8 +492,11 @@ void TimelineService::setClipByUpperObjectInternal(int clipId, bool enabled, boo
         return;
     }
     clip->clipByUpperObject = enabled;
-    if (!commitTimelineProjection()) {
-        clip->clipByUpperObject = !enabled;
+    if (!commitTimelineMutation([this, clipId, previous = !enabled]() {
+            if (auto *restored = findClipById(clipId); restored != nullptr) {
+                restored->clipByUpperObject = previous;
+            }
+        })) {
         qWarning() << "Rust rejected clip compositing update";
         return;
     }
@@ -555,16 +609,26 @@ void TimelineService::deleteClipInternal(int clipId, bool emitSignal) {
     if (it != currentClips.end()) {
         const auto index = std::distance(currentClips.begin(), it);
         const ClipData removed = *it;
+        const int sceneId = removed.sceneId;
         currentClips.erase(it);
-        if (!commitTimelineProjection()) {
-            currentClips.insert(index, removed);
+        if (!commitTimelineMutation(
+                [this, sceneId, index, removed]() {
+                    auto sceneIt = std::ranges::find_if(m_scenes, [sceneId](const SceneData &scene) {
+                        return scene.id == sceneId;
+                    });
+                    if (sceneIt != m_scenes.end()) {
+                        sceneIt->clips.insert(std::min<qsizetype>(index, sceneIt->clips.size()), removed);
+                    }
+                },
+                [removed]() {
+                    for (auto *effect : removed.effects) {
+                        if (effect != nullptr) {
+                            effect->deleteLater();
+                        }
+                    }
+                })) {
             qWarning() << "Rust rejected clip deletion";
             return;
-        }
-        for (auto *eff : removed.effects) {
-            if (eff != nullptr) {
-                eff->deleteLater();
-            }
         }
         if (emitSignal) {
             emit clipsChanged();
@@ -573,9 +637,29 @@ void TimelineService::deleteClipInternal(int clipId, bool emitSignal) {
 }
 
 void TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSignal) {
-    clipsMutable().append(clip);
-    if (!commitTimelineProjection()) {
-        clipsMutable().removeLast();
+    auto &targetClips = clipsMutable();
+    const int targetSceneId = m_currentSceneId;
+    const qsizetype insertedIndex = targetClips.size();
+    targetClips.append(clip);
+    if (!commitTimelineMutation([this, targetSceneId, insertedIndex, clipId = clip.id]() {
+            auto sceneIt = std::ranges::find_if(m_scenes, [targetSceneId](const SceneData &scene) {
+                return scene.id == targetSceneId;
+            });
+            if (sceneIt == m_scenes.end()) {
+                return;
+            }
+            if (insertedIndex < sceneIt->clips.size() &&
+                sceneIt->clips.at(insertedIndex).id == clipId) {
+                sceneIt->clips.removeAt(insertedIndex);
+                return;
+            }
+            for (qsizetype index = sceneIt->clips.size(); index > 0; --index) {
+                if (sceneIt->clips.at(index - 1).id == clipId) {
+                    sceneIt->clips.removeAt(index - 1);
+                    return;
+                }
+            }
+        })) {
         qWarning() << "Rust rejected direct clip insertion";
         return;
     }

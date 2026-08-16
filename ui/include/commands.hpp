@@ -200,6 +200,7 @@ class SetAudioPluginEnabledCommand : public QUndoCommand {
 class SplitClipCommand : public QUndoCommand {
   public:
     SplitClipCommand(TimelineService *service, int clipId, int frame, int originalDuration, int firstDuration, int secondDuration, const QString &clipName);
+    ~SplitClipCommand() override;
     void undo() override;
     void redo() override;
 

@@ -2,6 +2,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QtTest>
+#include <utility>
 
 namespace {
 
@@ -112,6 +113,48 @@ class RustTimelineStateTest : public QObject {
         QCOMPARE(state.nextClipId(), 5);
         QCOMPARE(state.setNextClipHint(12), AviQtl::RustCore::TimelineStateStatus::Ok);
         QCOMPARE(state.nextClipId(), 12);
+
+        QCOMPARE(state.reserveSceneIds(2, ids), AviQtl::RustCore::TimelineStateStatus::Ok);
+        QCOMPARE(ids, std::vector<std::int32_t>({1, 2}));
+        QCOMPARE(state.nextSceneId(), 3);
+    }
+
+    void defaultConstructedStateRejectsHandleOperations() {
+        AviQtl::RustCore::TimelineState state;
+        QByteArray output;
+        std::vector<std::int32_t> ids;
+        QCOMPARE(state.snapshot(output), AviQtl::RustCore::TimelineStateStatus::InvalidArgument);
+        QCOMPARE(state.plan(QByteArrayLiteral("{}"), output),
+                 AviQtl::RustCore::TimelineStateStatus::InvalidArgument);
+        QCOMPARE(state.applyPatch(QByteArrayLiteral("{}")),
+                 AviQtl::RustCore::TimelineStateStatus::InvalidArgument);
+        QCOMPARE(state.reserveClipIds(1, ids),
+                 AviQtl::RustCore::TimelineStateStatus::InvalidArgument);
+        QCOMPARE(state.reserveSceneIds(1, ids),
+                 AviQtl::RustCore::TimelineStateStatus::InvalidArgument);
+        QCOMPARE(state.setNextClipHint(4),
+                 AviQtl::RustCore::TimelineStateStatus::InvalidArgument);
+        QCOMPARE(state.nextClipId(), -1);
+        QCOMPARE(state.nextSceneId(), -1);
+    }
+
+    void moveTransfersStateOwnership() {
+        AviQtl::RustCore::TimelineState source;
+        QCOMPARE(source.reset(compact(projectDocument()), 2, 1),
+                 AviQtl::RustCore::TimelineStateStatus::Ok);
+
+        AviQtl::RustCore::TimelineState constructed(std::move(source));
+        QVERIFY(!source.isValid());
+        QVERIFY(constructed.isValid());
+        QCOMPARE(constructed.nextClipId(), 2);
+
+        AviQtl::RustCore::TimelineState assigned;
+        assigned = std::move(constructed);
+        QVERIFY(!constructed.isValid());
+        QVERIFY(assigned.isValid());
+        QByteArray snapshot;
+        QCOMPARE(assigned.snapshot(snapshot), AviQtl::RustCore::TimelineStateStatus::Ok);
+        QCOMPARE(object(snapshot), projectDocument());
     }
 };
 

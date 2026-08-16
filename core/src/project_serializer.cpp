@@ -118,11 +118,11 @@ static auto layerSetFromJson(const QJsonValue &value) -> QSet<int> {
     return result;
 }
 
-QVariantMap ProjectSerializer::captureSnapshot(const UI::TimelineService *timeline, const UI::ProjectService *project) {
+QVariantMap ProjectSerializer::captureSnapshot(UI::TimelineService *timeline,
+                                               const UI::ProjectService *project) {
     // Native consumers may still update EffectModel/ClipData directly. Fold those adapter-side
     // changes into one Rust transaction before reading the authoritative snapshot.
-    const bool projectionCommitted =
-        const_cast<UI::TimelineService *>(timeline)->commitTimelineProjection();
+    const bool projectionCommitted = timeline->commitTimelineProjection();
     QVariantMap root = projectionCommitted ? timeline->timelineStateSnapshot() : QVariantMap{};
     if (!root.isEmpty()) {
         QVariantMap settings = root.value(QStringLiteral("settings")).toMap();
@@ -278,7 +278,10 @@ auto ProjectSerializer::saveSnapshot(const QString &fileUrl, const QVariantMap &
     return true;
 }
 
-auto ProjectSerializer::save(const QString &fileUrl, const UI::TimelineService *timeline, const UI::ProjectService *project, QString *errorMessage) -> bool { return saveSnapshot(fileUrl, captureSnapshot(timeline, project), errorMessage); }
+auto ProjectSerializer::save(const QString &fileUrl, UI::TimelineService *timeline,
+                             const UI::ProjectService *project, QString *errorMessage) -> bool {
+    return saveSnapshot(fileUrl, captureSnapshot(timeline, project), errorMessage);
+}
 
 auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeline, UI::ProjectService *project, QString *errorMessage) -> bool {
     QString path = QUrl(fileUrl).toLocalFile();
@@ -324,11 +327,6 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     const int h = s.value(QStringLiteral("height")).toInt();
     const double fps = s.value(QStringLiteral("fps")).toDouble();
     const int sampleRate = s.value(QStringLiteral("sampleRate")).toInt();
-
-    project->setWidth(w);
-    project->setHeight(h);
-    project->setFps(fps);
-    project->setSampleRate(sampleRate);
 
     QList<UI::SceneData> tempScenes;
     int maxSceneId = 0;
@@ -396,7 +394,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         }
 
         QJsonArray effArr = c.value(QStringLiteral("effects")).toArray();
-        QVariantList runtimeEffects = runtimeClip.value(QStringLiteral("effects")).toList();
+        const QVariantList runtimeEffects = runtimeClip.value(QStringLiteral("effects")).toList();
+        QVariantList acceptedRuntimeEffects;
+        acceptedRuntimeEffects.reserve(effArr.size());
         for (qsizetype effectIndex = 0; effectIndex < effArr.size(); ++effectIndex) {
             const QJsonValue ev = effArr.at(effectIndex);
             QJsonObject eObj = ev.toObject();
@@ -411,11 +411,12 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
             if (version >= 2) {
                 convertEffectMediaPath(effId, effectParams, projectDir, false);
             }
-            QVariantMap runtimeEffect = runtimeEffects.value(effectIndex).toMap();
-            runtimeEffect.insert(QStringLiteral("params"), effectParams);
+            QVariantMap runtimeEffect;
             if (effectIndex < runtimeEffects.size()) {
-                runtimeEffects[effectIndex] = runtimeEffect;
+                runtimeEffect = runtimeEffects.at(effectIndex).toMap();
             }
+            runtimeEffect.insert(QStringLiteral("params"), effectParams);
+            acceptedRuntimeEffects.append(runtimeEffect);
             auto *eff = new UI::EffectModel(effId, displayName, meta.kind, meta.categories, effectParams, meta.qmlSource, meta.uiDefinition, timeline);
             eff->setEnabled(eObj.value(QStringLiteral("enabled")).toBool(true));
             auto it = eObj.find(QStringLiteral("keyframes"));
@@ -424,7 +425,7 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
             }
             clip.effects.append(eff);
         }
-        runtimeClip.insert(QStringLiteral("effects"), runtimeEffects);
+        runtimeClip.insert(QStringLiteral("effects"), acceptedRuntimeEffects);
         if (clipIndex < runtimeClips.size()) {
             runtimeClips[clipIndex] = runtimeClip;
         }
@@ -438,13 +439,30 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
     }
 
     runtimeSnapshot.insert(QStringLiteral("clips"), runtimeClips);
+    const QVariantMap previousTimelineState = timeline->timelineStateSnapshot();
+    const int previousNextClipId = timeline->nextClipId();
+    const int previousNextSceneId = timeline->nextSceneId();
     if (!timeline->resetTimelineState(runtimeSnapshot, maxClipId + 1, maxSceneId + 1)) {
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Rust timeline state rejected the loaded project");
         }
         return false;
     }
-    timeline->setScenes(tempScenes);
+    if (!timeline->setScenes(tempScenes)) {
+        if (!previousTimelineState.isEmpty() &&
+            !timeline->resetTimelineState(previousTimelineState, previousNextClipId,
+                                          previousNextSceneId)) {
+            qWarning() << "Failed to restore Rust timeline state after load rejection";
+        }
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Rust timeline state rejected the loaded project");
+        }
+        return false;
+    }
+    project->setWidth(w);
+    project->setHeight(h);
+    project->setFps(fps);
+    project->setSampleRate(sampleRate);
     QMetaObject::invokeMethod(timeline, "clipsChanged");
 
     return true;
