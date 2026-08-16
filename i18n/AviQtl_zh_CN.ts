@@ -2207,27 +2207,26 @@
     </message>
     <message>
         <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
         <source>All Files (*)</source>
         <translation>所有文件 (*)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="620"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="621"/>
         <source>設定</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="712"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="713"/>
         <source>フォントを選択</source>
         <translation>选择字体</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="728"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="729"/>
         <source>デフォルト</source>
         <translation>默认</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="744"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="745"/>
         <source>Unknown type: %1</source>
         <translation>未知类型：%1</translation>
     </message>
