@@ -45,6 +45,9 @@ function(aviqtl_add_test)
     # provide linked runtime DLLs, while Carla remains a bundled vendor runtime.
     # ENVIRONMENT_MODIFICATION handles platform-specific separators correctly.
     if(WIN32)
+        set_property(TEST ${ARG_NAME} APPEND PROPERTY
+            ENVIRONMENT "QT_FORCE_STDERR_LOGGING=1"
+        )
         set(_aviqtl_test_path_modifications
             "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
             "PATH=path_list_prepend:${CMAKE_SOURCE_DIR}/vendor/carla/lib"

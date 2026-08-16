@@ -476,7 +476,8 @@ Loader {
                     if (Array.isArray(f))
                         return f;
 
-                    return f ? [f, qsTr("All Files (*)")] : [qsTr("All Files (*)")];
+                    var allFiles = qsTr("All Files (*)");
+                    return f ? [f, allFiles] : [allFiles];
                 }
                 onAccepted: {
                     controlLoader.valueModified(controlLoader._dialogUrlToPath(selectedFile));

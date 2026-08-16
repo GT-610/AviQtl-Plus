@@ -1,0 +1,163 @@
+name: MSVC Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "ci/msvc-*"
+    paths:
+      - ".github/workflows/msvc.yml"
+      - "BUILD.py"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "core/**"
+      - "engine/**"
+      - "scripting/**"
+      - "ui/**"
+      - "tests/**"
+      - "rust/**"
+      - "rust-toolchain.toml"
+      - "triplets/**"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/msvc.yml"
+      - "BUILD.py"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "core/**"
+      - "engine/**"
+      - "scripting/**"
+      - "ui/**"
+      - "tests/**"
+      - "rust/**"
+      - "rust-toolchain.toml"
+      - "triplets/**"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: msvc-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test MSVC Release
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      GIT_TERMINAL_PROMPT: "0"
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.build_tmp\vcpkg-binary-cache,readwrite
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.10.3"
+          arch: win64_msvc2022_64
+          modules: qt5compat qtmultimedia qtquick3d qtshadertools
+          cache: true
+          setup-python: false
+
+      - name: Locate vcpkg
+        shell: pwsh
+        run: |
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          if (-not $vcpkgRoot) {
+            $vcpkgRoot = "C:\vcpkg"
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $vcpkgRoot "vcpkg.exe"))) {
+            throw "vcpkg.exe was not found under $vcpkgRoot"
+          }
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore vcpkg caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build_tmp/vcpkg-downloads
+            .build_tmp/vcpkg-binary-cache
+          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'triplets/*.cmake') }}
+
+      - name: Restore Carla SDK
+        uses: actions/cache@v4
+        with:
+          path: vendor/carla
+          key: windows-carla-${{ hashFiles('BUILD.py') }}
+
+      - name: Prepare cache directories
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path .build_tmp\vcpkg-binary-cache | Out-Null
+
+      - name: Build and package
+        shell: pwsh
+        run: python BUILD.py --msvc --qt-dir "$env:QT_ROOT_DIR"
+
+      - name: Run CTest
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir .build_tmp\msvc\Release --output-on-failure
+
+      - name: Verify packaged runtime
+        shell: pwsh
+        run: |
+          $required = @(
+            "AviQtl.exe",
+            "Qt6Core.dll",
+            "Qt6Gui.dll",
+            "Qt6Qml.dll",
+            "Qt6Quick.dll",
+            "avcodec-62.dll",
+            "avformat-62.dll",
+            "avutil-60.dll",
+            "swresample-6.dll",
+            "swscale-9.dll",
+            "lua51.dll",
+            "vulkan-1.dll",
+            "libcarla_standalone2.dll",
+            "libcarla_native-plugin.dll",
+            "libcarla_host-plugin.dll",
+            "libcarla_utils.dll"
+          )
+          $missing = @($required | Where-Object {
+            -not (Test-Path -LiteralPath (Join-Path "build" $_))
+          })
+          if ($missing.Count -ne 0) {
+            throw "Packaged runtime files are missing: $($missing -join ', ')"
+          }
+          $x264Dlls = @(Get-ChildItem -LiteralPath build -Filter "*x264*.dll" -File)
+          if ($x264Dlls.Count -eq 0) {
+            throw "The packaged x264 runtime DLL is missing"
+          }
+          $pkgconfDlls = @(Get-ChildItem -LiteralPath build -Filter "pkgconf*.dll" -File)
+          if ($pkgconfDlls.Count -ne 0) {
+            throw "Host-only pkgconf DLLs were packaged: $($pkgconfDlls.Name -join ', ')"
+          }
+          if (-not (Test-Path -LiteralPath "dist\AviQtl-MSVC-x86_64.zip")) {
+            throw "MSVC package archive was not created"
+          }
+
+      - name: Verify generated translations are current
+        shell: pwsh
+        run: git diff --exit-code -- i18n
