@@ -173,6 +173,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME rust_timeline_state
+    SOURCES test_rust_timeline_state.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI

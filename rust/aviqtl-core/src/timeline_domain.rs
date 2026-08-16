@@ -33,7 +33,7 @@ fn bounded_positive_f64(value: f64, maximum: f64, fallback: f64) -> f64 {
     }
 }
 
-fn allocate_id(
+pub(crate) fn allocate_id(
     existing_ids: &[i32],
     next_hint: i32,
     minimum_id: i32,

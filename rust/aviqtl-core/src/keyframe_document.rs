@@ -689,6 +689,38 @@ fn apply(request: Request) -> Response {
     }
 }
 
+pub(crate) fn sync_track(
+    track: Value,
+    fallback: Value,
+    old_duration: i32,
+    new_duration: i32,
+) -> Value {
+    apply(Request::Sync {
+        track,
+        fallback,
+        old_duration,
+        new_duration,
+    })
+    .track
+}
+
+pub(crate) fn split_track(
+    track: Value,
+    fallback: Value,
+    first_half_duration: i32,
+    original_duration: i32,
+) -> Option<(Value, Value)> {
+    let response = apply(Request::Split {
+        track,
+        fallback,
+        first_half_duration,
+        original_duration,
+    });
+    response
+        .accepted
+        .then(|| (response.track, response.secondary_track.unwrap_or_default()))
+}
+
 /// Applies a typed keyframe-document operation encoded as JSON.
 ///
 /// # Safety

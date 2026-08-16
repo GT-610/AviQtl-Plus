@@ -22,6 +22,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_EFFECT_DOCUMENT = 1ULL << 13,
     AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_DOCUMENT = 1ULL << 14,
     AVIQTL_RUST_CORE_CAPABILITY_PLUGIN_DOCUMENT = 1ULL << 15,
+    AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_STATE = 1ULL << 16,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -32,7 +33,10 @@ enum AviQtlCoreStatus : std::uint32_t {
     AVIQTL_RUST_CORE_STATUS_INVALID_JSON = 4,
     AVIQTL_RUST_CORE_STATUS_UNSUPPORTED_VERSION = 5,
     AVIQTL_RUST_CORE_STATUS_LOCKED_LAYER = 6,
+    AVIQTL_RUST_CORE_STATUS_STATE_CONFLICT = 7,
 };
+
+struct AviQtlTimelineState;
 
 struct AviQtlEasingParameters {
     double amplitude;
@@ -335,6 +339,18 @@ std::uint32_t aviqtl_timeline_find_vacant_clipboard_frame(const AviQtlTimelineCl
 std::uint32_t aviqtl_timeline_plan_clipboard_placement(const AviQtlTimelineClipGeometry *existing, std::size_t existingLength, const AviQtlTimelineClipGeometry *clipboard, std::size_t clipboardLength, std::int32_t requestedFrame, std::int32_t layerOffset,
                                                        AviQtlTimelineClipGeometry *output, std::size_t outputLength, std::int32_t *outputFrame);
 std::uint32_t aviqtl_timeline_split_clip(const AviQtlTimelineClipGeometry *clip, std::int32_t frame, AviQtlTimelineClipGeometry *first, AviQtlTimelineClipGeometry *second);
+
+std::uint32_t aviqtl_timeline_state_create(const std::uint8_t *input, std::size_t inputLength, std::int32_t nextClipHint, std::int32_t nextSceneHint, AviQtlTimelineState **outputHandle);
+void aviqtl_timeline_state_destroy(AviQtlTimelineState *handle);
+std::uint32_t aviqtl_timeline_state_reset(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength, std::int32_t nextClipHint, std::int32_t nextSceneHint);
+std::uint32_t aviqtl_timeline_state_snapshot_json(AviQtlTimelineState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_state_plan_json(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_state_apply_patch_json(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_timeline_state_reserve_clip_ids(AviQtlTimelineState *handle, std::size_t count, std::int32_t *output, std::size_t outputLength);
+std::uint32_t aviqtl_timeline_state_reserve_scene_ids(AviQtlTimelineState *handle, std::size_t count, std::int32_t *output, std::size_t outputLength);
+std::int32_t aviqtl_timeline_state_next_clip_id(AviQtlTimelineState *handle);
+std::int32_t aviqtl_timeline_state_next_scene_id(AviQtlTimelineState *handle);
+std::uint32_t aviqtl_timeline_state_set_next_clip_hint(AviQtlTimelineState *handle, std::int32_t nextHint);
 
 std::uint32_t aviqtl_timeline_allocate_id(const std::int32_t *existingIds, std::size_t existingIdsLength, std::int32_t nextHint, std::int32_t minimumId, AviQtlIdAllocation *output);
 std::uint32_t aviqtl_timeline_normalize_scene_settings(const AviQtlSceneSettings *input, AviQtlSceneSettings *output);

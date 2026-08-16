@@ -11,7 +11,8 @@ Rust owns the behavior that can be expressed with platform-neutral data:
 
 - project, settings, preset, package, effect, script, plugin, and keyframe documents;
 - project migrations, defaults, schema normalization, and deterministic serialization;
-- timeline edit planning, selection, scene settings, snapping, duration limits, and ID allocation;
+- authoritative project/timeline state, reversible edit patches, scene and clip mutation, timeline
+  edit planning, selection, scene settings, snapping, duration limits, and ID allocation;
 - keyframe normalization, mutation, easing names, interpolation, typed numeric evaluation, and
   batch evaluation;
 - audio resampling, mixing, metering, and batch-mix policy;
@@ -48,7 +49,10 @@ logic. Conversion loops at the ABI edge are adapters, not alternative domain imp
 
 - Callers must compare `aviqtl_core_abi_version()` with `AVIQTL_RUST_CORE_ABI_VERSION` before relying on the ABI and may inspect `aviqtl_core_capabilities()` for optional operations.
 - The boundary contains only fixed-layout scalar fields, pointers, and lengths. Qt types never cross it.
-- Every buffer is owned by the caller. Rust neither allocates nor frees memory across the boundary.
+- Every byte and fixed-layout buffer is owned by the caller. The timeline-state API is the sole
+  documented exception: Rust returns an opaque handle from `aviqtl_timeline_state_create`, and the
+  caller must release it exactly once with `aviqtl_timeline_state_destroy`. The handle never exposes
+  Rust memory and all JSON output still uses caller-owned buffers.
 - A null pointer is accepted only when its matching length is zero. Non-empty buffers must be correctly aligned and valid for the duration of the call.
 - Mutable output ranges must not overlap any input or other output range. Violations return `AVIQTL_RUST_CORE_STATUS_OVERLAPPING_BUFFERS` where the operation has a status result.
 - Adding or reordering fields, changing a function signature, or changing a discriminant requires an ABI version increment. Additive functions or capabilities that leave existing layouts intact may use a new capability bit.
