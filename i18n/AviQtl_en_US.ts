@@ -2207,27 +2207,26 @@ This software is released under the GNU Affero General Public License Version 3.
     </message>
     <message>
         <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="479"/>
         <source>All Files (*)</source>
         <translation>All Files (*)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="620"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="621"/>
         <source>設定</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="712"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="713"/>
         <source>フォントを選択</source>
         <translation>Select Font</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="728"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="729"/>
         <source>デフォルト</source>
         <translation>Default</translation>
     </message>
     <message>
-        <location filename="../ui/qml/common/ControlLoader.qml" line="744"/>
+        <location filename="../ui/qml/common/ControlLoader.qml" line="745"/>
         <source>Unknown type: %1</source>
         <translation>Unknown type: %1</translation>
     </message>
