@@ -73,7 +73,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.11.0"
+          version: "6.10.3"
           arch: win64_msvc2022_64
           modules: qt5compat qtmultimedia qtquick3d qtshadertools
           cache: true
