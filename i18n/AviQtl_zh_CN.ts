@@ -1682,7 +1682,7 @@
     <message>
         <location filename="../core/src/package_manager.cpp" line="509"/>
         <source>Package installation could not be validated.</source>
-        <translation type="unfinished"></translation>
+        <translation>无法验证软件包安装。</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="628"/>

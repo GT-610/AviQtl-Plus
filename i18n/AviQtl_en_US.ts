@@ -1682,7 +1682,7 @@ This software is released under the GNU Affero General Public License Version 3.
     <message>
         <location filename="../core/src/package_manager.cpp" line="509"/>
         <source>Package installation could not be validated.</source>
-        <translation type="unfinished"></translation>
+        <translation>Package installation could not be validated.</translation>
     </message>
     <message>
         <location filename="../core/src/package_manager.cpp" line="628"/>
