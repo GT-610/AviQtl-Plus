@@ -13,7 +13,6 @@ import platform
 import locale
 import signal
 import tempfile
-import json
 import stat
 from pathlib import Path
 from dataclasses import dataclass
@@ -276,7 +275,7 @@ class PlatformBuilder:
 
     def get_cmake_config_cmd(self) -> List[str]:
         cmd = [
-            "cmake", "-B", str(self.config.work_dir), "-G", "Ninja",
+            self.get_cmake_cmd(), "-B", str(self.config.work_dir), "-G", "Ninja",
             f"-DCMAKE_BUILD_TYPE={self.config.build_type}",
             f"-DAVIQTL_VERSION_MAJOR={self.config.version_major}",
             f"-DAVIQTL_VERSION_MINOR={self.config.version_minor}",
@@ -859,16 +858,6 @@ class Msys2Builder(PlatformBuilder):
 
 class MsvcBuilder(PlatformBuilder):
     QT_ENV_VARS = ("QT_MSVC_DIR", "QT_DIR", "QTDIR")
-    QT_VCPKG_PACKAGES = {
-        "qtbase",
-        "qtdeclarative",
-        "qtquick3d",
-        "qtmultimedia",
-        "qtshadertools",
-        "qtsvg",
-        "qt5compat",
-        "qttools",
-    }
 
     def __init__(self, config: BuildConfig, logger: Logger):
         super().__init__(config, logger)
@@ -877,13 +866,14 @@ class MsvcBuilder(PlatformBuilder):
         self.vcpkg_root: Path | None = None
         default_triplet = "x64-windows" if self.config.is_debug else "x64-windows-release"
         self.vcpkg_triplet = os.environ.get("VCPKG_DEFAULT_TRIPLET", default_triplet)
-        default_host_triplet = "x64-windows" if self.config.is_debug else self.vcpkg_triplet
+        default_host_triplet = "x64-windows-release"
         self.vcpkg_host_triplet = os.environ.get("VCPKG_DEFAULT_HOST_TRIPLET", default_host_triplet)
         self.vs_install_dir: Path | None = None
         self.cmake_path: str | None = None
         self.ninja_path: str | None = None
         self.qt_prefix: Path | None = None
         self.vcpkg_manifest_dir: Path | None = None
+        self.carla_import_lib_dir = self.config.work_dir / "carla-import-libs"
 
     def install_dependencies(self):
         self.setup_msvc_environment()
@@ -895,8 +885,7 @@ class MsvcBuilder(PlatformBuilder):
                 "or set one of QT_MSVC_DIR, QT_DIR, QTDIR."
             )
         self.logger.log(f"Qt: {self.qt_prefix}")
-        self.write_external_qt_manifest()
-        self.ensure_vcpkg_triplets()
+        self.configure_vcpkg_manifest()
         self.prepare_vcpkg_installed_tree()
         self.setup_vcpkg_environment()
         self.cmake_path = self.find_msvc_tool("cmake")
@@ -927,6 +916,10 @@ class MsvcBuilder(PlatformBuilder):
 
         incomplete = self.find_vcpkg_root(need_executable=False)
         if incomplete and (incomplete / "bootstrap-vcpkg.bat").exists():
+            if self.config.is_offline:
+                raise RuntimeError(
+                    f"vcpkg.exe is missing and cannot be bootstrapped in offline mode: {incomplete}"
+                )
             self.vcpkg_root = incomplete
             self.logger.log(f"vcpkg directory detected (no vcpkg.exe). Attempting bootstrap: {self.vcpkg_root}")
             self._bootstrap_vcpkg()
@@ -981,73 +974,57 @@ class MsvcBuilder(PlatformBuilder):
         self.config.work_dir.mkdir(parents=True, exist_ok=True)
         marker.write_text(expected, encoding="utf-8")
 
-    def write_external_qt_manifest(self):
-        manifest_in = self.config.source_dir / "vcpkg.json"
-        manifest_out_dir = self.config.work_dir / "vcpkg-manifest"
-        manifest_out = manifest_out_dir / "vcpkg.json"
-        if manifest_in.exists():
-            data = json.loads(manifest_in.read_text(encoding="utf-8"))
-        else:
-            self.logger.log(f"Warning: {manifest_in} not found. Using fallback configuration.")
-            data = {
-                "name": "aviqtl",
-                "dependencies": ["ffmpeg", "luajit", "vulkan", "ecm", "pkgconf"],
-                "builtin-baseline": "99a97de2cb371449d4fb9dc970f2ac562d689ec2",
-            }
-        data["name"] = f"{data.get('name', 'aviqtl')}-msvc-external-qt"
-        data["dependencies"] = [
-            dep for dep in data.get("dependencies", [])
-            if (dep if isinstance(dep, str) else dep.get("name")) not in self.QT_VCPKG_PACKAGES
-        ]
-        manifest_out_dir.mkdir(parents=True, exist_ok=True)
-        manifest_out.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
-        self.vcpkg_manifest_dir = manifest_out_dir
-
-    def ensure_vcpkg_triplets(self):
-        triplets_dir = self.config.source_dir / "triplets"
-        triplets_content = "set(VCPKG_TARGET_ARCHITECTURE x64)\nset(VCPKG_CRT_LINKAGE dynamic)\nset(VCPKG_LIBRARY_LINKAGE dynamic)\nset(VCPKG_BUILD_TYPE release)\n"
-        for name in ("x64-windows-release.cmake", "x64-windows.cmake"):
-            path = triplets_dir / name
-            if not path.exists():
-                triplets_dir.mkdir(parents=True, exist_ok=True)
-                path.write_text(triplets_content, encoding="utf-8")
-                self.logger.log(f"Generated vcpkg triplet: {path}")
+    def configure_vcpkg_manifest(self):
+        required_files = (
+            self.config.source_dir / "vcpkg.json",
+            self.config.source_dir / "vcpkg-configuration.json",
+            self.config.source_dir / "triplets" / f"{self.vcpkg_triplet}.cmake",
+            self.config.source_dir / "triplets" / f"{self.vcpkg_host_triplet}.cmake",
+        )
+        missing = [path for path in required_files if not path.is_file()]
+        if missing:
+            raise RuntimeError(
+                "The committed MSVC vcpkg baseline is incomplete; missing: "
+                + ", ".join(str(path) for path in missing)
+            )
+        self.vcpkg_manifest_dir = self.config.source_dir
 
     def get_cmake_cmd(self) -> str:
         return self.cmake_path or "cmake"
 
     def generate_carla_import_libs(self):
-        """MSVC cannot directly link MinGW-built Carla DLLs, so generate import libs (.lib + .def) via dumpbin /exports and lib.exe /DEF."""
+        """Generate MSVC import libraries for the bundled Carla DLLs in the build tree."""
         carla_lib_dir = self.config.source_dir / "vendor" / "carla" / "lib"
-        carla_def_dir = self.config.source_dir / "vendor" / "carla" / "def"
         if not carla_lib_dir.exists():
-            return
+            raise RuntimeError(f"Carla library directory not found: {carla_lib_dir}")
         dumpbin_exe = shutil.which("dumpbin", path=self.env.get("PATH"))
         lib_exe = shutil.which("lib", path=self.env.get("PATH"))
         if not dumpbin_exe or not lib_exe:
-            self.logger.log("dumpbin.exe or lib.exe not found; skipping Carla import lib generation")
-            self.logger.log(f"  dumpbin={dumpbin_exe}, lib={lib_exe}")
-            return
+            raise RuntimeError(
+                "dumpbin.exe and lib.exe are required to generate Carla import libraries; "
+                f"dumpbin={dumpbin_exe}, lib={lib_exe}"
+            )
+        self.carla_import_lib_dir.mkdir(parents=True, exist_ok=True)
         generated = 0
-        for dll_name in [
+        required_dlls = [
             "libcarla_standalone2.dll",
             "libcarla_native-plugin.dll",
             "libcarla_host-plugin.dll",
             "libcarla_utils.dll",
-        ]:
+        ]
+        for dll_name in required_dlls:
             dll_path = carla_lib_dir / dll_name
             if not dll_path.exists():
-                continue
+                raise RuntimeError(f"Required Carla DLL not found: {dll_path}")
             lib_name = dll_name.replace(".dll", ".lib")
             def_name = dll_name.replace(".dll", ".def")
-            lib_path = carla_lib_dir / lib_name
-            def_path = carla_def_dir / def_name
+            lib_path = self.carla_import_lib_dir / lib_name
+            def_path = self.carla_import_lib_dir / def_name
             # Skip if .lib already exists and is newer than DLL
             if lib_path.exists() and lib_path.stat().st_mtime >= dll_path.stat().st_mtime:
                 continue
             self.logger.log(f"  Generating import lib for {dll_name}")
             # 1. dumpbin /exports
-            carla_def_dir.mkdir(parents=True, exist_ok=True)
             def_content = ["LIBRARY " + dll_name, "EXPORTS"]
             proc = subprocess.run(
                 [dumpbin_exe, "/exports", str(dll_path)],
@@ -1055,8 +1032,7 @@ class MsvcBuilder(PlatformBuilder):
                 env=self.env,
             )
             if proc.returncode != 0:
-                self.logger.log(f"    dumpbin failed: {proc.stderr}")
-                continue
+                raise RuntimeError(f"dumpbin failed for {dll_name}: {proc.stderr}")
             for line in proc.stdout.splitlines():
                 # Format: [ordinal] [hint] [RVA] [name]
                 parts = line.split()
@@ -1073,13 +1049,23 @@ class MsvcBuilder(PlatformBuilder):
             proc2 = subprocess.run(
                 [lib_exe, f"/DEF:{def_path}", "/MACHINE:X64", f"/OUT:{lib_path}", "/NOLOGO"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=self.env,
             )
             if proc2.returncode != 0:
-                self.logger.log(f"    lib.exe failed: {proc2.stderr}")
-                continue
+                raise RuntimeError(f"lib.exe failed for {dll_name}: {proc2.stderr}")
             generated += 1
         if generated:
             self.logger.log(f"Carla import lib generation complete: {generated} file(s)")
+        missing_libs = [
+            self.carla_import_lib_dir / dll_name.replace(".dll", ".lib")
+            for dll_name in required_dlls
+            if not (self.carla_import_lib_dir / dll_name.replace(".dll", ".lib")).is_file()
+        ]
+        if missing_libs:
+            raise RuntimeError(
+                "Carla import library generation was incomplete: "
+                + ", ".join(str(path) for path in missing_libs)
+            )
 
     def find_vcvarsall(self) -> Path | None:
         candidates = []
@@ -1148,15 +1134,9 @@ class MsvcBuilder(PlatformBuilder):
             )
             if proc.returncode != 0:
                 raise RuntimeError(f"vcvarsall.bat execution failed:\n{proc.stdout}\n{proc.stderr}")
-            for line in proc.stdout.splitlines():
-                if "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                self.env[key] = value
-            if "Path" in self.env:
-                self.env["PATH"] = self.env["Path"]
-            elif "PATH" in self.env:
-                self.env["Path"] = self.env["PATH"]
+            normalized_env = {key.upper(): value for key, value in self.env.items()}
+            normalized_env.update(self.parse_cmd_environment(proc.stdout))
+            self.env = normalized_env
             self.sanitize_msvc_environment()
         finally:
             if wrapper_path:
@@ -1165,6 +1145,23 @@ class MsvcBuilder(PlatformBuilder):
                 except OSError:
                     pass
 
+    @staticmethod
+    def parse_cmd_environment(output: str) -> dict[str, str]:
+        """Parse `set` output while preferring canonical uppercase duplicates."""
+        parsed: dict[str, str] = {}
+        uppercase_keys: set[str] = set()
+        for line in output.splitlines():
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            normalized_key = key.upper()
+            is_uppercase = key == normalized_key
+            if normalized_key not in parsed or is_uppercase or normalized_key not in uppercase_keys:
+                parsed[normalized_key] = value
+            if is_uppercase:
+                uppercase_keys.add(normalized_key)
+        return parsed
+
     def is_msys_path(self, path: str | None) -> bool:
         if not path:
             return False
@@ -1172,7 +1169,7 @@ class MsvcBuilder(PlatformBuilder):
         return "\\msys2\\" in lowered or "\\mingw" in lowered or "\\ucrt64\\" in lowered
 
     def sanitize_msvc_environment(self):
-        for name in ("PATH", "Path", "PKG_CONFIG_PATH", "CMAKE_PREFIX_PATH"):
+        for name in ("PATH", "PKG_CONFIG_PATH", "CMAKE_PREFIX_PATH"):
             value = self.env.get(name)
             if not value:
                 continue
@@ -1181,10 +1178,7 @@ class MsvcBuilder(PlatformBuilder):
                 self.env[name] = os.pathsep.join(filtered)
             else:
                 self.env.pop(name, None)
-        if "PATH" in self.env:
-            self.env["Path"] = self.env["PATH"]
-        elif "Path" in self.env:
-            self.env["PATH"] = self.env["Path"]
+        self.env.pop("Path", None)
 
     def find_msvc_tool(self, name: str) -> str | None:
         exe = f"{name}.exe"
@@ -1239,10 +1233,15 @@ class MsvcBuilder(PlatformBuilder):
         if not self.vcpkg_root:
             return
         installed = self.vcpkg_installed_dir()
+        host_installed = self.config.work_dir / "vcpkg_installed" / self.vcpkg_host_triplet
         self.env["VCPKG_DEFAULT_TRIPLET"] = self.vcpkg_triplet
         self.env["VCPKG_DEFAULT_HOST_TRIPLET"] = self.vcpkg_host_triplet
+        self.env["VCPKG_DOWNLOADS"] = str(self.config.temp_base / "vcpkg-downloads")
         paths = [
+            installed / "debug" / "bin" if self.config.is_debug else installed / "bin",
             installed / "bin",
+            host_installed / "tools" / "pkgconf",
+            host_installed / "tools" / "pkg-config",
             installed / "tools" / "pkgconf",
             installed / "tools" / "pkg-config",
         ]
@@ -1251,10 +1250,10 @@ class MsvcBuilder(PlatformBuilder):
         else:
             paths.append(installed / "tools" / "Qt6" / "bin")
         self.env["PATH"] = os.pathsep.join([str(path) for path in paths if path.exists()] + [self.env.get("PATH", "")])
-        self.env["Path"] = self.env["PATH"]
-        pkg_paths = [installed / "lib" / "pkgconfig"]
+        pkg_paths = []
         if self.config.is_debug:
             pkg_paths.append(installed / "debug" / "lib" / "pkgconfig")
+        pkg_paths.append(installed / "lib" / "pkgconfig")
         existing_pkg_path = self.env.get("PKG_CONFIG_PATH", "")
         self.env["PKG_CONFIG_PATH"] = os.pathsep.join([str(path) for path in pkg_paths if path.exists()] + ([existing_pkg_path] if existing_pkg_path else []))
         self.logger.log(f"vcpkg: {self.vcpkg_root} (target={self.vcpkg_triplet}, host={self.vcpkg_host_triplet}), installed: {installed}")
@@ -1307,10 +1306,15 @@ class MsvcBuilder(PlatformBuilder):
             ])
             if self.vcpkg_manifest_dir:
                 cmd.append(f"-DVCPKG_MANIFEST_DIR={self.vcpkg_manifest_dir}")
+            if self.config.is_offline:
+                cmd.append("-DVCPKG_MANIFEST_INSTALL=OFF")
+        if self.config.is_offline:
+            cmd.append("-DAVIQTL_CARGO_OFFLINE=ON")
         if self.qt_prefix:
             cmd.append(f"-DCMAKE_PREFIX_PATH={self.qt_prefix}")
         if (self.config.source_dir / "vendor" / "carla").exists():
             cmd.append(f"-DCARLA_SDK_DIR={Path(self.config.source_dir / 'vendor' / 'carla').as_posix()}")
+            cmd.append(f"-DCARLA_IMPORT_LIB_DIR={self.carla_import_lib_dir.as_posix()}")
         cmd.append(str(self.config.source_dir))
         return cmd
 
@@ -1350,12 +1354,30 @@ class MsvcBuilder(PlatformBuilder):
             str(dest_bin),
             "--dir", str(self.config.output_dir),
         ])
+        self.copy_vcpkg_runtime_files()
         with open(self.config.output_dir / "qt.conf", "w", encoding="utf-8") as f:
             f.write("[Paths]\nPlugins = .\n")
         self.logger.log(f"Executable: {dest_bin}")
 
     def get_archive_name(self) -> str:
         return "AviQtl-MSVC-x86_64"
+
+    def copy_vcpkg_runtime_files(self):
+        installed = self.vcpkg_installed_dir()
+        runtime_dir = installed / "debug" / "bin" if self.config.is_debug else installed / "bin"
+        if not runtime_dir.is_dir():
+            raise RuntimeError(f"vcpkg runtime directory not found: {runtime_dir}")
+
+        runtime_dlls = sorted(
+            dll for dll in runtime_dir.glob("*.dll")
+            if not dll.name.lower().startswith("pkgconf")
+        )
+        if not runtime_dlls:
+            raise RuntimeError(f"No vcpkg runtime DLLs found in: {runtime_dir}")
+
+        for dll in runtime_dlls:
+            shutil.copy2(dll, self.config.output_dir / dll.name)
+        self.logger.log(f"Bundled vcpkg runtime: {len(runtime_dlls)} DLLs")
 
     def copy_carla_support_files(self):
         carla_lib = self.config.source_dir / "vendor" / "carla" / "lib"

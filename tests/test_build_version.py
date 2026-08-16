@@ -1,12 +1,14 @@
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from BUILD import BuildConfig, Logger, PlatformBuilder, parse_semver
+from BUILD import BuildConfig, Logger, MsvcBuilder, PlatformBuilder, parse_semver
 
 
 class RecordingBuilder(PlatformBuilder):
@@ -82,6 +84,101 @@ class TestBuildVersion(unittest.TestCase):
             self.assertFalse(cache_path.exists())
             self.assertTrue(artifact_path.exists())
             self.assertTrue(any("Refreshing CMake cache" in message for message in messages))
+
+
+@unittest.skipUnless(os.name == "nt", "MSVC command construction is Windows-only")
+class TestMsvcBuildConfig(unittest.TestCase):
+    def test_cmd_environment_prefers_vcvarsall_uppercase_path(self):
+        parsed = MsvcBuilder.parse_cmd_environment(
+            "PATH=C:\\MSVC\\bin;C:\\Windows\n"
+            "Path=C:\\stale-user-path\n"
+            "VCToolsInstallDir=C:\\MSVC\\\n"
+        )
+
+        self.assertEqual(parsed["PATH"], "C:\\MSVC\\bin;C:\\Windows")
+        self.assertEqual(parsed["VCTOOLSINSTALLDIR"], "C:\\MSVC\\")
+
+    def test_package_copies_target_runtime_dlls_but_not_host_tools(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_dir = Path(temp_dir)
+            config = BuildConfig(
+                source_dir=source_dir,
+                temp_base=source_dir / ".build_tmp",
+                output_dir=source_dir / "build",
+                target="msvc",
+                is_debug=False,
+                use_container=False,
+                is_offline=True,
+            )
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "VCPKG_DEFAULT_TRIPLET": "x64-windows-release",
+                    "VCPKG_DEFAULT_HOST_TRIPLET": "x64-windows-release",
+                },
+            ):
+                builder = MsvcBuilder(
+                    config, Logger(lambda _message: None, lambda _value, _message: None)
+                )
+            runtime_dir = builder.vcpkg_installed_dir() / "bin"
+            runtime_dir.mkdir(parents=True)
+            config.output_dir.mkdir()
+            (runtime_dir / "avformat-62.dll").write_bytes(b"ffmpeg")
+            (runtime_dir / "lua51.dll").write_bytes(b"luajit")
+            (runtime_dir / "pkgconf-7.dll").write_bytes(b"build tool")
+
+            builder.copy_vcpkg_runtime_files()
+
+            self.assertEqual((config.output_dir / "avformat-62.dll").read_bytes(), b"ffmpeg")
+            self.assertEqual((config.output_dir / "lua51.dll").read_bytes(), b"luajit")
+            self.assertFalse((config.output_dir / "pkgconf-7.dll").exists())
+
+    def test_release_uses_committed_manifest_and_offline_guards(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_dir = Path(temp_dir)
+            (source_dir / "triplets").mkdir()
+            (source_dir / "vendor" / "carla").mkdir(parents=True)
+            (source_dir / "vcpkg.json").write_text("{}\n", encoding="utf-8")
+            (source_dir / "vcpkg-configuration.json").write_text("{}\n", encoding="utf-8")
+            (source_dir / "triplets" / "x64-windows-release.cmake").write_text(
+                "set(VCPKG_TARGET_ARCHITECTURE x64)\n", encoding="utf-8"
+            )
+            config = BuildConfig(
+                source_dir=source_dir,
+                temp_base=source_dir / ".build_tmp",
+                output_dir=source_dir / "build",
+                target="msvc",
+                is_debug=False,
+                use_container=False,
+                is_offline=True,
+            )
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "VCPKG_DEFAULT_TRIPLET": "x64-windows-release",
+                    "VCPKG_DEFAULT_HOST_TRIPLET": "x64-windows-release",
+                },
+            ):
+                builder = MsvcBuilder(
+                    config, Logger(lambda _message: None, lambda _value, _message: None)
+                )
+            builder.vcpkg_root = source_dir / "vcpkg"
+            builder.qt_prefix = source_dir / "Qt"
+            builder.cmake_path = str(source_dir / "cmake.exe")
+            builder.ninja_path = source_dir / "ninja.exe"
+
+            builder.configure_vcpkg_manifest()
+            command = builder.get_cmake_config_cmd()
+
+            self.assertEqual(command[0], builder.cmake_path)
+            self.assertIn(f"-DVCPKG_MANIFEST_DIR={source_dir}", command)
+            self.assertIn("-DVCPKG_MANIFEST_INSTALL=OFF", command)
+            self.assertIn("-DAVIQTL_CARGO_OFFLINE=ON", command)
+            self.assertIn("-DVCPKG_TARGET_TRIPLET=x64-windows-release", command)
+            self.assertIn("-DVCPKG_HOST_TRIPLET=x64-windows-release", command)
+            self.assertIn(
+                f"-DCARLA_IMPORT_LIB_DIR={builder.carla_import_lib_dir.as_posix()}", command
+            )
 
 
 if __name__ == "__main__":

@@ -41,11 +41,27 @@ function(aviqtl_add_test)
         TIMEOUT 60
     )
 
-    # On Windows, ensure vendor DLLs (e.g., Carla) are in PATH for runtime loading.
-    # ENVIRONMENT_MODIFICATION handles platform-specific path separators correctly.
+    # On Windows, make CTest independent of the caller's PATH. Qt and vcpkg
+    # provide linked runtime DLLs, while Carla remains a bundled vendor runtime.
+    # ENVIRONMENT_MODIFICATION handles platform-specific separators correctly.
     if(WIN32)
+        set(_aviqtl_test_path_modifications
+            "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+            "PATH=path_list_prepend:${CMAKE_SOURCE_DIR}/vendor/carla/lib"
+        )
+        if(MSVC AND VCPKG_INSTALLED_DIR AND VCPKG_TARGET_TRIPLET)
+            if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+                set(_aviqtl_vcpkg_runtime_dir
+                    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin")
+            else()
+                set(_aviqtl_vcpkg_runtime_dir
+                    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+            endif()
+            list(APPEND _aviqtl_test_path_modifications
+                "PATH=path_list_prepend:${_aviqtl_vcpkg_runtime_dir}")
+        endif()
         set_tests_properties(${ARG_NAME} PROPERTIES
-            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${CMAKE_SOURCE_DIR}/vendor/carla/lib"
+            ENVIRONMENT_MODIFICATION "${_aviqtl_test_path_modifications}"
         )
     endif()
 endfunction()
