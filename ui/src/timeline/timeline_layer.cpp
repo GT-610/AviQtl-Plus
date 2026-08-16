@@ -29,6 +29,10 @@ void TimelineService::setLayerStateInternal(int sceneId, int layer, bool value, 
             it->hiddenLayers.remove(layer);
         }
     }
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected layer-state update";
+        return;
+    }
     emit layerStateChanged(layer);
 }
 

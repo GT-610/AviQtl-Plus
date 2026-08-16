@@ -1,5 +1,6 @@
 #include "commands.hpp"
 #include "effect_registry.hpp"
+#include "rust_keyframe_document.hpp"
 #include "timeline_service.hpp"
 #include <QObject>
 
@@ -12,9 +13,11 @@ AddClipCommand::AddClipCommand(TimelineService *service, int clipId, QString typ
 }
 void AddClipCommand::undo() { m_service->deleteClipInternal(m_clipId); }
 void AddClipCommand::redo() {
+    m_service->beginTimelineProjectionTransaction();
     m_service->createClipInternal(m_clipId, m_type, m_startFrame, m_layer, false);
     auto *clip = m_service->findClipById(m_clipId);
     if (clip == nullptr) {
+        m_service->endTimelineProjectionTransaction();
         return;
     }
 
@@ -31,6 +34,10 @@ void AddClipCommand::redo() {
         break;
     }
 
+    if (!m_service->endTimelineProjectionTransaction()) {
+        return;
+    }
+
     emit m_service->clipsChanged();
     emit m_service->clipCreated(clip->id, clip->layer, clip->startFrame, clip->durationFrames, clip->type);
 }
@@ -41,6 +48,29 @@ MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int oldLa
 }
 void MoveClipCommand::undo() { m_service->updateClipInternal(m_clipId, m_oldLayer, m_oldStart, m_oldDuration, true, true); }
 void MoveClipCommand::redo() { m_service->updateClipInternal(m_clipId, m_newLayer, m_newStart, m_newDuration, true, m_prevalidated); }
+
+MoveClipsCommand::MoveClipsCommand(TimelineService *service, QList<ClipMoveChange> moves,
+                                   QString commandText, bool prevalidated)
+    : m_service(service), m_moves(std::move(moves)), m_prevalidated(prevalidated) {
+    setText(std::move(commandText));
+}
+
+void MoveClipsCommand::undo() { apply(false); }
+void MoveClipsCommand::redo() { apply(true); }
+
+void MoveClipsCommand::apply(bool forward) {
+    m_service->beginTimelineProjectionTransaction();
+    for (const auto &move : std::as_const(m_moves)) {
+        m_service->updateClipInternal(
+            move.clipId, forward ? move.newLayer : move.oldLayer,
+            forward ? move.newStart : move.oldStart,
+            forward ? move.newDuration : move.oldDuration, false,
+            forward ? m_prevalidated : true);
+    }
+    if (m_service->endTimelineProjectionTransaction()) {
+        emit m_service->clipsChanged();
+    }
+}
 
 SetClipByUpperObjectCommand::SetClipByUpperObjectCommand(TimelineService *service, int clipId, bool enabled) : m_service(service), m_clipId(clipId), m_enabled(enabled) {
     setText(enabled ? QObject::tr("上のオブジェクトでクリッピング") : QObject::tr("上のオブジェクトでクリッピング解除"));
@@ -135,23 +165,32 @@ void UpdateLayerStateCommand::redo() { m_service->setLayerStateInternal(m_sceneI
 SplitClipCommand::SplitClipCommand(TimelineService *service, int clipId, int frame, int originalDuration, int firstDuration, int secondDuration, const QString &clipName)
     : m_service(service), m_originalClipId(clipId), m_newClipId(-1), m_splitFrame(frame), m_originalDuration(originalDuration), m_firstDuration(firstDuration), m_secondDuration(secondDuration),
       m_clipName(clipName) { // NOLINT(bugprone-easily-swappable-parameters)
+    if (const auto *clip = service->findClipById(clipId); clip != nullptr) {
+        m_originalSnapshot = service->deepCopyClip(*clip);
+        m_originalSnapshot.id = clipId;
+    }
     setText(QObject::tr("クリップ分割: %1").arg(clipName));
 }
 
 void SplitClipCommand::undo() {
-    m_service->deleteClipInternal(m_newClipId);
-    // 元のクリップの長さを復元
-    const auto &clips = m_service->clips();
-    auto it = std::ranges::find_if(clips, [this](const ClipData &c) -> bool { return c.id == m_originalClipId; });
-    if (it != clips.end()) {
-        m_service->updateClipInternal(m_originalClipId, it->layer, it->startFrame, m_originalDuration, true, true);
+    m_service->beginTimelineProjectionTransaction();
+    if (m_newClipId >= 0) {
+        m_service->deleteClipInternal(m_newClipId, false);
+    }
+    m_service->deleteClipInternal(m_originalClipId, false);
+    ClipData restored = m_service->deepCopyClip(m_originalSnapshot);
+    restored.id = m_originalClipId;
+    m_service->addClipDirectInternal(restored, false);
+    if (m_service->endTimelineProjectionTransaction()) {
+        emit m_service->clipsChanged();
     }
 }
 
 void SplitClipCommand::redo() {
-    const auto &clips = m_service->clips();
-    auto it = std::ranges::find_if(clips, [this](const ClipData &c) -> bool { return c.id == m_originalClipId; });
-    if (it == clips.end()) {
+    m_service->beginTimelineProjectionTransaction();
+    auto *original = m_service->findClipById(m_originalClipId);
+    if (original == nullptr) {
+        m_service->endTimelineProjectionTransaction();
         return;
     }
 
@@ -159,18 +198,19 @@ void SplitClipCommand::redo() {
     if (m_newClipId == -1) {
         m_newClipId = m_service->allocateClipId();
         if (m_newClipId < 0) {
+            m_service->endTimelineProjectionTransaction();
             return;
         }
     }
 
     // 後半部分のクリップを作成
-    ClipData newClip = m_service->deepCopyClip(*it);
+    ClipData newClip = m_service->deepCopyClip(*original);
     newClip.id = m_newClipId;
     newClip.startFrame = m_splitFrame;
     newClip.durationFrames = m_secondDuration;
 
-    for (int i = 0; i < it->effects.size() && i < newClip.effects.size(); ++i) {
-        auto *originalEffect = it->effects.value(i);
+    for (int i = 0; i < original->effects.size() && i < newClip.effects.size(); ++i) {
+        auto *originalEffect = original->effects.value(i);
         auto *newEffect = newClip.effects.value(i);
         if ((originalEffect == nullptr) || (newEffect == nullptr)) {
             continue;
@@ -182,8 +222,34 @@ void SplitClipCommand::redo() {
         newEffect->syncTrackEndpoints(m_secondDuration);
     }
 
-    m_service->updateClipInternal(m_originalClipId, it->layer, it->startFrame, m_firstDuration);
-    m_service->addClipDirectInternal(newClip);
+    for (int i = 0; i < original->audioPlugins.size() && i < newClip.audioPlugins.size(); ++i) {
+        auto &originalPlugin = original->audioPlugins[i];
+        auto &newPlugin = newClip.audioPlugins[i];
+        QVariantMap firstTracks = originalPlugin.keyframeTracks;
+        QVariantMap secondTracks;
+        for (auto it = originalPlugin.params.cbegin(); it != originalPlugin.params.cend(); ++it) {
+            const auto result = AviQtl::Core::RustKeyframeDocument::split(
+                firstTracks.value(it.key()), it.value(), m_firstDuration, m_originalDuration);
+            if (!result) {
+                continue;
+            }
+            firstTracks[it.key()] = result->track;
+            if (result->secondaryTrack) {
+                secondTracks[it.key()] = *result->secondaryTrack;
+            }
+        }
+        originalPlugin.keyframeTracks = firstTracks;
+        originalPlugin.invalidateKeyframeCache();
+        newPlugin.keyframeTracks = secondTracks;
+        newPlugin.invalidateKeyframeCache();
+    }
+
+    m_service->updateClipInternal(m_originalClipId, original->layer, original->startFrame,
+                                  m_firstDuration, false, true);
+    m_service->addClipDirectInternal(newClip, false);
+    if (m_service->endTimelineProjectionTransaction()) {
+        emit m_service->clipsChanged();
+    }
 }
 
 DeleteClipsCommand::DeleteClipsCommand(TimelineService *service, const QList<int> &clipIds, const QString &macroText) : m_service(service), m_clipIds(clipIds) {
@@ -198,10 +264,13 @@ DeleteClipsCommand::DeleteClipsCommand(TimelineService *service, const QList<int
     }
 }
 void DeleteClipsCommand::redo() {
+    m_service->beginTimelineProjectionTransaction();
     for (int id : std::as_const(m_clipIds)) {
         m_service->deleteClipInternal(id, false);
     }
-    emit m_service->clipsChanged();
+    if (m_service->endTimelineProjectionTransaction()) {
+        emit m_service->clipsChanged();
+    }
 }
 void DeleteClipsCommand::undo() { m_service->addClipsDirectInternal(m_snapshots); }
 

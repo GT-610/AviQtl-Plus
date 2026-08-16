@@ -119,7 +119,21 @@ static auto layerSetFromJson(const QJsonValue &value) -> QSet<int> {
 }
 
 QVariantMap ProjectSerializer::captureSnapshot(const UI::TimelineService *timeline, const UI::ProjectService *project) {
-    QVariantMap root;
+    // Native consumers may still update EffectModel/ClipData directly. Fold those adapter-side
+    // changes into one Rust transaction before reading the authoritative snapshot.
+    const bool projectionCommitted =
+        const_cast<UI::TimelineService *>(timeline)->commitTimelineProjection();
+    QVariantMap root = projectionCommitted ? timeline->timelineStateSnapshot() : QVariantMap{};
+    if (!root.isEmpty()) {
+        QVariantMap settings = root.value(QStringLiteral("settings")).toMap();
+        settings.insert(QStringLiteral("width"), project->width());
+        settings.insert(QStringLiteral("height"), project->height());
+        settings.insert(QStringLiteral("fps"), project->fps());
+        settings.insert(QStringLiteral("sampleRate"), project->sampleRate());
+        root.insert(QStringLiteral("settings"), settings);
+        return root;
+    }
+
     root.insert(QStringLiteral("version"), RustCore::currentProjectVersion());
 
     QVariantMap settings;
@@ -299,6 +313,8 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         return false;
     }
     QJsonObject root = doc.object();
+    QVariantMap runtimeSnapshot = root.toVariantMap();
+    QVariantList runtimeClips = runtimeSnapshot.value(QStringLiteral("clips")).toList();
 
     const int version = root.value(QStringLiteral("version")).toInt();
     const QString projectDir = QFileInfo(path).absolutePath();
@@ -343,8 +359,10 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
 
     QJsonArray clipsArray = root.value(QStringLiteral("clips")).toArray();
     int maxClipId = 0;
-    for (const auto &val : std::as_const(clipsArray)) {
+    for (qsizetype clipIndex = 0; clipIndex < clipsArray.size(); ++clipIndex) {
+        const QJsonValue val = clipsArray.at(clipIndex);
         QJsonObject c = val.toObject();
+        QVariantMap runtimeClip = runtimeClips.value(clipIndex).toMap();
         UI::ClipData clip;
         clip.id = c.value(QStringLiteral("id")).toInt();
         clip.sceneId = c.value(QStringLiteral("sceneId")).toInt(0);
@@ -359,6 +377,7 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         if (version >= 2) {
             convertMediaPaths(clip.params, projectDir, false);
         }
+        runtimeClip.insert(QStringLiteral("params"), clip.params);
 
         QJsonArray audioPluginsArray = c.value(QStringLiteral("audioPlugins")).toArray();
         for (const auto &pv : std::as_const(audioPluginsArray)) {
@@ -377,7 +396,9 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         }
 
         QJsonArray effArr = c.value(QStringLiteral("effects")).toArray();
-        for (const auto &ev : std::as_const(effArr)) {
+        QVariantList runtimeEffects = runtimeClip.value(QStringLiteral("effects")).toList();
+        for (qsizetype effectIndex = 0; effectIndex < effArr.size(); ++effectIndex) {
+            const QJsonValue ev = effArr.at(effectIndex);
             QJsonObject eObj = ev.toObject();
             QString effId = eObj.value(QStringLiteral("id")).toString();
             EffectMetadata meta = EffectRegistry::instance().getEffect(effId);
@@ -390,6 +411,11 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
             if (version >= 2) {
                 convertEffectMediaPath(effId, effectParams, projectDir, false);
             }
+            QVariantMap runtimeEffect = runtimeEffects.value(effectIndex).toMap();
+            runtimeEffect.insert(QStringLiteral("params"), effectParams);
+            if (effectIndex < runtimeEffects.size()) {
+                runtimeEffects[effectIndex] = runtimeEffect;
+            }
             auto *eff = new UI::EffectModel(effId, displayName, meta.kind, meta.categories, effectParams, meta.qmlSource, meta.uiDefinition, timeline);
             eff->setEnabled(eObj.value(QStringLiteral("enabled")).toBool(true));
             auto it = eObj.find(QStringLiteral("keyframes"));
@@ -397,6 +423,10 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
                 eff->setKeyframeTracks(it.value().toObject().toVariantMap());
             }
             clip.effects.append(eff);
+        }
+        runtimeClip.insert(QStringLiteral("effects"), runtimeEffects);
+        if (clipIndex < runtimeClips.size()) {
+            runtimeClips[clipIndex] = runtimeClip;
         }
 
         for (auto &scene : tempScenes) {
@@ -407,9 +437,14 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         }
     }
 
+    runtimeSnapshot.insert(QStringLiteral("clips"), runtimeClips);
+    if (!timeline->resetTimelineState(runtimeSnapshot, maxClipId + 1, maxSceneId + 1)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Rust timeline state rejected the loaded project");
+        }
+        return false;
+    }
     timeline->setScenes(tempScenes);
-    timeline->setNextClipId(maxClipId + 1);
-    timeline->setNextSceneId(maxSceneId + 1);
     QMetaObject::invokeMethod(timeline, "clipsChanged");
 
     return true;

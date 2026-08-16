@@ -397,7 +397,13 @@ void TestDailyEditingWorkflow::audioPluginStateSurvivesClipCopies() {
     plugin.id = QStringLiteral("test.plugin");
     plugin.enabled = false;
     plugin.params = {{QStringLiteral("2"), 0.75}};
-    plugin.keyframeTracks = {{QStringLiteral("2"), QVariantMap{{QStringLiteral("points"), QVariantList{QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), 0.25}}}}}}};
+    plugin.keyframeTracks = {
+        {QStringLiteral("2"),
+         QVariantList{
+             QVariantMap{{QStringLiteral("frame"), 0}, {QStringLiteral("value"), 0.25}},
+             QVariantMap{{QStringLiteral("frame"), 75}, {QStringLiteral("value"), 1.0}},
+         }},
+    };
     source->audioPlugins.append(plugin);
     const int splitFrame = source->startFrame + (source->durationFrames / 2);
 
@@ -423,14 +429,19 @@ void TestDailyEditingWorkflow::audioPluginStateSurvivesClipCopies() {
     QVERIFY(split != nullptr);
     QCOMPARE(split->audioPlugins.size(), 1);
     QCOMPARE(split->audioPlugins.first().params, plugin.params);
+    const QVariantMap splitTracks = split->audioPlugins.first().keyframeTracks;
+    QVERIFY(splitTracks != plugin.keyframeTracks);
 
     controller.timeline()->undo();
     QVERIFY(findClip(controller, splitId) == nullptr);
+    const ClipData *restored = findClip(controller, clipId);
+    QVERIFY(restored != nullptr);
+    QCOMPARE(restored->audioPlugins.first().keyframeTracks, plugin.keyframeTracks);
     controller.timeline()->redo();
     split = findClip(controller, splitId);
     QVERIFY(split != nullptr);
     QCOMPARE(split->audioPlugins.size(), 1);
-    QCOMPARE(split->audioPlugins.first().keyframeTracks, plugin.keyframeTracks);
+    QCOMPARE(split->audioPlugins.first().keyframeTracks, splitTracks);
 }
 
 void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {

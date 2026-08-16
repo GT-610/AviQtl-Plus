@@ -1,6 +1,7 @@
 #include "commands.hpp"
 #include "constants.hpp"
 #include "effect_registry.hpp"
+#include "rust_keyframe_document.hpp"
 #include "rust_timeline_edit.hpp"
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
@@ -41,19 +42,31 @@ std::vector<std::int32_t> timelineLayers(const QSet<int> &layers) {
 
 QString clipDisplayName(const ClipData &clip) { return clip.effects.isEmpty() ? clip.type : clip.effects.first()->name(); }
 
-void applyPlannedMoves(TimelineService *service, std::span<const AviQtl::RustCore::TimelineClipGeometry> planned, const QString &macroText, bool prevalidated) {
+void applyPlannedMoves(TimelineService *service, std::span<const AviQtl::RustCore::TimelineClipGeometry> planned, const QString &commandText, bool prevalidated) {
     if (planned.empty()) {
         return;
     }
-    service->undoStack()->beginMacro(macroText);
+    QList<ClipMoveChange> moves;
+    moves.reserve(static_cast<qsizetype>(planned.size()));
     for (const auto &next : planned) {
         const auto *old = service->findClipById(next.clip_id);
         if (old == nullptr) {
             continue;
         }
-        service->undoStack()->push(new MoveClipCommand(service, old->id, old->layer, old->startFrame, old->durationFrames, next.layer, next.start_frame, next.duration_frames, clipDisplayName(*old), prevalidated));
+        moves.append({
+            .clipId = old->id,
+            .oldLayer = old->layer,
+            .oldStart = old->startFrame,
+            .oldDuration = old->durationFrames,
+            .newLayer = next.layer,
+            .newStart = next.start_frame,
+            .newDuration = next.duration_frames,
+        });
     }
-    service->undoStack()->endMacro();
+    if (!moves.isEmpty()) {
+        service->undoStack()->push(
+            new MoveClipsCommand(service, std::move(moves), commandText, prevalidated));
+    }
 }
 
 } // namespace
@@ -94,6 +107,7 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
     newClip.durationFrames = defaultDuration;
     newClip.layer = layer;
 
+    beginTimelineProjectionTransaction();
     clipsMutable().append(newClip);
 
     if (type != QLatin1String("audio")) {
@@ -120,6 +134,11 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
         }
     }
 
+    if (!endTimelineProjectionTransaction()) {
+        qWarning() << "Rust rejected clip creation";
+        return;
+    }
+
     if (emitSignal) {
         emit clipsChanged();
         emit clipCreated(newClip.id, newClip.layer, newClip.startFrame, newClip.durationFrames, newClip.type);
@@ -127,8 +146,13 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
 }
 
 void TimelineService::addClipsDirectInternal(const QList<ClipData> &clips) {
+    beginTimelineProjectionTransaction();
     for (const auto &clip : std::as_const(clips)) {
         addClipDirectInternal(clip, false);
+    }
+    if (!endTimelineProjectionTransaction()) {
+        qWarning() << "Rust rejected batch clip restoration";
+        return;
     }
     emit clipsChanged();
 }
@@ -357,6 +381,7 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
     for (auto &clip : clipsMutable()) {
         if (clip.id == id) {
             if (clip.layer != layer || clip.startFrame != startFrame || clip.durationFrames != duration) {
+                const int oldDuration = clip.durationFrames;
                 clip.layer = layer;
                 clip.startFrame = startFrame;
                 clip.durationFrames = duration;
@@ -364,6 +389,21 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
                     if (effect != nullptr) {
                         effect->syncTrackEndpoints(duration);
                     }
+                }
+                for (auto &plugin : clip.audioPlugins) {
+                    for (auto it = plugin.params.cbegin(); it != plugin.params.cend(); ++it) {
+                        const auto result = AviQtl::Core::RustKeyframeDocument::sync(
+                            plugin.keyframeTracks.value(it.key()), it.value(), oldDuration,
+                            duration);
+                        if (result) {
+                            plugin.keyframeTracks[it.key()] = result->track;
+                        }
+                    }
+                    plugin.invalidateKeyframeCache();
+                }
+                if (!commitTimelineProjection()) {
+                    qWarning() << "Rust rejected clip geometry update";
+                    return;
                 }
                 if (emitSignal) {
                     emit clipsChanged();
@@ -401,6 +441,11 @@ void TimelineService::setClipByUpperObjectInternal(int clipId, bool enabled, boo
         return;
     }
     clip->clipByUpperObject = enabled;
+    if (!commitTimelineProjection()) {
+        clip->clipByUpperObject = !enabled;
+        qWarning() << "Rust rejected clip compositing update";
+        return;
+    }
     if (emitSignal) {
         emit clipsChanged();
     }
@@ -508,10 +553,19 @@ void TimelineService::deleteClipInternal(int clipId, bool emitSignal) {
     auto &currentClips = clipsMutable();
     auto it = std::ranges::find_if(currentClips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
     if (it != currentClips.end()) {
-        for (auto *eff : it->effects) {
-            eff->deleteLater();
-        }
+        const auto index = std::distance(currentClips.begin(), it);
+        const ClipData removed = *it;
         currentClips.erase(it);
+        if (!commitTimelineProjection()) {
+            currentClips.insert(index, removed);
+            qWarning() << "Rust rejected clip deletion";
+            return;
+        }
+        for (auto *eff : removed.effects) {
+            if (eff != nullptr) {
+                eff->deleteLater();
+            }
+        }
         if (emitSignal) {
             emit clipsChanged();
         }
@@ -520,6 +574,11 @@ void TimelineService::deleteClipInternal(int clipId, bool emitSignal) {
 
 void TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSignal) {
     clipsMutable().append(clip);
+    if (!commitTimelineProjection()) {
+        clipsMutable().removeLast();
+        qWarning() << "Rust rejected direct clip insertion";
+        return;
+    }
     if (emitSignal) {
         emit clipsChanged();
         emit clipCreated(clip.id, clip.layer, clip.startFrame, clip.durationFrames, clip.type);

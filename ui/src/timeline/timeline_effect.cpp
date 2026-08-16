@@ -102,6 +102,10 @@ void TimelineService::addEffectInternal(int clipId, const QString &effectId) {
         auto *model = new EffectModel(meta.id, meta.name, meta.kind, meta.categories, meta.defaultParams, meta.qmlSource, meta.uiDefinition, this);
         model->syncTrackEndpoints(clip->durationFrames);
         clip->effects.append(model);
+        if (!commitTimelineProjection()) {
+            qWarning() << "Rust rejected effect insertion";
+            return;
+        }
         emit clipsChanged();
         emit clipEffectsChanged(clipId);
     }
@@ -116,6 +120,10 @@ void TimelineService::restoreEffectInternal(int clipId, const QVariantMap &data)
         model->setEnabled(data.value(QStringLiteral("enabled")).toBool());
         model->setKeyframeTracks(data.value(QStringLiteral("keyframes")).toMap());
         clip->effects.append(model);
+        if (!commitTimelineProjection()) {
+            qWarning() << "Rust rejected effect restoration";
+            return;
+        }
         emit clipsChanged();
         emit clipEffectsChanged(clipId);
     }
@@ -157,6 +165,10 @@ void TimelineService::removeEffectInternal(int clipId, int effectIndex) { // NOL
                 }
                 auto *eff = clip.effects.takeAt(effectIndex);
                 eff->deleteLater();
+                if (!commitTimelineProjection()) {
+                    qWarning() << "Rust rejected effect removal";
+                    return;
+                }
                 emit clipsChanged();
                 emit clipEffectsChanged(clipId);
             }
@@ -220,6 +232,10 @@ void TimelineService::removeMultipleEffectsInternal(int clipId, const QList<int>
                 }
                 eff->deleteLater();
             }
+            if (!commitTimelineProjection()) {
+                qWarning() << "Rust rejected multiple effect removal";
+                return;
+            }
             emit clipsChanged();
             emit clipEffectsChanged(clipId);
             break;
@@ -237,6 +253,10 @@ void TimelineService::restoreMultipleEffectsInternal(int clipId, const QList<QVa
                 model->setEnabled(d.value(QStringLiteral("enabled")).toBool());
                 model->setKeyframeTracks(d.value(QStringLiteral("keyframes")).toMap());
                 clip.effects.append(model);
+            }
+            if (!commitTimelineProjection()) {
+                qWarning() << "Rust rejected multiple effect restoration";
+                return;
             }
             emit clipsChanged();
             emit clipEffectsChanged(clipId);
@@ -336,6 +356,10 @@ void TimelineService::applyPermutationInternal(int clipId, const QList<int> &per
         for (int idx : perm)
             reordered.append(clip->effects.at(idx));
         clip->effects = std::move(reordered);
+        if (!commitTimelineProjection()) {
+            qWarning() << "Rust rejected effect permutation";
+            return;
+        }
         emit clipEffectsChanged(clipId);
         emit clipsChanged();
     }
@@ -368,6 +392,10 @@ void TimelineService::reorderEffectsInternal(int clipId, int oldIndex, int newIn
     }
 
     clip->effects.move(oldIndex, newIndex);
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected effect reorder";
+        return;
+    }
 
     // UI更新通知
     emit clipEffectsChanged(clipId);
@@ -381,6 +409,10 @@ void TimelineService::setEffectEnabledInternal(int clipId, int effectIndex, bool
     }
 
     clip->effects.value(effectIndex)->setEnabled(enabled);
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected effect enabled-state update";
+        return;
+    }
     emit clipEffectsChanged(clipId);
 }
 
@@ -391,6 +423,10 @@ void TimelineService::setAudioPluginEnabledInternal(int clipId, int index, bool 
     }
 
     clip->audioPlugins[index].enabled = enabled;
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected audio plugin enabled-state update";
+        return;
+    }
 
     emit clipEffectsChanged(clipId);
     emit clipsChanged(); // エンジン側の同期を促す
@@ -403,6 +439,11 @@ int TimelineService::addAudioPluginStateInternal(int clipId, const AudioPluginSt
     }
 
     clip->audioPlugins.append(state);
+    if (!commitTimelineProjection()) {
+        clip->audioPlugins.removeLast();
+        qWarning() << "Rust rejected audio plugin insertion";
+        return -1;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
     return clip->audioPlugins.size() - 1;
@@ -414,7 +455,12 @@ void TimelineService::removeAudioPluginStateInternal(int clipId, int index) {
         return;
     }
 
-    clip->audioPlugins.removeAt(index);
+    const AudioPluginState removed = clip->audioPlugins.takeAt(index);
+    if (!commitTimelineProjection()) {
+        clip->audioPlugins.insert(index, removed);
+        qWarning() << "Rust rejected audio plugin removal";
+        return;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -429,6 +475,11 @@ void TimelineService::restoreAudioPluginStateInternal(int clipId, int index, con
         index = clip->audioPlugins.size();
     }
     clip->audioPlugins.insert(index, state);
+    if (!commitTimelineProjection()) {
+        clip->audioPlugins.removeAt(index);
+        qWarning() << "Rust rejected audio plugin restoration";
+        return;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -440,6 +491,10 @@ void TimelineService::setAudioPluginParamInternal(int clipId, int index, int par
     }
 
     clip->audioPlugins[index].params.insert(QString::number(paramIndex), value);
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected audio plugin parameter update";
+        return;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -458,6 +513,10 @@ void TimelineService::applyAudioPluginPermutationInternal(int clipId, const QLis
         reordered.append(clip->audioPlugins.at(index));
     }
     clip->audioPlugins = std::move(reordered);
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected audio plugin permutation";
+        return;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -474,6 +533,10 @@ void TimelineService::pasteEffectInternal(int clipId, int targetIndex, EffectMod
     if (clip != nullptr) {
         int idx = std::clamp(targetIndex, 0, static_cast<int>(clip->effects.size()));
         clip->effects.insert(idx, effect->clone());
+        if (!commitTimelineProjection()) {
+            qWarning() << "Rust rejected pasted effect";
+            return;
+        }
         emit clipEffectsChanged(clipId);
         emit clipsChanged();
     }
@@ -512,6 +575,11 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
             effect->setParam(paramName, value);
             const bool durationChanged = autoAdjustAudioClipDuration(this, *clip, effect, paramName);
             const bool waveformChanged = affectsAudioWaveform(*clip, effect, paramName);
+
+            if (!commitTimelineProjection()) {
+                qWarning() << "Rust rejected effect parameter update";
+                return;
+            }
 
             emit effectParamChanged(clipId, effectIndex, paramName, value);
 
@@ -639,6 +707,10 @@ void TimelineService::setKeyframeInternal(int clipId, int effectIndex, const QSt
     const auto *clip = findClipById(clipId);
     if ((clip != nullptr) && effectIndex < clip->effects.size()) {
         clip->effects.value(effectIndex)->setKeyframe(paramName, frame, value, options);
+        if (!commitTimelineProjection()) {
+            qWarning() << "Rust rejected effect keyframe update";
+            return;
+        }
 
         // ECSエンジンの更新を促す
         emit effectParamChanged(clipId, effectIndex, paramName, value);
@@ -655,6 +727,10 @@ void TimelineService::removeKeyframeInternal(int clipId, int effectIndex, const 
     const auto *clip = findClipById(clipId);
     if ((clip != nullptr) && effectIndex < clip->effects.size()) {
         clip->effects.value(effectIndex)->removeKeyframe(paramName, frame);
+        if (!commitTimelineProjection()) {
+            qWarning() << "Rust rejected effect keyframe removal";
+            return;
+        }
 
         emit effectParamChanged(clipId, effectIndex, paramName, QVariant());
         if (paramName == QLatin1String("path") || paramName == QLatin1String("source") || paramName == QStringLiteral("targetSceneId")) {
@@ -667,6 +743,10 @@ void TimelineService::moveKeyframeInternal(int clipId, int effectIndex, const QS
     const auto *clip = findClipById(clipId);
     if ((clip != nullptr) && effectIndex >= 0 && effectIndex < clip->effects.size()) {
         if (!clip->effects.value(effectIndex)->moveKeyframe(paramName, oldFrame, newFrame)) {
+            return;
+        }
+        if (!commitTimelineProjection()) {
+            qWarning() << "Rust rejected effect keyframe move";
             return;
         }
 
@@ -790,6 +870,10 @@ void TimelineService::setAudioPluginKeyframeInternal(int clipId, int pluginIndex
     }
     plugin.keyframeTracks[paramKey] = result->track;
     plugin.invalidateKeyframeCache();
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected audio plugin keyframe update";
+        return;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -808,6 +892,10 @@ void TimelineService::removeAudioPluginKeyframeInternal(int clipId, int pluginIn
     }
     plugin.keyframeTracks[paramKey] = result->track;
     plugin.invalidateKeyframeCache();
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected audio plugin keyframe removal";
+        return;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }
@@ -826,6 +914,10 @@ void TimelineService::moveAudioPluginKeyframeInternal(int clipId, int pluginInde
     }
     plugin.keyframeTracks[paramKey] = result->track;
     plugin.invalidateKeyframeCache();
+    if (!commitTimelineProjection()) {
+        qWarning() << "Rust rejected audio plugin keyframe move";
+        return;
+    }
     emit clipEffectsChanged(clipId);
     emit clipsChanged();
 }

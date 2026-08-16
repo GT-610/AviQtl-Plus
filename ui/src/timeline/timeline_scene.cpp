@@ -98,6 +98,9 @@ void TimelineService::setScenes(const QList<SceneData> &scenes) {
     if (!found && !m_scenes.isEmpty()) {
         m_currentSceneId = m_scenes.first().id;
     }
+    if (!commitTimelineProjection()) {
+        qWarning() << "Failed to commit loaded scenes to Rust timeline state";
+    }
     emit scenesChanged();
     emit currentSceneIdChanged();
     emit clipsChanged();
@@ -201,6 +204,11 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
     newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
     m_scenes.append(newScene);
+    if (!commitTimelineProjection()) {
+        m_scenes.removeLast();
+        qWarning() << "Rust rejected scene creation";
+        return;
+    }
     invalidateCurrentSceneCache();
     emit scenesChanged();
     switchScene(newScene.id);
@@ -212,15 +220,24 @@ void TimelineService::removeSceneInternal(int sceneId) {
     }
     auto it = std::ranges::find_if(m_scenes, [sceneId](const SceneData &s) -> bool { return s.id == sceneId; });
     if (it != m_scenes.end()) {
-        for (auto &clip : it->clips) {
-            for (auto *eff : std::as_const(clip.effects)) {
-                eff->deleteLater();
+        const SceneData removed = *it;
+        const auto removedIndex = std::distance(m_scenes.begin(), it);
+        m_scenes.erase(it);
+        if (!commitTimelineProjection()) {
+            m_scenes.insert(removedIndex, removed);
+            qWarning() << "Rust rejected scene removal";
+            return;
+        }
+        for (const auto &clip : removed.clips) {
+            for (auto *eff : clip.effects) {
+                if (eff != nullptr) {
+                    eff->deleteLater();
+                }
             }
         }
         if (m_currentSceneId == sceneId) {
             switchScene(0);
         }
-        m_scenes.erase(it);
         invalidateCurrentSceneCache();
         emit scenesChanged();
     }
@@ -228,6 +245,11 @@ void TimelineService::removeSceneInternal(int sceneId) {
 
 void TimelineService::restoreSceneInternal(const SceneData &scene) {
     m_scenes.append(scene);
+    if (!commitTimelineProjection()) {
+        m_scenes.removeLast();
+        qWarning() << "Rust rejected scene restoration";
+        return;
+    }
     invalidateCurrentSceneCache();
     emit scenesChanged();
 }
@@ -235,6 +257,7 @@ void TimelineService::restoreSceneInternal(const SceneData &scene) {
 void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &data) {
     for (auto &scene : m_scenes) {
         if (scene.id == sceneId) {
+            const SceneData oldData = scene;
             scene.name = data.name;
             scene.width = data.width;
             scene.height = data.height;
@@ -247,6 +270,11 @@ void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &d
             scene.gridSubdivision = data.gridSubdivision;
             scene.enableSnap = data.enableSnap;
             scene.magneticSnapRange = data.magneticSnapRange;
+            if (!commitTimelineProjection()) {
+                scene = oldData;
+                qWarning() << "Rust rejected scene settings update";
+                return;
+            }
             emit scenesChanged();
             return;
         }
