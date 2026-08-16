@@ -146,6 +146,10 @@ jobs:
           if ($missing.Count -ne 0) {
             throw "Packaged runtime files are missing: $($missing -join ', ')"
           }
+          $x264Dlls = @(Get-ChildItem -LiteralPath build -Filter "*x264*.dll" -File)
+          if ($x264Dlls.Count -eq 0) {
+            throw "The packaged x264 runtime DLL is missing"
+          }
           $pkgconfDlls = @(Get-ChildItem -LiteralPath build -Filter "pkgconf*.dll" -File)
           if ($pkgconfDlls.Count -ne 0) {
             throw "Host-only pkgconf DLLs were packaged: $($pkgconfDlls.Name -join ', ')"

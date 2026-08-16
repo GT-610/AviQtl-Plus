@@ -3,7 +3,12 @@
   "name": "aviqtl",
   "dependencies": [
     "ecm",
-    "ffmpeg",
+    {
+      "name": "ffmpeg",
+      "features": [
+        "x264"
+      ]
+    },
     "luajit",
     {
       "name": "pkgconf",
