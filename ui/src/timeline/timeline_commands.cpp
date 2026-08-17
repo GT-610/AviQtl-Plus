@@ -13,31 +13,12 @@ AddClipCommand::AddClipCommand(TimelineService *service, int clipId, QString typ
 }
 void AddClipCommand::undo() { m_service->deleteClipInternal(m_clipId); }
 void AddClipCommand::redo() {
-    m_service->beginTimelineProjectionTransaction();
-    m_service->createClipInternal(m_clipId, m_type, m_startFrame, m_layer, false);
+    m_service->createClipInternal(m_clipId, m_type, m_startFrame, m_layer, false, m_duration,
+                                  m_effectId, m_effectParams);
     auto *clip = m_service->findClipById(m_clipId);
     if (clip == nullptr) {
-        m_service->endTimelineProjectionTransaction();
         return;
     }
-
-    if (m_duration > 0) {
-        m_service->updateClipInternal(m_clipId, clip->layer, m_startFrame, m_duration, false, true);
-    }
-    for (auto *effect : std::as_const(clip->effects)) {
-        if (effect == nullptr || effect->id() != m_effectId) {
-            continue;
-        }
-        for (auto it = m_effectParams.cbegin(); it != m_effectParams.cend(); ++it) {
-            effect->setParam(it.key(), it.value());
-        }
-        break;
-    }
-
-    if (!m_service->endTimelineProjectionTransaction()) {
-        return;
-    }
-
     emit m_service->clipsChanged();
     emit m_service->clipCreated(clip->id, clip->layer, clip->startFrame, clip->durationFrames, clip->type);
 }
@@ -260,8 +241,15 @@ void SplitClipCommand::redo() {
     }
 
     m_service->updateClipInternal(m_originalClipId, original->layer, original->startFrame,
-                                  m_firstDuration, false, true);
-    m_service->addClipDirectInternal(newClip, false);
+                                  m_firstDuration, false, true, false);
+    m_service->addClipDirectInternal(newClip, false, false);
+    const QVariantMap request{
+        {QStringLiteral("operation"), QStringLiteral("split_clip")},
+        {QStringLiteral("clip_id"), m_originalClipId},
+        {QStringLiteral("frame"), m_splitFrame},
+        {QStringLiteral("new_clip_id"), m_newClipId},
+    };
+    static_cast<void>(m_service->commitTimelineEdit(request, {}));
     if (m_service->endTimelineProjectionTransaction()) {
         emit m_service->clipsChanged();
     } else {

@@ -1,5 +1,6 @@
 #include "effect_registry.hpp"
 #include "image_decoder.hpp"
+#include "selection_service.hpp"
 #include "timeline_controller.hpp"
 #include "video_frame_store.hpp"
 #include "video_encoder.hpp"
@@ -34,6 +35,10 @@ class TestDailyEditingWorkflow : public QObject {
     void audioPluginKeyframeEvaluationIsCompatible();
     void audioPluginKeyframeMutationsAreUndoable();
     void rejectedProjectionTransactionRestoresRuntimeModel();
+    void targetedTimelineEditsPreserveExtensions();
+    void targetedBatchFailureRollsBackRustAndQt();
+    void sceneUndoRestoresItsClipsInRustState();
+    void clipboardPasteTargetsCurrentScene();
     void pasteReportsResolvedClipEditTarget();
     void catalogItemsExposeProductMetadata();
     void catalogQueryFiltersMetadataAndCategories();
@@ -481,6 +486,131 @@ void TestDailyEditingWorkflow::rejectedProjectionTransactionRestoresRuntimeModel
     QVERIFY(clip->effects.size() >= 2);
     QCOMPARE(clip->effects.at(1), removedEffect);
     QCOMPARE(removedEffect->isEnabled(), previousEnabled);
+}
+
+void TestDailyEditingWorkflow::targetedTimelineEditsPreserveExtensions() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    QVERIFY(timeline.findClipById(clipId) != nullptr);
+
+    QVariantMap document = timeline.timelineStateSnapshot();
+    QVariantList scenes = document.value(QStringLiteral("scenes")).toList();
+    QVariantMap scene = scenes.first().toMap();
+    scene.insert(QStringLiteral("reviewSceneExtension"), QStringLiteral("scene-token"));
+    scenes[0] = scene;
+    document.insert(QStringLiteral("scenes"), scenes);
+    QVariantList clips = document.value(QStringLiteral("clips")).toList();
+    QVariantMap clip = clips.first().toMap();
+    clip.insert(QStringLiteral("reviewClipExtension"), QStringLiteral("clip-token"));
+    clips[0] = clip;
+    document.insert(QStringLiteral("clips"), clips);
+    QVERIFY(timeline.resetTimelineState(document, timeline.nextClipId(), timeline.nextSceneId()));
+
+    timeline.updateClipInternal(clipId, 2, 12, 40, false, true);
+    timeline.setClipByUpperObjectInternal(clipId, true, false);
+    timeline.setLayerStateInternal(0, 3, true, 0);
+
+    const QVariantMap updated = timeline.timelineStateSnapshot();
+    const QVariantMap updatedScene = updated.value(QStringLiteral("scenes"))
+                                         .toList()
+                                         .first()
+                                         .toMap();
+    const QVariantMap updatedClip = updated.value(QStringLiteral("clips"))
+                                        .toList()
+                                        .first()
+                                        .toMap();
+    QCOMPARE(updatedScene.value(QStringLiteral("reviewSceneExtension")).toString(),
+             QStringLiteral("scene-token"));
+    QCOMPARE(updatedClip.value(QStringLiteral("reviewClipExtension")).toString(),
+             QStringLiteral("clip-token"));
+    QCOMPARE(updatedClip.value(QStringLiteral("layer")).toInt(), 2);
+    QCOMPARE(updatedClip.value(QStringLiteral("start")).toInt(), 12);
+    QCOMPARE(updatedClip.value(QStringLiteral("duration")).toInt(), 40);
+    QVERIFY(updatedClip.value(QStringLiteral("clipByUpperObject")).toBool());
+}
+
+void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const QVariantMap previousState = timeline.timelineStateSnapshot();
+    const QList<SceneData> previousScenes = timeline.getAllScenes();
+
+    ClipData duplicate;
+    duplicate.id = 900;
+    duplicate.sceneId = 0;
+    duplicate.type = QStringLiteral("text");
+    duplicate.startFrame = 0;
+    duplicate.durationFrames = 30;
+    duplicate.layer = 0;
+    timeline.addClipsDirectInternal({duplicate, duplicate});
+
+    QCOMPARE(timeline.timelineStateSnapshot(), previousState);
+    QCOMPARE(timeline.getAllScenes().size(), previousScenes.size());
+    QCOMPARE(timeline.getAllScenes().first().clips.size(),
+             previousScenes.first().clips.size());
+}
+
+void TestDailyEditingWorkflow::sceneUndoRestoresItsClipsInRustState() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int sceneId = timeline.nextSceneId();
+    timeline.createScene(QStringLiteral("Nested"));
+    QCOMPARE(timeline.currentSceneId(), sceneId);
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 5, 1);
+    QVERIFY(timeline.findClipById(clipId) != nullptr);
+    const QVariantMap beforeRemoval = timeline.timelineStateSnapshot();
+
+    timeline.removeScene(sceneId);
+    QVERIFY(timeline.findClipById(clipId) == nullptr);
+    timeline.undo();
+
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeRemoval);
+    const auto sceneIt = std::ranges::find_if(
+        timeline.getAllScenes(), [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+    QVERIFY(sceneIt != timeline.getAllScenes().end());
+    QCOMPARE(sceneIt->clips.size(), 1);
+    QCOMPARE(sceneIt->clips.first().id, clipId);
+}
+
+void TestDailyEditingWorkflow::clipboardPasteTargetsCurrentScene() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int sourceClipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    timeline.copyClip(sourceClipId);
+
+    const int destinationSceneId = timeline.nextSceneId();
+    timeline.createScene(QStringLiteral("Destination"));
+    QCOMPARE(timeline.currentSceneId(), destinationSceneId);
+    const int pastedClipId = timeline.nextClipId();
+    timeline.pasteClip(10, 2);
+
+    const auto *pasted = timeline.findClipById(pastedClipId);
+    QVERIFY(pasted != nullptr);
+    QCOMPARE(pasted->sceneId, destinationSceneId);
+    QCOMPARE(timeline.clips(destinationSceneId).size(), 1);
+    QCOMPARE(timeline.clips(0).size(), 1);
+
+    timeline.undo();
+    QVERIFY(timeline.findClipById(pastedClipId) == nullptr);
+    timeline.redo();
+    pasted = timeline.findClipById(pastedClipId);
+    QVERIFY(pasted != nullptr);
+    QCOMPARE(pasted->sceneId, destinationSceneId);
+    QVariantMap rustClip;
+    const QVariantList rustClips =
+        timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    for (const QVariant &candidate : rustClips) {
+        if (candidate.toMap().value(QStringLiteral("id")).toInt() == pastedClipId) {
+            rustClip = candidate.toMap();
+            break;
+        }
+    }
+    QVERIFY(!rustClip.isEmpty());
+    QCOMPARE(rustClip.value(QStringLiteral("sceneId")).toInt(), destinationSceneId);
 }
 
 void TestDailyEditingWorkflow::audioPluginKeyframeEvaluationIsCompatible() {

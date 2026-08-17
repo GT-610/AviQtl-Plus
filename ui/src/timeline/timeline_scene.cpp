@@ -239,7 +239,11 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     const qsizetype insertedIndex = m_scenes.size();
     m_scenes.append(newScene);
     invalidateCurrentSceneCache();
-    if (!commitTimelineMutation([this, sceneId, insertedIndex]() {
+    const QVariantMap request{
+        {QStringLiteral("operation"), QStringLiteral("insert_scene")},
+        {QStringLiteral("scene"), timelineSceneDocument(newScene)},
+    };
+    if (!commitTimelineMutation(request, [this, sceneId, insertedIndex]() {
             if (insertedIndex < m_scenes.size() && m_scenes.at(insertedIndex).id == sceneId) {
                 m_scenes.removeAt(insertedIndex);
                 invalidateCurrentSceneCache();
@@ -270,8 +274,12 @@ void TimelineService::removeSceneInternal(int sceneId) {
         const auto removedIndex = std::distance(m_scenes.begin(), it);
         m_scenes.erase(it);
         invalidateCurrentSceneCache();
+        const QVariantMap request{
+            {QStringLiteral("operation"), QStringLiteral("remove_scene")},
+            {QStringLiteral("scene_id"), sceneId},
+        };
         if (!commitTimelineMutation(
-                [this, removedIndex, removed]() {
+                request, [this, removedIndex, removed]() {
                     m_scenes.insert(std::min<qsizetype>(removedIndex, m_scenes.size()), removed);
                     invalidateCurrentSceneCache();
                 },
@@ -295,10 +303,15 @@ void TimelineService::removeSceneInternal(int sceneId) {
 }
 
 void TimelineService::restoreSceneInternal(const SceneData &scene) {
+    beginTimelineProjectionTransaction();
     const qsizetype insertedIndex = m_scenes.size();
     m_scenes.append(scene);
     invalidateCurrentSceneCache();
-    if (!commitTimelineMutation([this, sceneId = scene.id, insertedIndex]() {
+    const QVariantMap request{
+        {QStringLiteral("operation"), QStringLiteral("insert_scene")},
+        {QStringLiteral("scene"), timelineSceneDocument(scene)},
+    };
+    static_cast<void>(commitTimelineMutation(request, [this, sceneId = scene.id, insertedIndex]() {
             if (insertedIndex < m_scenes.size() && m_scenes.at(insertedIndex).id == sceneId) {
                 m_scenes.removeAt(insertedIndex);
                 invalidateCurrentSceneCache();
@@ -311,7 +324,15 @@ void TimelineService::restoreSceneInternal(const SceneData &scene) {
                     return;
                 }
             }
-        })) {
+        }));
+    for (const ClipData &clip : scene.clips) {
+        const QVariantMap clipRequest{
+            {QStringLiteral("operation"), QStringLiteral("insert_clip")},
+            {QStringLiteral("clip"), timelineClipDocument(clip)},
+        };
+        static_cast<void>(commitTimelineMutation(clipRequest, {}));
+    }
+    if (!endTimelineProjectionTransaction()) {
         qWarning() << "Rust rejected scene restoration";
         return;
     }
@@ -334,7 +355,12 @@ void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &d
             scene.gridSubdivision = data.gridSubdivision;
             scene.enableSnap = data.enableSnap;
             scene.magneticSnapRange = data.magneticSnapRange;
-            if (!commitTimelineMutation([this, sceneId, oldData]() {
+            const QVariantMap request{
+                {QStringLiteral("operation"), QStringLiteral("update_scene")},
+                {QStringLiteral("scene_id"), sceneId},
+                {QStringLiteral("scene"), timelineSceneDocument(scene)},
+            };
+            if (!commitTimelineMutation(request, [this, sceneId, oldData]() {
                     auto restored = std::ranges::find_if(
                         m_scenes,
                         [sceneId](const SceneData &candidate) { return candidate.id == sceneId; });

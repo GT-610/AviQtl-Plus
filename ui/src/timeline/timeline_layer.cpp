@@ -32,7 +32,12 @@ void TimelineService::setLayerStateInternal(int sceneId, int layer, bool value, 
             it->hiddenLayers.remove(layer);
         }
     }
-    if (!commitTimelineMutation([this, sceneId, layer, type, previous]() {
+    const QVariantMap request{
+        {QStringLiteral("operation"), QStringLiteral("update_scene")},
+        {QStringLiteral("scene_id"), sceneId},
+        {QStringLiteral("scene"), timelineSceneDocument(*it)},
+    };
+    if (!commitTimelineMutation(request, [this, sceneId, layer, type, previous]() {
             auto restored = std::ranges::find_if(
                 m_scenes, [sceneId](const SceneData &scene) { return scene.id == sceneId; });
             if (restored == m_scenes.end()) {
