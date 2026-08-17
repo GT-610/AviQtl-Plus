@@ -116,7 +116,7 @@ class TimelineService : public QObject {
                                       bool commitState = true);
     void addEffectInternal(int clipId, const QString &effectId);
     void addClipsDirectInternal(const QList<ClipData> &clips);
-    void addClipDirectInternal(const ClipData &clip, bool emitSignal = true,
+    bool addClipDirectInternal(const ClipData &clip, bool emitSignal = true,
                                bool commitState = true);
     void restoreEffectInternal(int clipId, const QVariantMap &data);
     void removeEffectInternal(int clipId, int effectIndex);

@@ -133,6 +133,29 @@ QVariantMap effectRuntimeData(const EffectModel *effect) {
     };
 }
 
+struct RestoredEffect {
+    EffectModel *model;
+    QVariantMap document;
+};
+
+RestoredEffect restoreEffectModel(const QVariantMap &payload, QObject *parent) {
+    const QVariantMap runtime = payload.value(QStringLiteral("runtime")).toMap().isEmpty()
+                                    ? payload
+                                    : payload.value(QStringLiteral("runtime")).toMap();
+    const QVariantMap document = payload.value(QStringLiteral("document")).toMap();
+    const auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(
+        runtime.value(QStringLiteral("id")).toString());
+    auto *model = new EffectModel(
+        runtime.value(QStringLiteral("id")).toString(),
+        runtime.value(QStringLiteral("name")).toString(), meta.kind, meta.categories,
+        runtime.value(QStringLiteral("params")).toMap(),
+        runtime.value(QStringLiteral("qmlSource")).toString(),
+        runtime.value(QStringLiteral("uiDefinition")).toMap(), parent);
+    model->setEnabled(runtime.value(QStringLiteral("enabled")).toBool());
+    model->setKeyframeTracks(runtime.value(QStringLiteral("keyframes")).toMap());
+    return {model, document};
+}
+
 QVariantMap effectRestoreData(int index, const EffectModel *effect,
                               const QVariantMap &document) {
     return {
@@ -155,6 +178,14 @@ QVariantMap removeEffectsRequest(int clipId, const QVariantList &indices) {
         {QStringLiteral("operation"), QStringLiteral("remove_effects")},
         {QStringLiteral("clip_id"), clipId},
         {QStringLiteral("effect_indices"), indices},
+    };
+}
+
+QVariantMap reorderEffectsRequest(int clipId, const QVariantList &permutation) {
+    return {
+        {QStringLiteral("operation"), QStringLiteral("reorder_effects")},
+        {QStringLiteral("clip_id"), clipId},
+        {QStringLiteral("permutation"), permutation},
     };
 }
 
@@ -198,22 +229,16 @@ void TimelineService::addEffectInternal(int clipId, const QString &effectId) {
 void TimelineService::restoreEffectInternal(int clipId, const QVariantMap &data) {
     auto *clip = findClipById(clipId);
     if (clip != nullptr) {
-        const QVariantMap runtime = data.value(QStringLiteral("runtime")).toMap().isEmpty()
-                                        ? data
-                                        : data.value(QStringLiteral("runtime")).toMap();
-        const QVariantMap document = data.value(QStringLiteral("document")).toMap();
         const int index = std::clamp(data.value(QStringLiteral("index"), clip->effects.size()).toInt(),
                                      0, static_cast<int>(clip->effects.size()));
-        auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(runtime.value(QStringLiteral("id")).toString());
-        auto *model = new EffectModel(runtime.value(QStringLiteral("id")).toString(), runtime.value(QStringLiteral("name")).toString(), meta.kind, meta.categories, runtime.value(QStringLiteral("params")).toMap(), runtime.value(QStringLiteral("qmlSource")).toString(),
-                                      runtime.value(QStringLiteral("uiDefinition")).toMap(), this);
-        model->setEnabled(runtime.value(QStringLiteral("enabled")).toBool());
-        model->setKeyframeTracks(runtime.value(QStringLiteral("keyframes")).toMap());
+        const RestoredEffect restoredEffect = restoreEffectModel(data, this);
+        auto *model = restoredEffect.model;
         clip->effects.insert(index, model);
         const QVariantMap request = insertEffectsRequest(
             clipId,
             {QVariantMap{{QStringLiteral("index"), index},
-                         {QStringLiteral("effect"), restoredEffectDocument(model, document)}}});
+                         {QStringLiteral("effect"),
+                          restoredEffectDocument(model, restoredEffect.document)}}});
         if (!commitTimelineMutation(request, [this, clipId, model]() {
                 if (auto *restored = findClipById(clipId); restored != nullptr) {
                     restored->effects.removeOne(model);
@@ -379,24 +404,17 @@ void TimelineService::restoreMultipleEffectsInternal(int clipId, const QList<QVa
             QVariantList insertions;
             insertions.reserve(ascData.size());
             for (const auto &d : ascData) {
-                const QVariantMap runtime = d.value(QStringLiteral("runtime")).toMap().isEmpty()
-                                                ? d
-                                                : d.value(QStringLiteral("runtime")).toMap();
-                const QVariantMap document = d.value(QStringLiteral("document")).toMap();
                 const int index = std::clamp(
                     d.value(QStringLiteral("index"), clip.effects.size()).toInt(), 0,
                     static_cast<int>(clip.effects.size()));
-                auto meta = AviQtl::Core::EffectRegistry::instance().getEffect(runtime.value(QStringLiteral("id")).toString());
-                auto *model = new EffectModel(runtime.value(QStringLiteral("id")).toString(), runtime.value(QStringLiteral("name")).toString(), meta.kind, meta.categories, runtime.value(QStringLiteral("params")).toMap(), runtime.value(QStringLiteral("qmlSource")).toString(),
-                                              runtime.value(QStringLiteral("uiDefinition")).toMap(), this);
-                model->setEnabled(runtime.value(QStringLiteral("enabled")).toBool());
-                model->setKeyframeTracks(runtime.value(QStringLiteral("keyframes")).toMap());
+                const RestoredEffect restoredEffect = restoreEffectModel(d, this);
+                auto *model = restoredEffect.model;
                 clip.effects.insert(index, model);
                 restoredEffects.append(model);
                 insertions.append(
                     QVariantMap{{QStringLiteral("index"), index},
                                 {QStringLiteral("effect"),
-                                 restoredEffectDocument(model, document)}});
+                                 restoredEffectDocument(model, restoredEffect.document)}});
             }
             if (insertions.isEmpty()) {
                 return;
@@ -517,11 +535,7 @@ void TimelineService::applyPermutationInternal(int clipId, const QList<int> &per
         for (int index : perm) {
             permutation.append(index);
         }
-        const QVariantMap request{
-            {QStringLiteral("operation"), QStringLiteral("reorder_effects")},
-            {QStringLiteral("clip_id"), clipId},
-            {QStringLiteral("permutation"), permutation},
-        };
+        const QVariantMap request = reorderEffectsRequest(clipId, permutation);
         if (!commitTimelineMutation(request, [this, clipId, previous]() {
                 if (auto *restored = findClipById(clipId); restored != nullptr) {
                     restored->effects = previous;
@@ -569,11 +583,7 @@ void TimelineService::reorderEffectsInternal(int clipId, int oldIndex, int newIn
     }
     permutation.move(oldIndex, newIndex);
     clip->effects.move(oldIndex, newIndex);
-    const QVariantMap request{
-        {QStringLiteral("operation"), QStringLiteral("reorder_effects")},
-        {QStringLiteral("clip_id"), clipId},
-        {QStringLiteral("permutation"), permutation},
-    };
+    const QVariantMap request = reorderEffectsRequest(clipId, permutation);
     if (!commitTimelineMutation(request, [this, clipId, previous]() {
             if (auto *restored = findClipById(clipId); restored != nullptr) {
                 restored->effects = previous;

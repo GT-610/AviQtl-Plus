@@ -296,6 +296,14 @@ impl TimelineState {
                     if insertion.index > clip.effects.len() {
                         return Err(StateError::InvalidArgument);
                     }
+                    if insertion.index == 0
+                        && clip
+                            .effects
+                            .first()
+                            .is_some_and(|effect| effect.id == "transform")
+                    {
+                        return Err(StateError::InvalidArgument);
+                    }
                     clip.effects.insert(insertion.index, insertion.effect);
                 }
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
@@ -1691,6 +1699,16 @@ mod tests {
             state.plan(EditRequest::ReorderEffects {
                 clip_id: 1,
                 permutation: vec![1, 0, 2],
+            }),
+            Err(StateError::InvalidArgument)
+        );
+        assert_eq!(
+            state.plan(EditRequest::InsertEffects {
+                clip_id: 1,
+                insertions: vec![EffectInsertion {
+                    index: 0,
+                    effect: before.clips[0].effects[1].clone(),
+                }],
             }),
             Err(StateError::InvalidArgument)
         );

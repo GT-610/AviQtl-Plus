@@ -692,14 +692,14 @@ void TimelineService::deleteClipInternal(int clipId, bool emitSignal, bool commi
     }
 }
 
-void TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSignal,
+bool TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSignal,
                                             bool commitState) {
     auto sceneIt = std::ranges::find_if(m_scenes, [&clip](const SceneData &scene) {
         return scene.id == clip.sceneId;
     });
     if (sceneIt == m_scenes.end()) {
         qWarning() << "Cannot insert clip into missing scene" << clip.sceneId;
-        return;
+        return false;
     }
     auto &targetClips = sceneIt->clips;
     const int targetSceneId = clip.sceneId;
@@ -730,12 +730,13 @@ void TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSigna
             }
         })) {
         qWarning() << "Rust rejected direct clip insertion";
-        return;
+        return false;
     }
     if (emitSignal) {
         emit clipsChanged();
         emit clipCreated(clip.id, clip.layer, clip.startFrame, clip.durationFrames, clip.type);
     }
+    return true;
 }
 
 auto TimelineService::findClipById(int clipId) -> ClipData * {

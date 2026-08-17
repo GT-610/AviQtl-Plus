@@ -579,6 +579,13 @@ void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOr
         return ids;
     };
 
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    timeline.pasteEffectInternal(clipId, 0, clip->effects.at(2));
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
+                                       QStringLiteral("blur")}));
+
     timeline.setEffectEnabled(clipId, 2, false);
     QVariantList changedEffects = effectDocuments();
     QVERIFY(!changedEffects.at(2).toMap().value(QStringLiteral("enabled")).toBool());
