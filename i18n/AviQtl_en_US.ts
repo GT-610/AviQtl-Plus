@@ -4082,42 +4082,42 @@ Please restart the application to apply the update.</translation>
         <translation>Add scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="388"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="390"/>
         <source>シーン削除: %1</source>
         <translation>Delete scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="395"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="397"/>
         <source>シーン設定変更: %1</source>
         <translation>Scene settings change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="404"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="406"/>
         <source>オーディオプラグインキーフレーム設定: %1</source>
         <translation>Audio plugin keyframe set: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="431"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="433"/>
         <source>オーディオプラグインキーフレーム削除: %1 [%2]</source>
         <translation>Audio plugin keyframe delete: %1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="438"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="440"/>
         <source>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</source>
         <translation>Audio plugin keyframe move: %1 [%2 -&gt; %3]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="445"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="447"/>
         <source>オーディオプラグインパラメータ変更: %1</source>
         <translation>Audio plugin parameter change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="464"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="466"/>
         <source>オーディオプラグイン追加: %1</source>
         <translation>Add audio plugin: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="470"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="472"/>
         <source>オーディオプラグイン削除: %1</source>
         <translation>Remove audio plugin: %1</translation>
     </message>

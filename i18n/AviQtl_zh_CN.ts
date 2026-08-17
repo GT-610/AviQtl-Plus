@@ -4082,42 +4082,42 @@
         <translation>添加场景：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="388"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="390"/>
         <source>シーン削除: %1</source>
         <translation>删除场景：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="395"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="397"/>
         <source>シーン設定変更: %1</source>
         <translation>场景设置更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="404"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="406"/>
         <source>オーディオプラグインキーフレーム設定: %1</source>
         <translation>音频插件关键帧设置：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="431"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="433"/>
         <source>オーディオプラグインキーフレーム削除: %1 [%2]</source>
         <translation>音频插件关键帧删除：%1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="438"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="440"/>
         <source>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</source>
         <translation>音频插件关键帧移动：%1 [%2 -&gt; %3]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="445"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="447"/>
         <source>オーディオプラグインパラメータ変更: %1</source>
         <translation>音频插件参数更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="464"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="466"/>
         <source>オーディオプラグイン追加: %1</source>
         <translation>音频插件添加：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="470"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="472"/>
         <source>オーディオプラグイン削除: %1</source>
         <translation>音频插件删除：%1</translation>
     </message>
