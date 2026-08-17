@@ -1972,22 +1972,22 @@
 <context>
     <name>AviQtl::UI::TimelineService</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="245"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="251"/>
         <source>レイヤーを上に挿入</source>
         <translation>向上插入图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="245"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="251"/>
         <source>レイヤーを下に挿入</source>
         <translation>向下插入图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="260"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="266"/>
         <source>レイヤーをまとめて下へ移動</source>
         <translation>批量下移图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="261"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="267"/>
         <source>レイヤーをまとめて上へ移動</source>
         <translation>批量上移图层</translation>
     </message>
@@ -4128,33 +4128,33 @@
         <translation>根</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="311"/>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="341"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="317"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="347"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>绝对移动多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="377"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="383"/>
         <source>複数クリップ変形: %1</source>
         <translation>变换多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="649"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="655"/>
         <source>クリップ削除</source>
         <translation>删除片段</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="649"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="655"/>
         <source>複数クリップ削除: %1</source>
         <translation>删除多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="872"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="878"/>
         <source>複数クリップ分割: %1</source>
         <translation>分割多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="921"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="927"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>粘贴多个片段：%1</translation>
     </message>
