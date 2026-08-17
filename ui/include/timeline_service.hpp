@@ -115,7 +115,7 @@ class TimelineService : public QObject {
     void setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal = true,
                                       bool commitState = true);
     void addEffectInternal(int clipId, const QString &effectId);
-    void addClipsDirectInternal(const QList<ClipData> &clips);
+    bool addClipsDirectInternal(const QList<ClipData> &clips);
     bool addClipDirectInternal(const ClipData &clip, bool emitSignal = true,
                                bool commitState = true);
     void restoreEffectInternal(int clipId, const QVariantMap &data);
@@ -178,6 +178,7 @@ class TimelineService : public QObject {
     SceneData *currentScene();
     const SceneData *currentScene() const;
     void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
+    void abortTimelineProjectionTransaction();
     bool commitTimelineMutation(std::function<void()> rollback,
                                 std::function<void()> commitAction = {});
     bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
@@ -189,6 +190,7 @@ class TimelineService : public QObject {
 
     AviQtl::RustCore::TimelineState m_timelineState;
     int m_timelineProjectionTransactionDepth = 0;
+    bool m_timelineProjectionTransactionAborted = false;
     bool m_timelineProjectionRequiresFullCommit = false;
     QList<QVariantMap> m_timelineProjectionRequests;
     QList<std::function<void()>> m_timelineProjectionRollbacks;
