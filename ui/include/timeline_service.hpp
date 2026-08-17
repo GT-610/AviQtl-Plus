@@ -137,7 +137,7 @@ class TimelineService : public QObject {
     void setClipboard(const QList<ClipData> &clips);
     void createSceneInternal(int sceneId, const QString &name);
     void removeSceneInternal(int sceneId);
-    void restoreSceneInternal(const SceneData &scene);
+    void restoreSceneInternal(const SceneData &scene, qsizetype index);
     void applySceneSettingsInternal(int sceneId, const SceneData &data);
     void setKeyframeInternal(int clipId, int effectIndex, const QString &paramName, int frame, const QVariant &value, const QVariantMap &options);
     void removeKeyframeInternal(int clipId, int effectIndex, const QString &paramName, int frame);

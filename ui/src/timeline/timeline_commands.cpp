@@ -379,16 +379,18 @@ void AddSceneCommand::redo() { m_service->createSceneInternal(m_sceneId, m_name)
 void AddSceneCommand::undo() { m_service->removeSceneInternal(m_sceneId); }
 
 RemoveSceneCommand::RemoveSceneCommand(TimelineService *service, int sceneId, const QString &name) : m_service(service), m_sceneId(sceneId) {
-    for (const auto &s : service->getAllScenes()) {
-        if (s.id == sceneId) {
-            m_snapshot = s;
+    const auto &scenes = service->getAllScenes();
+    for (qsizetype index = 0; index < scenes.size(); ++index) {
+        if (scenes.at(index).id == sceneId) {
+            m_sceneIndex = index;
+            m_snapshot = scenes.at(index);
             break;
         }
     }
     setText(QObject::tr("シーン削除: %1").arg(name));
 }
 void RemoveSceneCommand::redo() { m_service->removeSceneInternal(m_sceneId); }
-void RemoveSceneCommand::undo() { m_service->restoreSceneInternal(m_snapshot); }
+void RemoveSceneCommand::undo() { m_service->restoreSceneInternal(m_snapshot, m_sceneIndex); }
 
 UpdateSceneSettingsCommand::UpdateSceneSettingsCommand(TimelineService *service, int sceneId, SceneData oldData, const SceneData &newData)
     : m_service(service), m_sceneId(sceneId), m_oldData(std::move(oldData)), m_newData(newData) { // NOLINT(bugprone-easily-swappable-parameters)

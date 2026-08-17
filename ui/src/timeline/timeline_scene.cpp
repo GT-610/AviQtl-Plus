@@ -302,13 +302,14 @@ void TimelineService::removeSceneInternal(int sceneId) {
     }
 }
 
-void TimelineService::restoreSceneInternal(const SceneData &scene) {
+void TimelineService::restoreSceneInternal(const SceneData &scene, qsizetype index) {
     beginTimelineProjectionTransaction();
-    const qsizetype insertedIndex = m_scenes.size();
-    m_scenes.append(scene);
+    const qsizetype insertedIndex = std::clamp(index, qsizetype{0}, m_scenes.size());
+    m_scenes.insert(insertedIndex, scene);
     invalidateCurrentSceneCache();
     const QVariantMap request{
         {QStringLiteral("operation"), QStringLiteral("insert_scene")},
+        {QStringLiteral("index"), insertedIndex},
         {QStringLiteral("scene"), timelineSceneDocument(scene)},
     };
     static_cast<void>(commitTimelineMutation(request, [this, sceneId = scene.id, insertedIndex]() {

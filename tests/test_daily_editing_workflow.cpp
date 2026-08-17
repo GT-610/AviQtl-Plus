@@ -561,6 +561,9 @@ void TestDailyEditingWorkflow::sceneUndoRestoresItsClipsInRustState() {
     const int clipId = timeline.nextClipId();
     timeline.createClip(QStringLiteral("text"), 5, 1);
     QVERIFY(timeline.findClipById(clipId) != nullptr);
+    const int trailingSceneId = timeline.nextSceneId();
+    timeline.createScene(QStringLiteral("Trailing"));
+    QCOMPARE(timeline.currentSceneId(), trailingSceneId);
     const QVariantMap beforeRemoval = timeline.timelineStateSnapshot();
 
     timeline.removeScene(sceneId);
@@ -568,6 +571,9 @@ void TestDailyEditingWorkflow::sceneUndoRestoresItsClipsInRustState() {
     timeline.undo();
 
     QCOMPARE(timeline.timelineStateSnapshot(), beforeRemoval);
+    QCOMPARE(timeline.getAllScenes().size(), 3);
+    QCOMPARE(timeline.getAllScenes().at(1).id, sceneId);
+    QCOMPARE(timeline.getAllScenes().at(2).id, trailingSceneId);
     const auto sceneIt = std::ranges::find_if(
         timeline.getAllScenes(), [sceneId](const SceneData &scene) { return scene.id == sceneId; });
     QVERIFY(sceneIt != timeline.getAllScenes().end());
