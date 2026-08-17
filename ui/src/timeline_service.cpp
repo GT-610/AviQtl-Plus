@@ -54,6 +54,59 @@ QVariantMap audioPluginDocument(const AudioPluginState &plugin, QVariantMap exis
     return existing;
 }
 
+QVariantMap sceneDocument(const SceneData &scene, QVariantMap existing = {}) {
+    existing.insert(QStringLiteral("id"), scene.id);
+    existing.insert(QStringLiteral("name"), scene.name);
+    existing.insert(QStringLiteral("width"), scene.width);
+    existing.insert(QStringLiteral("height"), scene.height);
+    existing.insert(QStringLiteral("fps"), scene.fps);
+    existing.insert(QStringLiteral("start"), scene.startFrame);
+    existing.insert(QStringLiteral("duration"), scene.totalFrames);
+    existing.insert(QStringLiteral("nestedDuration"), scene.durationFrames);
+    existing.insert(QStringLiteral("lockedLayers"), sortedLayerList(scene.lockedLayers));
+    existing.insert(QStringLiteral("hiddenLayers"), sortedLayerList(scene.hiddenLayers));
+    existing.insert(QStringLiteral("gridMode"), scene.gridMode);
+    existing.insert(QStringLiteral("gridBpm"), scene.gridBpm);
+    existing.insert(QStringLiteral("gridOffset"), scene.gridOffset);
+    existing.insert(QStringLiteral("gridInterval"), scene.gridInterval);
+    existing.insert(QStringLiteral("gridSubdivision"), scene.gridSubdivision);
+    existing.insert(QStringLiteral("enableSnap"), scene.enableSnap);
+    existing.insert(QStringLiteral("magneticSnapRange"), scene.magneticSnapRange);
+    return existing;
+}
+
+QVariantMap clipDocument(const ClipData &clip, QVariantMap existing = {}) {
+    const QVariantList oldEffects = existing.value(QStringLiteral("effects")).toList();
+    const QVariantList oldPlugins = existing.value(QStringLiteral("audioPlugins")).toList();
+    existing.insert(QStringLiteral("id"), clip.id);
+    existing.insert(QStringLiteral("sceneId"), clip.sceneId);
+    existing.insert(QStringLiteral("type"), clip.type);
+    existing.insert(QStringLiteral("start"), clip.startFrame);
+    existing.insert(QStringLiteral("duration"), clip.durationFrames);
+    existing.insert(QStringLiteral("layer"), clip.layer);
+    existing.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
+    existing.insert(QStringLiteral("params"), clip.params);
+
+    QVariantList plugins;
+    plugins.reserve(clip.audioPlugins.size());
+    for (qsizetype index = 0; index < clip.audioPlugins.size(); ++index) {
+        plugins.append(audioPluginDocument(
+            clip.audioPlugins.at(index),
+            index < oldPlugins.size() ? oldPlugins.at(index).toMap() : QVariantMap()));
+    }
+    existing.insert(QStringLiteral("audioPlugins"), plugins);
+
+    QVariantList effects;
+    effects.reserve(clip.effects.size());
+    for (qsizetype index = 0; index < clip.effects.size(); ++index) {
+        effects.append(effectDocument(
+            clip.effects.at(index),
+            index < oldEffects.size() ? oldEffects.at(index).toMap() : QVariantMap()));
+    }
+    existing.insert(QStringLiteral("effects"), effects);
+    return existing;
+}
+
 QVariantMap projectionDocument(const QList<SceneData> &scenes, QVariantMap base) {
     if (base.isEmpty()) {
         base.insert(QStringLiteral("version"), AviQtl::RustCore::currentProjectVersion());
@@ -80,57 +133,10 @@ QVariantMap projectionDocument(const QList<SceneData> &scenes, QVariantMap base)
     QVariantList sceneDocuments;
     QVariantList clipDocuments;
     for (const SceneData &scene : scenes) {
-        QVariantMap sceneObject = existingScenes.value(scene.id);
-        sceneObject.insert(QStringLiteral("id"), scene.id);
-        sceneObject.insert(QStringLiteral("name"), scene.name);
-        sceneObject.insert(QStringLiteral("width"), scene.width);
-        sceneObject.insert(QStringLiteral("height"), scene.height);
-        sceneObject.insert(QStringLiteral("fps"), scene.fps);
-        sceneObject.insert(QStringLiteral("start"), scene.startFrame);
-        sceneObject.insert(QStringLiteral("duration"), scene.totalFrames);
-        sceneObject.insert(QStringLiteral("nestedDuration"), scene.durationFrames);
-        sceneObject.insert(QStringLiteral("lockedLayers"), sortedLayerList(scene.lockedLayers));
-        sceneObject.insert(QStringLiteral("hiddenLayers"), sortedLayerList(scene.hiddenLayers));
-        sceneObject.insert(QStringLiteral("gridMode"), scene.gridMode);
-        sceneObject.insert(QStringLiteral("gridBpm"), scene.gridBpm);
-        sceneObject.insert(QStringLiteral("gridOffset"), scene.gridOffset);
-        sceneObject.insert(QStringLiteral("gridInterval"), scene.gridInterval);
-        sceneObject.insert(QStringLiteral("gridSubdivision"), scene.gridSubdivision);
-        sceneObject.insert(QStringLiteral("enableSnap"), scene.enableSnap);
-        sceneObject.insert(QStringLiteral("magneticSnapRange"), scene.magneticSnapRange);
-        sceneDocuments.append(sceneObject);
+        sceneDocuments.append(sceneDocument(scene, existingScenes.value(scene.id)));
 
         for (const ClipData &clip : scene.clips) {
-            QVariantMap clipObject = existingClips.value(clip.id);
-            const QVariantList oldEffects = clipObject.value(QStringLiteral("effects")).toList();
-            const QVariantList oldPlugins = clipObject.value(QStringLiteral("audioPlugins")).toList();
-            clipObject.insert(QStringLiteral("id"), clip.id);
-            clipObject.insert(QStringLiteral("sceneId"), clip.sceneId);
-            clipObject.insert(QStringLiteral("type"), clip.type);
-            clipObject.insert(QStringLiteral("start"), clip.startFrame);
-            clipObject.insert(QStringLiteral("duration"), clip.durationFrames);
-            clipObject.insert(QStringLiteral("layer"), clip.layer);
-            clipObject.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
-            clipObject.insert(QStringLiteral("params"), clip.params);
-
-            QVariantList plugins;
-            plugins.reserve(clip.audioPlugins.size());
-            for (qsizetype index = 0; index < clip.audioPlugins.size(); ++index) {
-                plugins.append(audioPluginDocument(
-                    clip.audioPlugins.at(index),
-                    index < oldPlugins.size() ? oldPlugins.at(index).toMap() : QVariantMap()));
-            }
-            clipObject.insert(QStringLiteral("audioPlugins"), plugins);
-
-            QVariantList effects;
-            effects.reserve(clip.effects.size());
-            for (qsizetype index = 0; index < clip.effects.size(); ++index) {
-                effects.append(effectDocument(
-                    clip.effects.at(index),
-                    index < oldEffects.size() ? oldEffects.at(index).toMap() : QVariantMap()));
-            }
-            clipObject.insert(QStringLiteral("effects"), effects);
-            clipDocuments.append(clipObject);
+            clipDocuments.append(clipDocument(clip, existingClips.value(clip.id)));
         }
     }
     base.insert(QStringLiteral("scenes"), sceneDocuments);
@@ -257,9 +263,55 @@ bool TimelineService::commitTimelineProjection() {
     return true;
 }
 
+QVariantMap TimelineService::timelineSceneDocument(const SceneData &scene) const {
+    return sceneDocument(scene);
+}
+
+QVariantMap TimelineService::timelineClipDocument(const ClipData &clip) const {
+    return clipDocument(clip);
+}
+
+bool TimelineService::applyTimelinePatch(const QVariantMap &patch) {
+    if (patch.isEmpty()) {
+        return false;
+    }
+    const auto status = m_timelineState.applyPatch(compactJson(patch));
+    if (status != AviQtl::RustCore::TimelineStateStatus::Ok) {
+        qWarning() << "Rust timeline state patch failed:" << static_cast<std::uint32_t>(status);
+        return false;
+    }
+    return true;
+}
+
+bool TimelineService::applyTimelineEditRequest(const QVariantMap &request,
+                                               QVariantMap &inversePatch) {
+    inversePatch.clear();
+    QByteArray transactionBytes;
+    const auto status = m_timelineState.plan(compactJson(request), transactionBytes);
+    if (status != AviQtl::RustCore::TimelineStateStatus::Ok) {
+        qWarning() << "Rust targeted timeline edit planning failed:"
+                   << static_cast<std::uint32_t>(status);
+        return false;
+    }
+    const QVariantMap transaction = jsonObject(transactionBytes);
+    const QVariantMap forward = transaction.value(QStringLiteral("forward")).toMap();
+    inversePatch = transaction.value(QStringLiteral("inverse")).toMap();
+    if (forward.isEmpty() || inversePatch.isEmpty()) {
+        qWarning() << "Rust targeted timeline edit returned an invalid transaction";
+        inversePatch.clear();
+        return false;
+    }
+    if (!applyTimelinePatch(forward)) {
+        inversePatch.clear();
+        return false;
+    }
+    return true;
+}
+
 bool TimelineService::commitTimelineMutation(std::function<void()> rollback,
                                              std::function<void()> commitAction) {
     if (m_timelineProjectionTransactionDepth > 0) {
+        m_timelineProjectionRequiresFullCommit = true;
         m_timelineProjectionRollbacks.append(std::move(rollback));
         m_timelineProjectionCommitActions.append(std::move(commitAction));
         return true;
@@ -276,8 +328,38 @@ bool TimelineService::commitTimelineMutation(std::function<void()> rollback,
     return true;
 }
 
+bool TimelineService::commitTimelineMutation(const QVariantMap &request,
+                                             std::function<void()> rollback,
+                                             std::function<void()> commitAction) {
+    if (m_timelineProjectionTransactionDepth > 0) {
+        m_timelineProjectionRequests.append(request);
+        m_timelineProjectionRollbacks.append(std::move(rollback));
+        m_timelineProjectionCommitActions.append(std::move(commitAction));
+        return true;
+    }
+    QVariantMap inversePatch;
+    if (!applyTimelineEditRequest(request, inversePatch)) {
+        if (rollback) {
+            rollback();
+        }
+        return false;
+    }
+    if (commitAction) {
+        commitAction();
+    }
+    return true;
+}
+
+bool TimelineService::commitTimelineEdit(const QVariantMap &request,
+                                         std::function<void()> rollback,
+                                         std::function<void()> commitAction) {
+    return commitTimelineMutation(request, std::move(rollback), std::move(commitAction));
+}
+
 void TimelineService::beginTimelineProjectionTransaction() {
     if (m_timelineProjectionTransactionDepth == 0) {
+        m_timelineProjectionRequiresFullCommit = false;
+        m_timelineProjectionRequests.clear();
         m_timelineProjectionRollbacks.clear();
         m_timelineProjectionCommitActions.clear();
     }
@@ -288,6 +370,10 @@ bool TimelineService::endTimelineProjectionTransaction() {
     if (m_timelineProjectionTransactionDepth <= 0) {
         qWarning() << "Unbalanced timeline projection transaction";
         m_timelineProjectionTransactionDepth = 0;
+        m_timelineProjectionRequiresFullCommit = false;
+        m_timelineProjectionRequests.clear();
+        m_timelineProjectionRollbacks.clear();
+        m_timelineProjectionCommitActions.clear();
         return false;
     }
     --m_timelineProjectionTransactionDepth;
@@ -295,17 +381,65 @@ bool TimelineService::endTimelineProjectionTransaction() {
         return true;
     }
 
+    const bool requiresFullCommit = m_timelineProjectionRequiresFullCommit;
+    auto requests = std::move(m_timelineProjectionRequests);
     auto rollbacks = std::move(m_timelineProjectionRollbacks);
     auto commitActions = std::move(m_timelineProjectionCommitActions);
+    m_timelineProjectionRequiresFullCommit = false;
+    m_timelineProjectionRequests.clear();
     m_timelineProjectionRollbacks.clear();
     m_timelineProjectionCommitActions.clear();
-    if (commitTimelineProjection()) {
+    bool committed = false;
+    QList<QVariantMap> inversePatches;
+    if (requiresFullCommit) {
+        committed = commitTimelineProjection();
+    } else {
+        const bool batchClipGeometry = requests.size() > 1 && std::ranges::all_of(
+            requests, [](const QVariantMap &request) {
+                return request.value(QStringLiteral("operation")).toString() ==
+                       QStringLiteral("update_clip_geometry");
+            });
+        if (batchClipGeometry) {
+            QVariantList updates;
+            updates.reserve(requests.size());
+            for (QVariantMap request : std::as_const(requests)) {
+                request.remove(QStringLiteral("operation"));
+                updates.append(std::move(request));
+            }
+            const QVariantMap batchRequest{
+                {QStringLiteral("operation"), QStringLiteral("batch_update_clip_geometry")},
+                {QStringLiteral("updates"), updates},
+            };
+            QVariantMap inversePatch;
+            committed = applyTimelineEditRequest(batchRequest, inversePatch);
+            if (committed) {
+                inversePatches.append(std::move(inversePatch));
+            }
+        } else {
+            committed = true;
+            inversePatches.reserve(requests.size());
+            for (const QVariantMap &request : std::as_const(requests)) {
+                QVariantMap inversePatch;
+                if (!applyTimelineEditRequest(request, inversePatch)) {
+                    committed = false;
+                    break;
+                }
+                inversePatches.append(std::move(inversePatch));
+            }
+        }
+    }
+    if (committed) {
         for (auto &action : commitActions) {
             if (action) {
                 action();
             }
         }
         return true;
+    }
+    for (auto it = inversePatches.crbegin(); it != inversePatches.crend(); ++it) {
+        if (!applyTimelinePatch(*it)) {
+            qWarning() << "Failed to roll back a Rust targeted timeline edit";
+        }
     }
     for (auto it = rollbacks.rbegin(); it != rollbacks.rend(); ++it) {
         if (*it) {

@@ -104,13 +104,20 @@ class TimelineService : public QObject {
     int getClipboardDuration() const;
 
     // 内部用 (コマンドから呼び出される)
-    void deleteClipInternal(int clipId, bool emitSignal = true);
-    void createClipInternal(int clipId, const QString &type, int startFrame, int layer, bool emitSignal = true);
-    void updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal = true, bool forcePosition = false);
-    void setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal = true);
+    void deleteClipInternal(int clipId, bool emitSignal = true, bool commitState = true);
+    void createClipInternal(int clipId, const QString &type, int startFrame, int layer,
+                            bool emitSignal = true, int duration = 0,
+                            const QString &effectId = {},
+                            const QVariantMap &effectParams = {});
+    void updateClipInternal(int id, int layer, int startFrame, int duration,
+                            bool emitSignal = true, bool forcePosition = false,
+                            bool commitState = true);
+    void setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal = true,
+                                      bool commitState = true);
     void addEffectInternal(int clipId, const QString &effectId);
     void addClipsDirectInternal(const QList<ClipData> &clips);
-    void addClipDirectInternal(const ClipData &clip, bool emitSignal = true);
+    void addClipDirectInternal(const ClipData &clip, bool emitSignal = true,
+                               bool commitState = true);
     void restoreEffectInternal(int clipId, const QVariantMap &data);
     void removeEffectInternal(int clipId, int effectIndex);
     void removeMultipleEffectsInternal(int clipId, const QList<int> &sortedDescIndices, QList<QVariantMap> *outData);
@@ -130,7 +137,7 @@ class TimelineService : public QObject {
     void setClipboard(const QList<ClipData> &clips);
     void createSceneInternal(int sceneId, const QString &name);
     void removeSceneInternal(int sceneId);
-    void restoreSceneInternal(const SceneData &scene);
+    void restoreSceneInternal(const SceneData &scene, qsizetype index);
     void applySceneSettingsInternal(int sceneId, const SceneData &data);
     void setKeyframeInternal(int clipId, int effectIndex, const QString &paramName, int frame, const QVariant &value, const QVariantMap &options);
     void removeKeyframeInternal(int clipId, int effectIndex, const QString &paramName, int frame);
@@ -139,6 +146,8 @@ class TimelineService : public QObject {
     void removeAudioPluginKeyframeInternal(int clipId, int pluginIndex, const QString &paramKey, int frame);
     void moveAudioPluginKeyframeInternal(int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame);
     void setLayerStateInternal(int sceneId, int layer, bool value, int type);
+    bool commitTimelineEdit(const QVariantMap &request, std::function<void()> rollback,
+                            std::function<void()> commitAction = {});
     ClipData *findClipById(int clipId);
     const ClipData *findClipById(int clipId) const;
 
@@ -171,9 +180,17 @@ class TimelineService : public QObject {
     void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
     bool commitTimelineMutation(std::function<void()> rollback,
                                 std::function<void()> commitAction = {});
+    bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
+                                std::function<void()> commitAction = {});
+    bool applyTimelineEditRequest(const QVariantMap &request, QVariantMap &inversePatch);
+    bool applyTimelinePatch(const QVariantMap &patch);
+    QVariantMap timelineSceneDocument(const SceneData &scene) const;
+    QVariantMap timelineClipDocument(const ClipData &clip) const;
 
     AviQtl::RustCore::TimelineState m_timelineState;
     int m_timelineProjectionTransactionDepth = 0;
+    bool m_timelineProjectionRequiresFullCommit = false;
+    QList<QVariantMap> m_timelineProjectionRequests;
     QList<std::function<void()>> m_timelineProjectionRollbacks;
     QList<std::function<void()>> m_timelineProjectionCommitActions;
     QUndoStack *m_undoStack;

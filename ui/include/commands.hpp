@@ -359,6 +359,7 @@ class RemoveSceneCommand : public QUndoCommand {
   private:
     TimelineService *m_service;
     int m_sceneId;
+    qsizetype m_sceneIndex = -1;
     SceneData m_snapshot;
 };
 
