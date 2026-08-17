@@ -3997,7 +3997,7 @@
         <translation>エフェクト削除: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="352"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="474"/>
         <source>エフェクト順序変更</source>
         <translation>エフェクト順序変更</translation>
     </message>
@@ -4149,22 +4149,22 @@
         <translation>複数クリップ削除: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="871"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="872"/>
         <source>複数クリップ分割: %1</source>
         <translation>複数クリップ分割: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="920"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="921"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>複数クリップ貼り付け: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="220"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="331"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>エフェクト削除 (%1件)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="396"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="518"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>エフェクト順序変更 (%1件)</translation>
     </message>
