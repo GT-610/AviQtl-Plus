@@ -278,6 +278,111 @@ impl TimelineState {
                 clip.clip_by_upper_object = enabled;
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
+            EditRequest::InsertEffects {
+                clip_id,
+                insertions,
+            } => {
+                if insertions.is_empty() {
+                    return Err(StateError::InvalidArgument);
+                }
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                for insertion in insertions {
+                    if insertion.index > clip.effects.len() {
+                        return Err(StateError::InvalidArgument);
+                    }
+                    clip.effects.insert(insertion.index, insertion.effect);
+                }
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::RemoveEffects {
+                clip_id,
+                mut effect_indices,
+            } => {
+                if effect_indices.is_empty() {
+                    return Err(StateError::InvalidArgument);
+                }
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                effect_indices.sort_unstable();
+                if effect_indices
+                    .windows(2)
+                    .any(|indices| indices[0] == indices[1])
+                    || effect_indices
+                        .last()
+                        .is_none_or(|index| *index >= clip.effects.len())
+                    || (clip
+                        .effects
+                        .first()
+                        .is_some_and(|effect| effect.id == "transform")
+                        && effect_indices.first() == Some(&0))
+                {
+                    return Err(StateError::InvalidArgument);
+                }
+                for index in effect_indices.into_iter().rev() {
+                    clip.effects.remove(index);
+                }
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::ReorderEffects {
+                clip_id,
+                permutation,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                if permutation.len() != clip.effects.len()
+                    || permutation.iter().any(|index| *index >= clip.effects.len())
+                    || permutation.iter().copied().collect::<BTreeSet<_>>().len()
+                        != permutation.len()
+                    || (clip
+                        .effects
+                        .first()
+                        .is_some_and(|effect| effect.id == "transform")
+                        && permutation.first() != Some(&0))
+                {
+                    return Err(StateError::InvalidArgument);
+                }
+                let reordered = permutation
+                    .into_iter()
+                    .map(|index| clip.effects[index].clone())
+                    .collect();
+                clip.effects = reordered;
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::SetEffectEnabled {
+                clip_id,
+                effect_index,
+                enabled,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let effect = clip
+                    .effects
+                    .get_mut(effect_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                effect.enabled = enabled;
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
             EditRequest::SplitClip {
                 clip_id,
                 frame,
@@ -448,6 +553,23 @@ enum EditRequest {
         clip_id: i32,
         enabled: bool,
     },
+    InsertEffects {
+        clip_id: i32,
+        insertions: Vec<EffectInsertion>,
+    },
+    RemoveEffects {
+        clip_id: i32,
+        effect_indices: Vec<usize>,
+    },
+    ReorderEffects {
+        clip_id: i32,
+        permutation: Vec<usize>,
+    },
+    SetEffectEnabled {
+        clip_id: i32,
+        effect_index: usize,
+        enabled: bool,
+    },
     SplitClip {
         clip_id: i32,
         frame: i32,
@@ -470,6 +592,12 @@ struct ClipGeometryUpdate {
     layer: i32,
     start: i32,
     duration: i32,
+}
+
+#[derive(Debug, Deserialize)]
+struct EffectInsertion {
+    index: usize,
+    effect: EffectDocument,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1447,6 +1575,125 @@ mod tests {
             .apply_patch(&scene_transaction.inverse)
             .expect("scene inverse applies");
         assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn targeted_effect_edits_preserve_extensions_and_are_reversible() {
+        let mut before = document();
+        before.clips[0].effects[0]
+            .extra
+            .insert("effectExtension".to_owned(), json!("transform-token"));
+        let mut blur = before.clips[0].effects[0].clone();
+        blur.id = "blur".to_owned();
+        blur.name = "Blur".to_owned();
+        blur.keyframes = None;
+        blur.extra
+            .insert("effectExtension".to_owned(), json!("blur-token"));
+        let mut color = blur.clone();
+        color.id = "color".to_owned();
+        color.name = "Color".to_owned();
+        color
+            .extra
+            .insert("effectExtension".to_owned(), json!("color-token"));
+        before.clips[0].effects.extend([blur, color]);
+        let mut state = TimelineState::new(before.clone(), 2, 1).expect("valid state");
+
+        let enabled_transaction = state
+            .plan(EditRequest::SetEffectEnabled {
+                clip_id: 1,
+                effect_index: 1,
+                enabled: false,
+            })
+            .expect("enabled update plans");
+        state
+            .apply_patch(&enabled_transaction.forward)
+            .expect("enabled update applies");
+        assert!(!state.document.clips[0].effects[1].enabled);
+        assert_eq!(
+            state.document.clips[0].effects[1].extra["effectExtension"],
+            json!("blur-token")
+        );
+        state
+            .apply_patch(&enabled_transaction.inverse)
+            .expect("enabled inverse applies");
+        assert_eq!(state.document, before);
+
+        let reorder_transaction = state
+            .plan(EditRequest::ReorderEffects {
+                clip_id: 1,
+                permutation: vec![0, 2, 1],
+            })
+            .expect("reorder plans");
+        state
+            .apply_patch(&reorder_transaction.forward)
+            .expect("reorder applies");
+        assert_eq!(state.document.clips[0].effects[1].id, "color");
+        assert_eq!(
+            state.document.clips[0].effects[1].extra["effectExtension"],
+            json!("color-token")
+        );
+        state
+            .apply_patch(&reorder_transaction.inverse)
+            .expect("reorder inverse applies");
+        assert_eq!(state.document, before);
+
+        let remove_transaction = state
+            .plan(EditRequest::RemoveEffects {
+                clip_id: 1,
+                effect_indices: vec![2, 1],
+            })
+            .expect("removal plans");
+        state
+            .apply_patch(&remove_transaction.forward)
+            .expect("removal applies");
+        assert_eq!(state.document.clips[0].effects.len(), 1);
+        state
+            .apply_patch(&remove_transaction.inverse)
+            .expect("removal inverse applies");
+        assert_eq!(state.document, before);
+
+        let mut inserted = before.clips[0].effects[1].clone();
+        inserted.id = "mask".to_owned();
+        inserted.name = "Mask".to_owned();
+        inserted
+            .extra
+            .insert("effectExtension".to_owned(), json!("mask-token"));
+        let insert_transaction = state
+            .plan(EditRequest::InsertEffects {
+                clip_id: 1,
+                insertions: vec![EffectInsertion {
+                    index: 2,
+                    effect: inserted,
+                }],
+            })
+            .expect("insertion plans");
+        state
+            .apply_patch(&insert_transaction.forward)
+            .expect("insertion applies");
+        assert_eq!(state.document.clips[0].effects[2].id, "mask");
+        assert_eq!(
+            state.document.clips[0].effects[2].extra["effectExtension"],
+            json!("mask-token")
+        );
+        state
+            .apply_patch(&insert_transaction.inverse)
+            .expect("insertion inverse applies");
+        assert_eq!(state.document, before);
+
+        assert_eq!(
+            state.plan(EditRequest::RemoveEffects {
+                clip_id: 1,
+                effect_indices: vec![0],
+            }),
+            Err(StateError::InvalidArgument)
+        );
+        assert_eq!(
+            state.plan(EditRequest::ReorderEffects {
+                clip_id: 1,
+                permutation: vec![1, 0, 2],
+            }),
+            Err(StateError::InvalidArgument)
+        );
     }
 
     #[test]

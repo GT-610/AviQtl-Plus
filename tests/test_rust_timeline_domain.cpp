@@ -161,7 +161,7 @@ class TestRustTimelineDomain : public QObject {
             AudioPluginState{.id = QStringLiteral("p1")},
             AudioPluginState{.id = QStringLiteral("p2")},
         };
-        timeline.clipsMutable().append(clip);
+        timeline.addClipDirectInternal(clip, false);
 
         const auto effectIds = [&timeline]() {
             QStringList ids;
