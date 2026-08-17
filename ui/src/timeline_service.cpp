@@ -394,15 +394,38 @@ bool TimelineService::endTimelineProjectionTransaction() {
     if (requiresFullCommit) {
         committed = commitTimelineProjection();
     } else {
-        committed = true;
-        inversePatches.reserve(requests.size());
-        for (const QVariantMap &request : std::as_const(requests)) {
-            QVariantMap inversePatch;
-            if (!applyTimelineEditRequest(request, inversePatch)) {
-                committed = false;
-                break;
+        const bool batchClipGeometry = requests.size() > 1 && std::ranges::all_of(
+            requests, [](const QVariantMap &request) {
+                return request.value(QStringLiteral("operation")).toString() ==
+                       QStringLiteral("update_clip_geometry");
+            });
+        if (batchClipGeometry) {
+            QVariantList updates;
+            updates.reserve(requests.size());
+            for (QVariantMap request : std::as_const(requests)) {
+                request.remove(QStringLiteral("operation"));
+                updates.append(std::move(request));
             }
-            inversePatches.append(std::move(inversePatch));
+            const QVariantMap batchRequest{
+                {QStringLiteral("operation"), QStringLiteral("batch_update_clip_geometry")},
+                {QStringLiteral("updates"), updates},
+            };
+            QVariantMap inversePatch;
+            committed = applyTimelineEditRequest(batchRequest, inversePatch);
+            if (committed) {
+                inversePatches.append(std::move(inversePatch));
+            }
+        } else {
+            committed = true;
+            inversePatches.reserve(requests.size());
+            for (const QVariantMap &request : std::as_const(requests)) {
+                QVariantMap inversePatch;
+                if (!applyTimelineEditRequest(request, inversePatch)) {
+                    committed = false;
+                    break;
+                }
+                inversePatches.append(std::move(inversePatch));
+            }
         }
     }
     if (committed) {

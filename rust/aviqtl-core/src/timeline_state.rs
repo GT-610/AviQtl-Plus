@@ -255,18 +255,17 @@ impl TimelineState {
                 layer,
                 start,
                 duration,
-            } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
-                clip.layer = layer;
-                clip.start = start;
-                clip.duration = duration;
-                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            } => plan_clip_geometry_updates(
+                &self.document,
+                vec![ClipGeometryUpdate {
+                    clip_id,
+                    layer,
+                    start,
+                    duration,
+                }],
+            ),
+            EditRequest::BatchUpdateClipGeometry { updates } => {
+                plan_clip_geometry_updates(&self.document, updates)
             }
             EditRequest::SetClipByUpperObject { clip_id, enabled } => {
                 let mut clip = self
@@ -442,6 +441,9 @@ enum EditRequest {
         start: i32,
         duration: i32,
     },
+    BatchUpdateClipGeometry {
+        updates: Vec<ClipGeometryUpdate>,
+    },
     SetClipByUpperObject {
         clip_id: i32,
         enabled: bool,
@@ -460,6 +462,14 @@ enum EditRequest {
 struct ClipReplacement {
     clip_id: i32,
     clip: ClipDocument,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClipGeometryUpdate {
+    clip_id: i32,
+    layer: i32,
+    start: i32,
+    duration: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -653,6 +663,31 @@ fn plan_clip_replacements(
         })
         .collect();
     Ok(transaction(forward, inverse))
+}
+
+fn plan_clip_geometry_updates(
+    document: &ProjectDocument,
+    updates: Vec<ClipGeometryUpdate>,
+) -> Result<Transaction, StateError> {
+    if updates.is_empty() {
+        return Err(StateError::InvalidArgument);
+    }
+    let replacements = updates
+        .into_iter()
+        .map(|update| {
+            let mut clip = document
+                .clips
+                .iter()
+                .find(|clip| clip.id == update.clip_id)
+                .cloned()
+                .ok_or(StateError::InvalidArgument)?;
+            clip.layer = update.layer;
+            clip.start = update.start;
+            clip.duration = update.duration;
+            Ok((update.clip_id, clip))
+        })
+        .collect::<Result<Vec<_>, StateError>>()?;
+    plan_clip_replacements(document, replacements)
 }
 
 fn split_clip_tracks(
@@ -1411,6 +1446,61 @@ mod tests {
         state
             .apply_patch(&scene_transaction.inverse)
             .expect("scene inverse applies");
+        assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn batch_geometry_updates_preserve_extensions_and_are_reversible() {
+        let mut before = document();
+        before.clips[0]
+            .extra
+            .insert("clipExtension".to_owned(), json!("first"));
+        let mut second = before.clips[0].clone();
+        second.id = 2;
+        second.start = 40;
+        second
+            .extra
+            .insert("clipExtension".to_owned(), json!("second"));
+        before.clips.push(second);
+        let mut state = TimelineState::new(before.clone(), 3, 1).expect("valid state");
+
+        let transaction = state
+            .plan(EditRequest::BatchUpdateClipGeometry {
+                updates: vec![
+                    ClipGeometryUpdate {
+                        clip_id: 1,
+                        layer: 2,
+                        start: 5,
+                        duration: 20,
+                    },
+                    ClipGeometryUpdate {
+                        clip_id: 2,
+                        layer: 3,
+                        start: 50,
+                        duration: 25,
+                    },
+                ],
+            })
+            .expect("batch update plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("batch update applies");
+        assert_eq!(state.document.clips[0].layer, 2);
+        assert_eq!(state.document.clips[0].start, 5);
+        assert_eq!(
+            state.document.clips[0].extra["clipExtension"],
+            json!("first")
+        );
+        assert_eq!(state.document.clips[1].layer, 3);
+        assert_eq!(state.document.clips[1].start, 50);
+        assert_eq!(
+            state.document.clips[1].extra["clipExtension"],
+            json!("second")
+        );
+
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("batch inverse applies");
         assert_eq!(state.document, before);
     }
 
