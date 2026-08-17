@@ -43,11 +43,11 @@ When adding behavior, prefer one of the existing Rust document or fixed-layout b
 implementation is appropriate only when the operation needs a native handle or is presentation
 logic. Conversion loops at the ABI edge are adapters, not alternative domain implementations.
 
-Scene and clip edits should be expressed as targeted timeline-state requests so Rust can validate
-the authoritative state and produce reversible patches without rebuilding the whole project
-document. The `replace_document` request remains a compatibility path for project load/reset and
-for native effect, plugin, or keyframe projection changes that have not yet moved to targeted Rust
-state mutations.
+Scene, clip, and effect-list edits should be expressed as targeted timeline-state requests so Rust
+can validate the authoritative state and produce reversible patches without rebuilding the whole
+project document. The `replace_document` request remains a compatibility path for project
+load/reset and for effect-parameter, plugin, or keyframe projection changes that have not yet moved
+to targeted Rust state mutations.
 
 ## C ABI contract
 

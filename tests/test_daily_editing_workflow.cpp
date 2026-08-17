@@ -1,3 +1,4 @@
+#include "commands.hpp"
 #include "effect_registry.hpp"
 #include "image_decoder.hpp"
 #include "selection_service.hpp"
@@ -11,6 +12,7 @@
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QSignalBlocker>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrl>
@@ -36,6 +38,7 @@ class TestDailyEditingWorkflow : public QObject {
     void audioPluginKeyframeMutationsAreUndoable();
     void rejectedProjectionTransactionRestoresRuntimeModel();
     void targetedTimelineEditsPreserveExtensions();
+    void targetedEffectTransactionsPreserveExtensionsAndOrdering();
     void targetedBatchFailureRollsBackRustAndQt();
     void sceneUndoRestoresItsClipsInRustState();
     void clipboardPasteTargetsCurrentScene();
@@ -531,6 +534,114 @@ void TestDailyEditingWorkflow::targetedTimelineEditsPreserveExtensions() {
     QVERIFY(updatedClip.value(QStringLiteral("clipByUpperObject")).toBool());
 }
 
+void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOrdering() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    timeline.addEffect(clipId, QStringLiteral("blur"));
+
+    const auto *clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->effects.size(), 3);
+
+    QVariantMap document = timeline.timelineStateSnapshot();
+    QVariantList clips = document.value(QStringLiteral("clips")).toList();
+    QVariantMap clipDocument = clips.first().toMap();
+    QVariantList effects = clipDocument.value(QStringLiteral("effects")).toList();
+    for (qsizetype index = 0; index < effects.size(); ++index) {
+        QVariantMap effect = effects.at(index).toMap();
+        effect.insert(QStringLiteral("workflowExtension"),
+                      effect.value(QStringLiteral("id")).toString() + QStringLiteral("-token"));
+        if (effect.value(QStringLiteral("id")).toString() == QLatin1String("text")) {
+            effect.remove(QStringLiteral("keyframes"));
+        }
+        effects[index] = effect;
+    }
+    clipDocument.insert(QStringLiteral("effects"), effects);
+    clips[0] = clipDocument;
+    document.insert(QStringLiteral("clips"), clips);
+    QVERIFY(timeline.resetTimelineState(document, timeline.nextClipId(), timeline.nextSceneId()));
+    const QVariantMap before = timeline.timelineStateSnapshot();
+
+    const auto effectDocuments = [&timeline]() {
+        return timeline.timelineStateSnapshot()
+            .value(QStringLiteral("clips"))
+            .toList()
+            .first()
+            .toMap()
+            .value(QStringLiteral("effects"))
+            .toList();
+    };
+    const auto effectIds = [&effectDocuments]() {
+        QStringList ids;
+        for (const QVariant &effect : effectDocuments()) {
+            ids.append(effect.toMap().value(QStringLiteral("id")).toString());
+        }
+        return ids;
+    };
+
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    auto detachedEffect = std::unique_ptr<EffectModel>(clip->effects.at(2)->clone());
+    timeline.pasteEffectInternal(clipId, 0, detachedEffect.get());
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
+                                       QStringLiteral("blur")}));
+
+    SelectionService pasteSelection;
+    TimelineService pasteTimeline(&pasteSelection);
+    const int pasteTargetId = pasteTimeline.nextClipId();
+    pasteTimeline.createClip(QStringLiteral("text"), 0, 0);
+    const QVariantMap beforePaste = pasteTimeline.timelineStateSnapshot();
+    pasteTimeline.undoStack()->push(
+        new PasteEffectCommand(&pasteTimeline, pasteTargetId, 1, detachedEffect.get()));
+    const auto *pastedClip = pasteTimeline.findClipById(pasteTargetId);
+    QVERIFY(pastedClip != nullptr);
+    QCOMPARE(pastedClip->effects.size(), 3);
+    QCOMPARE(pastedClip->effects.at(0)->id(), QStringLiteral("transform"));
+    QCOMPARE(pastedClip->effects.at(1)->id(), QStringLiteral("blur"));
+    QCOMPARE(pastedClip->effects.at(2)->id(), QStringLiteral("text"));
+    const QVariantMap afterPaste = pasteTimeline.timelineStateSnapshot();
+    pasteTimeline.undo();
+    QCOMPARE(pasteTimeline.timelineStateSnapshot(), beforePaste);
+    pasteTimeline.redo();
+    QCOMPARE(pasteTimeline.timelineStateSnapshot(), afterPaste);
+
+    timeline.setEffectEnabled(clipId, 2, false);
+    QVariantList changedEffects = effectDocuments();
+    QVERIFY(!changedEffects.at(2).toMap().value(QStringLiteral("enabled")).toBool());
+    QCOMPARE(changedEffects.at(2).toMap().value(QStringLiteral("workflowExtension")).toString(),
+             QStringLiteral("blur-token"));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+
+    timeline.reorderEffects(clipId, 2, 1);
+    QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("blur"),
+                                       QStringLiteral("text")}));
+    changedEffects = effectDocuments();
+    QCOMPARE(changedEffects.at(1).toMap().value(QStringLiteral("workflowExtension")).toString(),
+             QStringLiteral("blur-token"));
+    QCOMPARE(changedEffects.at(2).toMap().value(QStringLiteral("workflowExtension")).toString(),
+             QStringLiteral("text-token"));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+
+    timeline.removeEffect(clipId, 1);
+    QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("blur")}));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
+                                       QStringLiteral("blur")}));
+
+    timeline.removeMultipleEffects(clipId, {2, 1});
+    QCOMPARE(effectIds(), QStringList({QStringLiteral("transform")}));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
+                                       QStringLiteral("blur")}));
+}
+
 void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
     SelectionService selection;
     TimelineService timeline(&selection);
@@ -544,12 +655,23 @@ void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
     duplicate.startFrame = 0;
     duplicate.durationFrames = 30;
     duplicate.layer = 0;
-    timeline.addClipsDirectInternal({duplicate, duplicate});
+    QSignalSpy clipsChangedSpy(&timeline, &TimelineService::clipsChanged);
+    QVERIFY(!timeline.addClipsDirectInternal({duplicate, duplicate}));
 
     QCOMPARE(timeline.timelineStateSnapshot(), previousState);
     QCOMPARE(timeline.getAllScenes().size(), previousScenes.size());
     QCOMPARE(timeline.getAllScenes().first().clips.size(),
              previousScenes.first().clips.size());
+    QCOMPARE(clipsChangedSpy.count(), 0);
+
+    ClipData missingScene = duplicate;
+    missingScene.id = 901;
+    missingScene.sceneId = 999;
+    QVERIFY(!timeline.addClipsDirectInternal({duplicate, missingScene}));
+    QCOMPARE(timeline.timelineStateSnapshot(), previousState);
+    QCOMPARE(timeline.getAllScenes().first().clips.size(),
+             previousScenes.first().clips.size());
+    QCOMPARE(clipsChangedSpy.count(), 0);
 }
 
 void TestDailyEditingWorkflow::sceneUndoRestoresItsClipsInRustState() {

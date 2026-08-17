@@ -204,16 +204,22 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
     }
 }
 
-void TimelineService::addClipsDirectInternal(const QList<ClipData> &clips) {
+bool TimelineService::addClipsDirectInternal(const QList<ClipData> &clips) {
     beginTimelineProjectionTransaction();
     for (const auto &clip : std::as_const(clips)) {
-        addClipDirectInternal(clip, false);
+        if (!addClipDirectInternal(clip, false)) {
+            abortTimelineProjectionTransaction();
+            static_cast<void>(endTimelineProjectionTransaction());
+            qWarning() << "Rejected clip in batch restoration" << clip.id;
+            return false;
+        }
     }
     if (!endTimelineProjectionTransaction()) {
         qWarning() << "Rust rejected batch clip restoration";
-        return;
+        return false;
     }
     emit clipsChanged();
+    return true;
 }
 
 void TimelineService::updateClip(int id, int layer, int startFrame, int duration) {
@@ -692,14 +698,14 @@ void TimelineService::deleteClipInternal(int clipId, bool emitSignal, bool commi
     }
 }
 
-void TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSignal,
+bool TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSignal,
                                             bool commitState) {
     auto sceneIt = std::ranges::find_if(m_scenes, [&clip](const SceneData &scene) {
         return scene.id == clip.sceneId;
     });
     if (sceneIt == m_scenes.end()) {
         qWarning() << "Cannot insert clip into missing scene" << clip.sceneId;
-        return;
+        return false;
     }
     auto &targetClips = sceneIt->clips;
     const int targetSceneId = clip.sceneId;
@@ -730,12 +736,13 @@ void TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSigna
             }
         })) {
         qWarning() << "Rust rejected direct clip insertion";
-        return;
+        return false;
     }
     if (emitSignal) {
         emit clipsChanged();
         emit clipCreated(clip.id, clip.layer, clip.startFrame, clip.durationFrames, clip.type);
     }
+    return true;
 }
 
 auto TimelineService::findClipById(int clipId) -> ClipData * {

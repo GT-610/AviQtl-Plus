@@ -358,6 +358,7 @@ bool TimelineService::commitTimelineEdit(const QVariantMap &request,
 
 void TimelineService::beginTimelineProjectionTransaction() {
     if (m_timelineProjectionTransactionDepth == 0) {
+        m_timelineProjectionTransactionAborted = false;
         m_timelineProjectionRequiresFullCommit = false;
         m_timelineProjectionRequests.clear();
         m_timelineProjectionRollbacks.clear();
@@ -366,10 +367,19 @@ void TimelineService::beginTimelineProjectionTransaction() {
     ++m_timelineProjectionTransactionDepth;
 }
 
+void TimelineService::abortTimelineProjectionTransaction() {
+    if (m_timelineProjectionTransactionDepth <= 0) {
+        qWarning() << "Cannot abort an inactive timeline projection transaction";
+        return;
+    }
+    m_timelineProjectionTransactionAborted = true;
+}
+
 bool TimelineService::endTimelineProjectionTransaction() {
     if (m_timelineProjectionTransactionDepth <= 0) {
         qWarning() << "Unbalanced timeline projection transaction";
         m_timelineProjectionTransactionDepth = 0;
+        m_timelineProjectionTransactionAborted = false;
         m_timelineProjectionRequiresFullCommit = false;
         m_timelineProjectionRequests.clear();
         m_timelineProjectionRollbacks.clear();
@@ -378,17 +388,27 @@ bool TimelineService::endTimelineProjectionTransaction() {
     }
     --m_timelineProjectionTransactionDepth;
     if (m_timelineProjectionTransactionDepth > 0) {
-        return true;
+        return !m_timelineProjectionTransactionAborted;
     }
 
+    const bool aborted = m_timelineProjectionTransactionAborted;
     const bool requiresFullCommit = m_timelineProjectionRequiresFullCommit;
     auto requests = std::move(m_timelineProjectionRequests);
     auto rollbacks = std::move(m_timelineProjectionRollbacks);
     auto commitActions = std::move(m_timelineProjectionCommitActions);
+    m_timelineProjectionTransactionAborted = false;
     m_timelineProjectionRequiresFullCommit = false;
     m_timelineProjectionRequests.clear();
     m_timelineProjectionRollbacks.clear();
     m_timelineProjectionCommitActions.clear();
+    if (aborted) {
+        for (auto it = rollbacks.rbegin(); it != rollbacks.rend(); ++it) {
+            if (*it) {
+                (*it)();
+            }
+        }
+        return false;
+    }
     bool committed = false;
     QList<QVariantMap> inversePatches;
     if (requiresFullCommit) {
