@@ -640,6 +640,86 @@ void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOr
     QCOMPARE(timeline.timelineStateSnapshot(), before);
     QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
                                        QStringLiteral("blur")}));
+
+    timeline.updateEffectParam(clipId, 0, QStringLiteral("x"), 12.0);
+    timeline.updateEffectParam(clipId, 0, QStringLiteral("x"), 24.0);
+    QVariantMap transformDocument = effectDocuments().first().toMap();
+    QCOMPARE(transformDocument.value(QStringLiteral("workflowExtension")).toString(),
+             QStringLiteral("transform-token"));
+    QCOMPARE(transformDocument.value(QStringLiteral("params"))
+                 .toMap()
+                 .value(QStringLiteral("x"))
+                 .toDouble(),
+             24.0);
+    QCOMPARE(transformDocument.value(QStringLiteral("keyframes"))
+                 .toMap()
+                 .value(QStringLiteral("x"))
+                 .toMap()
+                 .value(QStringLiteral("start"))
+                 .toMap()
+                 .value(QStringLiteral("value"))
+                 .toDouble(),
+             24.0);
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->effects.first()->params().value(QStringLiteral("x")).toDouble(), 24.0);
+    const QVariantMap afterParameterUpdate = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterParameterUpdate);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+
+    const auto transformPoints = [&effectDocuments]() {
+        return effectDocuments()
+            .first()
+            .toMap()
+            .value(QStringLiteral("keyframes"))
+            .toMap()
+            .value(QStringLiteral("x"))
+            .toMap()
+            .value(QStringLiteral("points"))
+            .toList();
+    };
+    const auto containsFrame = [](const QVariantList &points, int frame) {
+        return std::ranges::any_of(points, [frame](const QVariant &point) {
+            return point.toMap().value(QStringLiteral("frame")).toInt() == frame;
+        });
+    };
+
+    timeline.setKeyframe(clipId, 0, QStringLiteral("x"), 10, 10.0,
+                         {{QStringLiteral("interp"), QStringLiteral("linear")}});
+    QVERIFY(containsFrame(transformPoints(), 10));
+    transformDocument = effectDocuments().first().toMap();
+    QCOMPARE(transformDocument.value(QStringLiteral("workflowExtension")).toString(),
+             QStringLiteral("transform-token"));
+    const QVariantMap afterKeyframeSet = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeSet);
+
+    timeline.moveKeyframe(clipId, 0, QStringLiteral("x"), 10, 12);
+    QVERIFY(!containsFrame(transformPoints(), 10));
+    QVERIFY(containsFrame(transformPoints(), 12));
+    const QVariantMap afterKeyframeMove = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeSet);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeMove);
+
+    timeline.removeKeyframe(clipId, 0, QStringLiteral("x"), 12);
+    QVERIFY(!containsFrame(transformPoints(), 12));
+    const QVariantMap afterKeyframeRemoval = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeMove);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeRemoval);
+    timeline.undo();
+    timeline.undo();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
 }
 
 void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {

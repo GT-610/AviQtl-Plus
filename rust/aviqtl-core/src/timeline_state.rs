@@ -3,7 +3,10 @@ use crate::abi::{
     STATUS_OK, STATUS_OVERLAPPING_BUFFERS, STATUS_STATE_CONFLICT, STATUS_UNSUPPORTED_VERSION,
     ranges_overlap, slice_is_valid,
 };
-use crate::keyframe_document::{split_track, sync_track};
+use crate::keyframe_document::{move_track, remove_track, set_track, split_track, sync_track};
+use crate::policy::{
+    audio_duration_frames, audio_parameter_affects_duration, is_direct_audio_mode, is_video_file,
+};
 use crate::project::{
     AudioPluginDocument, ClipDocument, EffectDocument, ProjectDocument, ProjectError,
     SceneDocument, parse_project_document,
@@ -391,6 +394,187 @@ impl TimelineState {
                 effect.enabled = enabled;
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
+            EditRequest::SetEffectParameter {
+                clip_id,
+                effect_index,
+                param_name,
+                value,
+                media_duration_seconds,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let old_duration = clip.duration;
+                {
+                    let effect = clip
+                        .effects
+                        .get_mut(effect_index)
+                        .ok_or(StateError::InvalidArgument)?;
+                    let previous = effect
+                        .params
+                        .insert(param_name.clone(), value.clone())
+                        .unwrap_or(Value::Null);
+                    if let Some(track) = effect
+                        .keyframes
+                        .as_mut()
+                        .and_then(|tracks| tracks.get(&param_name).cloned())
+                    {
+                        let mutation = set_track(
+                            track,
+                            previous,
+                            old_duration,
+                            0,
+                            value,
+                            Value::Object(Map::new()),
+                        );
+                        if !mutation.accepted {
+                            return Err(StateError::InvalidArgument);
+                        }
+                        effect
+                            .keyframes
+                            .as_mut()
+                            .expect("existing keyframe map remains available")
+                            .insert(param_name.clone(), mutation.track);
+                    }
+                }
+                if let Some(total_seconds) = media_duration_seconds {
+                    update_audio_clip_duration(
+                        &self.document,
+                        &mut clip,
+                        effect_index,
+                        &param_name,
+                        total_seconds,
+                        old_duration,
+                    )?;
+                }
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::SetEffectKeyframe {
+                clip_id,
+                effect_index,
+                param_name,
+                frame,
+                value,
+                options,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let effect = clip
+                    .effects
+                    .get_mut(effect_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                let fallback = effect
+                    .params
+                    .get(&param_name)
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let track = effect
+                    .keyframes
+                    .as_ref()
+                    .and_then(|tracks| tracks.get(&param_name))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let mutation = set_track(track, fallback, 0, frame, value, options);
+                if !mutation.accepted {
+                    return Err(StateError::InvalidArgument);
+                }
+                if let Some(base_value) = mutation.base_value {
+                    effect.params.insert(param_name.clone(), base_value);
+                }
+                effect
+                    .keyframes
+                    .get_or_insert_with(Map::new)
+                    .insert(param_name, mutation.track);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::RemoveEffectKeyframe {
+                clip_id,
+                effect_index,
+                param_name,
+                frame,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let effect = clip
+                    .effects
+                    .get_mut(effect_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                let fallback = effect
+                    .params
+                    .get(&param_name)
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let track = effect
+                    .keyframes
+                    .as_ref()
+                    .and_then(|tracks| tracks.get(&param_name))
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let mutation = remove_track(track, fallback, 0, frame);
+                if !mutation.accepted || !mutation.changed {
+                    return Err(StateError::InvalidArgument);
+                }
+                effect
+                    .keyframes
+                    .as_mut()
+                    .expect("existing keyframe map remains available")
+                    .insert(param_name, mutation.track);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::MoveEffectKeyframe {
+                clip_id,
+                effect_index,
+                param_name,
+                old_frame,
+                new_frame,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let effect = clip
+                    .effects
+                    .get_mut(effect_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                let fallback = effect
+                    .params
+                    .get(&param_name)
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let track = effect
+                    .keyframes
+                    .as_ref()
+                    .and_then(|tracks| tracks.get(&param_name))
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let mutation = move_track(track, fallback, 0, old_frame, new_frame);
+                if !mutation.accepted || !mutation.changed {
+                    return Err(StateError::InvalidArgument);
+                }
+                effect
+                    .keyframes
+                    .as_mut()
+                    .expect("existing keyframe map remains available")
+                    .insert(param_name, mutation.track);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
             EditRequest::SplitClip {
                 clip_id,
                 frame,
@@ -577,6 +761,36 @@ enum EditRequest {
         clip_id: i32,
         effect_index: usize,
         enabled: bool,
+    },
+    SetEffectParameter {
+        clip_id: i32,
+        effect_index: usize,
+        param_name: String,
+        value: Value,
+        #[serde(default)]
+        media_duration_seconds: Option<f64>,
+    },
+    SetEffectKeyframe {
+        clip_id: i32,
+        effect_index: usize,
+        param_name: String,
+        frame: i32,
+        value: Value,
+        #[serde(default)]
+        options: Value,
+    },
+    RemoveEffectKeyframe {
+        clip_id: i32,
+        effect_index: usize,
+        param_name: String,
+        frame: i32,
+    },
+    MoveEffectKeyframe {
+        clip_id: i32,
+        effect_index: usize,
+        param_name: String,
+        old_frame: i32,
+        new_frame: i32,
     },
     SplitClip {
         clip_id: i32,
@@ -872,6 +1086,72 @@ fn sync_clip_tracks(clip: &mut ClipDocument, old_duration: i32) {
             clip.duration,
         );
     }
+}
+
+fn update_audio_clip_duration(
+    document: &ProjectDocument,
+    clip: &mut ClipDocument,
+    effect_index: usize,
+    param_name: &str,
+    media_duration_seconds: f64,
+    old_duration: i32,
+) -> Result<(), StateError> {
+    let effect = clip
+        .effects
+        .get(effect_index)
+        .ok_or(StateError::InvalidArgument)?;
+    if clip.clip_type != "audio"
+        || effect.id != "audio"
+        || !audio_parameter_affects_duration(param_name)
+        || !media_duration_seconds.is_finite()
+        || media_duration_seconds <= 0.0
+    {
+        return Err(StateError::InvalidArgument);
+    }
+    let source = effect
+        .params
+        .get("source")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let direct_mode = effect
+        .params
+        .get("playMode")
+        .and_then(Value::as_str)
+        .is_some_and(is_direct_audio_mode);
+    let linked_video = effect
+        .params
+        .get("linkedVideo")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        && is_video_file(source);
+    let start_time = effect
+        .params
+        .get("startTime")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let speed = if linked_video {
+        100.0
+    } else {
+        effect
+            .params
+            .get("speed")
+            .and_then(Value::as_f64)
+            .unwrap_or(100.0)
+    };
+    let fps = document
+        .scenes
+        .iter()
+        .find(|scene| scene.id == clip.scene_id)
+        .map(|scene| scene.fps)
+        .filter(|fps| *fps > 0.0)
+        .unwrap_or(document.settings.fps);
+    let new_duration =
+        audio_duration_frames(media_duration_seconds, direct_mode, start_time, speed, fps);
+    if new_duration > 0 && new_duration != old_duration {
+        clip.duration = new_duration;
+        sync_clip_tracks(clip, old_duration);
+    }
+    Ok(())
 }
 
 fn sync_tracks(
@@ -1712,6 +1992,193 @@ mod tests {
             }),
             Err(StateError::InvalidArgument)
         );
+    }
+
+    #[test]
+    fn targeted_effect_parameter_and_keyframe_edits_are_reversible() {
+        let mut before = document();
+        before.clips[0].effects[0]
+            .extra
+            .insert("effectExtension".to_owned(), json!("transform-token"));
+        let mut state = TimelineState::new(before.clone(), 2, 1).expect("valid state");
+
+        let parameter_transaction = state
+            .plan(EditRequest::SetEffectParameter {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "x".to_owned(),
+                value: json!(5.0),
+                media_duration_seconds: None,
+            })
+            .expect("parameter update plans");
+        state
+            .apply_patch(&parameter_transaction.forward)
+            .expect("parameter update applies");
+        let effect = &state.document.clips[0].effects[0];
+        assert_eq!(effect.params["x"], json!(5.0));
+        assert_eq!(
+            effect.keyframes.as_ref().expect("tracks")["x"]["start"]["value"],
+            json!(5.0)
+        );
+        assert_eq!(effect.extra["effectExtension"], json!("transform-token"));
+        state
+            .apply_patch(&parameter_transaction.inverse)
+            .expect("parameter inverse applies");
+        assert_eq!(state.document, before);
+
+        let set_transaction = state
+            .plan(EditRequest::SetEffectKeyframe {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "x".to_owned(),
+                frame: 10,
+                value: json!(10.0),
+                options: json!({"interp": "linear"}),
+            })
+            .expect("keyframe set plans");
+        state
+            .apply_patch(&set_transaction.forward)
+            .expect("keyframe set applies");
+        assert!(
+            state.document.clips[0].effects[0]
+                .keyframes
+                .as_ref()
+                .expect("tracks")["x"]["points"]
+                .as_array()
+                .expect("points")
+                .iter()
+                .any(|point| point["frame"] == json!(10))
+        );
+
+        let move_transaction = state
+            .plan(EditRequest::MoveEffectKeyframe {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "x".to_owned(),
+                old_frame: 10,
+                new_frame: 12,
+            })
+            .expect("keyframe move plans");
+        state
+            .apply_patch(&move_transaction.forward)
+            .expect("keyframe move applies");
+        let moved = state.document.clips[0].effects[0]
+            .keyframes
+            .as_ref()
+            .expect("tracks")["x"]["points"]
+            .as_array()
+            .expect("points");
+        assert!(moved.iter().any(|point| point["frame"] == json!(12)));
+        assert!(!moved.iter().any(|point| point["frame"] == json!(10)));
+
+        let remove_transaction = state
+            .plan(EditRequest::RemoveEffectKeyframe {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "x".to_owned(),
+                frame: 12,
+            })
+            .expect("keyframe removal plans");
+        state
+            .apply_patch(&remove_transaction.forward)
+            .expect("keyframe removal applies");
+        assert!(
+            !state.document.clips[0].effects[0]
+                .keyframes
+                .as_ref()
+                .expect("tracks")["x"]["points"]
+                .as_array()
+                .expect("points")
+                .iter()
+                .any(|point| point["frame"] == json!(12))
+        );
+        state
+            .apply_patch(&remove_transaction.inverse)
+            .expect("keyframe removal inverse applies");
+        state
+            .apply_patch(&move_transaction.inverse)
+            .expect("keyframe move inverse applies");
+        state
+            .apply_patch(&set_transaction.inverse)
+            .expect("keyframe set inverse applies");
+        assert_eq!(state.document, before);
+
+        assert_eq!(
+            state.plan(EditRequest::RemoveEffectKeyframe {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "x".to_owned(),
+                frame: 0,
+            }),
+            Err(StateError::InvalidArgument)
+        );
+        assert_eq!(
+            state.plan(EditRequest::MoveEffectKeyframe {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "x".to_owned(),
+                old_frame: 15,
+                new_frame: 0,
+            }),
+            Err(StateError::InvalidArgument)
+        );
+    }
+
+    #[test]
+    fn targeted_audio_parameter_update_resizes_tracks_atomically() {
+        let mut before = document();
+        let clip = &mut before.clips[0];
+        clip.clip_type = "audio".to_owned();
+        clip.effects[0].id = "audio".to_owned();
+        clip.effects[0].name = "Audio".to_owned();
+        clip.effects[0].params.extend(Map::from_iter([
+            ("source".to_owned(), json!("sample.wav")),
+            ("playMode".to_owned(), json!("normal")),
+            ("linkedVideo".to_owned(), json!(false)),
+            ("startTime".to_owned(), json!(0.0)),
+            ("speed".to_owned(), json!(100.0)),
+        ]));
+        clip.effects[0].keyframes.as_mut().expect("effect tracks")["x"]["points"][0]["frame"] =
+            json!(20);
+        clip.audio_plugins[0]
+            .keyframes
+            .as_mut()
+            .expect("plugin tracks")["0"]["points"][0]["frame"] = json!(20);
+        let mut state = TimelineState::new(before.clone(), 2, 1).expect("valid state");
+
+        let transaction = state
+            .plan(EditRequest::SetEffectParameter {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "speed".to_owned(),
+                value: json!(200.0),
+                media_duration_seconds: Some(10.0),
+            })
+            .expect("audio parameter update plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("audio parameter update applies");
+        let updated = &state.document.clips[0];
+        assert_eq!(updated.duration, 300);
+        assert_eq!(updated.effects[0].params["speed"], json!(200.0));
+        assert_eq!(
+            updated.effects[0]
+                .keyframes
+                .as_ref()
+                .expect("effect tracks")["x"]["points"][0]["frame"],
+            json!(300)
+        );
+        assert_eq!(
+            updated.audio_plugins[0]
+                .keyframes
+                .as_ref()
+                .expect("plugin tracks")["0"]["points"][0]["frame"],
+            json!(300)
+        );
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("audio parameter inverse applies");
+        assert_eq!(state.document, before);
     }
 
     #[test]
