@@ -68,6 +68,24 @@ struct Response {
     secondary_track: Option<Value>,
 }
 
+pub(crate) struct TrackMutation {
+    pub(crate) track: Value,
+    pub(crate) accepted: bool,
+    pub(crate) changed: bool,
+    pub(crate) base_value: Option<Value>,
+}
+
+impl From<Response> for TrackMutation {
+    fn from(response: Response) -> Self {
+        Self {
+            track: response.track,
+            accepted: response.accepted,
+            changed: response.changed,
+            base_value: response.base_value,
+        }
+    }
+}
+
 fn integer(value: Option<&Value>, fallback: i32) -> i32 {
     let Some(value) = value.map(payload) else {
         return fallback;
@@ -703,6 +721,57 @@ pub(crate) fn sync_track(
         new_duration,
     })
     .track
+}
+
+pub(crate) fn set_track(
+    track: Value,
+    fallback: Value,
+    duration: i32,
+    frame: i32,
+    value: Value,
+    options: Value,
+) -> TrackMutation {
+    apply(Request::Set {
+        track,
+        fallback,
+        duration,
+        frame,
+        value,
+        options,
+    })
+    .into()
+}
+
+pub(crate) fn remove_track(
+    track: Value,
+    fallback: Value,
+    duration: i32,
+    frame: i32,
+) -> TrackMutation {
+    apply(Request::Remove {
+        track,
+        fallback,
+        duration,
+        frame,
+    })
+    .into()
+}
+
+pub(crate) fn move_track(
+    track: Value,
+    fallback: Value,
+    duration: i32,
+    old_frame: i32,
+    new_frame: i32,
+) -> TrackMutation {
+    apply(Request::Move {
+        track,
+        fallback,
+        duration,
+        old_frame,
+        new_frame,
+    })
+    .into()
 }
 
 pub(crate) fn split_track(

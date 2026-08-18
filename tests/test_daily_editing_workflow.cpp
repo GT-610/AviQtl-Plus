@@ -6,6 +6,8 @@
 #include "video_frame_store.hpp"
 #include "video_encoder.hpp"
 #include <QColor>
+#include <QDataStream>
+#include <QFile>
 #include <QFileInfo>
 #include <QImage>
 #include <QElapsedTimer>
@@ -23,6 +25,38 @@
 using namespace AviQtl::Core;
 using namespace AviQtl::UI;
 
+namespace {
+
+bool writeSilentWav(const QString &path) {
+    constexpr quint32 sampleRate = 8'000;
+    constexpr quint16 channelCount = 1;
+    constexpr quint16 bitsPerSample = 16;
+    constexpr quint32 durationSeconds = 2;
+    constexpr quint16 blockAlign = channelCount * (bitsPerSample / 8);
+    constexpr quint32 byteRate = sampleRate * blockAlign;
+    constexpr quint32 dataSize = sampleRate * durationSeconds * blockAlign;
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    QDataStream stream(&file);
+    stream.setByteOrder(QDataStream::LittleEndian);
+    stream.writeRawData("RIFF", 4);
+    stream << quint32(36U + dataSize);
+    stream.writeRawData("WAVE", 4);
+    stream.writeRawData("fmt ", 4);
+    stream << quint32(16U) << quint16(1U) << channelCount << sampleRate << byteRate
+           << blockAlign << bitsPerSample;
+    stream.writeRawData("data", 4);
+    stream << dataSize;
+    const QByteArray samples(static_cast<qsizetype>(dataSize), '\0');
+    return stream.writeRawData(samples.constData(), samples.size()) == samples.size() &&
+           stream.status() == QDataStream::Ok;
+}
+
+} // namespace
+
 class TestDailyEditingWorkflow : public QObject {
     Q_OBJECT
 
@@ -39,6 +73,7 @@ class TestDailyEditingWorkflow : public QObject {
     void rejectedProjectionTransactionRestoresRuntimeModel();
     void targetedTimelineEditsPreserveExtensions();
     void targetedEffectTransactionsPreserveExtensionsAndOrdering();
+    void audioParameterDurationUsesRustState();
     void targetedBatchFailureRollsBackRustAndQt();
     void sceneUndoRestoresItsClipsInRustState();
     void clipboardPasteTargetsCurrentScene();
@@ -108,6 +143,21 @@ void TestDailyEditingWorkflow::registerWorkflowEffects() {
         {QStringLiteral("quality"), 1},
     };
     registry.registerEffect(blur);
+
+    EffectMetadata audio;
+    audio.id = QStringLiteral("audio");
+    audio.name = QStringLiteral("Audio");
+    audio.version = QStringLiteral("1.0.0");
+    audio.kind = QStringLiteral("object");
+    audio.categories = {QStringLiteral("Media")};
+    audio.defaultParams = {
+        {QStringLiteral("source"), QString()},
+        {QStringLiteral("playMode"), QStringLiteral("normal")},
+        {QStringLiteral("linkedVideo"), false},
+        {QStringLiteral("startTime"), 0.0},
+        {QStringLiteral("speed"), 100.0},
+    };
+    registry.registerEffect(audio);
 }
 
 const ClipData *TestDailyEditingWorkflow::findClip(const TimelineController &controller, int clipId) { return controller.timeline()->findClipById(clipId); }
@@ -640,6 +690,147 @@ void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOr
     QCOMPARE(timeline.timelineStateSnapshot(), before);
     QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
                                        QStringLiteral("blur")}));
+
+    // Successive edits to the same parameter are expected to merge into one undo command.
+    timeline.updateEffectParam(clipId, 0, QStringLiteral("x"), 12.0);
+    timeline.updateEffectParam(clipId, 0, QStringLiteral("x"), 24.0);
+    QVariantMap transformDocument = effectDocuments().first().toMap();
+    QCOMPARE(transformDocument.value(QStringLiteral("workflowExtension")).toString(),
+             QStringLiteral("transform-token"));
+    QCOMPARE(transformDocument.value(QStringLiteral("params"))
+                 .toMap()
+                 .value(QStringLiteral("x"))
+                 .toDouble(),
+             24.0);
+    QCOMPARE(transformDocument.value(QStringLiteral("keyframes"))
+                 .toMap()
+                 .value(QStringLiteral("x"))
+                 .toMap()
+                 .value(QStringLiteral("start"))
+                 .toMap()
+                 .value(QStringLiteral("value"))
+                 .toDouble(),
+             24.0);
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->effects.first()->params().value(QStringLiteral("x")).toDouble(), 24.0);
+    const QVariantMap afterParameterUpdate = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterParameterUpdate);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+
+    const auto transformPoints = [&effectDocuments]() {
+        return effectDocuments()
+            .first()
+            .toMap()
+            .value(QStringLiteral("keyframes"))
+            .toMap()
+            .value(QStringLiteral("x"))
+            .toMap()
+            .value(QStringLiteral("points"))
+            .toList();
+    };
+    const auto containsFrame = [](const QVariantList &points, int frame) {
+        return std::ranges::any_of(points, [frame](const QVariant &point) {
+            return point.toMap().value(QStringLiteral("frame")).toInt() == frame;
+        });
+    };
+
+    timeline.setKeyframe(clipId, 0, QStringLiteral("x"), 10, 10.0,
+                         {{QStringLiteral("interp"), QStringLiteral("linear")}});
+    QVERIFY(containsFrame(transformPoints(), 10));
+    transformDocument = effectDocuments().first().toMap();
+    QCOMPARE(transformDocument.value(QStringLiteral("workflowExtension")).toString(),
+             QStringLiteral("transform-token"));
+    const QVariantMap afterKeyframeSet = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeSet);
+
+    timeline.moveKeyframe(clipId, 0, QStringLiteral("x"), 10, 12);
+    QVERIFY(!containsFrame(transformPoints(), 10));
+    QVERIFY(containsFrame(transformPoints(), 12));
+    const QVariantMap afterKeyframeMove = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeSet);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeMove);
+
+    timeline.removeKeyframe(clipId, 0, QStringLiteral("x"), 12);
+    QVERIFY(!containsFrame(transformPoints(), 12));
+    const QVariantMap afterKeyframeRemoval = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeMove);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeRemoval);
+    timeline.undo();
+    timeline.undo();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+}
+
+void TestDailyEditingWorkflow::audioParameterDurationUsesRustState() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString audioPath = directory.filePath(QStringLiteral("duration.wav"));
+    QVERIFY(writeSilentWav(audioPath));
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("audio"), 0, 0);
+
+    const auto rustClip = [&timeline, clipId]() {
+        const QVariantList clips =
+            timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+        for (const QVariant &value : clips) {
+            const QVariantMap clip = value.toMap();
+            if (clip.value(QStringLiteral("id")).toInt() == clipId) {
+                return clip;
+            }
+        }
+        return QVariantMap{};
+    };
+
+    auto *clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->effects.size(), 1);
+    QCOMPARE(clip->effects.first()->id(), QStringLiteral("audio"));
+    timeline.updateEffectParam(clipId, 0, QStringLiteral("source"), audioPath);
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(!rustClip().isEmpty());
+    QCOMPARE(clip->durationFrames, rustClip().value(QStringLiteral("duration")).toInt());
+
+    timeline.undoStack()->clear();
+    const QVariantMap before = timeline.timelineStateSnapshot();
+    const int beforeDuration = clip->durationFrames;
+    timeline.updateEffectParam(clipId, 0, QStringLiteral("speed"), 200.0);
+
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    const QVariantMap after = timeline.timelineStateSnapshot();
+    const int afterDuration = rustClip().value(QStringLiteral("duration")).toInt();
+    QVERIFY(afterDuration != beforeDuration);
+    QCOMPARE(clip->durationFrames, afterDuration);
+
+    timeline.undo();
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    QCOMPARE(clip->durationFrames, beforeDuration);
+    QCOMPARE(clip->durationFrames, rustClip().value(QStringLiteral("duration")).toInt());
+
+    timeline.redo();
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(timeline.timelineStateSnapshot(), after);
+    QCOMPARE(clip->durationFrames, afterDuration);
+    QCOMPARE(clip->durationFrames, rustClip().value(QStringLiteral("duration")).toInt());
 }
 
 void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {

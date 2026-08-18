@@ -74,18 +74,18 @@ const API_PERMISSIONS: [(&str, &str); 33] = [
     ("log", "log.output"),
 ];
 
-fn is_direct_audio_mode(value: &str) -> bool {
+pub(crate) fn is_direct_audio_mode(value: &str) -> bool {
     value.contains("直接")
 }
 
-fn is_video_file(value: &str) -> bool {
+pub(crate) fn is_video_file(value: &str) -> bool {
     let lower = value.to_lowercase();
     [".mp4", ".mov", ".avi", ".mkv", ".webm", ".wmv"]
         .iter()
         .any(|extension| lower.ends_with(extension))
 }
 
-fn audio_parameter_affects_duration(value: &str) -> bool {
+pub(crate) fn audio_parameter_affects_duration(value: &str) -> bool {
     AUDIO_DURATION_PARAMETERS.contains(&value)
 }
 
@@ -217,7 +217,7 @@ fn clamp_audio_duration_frames(
     }
 }
 
-fn audio_duration_frames(
+pub(crate) fn audio_duration_frames(
     total_seconds: f64,
     direct_mode: bool,
     start_time: f64,

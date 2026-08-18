@@ -272,6 +272,11 @@ class EffectModel : public QObject {
         emit keyframeTracksChanged();
     }
 
+    void setKeyframeTracks(const QVariantMap &tracks, int durationFrames) {
+        m_lastDuration = durationFrames;
+        setKeyframeTracks(tracks);
+    }
+
     void invalidateCache(const QString &) const {
         m_evaluationCacheDirty = true;
     }

@@ -1,5 +1,4 @@
 #include "commands.hpp"
-#include "constants.hpp"
 #include "core/include/media_utils.hpp"
 #include "core/include/rust_core_policy.hpp"
 #include "effect_registry.hpp"
@@ -10,6 +9,7 @@
 #include <QDebug>
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 extern "C" {
@@ -20,60 +20,21 @@ namespace AviQtl::UI {
 
 namespace {
 
-double sceneFpsForClip(const TimelineService *timeline, const ClipData &clip) {
-    if (timeline == nullptr) {
-        return AviQtl::kDefaultFps;
-    }
-    for (const auto &scene : timeline->getAllScenes()) {
-        if (scene.id == clip.sceneId) {
-            return scene.fps > 0.0 ? scene.fps : AviQtl::kDefaultFps;
-        }
-    }
-    return AviQtl::kDefaultFps;
-}
-
-bool autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip, EffectModel *effect, const QString &paramName) {
-    if (timeline == nullptr || effect == nullptr || clip.type != QLatin1String("audio") || effect->id() != QLatin1String("audio")) {
-        return false;
+std::optional<double> probeAudioDuration(const ClipData &clip, const EffectModel *effect,
+                                         const QString &paramName) {
+    if (effect == nullptr || clip.type != QLatin1String("audio") ||
+        effect->id() != QLatin1String("audio")) {
+        return std::nullopt;
     }
 
     if (!AviQtl::RustCore::Policy::audioParameterAffectsDuration(paramName)) {
-        return false;
+        return std::nullopt;
     }
 
     const QVariantMap params = effect->params();
     const QString source = params.value(QStringLiteral("source")).toString();
     const double totalSec = AviQtl::Core::MediaUtils::mediaDurationSeconds(source, AVMEDIA_TYPE_AUDIO);
-    if (totalSec <= 0.0) {
-        return false;
-    }
-
-    const double fps = sceneFpsForClip(timeline, clip);
-    const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(
-        params.value(QStringLiteral("playMode")).toString());
-    const bool linkedVideo = AviQtl::Core::MediaUtils::isVideoFile(source) &&
-                             params.value(QStringLiteral("linkedVideo"), false).toBool();
-    const double speed = linkedVideo
-                             ? AviQtl::kDefaultSpeed
-                             : params.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed)
-                                   .toDouble();
-    const int newDuration = AviQtl::RustCore::Policy::audioDurationFrames(
-        totalSec, directMode, params.value(QStringLiteral("startTime"), 0.0).toDouble(), speed,
-        fps);
-    if (newDuration <= 0) {
-        return false;
-    }
-    if (newDuration == clip.durationFrames) {
-        return false;
-    }
-
-    clip.durationFrames = newDuration;
-    for (auto *clipEffect : std::as_const(clip.effects)) {
-        if (clipEffect != nullptr) {
-            clipEffect->syncTrackEndpoints(newDuration);
-        }
-    }
-    return true;
+    return totalSec > 0.0 ? std::optional<double>(totalSec) : std::nullopt;
 }
 
 bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const QString &paramName) {
@@ -97,6 +58,56 @@ QVariantMap effectMutationDocument(const EffectModel *effect) {
     };
 }
 
+QVariantMap clipDocumentAt(const TimelineService *timeline, int clipId) {
+    if (timeline == nullptr) {
+        return {};
+    }
+    const QVariantList clips =
+        timeline->timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    for (const QVariant &clipValue : clips) {
+        const QVariantMap clip = clipValue.toMap();
+        if (clip.value(QStringLiteral("id")).toInt() == clipId) {
+            return clip;
+        }
+    }
+    return {};
+}
+
+bool applyCommittedAudioDuration(TimelineService *timeline, int clipId, int previousDuration) {
+    auto *clip = timeline != nullptr ? timeline->findClipById(clipId) : nullptr;
+    const QVariantMap document = clipDocumentAt(timeline, clipId);
+    const int committedDuration = document.value(QStringLiteral("duration")).toInt();
+    if (clip == nullptr || committedDuration <= 0 || committedDuration == previousDuration) {
+        return false;
+    }
+
+    clip->durationFrames = committedDuration;
+    const QVariantList effects = document.value(QStringLiteral("effects")).toList();
+    if (effects.size() != clip->effects.size()) {
+        qWarning() << "Rust audio duration projection effect count mismatch for clip" << clipId;
+    }
+    const qsizetype effectCount = std::min(effects.size(), clip->effects.size());
+    for (qsizetype index = 0; index < effectCount; ++index) {
+        if (auto *effect = clip->effects.at(index); effect != nullptr) {
+            effect->setKeyframeTracks(
+                effects.at(index).toMap().value(QStringLiteral("keyframes")).toMap(),
+                committedDuration);
+        }
+    }
+
+    const QVariantList plugins = document.value(QStringLiteral("audioPlugins")).toList();
+    if (plugins.size() != clip->audioPlugins.size()) {
+        qWarning() << "Rust audio duration projection plugin count mismatch for clip" << clipId;
+    }
+    const qsizetype pluginCount = std::min(plugins.size(), clip->audioPlugins.size());
+    for (qsizetype index = 0; index < pluginCount; ++index) {
+        clip->audioPlugins[index].keyframeTracks =
+            plugins.at(index).toMap().value(QStringLiteral("keyframes")).toMap();
+        clip->audioPlugins[index].invalidateKeyframeCache();
+    }
+    return true;
+}
+
 QVariantMap restoredEffectDocument(const EffectModel *effect, const QVariantMap &document) {
     return document.isEmpty() ? effectMutationDocument(effect) : document;
 }
@@ -105,17 +116,9 @@ QVariantMap effectDocumentAt(const TimelineService *timeline, int clipId, int ef
     if (timeline == nullptr || effectIndex < 0) {
         return {};
     }
-    const QVariantList clips =
-        timeline->timelineStateSnapshot().value(QStringLiteral("clips")).toList();
-    for (const QVariant &clipValue : clips) {
-        const QVariantMap clip = clipValue.toMap();
-        if (clip.value(QStringLiteral("id")).toInt() != clipId) {
-            continue;
-        }
-        const QVariantList effects = clip.value(QStringLiteral("effects")).toList();
-        return effectIndex < effects.size() ? effects.at(effectIndex).toMap() : QVariantMap{};
-    }
-    return {};
+    const QVariantList effects =
+        clipDocumentAt(timeline, clipId).value(QStringLiteral("effects")).toList();
+    return effectIndex < effects.size() ? effects.at(effectIndex).toMap() : QVariantMap{};
 }
 
 QVariantMap effectRuntimeData(const EffectModel *effect) {
@@ -186,6 +189,59 @@ QVariantMap reorderEffectsRequest(int clipId, const QVariantList &permutation) {
         {QStringLiteral("operation"), QStringLiteral("reorder_effects")},
         {QStringLiteral("clip_id"), clipId},
         {QStringLiteral("permutation"), permutation},
+    };
+}
+
+QVariantMap setEffectParameterRequest(int clipId, int effectIndex, const QString &paramName,
+                                      const QVariant &value,
+                                      const std::optional<double> &mediaDurationSeconds) {
+    QVariantMap request{
+        {QStringLiteral("operation"), QStringLiteral("set_effect_parameter")},
+        {QStringLiteral("clip_id"), clipId},
+        {QStringLiteral("effect_index"), effectIndex},
+        {QStringLiteral("param_name"), paramName},
+        {QStringLiteral("value"), value},
+    };
+    if (mediaDurationSeconds) {
+        request.insert(QStringLiteral("media_duration_seconds"), *mediaDurationSeconds);
+    }
+    return request;
+}
+
+QVariantMap setEffectKeyframeRequest(int clipId, int effectIndex, const QString &paramName,
+                                     int frame, const QVariant &value,
+                                     const QVariantMap &options) {
+    return {
+        {QStringLiteral("operation"), QStringLiteral("set_effect_keyframe")},
+        {QStringLiteral("clip_id"), clipId},
+        {QStringLiteral("effect_index"), effectIndex},
+        {QStringLiteral("param_name"), paramName},
+        {QStringLiteral("frame"), frame},
+        {QStringLiteral("value"), value},
+        {QStringLiteral("options"), options},
+    };
+}
+
+QVariantMap removeEffectKeyframeRequest(int clipId, int effectIndex,
+                                        const QString &paramName, int frame) {
+    return {
+        {QStringLiteral("operation"), QStringLiteral("remove_effect_keyframe")},
+        {QStringLiteral("clip_id"), clipId},
+        {QStringLiteral("effect_index"), effectIndex},
+        {QStringLiteral("param_name"), paramName},
+        {QStringLiteral("frame"), frame},
+    };
+}
+
+QVariantMap moveEffectKeyframeRequest(int clipId, int effectIndex, const QString &paramName,
+                                      int oldFrame, int newFrame) {
+    return {
+        {QStringLiteral("operation"), QStringLiteral("move_effect_keyframe")},
+        {QStringLiteral("clip_id"), clipId},
+        {QStringLiteral("effect_index"), effectIndex},
+        {QStringLiteral("param_name"), paramName},
+        {QStringLiteral("old_frame"), oldFrame},
+        {QStringLiteral("new_frame"), newFrame},
     };
 }
 
@@ -825,38 +881,29 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
         if (effectIndex >= 0 && effectIndex < static_cast<int>(clip->effects.size())) {
             auto *effect = clip->effects.value(effectIndex);
             const QVariantMap oldParams = effect->params();
-            QList<QVariantMap> oldEffectTracks;
-            oldEffectTracks.reserve(clip->effects.size());
-            for (const auto *clipEffect : std::as_const(clip->effects)) {
-                oldEffectTracks.append(clipEffect != nullptr ? clipEffect->keyframeTracks()
-                                                             : QVariantMap{});
-            }
+            const QVariantMap oldEffectTracks = effect->keyframeTracks();
             const int oldDuration = clip->durationFrames;
             effect->setParam(paramName, value);
-            const bool durationChanged = autoAdjustAudioClipDuration(this, *clip, effect, paramName);
+            const std::optional<double> mediaDurationSeconds =
+                probeAudioDuration(*clip, effect, paramName);
             const bool waveformChanged = affectsAudioWaveform(*clip, effect, paramName);
 
             if (!commitTimelineMutation(
-                    [this, clipId, effectIndex, oldParams, oldEffectTracks, oldDuration]() {
+                    setEffectParameterRequest(clipId, effectIndex, paramName, value,
+                                              mediaDurationSeconds),
+                    [this, clipId, effectIndex, oldParams, oldEffectTracks]() {
                         auto *restored = findClipById(clipId);
                         if (restored == nullptr || effectIndex >= restored->effects.size()) {
                             return;
                         }
-                        restored->durationFrames = oldDuration;
                         restored->effects.at(effectIndex)->setParams(oldParams);
-                        for (qsizetype index = 0;
-                             index < restored->effects.size() && index < oldEffectTracks.size();
-                             ++index) {
-                            if (auto *clipEffect = restored->effects.at(index);
-                                clipEffect != nullptr) {
-                                clipEffect->syncTrackEndpoints(oldDuration);
-                                clipEffect->setKeyframeTracks(oldEffectTracks.at(index));
-                            }
-                        }
+                        restored->effects.at(effectIndex)->setKeyframeTracks(oldEffectTracks);
                     })) {
                 qWarning() << "Rust rejected effect parameter update";
                 return;
             }
+            const bool durationChanged = mediaDurationSeconds.has_value() &&
+                                         applyCommittedAudioDuration(this, clipId, oldDuration);
 
             emit effectParamChanged(clipId, effectIndex, paramName, value);
 
@@ -987,10 +1034,12 @@ void TimelineService::setKeyframeInternal(int clipId, int effectIndex, const QSt
         const QVariantMap previousParams = effect->params();
         const QVariantMap previousTracks = effect->keyframeTracks();
         effect->setKeyframe(paramName, frame, value, options);
-        if (!commitTimelineMutation([effect, previousParams, previousTracks]() {
-                effect->setParams(previousParams);
-                effect->setKeyframeTracks(previousTracks);
-            })) {
+        if (!commitTimelineMutation(
+                setEffectKeyframeRequest(clipId, effectIndex, paramName, frame, value, options),
+                [effect, previousParams, previousTracks]() {
+                    effect->setParams(previousParams);
+                    effect->setKeyframeTracks(previousTracks);
+                })) {
             qWarning() << "Rust rejected effect keyframe update";
             return;
         }
@@ -1013,10 +1062,12 @@ void TimelineService::removeKeyframeInternal(int clipId, int effectIndex, const 
         const QVariantMap previousParams = effect->params();
         const QVariantMap previousTracks = effect->keyframeTracks();
         effect->removeKeyframe(paramName, frame);
-        if (!commitTimelineMutation([effect, previousParams, previousTracks]() {
-                effect->setParams(previousParams);
-                effect->setKeyframeTracks(previousTracks);
-            })) {
+        if (!commitTimelineMutation(
+                removeEffectKeyframeRequest(clipId, effectIndex, paramName, frame),
+                [effect, previousParams, previousTracks]() {
+                    effect->setParams(previousParams);
+                    effect->setKeyframeTracks(previousTracks);
+                })) {
             qWarning() << "Rust rejected effect keyframe removal";
             return;
         }
@@ -1037,10 +1088,12 @@ void TimelineService::moveKeyframeInternal(int clipId, int effectIndex, const QS
         if (!effect->moveKeyframe(paramName, oldFrame, newFrame)) {
             return;
         }
-        if (!commitTimelineMutation([effect, previousParams, previousTracks]() {
-                effect->setParams(previousParams);
-                effect->setKeyframeTracks(previousTracks);
-            })) {
+        if (!commitTimelineMutation(
+                moveEffectKeyframeRequest(clipId, effectIndex, paramName, oldFrame, newFrame),
+                [effect, previousParams, previousTracks]() {
+                    effect->setParams(previousParams);
+                    effect->setKeyframeTracks(previousTracks);
+                })) {
             qWarning() << "Rust rejected effect keyframe move";
             return;
         }
