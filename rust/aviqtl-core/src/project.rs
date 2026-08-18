@@ -17,7 +17,7 @@ const DEFAULT_SAMPLE_RATE: i32 = 48_000;
 // Keep in sync with AviQtl::kDefaultTotalFrames in core/include/constants.hpp.
 const DEFAULT_TOTAL_FRAMES: i32 = 300;
 // Keep in sync with AviQtl::kDefaultFps in core/include/constants.hpp.
-const DEFAULT_FPS: f64 = 60.0;
+pub(crate) const DEFAULT_FPS: f64 = 60.0;
 const MAX_DIMENSION: i32 = 32_768;
 const MAX_FPS: f64 = 1_000.0;
 const MAX_SAMPLE_RATE: i32 = 192_000;

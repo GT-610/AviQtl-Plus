@@ -1,5 +1,4 @@
 #include "commands.hpp"
-#include "constants.hpp"
 #include "core/include/media_utils.hpp"
 #include "core/include/rust_core_policy.hpp"
 #include "effect_registry.hpp"
@@ -21,85 +20,21 @@ namespace AviQtl::UI {
 
 namespace {
 
-double sceneFpsForClip(const TimelineService *timeline, const ClipData &clip) {
-    if (timeline == nullptr) {
-        return AviQtl::kDefaultFps;
-    }
-    for (const auto &scene : timeline->getAllScenes()) {
-        if (scene.id == clip.sceneId) {
-            return scene.fps > 0.0 ? scene.fps : AviQtl::kDefaultFps;
-        }
-    }
-    return AviQtl::kDefaultFps;
-}
-
-struct AudioDurationAdjustment {
-    bool changed = false;
-    std::optional<double> mediaDurationSeconds;
-};
-
-AudioDurationAdjustment autoAdjustAudioClipDuration(TimelineService *timeline, ClipData &clip,
-                                                    EffectModel *effect,
-                                                    const QString &paramName) {
-    if (timeline == nullptr || effect == nullptr || clip.type != QLatin1String("audio") || effect->id() != QLatin1String("audio")) {
-        return {};
+std::optional<double> probeAudioDuration(const ClipData &clip, const EffectModel *effect,
+                                         const QString &paramName) {
+    if (effect == nullptr || clip.type != QLatin1String("audio") ||
+        effect->id() != QLatin1String("audio")) {
+        return std::nullopt;
     }
 
     if (!AviQtl::RustCore::Policy::audioParameterAffectsDuration(paramName)) {
-        return {};
+        return std::nullopt;
     }
 
     const QVariantMap params = effect->params();
     const QString source = params.value(QStringLiteral("source")).toString();
     const double totalSec = AviQtl::Core::MediaUtils::mediaDurationSeconds(source, AVMEDIA_TYPE_AUDIO);
-    if (totalSec <= 0.0) {
-        return {};
-    }
-
-    AudioDurationAdjustment adjustment;
-    adjustment.mediaDurationSeconds = totalSec;
-
-    const double fps = sceneFpsForClip(timeline, clip);
-    const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(
-        params.value(QStringLiteral("playMode")).toString());
-    const bool linkedVideo = AviQtl::Core::MediaUtils::isVideoFile(source) &&
-                             params.value(QStringLiteral("linkedVideo"), false).toBool();
-    const double speed = linkedVideo
-                             ? AviQtl::kDefaultSpeed
-                             : params.value(QStringLiteral("speed"), AviQtl::kDefaultSpeed)
-                                   .toDouble();
-    const int newDuration = AviQtl::RustCore::Policy::audioDurationFrames(
-        totalSec, directMode, params.value(QStringLiteral("startTime"), 0.0).toDouble(), speed,
-        fps);
-    if (newDuration <= 0) {
-        return adjustment;
-    }
-    if (newDuration == clip.durationFrames) {
-        return adjustment;
-    }
-
-    const int oldDuration = clip.durationFrames;
-    clip.durationFrames = newDuration;
-    for (auto *clipEffect : std::as_const(clip.effects)) {
-        if (clipEffect != nullptr) {
-            clipEffect->syncTrackEndpoints(newDuration);
-        }
-    }
-    for (auto &plugin : clip.audioPlugins) {
-        if (plugin.keyframeTracks.isEmpty()) {
-            continue;
-        }
-        for (auto it = plugin.params.cbegin(); it != plugin.params.cend(); ++it) {
-            const auto result = AviQtl::Core::RustKeyframeDocument::sync(
-                plugin.keyframeTracks.value(it.key()), it.value(), oldDuration, newDuration);
-            if (result) {
-                plugin.keyframeTracks[it.key()] = result->track;
-            }
-        }
-        plugin.invalidateKeyframeCache();
-    }
-    adjustment.changed = true;
-    return adjustment;
+    return totalSec > 0.0 ? std::optional<double>(totalSec) : std::nullopt;
 }
 
 bool affectsAudioWaveform(const ClipData &clip, const EffectModel *effect, const QString &paramName) {
@@ -123,6 +58,56 @@ QVariantMap effectMutationDocument(const EffectModel *effect) {
     };
 }
 
+QVariantMap clipDocumentAt(const TimelineService *timeline, int clipId) {
+    if (timeline == nullptr) {
+        return {};
+    }
+    const QVariantList clips =
+        timeline->timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    for (const QVariant &clipValue : clips) {
+        const QVariantMap clip = clipValue.toMap();
+        if (clip.value(QStringLiteral("id")).toInt() == clipId) {
+            return clip;
+        }
+    }
+    return {};
+}
+
+bool applyCommittedAudioDuration(TimelineService *timeline, int clipId, int previousDuration) {
+    auto *clip = timeline != nullptr ? timeline->findClipById(clipId) : nullptr;
+    const QVariantMap document = clipDocumentAt(timeline, clipId);
+    const int committedDuration = document.value(QStringLiteral("duration")).toInt();
+    if (clip == nullptr || committedDuration <= 0 || committedDuration == previousDuration) {
+        return false;
+    }
+
+    clip->durationFrames = committedDuration;
+    const QVariantList effects = document.value(QStringLiteral("effects")).toList();
+    if (effects.size() != clip->effects.size()) {
+        qWarning() << "Rust audio duration projection effect count mismatch for clip" << clipId;
+    }
+    const qsizetype effectCount = std::min(effects.size(), clip->effects.size());
+    for (qsizetype index = 0; index < effectCount; ++index) {
+        if (auto *effect = clip->effects.at(index); effect != nullptr) {
+            effect->setKeyframeTracks(
+                effects.at(index).toMap().value(QStringLiteral("keyframes")).toMap(),
+                committedDuration);
+        }
+    }
+
+    const QVariantList plugins = document.value(QStringLiteral("audioPlugins")).toList();
+    if (plugins.size() != clip->audioPlugins.size()) {
+        qWarning() << "Rust audio duration projection plugin count mismatch for clip" << clipId;
+    }
+    const qsizetype pluginCount = std::min(plugins.size(), clip->audioPlugins.size());
+    for (qsizetype index = 0; index < pluginCount; ++index) {
+        clip->audioPlugins[index].keyframeTracks =
+            plugins.at(index).toMap().value(QStringLiteral("keyframes")).toMap();
+        clip->audioPlugins[index].invalidateKeyframeCache();
+    }
+    return true;
+}
+
 QVariantMap restoredEffectDocument(const EffectModel *effect, const QVariantMap &document) {
     return document.isEmpty() ? effectMutationDocument(effect) : document;
 }
@@ -131,17 +116,9 @@ QVariantMap effectDocumentAt(const TimelineService *timeline, int clipId, int ef
     if (timeline == nullptr || effectIndex < 0) {
         return {};
     }
-    const QVariantList clips =
-        timeline->timelineStateSnapshot().value(QStringLiteral("clips")).toList();
-    for (const QVariant &clipValue : clips) {
-        const QVariantMap clip = clipValue.toMap();
-        if (clip.value(QStringLiteral("id")).toInt() != clipId) {
-            continue;
-        }
-        const QVariantList effects = clip.value(QStringLiteral("effects")).toList();
-        return effectIndex < effects.size() ? effects.at(effectIndex).toMap() : QVariantMap{};
-    }
-    return {};
+    const QVariantList effects =
+        clipDocumentAt(timeline, clipId).value(QStringLiteral("effects")).toList();
+    return effectIndex < effects.size() ? effects.at(effectIndex).toMap() : QVariantMap{};
 }
 
 QVariantMap effectRuntimeData(const EffectModel *effect) {
@@ -904,48 +881,29 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
         if (effectIndex >= 0 && effectIndex < static_cast<int>(clip->effects.size())) {
             auto *effect = clip->effects.value(effectIndex);
             const QVariantMap oldParams = effect->params();
-            QList<QVariantMap> oldEffectTracks;
-            oldEffectTracks.reserve(clip->effects.size());
-            for (const auto *clipEffect : std::as_const(clip->effects)) {
-                oldEffectTracks.append(clipEffect != nullptr ? clipEffect->keyframeTracks()
-                                                             : QVariantMap{});
-            }
-            const QList<AudioPluginState> oldAudioPlugins = clip->audioPlugins;
+            const QVariantMap oldEffectTracks = effect->keyframeTracks();
             const int oldDuration = clip->durationFrames;
             effect->setParam(paramName, value);
-            const AudioDurationAdjustment durationAdjustment =
-                autoAdjustAudioClipDuration(this, *clip, effect, paramName);
-            const bool durationChanged = durationAdjustment.changed;
+            const std::optional<double> mediaDurationSeconds =
+                probeAudioDuration(*clip, effect, paramName);
             const bool waveformChanged = affectsAudioWaveform(*clip, effect, paramName);
 
             if (!commitTimelineMutation(
                     setEffectParameterRequest(clipId, effectIndex, paramName, value,
-                                              durationAdjustment.mediaDurationSeconds),
-                    [this, clipId, effectIndex, oldParams, oldEffectTracks, oldAudioPlugins,
-                     oldDuration]() {
+                                              mediaDurationSeconds),
+                    [this, clipId, effectIndex, oldParams, oldEffectTracks]() {
                         auto *restored = findClipById(clipId);
                         if (restored == nullptr || effectIndex >= restored->effects.size()) {
                             return;
                         }
-                        restored->durationFrames = oldDuration;
-                        restored->audioPlugins = oldAudioPlugins;
-                        for (auto &plugin : restored->audioPlugins) {
-                            plugin.invalidateKeyframeCache();
-                        }
                         restored->effects.at(effectIndex)->setParams(oldParams);
-                        for (qsizetype index = 0;
-                             index < restored->effects.size() && index < oldEffectTracks.size();
-                             ++index) {
-                            if (auto *clipEffect = restored->effects.at(index);
-                                clipEffect != nullptr) {
-                                clipEffect->syncTrackEndpoints(oldDuration);
-                                clipEffect->setKeyframeTracks(oldEffectTracks.at(index));
-                            }
-                        }
+                        restored->effects.at(effectIndex)->setKeyframeTracks(oldEffectTracks);
                     })) {
                 qWarning() << "Rust rejected effect parameter update";
                 return;
             }
+            const bool durationChanged = mediaDurationSeconds.has_value() &&
+                                         applyCommittedAudioDuration(this, clipId, oldDuration);
 
             emit effectParamChanged(clipId, effectIndex, paramName, value);
 

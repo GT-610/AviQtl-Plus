@@ -8,7 +8,7 @@ use crate::policy::{
     audio_duration_frames, audio_parameter_affects_duration, is_direct_audio_mode, is_video_file,
 };
 use crate::project::{
-    AudioPluginDocument, ClipDocument, EffectDocument, ProjectDocument, ProjectError,
+    AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, ProjectDocument, ProjectError,
     SceneDocument, parse_project_document,
 };
 use crate::timeline_domain::allocate_id;
@@ -1144,12 +1144,11 @@ fn update_audio_clip_duration(
         .find(|scene| scene.id == clip.scene_id)
         .map(|scene| scene.fps)
         .filter(|fps| *fps > 0.0)
-        .unwrap_or(document.settings.fps);
+        .unwrap_or(DEFAULT_FPS);
     let new_duration =
         audio_duration_frames(media_duration_seconds, direct_mode, start_time, speed, fps);
     if new_duration > 0 && new_duration != old_duration {
         clip.duration = new_duration;
-        sync_clip_tracks(clip, old_duration);
     }
     Ok(())
 }
@@ -2122,6 +2121,44 @@ mod tests {
             }),
             Err(StateError::InvalidArgument)
         );
+    }
+
+    #[test]
+    fn targeted_keyframe_set_creates_missing_track_and_restores_none() {
+        let mut before = document();
+        let effect = &mut before.clips[0].effects[0];
+        effect.params.insert("opacity".to_owned(), json!(0.5));
+        effect.keyframes = None;
+        let mut state = TimelineState::new(before.clone(), 2, 1).expect("valid state");
+
+        let transaction = state
+            .plan(EditRequest::SetEffectKeyframe {
+                clip_id: 1,
+                effect_index: 0,
+                param_name: "opacity".to_owned(),
+                frame: 0,
+                value: json!(0.75),
+                options: json!({"interp": "linear"}),
+            })
+            .expect("missing keyframe track set plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("missing keyframe track set applies");
+        let updated_effect = &state.document.clips[0].effects[0];
+        assert_eq!(updated_effect.params["opacity"], json!(0.75));
+        assert!(
+            updated_effect
+                .keyframes
+                .as_ref()
+                .expect("tracks created")
+                .contains_key("opacity")
+        );
+
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("missing keyframe track inverse applies");
+        assert!(state.document.clips[0].effects[0].keyframes.is_none());
+        assert_eq!(state.document, before);
     }
 
     #[test]
