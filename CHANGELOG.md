@@ -2,6 +2,23 @@
 
 All notable changes to AviQtl-Plus are documented in this file.
 
+## [0.6.1] - 2026-08-19
+
+### Changed
+- Timeline scene, clip, effect, keyframe, and audio-plugin edits now use
+  targeted, reversible Rust state transactions
+- Qt timeline objects are reconciled from the committed Rust state after each
+  transaction, keeping the native projection aligned with the core
+- Optional weather objects are externalized from the main effect packages
+
+### Fixed
+- A failed Qt projection synchronization now rolls back both the Rust
+  transaction and native timeline mutation atomically
+- Scene removal undo restores the original scene position, and batch clip
+  geometry edits reject partial application
+- Audio duration changes and effect/keyframe updates consistently use the
+  committed Rust timeline state
+
 ## [0.6.0] - 2026-08-16
 
 ### Added
