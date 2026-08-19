@@ -294,6 +294,7 @@ void TimelineService::synchronizeTimelineProjection() {
     const QVariantList clipDocuments = document.value(QStringLiteral("clips")).toList();
     QHash<int, QVariantMap> scenesById;
     QHash<int, QVariantMap> clipsById;
+    QHash<int, qsizetype> clipCountsByScene;
     for (const QVariant &value : sceneDocuments) {
         const QVariantMap scene = value.toMap();
         scenesById.insert(scene.value(QStringLiteral("id")).toInt(), scene);
@@ -301,6 +302,7 @@ void TimelineService::synchronizeTimelineProjection() {
     for (const QVariant &value : clipDocuments) {
         const QVariantMap clip = value.toMap();
         clipsById.insert(clip.value(QStringLiteral("id")).toInt(), clip);
+        ++clipCountsByScene[clip.value(QStringLiteral("sceneId")).toInt()];
     }
 
     // Targeted requests change collection membership in the same adapter operation that owns
@@ -339,11 +341,10 @@ void TimelineService::synchronizeTimelineProjection() {
         scene.magneticSnapRange =
             source.value(QStringLiteral("magneticSnapRange"), scene.magneticSnapRange).toInt();
 
-        bool clipSetMatches = true;
         for (auto &clip : scene.clips) {
             const auto clipIt = clipsById.constFind(clip.id);
             if (clipIt == clipsById.cend()) {
-                clipSetMatches = false;
+                sceneSetMatches = false;
                 continue;
             }
             const QVariantMap &sourceClip = clipIt.value();
@@ -356,7 +357,11 @@ void TimelineService::synchronizeTimelineProjection() {
             clip.layer = sourceClip.value(QStringLiteral("layer"), clip.layer).toInt();
             clip.clipByUpperObject =
                 sourceClip.value(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject).toBool();
-            clip.params = sourceClip.value(QStringLiteral("params"), clip.params).toMap();
+            const QVariantMap clipParams =
+                sourceClip.value(QStringLiteral("params"), clip.params).toMap();
+            if (compactJson(clip.params) != compactJson(clipParams)) {
+                clip.params = clipParams;
+            }
 
             const QVariantList effects = sourceClip.value(QStringLiteral("effects")).toList();
             if (effects.size() != clip.effects.size()) {
@@ -372,11 +377,15 @@ void TimelineService::synchronizeTimelineProjection() {
                     }
                     effect->setEnabled(
                         effectDocument.value(QStringLiteral("enabled"), effect->isEnabled()).toBool());
-                    effect->setParams(
-                        effectDocument.value(QStringLiteral("params"), effect->params()).toMap());
+                    const QVariantMap effectParams =
+                        effectDocument.value(QStringLiteral("params"), effect->params()).toMap();
+                    if (compactJson(effect->params()) != compactJson(effectParams)) {
+                        effect->setParams(effectParams);
+                    }
                     const QVariantMap keyframes =
                         effectDocument.value(QStringLiteral("keyframes")).toMap();
-                    if (durationChanged || effect->keyframeTracks() != keyframes) {
+                    if (durationChanged ||
+                        compactJson(effect->keyframeTracks()) != compactJson(keyframes)) {
                         effect->setKeyframeTracks(keyframes, clip.durationFrames);
                     }
                 }
@@ -395,23 +404,28 @@ void TimelineService::synchronizeTimelineProjection() {
                     }
                     const bool enabled =
                         pluginDocument.value(QStringLiteral("enabled"), plugin.enabled).toBool();
-                    const QVariantMap params =
+                    const QVariantMap pluginParams =
                         pluginDocument.value(QStringLiteral("params"), plugin.params).toMap();
                     const QVariantMap keyframes =
                         pluginDocument.value(QStringLiteral("keyframes")).toMap();
+                    const bool paramsChanged =
+                        compactJson(plugin.params) != compactJson(pluginParams);
+                    const bool keyframesChanged =
+                        compactJson(plugin.keyframeTracks) != compactJson(keyframes);
                     plugin.enabled = enabled;
-                    plugin.params = params;
-                    if (plugin.keyframeTracks != keyframes) {
+                    if (paramsChanged) {
+                        plugin.params = pluginParams;
+                    }
+                    if (keyframesChanged) {
                         plugin.keyframeTracks = keyframes;
+                    }
+                    if (paramsChanged || keyframesChanged) {
                         plugin.invalidateKeyframeCache();
                     }
                 }
             }
         }
-        if (clipSetMatches && scene.clips.size() != std::count_if(
-                                  clipDocuments.cbegin(), clipDocuments.cend(), [&scene](const QVariant &value) {
-                                      return value.toMap().value(QStringLiteral("sceneId")).toInt() == scene.id;
-                                  })) {
+        if (scene.clips.size() != clipCountsByScene.value(scene.id)) {
             sceneSetMatches = false;
         }
     }
