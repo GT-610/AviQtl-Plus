@@ -22,6 +22,10 @@ Common.BaseObject {
         return x - Math.floor(x);
     }
 
+    function wrap(value, range) {
+        return ((value % range) + range) % range;
+    }
+
     sourceItem: sourceItem
 
     Item {
@@ -54,8 +58,8 @@ Common.BaseObject {
                     var s = root.particleSize * (0.45 + rr * 1.2);
                     var alpha = 0.35 + root.rand(i * 5 + 5) * 0.65;
                     if (root.objectId === "rain") {
-                        x = (x + t * (10 + root.spread * 25) * (0.35 + rr)) % (width + 80) - 40;
-                        y = (y + t * (28 + root.spread * 80) * (0.4 + phase)) % (height + 80) - 40;
+                        x = root.wrap(x + t * (10 + root.spread * 25) * (0.35 + rr), width + 80) - 40;
+                        y = root.wrap(y + t * (28 + root.spread * 80) * (0.4 + phase), height + 80) - 40;
                         ctx.globalAlpha = alpha;
                         ctx.lineWidth = Math.max(1, s * 0.32);
                         ctx.beginPath();
@@ -63,8 +67,8 @@ Common.BaseObject {
                         ctx.lineTo(x - s * 1.2, y + s * 5);
                         ctx.stroke();
                     } else {
-                        x = (x + Math.sin((t * 0.03) + phase * Math.PI * 2) * root.spread * 36) % width;
-                        y = (y + t * (3 + root.spread * 9) * (0.35 + rr)) % (height + 40) - 20;
+                        x = root.wrap(x + Math.sin((t * 0.03) + phase * Math.PI * 2) * root.spread * 36, width);
+                        y = root.wrap(y + t * (3 + root.spread * 9) * (0.35 + rr), height + 40) - 20;
                         ctx.globalAlpha = alpha;
                         ctx.beginPath();
                         ctx.arc(x, y, s, 0, Math.PI * 2);

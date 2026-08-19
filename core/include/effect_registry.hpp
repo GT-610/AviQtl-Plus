@@ -10,6 +10,10 @@ Q_DECLARE_LOGGING_CATEGORY(lcEffectRegistry)
 
 namespace AviQtl::Core {
 
+// Resolves symlinks when possible; otherwise returns a clean absolute path.
+[[nodiscard]] QString filesystemPathIdentity(const QString &path);
+[[nodiscard]] bool filesystemPathsEqual(const QString &first, const QString &second);
+
 struct EffectMetadata {
     QString id;
     QString name;
@@ -18,6 +22,8 @@ struct EffectMetadata {
     QStringList categories;
     QString qmlSource; // QML実装へのパス
     QString color;     // ← 追加: JSON の "color" フィールド（省略可）
+    // Display metadata for catalog labels and search only. It never controls loading,
+    // permissions, or trust decisions; JSON may override the caller's display value.
     QString source;
     QString packageId;
     QString sourcePath;

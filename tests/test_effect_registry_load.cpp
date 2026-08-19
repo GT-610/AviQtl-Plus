@@ -27,6 +27,7 @@ class TestEffectRegistryLoad : public QObject {
     void colorFieldPreserved();
     void defaultParamsPreserved();
     void explicitSourceIsPreserved();
+    void filesystemPathComparisonHandlesAliasesAndFallbacks();
 
   private:
     QTemporaryDir m_dir;
@@ -397,6 +398,33 @@ void TestEffectRegistryLoad::explicitSourceIsPreserved() {
     reg.loadEffectsFromDirectory(m_dir.path(), QStringLiteral("built-in"));
 
     QCOMPARE(reg.getEffect(QStringLiteral("load.source")).source, QStringLiteral("built-in"));
+
+    writeJson("source-qrc.json", R"({
+        "id": "load.source.qrc",
+        "name": "Source QRC",
+        "qml": "qrc:/test/Source.qml",
+        "version": "1.0.0",
+        "kind": "effect",
+        "categories": ["Test"],
+        "params": {},
+        "ui": {"controls": [{"type": "header", "label": "X"}]}
+    })");
+    reg.loadEffectsFromDirectory(m_dir.path(), QStringLiteral("built-in"));
+
+    QCOMPARE(reg.getEffect(QStringLiteral("load.source.qrc")).source, QStringLiteral("built-in"));
+}
+
+void TestEffectRegistryLoad::filesystemPathComparisonHandlesAliasesAndFallbacks() {
+    const QString existingPath = m_dir.path();
+    const QString existingAlias = QDir(existingPath).filePath(QStringLiteral("."));
+    QVERIFY(filesystemPathsEqual(existingPath, existingAlias));
+#ifdef Q_OS_WIN
+    QVERIFY(filesystemPathsEqual(existingPath, existingPath.toUpper()));
+#endif
+
+    const QString missingPath = QDir(existingPath).filePath(QStringLiteral("missing"));
+    const QString missingAlias = QDir(existingPath).filePath(QStringLiteral("./missing"));
+    QVERIFY(filesystemPathsEqual(missingPath, missingAlias));
 }
 
 QTEST_MAIN(TestEffectRegistryLoad)

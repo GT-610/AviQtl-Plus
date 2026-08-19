@@ -165,7 +165,7 @@ auto main(int argc, char *argv[]) -> int {
                         // 相対パスの場合はアプリ（またはResources）ディレクトリを起点として解決
                         QString absolutePath = QDir::isAbsolutePath(path) ? path : resDir.absoluteFilePath(path);
                         if (QFile::exists(absolutePath)) {
-                            const QString source = QDir::cleanPath(absolutePath) == QDir::cleanPath(resDir.filePath(key.toLower())) ? QStringLiteral("built-in") : QStringLiteral("package");
+                            const QString source = Core::filesystemPathsEqual(absolutePath, resDir.filePath(key.toLower())) ? QStringLiteral("built-in") : QStringLiteral("package");
                             Core::EffectRegistry::instance().loadEffectsFromDirectory(absolutePath, source);
                         }
                     }
