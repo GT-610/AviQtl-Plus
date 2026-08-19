@@ -7,6 +7,7 @@
 #include "selection_service.hpp"
 #include "settings_manager.hpp"
 #include <QDebug>
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -283,6 +284,163 @@ bool TimelineService::applyTimelinePatch(const QVariantMap &patch) {
     return true;
 }
 
+bool TimelineService::synchronizeTimelineProjection() {
+    const QVariantMap document = timelineStateSnapshot();
+    if (document.isEmpty()) {
+        return false;
+    }
+
+    const QVariantList sceneDocuments = document.value(QStringLiteral("scenes")).toList();
+    const QVariantList clipDocuments = document.value(QStringLiteral("clips")).toList();
+    QHash<int, QVariantMap> scenesById;
+    QHash<int, QVariantMap> clipsById;
+    QHash<int, qsizetype> clipCountsByScene;
+    for (const QVariant &value : sceneDocuments) {
+        const QVariantMap scene = value.toMap();
+        scenesById.insert(scene.value(QStringLiteral("id")).toInt(), scene);
+    }
+    for (const QVariant &value : clipDocuments) {
+        const QVariantMap clip = value.toMap();
+        clipsById.insert(clip.value(QStringLiteral("id")).toInt(), clip);
+        ++clipCountsByScene[clip.value(QStringLiteral("sceneId")).toInt()];
+    }
+
+    // Targeted requests change collection membership in the same adapter operation that owns
+    // QObject lifetimes. Reconcile only matching objects here, so Rust supplies their committed
+    // value state without this path constructing or destroying native runtime objects.
+    bool sceneSetMatches = scenesById.size() == m_scenes.size();
+    for (auto &scene : m_scenes) {
+        const auto sceneIt = scenesById.constFind(scene.id);
+        if (sceneIt == scenesById.cend()) {
+            sceneSetMatches = false;
+            continue;
+        }
+        const QVariantMap &source = sceneIt.value();
+        scene.name = source.value(QStringLiteral("name"), scene.name).toString();
+        scene.width = source.value(QStringLiteral("width"), scene.width).toInt();
+        scene.height = source.value(QStringLiteral("height"), scene.height).toInt();
+        scene.fps = source.value(QStringLiteral("fps"), scene.fps).toDouble();
+        scene.startFrame = source.value(QStringLiteral("start"), scene.startFrame).toInt();
+        scene.totalFrames = source.value(QStringLiteral("duration"), scene.totalFrames).toInt();
+        scene.durationFrames =
+            source.value(QStringLiteral("nestedDuration"), scene.durationFrames).toInt();
+        scene.lockedLayers.clear();
+        for (const QVariant &layer : source.value(QStringLiteral("lockedLayers")).toList()) {
+            scene.lockedLayers.insert(layer.toInt());
+        }
+        scene.hiddenLayers.clear();
+        for (const QVariant &layer : source.value(QStringLiteral("hiddenLayers")).toList()) {
+            scene.hiddenLayers.insert(layer.toInt());
+        }
+        scene.gridMode = source.value(QStringLiteral("gridMode"), scene.gridMode).toString();
+        scene.gridBpm = source.value(QStringLiteral("gridBpm"), scene.gridBpm).toDouble();
+        scene.gridOffset = source.value(QStringLiteral("gridOffset"), scene.gridOffset).toDouble();
+        scene.gridInterval = source.value(QStringLiteral("gridInterval"), scene.gridInterval).toInt();
+        scene.gridSubdivision = source.value(QStringLiteral("gridSubdivision"), scene.gridSubdivision).toInt();
+        scene.enableSnap = source.value(QStringLiteral("enableSnap"), scene.enableSnap).toBool();
+        scene.magneticSnapRange =
+            source.value(QStringLiteral("magneticSnapRange"), scene.magneticSnapRange).toInt();
+
+        for (auto &clip : scene.clips) {
+            const auto clipIt = clipsById.constFind(clip.id);
+            if (clipIt == clipsById.cend()) {
+                sceneSetMatches = false;
+                continue;
+            }
+            const QVariantMap &sourceClip = clipIt.value();
+            const int previousDuration = clip.durationFrames;
+            clip.sceneId = sourceClip.value(QStringLiteral("sceneId"), clip.sceneId).toInt();
+            clip.type = sourceClip.value(QStringLiteral("type"), clip.type).toString();
+            clip.startFrame = sourceClip.value(QStringLiteral("start"), clip.startFrame).toInt();
+            clip.durationFrames = sourceClip.value(QStringLiteral("duration"), clip.durationFrames).toInt();
+            const bool durationChanged = clip.durationFrames != previousDuration;
+            clip.layer = sourceClip.value(QStringLiteral("layer"), clip.layer).toInt();
+            clip.clipByUpperObject =
+                sourceClip.value(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject).toBool();
+            const QVariantMap clipParams =
+                sourceClip.value(QStringLiteral("params"), clip.params).toMap();
+            if (compactJson(clip.params) != compactJson(clipParams)) {
+                clip.params = clipParams;
+            }
+
+            const QVariantList effects = sourceClip.value(QStringLiteral("effects")).toList();
+            if (effects.size() != clip.effects.size()) {
+                qWarning() << "Rust timeline projection effect count mismatch for clip" << clip.id;
+                sceneSetMatches = false;
+            } else {
+                for (qsizetype index = 0; index < effects.size(); ++index) {
+                    auto *effect = clip.effects.at(index);
+                    const QVariantMap effectDocument = effects.at(index).toMap();
+                    if (effect == nullptr ||
+                        effect->id() != effectDocument.value(QStringLiteral("id")).toString()) {
+                        qWarning() << "Rust timeline projection effect mismatch for clip" << clip.id;
+                        sceneSetMatches = false;
+                        continue;
+                    }
+                    effect->setEnabled(
+                        effectDocument.value(QStringLiteral("enabled"), effect->isEnabled()).toBool());
+                    const QVariantMap effectParams =
+                        effectDocument.value(QStringLiteral("params"), effect->params()).toMap();
+                    if (compactJson(effect->params()) != compactJson(effectParams)) {
+                        effect->setParams(effectParams);
+                    }
+                    const QVariantMap keyframes =
+                        effectDocument.value(QStringLiteral("keyframes")).toMap();
+                    if (durationChanged ||
+                        compactJson(effect->keyframeTracks()) != compactJson(keyframes)) {
+                        effect->setKeyframeTracks(keyframes, clip.durationFrames);
+                    }
+                }
+            }
+
+            const QVariantList plugins = sourceClip.value(QStringLiteral("audioPlugins")).toList();
+            if (plugins.size() != clip.audioPlugins.size()) {
+                qWarning() << "Rust timeline projection plugin count mismatch for clip" << clip.id;
+                sceneSetMatches = false;
+            } else {
+                for (qsizetype index = 0; index < plugins.size(); ++index) {
+                    AudioPluginState &plugin = clip.audioPlugins[index];
+                    const QVariantMap pluginDocument = plugins.at(index).toMap();
+                    if (plugin.id != pluginDocument.value(QStringLiteral("id")).toString()) {
+                        qWarning() << "Rust timeline projection plugin mismatch for clip" << clip.id;
+                        sceneSetMatches = false;
+                        continue;
+                    }
+                    const bool enabled =
+                        pluginDocument.value(QStringLiteral("enabled"), plugin.enabled).toBool();
+                    const QVariantMap pluginParams =
+                        pluginDocument.value(QStringLiteral("params"), plugin.params).toMap();
+                    const QVariantMap keyframes =
+                        pluginDocument.value(QStringLiteral("keyframes")).toMap();
+                    const bool paramsChanged =
+                        compactJson(plugin.params) != compactJson(pluginParams);
+                    const bool keyframesChanged =
+                        compactJson(plugin.keyframeTracks) != compactJson(keyframes);
+                    plugin.enabled = enabled;
+                    if (paramsChanged) {
+                        plugin.params = pluginParams;
+                    }
+                    if (keyframesChanged) {
+                        plugin.keyframeTracks = keyframes;
+                    }
+                    if (paramsChanged || keyframesChanged) {
+                        plugin.invalidateKeyframeCache();
+                    }
+                }
+            }
+        }
+        if (scene.clips.size() != clipCountsByScene.value(scene.id)) {
+            sceneSetMatches = false;
+        }
+    }
+
+    if (!sceneSetMatches) {
+        qWarning() << "Rust timeline projection structure mismatch";
+    }
+    invalidateCurrentSceneCache();
+    return sceneSetMatches;
+}
+
 bool TimelineService::applyTimelineEditRequest(const QVariantMap &request,
                                                QVariantMap &inversePatch) {
     inversePatch.clear();
@@ -308,26 +466,6 @@ bool TimelineService::applyTimelineEditRequest(const QVariantMap &request,
     return true;
 }
 
-bool TimelineService::commitTimelineMutation(std::function<void()> rollback,
-                                             std::function<void()> commitAction) {
-    if (m_timelineProjectionTransactionDepth > 0) {
-        m_timelineProjectionRequiresFullCommit = true;
-        m_timelineProjectionRollbacks.append(std::move(rollback));
-        m_timelineProjectionCommitActions.append(std::move(commitAction));
-        return true;
-    }
-    if (!commitTimelineProjection()) {
-        if (rollback) {
-            rollback();
-        }
-        return false;
-    }
-    if (commitAction) {
-        commitAction();
-    }
-    return true;
-}
-
 bool TimelineService::commitTimelineMutation(const QVariantMap &request,
                                              std::function<void()> rollback,
                                              std::function<void()> commitAction) {
@@ -339,6 +477,15 @@ bool TimelineService::commitTimelineMutation(const QVariantMap &request,
     }
     QVariantMap inversePatch;
     if (!applyTimelineEditRequest(request, inversePatch)) {
+        if (rollback) {
+            rollback();
+        }
+        return false;
+    }
+    if (!synchronizeTimelineProjection()) {
+        if (!applyTimelinePatch(inversePatch)) {
+            qWarning() << "Failed to roll back a Rust targeted timeline edit";
+        }
         if (rollback) {
             rollback();
         }
@@ -359,7 +506,6 @@ bool TimelineService::commitTimelineEdit(const QVariantMap &request,
 void TimelineService::beginTimelineProjectionTransaction() {
     if (m_timelineProjectionTransactionDepth == 0) {
         m_timelineProjectionTransactionAborted = false;
-        m_timelineProjectionRequiresFullCommit = false;
         m_timelineProjectionRequests.clear();
         m_timelineProjectionRollbacks.clear();
         m_timelineProjectionCommitActions.clear();
@@ -380,7 +526,6 @@ bool TimelineService::endTimelineProjectionTransaction() {
         qWarning() << "Unbalanced timeline projection transaction";
         m_timelineProjectionTransactionDepth = 0;
         m_timelineProjectionTransactionAborted = false;
-        m_timelineProjectionRequiresFullCommit = false;
         m_timelineProjectionRequests.clear();
         m_timelineProjectionRollbacks.clear();
         m_timelineProjectionCommitActions.clear();
@@ -392,12 +537,10 @@ bool TimelineService::endTimelineProjectionTransaction() {
     }
 
     const bool aborted = m_timelineProjectionTransactionAborted;
-    const bool requiresFullCommit = m_timelineProjectionRequiresFullCommit;
     auto requests = std::move(m_timelineProjectionRequests);
     auto rollbacks = std::move(m_timelineProjectionRollbacks);
     auto commitActions = std::move(m_timelineProjectionCommitActions);
     m_timelineProjectionTransactionAborted = false;
-    m_timelineProjectionRequiresFullCommit = false;
     m_timelineProjectionRequests.clear();
     m_timelineProjectionRollbacks.clear();
     m_timelineProjectionCommitActions.clear();
@@ -411,15 +554,12 @@ bool TimelineService::endTimelineProjectionTransaction() {
     }
     bool committed = false;
     QList<QVariantMap> inversePatches;
-    if (requiresFullCommit) {
-        committed = commitTimelineProjection();
-    } else {
-        const bool batchClipGeometry = requests.size() > 1 && std::ranges::all_of(
+    const bool batchClipGeometry = requests.size() > 1 && std::ranges::all_of(
             requests, [](const QVariantMap &request) {
                 return request.value(QStringLiteral("operation")).toString() ==
                        QStringLiteral("update_clip_geometry");
             });
-        if (batchClipGeometry) {
+    if (batchClipGeometry) {
             QVariantList updates;
             updates.reserve(requests.size());
             for (QVariantMap request : std::as_const(requests)) {
@@ -435,18 +575,20 @@ bool TimelineService::endTimelineProjectionTransaction() {
             if (committed) {
                 inversePatches.append(std::move(inversePatch));
             }
-        } else {
-            committed = true;
-            inversePatches.reserve(requests.size());
-            for (const QVariantMap &request : std::as_const(requests)) {
-                QVariantMap inversePatch;
-                if (!applyTimelineEditRequest(request, inversePatch)) {
-                    committed = false;
-                    break;
-                }
-                inversePatches.append(std::move(inversePatch));
+    } else {
+        committed = true;
+        inversePatches.reserve(requests.size());
+        for (const QVariantMap &request : std::as_const(requests)) {
+            QVariantMap inversePatch;
+            if (!applyTimelineEditRequest(request, inversePatch)) {
+                committed = false;
+                break;
             }
+            inversePatches.append(std::move(inversePatch));
         }
+    }
+    if (committed && !synchronizeTimelineProjection()) {
+        committed = false;
     }
     if (committed) {
         for (auto &action : commitActions) {

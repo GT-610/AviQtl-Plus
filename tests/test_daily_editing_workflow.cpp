@@ -71,6 +71,7 @@ class TestDailyEditingWorkflow : public QObject {
     void audioPluginKeyframeEvaluationIsCompatible();
     void audioPluginKeyframeMutationsAreUndoable();
     void rejectedProjectionTransactionRestoresRuntimeModel();
+    void projectionSynchronizationFailureRollsBackState();
     void targetedTimelineEditsPreserveExtensions();
     void targetedEffectTransactionsPreserveExtensionsAndOrdering();
     void targetedAudioPluginTransactionsPreserveExtensionsAndOrdering();
@@ -543,6 +544,34 @@ void TestDailyEditingWorkflow::rejectedProjectionTransactionRestoresRuntimeModel
     QVERIFY(clip->effects.size() >= 2);
     QCOMPARE(clip->effects.at(1), removedEffect);
     QCOMPARE(removedEffect->isEnabled(), previousEnabled);
+}
+
+void TestDailyEditingWorkflow::projectionSynchronizationFailureRollsBackState() {
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("text"), 0, 0);
+
+    auto *clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(clip->effects.size() >= 2);
+    auto *effect = clip->effects.first();
+    QVERIFY(effect != nullptr);
+    const bool previousEnabled = effect->isEnabled();
+    const QVariantMap before = controller.timeline()->timelineStateSnapshot();
+
+    auto *detached = clip->effects.takeLast();
+    controller.timeline()->setEffectEnabledInternal(clipId, 0, !previousEnabled);
+    QCOMPARE(controller.timeline()->timelineStateSnapshot(), before);
+    QCOMPARE(effect->isEnabled(), previousEnabled);
+    clip->effects.append(detached);
+
+    detached = clip->effects.takeLast();
+    controller.timeline()->beginTimelineProjectionTransaction();
+    controller.timeline()->setEffectEnabledInternal(clipId, 0, !previousEnabled);
+    QVERIFY(!controller.timeline()->endTimelineProjectionTransaction());
+    QCOMPARE(controller.timeline()->timelineStateSnapshot(), before);
+    QCOMPARE(effect->isEnabled(), previousEnabled);
+    clip->effects.append(detached);
 }
 
 void TestDailyEditingWorkflow::targetedTimelineEditsPreserveExtensions() {
