@@ -580,13 +580,7 @@ impl TimelineState {
                 index,
                 plugin,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_clip(&self.document, clip_id)?;
                 if index > clip.audio_plugins.len() {
                     return Err(StateError::InvalidArgument);
                 }
@@ -597,13 +591,7 @@ impl TimelineState {
                 clip_id,
                 plugin_index,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_clip(&self.document, clip_id)?;
                 if plugin_index >= clip.audio_plugins.len() {
                     return Err(StateError::InvalidArgument);
                 }
@@ -614,13 +602,7 @@ impl TimelineState {
                 clip_id,
                 permutation,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_clip(&self.document, clip_id)?;
                 if permutation.len() != clip.audio_plugins.len()
                     || permutation
                         .iter()
@@ -641,17 +623,8 @@ impl TimelineState {
                 plugin_index,
                 enabled,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
-                let plugin = clip
-                    .audio_plugins
-                    .get_mut(plugin_index)
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_audio_plugin_clip(&self.document, clip_id, plugin_index)?;
+                let plugin = &mut clip.audio_plugins[plugin_index];
                 plugin.enabled = enabled;
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
@@ -661,17 +634,8 @@ impl TimelineState {
                 param_name,
                 value,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
-                let plugin = clip
-                    .audio_plugins
-                    .get_mut(plugin_index)
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_audio_plugin_clip(&self.document, clip_id, plugin_index)?;
+                let plugin = &mut clip.audio_plugins[plugin_index];
                 let previous = plugin
                     .params
                     .insert(param_name.clone(), value.clone())
@@ -708,17 +672,8 @@ impl TimelineState {
                 value,
                 options,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
-                let plugin = clip
-                    .audio_plugins
-                    .get_mut(plugin_index)
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_audio_plugin_clip(&self.document, clip_id, plugin_index)?;
+                let plugin = &mut clip.audio_plugins[plugin_index];
                 let fallback = plugin
                     .params
                     .get(&param_name)
@@ -749,17 +704,8 @@ impl TimelineState {
                 param_name,
                 frame,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
-                let plugin = clip
-                    .audio_plugins
-                    .get_mut(plugin_index)
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_audio_plugin_clip(&self.document, clip_id, plugin_index)?;
+                let plugin = &mut clip.audio_plugins[plugin_index];
                 let fallback = plugin
                     .params
                     .get(&param_name)
@@ -789,17 +735,8 @@ impl TimelineState {
                 old_frame,
                 new_frame,
             } => {
-                let mut clip = self
-                    .document
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == clip_id)
-                    .cloned()
-                    .ok_or(StateError::InvalidArgument)?;
-                let plugin = clip
-                    .audio_plugins
-                    .get_mut(plugin_index)
-                    .ok_or(StateError::InvalidArgument)?;
+                let mut clip = cloned_audio_plugin_clip(&self.document, clip_id, plugin_index)?;
+                let plugin = &mut clip.audio_plugins[plugin_index];
                 let fallback = plugin
                     .params
                     .get(&param_name)
@@ -1258,6 +1195,27 @@ fn clip_insert_index(document: &ProjectDocument, scene_id: i32) -> usize {
         .iter()
         .rposition(|clip| clip.scene_id == scene_id)
         .map_or(document.clips.len(), |index| index + 1)
+}
+
+fn cloned_clip(document: &ProjectDocument, clip_id: i32) -> Result<ClipDocument, StateError> {
+    document
+        .clips
+        .iter()
+        .find(|clip| clip.id == clip_id)
+        .cloned()
+        .ok_or(StateError::InvalidArgument)
+}
+
+fn cloned_audio_plugin_clip(
+    document: &ProjectDocument,
+    clip_id: i32,
+    plugin_index: usize,
+) -> Result<ClipDocument, StateError> {
+    let clip = cloned_clip(document, clip_id)?;
+    if plugin_index >= clip.audio_plugins.len() {
+        return Err(StateError::InvalidArgument);
+    }
+    Ok(clip)
 }
 
 fn plan_clip_replacements(
