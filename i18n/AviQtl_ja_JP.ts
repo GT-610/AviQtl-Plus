@@ -3997,7 +3997,7 @@
         <translation>エフェクト削除: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="530"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="636"/>
         <source>エフェクト順序変更</source>
         <translation>エフェクト順序変更</translation>
     </message>
@@ -4097,7 +4097,7 @@
         <translation>オーディオプラグイン追加: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="472"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="476"/>
         <source>オーディオプラグイン削除: %1</source>
         <translation>オーディオプラグイン削除: %1</translation>
     </message>
@@ -4159,12 +4159,12 @@
         <translation>複数クリップ貼り付け: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="387"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="492"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>エフェクト削除 (%1件)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="574"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="680"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>エフェクト順序変更 (%1件)</translation>
     </message>

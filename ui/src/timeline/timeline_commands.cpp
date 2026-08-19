@@ -468,7 +468,11 @@ AddAudioPluginCommand::AddAudioPluginCommand(TimelineService *service, int clipI
 void AddAudioPluginCommand::redo() { m_insertedIndex = m_service->addAudioPluginStateInternal(m_clipId, m_state); }
 void AddAudioPluginCommand::undo() { m_service->removeAudioPluginStateInternal(m_clipId, m_insertedIndex); }
 
-RemoveAudioPluginCommand::RemoveAudioPluginCommand(TimelineService *service, int clipId, int index, const QString &pluginName) : m_service(service), m_clipId(clipId), m_index(index), m_valid(false) {
+RemoveAudioPluginCommand::RemoveAudioPluginCommand(TimelineService *service, int clipId, int index,
+                                                   const QString &pluginName,
+                                                   QVariantMap document)
+    : m_service(service), m_clipId(clipId), m_index(index),
+      m_savedDocument(std::move(document)), m_valid(false) {
     setText(QObject::tr("オーディオプラグイン削除: %1").arg(pluginName));
     const auto *clip = service->findClipById(clipId);
     if (clip != nullptr && index >= 0 && index < clip->audioPlugins.size()) {
@@ -483,7 +487,8 @@ void RemoveAudioPluginCommand::redo() {
 }
 void RemoveAudioPluginCommand::undo() {
     if (m_valid) {
-        m_service->restoreAudioPluginStateInternal(m_clipId, m_index, m_savedState);
+        m_service->restoreAudioPluginStateInternal(m_clipId, m_index, m_savedState,
+                                                   m_savedDocument);
     }
 }
 
