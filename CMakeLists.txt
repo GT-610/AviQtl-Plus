@@ -484,31 +484,6 @@ foreach(DIR "effects" "objects" "common/shaders")
     endforeach()
 endforeach()
 
-# Compile shaders from effect-packages/ (external effect packages)
-file(GLOB_RECURSE EFFECT_PACKAGE_SHADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    "effect-packages/**/*.frag" "effect-packages/**/*.vert" "effect-packages/**/*.comp")
-foreach(SH ${EFFECT_PACKAGE_SHADERS})
-    get_filename_component(SH_DIR ${SH} DIRECTORY)
-    get_filename_component(SH_FILE_NAME ${SH} NAME)
-    get_filename_component(SH_EXT ${SH} EXT)
-
-    set(OUTPUT_QSB "${CMAKE_BINARY_DIR}/${SH_DIR}/${SH_FILE_NAME}.qsb")
-    list(APPEND EXTERNAL_QSB_FILES ${OUTPUT_QSB})
-
-    set(QSB_ARGS "--glsl" "100es,120,150" "--hlsl" "50" "--msl" "12")
-    if(SH_EXT STREQUAL ".comp")
-        set(QSB_ARGS "--glsl" "310es,430" "--hlsl" "50" "--msl" "12")
-    endif()
-
-    add_custom_command(
-        OUTPUT ${OUTPUT_QSB}
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/${SH_DIR}"
-        COMMAND Qt6::qsb ${QSB_ARGS} -o ${OUTPUT_QSB} "${CMAKE_SOURCE_DIR}/${SH}"
-        DEPENDS "${CMAKE_SOURCE_DIR}/${SH}"
-        VERBATIM
-    )
-endforeach()
-
 add_custom_target(AviQtl_ExternalShaders ALL DEPENDS ${EXTERNAL_QSB_FILES})
 
 set(AVIQTL_RUNTIME_SHADER_COPY_COMMANDS "")
@@ -561,16 +536,12 @@ add_custom_target(AviQtl_RuntimeAssets
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:AviQtl>/effects"
         "$<TARGET_FILE_DIR:AviQtl>/objects"
-        "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/effects"
         "$<TARGET_FILE_DIR:AviQtl>/effects"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/ui/qml/objects"
         "$<TARGET_FILE_DIR:AviQtl>/objects"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/effect-packages"
-        "$<TARGET_FILE_DIR:AviQtl>/effect-packages"
     ${AVIQTL_RUNTIME_SHADER_COPY_COMMANDS}
     VERBATIM
 )

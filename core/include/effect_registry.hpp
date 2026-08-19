@@ -56,7 +56,7 @@ class EffectRegistry {
         return list;
     }
 
-    void loadEffectsFromDirectory(const QString &path);
+    void loadEffectsFromDirectory(const QString &path, const QString &source = {});
     void removeEffectsFromDirectory(const QString &path);
 
   private:

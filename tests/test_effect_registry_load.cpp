@@ -26,6 +26,7 @@ class TestEffectRegistryLoad : public QObject {
     void loadFromNonexistentDir();
     void colorFieldPreserved();
     void defaultParamsPreserved();
+    void explicitSourceIsPreserved();
 
   private:
     QTemporaryDir m_dir;
@@ -377,6 +378,25 @@ void TestEffectRegistryLoad::defaultParamsPreserved() {
     QCOMPARE(meta.defaultParams["alpha"].toDouble(), 0.8);
     QCOMPARE(meta.defaultParams["count"].toInt(), 5);
     QCOMPARE(meta.defaultParams["enabled"].toBool(), true);
+}
+
+void TestEffectRegistryLoad::explicitSourceIsPreserved() {
+    writeJson("source.json", R"({
+        "id": "load.source",
+        "name": "Source",
+        "qml": "Source.qml",
+        "version": "1.0.0",
+        "kind": "effect",
+        "categories": ["Test"],
+        "params": {},
+        "ui": {"controls": [{"type": "header", "label": "X"}]}
+    })");
+    writeQml("Source.qml");
+
+    EffectRegistry &reg = EffectRegistry::instance();
+    reg.loadEffectsFromDirectory(m_dir.path(), QStringLiteral("built-in"));
+
+    QCOMPARE(reg.getEffect(QStringLiteral("load.source")).source, QStringLiteral("built-in"));
 }
 
 QTEST_MAIN(TestEffectRegistryLoad)

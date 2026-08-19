@@ -99,7 +99,7 @@ QString resolvedPathIdentity(const QString &path) {
 }
 } // namespace
 
-void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
+void EffectRegistry::loadEffectsFromDirectory(const QString &path, const QString &source) {
     QDir dir(path);
     if (!dir.exists()) {
         return;
@@ -155,7 +155,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
         // qrc: で始まる場合は絶対パスとしてそのまま使用
         if (qmlFileName.startsWith(QStringLiteral("qrc:"))) {
             meta.qmlSource = qmlFileName;
-            meta.source = stringOrDefault(definition, QStringLiteral("source"), QStringLiteral("built-in"));
+            meta.source = stringOrDefault(definition, QStringLiteral("source"), source.isEmpty() ? QStringLiteral("built-in") : source);
             meta.sourcePath = resolvedPathIdentity(file.fileName());
             registerEffect(meta);
             loadedCount++;
@@ -178,7 +178,7 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path) {
 
         if (QFile::exists(absoluteQmlPath)) {
             meta.qmlSource = QUrl::fromLocalFile(absoluteQmlPath).toString();
-            meta.source = stringOrDefault(definition, QStringLiteral("source"), QStringLiteral("package"));
+            meta.source = stringOrDefault(definition, QStringLiteral("source"), source.isEmpty() ? QStringLiteral("package") : source);
             meta.sourcePath = resolvedPathIdentity(file.fileName());
             if (meta.packageId.isEmpty()) {
                 const QString relativePath = QDir(resolvedRootPath).relativeFilePath(resolvedPathIdentity(jsonInfo.absolutePath()));

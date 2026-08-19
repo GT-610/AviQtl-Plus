@@ -47,8 +47,6 @@ AviQtl-Plus features a modular effect system. The `effect-packages/` directory c
 
 | Package | Type | Contents |
 |---------|------|----------|
-| [stylize-effects](effect-packages/stylize-effects/) | Effect | Glitch, pixel sorting, chromatic aberration, mosaic, noise, emboss, raster |
-| [advanced-blur](effect-packages/advanced-blur/) | Effect | Lens blur, radial blur, directional blur, motion blur |
 | [weather-objects](effect-packages/weather-objects/) | Object | Rain, snow animations |
 
 These packages serve as both useful additions and developer references for creating custom effects. See [effect-packages/README.md](effect-packages/README.md) for details.

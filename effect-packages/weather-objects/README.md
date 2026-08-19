@@ -31,6 +31,7 @@ Each object is contained in its own subdirectory named after the object ID:
 weather-objects/
 ├── manifest.json          # Package metadata
 ├── README.md              # This file
+├── ParticleFieldObject.qml # Shared particle renderer
 ├── rain/                  # Object ID: "rain"
 │   ├── RainObject.json    # Object definition
 │   └── RainObject.qml     # QML component
