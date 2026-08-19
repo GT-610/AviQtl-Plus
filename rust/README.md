@@ -45,7 +45,9 @@ logic. Conversion loops at the ABI edge are adapters, not alternative domain imp
 
 Scene, clip, effect, and audio-plugin edits should be expressed as targeted timeline-state requests
 so Rust can validate the authoritative state and produce reversible patches without rebuilding the
-whole project document. The `replace_document` request remains a compatibility path for project
+whole project document. `TimelineService` reconciles its existing Qt projection from the committed
+Rust snapshot after each successful targeted edit transaction; interactive edits must not fall back
+to a whole-document commit. The `replace_document` request remains a compatibility path for project
 load/reset and projection changes that have not yet moved to targeted Rust state mutations.
 
 ## C ABI contract

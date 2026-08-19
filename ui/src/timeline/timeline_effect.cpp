@@ -85,41 +85,6 @@ QVariantMap clipDocumentAt(const TimelineService *timeline, int clipId) {
     return {};
 }
 
-bool applyCommittedAudioDuration(TimelineService *timeline, int clipId, int previousDuration) {
-    auto *clip = timeline != nullptr ? timeline->findClipById(clipId) : nullptr;
-    const QVariantMap document = clipDocumentAt(timeline, clipId);
-    const int committedDuration = document.value(QStringLiteral("duration")).toInt();
-    if (clip == nullptr || committedDuration <= 0 || committedDuration == previousDuration) {
-        return false;
-    }
-
-    clip->durationFrames = committedDuration;
-    const QVariantList effects = document.value(QStringLiteral("effects")).toList();
-    if (effects.size() != clip->effects.size()) {
-        qWarning() << "Rust audio duration projection effect count mismatch for clip" << clipId;
-    }
-    const qsizetype effectCount = std::min(effects.size(), clip->effects.size());
-    for (qsizetype index = 0; index < effectCount; ++index) {
-        if (auto *effect = clip->effects.at(index); effect != nullptr) {
-            effect->setKeyframeTracks(
-                effects.at(index).toMap().value(QStringLiteral("keyframes")).toMap(),
-                committedDuration);
-        }
-    }
-
-    const QVariantList plugins = document.value(QStringLiteral("audioPlugins")).toList();
-    if (plugins.size() != clip->audioPlugins.size()) {
-        qWarning() << "Rust audio duration projection plugin count mismatch for clip" << clipId;
-    }
-    const qsizetype pluginCount = std::min(plugins.size(), clip->audioPlugins.size());
-    for (qsizetype index = 0; index < pluginCount; ++index) {
-        clip->audioPlugins[index].keyframeTracks =
-            plugins.at(index).toMap().value(QStringLiteral("keyframes")).toMap();
-        clip->audioPlugins[index].invalidateKeyframeCache();
-    }
-    return true;
-}
-
 QVariantMap restoredEffectDocument(const EffectModel *effect, const QVariantMap &document) {
     return document.isEmpty() ? effectMutationDocument(effect) : document;
 }
@@ -1034,8 +999,7 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
                 qWarning() << "Rust rejected effect parameter update";
                 return;
             }
-            const bool durationChanged = mediaDurationSeconds.has_value() &&
-                                         applyCommittedAudioDuration(this, clipId, oldDuration);
+            const bool durationChanged = clip->durationFrames != oldDuration;
 
             emit effectParamChanged(clipId, effectIndex, paramName, value);
 

@@ -180,19 +180,17 @@ class TimelineService : public QObject {
     const SceneData *currentScene() const;
     void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
     void abortTimelineProjectionTransaction();
-    bool commitTimelineMutation(std::function<void()> rollback,
-                                std::function<void()> commitAction = {});
     bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
                                 std::function<void()> commitAction = {});
     bool applyTimelineEditRequest(const QVariantMap &request, QVariantMap &inversePatch);
     bool applyTimelinePatch(const QVariantMap &patch);
+    void synchronizeTimelineProjection();
     QVariantMap timelineSceneDocument(const SceneData &scene) const;
     QVariantMap timelineClipDocument(const ClipData &clip) const;
 
     AviQtl::RustCore::TimelineState m_timelineState;
     int m_timelineProjectionTransactionDepth = 0;
     bool m_timelineProjectionTransactionAborted = false;
-    bool m_timelineProjectionRequiresFullCommit = false;
     QList<QVariantMap> m_timelineProjectionRequests;
     QList<std::function<void()>> m_timelineProjectionRollbacks;
     QList<std::function<void()>> m_timelineProjectionCommitActions;
