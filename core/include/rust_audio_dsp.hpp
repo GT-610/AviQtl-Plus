@@ -13,7 +13,6 @@ enum class AudioStatus : std::uint32_t {
 };
 
 using AudioMixParameters = AviQtlAudioMixParameters;
-using AudioMeter = AviQtlAudioMeter;
 using AudioBatchTrack = AviQtlAudioBatchTrack;
 using AudioBatchResult = AviQtlAudioBatchResult;
 
@@ -22,14 +21,6 @@ using AudioBatchResult = AviQtlAudioBatchResult;
                                                       double sourceRate) {
     return static_cast<AudioStatus>(aviqtl_audio_resample_stereo_linear(
         input.data(), input.size(), output.data(), output.size(), sourceRate));
-}
-
-[[nodiscard]] inline AudioStatus mixStereo(std::span<const float> clip,
-                                           std::span<float> master,
-                                           AudioMixParameters parameters,
-                                           AudioMeter &meter) {
-    return static_cast<AudioStatus>(aviqtl_audio_mix_stereo(
-        clip.data(), clip.size(), master.data(), master.size(), parameters, &meter));
 }
 
 [[nodiscard]] inline AudioStatus mixStereoBatch(std::span<const AudioBatchTrack> tracks,

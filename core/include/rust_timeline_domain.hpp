@@ -32,15 +32,6 @@ enum class SceneGridMode : std::uint32_t {
 }
 
 using SceneSettings = AviQtlSceneSettings;
-using IdAllocation = AviQtlIdAllocation;
-
-[[nodiscard]] inline TimelineDomainStatus allocateId(std::span<const std::int32_t> existingIds,
-                                                     std::int32_t nextHint,
-                                                     std::int32_t minimumId,
-                                                     IdAllocation &output) {
-    return static_cast<TimelineDomainStatus>(aviqtl_timeline_allocate_id(
-        existingIds.data(), existingIds.size(), nextHint, minimumId, &output));
-}
 
 [[nodiscard]] inline TimelineDomainStatus normalizeSceneSettings(const SceneSettings &input,
                                                                  SceneSettings &output) {

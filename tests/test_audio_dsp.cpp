@@ -118,13 +118,25 @@ private slots:
             QVERIFY(ok);
             QCOMPARE(expectedMeter.size(), std::size_t{4});
 
-            AudioMeter meter{};
-            QCOMPARE(static_cast<std::uint32_t>(mixStereo(clip, master, parameters, meter)),
+            const std::array<AudioBatchTrack, 1> tracks = {{
+                {
+                    .samples = clip.data(),
+                    .samples_length = clip.size(),
+                    .parameters = parameters,
+                    .clip_id = 1,
+                    .mute = 0,
+                    .solo = 0,
+                    .reserved = 0,
+                },
+            }};
+            std::array<AudioBatchResult, 1> results{};
+            QCOMPARE(static_cast<std::uint32_t>(mixStereoBatch(tracks, master, results)),
                      static_cast<std::uint32_t>(AudioStatus::Ok));
             QString error;
             QVERIFY2(samplesMatch(master, expectedMaster, error), qPrintable(error));
             const std::vector<float> actualMeter = {
-                meter.peak_left, meter.peak_right, meter.rms_left, meter.rms_right};
+                results[0].meter.peak_left, results[0].meter.peak_right,
+                results[0].meter.rms_left, results[0].meter.rms_right};
             QVERIFY2(samplesMatch(actualMeter, expectedMeter, error), qPrintable(error));
             ++mixCases;
         }
@@ -150,24 +162,6 @@ private slots:
                      resampleStereoLinear(stereo, output, std::numeric_limits<double>::quiet_NaN())),
                  static_cast<std::uint32_t>(AudioStatus::InvalidArgument));
 
-        AudioMixParameters parameters{};
-        AudioMeter meter{};
-        QCOMPARE(static_cast<std::uint32_t>(mixStereo(odd, output, parameters, meter)),
-                 static_cast<std::uint32_t>(AudioStatus::InvalidArgument));
-        QCOMPARE(static_cast<std::uint32_t>(mixStereo(stereo, stereo, parameters, meter)),
-                 static_cast<std::uint32_t>(AudioStatus::OverlappingBuffers));
-    }
-
-    void acceptsEmptyBuffers() {
-        const std::vector<float> clip;
-        std::vector<float> master;
-        AudioMeter meter{1.0F, 1.0F, 1.0F, 1.0F};
-        QCOMPARE(static_cast<std::uint32_t>(mixStereo(clip, master, AudioMixParameters{}, meter)),
-                 static_cast<std::uint32_t>(AudioStatus::Ok));
-        QCOMPARE(meter.peak_left, 0.0F);
-        QCOMPARE(meter.peak_right, 0.0F);
-        QCOMPARE(meter.rms_left, 0.0F);
-        QCOMPARE(meter.rms_right, 0.0F);
     }
 
     void mixesBatchWithSoloMuteAndPerTrackMeters() {

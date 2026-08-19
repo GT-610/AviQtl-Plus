@@ -54,31 +54,6 @@ private slots:
         QCOMPARE(flat[0].toMap()[QStringLiteral("value")].toDouble(), 5.0);
     }
 
-    // --- solveBezierT ---
-    void solveBezierT_identity() {
-        // Simple linear bezier: (0,0) -> (1,1) with cp at 1/3, 2/3
-        double t = solveBezierT(0.5, 1.0 / 3.0, 2.0 / 3.0);
-        QVERIFY(std::abs(t - 0.5) < 1e-4);
-    }
-
-    void solveBezierT_endpoints() {
-        double t0 = solveBezierT(0.0, 0.33, 0.66);
-        QVERIFY(std::abs(t0) < 1e-4);
-        double t1 = solveBezierT(1.0, 0.33, 0.66);
-        QVERIFY(std::abs(t1 - 1.0) < 1e-4);
-    }
-
-    void solveBezierT_clamped() {
-        // solveBezierT clamps t to [0,1] via std::clamp at the end of iteration.
-        // For in-range inputs, result should be in [0,1].
-        double t = solveBezierT(0.5, 0.33, 0.66);
-        QVERIFY(t >= 0.0 && t <= 1.0);
-        t = solveBezierT(0.0, 0.33, 0.66);
-        QVERIFY(t >= 0.0 && t <= 1.0);
-        t = solveBezierT(1.0, 0.33, 0.66);
-        QVERIFY(t >= 0.0 && t <= 1.0);
-    }
-
     // --- evaluateTrack: numeric linear ---
     void evaluateTrack_numericLinear() {
         QVariantList track;

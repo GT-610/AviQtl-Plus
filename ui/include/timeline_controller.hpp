@@ -140,7 +140,6 @@ class TimelineController : public QObject {
     Q_INVOKABLE void setLayerState(int layer, bool value, int type) { m_timeline->setLayerState(layer, value, type); }
 
     // オーディオプラグイン操作
-    Q_INVOKABLE static QVariantList getAvailableAudioPlugins();
     Q_INVOKABLE void addAudioPlugin(int clipId, const QString &pluginId);
     Q_INVOKABLE void removeAudioPlugin(int clipId, int index);
     Q_INVOKABLE void setAudioPluginEnabled(int clipId, int index, bool enabled);

@@ -362,42 +362,6 @@ unsafe fn write_selection(
     STATUS_OK
 }
 
-/// Allocates the first unused ID at or after the requested hint.
-///
-/// # Safety
-///
-/// The input must be readable and the output writable and disjoint.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aviqtl_timeline_allocate_id(
-    existing_ids: *const i32,
-    existing_ids_length: usize,
-    next_hint: i32,
-    minimum_id: i32,
-    output: *mut AviQtlIdAllocation,
-) -> u32 {
-    if !slice_is_valid(existing_ids, existing_ids_length) || !slice_is_valid(output, 1) {
-        return STATUS_INVALID_ARGUMENT;
-    }
-    let Some(overlap) = ranges_overlap(existing_ids, existing_ids_length, output, 1) else {
-        return STATUS_INVALID_ARGUMENT;
-    };
-    if overlap {
-        return STATUS_OVERLAPPING_BUFFERS;
-    }
-    let existing_ids = if existing_ids_length == 0 {
-        &[]
-    } else {
-        // SAFETY: The input was validated and checked against the output.
-        unsafe { std::slice::from_raw_parts(existing_ids, existing_ids_length) }
-    };
-    let Some(allocation) = allocate_id(existing_ids, next_hint, minimum_id) else {
-        return STATUS_INVALID_ARGUMENT;
-    };
-    // SAFETY: The output was validated and checked against the input.
-    unsafe { output.write(allocation) };
-    STATUS_OK
-}
-
 /// Normalizes live scene settings using the same domain limits as project documents.
 ///
 /// # Safety

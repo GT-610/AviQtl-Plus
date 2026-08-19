@@ -22,20 +22,8 @@ Common.BaseObject {
         return x - Math.floor(x);
     }
 
-    function drawStar(ctx, x, y, r, alpha) {
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = particleColor;
-        ctx.beginPath();
-        ctx.moveTo(x, y - r);
-        ctx.lineTo(x + r * 0.26, y - r * 0.26);
-        ctx.lineTo(x + r, y);
-        ctx.lineTo(x + r * 0.26, y + r * 0.26);
-        ctx.lineTo(x, y + r);
-        ctx.lineTo(x - r * 0.26, y + r * 0.26);
-        ctx.lineTo(x - r, y);
-        ctx.lineTo(x - r * 0.26, y - r * 0.26);
-        ctx.closePath();
-        ctx.fill();
+    function wrap(value, range) {
+        return ((value % range) + range) % range;
     }
 
     sourceItem: sourceItem
@@ -69,8 +57,23 @@ Common.BaseObject {
                     var y = ry * height;
                     var s = root.particleSize * (0.45 + rr * 1.2);
                     var alpha = 0.35 + root.rand(i * 5 + 5) * 0.65;
-                    var twinkle = 0.45 + Math.sin((t * 0.08) + phase * Math.PI * 2) * 0.35;
-                    drawStar(ctx, x, y, s * (0.65 + twinkle * 0.35), Math.max(0.1, alpha * twinkle));
+                    if (root.objectId === "rain") {
+                        x = root.wrap(x + t * (10 + root.spread * 25) * (0.35 + rr), width + 80) - 40;
+                        y = root.wrap(y + t * (28 + root.spread * 80) * (0.4 + phase), height + 80) - 40;
+                        ctx.globalAlpha = alpha;
+                        ctx.lineWidth = Math.max(1, s * 0.32);
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x - s * 1.2, y + s * 5);
+                        ctx.stroke();
+                    } else {
+                        x = root.wrap(x + Math.sin((t * 0.03) + phase * Math.PI * 2) * root.spread * 36, width);
+                        y = root.wrap(y + t * (3 + root.spread * 9) * (0.35 + rr), height + 40) - 20;
+                        ctx.globalAlpha = alpha;
+                        ctx.beginPath();
+                        ctx.arc(x, y, s, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
                 }
                 ctx.restore();
             }
@@ -86,13 +89,10 @@ Common.BaseObject {
 
                 target: root
             }
-
         }
-
     }
 
     Common.DisplayModel {
         baseObject: root
     }
-
 }

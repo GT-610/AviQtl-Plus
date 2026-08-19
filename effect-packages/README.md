@@ -12,8 +12,6 @@ This directory contains effect packages that demonstrate the extensibility of Av
 
 | Package | Type | Contents | Description |
 |---------|------|----------|-------------|
-| [stylize-effects](stylize-effects/) | Effect | 7 effects | Creative stylize effects (glitch, pixel sorting, etc.) |
-| [advanced-blur](advanced-blur/) | Effect | 4 effects | Professional blur effects (lens, radial, etc.) |
 | [weather-objects](weather-objects/) | Object | 2 objects | Weather animations (rain, snow) |
 
 ## Quick Start

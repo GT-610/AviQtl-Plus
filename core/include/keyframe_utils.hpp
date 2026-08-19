@@ -10,10 +10,6 @@
 
 namespace AviQtl::Core::KeyframeUtils {
 
-inline double solveBezierT(double x, double x1, double x2) {
-    return RustCore::solveBezierT(x, x1, x2);
-}
-
 inline QVariant evaluateTrack(const QVariantList &track, int frame, const QVariant &fallback) {
     if (track.isEmpty())
         return fallback;

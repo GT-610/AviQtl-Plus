@@ -268,9 +268,8 @@ pub struct AviQtlSceneSettings {
     pub magnetic_snap_range: i32,
 }
 
-#[repr(C)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
-pub struct AviQtlIdAllocation {
+pub(crate) struct AviQtlIdAllocation {
     pub allocated_id: i32,
     pub next_id: i32,
 }
@@ -410,9 +409,6 @@ mod tests {
         assert_eq!(offset_of!(AviQtlSceneSettings, fps), 8);
         assert_eq!(offset_of!(AviQtlSceneSettings, grid_bpm), 24);
         assert_eq!(offset_of!(AviQtlSceneSettings, magnetic_snap_range), 52);
-
-        assert_eq!(size_of::<AviQtlIdAllocation>(), 8);
-        assert_eq!(align_of::<AviQtlIdAllocation>(), 4);
 
         #[cfg(target_pointer_width = "64")]
         {

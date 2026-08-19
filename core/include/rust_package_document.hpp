@@ -53,20 +53,6 @@ inline std::optional<QVariantMap> apply(const QVariantMap &input) {
     return document.isObject() ? std::optional<QVariantMap>{document.object().toVariantMap()} : std::nullopt;
 }
 
-inline std::optional<QVariantList> mergeCatalog(const QVariantList &catalog, const QVariantMap &package, const QVariantMap &repository, const QVariantList &repositories, const QVariantMap &installed, const QString &language, const QString &appVersion) {
-    const auto result = apply({
-        {QStringLiteral("operation"), QStringLiteral("mergeCatalog")},
-        {QStringLiteral("catalog"), catalog},
-        {QStringLiteral("package"), package},
-        {QStringLiteral("repository"), repository},
-        {QStringLiteral("repositories"), repositories},
-        {QStringLiteral("installed"), installed},
-        {QStringLiteral("language"), language},
-        {QStringLiteral("appVersion"), appVersion},
-    });
-    return result.has_value() ? std::optional<QVariantList>{result->value(QStringLiteral("catalog")).toList()} : std::nullopt;
-}
-
 inline std::optional<QVariantList> mergeCatalogBatch(const QVariantList &catalog, const QVariantList &packages, const QVariantMap &repository, const QVariantList &repositories, const QVariantMap &installed, const QString &language, const QString &appVersion) {
     const auto result = apply({
         {QStringLiteral("operation"), QStringLiteral("mergeCatalogBatch")},

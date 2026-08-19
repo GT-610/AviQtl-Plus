@@ -62,8 +62,6 @@ class TestRustCoreAbi : public QObject {
         QCOMPARE(alignof(AviQtlTimelinePosition), std::size_t{4});
         QCOMPARE(sizeof(AviQtlSceneSettings), std::size_t{56});
         QCOMPARE(alignof(AviQtlSceneSettings), std::size_t{8});
-        QCOMPARE(sizeof(AviQtlIdAllocation), std::size_t{8});
-        QCOMPARE(alignof(AviQtlIdAllocation), std::size_t{4});
     }
 };
 

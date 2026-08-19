@@ -134,63 +134,6 @@ pub unsafe extern "C" fn aviqtl_audio_resample_stereo_linear(
     STATUS_OK
 }
 
-/// Mixes one interleaved stereo clip into a caller-owned master buffer and reports levels.
-///
-/// # Safety
-///
-/// Non-zero buffer lengths require aligned pointers to initialized `f32` elements. The
-/// master range and meter must be writable. Clip, master, and meter ranges must not overlap
-/// and must remain valid for the duration of the call.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aviqtl_audio_mix_stereo(
-    clip: *const f32,
-    clip_length: usize,
-    master: *mut f32,
-    master_length: usize,
-    parameters: AviQtlAudioMixParameters,
-    meter: *mut AviQtlAudioMeter,
-) -> u32 {
-    if !clip_length.is_multiple_of(2)
-        || !master_length.is_multiple_of(2)
-        || !slice_is_valid(clip, clip_length)
-        || !slice_is_valid(master, master_length)
-        || !slice_is_valid(meter, 1)
-    {
-        return STATUS_INVALID_ARGUMENT;
-    }
-
-    let overlaps = [
-        ranges_overlap(clip, clip_length, master, master_length),
-        ranges_overlap(clip, clip_length, meter, 1),
-        ranges_overlap(master, master_length, meter, 1),
-    ];
-    if overlaps.iter().any(Option::is_none) {
-        return STATUS_INVALID_ARGUMENT;
-    }
-    if overlaps.into_iter().flatten().any(|overlap| overlap) {
-        return STATUS_OVERLAPPING_BUFFERS;
-    }
-
-    let clip = if clip_length == 0 {
-        &[]
-    } else {
-        // SAFETY: The pointer and length were validated above and all mutable
-        // output ranges were checked for overlap before constructing the slice.
-        unsafe { std::slice::from_raw_parts(clip, clip_length) }
-    };
-    let master = if master_length == 0 {
-        &mut []
-    } else {
-        // SAFETY: The pointer and length were validated above and all other
-        // ranges were checked for overlap before constructing the mutable slice.
-        unsafe { std::slice::from_raw_parts_mut(master, master_length) }
-    };
-    let result = mix_stereo(clip, master, parameters);
-    // SAFETY: The meter pointer was validated and checked against both buffer ranges.
-    unsafe { meter.write(result) };
-    STATUS_OK
-}
-
 /// Mixes multiple interleaved stereo clips into one caller-owned master buffer.
 ///
 /// Solo and mute selection is evaluated for the complete batch. One result is
@@ -349,35 +292,8 @@ mod tests {
     }
 
     #[test]
-    fn mixing_matches_cpp_behavior() {
-        let clip = [0.5, -0.5, 2.0, -2.0];
-        let mut master = [0.1, 0.2, -0.25, 0.25];
-        let mut meter = AviQtlAudioMeter::default();
-        // SAFETY: The arrays and meter are valid, aligned, and non-overlapping.
-        let status = unsafe {
-            aviqtl_audio_mix_stereo(
-                clip.as_ptr(),
-                clip.len(),
-                master.as_mut_ptr(),
-                master.len(),
-                mix_parameters(),
-                &mut meter,
-            )
-        };
-        assert_eq!(status, STATUS_OK);
-        for (actual, expected) in master.into_iter().zip([0.225, -0.05, 0.25, -0.75]) {
-            assert_close(actual, expected);
-        }
-        assert_close(meter.peak_left, 0.5);
-        assert_close(meter.peak_right, 1.0);
-        assert_close(meter.rms_left, 0.364_434_48);
-        assert_close(meter.rms_right, 0.728_868_96);
-    }
-
-    #[test]
-    fn ffi_rejects_invalid_audio_buffers() {
+    fn resampling_rejects_invalid_audio_buffers() {
         let mut stereo = [0.0_f32; 4];
-        let mut meter = AviQtlAudioMeter::default();
         // SAFETY: These calls deliberately provide invalid combinations which
         // must be rejected before the boundary constructs slices.
         unsafe {
@@ -421,66 +337,7 @@ mod tests {
                 ),
                 STATUS_INVALID_ARGUMENT
             );
-            assert_eq!(
-                aviqtl_audio_mix_stereo(
-                    stereo.as_ptr(),
-                    3,
-                    stereo.as_mut_ptr(),
-                    0,
-                    mix_parameters(),
-                    &mut meter,
-                ),
-                STATUS_INVALID_ARGUMENT
-            );
-            assert_eq!(
-                aviqtl_audio_mix_stereo(
-                    stereo.as_ptr(),
-                    stereo.len(),
-                    stereo.as_mut_ptr(),
-                    stereo.len(),
-                    mix_parameters(),
-                    &mut meter,
-                ),
-                STATUS_OVERLAPPING_BUFFERS
-            );
-            assert_eq!(
-                aviqtl_audio_mix_stereo(
-                    stereo.as_ptr(),
-                    stereo.len(),
-                    std::ptr::null_mut(),
-                    0,
-                    mix_parameters(),
-                    std::ptr::null_mut(),
-                ),
-                STATUS_INVALID_ARGUMENT
-            );
         }
-    }
-
-    #[test]
-    fn empty_audio_buffers_are_valid() {
-        let mut meter = AviQtlAudioMeter {
-            peak_left: 1.0,
-            peak_right: 1.0,
-            rms_left: 1.0,
-            rms_right: 1.0,
-        };
-        // SAFETY: Zero lengths permit null buffer pointers, while meter is valid.
-        let status = unsafe {
-            aviqtl_audio_mix_stereo(
-                std::ptr::null(),
-                0,
-                std::ptr::null_mut(),
-                0,
-                mix_parameters(),
-                &mut meter,
-            )
-        };
-        assert_eq!(status, STATUS_OK);
-        assert_close(meter.peak_left, 0.0);
-        assert_close(meter.peak_right, 0.0);
-        assert_close(meter.rms_left, 0.0);
-        assert_close(meter.rms_right, 0.0);
     }
 
     #[test]
