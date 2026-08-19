@@ -184,7 +184,7 @@ class TimelineService : public QObject {
                                 std::function<void()> commitAction = {});
     bool applyTimelineEditRequest(const QVariantMap &request, QVariantMap &inversePatch);
     bool applyTimelinePatch(const QVariantMap &patch);
-    void synchronizeTimelineProjection();
+    bool synchronizeTimelineProjection();
     QVariantMap timelineSceneDocument(const SceneData &scene) const;
     QVariantMap timelineClipDocument(const ClipData &clip) const;
 

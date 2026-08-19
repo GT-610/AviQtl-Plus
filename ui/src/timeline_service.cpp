@@ -284,10 +284,10 @@ bool TimelineService::applyTimelinePatch(const QVariantMap &patch) {
     return true;
 }
 
-void TimelineService::synchronizeTimelineProjection() {
+bool TimelineService::synchronizeTimelineProjection() {
     const QVariantMap document = timelineStateSnapshot();
     if (document.isEmpty()) {
-        return;
+        return false;
     }
 
     const QVariantList sceneDocuments = document.value(QStringLiteral("scenes")).toList();
@@ -366,6 +366,7 @@ void TimelineService::synchronizeTimelineProjection() {
             const QVariantList effects = sourceClip.value(QStringLiteral("effects")).toList();
             if (effects.size() != clip.effects.size()) {
                 qWarning() << "Rust timeline projection effect count mismatch for clip" << clip.id;
+                sceneSetMatches = false;
             } else {
                 for (qsizetype index = 0; index < effects.size(); ++index) {
                     auto *effect = clip.effects.at(index);
@@ -373,6 +374,7 @@ void TimelineService::synchronizeTimelineProjection() {
                     if (effect == nullptr ||
                         effect->id() != effectDocument.value(QStringLiteral("id")).toString()) {
                         qWarning() << "Rust timeline projection effect mismatch for clip" << clip.id;
+                        sceneSetMatches = false;
                         continue;
                     }
                     effect->setEnabled(
@@ -394,12 +396,14 @@ void TimelineService::synchronizeTimelineProjection() {
             const QVariantList plugins = sourceClip.value(QStringLiteral("audioPlugins")).toList();
             if (plugins.size() != clip.audioPlugins.size()) {
                 qWarning() << "Rust timeline projection plugin count mismatch for clip" << clip.id;
+                sceneSetMatches = false;
             } else {
                 for (qsizetype index = 0; index < plugins.size(); ++index) {
                     AudioPluginState &plugin = clip.audioPlugins[index];
                     const QVariantMap pluginDocument = plugins.at(index).toMap();
                     if (plugin.id != pluginDocument.value(QStringLiteral("id")).toString()) {
                         qWarning() << "Rust timeline projection plugin mismatch for clip" << clip.id;
+                        sceneSetMatches = false;
                         continue;
                     }
                     const bool enabled =
@@ -434,6 +438,7 @@ void TimelineService::synchronizeTimelineProjection() {
         qWarning() << "Rust timeline projection structure mismatch";
     }
     invalidateCurrentSceneCache();
+    return sceneSetMatches;
 }
 
 bool TimelineService::applyTimelineEditRequest(const QVariantMap &request,
@@ -477,7 +482,15 @@ bool TimelineService::commitTimelineMutation(const QVariantMap &request,
         }
         return false;
     }
-    synchronizeTimelineProjection();
+    if (!synchronizeTimelineProjection()) {
+        if (!applyTimelinePatch(inversePatch)) {
+            qWarning() << "Failed to roll back a Rust targeted timeline edit";
+        }
+        if (rollback) {
+            rollback();
+        }
+        return false;
+    }
     if (commitAction) {
         commitAction();
     }
@@ -574,8 +587,10 @@ bool TimelineService::endTimelineProjectionTransaction() {
             inversePatches.append(std::move(inversePatch));
         }
     }
+    if (committed && !synchronizeTimelineProjection()) {
+        committed = false;
+    }
     if (committed) {
-        synchronizeTimelineProjection();
         for (auto &action : commitActions) {
             if (action) {
                 action();
