@@ -3997,7 +3997,7 @@
         <translation>删除效果：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="636"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="601"/>
         <source>エフェクト順序変更</source>
         <translation>更改效果顺序</translation>
     </message>
@@ -4123,7 +4123,7 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="108"/>
-        <location filename="../ui/src/timeline_service.cpp" line="169"/>
+        <location filename="../ui/src/timeline_service.cpp" line="170"/>
         <source>ルート</source>
         <translation>根</translation>
     </message>
@@ -4159,12 +4159,12 @@
         <translation>粘贴多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="492"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="457"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>删除效果（%1 项）</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="680"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="645"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>更改效果顺序（%1 项）</translation>
     </message>
