@@ -20,13 +20,7 @@ Dialog {
     function loadPermissions() {
         var perms = PermissionManager.getPluginPermissions(pluginId);
         permissions = {};
-        var allPerms = [
-            "transport.control", "clip.read", "clip.modify",
-            "effect.modify", "project.read",
-            "project.save", "project.load", "scene.manage",
-            "settings.read", "settings.write", "clipboard.access",
-            "history.control", "log.output"
-        ];
+        var allPerms = PermissionManager.getAllPermissionNames();
         for (var i = 0; i < allPerms.length; i++) {
             permissions[allPerms[i]] = perms.includes(allPerms[i]);
         }

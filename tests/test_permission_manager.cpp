@@ -146,7 +146,6 @@ void TestPermissionManager::permissionMetadata() {
     const auto resolved = PermissionManager::permissionFromName(permissionName);
     QVERIFY(resolved.has_value());
     QCOMPARE(*resolved, permission);
-    QVERIFY(!PermissionManager::permissionDescription(permission).isEmpty());
 }
 
 void TestPermissionManager::allPermissionNamesAreComplete() {

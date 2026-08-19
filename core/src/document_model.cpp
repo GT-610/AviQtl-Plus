@@ -10,7 +10,6 @@ DocumentModel &DocumentModel::instance() {
 
 void DocumentModel::clear() {
     m_scenes.clear();
-    m_undoStack.clear();
     ++m_revision;
     emit structureChanged();
 }

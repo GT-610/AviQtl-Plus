@@ -30,15 +30,6 @@ class TestRustTimelineDomain : public QObject {
     Q_OBJECT
 
   private slots:
-    void allocationSkipsCollisions() {
-        const std::array<std::int32_t, 4> existing{1, 2, 4, 5};
-        AviQtl::RustCore::IdAllocation allocation{};
-        QCOMPARE(AviQtl::RustCore::allocateId(existing, 1, 1, allocation),
-                 TimelineDomainStatus::Ok);
-        QCOMPARE(allocation.allocated_id, 3);
-        QCOMPARE(allocation.next_id, 4);
-    }
-
     void sceneSettingsAreNormalized() {
         const AviQtl::RustCore::SceneSettings input{
             .width = 0,

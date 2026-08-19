@@ -45,12 +45,12 @@ class PermissionManager : public QObject {
 
     // Bulk operations
     Q_INVOKABLE QVariantList getPluginPermissions(const QString &pluginId) const;
+    Q_INVOKABLE QStringList getAllPermissionNames() const;
 
     // Permission name conversion
     static QString permissionName(PluginPermission permission);
     static std::optional<PluginPermission> permissionFromName(const QString &name);
     static QStringList allPermissionNames();
-    static QString permissionDescription(PluginPermission permission);
 
     // Persistence
     void loadPermissions();

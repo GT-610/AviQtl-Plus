@@ -408,7 +408,7 @@ auto TimelineController::getAvailableObjects() -> QVariantList {
     appendItem(list, QStringLiteral("scene"), handledIds);
     appendCategory(translatedCategory("制御"), {QStringLiteral("GroupControl"), QStringLiteral("camera_control")}, handledIds);
     appendCategory(translatedCategory("カスタムオブジェクト"),
-                   {QStringLiteral("radial_lines"), QStringLiteral("counter"), QStringLiteral("lens_flare_object"), QStringLiteral("star"), QStringLiteral("snow"), QStringLiteral("rain"), QStringLiteral("track_line"), QStringLiteral("pie_shape"),
+                   {QStringLiteral("radial_lines"), QStringLiteral("counter"), QStringLiteral("lens_flare_object"), QStringLiteral("star"), QStringLiteral("track_line"), QStringLiteral("pie_shape"),
                     QStringLiteral("polygon_shape"), QStringLiteral("flare")},
                    handledIds);
 
@@ -427,8 +427,6 @@ auto TimelineController::getAvailableObjects() -> QVariantList {
 }
 
 auto TimelineController::getClipTypeColor(const QString &type) -> QString { return AviQtl::Core::EffectRegistry::instance().getEffect(type).color; }
-
-auto TimelineController::getAvailableAudioPlugins() -> QVariantList { return AviQtl::Engine::Plugin::AudioPluginManager::instance().getPluginList(); }
 
 auto TimelineController::getPluginCategories() -> QVariantList {
     // AudioPluginManagerから重複のないカテゴリ名リストを抽出

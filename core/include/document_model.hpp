@@ -3,7 +3,6 @@
 #include <QList>
 #include <QObject>
 #include <QString>
-#include <QUndoStack>
 #include <QVariantMap>
 #include <map>
 #include <memory>
@@ -92,9 +91,6 @@ class DocumentModel : public QObject {
     void updateSceneSettings(const SceneSettings &settings);
     void setClips(int sceneId, std::vector<Clip> &&clips);
 
-    // Undo / Redo スタックの提供
-    QUndoStack *undoStack() { return &m_undoStack; }
-
   signals:
     // 構造変化が発生し、ECSへのBake（焼き付け）が必要になった時に発火する
     void structureChanged();
@@ -108,7 +104,6 @@ class DocumentModel : public QObject {
 
     ProjectSettings m_projectSettings;
     std::vector<SceneSettings> m_scenes;
-    QUndoStack m_undoStack;
     quint64 m_revision = 0;
 };
 

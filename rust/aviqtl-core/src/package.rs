@@ -495,17 +495,6 @@ fn apply(input: &Map<String, Value>) -> Option<Map<String, Value>> {
     let operation = text(input.get("operation"));
     let catalog = objects(input.get("catalog"));
     match operation.as_str() {
-        "mergeCatalog" => {
-            let package = input.get("package")?.as_object()?;
-            let repository = input.get("repository")?.as_object()?;
-            let repositories = objects(input.get("repositories"));
-            let installed = input.get("installed")?.as_object()?;
-            let language = text(input.get("language"));
-            let app_version = text(input.get("appVersion"));
-            object(json!({
-                "catalog": merge_catalog_package(catalog, package, repository, &repositories, installed, &language, &app_version)
-            }))
-        }
         "mergeCatalogBatch" => {
             let packages = objects(input.get("packages"));
             let repository = input.get("repository")?.as_object()?;

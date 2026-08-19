@@ -500,11 +500,6 @@ pub(crate) fn evaluate(
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn aviqtl_solve_bezier_t(x: f64, x1: f64, x2: f64) -> f64 {
-    solve_bezier_t(x, x1, x2)
-}
-
 /// Resolves an easing kind from a UTF-8 name.
 ///
 /// # Safety

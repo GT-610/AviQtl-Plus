@@ -118,6 +118,10 @@ QVariantList PermissionManager::getPluginPermissions(const QString &pluginId) co
     return result;
 }
 
+QStringList PermissionManager::getAllPermissionNames() const {
+    return allPermissionNames();
+}
+
 QString PermissionManager::permissionName(PluginPermission permission) {
     const QString name = RustCore::Policy::permissionName(static_cast<int>(permission));
     return name.isEmpty() ? QStringLiteral("unknown") : name;
@@ -129,38 +133,6 @@ std::optional<PluginPermission> PermissionManager::permissionFromName(const QStr
 
 QStringList PermissionManager::allPermissionNames() {
     return RustCore::Policy::allPermissionNames();
-}
-
-QString PermissionManager::permissionDescription(PluginPermission permission) {
-    switch (permission) {
-    case PluginPermission::TransportControl:
-        return QObject::tr("再生、一時停止、シークなどの再生制御");
-    case PluginPermission::ClipRead:
-        return QObject::tr("クリップ情報の一覧表示と読み取り");
-    case PluginPermission::ClipModify:
-        return QObject::tr("クリップの作成、削除、移動、変更");
-    case PluginPermission::EffectModify:
-        return QObject::tr("エフェクトの追加、削除、パラメータ変更");
-    case PluginPermission::ProjectRead:
-        return QObject::tr("プロジェクト情報（解像度、FPS等）の読み取り");
-    case PluginPermission::ProjectSave:
-        return QObject::tr("プロジェクトファイルの保存");
-    case PluginPermission::ProjectLoad:
-        return QObject::tr("プロジェクトファイルの読み込み");
-    case PluginPermission::SceneManage:
-        return QObject::tr("シーンの作成、削除、切り替え");
-    case PluginPermission::SettingsRead:
-        return QObject::tr("プラグイン設定の読み取り");
-    case PluginPermission::SettingsWrite:
-        return QObject::tr("プラグイン設定の書き込み");
-    case PluginPermission::ClipboardAccess:
-        return QObject::tr("クリップボードへのコピー、切り取り、貼り付け");
-    case PluginPermission::HistoryControl:
-        return QObject::tr("元に戻す、やり直し、コマンドのグループ化");
-    case PluginPermission::LogOutput:
-        return QObject::tr("コンソールへのログ出力");
-    }
-    return QObject::tr("不明な権限");
 }
 
 void PermissionManager::loadPermissions() {

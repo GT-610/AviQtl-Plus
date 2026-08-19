@@ -113,10 +113,6 @@ enum class NumericBatchStatus : std::uint32_t {
 using NumericKeyframe = AviQtlNumericKeyframe;
 using NumericTrackView = AviQtlNumericTrackView;
 
-inline double solveBezierT(double x, double x1, double x2) {
-    return aviqtl_solve_bezier_t(x, x1, x2);
-}
-
 [[nodiscard]] inline std::optional<EasingKind> easingKindForName(QStringView name) {
     const QByteArray encoded = name.toString().toUtf8();
     const std::int32_t kind = aviqtl_easing_kind_from_name(
