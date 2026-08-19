@@ -73,6 +73,7 @@ class TestDailyEditingWorkflow : public QObject {
     void rejectedProjectionTransactionRestoresRuntimeModel();
     void targetedTimelineEditsPreserveExtensions();
     void targetedEffectTransactionsPreserveExtensionsAndOrdering();
+    void targetedAudioPluginTransactionsPreserveExtensionsAndOrdering();
     void audioParameterDurationUsesRustState();
     void targetedBatchFailureRollsBackRustAndQt();
     void sceneUndoRestoresItsClipsInRustState();
@@ -463,7 +464,10 @@ void TestDailyEditingWorkflow::audioPluginStateSurvivesClipCopies() {
              QVariantMap{{QStringLiteral("frame"), 75}, {QStringLiteral("value"), 1.0}},
          }},
     };
-    source->audioPlugins.append(plugin);
+    controller.timeline()->addAudioPlugin(clipId, plugin, plugin.id);
+    source = controller.timeline()->findClipById(clipId);
+    QVERIFY(source != nullptr);
+    QCOMPARE(source->audioPlugins.size(), 1);
     const int splitFrame = source->startFrame + (source->durationFrames / 2);
 
     const ClipData copied = controller.timeline()->deepCopyClip(*source);
@@ -773,6 +777,210 @@ void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOr
     QCOMPARE(timeline.timelineStateSnapshot(), before);
 }
 
+void TestDailyEditingWorkflow::targetedAudioPluginTransactionsPreserveExtensionsAndOrdering() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("audio"), 0, 0);
+
+    AudioPluginState gain;
+    gain.id = QStringLiteral("test.gain");
+    gain.params.insert(QStringLiteral("0"), 0.0);
+    gain.keyframeTracks.insert(
+        QStringLiteral("0"),
+        QVariantMap{
+            {QStringLiteral("start"),
+             QVariantMap{{QStringLiteral("frame"), 0},
+                         {QStringLiteral("value"), 0.0},
+                         {QStringLiteral("interp"), QStringLiteral("linear")}}},
+            {QStringLiteral("points"),
+             QVariantList{QVariantMap{{QStringLiteral("frame"), 12},
+                                      {QStringLiteral("value"), 1.0},
+                                      {QStringLiteral("interp"),
+                                       QStringLiteral("linear")}}}},
+        });
+    AudioPluginState delay;
+    delay.id = QStringLiteral("test.delay");
+    delay.params.insert(QStringLiteral("0"), 1.0);
+    timeline.addAudioPlugin(clipId, gain, gain.id);
+    timeline.addAudioPlugin(clipId, delay, delay.id);
+
+    const auto *clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->audioPlugins.size(), 2);
+    QVariantMap document = timeline.timelineStateSnapshot();
+    QVariantList clips = document.value(QStringLiteral("clips")).toList();
+    QVariantMap clipDocument = clips.first().toMap();
+    QVariantList plugins = clipDocument.value(QStringLiteral("audioPlugins")).toList();
+    QCOMPARE(plugins.size(), 2);
+    for (qsizetype index = 0; index < plugins.size(); ++index) {
+        QVariantMap plugin = plugins.at(index).toMap();
+        plugin.insert(
+            QStringLiteral("workflowPluginExtension"),
+            plugin.value(QStringLiteral("id")).toString() + QStringLiteral("-token"));
+        plugins[index] = plugin;
+    }
+    clipDocument.insert(QStringLiteral("audioPlugins"), plugins);
+    clips[0] = clipDocument;
+    document.insert(QStringLiteral("clips"), clips);
+    QVERIFY(timeline.resetTimelineState(document, timeline.nextClipId(), timeline.nextSceneId()));
+    timeline.undoStack()->clear();
+    const QVariantMap before = timeline.timelineStateSnapshot();
+
+    const auto pluginDocuments = [&timeline]() {
+        return timeline.timelineStateSnapshot()
+            .value(QStringLiteral("clips"))
+            .toList()
+            .first()
+            .toMap()
+            .value(QStringLiteral("audioPlugins"))
+            .toList();
+    };
+    const auto pluginIds = [&pluginDocuments]() {
+        QStringList ids;
+        for (const QVariant &plugin : pluginDocuments()) {
+            ids.append(plugin.toMap().value(QStringLiteral("id")).toString());
+        }
+        return ids;
+    };
+    const auto containsFrame = [](const QVariantList &points, int frame) {
+        return std::ranges::any_of(points, [frame](const QVariant &point) {
+            return point.toMap().value(QStringLiteral("frame")).toInt() == frame;
+        });
+    };
+
+    timeline.setAudioPluginEnabled(clipId, 0, false);
+    QVariantList changedPlugins = pluginDocuments();
+    QVERIFY(!changedPlugins.first().toMap().value(QStringLiteral("enabled")).toBool());
+    QCOMPARE(changedPlugins.first()
+                 .toMap()
+                 .value(QStringLiteral("workflowPluginExtension"))
+                 .toString(),
+             QStringLiteral("test.gain-token"));
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(!clip->audioPlugins.first().enabled);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+
+    timeline.setAudioPluginParam(clipId, 0, 0, 0.5F);
+    changedPlugins = pluginDocuments();
+    QVariantMap gainDocument = changedPlugins.first().toMap();
+    QCOMPARE(gainDocument.value(QStringLiteral("params"))
+                 .toMap()
+                 .value(QStringLiteral("0"))
+                 .toDouble(),
+             0.5);
+    QCOMPARE(gainDocument.value(QStringLiteral("keyframes"))
+                 .toMap()
+                 .value(QStringLiteral("0"))
+                 .toMap()
+                 .value(QStringLiteral("start"))
+                 .toMap()
+                 .value(QStringLiteral("value"))
+                 .toDouble(),
+             0.5);
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->audioPlugins.first().params.value(QStringLiteral("0")).toDouble(), 0.5);
+    QCOMPARE(clip->audioPlugins.first()
+                 .keyframeTracks.value(QStringLiteral("0"))
+                 .toMap()
+                 .value(QStringLiteral("start"))
+                 .toMap()
+                 .value(QStringLiteral("value"))
+                 .toDouble(),
+             0.5);
+    const QVariantMap afterParameterUpdate = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterParameterUpdate);
+    timeline.undo();
+
+    timeline.reorderAudioPlugins(clipId, 1, 0);
+    QCOMPARE(pluginIds(),
+             QStringList({QStringLiteral("test.delay"), QStringLiteral("test.gain")}));
+    changedPlugins = pluginDocuments();
+    QCOMPARE(changedPlugins.at(0)
+                 .toMap()
+                 .value(QStringLiteral("workflowPluginExtension"))
+                 .toString(),
+             QStringLiteral("test.delay-token"));
+    QCOMPARE(changedPlugins.at(1)
+                 .toMap()
+                 .value(QStringLiteral("workflowPluginExtension"))
+                 .toString(),
+             QStringLiteral("test.gain-token"));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+
+    timeline.removeAudioPlugin(clipId, 0, gain.id);
+    QCOMPARE(pluginIds(), QStringList({QStringLiteral("test.delay")}));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    QCOMPARE(pluginIds(),
+             QStringList({QStringLiteral("test.gain"), QStringLiteral("test.delay")}));
+
+    timeline.setAudioPluginKeyframe(
+        clipId, 0, QStringLiteral("0"), 6, 0.75,
+        {{QStringLiteral("interp"), QStringLiteral("linear")}});
+    gainDocument = pluginDocuments().first().toMap();
+    QVariantList points = gainDocument.value(QStringLiteral("keyframes"))
+                              .toMap()
+                              .value(QStringLiteral("0"))
+                              .toMap()
+                              .value(QStringLiteral("points"))
+                              .toList();
+    QVERIFY(containsFrame(points, 6));
+    QCOMPARE(gainDocument.value(QStringLiteral("workflowPluginExtension")).toString(),
+             QStringLiteral("test.gain-token"));
+    const QVariantMap afterKeyframeSet = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeSet);
+
+    timeline.moveAudioPluginKeyframe(clipId, 0, QStringLiteral("0"), 6, 8);
+    points = pluginDocuments()
+                 .first()
+                 .toMap()
+                 .value(QStringLiteral("keyframes"))
+                 .toMap()
+                 .value(QStringLiteral("0"))
+                 .toMap()
+                 .value(QStringLiteral("points"))
+                 .toList();
+    QVERIFY(!containsFrame(points, 6));
+    QVERIFY(containsFrame(points, 8));
+    const QVariantMap afterKeyframeMove = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeSet);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeMove);
+
+    timeline.removeAudioPluginKeyframe(clipId, 0, QStringLiteral("0"), 8);
+    points = pluginDocuments()
+                 .first()
+                 .toMap()
+                 .value(QStringLiteral("keyframes"))
+                 .toMap()
+                 .value(QStringLiteral("0"))
+                 .toMap()
+                 .value(QStringLiteral("points"))
+                 .toList();
+    QVERIFY(!containsFrame(points, 8));
+    const QVariantMap afterKeyframeRemoval = timeline.timelineStateSnapshot();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeMove);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterKeyframeRemoval);
+    timeline.undo();
+    timeline.undo();
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), before);
+}
+
 void TestDailyEditingWorkflow::audioParameterDurationUsesRustState() {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -1020,7 +1228,10 @@ void TestDailyEditingWorkflow::audioPluginKeyframeMutationsAreUndoable() {
     AudioPluginState plugin;
     plugin.id = QStringLiteral("test.mutations");
     plugin.params.insert(QStringLiteral("0"), 0);
-    clip->audioPlugins.append(plugin);
+    controller.timeline()->addAudioPlugin(clipId, plugin, plugin.id);
+    clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QCOMPARE(clip->audioPlugins.size(), 1);
     controller.timeline()->undoStack()->clear();
 
     const QVariantList customPoints{0.2, 0.1, 0.7, 0.9, 1.0, 1.0};

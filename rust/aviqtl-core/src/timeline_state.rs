@@ -575,6 +575,253 @@ impl TimelineState {
                     .insert(param_name, mutation.track);
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
+            EditRequest::InsertAudioPlugin {
+                clip_id,
+                index,
+                plugin,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                if index > clip.audio_plugins.len() {
+                    return Err(StateError::InvalidArgument);
+                }
+                clip.audio_plugins.insert(index, plugin);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::RemoveAudioPlugin {
+                clip_id,
+                plugin_index,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                if plugin_index >= clip.audio_plugins.len() {
+                    return Err(StateError::InvalidArgument);
+                }
+                clip.audio_plugins.remove(plugin_index);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::ReorderAudioPlugins {
+                clip_id,
+                permutation,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                if permutation.len() != clip.audio_plugins.len()
+                    || permutation
+                        .iter()
+                        .any(|index| *index >= clip.audio_plugins.len())
+                    || permutation.iter().copied().collect::<BTreeSet<_>>().len()
+                        != permutation.len()
+                {
+                    return Err(StateError::InvalidArgument);
+                }
+                clip.audio_plugins = permutation
+                    .into_iter()
+                    .map(|index| clip.audio_plugins[index].clone())
+                    .collect();
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::SetAudioPluginEnabled {
+                clip_id,
+                plugin_index,
+                enabled,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let plugin = clip
+                    .audio_plugins
+                    .get_mut(plugin_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                plugin.enabled = enabled;
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::SetAudioPluginParameter {
+                clip_id,
+                plugin_index,
+                param_name,
+                value,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let plugin = clip
+                    .audio_plugins
+                    .get_mut(plugin_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                let previous = plugin
+                    .params
+                    .insert(param_name.clone(), value.clone())
+                    .unwrap_or(Value::Null);
+                if let Some(track) = plugin
+                    .keyframes
+                    .as_mut()
+                    .and_then(|tracks| tracks.get(&param_name).cloned())
+                {
+                    let mutation = set_track(
+                        track,
+                        previous,
+                        clip.duration,
+                        0,
+                        value,
+                        Value::Object(Map::new()),
+                    );
+                    if !mutation.accepted {
+                        return Err(StateError::InvalidArgument);
+                    }
+                    plugin
+                        .keyframes
+                        .as_mut()
+                        .expect("existing keyframe map remains available")
+                        .insert(param_name, mutation.track);
+                }
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::SetAudioPluginKeyframe {
+                clip_id,
+                plugin_index,
+                param_name,
+                frame,
+                value,
+                options,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let plugin = clip
+                    .audio_plugins
+                    .get_mut(plugin_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                let fallback = plugin
+                    .params
+                    .get(&param_name)
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let track = plugin
+                    .keyframes
+                    .as_ref()
+                    .and_then(|tracks| tracks.get(&param_name))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let mutation = set_track(track, fallback, 0, frame, value, options);
+                if !mutation.accepted {
+                    return Err(StateError::InvalidArgument);
+                }
+                if let Some(base_value) = mutation.base_value {
+                    plugin.params.insert(param_name.clone(), base_value);
+                }
+                plugin
+                    .keyframes
+                    .get_or_insert_with(Map::new)
+                    .insert(param_name, mutation.track);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::RemoveAudioPluginKeyframe {
+                clip_id,
+                plugin_index,
+                param_name,
+                frame,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let plugin = clip
+                    .audio_plugins
+                    .get_mut(plugin_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                let fallback = plugin
+                    .params
+                    .get(&param_name)
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let track = plugin
+                    .keyframes
+                    .as_ref()
+                    .and_then(|tracks| tracks.get(&param_name))
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let mutation = remove_track(track, fallback, 0, frame);
+                if !mutation.accepted || !mutation.changed {
+                    return Err(StateError::InvalidArgument);
+                }
+                plugin
+                    .keyframes
+                    .as_mut()
+                    .expect("existing keyframe map remains available")
+                    .insert(param_name, mutation.track);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::MoveAudioPluginKeyframe {
+                clip_id,
+                plugin_index,
+                param_name,
+                old_frame,
+                new_frame,
+            } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let plugin = clip
+                    .audio_plugins
+                    .get_mut(plugin_index)
+                    .ok_or(StateError::InvalidArgument)?;
+                let fallback = plugin
+                    .params
+                    .get(&param_name)
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let track = plugin
+                    .keyframes
+                    .as_ref()
+                    .and_then(|tracks| tracks.get(&param_name))
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let mutation = move_track(track, fallback, 0, old_frame, new_frame);
+                if !mutation.accepted || !mutation.changed {
+                    return Err(StateError::InvalidArgument);
+                }
+                plugin
+                    .keyframes
+                    .as_mut()
+                    .expect("existing keyframe map remains available")
+                    .insert(param_name, mutation.track);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
             EditRequest::SplitClip {
                 clip_id,
                 frame,
@@ -788,6 +1035,52 @@ enum EditRequest {
     MoveEffectKeyframe {
         clip_id: i32,
         effect_index: usize,
+        param_name: String,
+        old_frame: i32,
+        new_frame: i32,
+    },
+    InsertAudioPlugin {
+        clip_id: i32,
+        index: usize,
+        plugin: AudioPluginDocument,
+    },
+    RemoveAudioPlugin {
+        clip_id: i32,
+        plugin_index: usize,
+    },
+    ReorderAudioPlugins {
+        clip_id: i32,
+        permutation: Vec<usize>,
+    },
+    SetAudioPluginEnabled {
+        clip_id: i32,
+        plugin_index: usize,
+        enabled: bool,
+    },
+    SetAudioPluginParameter {
+        clip_id: i32,
+        plugin_index: usize,
+        param_name: String,
+        value: Value,
+    },
+    SetAudioPluginKeyframe {
+        clip_id: i32,
+        plugin_index: usize,
+        param_name: String,
+        frame: i32,
+        value: Value,
+        #[serde(default)]
+        options: Value,
+    },
+    RemoveAudioPluginKeyframe {
+        clip_id: i32,
+        plugin_index: usize,
+        param_name: String,
+        frame: i32,
+    },
+    MoveAudioPluginKeyframe {
+        clip_id: i32,
+        plugin_index: usize,
         param_name: String,
         old_frame: i32,
         new_frame: i32,
@@ -2159,6 +2452,276 @@ mod tests {
             .expect("missing keyframe track inverse applies");
         assert!(state.document.clips[0].effects[0].keyframes.is_none());
         assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn targeted_audio_plugin_list_edits_preserve_extensions_and_are_reversible() {
+        let mut before = document();
+        before.clips[0].audio_plugins[0]
+            .extra
+            .insert("pluginExtension".to_owned(), json!("gain-token"));
+        let mut delay = before.clips[0].audio_plugins[0].clone();
+        delay.id = "delay".to_owned();
+        delay
+            .extra
+            .insert("pluginExtension".to_owned(), json!("delay-token"));
+        before.clips[0].audio_plugins.push(delay);
+        let mut state = TimelineState::new(before.clone(), 2, 1).expect("valid state");
+
+        let enabled_transaction = state
+            .plan(EditRequest::SetAudioPluginEnabled {
+                clip_id: 1,
+                plugin_index: 0,
+                enabled: false,
+            })
+            .expect("enabled update plans");
+        state
+            .apply_patch(&enabled_transaction.forward)
+            .expect("enabled update applies");
+        assert!(!state.document.clips[0].audio_plugins[0].enabled);
+        assert_eq!(
+            state.document.clips[0].audio_plugins[0].extra["pluginExtension"],
+            json!("gain-token")
+        );
+        state
+            .apply_patch(&enabled_transaction.inverse)
+            .expect("enabled inverse applies");
+        assert_eq!(state.document, before);
+
+        let reorder_transaction = state
+            .plan(EditRequest::ReorderAudioPlugins {
+                clip_id: 1,
+                permutation: vec![1, 0],
+            })
+            .expect("reorder plans");
+        state
+            .apply_patch(&reorder_transaction.forward)
+            .expect("reorder applies");
+        assert_eq!(state.document.clips[0].audio_plugins[0].id, "delay");
+        assert_eq!(
+            state.document.clips[0].audio_plugins[0].extra["pluginExtension"],
+            json!("delay-token")
+        );
+        state
+            .apply_patch(&reorder_transaction.inverse)
+            .expect("reorder inverse applies");
+        assert_eq!(state.document, before);
+
+        let remove_transaction = state
+            .plan(EditRequest::RemoveAudioPlugin {
+                clip_id: 1,
+                plugin_index: 0,
+            })
+            .expect("removal plans");
+        state
+            .apply_patch(&remove_transaction.forward)
+            .expect("removal applies");
+        assert_eq!(state.document.clips[0].audio_plugins.len(), 1);
+        assert_eq!(state.document.clips[0].audio_plugins[0].id, "delay");
+        state
+            .apply_patch(&remove_transaction.inverse)
+            .expect("removal inverse applies");
+        assert_eq!(state.document, before);
+
+        let mut compressor = before.clips[0].audio_plugins[0].clone();
+        compressor.id = "compressor".to_owned();
+        compressor
+            .extra
+            .insert("pluginExtension".to_owned(), json!("compressor-token"));
+        let insert_transaction = state
+            .plan(EditRequest::InsertAudioPlugin {
+                clip_id: 1,
+                index: 1,
+                plugin: compressor,
+            })
+            .expect("insertion plans");
+        state
+            .apply_patch(&insert_transaction.forward)
+            .expect("insertion applies");
+        assert_eq!(state.document.clips[0].audio_plugins[1].id, "compressor");
+        assert_eq!(
+            state.document.clips[0].audio_plugins[1].extra["pluginExtension"],
+            json!("compressor-token")
+        );
+        state
+            .apply_patch(&insert_transaction.inverse)
+            .expect("insertion inverse applies");
+        assert_eq!(state.document, before);
+
+        assert_eq!(
+            state.plan(EditRequest::InsertAudioPlugin {
+                clip_id: 1,
+                index: 3,
+                plugin: before.clips[0].audio_plugins[0].clone(),
+            }),
+            Err(StateError::InvalidArgument)
+        );
+        assert_eq!(
+            state.plan(EditRequest::RemoveAudioPlugin {
+                clip_id: 1,
+                plugin_index: 2,
+            }),
+            Err(StateError::InvalidArgument)
+        );
+        assert_eq!(
+            state.plan(EditRequest::ReorderAudioPlugins {
+                clip_id: 1,
+                permutation: vec![0, 0],
+            }),
+            Err(StateError::InvalidArgument)
+        );
+    }
+
+    #[test]
+    fn targeted_audio_plugin_parameter_and_keyframe_edits_are_reversible() {
+        let mut before = document();
+        before.clips[0].audio_plugins[0]
+            .extra
+            .insert("pluginExtension".to_owned(), json!("gain-token"));
+        let mut state = TimelineState::new(before.clone(), 2, 1).expect("valid state");
+
+        let parameter_transaction = state
+            .plan(EditRequest::SetAudioPluginParameter {
+                clip_id: 1,
+                plugin_index: 0,
+                param_name: "0".to_owned(),
+                value: json!(0.5),
+            })
+            .expect("parameter update plans");
+        state
+            .apply_patch(&parameter_transaction.forward)
+            .expect("parameter update applies");
+        let plugin = &state.document.clips[0].audio_plugins[0];
+        assert_eq!(plugin.params["0"], json!(0.5));
+        assert_eq!(
+            plugin.keyframes.as_ref().expect("tracks")["0"]["start"]["value"],
+            json!(0.5)
+        );
+        assert_eq!(plugin.extra["pluginExtension"], json!("gain-token"));
+        state
+            .apply_patch(&parameter_transaction.inverse)
+            .expect("parameter inverse applies");
+        assert_eq!(state.document, before);
+
+        let set_transaction = state
+            .plan(EditRequest::SetAudioPluginKeyframe {
+                clip_id: 1,
+                plugin_index: 0,
+                param_name: "0".to_owned(),
+                frame: 8,
+                value: json!(0.75),
+                options: json!({"interp": "linear"}),
+            })
+            .expect("keyframe set plans");
+        state
+            .apply_patch(&set_transaction.forward)
+            .expect("keyframe set applies");
+        assert!(
+            state.document.clips[0].audio_plugins[0]
+                .keyframes
+                .as_ref()
+                .expect("tracks")["0"]["points"]
+                .as_array()
+                .expect("points")
+                .iter()
+                .any(|point| point["frame"] == json!(8))
+        );
+
+        let move_transaction = state
+            .plan(EditRequest::MoveAudioPluginKeyframe {
+                clip_id: 1,
+                plugin_index: 0,
+                param_name: "0".to_owned(),
+                old_frame: 8,
+                new_frame: 10,
+            })
+            .expect("keyframe move plans");
+        state
+            .apply_patch(&move_transaction.forward)
+            .expect("keyframe move applies");
+        let moved = state.document.clips[0].audio_plugins[0]
+            .keyframes
+            .as_ref()
+            .expect("tracks")["0"]["points"]
+            .as_array()
+            .expect("points");
+        assert!(moved.iter().any(|point| point["frame"] == json!(10)));
+        assert!(!moved.iter().any(|point| point["frame"] == json!(8)));
+
+        let remove_transaction = state
+            .plan(EditRequest::RemoveAudioPluginKeyframe {
+                clip_id: 1,
+                plugin_index: 0,
+                param_name: "0".to_owned(),
+                frame: 10,
+            })
+            .expect("keyframe removal plans");
+        state
+            .apply_patch(&remove_transaction.forward)
+            .expect("keyframe removal applies");
+        assert!(
+            !state.document.clips[0].audio_plugins[0]
+                .keyframes
+                .as_ref()
+                .expect("tracks")["0"]["points"]
+                .as_array()
+                .expect("points")
+                .iter()
+                .any(|point| point["frame"] == json!(10))
+        );
+        state
+            .apply_patch(&remove_transaction.inverse)
+            .expect("keyframe removal inverse applies");
+        state
+            .apply_patch(&move_transaction.inverse)
+            .expect("keyframe move inverse applies");
+        state
+            .apply_patch(&set_transaction.inverse)
+            .expect("keyframe set inverse applies");
+        assert_eq!(state.document, before);
+
+        let mut without_tracks = before.clone();
+        without_tracks.clips[0].audio_plugins[0].keyframes = None;
+        let mut state = TimelineState::new(without_tracks.clone(), 2, 1).expect("valid state");
+        let frame_zero_transaction = state
+            .plan(EditRequest::SetAudioPluginKeyframe {
+                clip_id: 1,
+                plugin_index: 0,
+                param_name: "1".to_owned(),
+                frame: 0,
+                value: json!(7),
+                options: json!({"interp": "linear"}),
+            })
+            .expect("missing keyframe track set plans");
+        state
+            .apply_patch(&frame_zero_transaction.forward)
+            .expect("missing keyframe track set applies");
+        assert_eq!(
+            state.document.clips[0].audio_plugins[0].params["1"],
+            json!(7)
+        );
+        assert!(
+            state.document.clips[0].audio_plugins[0]
+                .keyframes
+                .as_ref()
+                .expect("tracks created")
+                .contains_key("1")
+        );
+        state
+            .apply_patch(&frame_zero_transaction.inverse)
+            .expect("missing keyframe track inverse applies");
+        assert_eq!(state.document, without_tracks);
+        assert!(state.document.clips[0].audio_plugins[0].keyframes.is_none());
+
+        assert_eq!(
+            state.plan(EditRequest::SetAudioPluginParameter {
+                clip_id: 1,
+                plugin_index: 1,
+                param_name: "0".to_owned(),
+                value: json!(1.0),
+            }),
+            Err(StateError::InvalidArgument)
+        );
     }
 
     #[test]

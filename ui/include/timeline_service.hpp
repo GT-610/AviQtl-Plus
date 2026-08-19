@@ -124,7 +124,8 @@ class TimelineService : public QObject {
     void restoreMultipleEffectsInternal(int clipId, const QList<QVariantMap> &ascData);
     int addAudioPluginStateInternal(int clipId, const AudioPluginState &state);
     void removeAudioPluginStateInternal(int clipId, int index);
-    void restoreAudioPluginStateInternal(int clipId, int index, const AudioPluginState &state);
+    void restoreAudioPluginStateInternal(int clipId, int index, const AudioPluginState &state,
+                                         const QVariantMap &document = {});
     void setEffectEnabledInternal(int clipId, int effectIndex, bool enabled);
     void setAudioPluginParamInternal(int clipId, int index, int paramIndex, float value);
     void pasteEffectInternal(int clipId, int targetIndex, EffectModel *effect);

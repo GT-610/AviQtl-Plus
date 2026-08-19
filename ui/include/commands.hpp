@@ -422,7 +422,8 @@ class AddAudioPluginCommand : public QUndoCommand {
 
 class RemoveAudioPluginCommand : public QUndoCommand {
   public:
-    RemoveAudioPluginCommand(TimelineService *service, int clipId, int index, const QString &pluginName);
+    RemoveAudioPluginCommand(TimelineService *service, int clipId, int index,
+                             const QString &pluginName, QVariantMap document = {});
     void undo() override;
     void redo() override;
 
@@ -431,6 +432,7 @@ class RemoveAudioPluginCommand : public QUndoCommand {
     int m_clipId;
     int m_index;
     AudioPluginState m_savedState;
+    QVariantMap m_savedDocument;
     bool m_valid;
 };
 
