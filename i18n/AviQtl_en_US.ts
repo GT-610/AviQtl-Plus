@@ -3997,7 +3997,7 @@ Please restart the application to apply the update.</translation>
         <translation>Delete effect: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="530"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="636"/>
         <source>エフェクト順序変更</source>
         <translation>Change effect order</translation>
     </message>
@@ -4117,7 +4117,7 @@ Please restart the application to apply the update.</translation>
         <translation>Add audio plugin: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="472"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="476"/>
         <source>オーディオプラグイン削除: %1</source>
         <translation>Remove audio plugin: %1</translation>
     </message>
@@ -4159,12 +4159,12 @@ Please restart the application to apply the update.</translation>
         <translation>Paste multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="387"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="492"/>
         <source>エフェクト削除 (%1件)</source>
         <translation>Delete effects (%1 items)</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_effect.cpp" line="574"/>
+        <location filename="../ui/src/timeline/timeline_effect.cpp" line="680"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>Change effect order (%1 items)</translation>
     </message>
