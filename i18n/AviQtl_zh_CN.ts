@@ -3564,147 +3564,147 @@
         <translation>权限管理：%1</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="53"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="63"/>
         <source>このプラグインに許可する権限を選択してください:</source>
         <translation>请选择要授予此插件的权限：</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="21"/>
         <source>再生制御</source>
         <translation>播放控制</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="65"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="21"/>
         <source>再生、一時停止、シーク</source>
         <translation>播放、暂停、跳转</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="22"/>
         <source>クリップ読み取り</source>
         <translation>读取剪辑</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="66"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="22"/>
         <source>クリップ情報の一覧表示</source>
         <translation>查看剪辑信息列表</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="23"/>
         <source>クリップ変更</source>
         <translation>修改剪辑</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="67"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="23"/>
         <source>クリップの作成、削除、移動</source>
         <translation>创建、删除、移动剪辑</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="24"/>
         <source>エフェクト変更</source>
         <translation>修改效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="68"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="24"/>
         <source>エフェクトの追加、削除、変更</source>
         <translation>添加、删除、修改效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="25"/>
         <source>プロジェクト読み取り</source>
         <translation>读取项目</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="69"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="25"/>
         <source>解像度、FPS等の情報取得</source>
         <translation>获取分辨率、帧率等信息</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="26"/>
         <source>プロジェクト保存</source>
         <translation>保存项目</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="70"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="26"/>
         <source>プロジェクトファイルの保存</source>
         <translation>保存项目文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="27"/>
         <source>プロジェクト読み込み</source>
         <translation>加载项目</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="71"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="27"/>
         <source>プロジェクトファイルの読み込み</source>
         <translation>加载项目文件</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="28"/>
         <source>シーン管理</source>
         <translation>场景管理</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="72"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="28"/>
         <source>シーンの作成、削除、切り替え</source>
         <translation>创建、删除、切换场景</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="29"/>
         <source>設定読み取り</source>
         <translation>读取设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="73"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="29"/>
         <source>プラグイン設定の読み取り</source>
         <translation>读取插件设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="30"/>
         <source>設定書き込み</source>
         <translation>写入设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="74"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="30"/>
         <source>プラグイン設定の保存</source>
         <translation>保存插件设置</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="31"/>
         <source>クリップボード</source>
         <translation>剪贴板</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="75"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="31"/>
         <source>コピー、切り取り、貼り付け</source>
         <translation>复制、剪切、粘贴</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="32"/>
         <source>履歴操作</source>
         <translation>历史操作</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="76"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="32"/>
         <source>元に戻す、やり直し、コマンドのグループ化</source>
         <translation>撤销、重做和命令分组</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="77"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="33"/>
         <source>ログ出力</source>
         <translation>日志输出</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="77"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="33"/>
         <source>コンソールへのログ出力</source>
         <translation>输出日志到控制台</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="122"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="121"/>
         <source>すべて許可</source>
         <translation>全部允许</translation>
     </message>
     <message>
-        <location filename="../ui/qml/PluginPermissionDialog.qml" line="133"/>
+        <location filename="../ui/qml/PluginPermissionDialog.qml" line="132"/>
         <source>すべて拒否</source>
         <translation>全部拒绝</translation>
     </message>
@@ -4167,76 +4167,6 @@
         <location filename="../ui/src/timeline/timeline_effect.cpp" line="680"/>
         <source>エフェクト順序変更 (%1件)</source>
         <translation>更改效果顺序（%1 项）</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="137"/>
-        <source>再生、一時停止、シークなどの再生制御</source>
-        <translation>播放、暂停、跳转等播放控制</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="139"/>
-        <source>クリップ情報の一覧表示と読み取り</source>
-        <translation>查看和读取剪辑信息</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="141"/>
-        <source>クリップの作成、削除、移動、変更</source>
-        <translation>创建、删除、移动、修改剪辑</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="143"/>
-        <source>エフェクトの追加、削除、パラメータ変更</source>
-        <translation>添加、删除效果及修改参数</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="145"/>
-        <source>プロジェクト情報（解像度、FPS等）の読み取り</source>
-        <translation>读取项目信息（分辨率、帧率等）</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="147"/>
-        <source>プロジェクトファイルの保存</source>
-        <translation>保存项目文件</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="149"/>
-        <source>プロジェクトファイルの読み込み</source>
-        <translation>加载项目文件</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="151"/>
-        <source>シーンの作成、削除、切り替え</source>
-        <translation>创建、删除、切换场景</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="153"/>
-        <source>プラグイン設定の読み取り</source>
-        <translation>读取插件设置</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="155"/>
-        <source>プラグイン設定の書き込み</source>
-        <translation>写入插件设置</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="157"/>
-        <source>クリップボードへのコピー、切り取り、貼り付け</source>
-        <translation>复制、剪切、粘贴到剪贴板</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="159"/>
-        <source>元に戻す、やり直し、コマンドのグループ化</source>
-        <translation>撤销、重做和命令分组</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="161"/>
-        <source>コンソールへのログ出力</source>
-        <translation>输出日志到控制台</translation>
-    </message>
-    <message>
-        <location filename="../core/src/permission_manager.cpp" line="163"/>
-        <source>不明な権限</source>
-        <translation>未知权限</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="10"/>
