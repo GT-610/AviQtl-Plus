@@ -6,6 +6,7 @@
 #include "engine/audio_mixer.hpp"
 #include "image_decoder.hpp"
 #include "media_decoder.hpp"
+#include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "video_decoder.hpp"
 #include "video_frame_store.hpp"
@@ -326,8 +327,11 @@ void TimelineMediaManager::syncAudioPluginChain(const ClipData &clip) {
         return;
     }
 
-    auto chain = audioMixer->getChain(clip.id);
-    chain->clear();
+    const int maxBlockSize = AviQtl::Core::SettingsManager::instance()
+                                 .value(QStringLiteral("audioPluginMaxBlockSize"), AviQtl::kAudioMaxBlockSize)
+                                 .toInt();
+    auto chain = std::make_shared<AviQtl::Engine::Plugin::AudioPluginChain>(
+        m_controller->project()->sampleRate(), maxBlockSize);
     for (const auto &pluginState : clip.audioPlugins) {
         auto plugin = AviQtl::Engine::Plugin::AudioPluginManager::instance().createPlugin(pluginState.id);
         if (!plugin) {
@@ -343,6 +347,7 @@ void TimelineMediaManager::syncAudioPluginChain(const ClipData &clip) {
         }
         chain->add(std::move(plugin), pluginState.enabled);
     }
+    audioMixer->replaceChain(clip.id, std::move(chain));
 }
 
 void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid, const ClipData *clip, int relFrame) {

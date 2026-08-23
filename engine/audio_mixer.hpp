@@ -40,6 +40,7 @@ class AudioMixer : public QObject {
 
     // クリップID → プラグインチェーン
     std::shared_ptr<Plugin::AudioPluginChain> getChain(int clipId);
+    void replaceChain(int clipId, std::shared_ptr<Plugin::AudioPluginChain> chain);
 
     void setPlaybackSpeed(double speed);
     void setSampleRate(int sampleRate);

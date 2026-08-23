@@ -891,11 +891,10 @@ auto TimelineController::getClipEffectStack(int clipId) const -> QVariantList {
 
     auto chain = m_mediaManager->audioMixer()->getChain(clipId);
     for (int i = 0; i < chain->count(); ++i) {
-        auto *plugin = chain->get(i);
-        if (plugin != nullptr) {
+        if (const auto plugin = chain->describe(i)) {
             QVariantMap effectInfo;
-            effectInfo.insert(QStringLiteral("name"), plugin->name());
-            effectInfo.insert(QStringLiteral("format"), plugin->format());
+            effectInfo.insert(QStringLiteral("name"), plugin->name);
+            effectInfo.insert(QStringLiteral("format"), plugin->format);
             list.append(effectInfo);
         }
     }
@@ -908,8 +907,7 @@ auto TimelineController::getEffectParameters(int clipId, int effectIndex) const 
         return list;
     }
     auto chain = m_mediaManager->audioMixer()->getChain(clipId);
-    auto *plugin = chain->get(effectIndex);
-    if (plugin != nullptr) {
+    if (const auto plugin = chain->describe(effectIndex)) {
         // Get keyframe tracks from AudioPluginState
         const auto *clip = m_timeline->findClipById(clipId);
         const QVariantMap *kfTracks = nullptr;
@@ -917,15 +915,16 @@ auto TimelineController::getEffectParameters(int clipId, int effectIndex) const 
             kfTracks = &clip->audioPlugins.at(effectIndex).keyframeTracks;
         }
 
-        for (int i = 0; i < plugin->paramCount(); ++i) {
+        for (std::size_t i = 0; i < plugin->parameters.size(); ++i) {
             QVariantMap paramInfo;
-            auto info = plugin->getParamInfo(i);
-            const QString paramKey = QString::number(i);
+            const auto &info = plugin->parameters[i];
+            const int parameterIndex = static_cast<int>(i);
+            const QString paramKey = QString::number(parameterIndex);
 
-            paramInfo.insert(QStringLiteral("pIdx"), i);
+            paramInfo.insert(QStringLiteral("pIdx"), parameterIndex);
             paramInfo.insert(QStringLiteral("pKey"), paramKey);
             paramInfo.insert(QStringLiteral("name"), info.name);
-            paramInfo.insert(QStringLiteral("current"), plugin->getParam(i));
+            paramInfo.insert(QStringLiteral("current"), plugin->values[i]);
             paramInfo.insert(QStringLiteral("min"), info.min);
             paramInfo.insert(QStringLiteral("max"), info.max);
 
@@ -953,9 +952,7 @@ void TimelineController::setEffectParameter(int clipId, int effectIndex, int par
         return;
     }
     auto chain = m_mediaManager->audioMixer()->getChain(clipId);
-    auto *plugin = chain->get(effectIndex); // NOLINT(bugprone-easily-swappable-parameters)
-    if (plugin != nullptr) {
-        plugin->setParam(paramIndex, value);
+    if (chain->setParameter(effectIndex, paramIndex, value)) {
         m_timeline->setAudioPluginParam(clipId, effectIndex, paramIndex, value);
     }
 }

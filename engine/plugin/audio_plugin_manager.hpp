@@ -1,6 +1,7 @@
 #pragma once
 #include "audio_plugin_host.hpp"
 #include <QHash>
+#include <QFuture>
 #include <QLoggingCategory>
 #include <QMutex>
 #include <QObject>
@@ -54,6 +55,7 @@ class AudioPluginManager : public QObject {
     mutable QMutex m_pluginsMutex;
     QList<PluginInfo> m_plugins;
     QVariantList m_pluginProjection;
+    QFuture<void> m_scanFuture;
 };
 
 } // namespace AviQtl::Engine::Plugin

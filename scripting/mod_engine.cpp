@@ -460,8 +460,7 @@ ModEngine::~ModEngine() {
     }
 }
 
-void ModEngine::initialize(void *ecsPtr) {
-    m_ecsPtr = ecsPtr;
+void ModEngine::initialize() {
     m_initialized = true;
     if (L != nullptr) {
         return;
@@ -473,14 +472,10 @@ void ModEngine::initialize(void *ecsPtr) {
     }
     AviQtl::Scripting::LuaHost::setupSafeLuaState(L);
 
-    // Register core pointer as global
-    lua_pushlightuserdata(L, ecsPtr);
-    lua_setglobal(L, "AVIQTL_CORE_PTR");
-
     registerAviQtlAPI();
     m_apiRegistered = true;
 
-    qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
+    qInfo() << "[ModEngine] LuaJIT initialized";
 }
 
 void ModEngine::resetLuaState() {
@@ -491,7 +486,7 @@ void ModEngine::resetLuaState() {
     }
     m_apiRegistered = false;
     if (m_initialized) {
-        initialize(m_ecsPtr);
+        initialize();
     }
 }
 
@@ -610,7 +605,7 @@ aviqtl = {
 
 void ModEngine::loadPlugins() {
     if (L == nullptr) {
-        initialize(m_ecsPtr);
+        initialize();
     }
     if (L == nullptr) {
         return;
@@ -676,7 +671,10 @@ void ModEngine::loadSingleFilePlugin(const QFileInfo &fileInfo) {
     clearHookGlobals();
     injectPluginParams(L, info);
 
-    if (luaL_dofile(L, fileInfo.absoluteFilePath().toUtf8().constData())) {
+    LuaHost::installInstructionLimit(L);
+    const int loadStatus = luaL_dofile(L, fileInfo.absoluteFilePath().toUtf8().constData());
+    LuaHost::clearInstructionLimit(L);
+    if (loadStatus != LUA_OK) {
         qCritical() << "[ModEngine] Load Error:" << lua_tostring(L, -1);
         lua_pop(L, 1);
         clearHookGlobals();
@@ -735,7 +733,10 @@ void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &plugin
     clearHookGlobals();
     injectPluginParams(L, info);
 
-    if (luaL_dofile(L, mainLua.toUtf8().constData())) {
+    LuaHost::installInstructionLimit(L);
+    const int loadStatus = luaL_dofile(L, mainLua.toUtf8().constData());
+    LuaHost::clearInstructionLimit(L);
+    if (loadStatus != LUA_OK) {
         qCritical() << "[ModEngine] Plugin Error:" << lua_tostring(L, -1);
         lua_pop(L, 1);
         clearHookGlobals();
@@ -765,7 +766,10 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
     }
 
     // Load and execute manifest.lua to get the manifest table
-    if (luaL_dofile(ls, manifestPath.toUtf8().constData()) != LUA_OK) {
+    LuaHost::installInstructionLimit(ls);
+    const int loadStatus = luaL_dofile(ls, manifestPath.toUtf8().constData());
+    LuaHost::clearInstructionLimit(ls);
+    if (loadStatus != LUA_OK) {
         qWarning() << "[ModEngine] Failed to load manifest:" << lua_tostring(ls, -1);
         lua_pop(ls, 1);
         lua_close(ls);
@@ -982,7 +986,10 @@ void ModEngine::callHooks(const char *hookName, const QString *argument) {
 
         const QString previousPluginId = m_currentPluginId;
         m_currentPluginId = runtime.pluginId;
-        if (lua_pcall(L, argumentCount, 0, 0) != 0) {
+        LuaHost::installInstructionLimit(L);
+        const int hookStatus = lua_pcall(L, argumentCount, 0, 0);
+        LuaHost::clearInstructionLimit(L);
+        if (hookStatus != LUA_OK) {
             qCritical() << "[ModEngine] Hook" << hookName << "for plugin" << (runtime.pluginId.isEmpty() ? QStringLiteral("<legacy>") : runtime.pluginId) << "failed:" << lua_tostring(L, -1);
             lua_pop(L, 1);
         }

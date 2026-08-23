@@ -18,7 +18,8 @@ void ECS::markDirty(int clipId) {
 }
 
 ECS::ECS() : m_editIndex(1) {
-    m_activeIndex.store(0, std::memory_order_relaxed);
+    for (auto &buffer : m_buffers)
+        buffer = std::make_shared<ECSState>();
     for (auto &f : m_dirtyFlags)
         f.fullSync = true;
 }
@@ -29,7 +30,7 @@ auto ECS::instance() -> ECS & {
 }
 
 void ECS::syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
-    auto &editState = m_buffers[m_editIndex];
+    auto &editState = *m_buffers[m_editIndex];
     bool changed = false;
     changed |= editState.renderStates.syncAlive(aliveFlags);
     changed |= editState.audioStates.syncAlive(aliveFlags);
@@ -42,7 +43,7 @@ void ECS::syncClipIds(const std::bitset<MAX_CLIP_ID> &aliveFlags) {
 
 void ECS::updateClipState(int clipId, int layer, double time, int startFrame, int durationFrames) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
-    auto &editState = m_buffers[m_editIndex];
+    auto &editState = *m_buffers[m_editIndex];
     auto *ptr = editState.renderStates.find(clipId);
     if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
@@ -65,7 +66,7 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
 
 void ECS::updateAudioClipState(int clipId, const AudioComponent &audio) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
-    auto &editState = m_buffers[m_editIndex];
+    auto &editState = *m_buffers[m_editIndex];
     auto *ptr = editState.audioStates.find(clipId);
     if (!ptr) {
         m_dirtyFlags[(m_editIndex + 1) % 3].fullSync = true;
@@ -80,22 +81,23 @@ void ECS::updateAudioClipState(int clipId, const AudioComponent &audio) {
 
 void ECS::updateRenderState(int clipId, const RenderComponent &render) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
-    auto &editState = m_buffers[m_editIndex];
+    auto &editState = *m_buffers[m_editIndex];
     editState.renderStates[clipId] = render;
 
     markDirty(clipId);
 }
 
 void ECS::clearEffectParams() {
-    m_buffers[m_editIndex].effectParams.clear();
+    m_buffers[m_editIndex]->effectParams.clear();
 }
 
 void ECS::commit() {
     ECS_PROF_INC(commitCount);
+    std::lock_guard lock(m_snapshotMutex);
 
     const int justWritten = m_editIndex;
-    const int active = m_activeIndex.load(std::memory_order_acquire);
-    const int pending = m_pendingIndex.load(std::memory_order_acquire);
+    const int active = m_activeIndex;
+    const int pending = m_pendingIndex;
 
     // 次に書き込むバッファを選択 (justWritten, active, pending を避ける)
     int next = -1;
@@ -110,16 +112,21 @@ void ECS::commit() {
         next = (pending != -1) ? pending : (justWritten + 1) % 3;
 
     m_editIndex = next;
+    bool replacedLeasedBuffer = false;
+    if (m_buffers[m_editIndex].use_count() > 1) {
+        m_buffers[m_editIndex] = std::make_shared<ECSState>();
+        replacedLeasedBuffer = true;
+    }
 
     auto &df = m_dirtyFlags[m_editIndex];
-    if (df.fullSync) {
-        m_buffers[m_editIndex] = m_buffers[justWritten];
+    if (df.fullSync || replacedLeasedBuffer) {
+        *m_buffers[m_editIndex] = *m_buffers[justWritten];
         df.fullSync = false;
         df.dirty.reset();
         df.dirtyIds.clear();
     } else {
-        const auto &src = m_buffers[justWritten];
-        auto &dst = m_buffers[m_editIndex];
+        const auto &src = *m_buffers[justWritten];
+        auto &dst = *m_buffers[m_editIndex];
         dst.renderGraphGeneration = src.renderGraphGeneration;
 
         for (int id : df.dirtyIds) {
@@ -132,19 +139,19 @@ void ECS::commit() {
         df.dirtyIds.clear();
     }
 
-    m_buffers[m_editIndex].effectParams = m_buffers[justWritten].effectParams;
+    m_buffers[m_editIndex]->effectParams = m_buffers[justWritten]->effectParams;
 
-    m_pendingIndex.store(justWritten, std::memory_order_release);
+    m_pendingIndex = justWritten;
 }
 
-auto ECS::getSnapshot() const -> const ECSState * {
-    int pending = m_pendingIndex.load(std::memory_order_acquire);
+auto ECS::getSnapshot() const -> std::shared_ptr<const ECSState> {
+    std::lock_guard lock(m_snapshotMutex);
+    const int pending = m_pendingIndex;
     if (pending != -1) {
-        if (m_pendingIndex.compare_exchange_strong(pending, -1, std::memory_order_acq_rel, std::memory_order_relaxed)) {
-            m_activeIndex.store(pending, std::memory_order_release);
-        }
+        m_pendingIndex = -1;
+        m_activeIndex = pending;
     }
-    return &m_buffers[m_activeIndex.load(std::memory_order_acquire)];
+    return m_buffers[m_activeIndex];
 }
 
 } // namespace AviQtl::Engine::Timeline

@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <memory>
+#include <mutex>
 
 namespace AviQtl::Engine::Timeline {
 
@@ -183,18 +185,19 @@ class ECS {
 
     void commit();
 
-    ECSState &editState() { return m_buffers[m_editIndex]; }
+    ECSState &editState() { return *m_buffers[m_editIndex]; }
 
-    const ECSState *getSnapshot() const;
+    std::shared_ptr<const ECSState> getSnapshot() const;
 
   private:
     ECS();
     void markDirty(int clipId);
 
-    ::std::array<ECSState, 3> m_buffers;
+    ::std::array<::std::shared_ptr<ECSState>, 3> m_buffers;
     int m_editIndex = 0;
-    mutable ::std::atomic<int> m_activeIndex{0};
-    mutable ::std::atomic<int> m_pendingIndex{-1};
+    mutable int m_activeIndex = 0;
+    mutable int m_pendingIndex = -1;
+    mutable ::std::mutex m_snapshotMutex;
 
     ::std::array<DirtyFlags, 3> m_dirtyFlags;
 };

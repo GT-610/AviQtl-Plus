@@ -21,12 +21,12 @@ AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
     m_format.setChannelCount(2);
     m_format.setSampleFormat(QAudioFormat::Float);
 
-    const auto *state = Timeline::ECS::instance().getSnapshot();
+    const auto state = Timeline::ECS::instance().getSnapshot();
     if (state != nullptr) {
         const auto &audioStates = state->audioStates;
         for (const auto &audio : audioStates) {
             if (!m_chains.contains(audio.clipId)) {
-                m_chains.insert(audio.clipId, std::make_shared<Plugin::AudioPluginChain>());
+                m_chains.insert(audio.clipId, std::make_shared<Plugin::AudioPluginChain>(m_format.sampleRate(), AviQtl::kAudioMaxBlockSize));
             }
         }
     }
@@ -66,6 +66,9 @@ void AudioMixer::setSampleRate(int sampleRate) {
 
     qCInfo(lcAudioMixer) << "Changing sample rate to" << sampleRate;
     m_format.setSampleRate(sampleRate);
+    for (const auto &chain : std::as_const(m_chains)) {
+        chain->prepare(sampleRate);
+    }
 
     if (m_audioSink) {
         m_audioSink->stop();
@@ -127,7 +130,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
     m_batchResults.clear();
     m_batchReportMeters.clear();
 
-    const auto *state = Timeline::ECS::instance().getSnapshot();
+    const auto state = Timeline::ECS::instance().getSnapshot();
     if (state == nullptr) {
         return masterBuffer;
     }
@@ -310,9 +313,14 @@ auto AudioMixer::getChain(int clipId) -> std::shared_ptr<Plugin::AudioPluginChai
     std::unique_lock lock(m_mutex);
     auto it = m_chains.find(clipId);
     if (it == m_chains.end()) {
-        it = m_chains.insert(clipId, std::make_shared<Plugin::AudioPluginChain>());
+        it = m_chains.insert(clipId, std::make_shared<Plugin::AudioPluginChain>(m_format.sampleRate(), AviQtl::kAudioMaxBlockSize));
     }
     return it.value();
+}
+
+void AudioMixer::replaceChain(int clipId, std::shared_ptr<Plugin::AudioPluginChain> chain) {
+    std::unique_lock lock(m_mutex);
+    m_chains.insert(clipId, std::move(chain));
 }
 
 } // namespace AviQtl::Engine

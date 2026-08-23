@@ -96,7 +96,7 @@ class TestECSRender : public QObject {
 
         BakeController::instance().bake(1, 30);
 
-        const auto *snapshot = ECS::instance().getSnapshot();
+        const auto snapshot = ECS::instance().getSnapshot();
         QVERIFY(snapshot != nullptr);
 
         const auto *rc = snapshot->renderStates.find(5);
@@ -139,7 +139,7 @@ class TestECSRender : public QObject {
 
         BakeController::instance().bake(2, 0);
 
-        const auto *snapshot = ECS::instance().getSnapshot();
+        const auto snapshot = ECS::instance().getSnapshot();
         QVERIFY(snapshot != nullptr);
 
         bool hasX = false, hasY = false, hasScale = false, hasOpacity = false;
@@ -184,7 +184,7 @@ class TestECSRender : public QObject {
 
         BakeController::instance().bake(3, 0);
 
-        const auto *snapshot = ECS::instance().getSnapshot();
+        const auto snapshot = ECS::instance().getSnapshot();
         QVERIFY(snapshot != nullptr);
         const auto *rc = snapshot->renderStates.find(15);
         QVERIFY(rc != nullptr);
@@ -219,7 +219,7 @@ class TestECSRender : public QObject {
         BakeController::instance().bake(4, 0);
 
         {
-            const auto *snapshot = ECS::instance().getSnapshot();
+            const auto snapshot = ECS::instance().getSnapshot();
             QVERIFY(snapshot != nullptr);
             QVERIFY(snapshot->renderStates.contains(20));
             QVERIFY(snapshot->renderStates.contains(21));
@@ -231,7 +231,7 @@ class TestECSRender : public QObject {
         BakeController::instance().bake(4, 0);
 
         {
-            const auto *snapshot = ECS::instance().getSnapshot();
+            const auto snapshot = ECS::instance().getSnapshot();
             QVERIFY(snapshot != nullptr);
             QVERIFY(snapshot->renderStates.contains(20));
             QVERIFY(!snapshot->renderStates.contains(21));
