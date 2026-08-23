@@ -471,23 +471,6 @@ pub extern "C" fn aviqtl_media_clamp_audio_duration_frames(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn aviqtl_media_audio_duration_frames(
-    total_seconds: f64,
-    direct_mode: u32,
-    start_time: f64,
-    speed: f64,
-    project_fps: f64,
-) -> i32 {
-    audio_duration_frames(
-        total_seconds,
-        direct_mode != 0,
-        start_time,
-        speed,
-        project_fps,
-    )
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_permission_from_name(value: *const u8, value_length: usize) -> i32 {
     // SAFETY: The helper validates the pointer/length pair before borrowing it.
     unsafe { utf8(value, value_length) }.map_or(-1, permission_from_name)

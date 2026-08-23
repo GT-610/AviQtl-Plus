@@ -4,6 +4,7 @@
 #include <utility>
 
 namespace AviQtl::Core::RustKeyframes {
+namespace {
 
 bool isNumericValue(const QVariant &value) {
     return value.isValid() && value.typeId() != QMetaType::QString && value.canConvert<double>();
@@ -15,6 +16,8 @@ RustCore::NumericInterpolation interpolationForName(QStringView name) {
         reinterpret_cast<const std::uint8_t *>(encoded.constData()),
         static_cast<std::size_t>(encoded.size())));
 }
+
+} // namespace
 
 RustCore::NumericTrackView NumericTrackStorage::view(double fallback) const {
     return {

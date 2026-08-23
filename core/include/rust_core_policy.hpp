@@ -79,12 +79,6 @@ inline int clampAudioDurationFrames(int requestedDuration, double totalSeconds, 
         requestedDuration, totalSeconds, directMode ? 1U : 0U, startTime, speed, projectFps);
 }
 
-inline int audioDurationFrames(double totalSeconds, bool directMode, double startTime,
-                               double speed, double projectFps) {
-    return aviqtl_media_audio_duration_frames(totalSeconds, directMode ? 1U : 0U, startTime,
-                                              speed, projectFps);
-}
-
 inline int permissionFromName(QStringView value) {
     const QByteArray encoded = utf8(value);
     return aviqtl_permission_from_name(

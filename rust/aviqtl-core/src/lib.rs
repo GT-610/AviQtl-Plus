@@ -218,7 +218,7 @@ fn ease_out_bounce(mut x: f64) -> f64 {
 fn custom_easing(x: f64, points: &[f64]) -> f64 {
     let mut previous_x = 0.0;
     let mut previous_y = 0.0;
-    for (index, segment) in points.chunks_exact(6).enumerate() {
+    for (index, segment) in points.as_chunks::<6>().0.iter().enumerate() {
         let cp1x = segment[0];
         let cp1y = segment[1];
         let cp2x = segment[2];

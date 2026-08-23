@@ -696,35 +696,6 @@ void TimelineService::reorderAudioPlugins(int clipId, int oldIndex, int newIndex
         QList<int>(undo.cbegin(), undo.cend())));
 }
 
-void TimelineService::reorderEffectsInternal(int clipId, int oldIndex, int newIndex) { // NOLINT(bugprone-easily-swappable-parameters)
-    auto *clip = findClipById(clipId);
-    if ((clip == nullptr) || oldIndex < 0 || oldIndex >= static_cast<int>(clip->effects.size()) || newIndex < 0 || newIndex >= static_cast<int>(clip->effects.size())) {
-        return;
-    }
-
-    const QList<EffectModel *> previous = clip->effects;
-    QVariantList permutation;
-    permutation.reserve(clip->effects.size());
-    for (int index = 0; index < clip->effects.size(); ++index) {
-        permutation.append(index);
-    }
-    permutation.move(oldIndex, newIndex);
-    clip->effects.move(oldIndex, newIndex);
-    const QVariantMap request = reorderEffectsRequest(clipId, permutation);
-    if (!commitTimelineMutation(request, [this, clipId, previous]() {
-            if (auto *restored = findClipById(clipId); restored != nullptr) {
-                restored->effects = previous;
-            }
-        })) {
-        qWarning() << "Rust rejected effect reorder";
-        return;
-    }
-
-    // UI更新通知
-    emit clipEffectsChanged(clipId);
-    emit clipsChanged();
-}
-
 void TimelineService::setEffectEnabledInternal(int clipId, int effectIndex, bool enabled) { // NOLINT(bugprone-easily-swappable-parameters)
     auto *clip = findClipById(clipId);
     if ((clip == nullptr) || effectIndex < 0 || effectIndex >= static_cast<int>(clip->effects.size())) {

@@ -87,6 +87,4 @@ void TransportService::stepBackward() {
         setCurrentFrame_seek(m_currentFrame - 1);
 }
 
-void TransportService::updateTimerInterval(double fps) { setFps(fps); }
-
 } // namespace AviQtl::UI

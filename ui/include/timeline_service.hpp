@@ -24,8 +24,6 @@ class TimelineService : public QObject {
     const QList<ClipData> &clips(int sceneId) const; // 特定シーンのクリップ取得
 
     int findVacantFrame(int layer, int startFrame, int duration, int excludeClipId) const;
-    int findVacantFrameForClipboard(int requestedFrame, int layerOffset) const;
-
     const QList<SceneData> &getAllScenes() const { return m_scenes; }
     bool setScenes(const QList<SceneData> &scenes);
     QVariantMap timelineStateSnapshot() const;
@@ -130,7 +128,6 @@ class TimelineService : public QObject {
     void setAudioPluginParamInternal(int clipId, int index, int paramIndex, float value);
     void pasteEffectInternal(int clipId, int targetIndex, EffectModel *effect);
     void setAudioPluginEnabledInternal(int clipId, int index, bool enabled);
-    void reorderEffectsInternal(int clipId, int oldIndex, int newIndex);
     void applyPermutationInternal(int clipId, const QList<int> &perm);
     void applyAudioPluginPermutationInternal(int clipId, const QList<int> &perm);
     void updateEffectParamInternal(int clipId, int effectIndex, const QString &paramName, const QVariant &value);

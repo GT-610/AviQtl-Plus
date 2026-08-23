@@ -264,7 +264,7 @@ void PackageManager::refreshRepositories() {
         if (!Internal::isSecureNetworkUrl(fetchUrl)) {
             m_pendingRequests--;
             emit errorOccurred(tr("Repository URL must use HTTPS: %1").arg(repoUrl));
-            tryFinishSyncLegacy(installed);
+            finishSyncWhenIdle();
             continue;
         }
         QNetworkReply *reply = m_networkManager->get(packageNetworkRequest(fetchUrl));
@@ -286,7 +286,7 @@ void PackageManager::refreshRepositories() {
                         if (!Internal::isSecureNetworkUrl(absUrl)) {
                             emit errorOccurred(tr("Catalog URL must use HTTPS: %1").arg(absUrl.toString()));
                             onCatalogFetched(ctx->repoInfo, {}, installed);
-                            tryFinishSyncLegacy(installed);
+                            finishSyncWhenIdle();
                             return;
                         }
                         QNetworkReply *catReply = m_networkManager->get(packageNetworkRequest(absUrl));
@@ -309,7 +309,7 @@ void PackageManager::refreshRepositories() {
                                 writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName, QJsonDocument(cacheObj));
                             }
                             onCatalogFetched(ctx->repoInfo, ctx->catalogData, installed);
-                            tryFinishSyncLegacy(installed);
+                            finishSyncWhenIdle();
                         });
                     } else {
                         // Old format: treat repo.json itself as a flat packages list
@@ -317,7 +317,7 @@ void PackageManager::refreshRepositories() {
                     }
                 }
             }
-            tryFinishSyncLegacy(installed);
+            finishSyncWhenIdle();
         });
     }
 }
@@ -347,8 +347,7 @@ void PackageManager::mergeCatalogPackages(const QVariantList &packages, const QV
         m_packageList = *merged;
 }
 
-void PackageManager::tryFinishSyncLegacy(const QVariantMap &installed) {
-    Q_UNUSED(installed)
+void PackageManager::finishSyncWhenIdle() {
     if (m_pendingRequests > 0)
         return;
     emit packageListChanged();
