@@ -68,30 +68,6 @@ void TimelineMediaManager::onCurrentFrameChanged() {
             img->seek(0); // 描画を強制
         }
 
-        if (auto *aud = qobject_cast<AviQtl::Core::AudioDecoder *>(it.value())) {
-            const int relFrame = nextFrame - clip->startFrame;
-            const double relTime = static_cast<double>(relFrame) / fps;
-            double audioTime = 0.0;
-
-            for (const auto *eff : clip->effects) {
-                if (eff->id() != QStringLiteral("audio")) {
-                    continue;
-                }
-
-                const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始時間＋再生速度").toString();
-                const bool isDirect = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
-                const double directTime = eff->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
-                const double startTime = eff->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble();
-                const QString source = eff->params().value(QStringLiteral("source")).toString();
-                const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
-                const bool linkedVideo = sourceIsVideo && eff->evaluatedParam(QStringLiteral("linkedVideo"), relFrame, fps).toBool();
-                const double speed = linkedVideo ? AviQtl::kDefaultSpeed : eff->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
-
-                audioTime = AviQtl::Core::MediaUtils::resolveAudioTime(relTime, isDirect, directTime, startTime, speed);
-                break;
-            }
-            aud->seek(static_cast<qint64>(audioTime * 1000.0));
-        }
     }
 }
 
@@ -247,6 +223,8 @@ void TimelineMediaManager::updateMediaDecoders() {
                 decoder = new AviQtl::Core::AudioDecoder(clip.id, sourceUrl, this);
                 if (auto *audioDecoder = qobject_cast<AviQtl::Core::AudioDecoder *>(decoder)) {
                     m_audioMixer->registerDecoder(clip.id, audioDecoder);
+                    connect(audioDecoder, &AviQtl::Core::AudioDecoder::waveformReady, this,
+                            [this, clipId = clip.id]() { emit frameUpdated(clipId); });
                 }
             }
 

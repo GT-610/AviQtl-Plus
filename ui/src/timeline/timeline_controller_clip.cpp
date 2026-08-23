@@ -811,8 +811,10 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
     const QString playMode = params.value(QStringLiteral("playMode")).toString();
     const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
 
-    std::vector<float> rawPeaks;
-    rawPeaks.reserve(static_cast<std::size_t>(pixelWidth) * 2);
+    std::vector<AviQtl::Core::AudioDecoder::PeakRange> peakRanges;
+    std::vector<float> displayGains;
+    peakRanges.reserve(static_cast<std::size_t>(pixelWidth));
+    displayGains.reserve(static_cast<std::size_t>(pixelWidth));
     for (int i = 0; i < pixelWidth; ++i) {
         const int relFrame = std::clamp(static_cast<int>(std::floor(static_cast<double>(displayDurationFrames) * static_cast<double>(i) / static_cast<double>(pixelWidth))), 0, std::max(0, displayDurationFrames - 1));
         const int nextRelFrame = std::clamp(static_cast<int>(std::ceil(static_cast<double>(displayDurationFrames) * static_cast<double>(i + 1) / static_cast<double>(pixelWidth))), relFrame + 1, displayDurationFrames);
@@ -853,7 +855,7 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
             sourceDurationSec = std::max(clipDurationSec / static_cast<double>(pixelWidth), frameStepSec);
         }
 
-        const auto pixelPeaks = decoder->getPeaks(sourceStartSec, sourceDurationSec, 1);
+        peakRanges.push_back({.startSec = sourceStartSec, .durationSec = sourceDurationSec});
         double fadeGain = 1.0;
         if (fadeIn > 0.0) {
             fadeGain = std::min(fadeGain, std::clamp(relSec / fadeIn, 0.0, 1.0));
@@ -865,13 +867,13 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
         const double leftVol = mute ? 0.0 : outputVolume * (pan <= 0.0 ? 1.0 : 1.0 - pan);
         const double rightVol = mute ? 0.0 : outputVolume * (pan >= 0.0 ? 1.0 : 1.0 + pan);
         const float displayGain = static_cast<float>(std::clamp((leftVol + rightVol) * 0.5, 0.0, 2.0));
-        if (pixelPeaks.size() >= 2) {
-            rawPeaks.push_back(pixelPeaks[0] * displayGain);
-            rawPeaks.push_back(pixelPeaks[1] * displayGain);
-        } else {
-            rawPeaks.push_back(0.0F);
-            rawPeaks.push_back(0.0F);
-        }
+        displayGains.push_back(displayGain);
+    }
+
+    std::vector<float> rawPeaks = decoder->getPeaks(peakRanges);
+    for (std::size_t pixel = 0; pixel < displayGains.size(); ++pixel) {
+        rawPeaks[pixel * 2] *= displayGains[pixel];
+        rawPeaks[pixel * 2 + 1] *= displayGains[pixel];
     }
 
     QVariantList result;

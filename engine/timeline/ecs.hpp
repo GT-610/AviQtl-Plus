@@ -126,6 +126,8 @@ struct AudioComponent {
     bool solo = false;
     bool limiter = false;
     bool directMode = false;
+
+    bool operator==(const AudioComponent &) const = default;
 };
 
 struct RenderComponent {
@@ -144,6 +146,8 @@ struct RenderComponent {
 
     uint16_t effectCount = 0;
     uint32_t effectStartIndex = 0;
+
+    bool operator==(const RenderComponent &) const = default;
 };
 static_assert(::std::is_trivially_copyable_v<RenderComponent>);
 

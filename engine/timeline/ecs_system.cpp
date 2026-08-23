@@ -61,7 +61,9 @@ void ECS::updateClipState(int clipId, int layer, double time, int startFrame, in
         editState.renderGraphGeneration++;
     }
 
-    markDirty(clipId);
+    if (changed) {
+        markDirty(clipId);
+    }
 }
 
 void ECS::updateAudioClipState(int clipId, const AudioComponent &audio) {
@@ -73,18 +75,22 @@ void ECS::updateAudioClipState(int clipId, const AudioComponent &audio) {
         m_dirtyFlags[(m_editIndex + 2) % 3].fullSync = true;
         ptr = &editState.audioStates[clipId];
     }
-    *ptr = audio;
-    ptr->clipId = clipId;
-
-    markDirty(clipId);
+    AudioComponent next = audio;
+    next.clipId = clipId;
+    if (*ptr != next) {
+        *ptr = next;
+        markDirty(clipId);
+    }
 }
 
 void ECS::updateRenderState(int clipId, const RenderComponent &render) {
     assert(clipId >= 0 && clipId < MAX_CLIP_ID);
     auto &editState = *m_buffers[m_editIndex];
-    editState.renderStates[clipId] = render;
-
-    markDirty(clipId);
+    auto *current = editState.renderStates.find(clipId);
+    if (current == nullptr || *current != render) {
+        editState.renderStates[clipId] = render;
+        markDirty(clipId);
+    }
 }
 
 void ECS::clearEffectParams() {

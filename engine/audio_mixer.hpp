@@ -36,7 +36,8 @@ class AudioMixer : public QObject {
     void reset();
 
     // エクスポート用に生データを取得するメソッド
-    std::vector<float> mix(int currentFrame, double fps, int samplesPerFrame, std::optional<double> playbackSpeed = std::nullopt);
+    void mix(int currentFrame, double fps, int samplesPerFrame, std::vector<float> &output,
+             std::optional<double> playbackSpeed = std::nullopt);
 
     // クリップID → プラグインチェーン
     std::shared_ptr<Plugin::AudioPluginChain> getChain(int clipId);
@@ -62,14 +63,12 @@ class AudioMixer : public QObject {
     QHash<int, double> m_clipPhase;
     QHash<int, int> m_clipLastFrame;
 
-    std::vector<float> m_masterBuffer;
+    std::vector<float> m_playbackBuffer;
     std::vector<float> m_rawSamples;
     std::unordered_map<int, std::vector<float>> m_clipBuffers;
     std::vector<AviQtl::RustCore::AudioBatchTrack> m_batchTracks;
     std::vector<AviQtl::RustCore::AudioBatchResult> m_batchResults;
     std::vector<std::uint8_t> m_batchReportMeters;
-    int m_lastSamplesPerFrame = 0;
-
     // Mutex to protect shared state between UI and audio threads
     mutable std::shared_mutex m_mutex;
 };
