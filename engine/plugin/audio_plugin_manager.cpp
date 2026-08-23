@@ -572,9 +572,7 @@ AudioPluginManager::AudioPluginManager(QObject *parent) : QObject(parent) {}
 
 AudioPluginManager::~AudioPluginManager() {
     stopScan();
-    if (m_scanFuture.isRunning()) {
-        m_scanFuture.waitForFinished();
-    }
+    m_scanFuture.waitForFinished();
 }
 
 void AudioPluginManager::stopScan() { m_stopRequested = true; }

@@ -28,6 +28,7 @@ class TestProjectSerializer : public QObject {
     void sceneStateAndMediaPathsRoundTrip();
     void invalidGridSettingsUseDefaults();
     void invalidJsonDoesNotReplaceProjectState();
+    void transactionSnapshotIncludesPendingProjection();
     void rejectedTimelineStateDoesNotReplaceProjectSettings();
     void rejectedTimelineStateDeletesTemporaryEffects();
     void missingEffectsDoNotShiftRuntimeMetadata();
@@ -89,6 +90,32 @@ void TestProjectSerializer::saveSnapshotIsCanonicalizedByRust() {
     const QJsonObject clip = root.value(QStringLiteral("clips")).toArray().first().toObject();
     QCOMPARE(clip.value(QStringLiteral("type")).toString(), QStringLiteral("camera_control"));
     QCOMPARE(clip.value(QStringLiteral("layer")).toInt(), 127);
+}
+
+void TestProjectSerializer::transactionSnapshotIncludesPendingProjection() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+
+    QVariantMap document = timeline.timelineStateSnapshot();
+    QVariantList clips = document.value(QStringLiteral("clips")).toList();
+    QVariantMap clip = clips.first().toMap();
+    clip.insert(QStringLiteral("reviewExtension"), QStringLiteral("preserved"));
+    clips[0] = clip;
+    document.insert(QStringLiteral("clips"), clips);
+    QVERIFY(timeline.resetTimelineState(document, timeline.nextClipId(), timeline.nextSceneId()));
+
+    timeline.beginTimelineProjectionTransaction();
+    timeline.updateClipInternal(clipId, 3, 24, 60, false, true);
+    const QVariantMap snapshot = ProjectSerializer::captureSnapshot(&timeline, &project);
+    const QVariantMap capturedClip = snapshot.value(QStringLiteral("clips")).toList().first().toMap();
+    QCOMPARE(capturedClip.value(QStringLiteral("layer")).toInt(), 3);
+    QCOMPARE(capturedClip.value(QStringLiteral("start")).toInt(), 24);
+    QCOMPARE(capturedClip.value(QStringLiteral("duration")).toInt(), 60);
+    QCOMPARE(capturedClip.value(QStringLiteral("reviewExtension")).toString(), QStringLiteral("preserved"));
+    QVERIFY(timeline.endTimelineProjectionTransaction());
 }
 
 void TestProjectSerializer::sceneStateAndMediaPathsRoundTrip() {

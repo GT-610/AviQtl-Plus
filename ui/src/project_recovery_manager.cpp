@@ -151,8 +151,8 @@ QFuture<ProjectRecoveryWriteResult> ProjectRecoveryManager::writeAsync(const QSt
         return QtConcurrent::run([] { return ProjectRecoveryWriteResult{false, QStringLiteral("Invalid recovery snapshot request")}; });
     }
 
-    const QVariantMap snapshot = AviQtl::Core::ProjectSerializer::captureSnapshot(timeline, project);
     const quint64 generation = registerRecoveryWrite(id);
+    const QVariantMap snapshot = AviQtl::Core::ProjectSerializer::captureSnapshot(timeline, project);
     return QtConcurrent::run([id, generation, originalProjectUrl, displayName, snapshot]() {
         ProjectRecoveryWriteResult result;
         result.success = writeCapturedSnapshot(id, generation, originalProjectUrl, displayName, snapshot, &result.error);

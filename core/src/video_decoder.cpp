@@ -250,6 +250,9 @@ void VideoDecoder::storeGopCacheBlock(GopCacheBlock block) {
 
     std::lock_guard<std::mutex> locker(m_gopCacheMutex);
     if (block.cost > m_gopCacheMaxCost) {
+        qDebug() << "[VideoDecoder] GOP cache block exceeds budget; not cached"
+                 << "cost" << block.cost << "budget" << m_gopCacheMaxCost
+                 << "frames" << block.startFrame << "-" << block.endFrame;
         return;
     }
 

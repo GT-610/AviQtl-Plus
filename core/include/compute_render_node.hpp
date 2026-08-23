@@ -66,6 +66,7 @@ class ComputeRenderNode final : public QSGRenderNode {
 
     QString m_shaderPath;
     QString m_error;
+    QString m_shaderLoadError;
     float m_width = 0;
     float m_height = 0;
     QSGTexture *m_inputTexture = nullptr;

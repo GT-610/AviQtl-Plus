@@ -197,6 +197,7 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
     if (m_shaderSourceDirty) {
         m_shaderSourceDirty = false;
         m_shader = {};
+        m_shaderLoadError.clear();
         if (!m_shaderPath.isEmpty()) {
             QFile f(m_shaderPath);
             if (f.open(QIODevice::ReadOnly)) {
@@ -204,12 +205,14 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
                 if (nextShader.isValid()) {
                     m_shader = nextShader;
                 } else {
-                    m_error = QStringLiteral("Compute shader file is invalid: %1").arg(m_shaderPath);
+                    m_shaderLoadError = QStringLiteral("Compute shader file is invalid: %1").arg(m_shaderPath);
                 }
             } else {
-                m_error = QStringLiteral("Compute shader file cannot be opened: %1").arg(m_shaderPath);
+                m_shaderLoadError = QStringLiteral("Compute shader file cannot be opened: %1").arg(m_shaderPath);
             }
         }
+        if (!m_shaderLoadError.isEmpty())
+            m_error = m_shaderLoadError;
     }
 
     if (computeSupported && m_inputTexture) {
@@ -530,7 +533,9 @@ bool ComputeRenderNode::ensurePipeline(QRhi *rhi) {
             m_error = QStringLiteral("Compute pipeline creation failed: %1").arg(m_shaderPath);
         }
     } else {
-        m_error = QStringLiteral("Compute shader path or resource bindings are not ready.");
+        m_error = m_shaderLoadError.isEmpty()
+                      ? QStringLiteral("Compute shader path or resource bindings are not ready.")
+                      : m_shaderLoadError;
     }
 
     wantedRenderTexture = computeOk ? m_outputTexture : m_inputRhiTexture;

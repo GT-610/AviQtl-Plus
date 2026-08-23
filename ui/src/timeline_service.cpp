@@ -212,6 +212,9 @@ QVariantMap TimelineService::timelineStateSnapshot() const {
 }
 
 QVariantMap TimelineService::captureTimelineSnapshot() {
+    if (m_timelineProjectionTransactionDepth > 0) {
+        return projectionDocument(m_scenes, timelineStateSnapshot());
+    }
     // Some native adapters still mutate their Qt projection before committing a targeted Rust
     // transaction. Fold those values into Rust first, then use the same mapper as the fallback.
     if (commitTimelineProjection()) {

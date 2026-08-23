@@ -10,6 +10,8 @@ jobs:
   test:
     name: Test & Analyze
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     container:
       image: archlinux:latest
     steps:
