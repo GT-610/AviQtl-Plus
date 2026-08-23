@@ -72,6 +72,7 @@ class ComputeRenderNode final : public QSGRenderNode {
     QRhiTexture *m_inputRhiTexture = nullptr;
 
     bool m_shaderDirty = true;
+    bool m_shaderSourceDirty = true;
     bool m_bufferLayoutDirty = true;
     bool m_bindingsDirty = true;
     bool m_texturesDirty = true;

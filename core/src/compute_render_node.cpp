@@ -81,6 +81,7 @@ void ComputeRenderNode::syncShaderPath(const QString &path) {
     if (m_shaderPath == path)
         return;
     m_shaderPath = path;
+    m_shaderSourceDirty = true;
     m_shaderDirty = true;
     m_bufferLayoutDirty = true;
 }
@@ -193,18 +194,21 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
             m_renderTargetDirty = true;
     }
 
-    if (!m_shaderPath.isEmpty() && m_shaderDirty) {
-        QFile f(m_shaderPath);
-        if (f.open(QIODevice::ReadOnly)) {
-            QShader nextShader = QShader::fromSerialized(f.readAll());
-            if (nextShader.isValid()) {
-                m_shader = nextShader;
-                m_shaderDirty = false;
+    if (m_shaderSourceDirty) {
+        m_shaderSourceDirty = false;
+        m_shader = {};
+        if (!m_shaderPath.isEmpty()) {
+            QFile f(m_shaderPath);
+            if (f.open(QIODevice::ReadOnly)) {
+                QShader nextShader = QShader::fromSerialized(f.readAll());
+                if (nextShader.isValid()) {
+                    m_shader = nextShader;
+                } else {
+                    m_error = QStringLiteral("Compute shader file is invalid: %1").arg(m_shaderPath);
+                }
             } else {
-                m_error = QStringLiteral("Compute shader file is invalid: %1").arg(m_shaderPath);
+                m_error = QStringLiteral("Compute shader file cannot be opened: %1").arg(m_shaderPath);
             }
-        } else {
-            m_error = QStringLiteral("Compute shader file cannot be opened: %1").arg(m_shaderPath);
         }
     }
 

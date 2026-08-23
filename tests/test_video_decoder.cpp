@@ -26,6 +26,8 @@ constexpr int kTestGopSize = 12;
 constexpr int kColdFrame = 48;
 constexpr int kEvictionFrameCount = 240;
 constexpr qsizetype kEvictionCacheBytes = 64 * 1024 * 1024;
+constexpr qsizetype kEvictionGopCacheBytes = kEvictionCacheBytes / 4;
+constexpr qsizetype kEvictionFrameCacheBytes = kEvictionCacheBytes - kEvictionGopCacheBytes;
 } // namespace
 
 class TestVideoDecoder : public QObject {
@@ -115,6 +117,12 @@ void TestVideoDecoder::videoBufferAccountsForPlanarHeights() {
 }
 
 void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
+    SettingsManager &settings = SettingsManager::instance();
+    const QVariantMap originalSettings = settings.settings();
+    settings.setValue(QStringLiteral("cacheSize"), 64);
+    settings.setValue(QStringLiteral("videoDecoderMinCacheMB"), 16);
+    const auto restoreSettings = qScopeGuard([&settings, originalSettings]() { settings.setSettings(originalSettings); });
+
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString videoPath = dir.filePath(QStringLiteral("decoder-roundtrip.mp4"));
@@ -227,11 +235,12 @@ void TestVideoDecoder::decodesEncodedFramesThroughVideoSink() {
     QTextStream(stdout) << "video_decoder final_cache misses=" << finalStats.misses << " gop_hits=" << finalStats.gopHits << " frame_hits=" << finalStats.frameHits << " decoded_frames=" << finalStats.decodedFrames << " gop_blocks=" << finalStats.gopBlocks
                         << " gop_evictions=" << finalStats.gopEvictions << " frame_entries=" << finalStats.frameEntries << " frame_cost=" << finalStats.frameCost << Qt::endl;
     QCOMPARE(finalStats.misses, quint64{5});
-    QCOMPARE(finalStats.gopHits, quint64{1});
-    QCOMPARE(finalStats.frameHits, quint64{1});
+    QCOMPARE(finalStats.gopHits, quint64{2});
+    QCOMPARE(finalStats.frameHits, quint64{0});
     QCOMPARE(finalStats.decodedFrames, quint64{kTestFrameCount});
-    QCOMPARE(finalStats.gopBlocks, 3);
-    QCOMPARE(finalStats.gopEvictions, quint64{2});
+    QCOMPARE(finalStats.gopBlocks, kTestFrameCount / kTestGopSize);
+    QCOMPARE(finalStats.gopEvictions, quint64{0});
+    QVERIFY(finalStats.gopCost <= finalStats.gopMaxCost);
     QCOMPARE(finalStats.frameEntries, kTestFrameCount);
     const PerformanceSnapshot decodeMetrics = PerformanceMetrics::instance().snapshot();
     QCOMPARE(decodeMetrics.value(PerformanceCounter::DecodeFramesProduced), finalStats.decodedFrames);
@@ -309,7 +318,6 @@ void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
         QVERIFY2(elapsedMs >= 0, qPrintable(QStringLiteral("cold seek to frame %1 failed").arg(frame)));
         const int completedSeeks = gopCount - gop;
         QTRY_COMPARE_WITH_TIMEOUT(decoder.cacheStats().decodedFrames, static_cast<quint64>(completedSeeks * kTestGopSize), 10'000);
-        QTRY_COMPARE_WITH_TIMEOUT(decoder.cacheStats().gopEvictions, static_cast<quint64>(std::max(0, completedSeeks - 3)), 10'000);
         coldSeekTimes.append(elapsedMs);
     }
 
@@ -317,13 +325,18 @@ void TestVideoDecoder::frameCacheEvictionStaysWithinBudget() {
     std::ranges::sort(coldSeekTimes);
     const qint64 medianColdSeekMs = coldSeekTimes.at(coldSeekTimes.size() / 2);
     QTextStream(stdout) << "video_decoder eviction_sweep seeks=" << gopCount << " median_ms=" << medianColdSeekMs << " misses=" << sweepStats.misses << " decoded_frames=" << sweepStats.decodedFrames << " gop_blocks=" << sweepStats.gopBlocks
-                        << " gop_evictions=" << sweepStats.gopEvictions << " frame_entries=" << sweepStats.frameEntries << " frame_cost=" << sweepStats.frameCost << " frame_max_cost=" << sweepStats.frameMaxCost << Qt::endl;
+                        << " gop_evictions=" << sweepStats.gopEvictions << " gop_cost=" << sweepStats.gopCost << " gop_max_cost=" << sweepStats.gopMaxCost << " frame_entries=" << sweepStats.frameEntries << " frame_cost=" << sweepStats.frameCost
+                        << " frame_max_cost=" << sweepStats.frameMaxCost << Qt::endl;
     QCOMPARE(sweepStats.misses, quint64{gopCount});
     QCOMPARE(sweepStats.decodedFrames, quint64{kEvictionFrameCount});
-    QCOMPARE(sweepStats.gopBlocks, 3);
-    QCOMPARE(sweepStats.gopEvictions, quint64{gopCount - 3});
-    QCOMPARE(sweepStats.frameMaxCost, kEvictionCacheBytes);
+    QVERIFY(sweepStats.gopBlocks > 0);
+    QVERIFY(sweepStats.gopBlocks < gopCount);
+    QVERIFY(sweepStats.gopEvictions > 0);
+    QCOMPARE(sweepStats.gopMaxCost, kEvictionGopCacheBytes);
+    QVERIFY(sweepStats.gopCost <= sweepStats.gopMaxCost);
+    QCOMPARE(sweepStats.frameMaxCost, kEvictionFrameCacheBytes);
     QVERIFY(sweepStats.frameCost <= sweepStats.frameMaxCost);
+    QCOMPARE(sweepStats.gopMaxCost + sweepStats.frameMaxCost, kEvictionCacheBytes);
     QVERIFY(sweepStats.frameEntries < kEvictionFrameCount);
 
     constexpr int frameCacheHitTarget = 47;

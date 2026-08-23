@@ -457,8 +457,8 @@ qt_add_qml_module(AviQtl_UI
 
 # --- External Assets: Shaders Compilation ---
 # Shaders are treated as data files; they are compiled to .qsb so BUILD.py can pick them up.
-# Using GLOB_RECURSE here is an intentional exception: every effect/object adds a matching
-# .frag file, and they are compiled generically. Source changes that add/remove shaders
+# Using GLOB_RECURSE here is an intentional exception: effects and objects can add shaders,
+# and they are compiled generically. Source changes that add/remove shaders
 # still require a CMake reconfigure (e.g. touch CMakeLists.txt or use --fresh).
 set(EXTERNAL_QSB_FILES "")
 

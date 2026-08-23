@@ -5,6 +5,7 @@
 #include <QFuture>
 #include <QVideoFrame>
 #include <atomic>
+#include <vector>
 
 extern "C" {
 struct AVFormatContext;
@@ -44,6 +45,8 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
         quint64 decodedFrames = 0;
         quint64 gopEvictions = 0;
         int gopBlocks = 0;
+        qsizetype gopCost = 0;
+        qsizetype gopMaxCost = 0;
         qsizetype frameEntries = 0;
         qsizetype frameCost = 0;
         qsizetype frameMaxCost = 0;
@@ -77,14 +80,14 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
 
     VideoFrameStore *m_store = nullptr;
 
-    // MLT風：GOP単位のリングバッファ
+    // GOP-level LRU cache for efficient reverse playback and random seeks.
     struct GopCacheBlock {
         int keyframeIndex = -1;
         int startFrame = -1;
         int endFrame = -1;
+        qsizetype cost = 0;
         QHash<int, QVideoFrame> frames;
     };
-    static constexpr int MAX_GOP_CACHE_SIZE = 3;
     mutable std::mutex m_gopCacheMutex;
 
     AVFormatContext *m_fmtCtx = nullptr;
@@ -106,10 +109,9 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     std::atomic<bool> m_closing{false};
     std::atomic<bool> m_isPlaying{false};
 
-    int m_gopCacheCount = 0;
-    GopCacheBlock m_gopCacheA[MAX_GOP_CACHE_SIZE];
-    GopCacheBlock m_gopCacheB[MAX_GOP_CACHE_SIZE];
-    GopCacheBlock *m_currentGopCache = m_gopCacheA;
+    std::vector<GopCacheBlock> m_gopCache;
+    qsizetype m_gopCacheCost = 0;
+    qsizetype m_gopCacheMaxCost = 0;
     bool getFrameFromGopCache(int frameIndex, QVideoFrame &outFrame);
     void storeGopCacheBlock(GopCacheBlock block);
     std::atomic<quint64> m_gopCacheHits{0};
