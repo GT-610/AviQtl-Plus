@@ -26,7 +26,7 @@ jobs:
           pacman-key --populate archlinux
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
-            base-devel git cmake ninja clang mold \
+            base-devel git cmake ninja clang mold python \
             qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
             qt6-svg qt6-5compat qt6-tools qt6-wayland \
             ffmpeg luajit carla extra-cmake-modules \
@@ -40,6 +40,9 @@ jobs:
           cargo fmt --manifest-path rust/Cargo.toml --all -- --check
           cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets -- -D warnings
           cargo test --manifest-path rust/Cargo.toml --locked --workspace
+
+      - name: Verify Rust C ABI
+        run: python tests/check_rust_abi.py --rust-src rust/aviqtl-core/src --header core/include/rust_core_abi.hpp
 
       - name: Build Tests
         run: cmake --build build
