@@ -7,6 +7,9 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QSaveFile>
 #include <QSet>
 #include <QStandardPaths>
@@ -19,6 +22,37 @@ QString metadataPath(const QString &id) { return QDir(ProjectRecoveryManager::re
 QString legacySnapshotFileName(const QString &id) { return id + QStringLiteral(".aviqtl"); }
 QString generatedSnapshotFileName(const QString &id) { return id + QLatin1Char('-') + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".aviqtl"); }
 QString snapshotPath(const QString &fileName) { return QDir(ProjectRecoveryManager::recoveryRoot()).filePath(fileName); }
+
+QMutex &recoveryMutationMutex() {
+    static QMutex mutex;
+    return mutex;
+}
+
+QMutex &recoveryGenerationMutex() {
+    static QMutex mutex;
+    return mutex;
+}
+
+QHash<QString, quint64> &recoveryGenerations() {
+    static QHash<QString, quint64> generations;
+    return generations;
+}
+
+quint64 nextRecoveryGeneration() {
+    static quint64 generation = 0;
+    return ++generation;
+}
+
+quint64 registerRecoveryWrite(const QString &id) {
+    QMutexLocker locker(&recoveryGenerationMutex());
+    const quint64 generation = nextRecoveryGeneration();
+    recoveryGenerations().insert(id, generation);
+    return generation;
+}
+
+bool isCurrentRecoveryGeneration(const QString &id, quint64 generation) {
+    return recoveryGenerations().value(id) == generation;
+}
 
 bool isValidRecoveryId(const QString &id) {
     return AviQtl::RustCore::Policy::isValidRecoveryId(id);
@@ -55,19 +89,34 @@ bool setError(QString *errorMessage, const QString &message) {
     return false;
 }
 
-bool writeCapturedSnapshot(const QString &id, const QString &originalProjectUrl, const QString &displayName, const QVariantMap &snapshot, QString *errorMessage) {
+bool writeCapturedSnapshot(const QString &id, quint64 generation, const QString &originalProjectUrl,
+                           const QString &displayName, const QVariantMap &snapshot,
+                           QString *errorMessage) {
     if (!isValidRecoveryId(id))
         return setError(errorMessage, QStringLiteral("Invalid recovery snapshot identifier"));
+
+    {
+        QMutexLocker generationLocker(&recoveryGenerationMutex());
+        if (!isCurrentRecoveryGeneration(id, generation))
+            return true;
+    }
 
     QDir root(ProjectRecoveryManager::recoveryRoot());
     if (!root.mkpath(QStringLiteral(".")))
         return setError(errorMessage, QStringLiteral("Could not create recovery directory: %1").arg(root.path()));
 
-    const QString previousSnapshotFile = existingSnapshotFileName(id);
     const QString newSnapshotFile = generatedSnapshotFileName(id);
     QString serializerError;
     if (!AviQtl::Core::ProjectSerializer::saveSnapshot(snapshotPath(newSnapshotFile), snapshot, &serializerError))
         return setError(errorMessage, serializerError);
+
+    QMutexLocker mutationLocker(&recoveryMutationMutex());
+    QMutexLocker generationLocker(&recoveryGenerationMutex());
+    if (!isCurrentRecoveryGeneration(id, generation)) {
+        QFile::remove(snapshotPath(newSnapshotFile));
+        return true;
+    }
+    const QString previousSnapshotFile = existingSnapshotFileName(id);
 
     QJsonObject metadata;
     metadata.insert(QStringLiteral("id"), id);
@@ -98,14 +147,15 @@ bool writeCapturedSnapshot(const QString &id, const QString &originalProjectUrl,
 QString ProjectRecoveryManager::recoveryRoot() { return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath(QStringLiteral("recovery")); }
 
 QFuture<ProjectRecoveryWriteResult> ProjectRecoveryManager::writeAsync(const QString &id, const QString &originalProjectUrl, const QString &displayName, TimelineService *timeline, const ProjectService *project) {
-    if (id.isEmpty() || timeline == nullptr || project == nullptr) {
+    if (!isValidRecoveryId(id) || timeline == nullptr || project == nullptr) {
         return QtConcurrent::run([] { return ProjectRecoveryWriteResult{false, QStringLiteral("Invalid recovery snapshot request")}; });
     }
 
     const QVariantMap snapshot = AviQtl::Core::ProjectSerializer::captureSnapshot(timeline, project);
-    return QtConcurrent::run([id, originalProjectUrl, displayName, snapshot]() {
+    const quint64 generation = registerRecoveryWrite(id);
+    return QtConcurrent::run([id, generation, originalProjectUrl, displayName, snapshot]() {
         ProjectRecoveryWriteResult result;
-        result.success = writeCapturedSnapshot(id, originalProjectUrl, displayName, snapshot, &result.error);
+        result.success = writeCapturedSnapshot(id, generation, originalProjectUrl, displayName, snapshot, &result.error);
         return result;
     });
 }
@@ -113,6 +163,10 @@ QFuture<ProjectRecoveryWriteResult> ProjectRecoveryManager::writeAsync(const QSt
 bool ProjectRecoveryManager::remove(const QString &id) {
     if (!isValidRecoveryId(id))
         return false;
+
+    QMutexLocker mutationLocker(&recoveryMutationMutex());
+    QMutexLocker generationLocker(&recoveryGenerationMutex());
+    recoveryGenerations().remove(id);
 
     bool snapshotsRemoved = true;
     const QDir root(recoveryRoot());
@@ -126,6 +180,7 @@ bool ProjectRecoveryManager::remove(const QString &id) {
 }
 
 QList<ProjectRecoveryEntry> ProjectRecoveryManager::entries() {
+    QMutexLocker mutationLocker(&recoveryMutationMutex());
     QList<ProjectRecoveryEntry> result;
     const QDir root(recoveryRoot());
     const QFileInfoList files = root.entryInfoList({QStringLiteral("*.json")}, QDir::Files, QDir::Time);
@@ -194,6 +249,7 @@ void ProjectRecoveryManager::cleanupStale(int maximumAgeDays) {
     }
 
     const QDir root(recoveryRoot());
+    QMutexLocker mutationLocker(&recoveryMutationMutex());
     const QFileInfoList snapshots = root.entryInfoList({QStringLiteral("*.aviqtl")}, QDir::Files);
     for (const QFileInfo &snapshot : snapshots) {
         const QString id = recoveryIdFromSnapshotFileName(snapshot.fileName());
