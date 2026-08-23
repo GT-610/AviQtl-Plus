@@ -1,4 +1,5 @@
 #include "constants.hpp"
+#include "bounded_file.hpp"
 #include "mod_engine.hpp"
 #include <QDir>
 #include <QTemporaryDir>
@@ -20,6 +21,7 @@ class TestPluginManifest : public QObject {
     void invalidLua();
     void manifestValidity();
     void scriptParamsAllowBlankLinesAndTypedSelect();
+    void oversizedManifest();
 };
 
 void TestPluginManifest::validManifest() {
@@ -214,6 +216,20 @@ local loaded = true
     QCOMPARE(meta.params.at(2).options.at(1).value.toInt(), 1);
     QCOMPARE(meta.params.at(2).options.at(2).value.toInt(), 2);
     QCOMPARE(meta.params.at(2).options.at(3).value.toInt(), 3);
+}
+
+void TestPluginManifest::oversizedManifest() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    QFile manifestFile(dir.filePath(QStringLiteral("manifest.lua")));
+    QVERIFY(manifestFile.open(QIODevice::WriteOnly));
+    const QByteArray manifest = "return { id = 'test.large', name = 'Large', version = '1.0.0' }";
+    QCOMPARE(manifestFile.write(manifest), qint64(manifest.size()));
+    QVERIFY(manifestFile.resize(AviQtl::Core::Internal::FileSizeLimit::PluginManifest + 1));
+    manifestFile.close();
+
+    QVERIFY(!ModEngine::instance().loadManifest(dir.path()).isValid());
 }
 
 QTEST_MAIN(TestPluginManifest)

@@ -1,4 +1,5 @@
 #include "effect_registry.hpp"
+#include "bounded_file.hpp"
 #include "rust_effect_document.hpp"
 #include "shader_compiler.hpp"
 #include <QCoreApplication>
@@ -126,12 +127,14 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path, const QString
 
     while (it.hasNext()) {
         QFile file(it.next());
-        if (!file.open(QIODevice::ReadOnly)) {
+        QString readError;
+        const auto data = Internal::readFileBounded(file, Internal::FileSizeLimit::EffectDefinition, &readError);
+        if (!data.has_value()) {
+            qWarning().noquote() << QStringLiteral("Skipping unreadable effect definition:") << file.fileName() << readError;
             continue;
         }
 
-        const auto data = file.readAll();
-        const auto normalized = RustCore::Effect::normalizeMetadata(data);
+        const auto normalized = RustCore::Effect::normalizeMetadata(*data);
         if (!normalized.has_value()) {
             qWarning().noquote() << QStringLiteral("Skipping invalid effect definition:") << file.fileName();
             continue;

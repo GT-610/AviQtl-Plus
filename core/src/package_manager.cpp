@@ -1,4 +1,5 @@
 #include "package_manager.hpp"
+#include "bounded_file.hpp"
 #include "effect_registry.hpp"
 #include "package_deployment.hpp"
 #include "package_url_utils.hpp"
@@ -29,7 +30,6 @@ namespace AviQtl::Core {
 
 namespace {
 constexpr qint64 kMaxPackageDownloadBytes = 256LL * 1024LL * 1024LL;
-constexpr qint64 kMaxRepositoryResponseBytes = 16LL * 1024LL * 1024LL;
 constexpr int kNetworkTransferTimeoutMs = 30000;
 
 bool writeJsonAtomically(const QString &path, const QJsonDocument &document) {
@@ -88,13 +88,8 @@ QString getReposCachePath() {
 
 QVariantMap loadInstalledPackagesFromFile() {
     const QString installedPath = getInstalledPackagesPath();
-    QFile file(installedPath);
-    QVariantMap installed;
-    if (file.open(QIODevice::ReadOnly)) {
-        installed = QJsonDocument::fromJson(file.readAll()).object().toVariantMap();
-        file.close();
-    }
-    return installed;
+    const auto data = Internal::readFileBounded(installedPath, Internal::FileSizeLimit::InstalledPackageState);
+    return data.has_value() ? QJsonDocument::fromJson(*data).object().toVariantMap() : QVariantMap{};
 }
 
 QString sha256OfFile(const QString &path) {
@@ -157,10 +152,10 @@ void PackageManager::loadCachedPackages() {
     const QStringList files = dir.entryList({QStringLiteral("catalog_*.json")}, QDir::Files);
     const QVariantList configuredRepositories = repositories();
     for (const QString &fileName : files) {
-        QFile file(dir.absoluteFilePath(fileName));
-        if (!file.open(QIODevice::ReadOnly))
+        const auto data = Internal::readFileBounded(dir.absoluteFilePath(fileName), Internal::FileSizeLimit::RepositoryMetadata);
+        if (!data.has_value())
             continue;
-        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        QJsonDocument doc = QJsonDocument::fromJson(*data);
         if (!doc.isObject())
             continue;
         QJsonArray packages = doc.object().value(QStringLiteral("packages")).toArray();
@@ -268,13 +263,18 @@ void PackageManager::refreshRepositories() {
             continue;
         }
         QNetworkReply *reply = m_networkManager->get(packageNetworkRequest(fetchUrl));
-        enforceReplySizeLimit(reply, kMaxRepositoryResponseBytes);
+        enforceReplySizeLimit(reply, Internal::FileSizeLimit::RepositoryMetadata);
         connect(reply, &QNetworkReply::finished, this, [this, reply, fetchUrl, repoUrl, ctx, installed]() {
             reply->deleteLater();
             m_pendingRequests--;
 
             if (reply->error() == QNetworkReply::NoError) {
                 QByteArray body = reply->readAll();
+                if (body.size() > Internal::FileSizeLimit::RepositoryMetadata) {
+                    emit errorOccurred(tr("Repository metadata exceeds the maximum allowed size."));
+                    finishSyncWhenIdle();
+                    return;
+                }
                 QJsonDocument doc = QJsonDocument::fromJson(body);
                 if (doc.isObject()) {
                     QJsonObject repoObj = doc.object();
@@ -290,13 +290,18 @@ void PackageManager::refreshRepositories() {
                             return;
                         }
                         QNetworkReply *catReply = m_networkManager->get(packageNetworkRequest(absUrl));
-                        enforceReplySizeLimit(catReply, kMaxRepositoryResponseBytes);
+                        enforceReplySizeLimit(catReply, Internal::FileSizeLimit::RepositoryMetadata);
                         m_pendingRequests++;
                         connect(catReply, &QNetworkReply::finished, this, [this, catReply, ctx, absUrl, installed]() {
                             catReply->deleteLater();
                             m_pendingRequests--;
                             if (catReply->error() == QNetworkReply::NoError) {
                                 ctx->catalogData = catReply->readAll();
+                                if (ctx->catalogData.size() > Internal::FileSizeLimit::RepositoryMetadata) {
+                                    emit errorOccurred(tr("Repository catalog exceeds the maximum allowed size."));
+                                    finishSyncWhenIdle();
+                                    return;
+                                }
                                 // Cache catalog with repo URL so loadCachedPackages can restore provenance
                                 QJsonObject cacheObj;
                                 cacheObj[QStringLiteral("_repo_url")] = ctx->repoInfo.value(QStringLiteral("url")).toString();
@@ -307,6 +312,8 @@ void PackageManager::refreshRepositories() {
                                     cacheObj[QStringLiteral("packages")] = QJsonArray();
                                 QString cacheName = QStringLiteral("catalog_") + QString::fromLatin1(QCryptographicHash::hash(ctx->repoInfo.value(QStringLiteral("url")).toString().toUtf8(), QCryptographicHash::Sha256).toHex()) + QStringLiteral(".json");
                                 writeJsonAtomically(getReposCachePath() + QStringLiteral("/") + cacheName, QJsonDocument(cacheObj));
+                            } else if (catReply->property("aviqtlSizeLimitExceeded").toBool()) {
+                                emit errorOccurred(tr("Repository catalog exceeds the maximum allowed size."));
                             }
                             onCatalogFetched(ctx->repoInfo, ctx->catalogData, installed);
                             finishSyncWhenIdle();
@@ -316,6 +323,8 @@ void PackageManager::refreshRepositories() {
                         onCatalogFetched(ctx->repoInfo, body, installed);
                     }
                 }
+            } else if (reply->property("aviqtlSizeLimitExceeded").toBool()) {
+                emit errorOccurred(tr("Repository metadata exceeds the maximum allowed size."));
             }
             finishSyncWhenIdle();
         });
@@ -323,6 +332,8 @@ void PackageManager::refreshRepositories() {
 }
 
 void PackageManager::onCatalogFetched(const QVariantMap &repoInfo, const QByteArray &data, const QVariantMap &installed) {
+    if (data.size() > Internal::FileSizeLimit::RepositoryMetadata)
+        return;
     QJsonDocument doc = QJsonDocument::fromJson(data);
     if (!doc.isObject())
         return;
@@ -395,15 +406,22 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
         return;
     }
     QNetworkReply *reply = m_networkManager->get(packageNetworkRequest(url));
-    enforceReplySizeLimit(reply, kMaxRepositoryResponseBytes);
+    enforceReplySizeLimit(reply, Internal::FileSizeLimit::RepositoryMetadata);
     connect(reply, &QNetworkReply::finished, this, [this, reply, packageId, sourceRepo, metadataUrl, cacheKey, expectedMetadataSha256]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
-            emit errorOccurred(tr("Failed to fetch package metadata (%1): %2").arg(packageId, reply->errorString()));
+            if (reply->property("aviqtlSizeLimitExceeded").toBool())
+                emit errorOccurred(tr("Package metadata exceeds the maximum allowed size: %1").arg(packageId));
+            else
+                emit errorOccurred(tr("Failed to fetch package metadata (%1): %2").arg(packageId, reply->errorString()));
             return;
         }
 
         QByteArray body = reply->readAll();
+        if (body.size() > Internal::FileSizeLimit::RepositoryMetadata) {
+            emit errorOccurred(tr("Package metadata exceeds the maximum allowed size: %1").arg(packageId));
+            return;
+        }
 
         // Verify metadata checksum if the catalog provided one, so a
         // tampered payload cannot be trusted or cached.
@@ -767,6 +785,8 @@ QVariantList PackageManager::getPackagesByType(const QString &type) const {
         }
         const QFileInfoList filePlugins = pluginsDir.entryInfoList({QStringLiteral("*.lua")}, QDir::Files, QDir::Name);
         for (const QFileInfo &fileInfo : filePlugins) {
+            if (fileInfo.size() > Internal::FileSizeLimit::PluginScript)
+                continue;
             const bool providedByInstalledPackage =
                 std::any_of(installedModDirectories.cbegin(), installedModDirectories.cend(), [&fileInfo](const QString &packageDirectory) { return isPathWithinDirectory(fileInfo.absoluteFilePath(), packageDirectory); });
             if (providedByInstalledPackage)

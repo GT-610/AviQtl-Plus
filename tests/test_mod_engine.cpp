@@ -1,4 +1,5 @@
 #include "mod_engine.hpp"
+#include "bounded_file.hpp"
 #include "package_manager.hpp"
 #include "permission_manager.hpp"
 #include "settings_manager.hpp"
@@ -25,6 +26,7 @@ class TestModEngine : public QObject {
     void apiPermissionMappingCoversRegisteredOperations();
     void filePluginsUseSyntheticPermissionIdentity();
     void loadsAndDispatchesEachPluginLifecycle();
+    void rejectsOversizedAndInvalidPlugins();
 };
 
 namespace {
@@ -348,6 +350,89 @@ void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
     for (const QString &pluginId : pluginIds) {
         QCOMPARE(settings.value(QStringLiteral("plugin.%1.unload").arg(pluginId)).toString(), QStringLiteral("called"));
     }
+}
+
+void TestModEngine::rejectsOversizedAndInvalidPlugins() {
+    ModEngine &engine = ModEngine::instance();
+    const QString pluginsPath = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins"));
+    const QString oversizedName = QStringLiteral("oversized_plugin.lua");
+    const QString oversizedPath = QDir(pluginsPath).filePath(oversizedName);
+    const QString invalidDirectory = QStringLiteral("invalid_identity_plugin");
+    const QString incompatibleDirectory = QStringLiteral("incompatible_plugin");
+    const QString duplicateFirstDirectory = QStringLiteral("duplicate_plugin_a");
+    const QString duplicateSecondDirectory = QStringLiteral("duplicate_plugin_b");
+    const QString invalidPath = QDir(pluginsPath).filePath(invalidDirectory);
+    const QString incompatiblePath = QDir(pluginsPath).filePath(incompatibleDirectory);
+    const QString duplicateFirstPath = QDir(pluginsPath).filePath(duplicateFirstDirectory);
+    const QString duplicateSecondPath = QDir(pluginsPath).filePath(duplicateSecondDirectory);
+
+    engine.unloadPlugins();
+    QFile::remove(oversizedPath);
+    QDir(invalidPath).removeRecursively();
+    QDir(incompatiblePath).removeRecursively();
+    QDir(duplicateFirstPath).removeRecursively();
+    QDir(duplicateSecondPath).removeRecursively();
+    const auto cleanup = qScopeGuard([&]() {
+        engine.unloadPlugins();
+        QFile::remove(oversizedPath);
+        QDir(invalidPath).removeRecursively();
+        QDir(incompatiblePath).removeRecursively();
+        QDir(duplicateFirstPath).removeRecursively();
+        QDir(duplicateSecondPath).removeRecursively();
+    });
+
+    QVERIFY(QDir().mkpath(pluginsPath));
+    QFile oversized(oversizedPath);
+    QVERIFY(oversized.open(QIODevice::WriteOnly));
+    QVERIFY(oversized.write("function AviQtlOnLoad() end") > 0);
+    QVERIFY(oversized.resize(AviQtl::Core::Internal::FileSizeLimit::PluginScript + 1));
+    oversized.close();
+
+    QVERIFY(QDir().mkpath(invalidPath));
+    QVERIFY(writeTextFile(QDir(invalidPath).filePath(QStringLiteral("manifest.lua")), QStringLiteral(R"(
+return { id = "../invalid", name = "Invalid", version = "1.0.0" }
+)")));
+    QVERIFY(writeTextFile(QDir(invalidPath).filePath(QStringLiteral("main.lua")), QStringLiteral("function AviQtlOnLoad() end")));
+
+    QVERIFY(QDir().mkpath(incompatiblePath));
+    QVERIFY(writeTextFile(QDir(incompatiblePath).filePath(QStringLiteral("manifest.lua")), QStringLiteral(R"(
+return {
+    id = "test.incompatible",
+    name = "Incompatible",
+    version = "1.0.0",
+    min_app_version = "9999.0.0"
+}
+)")));
+    QVERIFY(writeTextFile(QDir(incompatiblePath).filePath(QStringLiteral("main.lua")), QStringLiteral("function AviQtlOnLoad() end")));
+
+    const QString duplicateManifest = QStringLiteral(R"(
+return { id = "test.duplicate", name = "Duplicate", version = "1.0.0" }
+)");
+    for (const QString &path : {duplicateFirstPath, duplicateSecondPath}) {
+        QVERIFY(QDir().mkpath(path));
+        QVERIFY(writeTextFile(QDir(path).filePath(QStringLiteral("manifest.lua")), duplicateManifest));
+        QVERIFY(writeTextFile(QDir(path).filePath(QStringLiteral("main.lua")), QStringLiteral("function AviQtlOnLoad() end")));
+    }
+
+    engine.loadPlugins();
+    const QList<PluginInfo> infos = engine.pluginInfos();
+    const auto containsPlugin = [&infos](const QString &pluginId) {
+        return std::any_of(infos.cbegin(), infos.cend(), [&pluginId](const PluginInfo &info) {
+            return info.manifest.id == pluginId;
+        });
+    };
+    QVERIFY(!containsPlugin(QStringLiteral("file:") + oversizedName));
+    QVERIFY(!containsPlugin(QStringLiteral("../invalid")));
+    QVERIFY(!containsPlugin(QStringLiteral("test.incompatible")));
+    QCOMPARE(std::count_if(infos.cbegin(), infos.cend(), [](const PluginInfo &info) {
+                 return info.manifest.id == QStringLiteral("test.duplicate");
+             }),
+             1);
+
+    const QVariantList installedPackages = AviQtl::Core::PackageManager::instance().getPackagesByType(QStringLiteral("installed"));
+    QVERIFY(std::none_of(installedPackages.cbegin(), installedPackages.cend(), [&oversizedName](const QVariant &entry) {
+        return entry.toMap().value(QStringLiteral("id")).toString() == QStringLiteral("file:") + oversizedName;
+    }));
 }
 
 #include "test_mod_engine.moc"

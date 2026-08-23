@@ -1,4 +1,5 @@
 #include "effect_registry.hpp"
+#include "bounded_file.hpp"
 #include "project_serializer.hpp"
 #include "project_service.hpp"
 #include "rust_project_document.hpp"
@@ -33,6 +34,7 @@ class TestProjectSerializer : public QObject {
     void setScenesRestoresRuntimeStateWhenProjectionIsRejected();
     void legacyProjectValuesAreNormalizedByRust();
     void unsupportedVersionDoesNotReplaceProjectState();
+    void oversizedProjectDoesNotReplaceProjectState();
 };
 
 void TestProjectSerializer::atomicSaveReplacesAnExistingProject() {
@@ -435,6 +437,27 @@ void TestProjectSerializer::saveFailureLeavesAnInvalidTargetUntouched() {
     QVERIFY(!ProjectSerializer::save(directoryTarget, &timeline, &project, &error));
     QVERIFY(!error.isEmpty());
     QVERIFY(QFileInfo(directoryTarget).isDir());
+}
+
+void TestProjectSerializer::oversizedProjectDoesNotReplaceProjectState() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString path = dir.filePath(QStringLiteral("oversized.aviqtl"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QVERIFY(file.resize(AviQtl::Core::Internal::FileSizeLimit::ProjectDocument + 1));
+    file.close();
+
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    ProjectService project;
+    project.setWidth(1234);
+    QString error;
+    QVERIFY(!ProjectSerializer::load(path, &timeline, &project, &error));
+    QVERIFY(error.contains(QStringLiteral("maximum allowed size")));
+    QCOMPARE(project.width(), 1234);
+    QCOMPARE(timeline.getAllScenes().size(), 1);
 }
 
 QTEST_MAIN(TestProjectSerializer)

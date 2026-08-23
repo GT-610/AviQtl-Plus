@@ -230,6 +230,7 @@ set(CORE_SOURCES
     core/src/theme_controller.cpp
     core/src/video_encoder.cpp
     core/include/audio_decoder.hpp
+    core/include/bounded_file.hpp
     core/include/constants.hpp
     core/include/document_model.hpp
     core/include/effect_registry.hpp

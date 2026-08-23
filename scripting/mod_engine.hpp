@@ -121,6 +121,8 @@ class ModEngine {
     void onPluginDirectoryChanged(const QString &path);
     void loadSingleFilePlugin(const QFileInfo &fileInfo);
     void loadDirectoryPlugin(const QString &subdir, const QString &pluginsPath);
+    bool loadPlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile);
+    bool validatePlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile) const;
     QList<PluginManifest> m_loadedPlugins;
     QList<PluginInfo> m_pluginInfos;
     struct PluginRuntime {

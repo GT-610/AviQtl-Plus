@@ -1,4 +1,5 @@
 #include "effect_registry.hpp"
+#include "bounded_file.hpp"
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
@@ -28,6 +29,7 @@ class TestEffectRegistryLoad : public QObject {
     void defaultParamsPreserved();
     void explicitSourceIsPreserved();
     void filesystemPathComparisonHandlesAliasesAndFallbacks();
+    void skipOversizedDefinition();
 
   private:
     QTemporaryDir m_dir;
@@ -425,6 +427,29 @@ void TestEffectRegistryLoad::filesystemPathComparisonHandlesAliasesAndFallbacks(
     const QString missingPath = QDir(existingPath).filePath(QStringLiteral("missing"));
     const QString missingAlias = QDir(existingPath).filePath(QStringLiteral("./missing"));
     QVERIFY(filesystemPathsEqual(missingPath, missingAlias));
+}
+
+void TestEffectRegistryLoad::skipOversizedDefinition() {
+    const QString effectId = QStringLiteral("load.oversized");
+    QByteArray definition = R"({
+        "id": "load.oversized",
+        "name": "Oversized",
+        "qml": "Oversized.qml",
+        "version": "1.0.0",
+        "kind": "effect",
+        "categories": ["Test"],
+        "params": {},
+        "ui": {"controls": [{"type": "header", "label": "X"}]}
+    })";
+    definition.append(QByteArray(AviQtl::Core::Internal::FileSizeLimit::EffectDefinition -
+                                     definition.size() + 1,
+                                 ' '));
+    QVERIFY(writeJson(QStringLiteral("oversized.json"), definition));
+    QVERIFY(writeQml(QStringLiteral("Oversized.qml")));
+
+    EffectRegistry &registry = EffectRegistry::instance();
+    registry.loadEffectsFromDirectory(m_dir.path());
+    QVERIFY(registry.getEffect(effectId).id.isEmpty());
 }
 
 QTEST_MAIN(TestEffectRegistryLoad)

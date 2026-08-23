@@ -3,6 +3,7 @@
 #include "../../ui/include/timeline_service.hpp"
 #include "effect_model.hpp"
 #include "effect_registry.hpp"
+#include "bounded_file.hpp"
 #include "rust_project_document.hpp"
 #include "settings_manager.hpp"
 #include <QDebug>
@@ -260,6 +261,13 @@ auto ProjectSerializer::saveSnapshot(const QString &fileUrl, const QVariantMap &
         }
         return false;
     }
+    if (serializedDocument.size() > static_cast<std::size_t>(Internal::FileSizeLimit::ProjectDocument)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Project exceeds the maximum allowed size of %1 bytes.")
+                                .arg(Internal::FileSizeLimit::ProjectDocument);
+        }
+        return false;
+    }
 
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
@@ -299,15 +307,11 @@ auto ProjectSerializer::load(const QString &fileUrl, UI::TimelineService *timeli
         path = fileUrl;
     }
 
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        if (errorMessage != nullptr) {
-            *errorMessage = file.errorString();
-        }
+    const auto jsonDataResult = Internal::readFileBounded(
+        path, Internal::FileSizeLimit::ProjectDocument, errorMessage);
+    if (!jsonDataResult.has_value())
         return false;
-    }
-
-    const QByteArray jsonData = file.readAll();
+    const QByteArray &jsonData = *jsonDataResult;
     const auto input = std::span(reinterpret_cast<const std::uint8_t *>(jsonData.constData()), static_cast<std::size_t>(jsonData.size()));
     std::vector<std::uint8_t> normalizedJson;
     const RustCore::ProjectStatus normalizationStatus = RustCore::normalizeProjectJson(input, normalizedJson);
