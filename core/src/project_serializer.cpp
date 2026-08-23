@@ -108,16 +108,6 @@ static void convertEffectMediaPath(const QString &effectId, QVariantMap &params,
     *pathIt = toRelative ? toRelativePath(pathIt->toString(), baseDir) : toAbsolutePath(pathIt->toString(), baseDir);
 }
 
-static auto layerSetToVariantList(const QSet<int> &layers) -> QVariantList {
-    QList<int> sortedLayers(layers.cbegin(), layers.cend());
-    std::sort(sortedLayers.begin(), sortedLayers.end());
-    QVariantList result;
-    for (int layer : std::as_const(sortedLayers)) {
-        result.append(QVariant::fromValue(layer));
-    }
-    return result;
-}
-
 static auto layerSetFromJson(const QJsonValue &value) -> QSet<int> {
     QSet<int> result;
     for (const QJsonValue &layer : value.toArray()) {
@@ -131,95 +121,13 @@ static auto layerSetFromJson(const QJsonValue &value) -> QSet<int> {
 
 QVariantMap ProjectSerializer::captureSnapshot(UI::TimelineService *timeline,
                                                const UI::ProjectService *project) {
-    // Native consumers may still update EffectModel/ClipData directly. Fold those adapter-side
-    // changes into one Rust transaction before reading the authoritative snapshot.
-    const bool projectionCommitted = timeline->commitTimelineProjection();
-    QVariantMap root = projectionCommitted ? timeline->timelineStateSnapshot() : QVariantMap{};
-    if (!root.isEmpty()) {
-        QVariantMap settings = root.value(QStringLiteral("settings")).toMap();
-        settings.insert(QStringLiteral("width"), project->width());
-        settings.insert(QStringLiteral("height"), project->height());
-        settings.insert(QStringLiteral("fps"), project->fps());
-        settings.insert(QStringLiteral("sampleRate"), project->sampleRate());
-        root.insert(QStringLiteral("settings"), settings);
-        return root;
-    }
-
-    root.insert(QStringLiteral("version"), RustCore::currentProjectVersion());
-
-    QVariantMap settings;
+    QVariantMap root = timeline->captureTimelineSnapshot();
+    QVariantMap settings = root.value(QStringLiteral("settings")).toMap();
     settings.insert(QStringLiteral("width"), project->width());
     settings.insert(QStringLiteral("height"), project->height());
     settings.insert(QStringLiteral("fps"), project->fps());
     settings.insert(QStringLiteral("sampleRate"), project->sampleRate());
     root.insert(QStringLiteral("settings"), settings);
-
-    QVariantList scenes;
-    for (const auto &scene : timeline->getAllScenes()) {
-        QVariantMap sObj;
-        sObj.insert(QStringLiteral("id"), scene.id);
-        sObj.insert(QStringLiteral("name"), scene.name);
-        sObj.insert(QStringLiteral("width"), scene.width);
-        sObj.insert(QStringLiteral("height"), scene.height);
-        sObj.insert(QStringLiteral("fps"), scene.fps);
-        sObj.insert(QStringLiteral("start"), scene.startFrame);
-        sObj.insert(QStringLiteral("duration"), scene.totalFrames);
-        sObj.insert(QStringLiteral("nestedDuration"), scene.durationFrames);
-        sObj.insert(QStringLiteral("lockedLayers"), layerSetToVariantList(scene.lockedLayers));
-        sObj.insert(QStringLiteral("hiddenLayers"), layerSetToVariantList(scene.hiddenLayers));
-        sObj.insert(QStringLiteral("gridMode"), scene.gridMode);
-        sObj.insert(QStringLiteral("gridBpm"), scene.gridBpm);
-        sObj.insert(QStringLiteral("gridOffset"), scene.gridOffset);
-        sObj.insert(QStringLiteral("gridInterval"), scene.gridInterval);
-        sObj.insert(QStringLiteral("gridSubdivision"), scene.gridSubdivision);
-        sObj.insert(QStringLiteral("enableSnap"), scene.enableSnap);
-        sObj.insert(QStringLiteral("magneticSnapRange"), scene.magneticSnapRange);
-        scenes.append(sObj);
-    }
-    root.insert(QStringLiteral("scenes"), scenes);
-
-    QVariantList clips;
-    for (const auto &scene : timeline->getAllScenes()) {
-        for (const auto &clip : std::as_const(scene.clips)) {
-            QVariantMap clipObj;
-            clipObj.insert(QStringLiteral("id"), clip.id);
-            clipObj.insert(QStringLiteral("sceneId"), clip.sceneId);
-            clipObj.insert(QStringLiteral("type"), clip.type);
-            clipObj.insert(QStringLiteral("start"), clip.startFrame);
-            clipObj.insert(QStringLiteral("duration"), clip.durationFrames);
-            clipObj.insert(QStringLiteral("layer"), clip.layer);
-            clipObj.insert(QStringLiteral("clipByUpperObject"), clip.clipByUpperObject);
-
-            clipObj.insert(QStringLiteral("params"), clip.params);
-
-            QVariantList audioPlugins;
-            for (const auto &plugin : std::as_const(clip.audioPlugins)) {
-                QVariantMap pObj;
-                pObj.insert(QStringLiteral("id"), plugin.id);
-                pObj.insert(QStringLiteral("enabled"), plugin.enabled);
-                pObj.insert(QStringLiteral("params"), plugin.params);
-                if (!plugin.keyframeTracks.isEmpty()) {
-                    pObj.insert(QStringLiteral("keyframes"), plugin.keyframeTracks);
-                }
-                audioPlugins.append(pObj);
-            }
-            clipObj.insert(QStringLiteral("audioPlugins"), audioPlugins);
-
-            QVariantList effects;
-            for (const auto *eff : std::as_const(clip.effects)) {
-                QVariantMap eObj;
-                eObj.insert(QStringLiteral("id"), eff->id());
-                eObj.insert(QStringLiteral("name"), eff->name());
-                eObj.insert(QStringLiteral("enabled"), eff->isEnabled());
-                eObj.insert(QStringLiteral("params"), eff->params());
-                eObj.insert(QStringLiteral("keyframes"), eff->keyframeTracks());
-                effects.append(eObj);
-            }
-            clipObj.insert(QStringLiteral("effects"), effects);
-            clips.append(clipObj);
-        }
-    }
-    root.insert(QStringLiteral("clips"), clips);
     return root;
 }
 

@@ -20,16 +20,15 @@ class TimelineService : public QObject {
 
     // データアクセス
     const QList<ClipData> &clips() const;
-    QList<ClipData> &clipsMutable();                 // シリアライザ用
     const QList<ClipData> &clips(int sceneId) const; // 特定シーンのクリップ取得
 
     int findVacantFrame(int layer, int startFrame, int duration, int excludeClipId) const;
     const QList<SceneData> &getAllScenes() const { return m_scenes; }
     bool setScenes(const QList<SceneData> &scenes);
     QVariantMap timelineStateSnapshot() const;
+    QVariantMap captureTimelineSnapshot();
     bool resetTimelineState(const QVariantMap &document, int nextClipHint = 1,
                             int nextSceneHint = 1);
-    bool commitTimelineProjection();
     void beginTimelineProjectionTransaction();
     bool endTimelineProjectionTransaction();
     QUndoStack *undoStack() const { return m_undoStack; }
@@ -175,8 +174,10 @@ class TimelineService : public QObject {
 
     SceneData *currentScene();
     const SceneData *currentScene() const;
+    QList<ClipData> &clipsMutable();
     void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
     void abortTimelineProjectionTransaction();
+    bool commitTimelineProjection();
     bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
                                 std::function<void()> commitAction = {});
     bool applyTimelineEditRequest(const QVariantMap &request, QVariantMap &inversePatch);
