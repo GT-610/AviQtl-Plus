@@ -22,7 +22,7 @@ fn fade_gain(parameters: AviQtlAudioMixParameters) -> f32 {
 
 fn resample_stereo_linear(input: &[f32], output: &mut [f32], source_rate: f64) {
     let input_frames = input.len() / 2;
-    for (frame, output_frame) in output.chunks_exact_mut(2).enumerate() {
+    for (frame, output_frame) in output.as_chunks_mut::<2>().0.iter_mut().enumerate() {
         let source_index = frame as f64 * source_rate;
         let first_index = (source_index as usize).min(input_frames - 1);
         let second_index = first_index.saturating_add(1).min(input_frames - 1);
@@ -57,7 +57,12 @@ fn mix_stereo(
     let mut meter = AviQtlAudioMeter::default();
     let mut square_left = 0.0;
     let mut square_right = 0.0;
-    for (clip_frame, master_frame) in clip.chunks_exact(2).zip(master.chunks_exact_mut(2)) {
+    for (clip_frame, master_frame) in clip
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .zip(master.as_chunks_mut::<2>().0.iter_mut())
+    {
         let mut left = clip_frame[0] * left_gain;
         let mut right = clip_frame[1] * right_gain;
         if parameters.limiter != 0 {

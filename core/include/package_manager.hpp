@@ -69,7 +69,7 @@ class PackageManager : public QObject {
     void mergeCatalogPackages(const QVariantList &packages, const QVariantMap &repo,
                               const QVariantList &repositories, const QVariantMap &installed);
     void onCatalogFetched(const QVariantMap &repoInfo, const QByteArray &data, const QVariantMap &installed);
-    void tryFinishSyncLegacy(const QVariantMap &installed);
+    void finishSyncWhenIdle();
     void updateUpdateState();
     void fetchPackageMetadataForInstall(const QString &packageId, const QString &sourceRepo, const QString &version);
     void continueInstallWithMetadata(const QString &packageId, const QString &sourceRepo, const QString &version, const QVariantMap &detail);

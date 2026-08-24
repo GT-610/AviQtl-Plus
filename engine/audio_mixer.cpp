@@ -21,12 +21,12 @@ AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
     m_format.setChannelCount(2);
     m_format.setSampleFormat(QAudioFormat::Float);
 
-    const auto *state = Timeline::ECS::instance().getSnapshot();
+    const auto state = Timeline::ECS::instance().getSnapshot();
     if (state != nullptr) {
         const auto &audioStates = state->audioStates;
         for (const auto &audio : audioStates) {
             if (!m_chains.contains(audio.clipId)) {
-                m_chains.insert(audio.clipId, std::make_shared<Plugin::AudioPluginChain>());
+                m_chains.insert(audio.clipId, std::make_shared<Plugin::AudioPluginChain>(m_format.sampleRate(), AviQtl::kAudioMaxBlockSize));
             }
         }
     }
@@ -66,6 +66,9 @@ void AudioMixer::setSampleRate(int sampleRate) {
 
     qCInfo(lcAudioMixer) << "Changing sample rate to" << sampleRate;
     m_format.setSampleRate(sampleRate);
+    for (const auto &chain : std::as_const(m_chains)) {
+        chain->prepare(sampleRate);
+    }
 
     if (m_audioSink) {
         m_audioSink->stop();
@@ -106,30 +109,32 @@ void AudioMixer::fetchRawSamples(AviQtl::Core::AudioDecoder *decoder, double sta
     }
 }
 
-auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::optional<double> playbackSpeed) -> std::vector<float> { // NOLINT(bugprone-easily-swappable-parameters)
+void AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::vector<float> &output,
+                     std::optional<double> playbackSpeed) { // NOLINT(bugprone-easily-swappable-parameters)
+    struct MeterUpdate {
+        int clipId = -1;
+        float peakLeft = 0.0F;
+        float peakRight = 0.0F;
+        float rmsLeft = 0.0F;
+        float rmsRight = 0.0F;
+    };
+    std::vector<MeterUpdate> meterUpdates;
+
     // Protect the reusable buffers and per-clip playback state for the entire mix.
     std::unique_lock lock(m_mutex);
     const double mixerPlaybackSpeed = playbackSpeed.value_or(m_playbackSpeed);
+    const std::size_t outputSize = static_cast<std::size_t>(std::max(samplesPerFrame, 0)) * 2;
+    output.assign(outputSize, 0.0F);
     if (fps <= 0.0) {
-        m_masterBuffer.assign(static_cast<std::size_t>(samplesPerFrame) * 2, 0.0F);
-        m_lastSamplesPerFrame = samplesPerFrame;
-        return m_masterBuffer;
+        return;
     }
-    std::size_t newSize = static_cast<std::size_t>(samplesPerFrame) * 2;
-    if (newSize != static_cast<std::size_t>(m_lastSamplesPerFrame) * 2) {
-        m_masterBuffer.assign(newSize, 0.0F);
-        m_lastSamplesPerFrame = samplesPerFrame;
-    } else {
-        std::fill(m_masterBuffer.begin(), m_masterBuffer.end(), 0.0F);
-    }
-    auto &masterBuffer = m_masterBuffer;
     m_batchTracks.clear();
     m_batchResults.clear();
     m_batchReportMeters.clear();
 
-    const auto *state = Timeline::ECS::instance().getSnapshot();
+    const auto state = Timeline::ECS::instance().getSnapshot();
     if (state == nullptr) {
-        return masterBuffer;
+        return;
     }
     const auto &audioStates = state->audioStates;
     bool hasSolo = false;
@@ -243,7 +248,7 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
 
     m_batchResults.resize(m_batchTracks.size());
     const auto mixStatus = AviQtl::RustCore::mixStereoBatch(
-        m_batchTracks, masterBuffer, m_batchResults);
+        m_batchTracks, output, m_batchResults);
     if (mixStatus != AviQtl::RustCore::AudioStatus::Ok) {
         qCWarning(lcAudioMixer) << "Rust audio batch mixing failed with status"
                                 << static_cast<std::uint32_t>(mixStatus);
@@ -254,17 +259,25 @@ auto AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::opt
         }
         if (mixStatus == AviQtl::RustCore::AudioStatus::Ok && m_batchResults[index].mixed != 0) {
             const auto &meter = m_batchResults[index].meter;
-            emit audioMeterChanged(m_batchResults[index].clip_id, meter.peak_left,
-                                   meter.peak_right, meter.rms_left, meter.rms_right);
+            meterUpdates.push_back({
+                .clipId = m_batchResults[index].clip_id,
+                .peakLeft = meter.peak_left,
+                .peakRight = meter.peak_right,
+                .rmsLeft = meter.rms_left,
+                .rmsRight = meter.rms_right,
+            });
         } else {
-            emit audioMeterChanged(m_batchTracks[index].clip_id,
-                                   0.0f, 0.0f, 0.0f, 0.0f);
+            meterUpdates.push_back({.clipId = m_batchTracks[index].clip_id});
         }
     }
     m_batchTracks.clear();
     m_batchResults.clear();
     m_batchReportMeters.clear();
-    return masterBuffer;
+    lock.unlock();
+    for (const MeterUpdate &update : meterUpdates) {
+        emit audioMeterChanged(update.clipId, update.peakLeft, update.peakRight,
+                               update.rmsLeft, update.rmsRight);
+    }
 }
 
 void AudioMixer::processFrame(int currentFrame, double fps, int samplesPerFrame) { // NOLINT(bugprone-easily-swappable-parameters)
@@ -291,8 +304,9 @@ void AudioMixer::processFrame(int currentFrame, double fps, int samplesPerFrame)
         outputSamples = static_cast<int>(std::clamp(samplesPerFrame / playbackSpeed, 1.0, static_cast<double>(samplesPerFrame) * 16.0));
     }
 
-    const std::vector<float> buffer = mix(currentFrame, fps, outputSamples, playbackSpeed);
-    m_audioOutput->write(reinterpret_cast<const char *>(buffer.data()), static_cast<qint64>(buffer.size() * sizeof(float)));
+    mix(currentFrame, fps, outputSamples, m_playbackBuffer, playbackSpeed);
+    m_audioOutput->write(reinterpret_cast<const char *>(m_playbackBuffer.data()),
+                         static_cast<qint64>(m_playbackBuffer.size() * sizeof(float)));
 }
 
 void AudioMixer::reset() {
@@ -310,9 +324,14 @@ auto AudioMixer::getChain(int clipId) -> std::shared_ptr<Plugin::AudioPluginChai
     std::unique_lock lock(m_mutex);
     auto it = m_chains.find(clipId);
     if (it == m_chains.end()) {
-        it = m_chains.insert(clipId, std::make_shared<Plugin::AudioPluginChain>());
+        it = m_chains.insert(clipId, std::make_shared<Plugin::AudioPluginChain>(m_format.sampleRate(), AviQtl::kAudioMaxBlockSize));
     }
     return it.value();
+}
+
+void AudioMixer::replaceChain(int clipId, std::shared_ptr<Plugin::AudioPluginChain> chain) {
+    std::unique_lock lock(m_mutex);
+    m_chains.insert(clipId, std::move(chain));
 }
 
 } // namespace AviQtl::Engine

@@ -1,4 +1,5 @@
 #include "lua_host.hpp"
+#include <QElapsedTimer>
 #include <QTest>
 #include <cmath>
 
@@ -102,6 +103,14 @@ class TestLuaHost : public QObject {
         // time=2, index=3, value=10 -> 2*3 + 10 = 16
         double result = LuaHost::evaluate("time * index + value", 2.0, 3, 10.0);
         QCOMPARE(result, 16.0);
+    }
+
+    void evaluateStopsRunawayExpression() {
+        QElapsedTimer timer;
+        timer.start();
+        QCOMPARE(LuaHost::evaluate("(function() while true do end end)()", 0.0, 0, 42.0),
+                 42.0);
+        QVERIFY(timer.elapsed() < 2000);
     }
 };
 

@@ -1012,15 +1012,4 @@ int TimelineService::getClipboardDuration() const {
     return duration;
 }
 
-int TimelineService::findVacantFrameForClipboard(int requestedFrame, int layerOffset) const {
-    const auto existing = timelineGeometry(clips());
-    const auto clipboard = timelineGeometry(m_clipboard);
-    std::int32_t safeFrame = requestedFrame;
-    if (AviQtl::RustCore::findVacantClipboardFrame(existing, clipboard, requestedFrame, layerOffset, safeFrame) != AviQtl::RustCore::TimelineEditStatus::Ok) {
-        qWarning() << "Rust timeline clipboard vacancy search failed";
-        return requestedFrame;
-    }
-    return safeFrame;
-}
-
 } // namespace AviQtl::UI

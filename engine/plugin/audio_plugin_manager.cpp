@@ -570,7 +570,10 @@ auto AudioPluginManager::instance() -> AudioPluginManager & {
 
 AudioPluginManager::AudioPluginManager(QObject *parent) : QObject(parent) {}
 
-AudioPluginManager::~AudioPluginManager() { stopScan(); }
+AudioPluginManager::~AudioPluginManager() {
+    stopScan();
+    m_scanFuture.waitForFinished();
+}
 
 void AudioPluginManager::stopScan() { m_stopRequested = true; }
 
@@ -582,7 +585,7 @@ void AudioPluginManager::initialize() {
 
     // スキャンを非同期で開始し、完了後にシグナルを発行する
     // waitForFinished() はメインスレッドをブロックするため削除
-    (void)QtConcurrent::run([this] -> void {
+    m_scanFuture = QtConcurrent::run([this] -> void {
         scanPlugins();
         emit pluginsReady(static_cast<int>(m_plugins.size()));
     });

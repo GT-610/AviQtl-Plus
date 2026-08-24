@@ -82,10 +82,6 @@ template <typename Planner> [[nodiscard]] inline TimelineEditStatus planVariable
     return static_cast<TimelineEditStatus>(aviqtl_timeline_clipboard_duration(clips.data(), clips.size(), &outputDuration));
 }
 
-[[nodiscard]] inline TimelineEditStatus findVacantClipboardFrame(std::span<const TimelineClipGeometry> existing, std::span<const TimelineClipGeometry> clipboard, std::int32_t requestedFrame, std::int32_t layerOffset, std::int32_t &outputFrame) {
-    return static_cast<TimelineEditStatus>(aviqtl_timeline_find_vacant_clipboard_frame(existing.data(), existing.size(), clipboard.data(), clipboard.size(), requestedFrame, layerOffset, &outputFrame));
-}
-
 [[nodiscard]] inline TimelineEditStatus planClipboardPlacement(std::span<const TimelineClipGeometry> existing, std::span<const TimelineClipGeometry> clipboard, std::int32_t requestedFrame, std::int32_t layerOffset,
                                                                std::vector<TimelineClipGeometry> &output, std::int32_t &outputFrame) {
     output.resize(clipboard.size());

@@ -69,6 +69,21 @@ function(aviqtl_add_test)
     endif()
 endfunction()
 
+add_test(
+    NAME rust_abi_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_rust_abi.py
+            --rust-src ${CMAKE_SOURCE_DIR}/rust/aviqtl-core/src
+            --header ${CMAKE_SOURCE_DIR}/core/include/rust_core_abi.hpp
+)
+add_test(
+    NAME rust_abi_contract_checker
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_rust_abi_contract.py
+)
+set_tests_properties(rust_abi_contract rust_abi_contract_checker PROPERTIES
+    LABELS unit
+    TIMEOUT 30
+)
+
 # --- Core Tests ---
 aviqtl_add_test(
     NAME effect_registry

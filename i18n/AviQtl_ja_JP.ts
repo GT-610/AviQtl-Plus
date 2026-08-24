@@ -1542,24 +1542,24 @@
 <context>
     <name>AviQtl::Core::PackageManager</name>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="118"/>
-        <location filename="../core/src/package_manager.cpp" line="242"/>
+        <location filename="../core/src/package_manager.cpp" line="113"/>
+        <location filename="../core/src/package_manager.cpp" line="237"/>
         <source>Idle</source>
         <translation>待機中</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="181"/>
+        <location filename="../core/src/package_manager.cpp" line="176"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>キャッシュからパッケージをロードしました（同期を押して更新を確認）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="234"/>
+        <location filename="../core/src/package_manager.cpp" line="229"/>
         <source>Syncing repository...</source>
         <translation>リポジトリを同期中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="193"/>
-        <location filename="../core/src/package_manager.cpp" line="266"/>
+        <location filename="../core/src/package_manager.cpp" line="188"/>
+        <location filename="../core/src/package_manager.cpp" line="261"/>
         <source>Repository URL must use HTTPS: %1</source>
         <translation>リポジトリURLはHTTPSを使用する必要があります: %1</translation>
     </message>
@@ -1569,198 +1569,216 @@
         <translation>カタログURLはHTTPSを使用する必要があります: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="357"/>
+        <location filename="../core/src/package_manager.cpp" line="367"/>
         <source>Sync complete</source>
         <translation>同期完了</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="381"/>
-        <location filename="../core/src/package_manager.cpp" line="540"/>
+        <location filename="../core/src/package_manager.cpp" line="391"/>
+        <location filename="../core/src/package_manager.cpp" line="557"/>
         <source>Package not found: %1</source>
         <translation>パッケージが見つかりません: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="387"/>
+        <location filename="../core/src/package_manager.cpp" line="397"/>
         <source>No metadata URL for package: %1</source>
         <translation>パッケージのメタデータURLがありません: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="392"/>
+        <location filename="../core/src/package_manager.cpp" line="402"/>
         <source>Fetching package details: %1</source>
         <translation>パッケージ詳細を取得中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="395"/>
+        <location filename="../core/src/package_manager.cpp" line="405"/>
         <source>Invalid or insecure metadata URL for package: %1</source>
         <translation>パッケージのメタデータURLが無効または安全ではありません: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="403"/>
+        <location filename="../core/src/package_manager.cpp" line="416"/>
         <source>Failed to fetch package metadata (%1): %2</source>
         <translation>パッケージメタデータの取得に失敗しました (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="414"/>
+        <location filename="../core/src/package_manager.cpp" line="431"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
         <translation>パッケージ %1 のメタデータチェックサムが一致しません: 期待値 %2、実際値 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="421"/>
-        <location filename="../core/src/package_manager.cpp" line="427"/>
+        <location filename="../core/src/package_manager.cpp" line="438"/>
+        <location filename="../core/src/package_manager.cpp" line="444"/>
         <source>Invalid metadata format for package: %1</source>
         <translation>パッケージのメタデータ形式が不正です: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="499"/>
+        <location filename="../core/src/package_manager.cpp" line="516"/>
         <source>No download URL found for package %1 version %2</source>
         <translation>パッケージ %1 バージョン %2 のダウンロードURLが見つかりません</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="504"/>
+        <location filename="../core/src/package_manager.cpp" line="521"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
         <translation>パッケージ %1 は AviQtl %2 以降が必要です (現在: %3)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="679"/>
+        <location filename="../core/src/package_manager.cpp" line="696"/>
         <source>Package deployment failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>パッケージの配置に失敗し、自動ロールバックも完了できませんでした。バックアップは保持されています。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="681"/>
+        <location filename="../core/src/package_manager.cpp" line="698"/>
         <source>Failed to deploy package; the previous installation was restored.</source>
         <translation>パッケージの配置に失敗したため、以前のインストールを復元しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="698"/>
+        <location filename="../core/src/package_manager.cpp" line="715"/>
         <source>Installation complete: %1</source>
         <translation>インストール完了: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="533"/>
+        <location filename="../core/src/package_manager.cpp" line="550"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtlのアップデートが利用可能です。再起動して適用してください。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="494"/>
-        <location filename="../core/src/package_manager.cpp" line="525"/>
-        <location filename="../core/src/package_manager.cpp" line="546"/>
-        <location filename="../core/src/package_manager.cpp" line="561"/>
+        <location filename="../core/src/package_manager.cpp" line="511"/>
+        <location filename="../core/src/package_manager.cpp" line="542"/>
+        <location filename="../core/src/package_manager.cpp" line="563"/>
+        <location filename="../core/src/package_manager.cpp" line="578"/>
         <source>Invalid package ID or type.</source>
         <translation>パッケージIDまたは種類が無効です。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="568"/>
+        <location filename="../core/src/package_manager.cpp" line="585"/>
         <source>Invalid or insecure package download URL.</source>
         <translation>パッケージのダウンロードURLが無効または安全ではありません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="573"/>
+        <location filename="../core/src/package_manager.cpp" line="590"/>
         <source>Downloading package: %1</source>
         <translation>パッケージをダウンロード中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="589"/>
+        <location filename="../core/src/package_manager.cpp" line="606"/>
         <source>Download failed: %1</source>
         <translation>ダウンロード失敗: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="596"/>
+        <location filename="../core/src/package_manager.cpp" line="613"/>
         <source>Failed to create temporary directory.</source>
         <translation>一時ディレクトリの作成に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="607"/>
+        <location filename="../core/src/package_manager.cpp" line="624"/>
         <source>Failed to save downloaded file.</source>
         <translation>ダウンロードファイルの保存に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="587"/>
-        <location filename="../core/src/package_manager.cpp" line="613"/>
+        <location filename="../core/src/package_manager.cpp" line="604"/>
+        <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Package archive exceeds the maximum allowed size.</source>
         <translation>パッケージアーカイブが許可された最大サイズを超えています。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="509"/>
+        <location filename="../core/src/package_manager.cpp" line="274"/>
+        <location filename="../core/src/package_manager.cpp" line="327"/>
+        <source>Repository metadata exceeds the maximum allowed size.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="301"/>
+        <location filename="../core/src/package_manager.cpp" line="316"/>
+        <source>Repository catalog exceeds the maximum allowed size.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="414"/>
+        <location filename="../core/src/package_manager.cpp" line="422"/>
+        <source>Package metadata exceeds the maximum allowed size: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="526"/>
         <source>Package installation could not be validated.</source>
         <translation>パッケージのインストールを検証できませんでした。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="628"/>
+        <location filename="../core/src/package_manager.cpp" line="645"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
         <translation>チェックサム不一致 %1: 期待値 %2、実際 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="633"/>
+        <location filename="../core/src/package_manager.cpp" line="650"/>
         <source>Extracting package...</source>
         <translation>パッケージを展開中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="644"/>
+        <location filename="../core/src/package_manager.cpp" line="661"/>
         <source>Failed to create extraction directory.</source>
         <translation>展開先ディレクトリの作成に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="652"/>
+        <location filename="../core/src/package_manager.cpp" line="669"/>
         <source>Failed to extract package archive.</source>
         <translation>パッケージアーカイブの展開に失敗しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="671"/>
+        <location filename="../core/src/package_manager.cpp" line="688"/>
         <source>Deploying package files...</source>
         <translation>パッケージファイルを配置中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="716"/>
+        <location filename="../core/src/package_manager.cpp" line="733"/>
         <source>Invalid package ID.</source>
         <translation>無効なパッケージIDです。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="723"/>
+        <location filename="../core/src/package_manager.cpp" line="740"/>
         <source>Cannot remove package because its installed type is missing or invalid.</source>
         <translation>インストール済みパッケージの種類がないか無効なため、削除できません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="727"/>
+        <location filename="../core/src/package_manager.cpp" line="744"/>
         <source>Removing package: %1</source>
         <translation>パッケージを削除中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="735"/>
+        <location filename="../core/src/package_manager.cpp" line="752"/>
         <source>Package removal failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>パッケージの削除に失敗し、自動ロールバックも完了できませんでした。バックアップは保持されています。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="737"/>
+        <location filename="../core/src/package_manager.cpp" line="754"/>
         <source>Failed to remove package; the installed state and files were restored.</source>
         <translation>パッケージの削除に失敗したため、インストール状態とファイルを復元しました。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="750"/>
+        <location filename="../core/src/package_manager.cpp" line="767"/>
         <source>Removal complete: %1</source>
         <translation>削除完了: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="799"/>
+        <location filename="../core/src/package_manager.cpp" line="818"/>
         <source>No packages to upgrade.</source>
         <translation>アップグレード可能なパッケージはありません。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="803"/>
+        <location filename="../core/src/package_manager.cpp" line="822"/>
         <source>Upgrading all packages...</source>
         <translation>すべてのパッケージをアップグレード中...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="810"/>
+        <location filename="../core/src/package_manager.cpp" line="829"/>
         <source>All upgrades complete.</source>
         <translation>すべてのアップグレードが完了しました</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="815"/>
+        <location filename="../core/src/package_manager.cpp" line="834"/>
         <source>Upgrading package: %1</source>
         <translation>パッケージをアップグレード中: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="618"/>
+        <location filename="../core/src/package_manager.cpp" line="635"/>
         <source>Failed to write the complete downloaded package.</source>
         <translation>ダウンロードしたパッケージを完全に書き込めませんでした。</translation>
     </message>
@@ -1904,8 +1922,8 @@
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="130"/>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="152"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="277"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="380"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="278"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="381"/>
         <source>Frame capture error: no preview view is available</source>
         <translation>フレーム取得エラー: プレビュー表示を利用できません</translation>
     </message>
@@ -1921,19 +1939,19 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="198"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="429"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="430"/>
         <source>Export cancelled</source>
         <translation>エクスポートをキャンセルしました</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="439"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="440"/>
         <source>Frame render timeout: failed to render frame %1</source>
         <translation>フレーム描画タイムアウト: フレーム %1 を描画できませんでした</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="453"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="454"/>
         <source>Frame grab error: failed to capture frame %1</source>
         <translation>フレーム取得エラー: フレーム %1 を取得できませんでした</translation>
     </message>
@@ -1943,28 +1961,28 @@
         <translation>エンコーダーエラー: 映像フレーム %1 をキューに追加できませんでした</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="251"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="252"/>
         <source>Encoder error: failed to queue audio for frame %1</source>
         <translation>エンコーダーエラー: フレーム %1 の音声をキューに追加できませんでした</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="267"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="480"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="481"/>
         <source>Export complete</source>
         <translation>書き出し完了</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="387"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="388"/>
         <source>Output error: cannot create output directory</source>
         <translation>出力エラー: 出力ディレクトリを作成できません</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="412"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="413"/>
         <source>Output error: output file already exists: %1</source>
         <translation>出力エラー: 出力ファイルは既に存在します: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="463"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="464"/>
         <source>Output error: failed to save frame %1</source>
         <translation>出力エラー: フレーム %1 を保存できません</translation>
     </message>

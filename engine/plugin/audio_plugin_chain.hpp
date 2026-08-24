@@ -3,6 +3,8 @@
 #include "../../core/include/settings_manager.hpp"
 #include "audio_plugin_host.hpp"
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <vector>
 
 namespace AviQtl::Engine::Plugin {
@@ -14,14 +16,25 @@ class AudioPluginChain {
         m_sampleRate = sm.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toDouble();
         m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), AviQtl::kAudioMaxBlockSize).toInt();
     }
+    AudioPluginChain(double sampleRate, int maxBlockSize)
+        : m_sampleRate(sampleRate), m_maxBlockSize(maxBlockSize) {}
+
+    struct Description {
+        QString name;
+        QString format;
+        std::vector<ParamInfo> parameters;
+        std::vector<float> values;
+    };
 
     void add(std::unique_ptr<IAudioPlugin> plugin, bool enabled = true);
     void clear();
+    void prepare(double sampleRate);
     // mix() から呼ばれる：バッファをチェーン内の全プラグインに通す
     void process(float *buf, int frameCount);
 
     int count() const;
-    IAudioPlugin *get(int index) const;
+    std::optional<Description> describe(int index) const;
+    bool setParameter(int pluginIndex, int parameterIndex, float value);
 
   private:
     struct Entry {
@@ -30,6 +43,7 @@ class AudioPluginChain {
     };
 
     std::vector<Entry> m_plugins;
+    mutable std::mutex m_mutex;
     double m_sampleRate = static_cast<double>(AviQtl::kDefaultSampleRate);
     int m_maxBlockSize = AviQtl::kAudioMaxBlockSize;
 };

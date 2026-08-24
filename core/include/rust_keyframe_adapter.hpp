@@ -2,7 +2,6 @@
 
 #include "rust_keyframe_core.hpp"
 #include <QHash>
-#include <QStringView>
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
@@ -10,9 +9,6 @@
 #include <vector>
 
 namespace AviQtl::Core::RustKeyframes {
-
-[[nodiscard]] bool isNumericValue(const QVariant &value);
-[[nodiscard]] RustCore::NumericInterpolation interpolationForName(QStringView name);
 
 struct NumericTrackStorage {
     std::vector<RustCore::NumericKeyframe> keyframes;

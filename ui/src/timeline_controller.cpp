@@ -136,8 +136,8 @@ void TimelineController::setupConnections() {
     connect(m_exportManager, &TimelineExportManager::exportProgressChanged, this, &TimelineController::exportProgressChanged);
     connect(m_exportManager, &TimelineExportManager::exportFinished, this, &TimelineController::exportFinished);
 
-    connect(m_project, &ProjectService::fpsChanged, this, [this]() -> void { m_transport->updateTimerInterval(m_project->fps()); });
-    m_transport->updateTimerInterval(m_project->fps());
+    connect(m_project, &ProjectService::fpsChanged, this, [this]() -> void { m_transport->setFps(m_project->fps()); });
+    m_transport->setFps(m_project->fps());
 
     connect(m_transport, &TransportService::isPlayingChanged, this, &TimelineController::onPlayingChanged);
 

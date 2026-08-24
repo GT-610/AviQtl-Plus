@@ -70,7 +70,7 @@ class ModEngine {
   public:
     static ModEngine &instance();
 
-    void initialize(void *ecsPtr);
+    void initialize();
     // TimelineController を登録 (main.cpp の QML登録後に呼ぶ)
     void registerController(AviQtl::UI::TimelineController *controller);
     void loadPlugins();
@@ -121,6 +121,8 @@ class ModEngine {
     void onPluginDirectoryChanged(const QString &path);
     void loadSingleFilePlugin(const QFileInfo &fileInfo);
     void loadDirectoryPlugin(const QString &subdir, const QString &pluginsPath);
+    bool loadPlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile);
+    bool validatePlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile) const;
     QList<PluginManifest> m_loadedPlugins;
     QList<PluginInfo> m_pluginInfos;
     struct PluginRuntime {
@@ -134,7 +136,6 @@ class ModEngine {
     bool m_hotReloadEnabled = false;
     bool m_dispatchingHooks = false;
     QString m_currentPluginId;
-    void *m_ecsPtr = nullptr;
     bool m_initialized = false;
 };
 

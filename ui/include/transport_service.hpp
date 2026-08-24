@@ -60,8 +60,6 @@ class TransportService : public QObject {
             play();
         m_wasPlayingBeforeScrub = false;
     }
-    void updateTimerInterval(double fps); // 旧 API 互換
-
     void setPlaybackSpeed(double speed) {
         if (std::abs(m_playbackSpeed - speed) < 0.001)
             return;

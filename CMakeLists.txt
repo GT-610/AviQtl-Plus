@@ -230,6 +230,8 @@ set(CORE_SOURCES
     core/src/theme_controller.cpp
     core/src/video_encoder.cpp
     core/include/audio_decoder.hpp
+    core/include/bounded_file.hpp
+    core/include/constants.hpp
     core/include/document_model.hpp
     core/include/effect_registry.hpp
     core/include/ffmpeg_video_buffer.hpp
@@ -249,6 +251,7 @@ set(CORE_SOURCES
     core/include/rust_keyframe_core.hpp
     core/include/rust_keyframe_document.hpp
     core/include/rust_package_document.hpp
+    core/include/rust_plugin_document.hpp
     core/include/rust_project_document.hpp
     core/include/rust_preset_document.hpp
     core/include/rust_settings_document.hpp
@@ -378,6 +381,7 @@ set(UI_SOURCES
     ui/include/timeline_types.hpp
     ui/include/transport_service.hpp
     ui/include/window_manager.hpp
+    ui/include/window_defaults.hpp
     ui/include/workspace.hpp
     ${CORE_UI_DEPENDENT_SOURCES}
 )
@@ -454,8 +458,8 @@ qt_add_qml_module(AviQtl_UI
 
 # --- External Assets: Shaders Compilation ---
 # Shaders are treated as data files; they are compiled to .qsb so BUILD.py can pick them up.
-# Using GLOB_RECURSE here is an intentional exception: every effect/object adds a matching
-# .frag file, and they are compiled generically. Source changes that add/remove shaders
+# Using GLOB_RECURSE here is an intentional exception: effects and objects can add shaders,
+# and they are compiled generically. Source changes that add/remove shaders
 # still require a CMake reconfigure (e.g. touch CMakeLists.txt or use --fresh).
 set(EXTERNAL_QSB_FILES "")
 

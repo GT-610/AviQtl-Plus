@@ -75,16 +75,16 @@ class TestAudioPluginChain : public QObject {
         chain.add(std::move(p2));
 
         QCOMPARE(chain.count(), 2);
-        QCOMPARE(chain.get(0)->name(), QStringLiteral("A"));
-        QCOMPARE(chain.get(1)->name(), QStringLiteral("B"));
+        QCOMPARE(chain.describe(0)->name, QStringLiteral("A"));
+        QCOMPARE(chain.describe(1)->name, QStringLiteral("B"));
     }
 
     void getOutOfBounds() {
         AudioPluginChain chain;
-        QVERIFY(chain.get(0) == nullptr);
-        QVERIFY(chain.get(-1) == nullptr);
+        QVERIFY(!chain.describe(0).has_value());
+        QVERIFY(!chain.describe(-1).has_value());
         chain.add(std::make_unique<MockPlugin>());
-        QVERIFY(chain.get(1) == nullptr);
+        QVERIFY(!chain.describe(1).has_value());
     }
 
     void clear() {
@@ -95,7 +95,7 @@ class TestAudioPluginChain : public QObject {
 
         chain.clear();
         QCOMPARE(chain.count(), 0);
-        QVERIFY(chain.get(0) == nullptr);
+        QVERIFY(!chain.describe(0).has_value());
     }
 
     void processIterates() {

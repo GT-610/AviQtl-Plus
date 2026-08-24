@@ -244,7 +244,8 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         audioSampleAccumulator = nextAudioSample;
 
         if (samplesNeeded > 0) {
-            const auto &audio = m_controller->mediaManager()->audioMixer()->mix(frame, fps, samplesNeeded);
+            std::vector<float> audio;
+            m_controller->mediaManager()->audioMixer()->mix(frame, fps, samplesNeeded, audio);
             if (!encoder.pushAudio(audio.data(), static_cast<int>(audio.size()))) {
                 encoder.close();
                 QFile::remove(config.outputUrl);

@@ -148,7 +148,7 @@ auto main(int argc, char *argv[]) -> int {
 
     // プラグインロード
     QTimer::singleShot(10, [&]() {
-        modEngine.initialize(nullptr);
+        modEngine.initialize();
         modEngine.loadPlugins();
 
         auto &sm = Core::SettingsManager::instance();

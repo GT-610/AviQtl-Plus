@@ -1,6 +1,8 @@
 #include "mod_engine.hpp"
+#include "../core/include/bounded_file.hpp"
 #include "../core/include/permission_manager.hpp"
 #include "../core/include/rust_package_document.hpp"
+#include "../core/include/rust_core_policy.hpp"
 #include "../core/include/settings_manager.hpp"
 #include "../core/include/version.hpp"
 #include "../ui/include/timeline_controller.hpp"
@@ -25,6 +27,17 @@ static bool isPluginCompatible(const PluginManifest &manifest) {
         return true;
     const QString appVersion = QString::fromUtf8(AviQtl::VERSION_STRING);
     return AviQtl::RustCore::Package::compareVersions(appVersion, manifest.minAppVersion) >= 0;
+}
+
+static QString singleFilePluginId(const QFileInfo &fileInfo) {
+    // Keep the existing identity format because permissions and parameters are persisted by ID.
+    return QStringLiteral("file:%1").arg(fileInfo.fileName());
+}
+
+static QString pluginPathIdentity(const QString &path) {
+    const QFileInfo info(path);
+    const QString canonicalPath = info.canonicalFilePath();
+    return canonicalPath.isEmpty() ? info.absoluteFilePath() : canonicalPath;
 }
 
 static constexpr std::array<const char *, 6> kPluginHookNames = {
@@ -460,8 +473,7 @@ ModEngine::~ModEngine() {
     }
 }
 
-void ModEngine::initialize(void *ecsPtr) {
-    m_ecsPtr = ecsPtr;
+void ModEngine::initialize() {
     m_initialized = true;
     if (L != nullptr) {
         return;
@@ -473,14 +485,10 @@ void ModEngine::initialize(void *ecsPtr) {
     }
     AviQtl::Scripting::LuaHost::setupSafeLuaState(L);
 
-    // Register core pointer as global
-    lua_pushlightuserdata(L, ecsPtr);
-    lua_setglobal(L, "AVIQTL_CORE_PTR");
-
     registerAviQtlAPI();
     m_apiRegistered = true;
 
-    qInfo() << "[ModEngine] LuaJIT initialized. Core pointer registered as AVIQTL_CORE_PTR";
+    qInfo() << "[ModEngine] LuaJIT initialized";
 }
 
 void ModEngine::resetLuaState() {
@@ -491,7 +499,7 @@ void ModEngine::resetLuaState() {
     }
     m_apiRegistered = false;
     if (m_initialized) {
-        initialize(m_ecsPtr);
+        initialize();
     }
 }
 
@@ -610,7 +618,7 @@ aviqtl = {
 
 void ModEngine::loadPlugins() {
     if (L == nullptr) {
-        initialize(m_ecsPtr);
+        initialize();
     }
     if (L == nullptr) {
         return;
@@ -647,45 +655,11 @@ void ModEngine::loadPlugins() {
 
 void ModEngine::loadSingleFilePlugin(const QFileInfo &fileInfo) {
     qInfo() << "[ModEngine] Loading MOD:" << fileInfo.fileName();
-    const QString pluginId = QStringLiteral("file:%1").arg(fileInfo.fileName());
-
-    ScriptMetadata scriptMeta = loadScriptParams(fileInfo.absoluteFilePath());
-    if (!scriptMeta.params.isEmpty()) {
-        qInfo() << "[ModEngine] Found" << scriptMeta.params.size() << "parameters in" << fileInfo.fileName();
-    }
-
-    PluginInfo info;
-    info.manifest.id = pluginId;
-    info.manifest.name = fileInfo.completeBaseName();
-    info.manifest.version = QStringLiteral("file");
-    info.filePath = fileInfo.absoluteFilePath();
-    info.scriptMeta = scriptMeta;
-
-    for (const ScriptParam &param : scriptMeta.params) {
-        QString settingsKey = QStringLiteral("plugin_param.single.%1.%2").arg(fileInfo.fileName(), param.varName);
-        QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
-        if (saved.isValid()) {
-            info.paramValues[param.varName] = saved;
-        } else {
-            info.paramValues[param.varName] = param.defaultValue;
-        }
-    }
-
-    const QString previousPluginId = m_currentPluginId;
-    m_currentPluginId = pluginId;
-    clearHookGlobals();
-    injectPluginParams(L, info);
-
-    if (luaL_dofile(L, fileInfo.absoluteFilePath().toUtf8().constData())) {
-        qCritical() << "[ModEngine] Load Error:" << lua_tostring(L, -1);
-        lua_pop(L, 1);
-        clearHookGlobals();
-        m_currentPluginId = previousPluginId;
-        return;
-    }
-    capturePluginHooks(pluginId);
-    m_pluginInfos.append(info);
-    m_currentPluginId = previousPluginId;
+    PluginManifest manifest;
+    manifest.id = singleFilePluginId(fileInfo);
+    manifest.name = fileInfo.completeBaseName();
+    manifest.version = QStringLiteral("file");
+    loadPlugin(manifest, fileInfo.absoluteFilePath(), true);
 }
 
 void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &pluginsPath) {
@@ -696,57 +670,95 @@ void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &plugin
 
     qInfo() << "[ModEngine] Loading plugin:" << subdir;
 
-    ScriptMetadata scriptMeta = loadScriptParams(mainLua);
+    QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
+    loadPlugin(loadManifest(manifestDir), mainLua, false);
+}
+
+bool ModEngine::validatePlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile) const {
+    if (!manifest.isValid() || manifest.id.size() > 255 || manifest.name.size() > 255 ||
+        manifest.version.size() > 64 || manifest.minAppVersion.size() > 64) {
+        qWarning() << "[ModEngine] Skipping plugin with an invalid manifest:" << scriptPath;
+        return false;
+    }
+    const bool hasValidIdentity = singleFile
+                                      ? manifest.id == singleFilePluginId(QFileInfo(scriptPath))
+                                      : AviQtl::RustCore::Policy::isValidPackageId(manifest.id) &&
+                                            !manifest.id.startsWith(QStringLiteral("file:"));
+    if (!hasValidIdentity) {
+        qWarning() << "[ModEngine] Skipping plugin with an invalid ID:" << manifest.id;
+        return false;
+    }
+    if (!isPluginCompatible(manifest)) {
+        qWarning() << "[ModEngine] Skipping plugin" << scriptPath << ": requires AviQtl"
+                   << manifest.minAppVersion << "or newer (current:"
+                   << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
+        return false;
+    }
+    const QString pathIdentity = pluginPathIdentity(scriptPath);
+    const auto duplicate = std::find_if(m_pluginInfos.cbegin(), m_pluginInfos.cend(), [&manifest, &pathIdentity](const PluginInfo &loaded) {
+        return loaded.manifest.id == manifest.id ||
+               loaded.filePath == pathIdentity;
+    });
+    if (duplicate != m_pluginInfos.cend()) {
+        qWarning() << "[ModEngine] Skipping duplicate plugin ID:" << manifest.id;
+        return false;
+    }
+    return true;
+}
+
+bool ModEngine::loadPlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile) {
+    if (!validatePlugin(manifest, scriptPath, singleFile))
+        return false;
+
+    QString readError;
+    const auto script = AviQtl::Core::Internal::readFileBounded(
+        scriptPath, AviQtl::Core::Internal::FileSizeLimit::PluginScript, &readError);
+    if (!script.has_value()) {
+        qWarning().noquote() << QStringLiteral("[ModEngine] Skipping unreadable plugin:") << scriptPath << readError;
+        return false;
+    }
 
     PluginInfo info;
-    info.filePath = mainLua;
-    info.scriptMeta = scriptMeta;
-
-    QString manifestDir = pluginsPath + QStringLiteral("/") + subdir;
-    PluginManifest m = loadManifest(manifestDir);
-    if (!m.isValid()) {
-        qWarning() << "[ModEngine] Skipping plugin without a valid manifest:" << subdir;
-        return;
-    }
-    if (!isPluginCompatible(m)) {
-        qWarning() << "[ModEngine] Skipping plugin" << subdir << ": requires AviQtl" << m.minAppVersion << "or newer (current:" << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
-        return;
-    }
-    for (const PluginManifest &loaded : std::as_const(m_loadedPlugins)) {
-        if (loaded.id == m.id) {
-            qWarning() << "[ModEngine] Skipping duplicate plugin ID:" << m.id;
-            return;
-        }
-    }
-    info.manifest = m;
-
-    for (const ScriptParam &param : scriptMeta.params) {
-        QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(m.id, param.varName);
+    info.manifest = manifest;
+    info.filePath = pluginPathIdentity(scriptPath);
+    info.scriptMeta = ScriptParamParser::parse(QString::fromUtf8(*script));
+    for (const ScriptParam &param : std::as_const(info.scriptMeta.params)) {
+        const QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(manifest.id, param.varName);
         QVariant saved = AviQtl::Core::SettingsManager::instance().value(settingsKey);
-        if (saved.isValid()) {
-            info.paramValues[param.varName] = saved;
-        } else {
-            info.paramValues[param.varName] = param.defaultValue;
+        if (!saved.isValid() && singleFile) {
+            const QString legacyKey = QStringLiteral("plugin_param.single.%1.%2")
+                                          .arg(QFileInfo(scriptPath).fileName(), param.varName);
+            saved = AviQtl::Core::SettingsManager::instance().value(legacyKey);
         }
+        info.paramValues[param.varName] = saved.isValid() ? saved : param.defaultValue;
     }
 
     const QString previousPluginId = m_currentPluginId;
-    m_currentPluginId = m.id;
+    m_currentPluginId = manifest.id;
+    const auto pluginGuard = qScopeGuard([this, previousPluginId]() {
+        LuaHost::clearInstructionLimit(L);
+        m_currentPluginId = previousPluginId;
+    });
     clearHookGlobals();
     injectPluginParams(L, info);
 
-    if (luaL_dofile(L, mainLua.toUtf8().constData())) {
+    const QByteArray chunkName = QFile::encodeName(QStringLiteral("@") + info.filePath);
+    LuaHost::installInstructionLimit(L);
+    int loadStatus = luaL_loadbuffer(L, script->constData(), static_cast<size_t>(script->size()), chunkName.constData());
+    if (loadStatus == LUA_OK)
+        loadStatus = lua_pcall(L, 0, 0, 0);
+    if (loadStatus != LUA_OK) {
         qCritical() << "[ModEngine] Plugin Error:" << lua_tostring(L, -1);
         lua_pop(L, 1);
         clearHookGlobals();
-        m_currentPluginId = previousPluginId;
-        return;
+        return false;
     }
-    capturePluginHooks(m.id);
+
+    capturePluginHooks(manifest.id);
     m_pluginInfos.append(info);
-    m_loadedPlugins.append(m);
-    m_currentPluginId = previousPluginId;
-    qInfo() << "[ModEngine] Loaded plugin:" << m.name << "v" << m.version << "(" << m.id << ")";
+    m_loadedPlugins.append(manifest);
+    qInfo() << "[ModEngine] Loaded plugin:" << manifest.name << "v" << manifest.version << "(" << manifest.id << ")";
+    return true;
 }
 
 PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
@@ -757,6 +769,14 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
         return manifest;
     }
 
+    QString readError;
+    const auto script = AviQtl::Core::Internal::readFileBounded(
+        manifestPath, AviQtl::Core::Internal::FileSizeLimit::PluginManifest, &readError);
+    if (!script.has_value()) {
+        qWarning().noquote() << QStringLiteral("[ModEngine] Failed to read manifest:") << manifestPath << readError;
+        return manifest;
+    }
+
     // Always use an isolated Lua state for manifest parsing to prevent
     // manifest.lua from calling registered AviQtl APIs or accessing main state
     lua_State *ls = luaL_newstate();
@@ -764,8 +784,14 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
         return manifest;
     }
 
-    // Load and execute manifest.lua to get the manifest table
-    if (luaL_dofile(ls, manifestPath.toUtf8().constData()) != LUA_OK) {
+    LuaHost::setupSafeLuaState(ls);
+    LuaHost::installInstructionLimit(ls);
+    const QByteArray chunkName = QFile::encodeName(QStringLiteral("@") + manifestPath);
+    int loadStatus = luaL_loadbuffer(ls, script->constData(), static_cast<size_t>(script->size()), chunkName.constData());
+    if (loadStatus == LUA_OK)
+        loadStatus = lua_pcall(ls, 0, 1, 0);
+    LuaHost::clearInstructionLimit(ls);
+    if (loadStatus != LUA_OK) {
         qWarning() << "[ModEngine] Failed to load manifest:" << lua_tostring(ls, -1);
         lua_pop(ls, 1);
         lua_close(ls);
@@ -783,7 +809,7 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
     // Extract fields
     auto getString = [&](const char *key) -> QString {
         lua_getfield(ls, -1, key);
-        const char *val = lua_tostring(ls, -1);
+        const char *val = lua_type(ls, -1) == LUA_TSTRING ? lua_tostring(ls, -1) : nullptr;
         QString result = val ? QString::fromUtf8(val) : QString();
         lua_pop(ls, 1);
         return result;
@@ -982,7 +1008,10 @@ void ModEngine::callHooks(const char *hookName, const QString *argument) {
 
         const QString previousPluginId = m_currentPluginId;
         m_currentPluginId = runtime.pluginId;
-        if (lua_pcall(L, argumentCount, 0, 0) != 0) {
+        LuaHost::installInstructionLimit(L);
+        const int hookStatus = lua_pcall(L, argumentCount, 0, 0);
+        LuaHost::clearInstructionLimit(L);
+        if (hookStatus != LUA_OK) {
             qCritical() << "[ModEngine] Hook" << hookName << "for plugin" << (runtime.pluginId.isEmpty() ? QStringLiteral("<legacy>") : runtime.pluginId) << "failed:" << lua_tostring(L, -1);
             lua_pop(L, 1);
         }
@@ -991,20 +1020,12 @@ void ModEngine::callHooks(const char *hookName, const QString *argument) {
 }
 
 ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {
-    QFile file(scriptPath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    const auto script = AviQtl::Core::Internal::readFileBounded(
+        scriptPath, AviQtl::Core::Internal::FileSizeLimit::PluginScript);
+    if (!script.has_value()) {
         return ScriptMetadata();
     }
-
-    // Read first 100 lines for header parsing
-    QTextStream in(&file);
-    QStringList lines;
-    for (int i = 0; i < 100 && !in.atEnd(); ++i) {
-        lines.append(in.readLine());
-    }
-    file.close();
-
-    return ScriptParamParser::parseHeader(lines);
+    return ScriptParamParser::parse(QString::fromUtf8(*script));
 }
 
 QVariantMap ModEngine::getPluginParams(const QString &pluginId) const {

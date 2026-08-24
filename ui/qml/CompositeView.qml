@@ -17,6 +17,9 @@ Item {
     readonly property int hiddenZ: -9999
     property var _componentCache: ({
     })
+    property var _upperClipMasks: ({
+    })
+    property bool _upperClipMaskRebuildPending: false
     property bool exportMode: false
     property alias view3D: view
     property var groupControls: []
@@ -78,6 +81,85 @@ Item {
         var state = layerStates[layer];
         return state !== undefined ? state.visible : true;
     }
+
+    function _clipMaskKey(clipId, clipSceneId) {
+        return String(clipSceneId) + ":" + String(clipId);
+    }
+
+    function _isClipActive(node) {
+        if (!node || node.clipStartFrameRole === undefined || node.clipDurationFramesRole === undefined)
+            return false;
+
+        const start = Number(node.clipStartFrameRole);
+        const duration = Number(node.clipDurationFramesRole);
+        return currentFrame >= start && currentFrame < start + duration;
+    }
+
+    function upperClipMask(clipId, clipSceneId) {
+        return _upperClipMasks[_clipMaskKey(clipId, clipSceneId)] ?? null;
+    }
+
+    function scheduleUpperClipMaskRebuild() {
+        if (_upperClipMaskRebuildPending)
+            return;
+
+        _upperClipMaskRebuildPending = true;
+        Qt.callLater(rebuildUpperClipMasks);
+    }
+
+    function rebuildUpperClipMasks() {
+        _upperClipMaskRebuildPending = false;
+        const masks = {};
+        const nodesByScene = {};
+        const nodes = sceneRoot ? sceneRoot.children : [];
+        for (let i = 0; i < nodes.length; ++i) {
+            const node = nodes[i];
+            if (!node || node.clipLayerRole === undefined || node.clipSceneIdRole === undefined)
+                continue;
+
+            const sceneKey = String(node.clipSceneIdRole);
+            if (!nodesByScene[sceneKey])
+                nodesByScene[sceneKey] = [];
+            nodesByScene[sceneKey].push(node);
+        }
+
+        for (const sceneKey in nodesByScene) {
+            const sceneNodes = nodesByScene[sceneKey];
+            sceneNodes.sort(function(a, b) {
+                return a.clipLayerRole - b.clipLayerRole;
+            });
+            let lowerLayerMask = null;
+            for (let start = 0; start < sceneNodes.length; ) {
+                const layer = sceneNodes[start].clipLayerRole;
+                let end = start + 1;
+                while (end < sceneNodes.length && sceneNodes[end].clipLayerRole === layer)
+                    ++end;
+
+                for (let i = start; i < end; ++i) {
+                    const node = sceneNodes[i];
+                    if (node.clipByUpperObjectRole && layer > 0)
+                        masks[_clipMaskKey(node.clipIdRole, node.clipSceneIdRole)] = lowerLayerMask;
+                }
+
+                for (let i = start; i < end; ++i) {
+                    const node = sceneNodes[i];
+                    if (node.visible && _isClipActive(node) && node.rawFbRendererOutput) {
+                        lowerLayerMask = node.rawFbRendererOutput;
+                        break;
+                    }
+                }
+                start = end;
+            }
+        }
+
+        _upperClipMasks = masks;
+    }
+
+    onCurrentFrameChanged: scheduleUpperClipMaskRebuild()
+    onSceneIdChanged: scheduleUpperClipMaskRebuild()
+    onLayerStatesChanged: scheduleUpperClipMaskRebuild()
+    onChildRendererOutputsChanged: scheduleUpperClipMaskRebuild()
+    Component.onCompleted: scheduleUpperClipMaskRebuild()
 
     // [FIX-14] push() による直接変異を廃止し、新配列への代入でバインディングを
     // 確実に更新する。push/splice はリアクティブバインディングに通知されない
@@ -225,9 +307,11 @@ Item {
             model: root.clipModel
             onObjectAdded: (index, object) => {
                 object.parent = sceneRoot;
+                root.scheduleUpperClipMaskRebuild();
             }
             onObjectRemoved: (index, object) => {
                 object.parent = null;
+                root.scheduleUpperClipMaskRebuild();
             }
 
             delegate: Node {
@@ -253,7 +337,9 @@ Item {
                 property Item rawFbRendererOutput: null
                 readonly property bool clipByUpperActive: clipByUpperObjectRole && clipMaskItem && rawFbRendererOutput
                 readonly property Item clippedRendererOutput: clipByUpperLoader.item ? clipByUpperLoader.item.output : null
-                property Item clipMaskItem: null
+                readonly property Item clipMaskItem: {
+                    return root.upperClipMask(clipIdRole, clipSceneIdRole);
+                }
                 readonly property var evaluatedParams: {
                     var ecsState = root.ecsRenderData[clipIdRole];
                     if (ecsState) {
@@ -368,56 +454,16 @@ Item {
                     };
                 }
 
-                function isClipActiveAtCurrentFrame(node) {
-                    if (!node || node.clipStartFrameRole === undefined || node.clipDurationFramesRole === undefined)
-                        return false;
-
-                    var start = Number(node.clipStartFrameRole);
-                    var duration = Number(node.clipDurationFramesRole);
-                    return root.currentFrame >= start && root.currentFrame < start + duration;
-                }
-
-                function findUpperClipMask() {
-                    if (!clipByUpperObjectRole || clipLayerRole <= 0 || !sceneRoot)
-                        return null;
-
-                    var bestLayer = -1, bestMask = null;
-                    var nodes = sceneRoot.children;
-                    for (var i = 0; i < nodes.length; ++i) {
-                        var node = nodes[i];
-                        if (!node || node === clipNode)
-                            continue;
-
-                        if (node.clipLayerRole === undefined || node.clipLayerRole >= clipLayerRole || node.clipLayerRole <= bestLayer)
-                            continue;
-
-                        if (node.clipSceneIdRole !== clipSceneIdRole)
-                            continue;
-
-                        if (!node.visible || !isClipActiveAtCurrentFrame(node) || !node.rawFbRendererOutput)
-                            continue;
-
-                        bestLayer = node.clipLayerRole;
-                        bestMask = node.rawFbRendererOutput;
-                    }
-                    return bestMask;
-                }
-
-                function updateClipMaskItem() {
-                    clipMaskItem = findUpperClipMask();
-                }
-
-                Component.onCompleted: Qt.callLater(updateClipMaskItem)
-                onClipStartFrameRoleChanged: Qt.callLater(updateClipMaskItem)
-                onClipDurationFramesRoleChanged: Qt.callLater(updateClipMaskItem)
-                onClipByUpperObjectRoleChanged: Qt.callLater(updateClipMaskItem)
-                onClipLayerRoleChanged: Qt.callLater(updateClipMaskItem)
-                onClipSceneIdRoleChanged: Qt.callLater(updateClipMaskItem)
+                Component.onCompleted: root.scheduleUpperClipMaskRebuild()
+                onClipStartFrameRoleChanged: root.scheduleUpperClipMaskRebuild()
+                onClipDurationFramesRoleChanged: root.scheduleUpperClipMaskRebuild()
+                onClipByUpperObjectRoleChanged: root.scheduleUpperClipMaskRebuild()
+                onClipLayerRoleChanged: root.scheduleUpperClipMaskRebuild()
+                onClipSceneIdRoleChanged: root.scheduleUpperClipMaskRebuild()
                 onVisibleChanged: {
                     root.childRendererOutputsChanged();
-                    Qt.callLater(updateClipMaskItem);
                 }
-                onRawFbRendererOutputChanged: Qt.callLater(updateClipMaskItem)
+                onRawFbRendererOutputChanged: root.childRendererOutputsChanged()
                 onFbRendererOutputChanged: root.childRendererOutputsChanged()
                 visible: {
                     var states = root.layerStates;
@@ -450,18 +496,6 @@ Item {
                 onAspectYChanged: objectContainer._syncTransformToItem()
                 onPOpacityChanged: objectContainer._syncTransformToItem()
                 onEffectiveTransformChanged: objectContainer._syncTransformToItem()
-
-                Connections {
-                    function onCurrentFrameChanged() {
-                        Qt.callLater(clipNode.updateClipMaskItem);
-                    }
-
-                    function onChildRendererOutputsChanged() {
-                        Qt.callLater(clipNode.updateClipMaskItem);
-                    }
-
-                    target: root
-                }
 
                 Binding {
                     target: clipNode

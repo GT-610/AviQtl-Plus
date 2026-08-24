@@ -24,7 +24,7 @@ class TestTripleBuffer : public QObject {
         e.syncClipIds(alive);
         e.commit();
 
-        const auto *snap = e.getSnapshot();
+        const auto snap = e.getSnapshot();
         QVERIFY(snap != nullptr);
         QVERIFY(snap->renderStates.contains(1));
         QVERIFY(snap->audioStates.contains(1));
@@ -61,7 +61,7 @@ class TestTripleBuffer : public QObject {
         e.syncClipIds(alive2);
         e.commit();
 
-        const auto *snap = e.getSnapshot();
+        const auto snap = e.getSnapshot();
         QVERIFY(snap != nullptr);
         QVERIFY(!snap->renderStates.contains(1));
         QVERIFY(snap->renderStates.contains(2));
@@ -81,7 +81,7 @@ class TestTripleBuffer : public QObject {
 
         e.commit();
 
-        const auto *snap = e.getSnapshot();
+        const auto snap = e.getSnapshot();
         QVERIFY(snap != nullptr);
         QCOMPARE(static_cast<int>(snap->effectParams.entries.size()), 1);
         QCOMPARE(snap->effectParams.entries[0].clipId, static_cast<uint32_t>(1));
@@ -110,7 +110,7 @@ class TestTripleBuffer : public QObject {
         e.syncClipIds(alive);
         e.commit();
 
-        const auto *snap = e.getSnapshot();
+        const auto snap = e.getSnapshot();
         auto *r = snap->renderStates.find(1);
         QVERIFY(r != nullptr);
         QCOMPARE(r->x, 100.0f);
@@ -129,9 +129,32 @@ class TestTripleBuffer : public QObject {
         e.syncClipIds(alive);
         e.commit();
 
-        const auto *snap1 = e.getSnapshot();
-        const auto *snap2 = e.getSnapshot();
-        QCOMPARE(snap1, snap2);
+        const auto snap1 = e.getSnapshot();
+        const auto snap2 = e.getSnapshot();
+        QCOMPARE(snap1.get(), snap2.get());
+    }
+
+    void heldSnapshotRemainsStableAcrossCommits() {
+        auto &e = ECS::instance();
+        e.clearEffectParams();
+        e.updateClipState(1, 0, 0.0, 10, 100);
+        std::bitset<MAX_CLIP_ID> alive;
+        alive.set(1);
+        e.syncClipIds(alive);
+        e.commit();
+
+        const auto held = e.getSnapshot();
+        QCOMPARE(held->renderStates.find(1)->startFrame, 10);
+
+        for (int frame = 20; frame <= 50; frame += 10) {
+            e.clearEffectParams();
+            e.updateClipState(1, 0, 0.0, frame, 100);
+            e.syncClipIds(alive);
+            e.commit();
+            QCOMPARE(e.getSnapshot()->renderStates.find(1)->startFrame, frame);
+        }
+
+        QCOMPARE(held->renderStates.find(1)->startFrame, 10);
     }
 };
 

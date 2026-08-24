@@ -66,12 +66,14 @@ class ComputeRenderNode final : public QSGRenderNode {
 
     QString m_shaderPath;
     QString m_error;
+    QString m_shaderLoadError;
     float m_width = 0;
     float m_height = 0;
     QSGTexture *m_inputTexture = nullptr;
     QRhiTexture *m_inputRhiTexture = nullptr;
 
     bool m_shaderDirty = true;
+    bool m_shaderSourceDirty = true;
     bool m_bufferLayoutDirty = true;
     bool m_bindingsDirty = true;
     bool m_texturesDirty = true;

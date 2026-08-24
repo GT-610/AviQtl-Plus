@@ -10,6 +10,7 @@
 #include <QtConcurrent>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 extern "C" {
@@ -226,51 +227,45 @@ hwinitdone:
 
 bool VideoDecoder::getFrameFromGopCache(int frameIndex, QVideoFrame &outFrame) {
     std::lock_guard<std::mutex> locker(m_gopCacheMutex);
-    int hitIndex = -1;
-    for (int i = 0; i < m_gopCacheCount; ++i) {
-        if (frameIndex >= m_currentGopCache[i].startFrame && frameIndex <= m_currentGopCache[i].endFrame) {
-            if (m_currentGopCache[i].frames.contains(frameIndex)) {
-                hitIndex = i;
-                break;
-            }
-        }
-    }
-    if (hitIndex == -1)
+    auto hit = std::ranges::find_if(m_gopCache, [frameIndex](const GopCacheBlock &block) {
+        return frameIndex >= block.startFrame && frameIndex <= block.endFrame && block.frames.contains(frameIndex);
+    });
+    if (hit == m_gopCache.end()) {
         return false;
-
-    // MLT式ポインタシャッフルによるLRU更新
-    GopCacheBlock *alt = (m_currentGopCache == m_gopCacheA) ? m_gopCacheB : m_gopCacheA;
-    int j = 0;
-    for (int i = 0; i < m_gopCacheCount; ++i) {
-        if (i != hitIndex)
-            alt[j++] = std::move(m_currentGopCache[i]);
     }
-    alt[j++] = std::move(m_currentGopCache[hitIndex]);
-    outFrame = alt[j - 1].frames.value(frameIndex);
-    m_currentGopCache = alt;
-    m_gopCacheCount = j;
+
+    outFrame = hit->frames.value(frameIndex);
+    if (std::next(hit) != m_gopCache.end()) {
+        GopCacheBlock block = std::move(*hit);
+        m_gopCache.erase(hit);
+        m_gopCache.push_back(std::move(block));
+    }
     return true;
 }
 
 void VideoDecoder::storeGopCacheBlock(GopCacheBlock block) {
-    if (block.frames.isEmpty()) {
+    if (block.frames.isEmpty() || block.cost <= 0) {
         return;
     }
 
     std::lock_guard<std::mutex> locker(m_gopCacheMutex);
-    GopCacheBlock *alt = (m_currentGopCache == m_gopCacheA) ? m_gopCacheB : m_gopCacheA;
-    const int sourceStart = m_gopCacheCount == MAX_GOP_CACHE_SIZE ? 1 : 0;
-    if (sourceStart != 0) {
+    if (block.cost > m_gopCacheMaxCost) {
+        qDebug() << "[VideoDecoder] GOP cache block exceeds budget; not cached"
+                 << "cost" << block.cost << "budget" << m_gopCacheMaxCost
+                 << "frames" << block.startFrame << "-" << block.endFrame;
+        return;
+    }
+
+    while (!m_gopCache.empty() && m_gopCacheCost > m_gopCacheMaxCost - block.cost) {
+        m_gopCacheCost -= m_gopCache.front().cost;
+        m_gopCache.erase(m_gopCache.begin());
         m_gopCacheEvictions.fetch_add(1, std::memory_order_relaxed);
     }
 
-    int nextCount = 0;
-    for (int i = sourceStart; i < m_gopCacheCount; ++i) {
-        alt[nextCount++] = std::move(m_currentGopCache[i]);
+    if (m_gopCacheCost <= m_gopCacheMaxCost - block.cost) {
+        m_gopCacheCost += block.cost;
+        m_gopCache.push_back(std::move(block));
     }
-    alt[nextCount++] = std::move(block);
-    m_currentGopCache = alt;
-    m_gopCacheCount = nextCount;
 }
 
 int VideoDecoder::findGopEndIndex(int startFrame) const {
@@ -689,6 +684,10 @@ void VideoDecoder::decodeTask(int targetFrame, double fps, quint64 generation) {
 
                         m_frameCache.insert(decodedFrameIndex, cachedFrame, static_cast<int>(std::clamp<int64_t>(storageCost, 0, INT_MAX)));
                         newGopBlock.frames.insert(decodedFrameIndex, videoFrame);
+                        const auto frameCost = static_cast<qsizetype>(std::clamp<int64_t>(storageCost, 0, static_cast<int64_t>(std::numeric_limits<qsizetype>::max())));
+                        newGopBlock.cost = frameCost > std::numeric_limits<qsizetype>::max() - newGopBlock.cost
+                                                     ? std::numeric_limits<qsizetype>::max()
+                                                     : newGopBlock.cost + frameCost;
 
                         // 最後に成功したフレームを更新 (Concealment 用)
                         m_lastGoodFrame = videoFrame;
@@ -750,8 +749,18 @@ void VideoDecoder::updateCacheSize() {
     int sizeMB = SettingsManager::instance().settings().value(QStringLiteral("cacheSize"), 512).toInt();
     int minSizeMB = SettingsManager::instance().value(QStringLiteral("videoDecoderMinCacheMB"), 64).toInt();
     sizeMB = std::max(sizeMB, minSizeMB);
+    const qsizetype totalBytes = static_cast<qsizetype>(sizeMB) * 1024 * 1024;
+    const qsizetype gopBytes = totalBytes / 4;
     QMutexLocker locker(&m_mutex);
-    m_frameCache.setMaxCost(static_cast<qsizetype>(sizeMB) * 1024 * 1024);
+    m_frameCache.setMaxCost(totalBytes - gopBytes);
+
+    std::lock_guard<std::mutex> gopLocker(m_gopCacheMutex);
+    m_gopCacheMaxCost = gopBytes;
+    while (!m_gopCache.empty() && m_gopCacheCost > m_gopCacheMaxCost) {
+        m_gopCacheCost -= m_gopCache.front().cost;
+        m_gopCache.erase(m_gopCache.begin());
+        m_gopCacheEvictions.fetch_add(1, std::memory_order_relaxed);
+    }
 }
 
 auto VideoDecoder::cacheStats() const -> CacheStats {
@@ -763,7 +772,9 @@ auto VideoDecoder::cacheStats() const -> CacheStats {
         .misses = m_cacheMisses.load(std::memory_order_relaxed),
         .decodedFrames = m_decodedFrames.load(std::memory_order_relaxed),
         .gopEvictions = m_gopCacheEvictions.load(std::memory_order_relaxed),
-        .gopBlocks = m_gopCacheCount,
+        .gopBlocks = static_cast<int>(m_gopCache.size()),
+        .gopCost = m_gopCacheCost,
+        .gopMaxCost = m_gopCacheMaxCost,
         .frameEntries = m_frameCache.size(),
         .frameCost = m_frameCache.totalCost(),
         .frameMaxCost = m_frameCache.maxCost(),

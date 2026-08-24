@@ -1,4 +1,5 @@
 #include "package_manager.hpp"
+#include "bounded_file.hpp"
 #include "core/src/package_deployment.hpp"
 #include "core/src/package_url_utils.hpp"
 #include "effect_registry.hpp"
@@ -113,6 +114,7 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
     const QString removablePackageId = QStringLiteral("org.aviqtl.test.registry_removal");
     const QString installedModPackageId = QStringLiteral("org.aviqtl.test.installed_file_mod");
     const QString effectId = QStringLiteral("org.aviqtl.test.removed_effect");
+    const QString oversizedPackageId = QStringLiteral("org.aviqtl.test.oversized_catalog");
     const QString effectDeployDir = PackageDeployment::deployDirectory(QStringLiteral("effect"));
     const QString packageDir = QDir(effectDeployDir).filePath(removablePackageId);
     const QString pluginsDir = PackageDeployment::deployDirectory(QStringLiteral("mod"));
@@ -186,6 +188,21 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
     }).toJson());
     catalogFile.close();
 
+    QByteArray oversizedCatalog = QJsonDocument(QJsonObject{
+        {QStringLiteral("packages"), QJsonArray{QJsonObject{
+             {QStringLiteral("id"), oversizedPackageId},
+             {QStringLiteral("type"), QStringLiteral("mod")},
+             {QStringLiteral("version"), QStringLiteral("1.0.0")},
+         }}},
+    }).toJson();
+    oversizedCatalog.append(QByteArray(AviQtl::Core::Internal::FileSizeLimit::RepositoryMetadata -
+                                           oversizedCatalog.size() + 1,
+                                       ' '));
+    QFile oversizedCatalogFile(repoDirectory.filePath(QStringLiteral("catalog_oversized.json")));
+    QVERIFY(oversizedCatalogFile.open(QIODevice::WriteOnly));
+    QCOMPARE(oversizedCatalogFile.write(oversizedCatalog), qint64(oversizedCatalog.size()));
+    oversizedCatalogFile.close();
+
     // This is intentionally the first test: construction schedules the cached
     // catalog load, so wait for its packageListChanged signal before inspecting it.
     PackageManager &manager = PackageManager::instance();
@@ -199,6 +216,7 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
     };
     QVERIFY(containsPackage(removablePackageId));
     QVERIFY(!containsPackage(invalidPackageId));
+    QVERIFY(!containsPackage(oversizedPackageId));
     QVERIFY(manager.hasUpdatesAvailable());
 
     QSignalSpy errorSpy(&manager, &PackageManager::errorOccurred);
@@ -233,6 +251,23 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
 #ifdef Q_OS_UNIX
     QVERIFY(!hasInstalledEntry(QStringLiteral("file:installed_file_mod.lua")));
 #endif
+
+    QByteArray oversizedInstalled = QJsonDocument(installed).toJson();
+    oversizedInstalled.append(QByteArray(AviQtl::Core::Internal::FileSizeLimit::InstalledPackageState -
+                                             oversizedInstalled.size() + 1,
+                                         ' '));
+    QVERIFY(installedFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    QCOMPARE(installedFile.write(oversizedInstalled), qint64(oversizedInstalled.size()));
+    installedFile.close();
+#ifdef Q_OS_UNIX
+    const QVariantList packagesWithRejectedInstalledState = manager.getPackagesByType(QStringLiteral("installed"));
+    QVERIFY(std::any_of(packagesWithRejectedInstalledState.cbegin(), packagesWithRejectedInstalledState.cend(), [](const QVariant &entry) {
+        return entry.toMap().value(QStringLiteral("id")).toString() == QStringLiteral("file:installed_file_mod.lua");
+    }));
+#endif
+    QVERIFY(installedFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    installedFile.write(QJsonDocument(installed).toJson());
+    installedFile.close();
 
     QVERIFY(QDir().mkpath(packageDir));
     QFile qmlFile(QDir(packageDir).filePath(QStringLiteral("RemovedEffect.qml")));

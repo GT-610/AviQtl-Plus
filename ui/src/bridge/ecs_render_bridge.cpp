@@ -79,7 +79,7 @@ bool ECSRenderBridge::syncSnapshot() const {
     metrics.add(AviQtl::Core::PerformanceCounter::EcsBridgeSyncs);
     AviQtl::Core::ScopedPerformanceTimer timer(AviQtl::Core::PerformanceCounter::EcsBridgeNanoseconds);
 
-    const auto *snapshot = AviQtl::Engine::Timeline::ECS::instance().getSnapshot();
+    const auto snapshot = AviQtl::Engine::Timeline::ECS::instance().getSnapshot();
     if (!snapshot)
         return false;
 

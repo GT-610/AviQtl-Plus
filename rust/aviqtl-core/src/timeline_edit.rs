@@ -883,59 +883,6 @@ pub unsafe extern "C" fn aviqtl_timeline_clipboard_duration(
     STATUS_OK
 }
 
-/// Finds a collision-free frame for a multi-clip clipboard layout.
-///
-/// # Safety
-///
-/// Both inputs must be readable and the output writable and disjoint.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aviqtl_timeline_find_vacant_clipboard_frame(
-    existing: *const AviQtlTimelineClipGeometry,
-    existing_length: usize,
-    clipboard: *const AviQtlTimelineClipGeometry,
-    clipboard_length: usize,
-    requested_frame: i32,
-    layer_offset: i32,
-    output_frame: *mut i32,
-) -> u32 {
-    if !slice_is_valid(existing, existing_length)
-        || !slice_is_valid(clipboard, clipboard_length)
-        || !slice_is_valid(output_frame, 1)
-    {
-        return STATUS_INVALID_ARGUMENT;
-    }
-    let overlaps = [
-        slices_overlap(existing, existing_length, output_frame, 1),
-        slices_overlap(clipboard, clipboard_length, output_frame, 1),
-    ];
-    if overlaps.iter().any(|result| result.is_err()) {
-        return STATUS_INVALID_ARGUMENT;
-    }
-    if overlaps.into_iter().flatten().any(|overlap| overlap) {
-        return STATUS_OVERLAPPING_BUFFERS;
-    }
-    let existing = if existing_length == 0 {
-        &[]
-    } else {
-        // SAFETY: The range was validated and checked against the output.
-        unsafe { std::slice::from_raw_parts(existing, existing_length) }
-    };
-    let clipboard = if clipboard_length == 0 {
-        &[]
-    } else {
-        // SAFETY: The range was validated and checked against the output.
-        unsafe { std::slice::from_raw_parts(clipboard, clipboard_length) }
-    };
-    let result =
-        match find_vacant_clipboard_frame(existing, clipboard, requested_frame, layer_offset) {
-            Ok(result) => result,
-            Err(status) => return status,
-        };
-    // SAFETY: The output was validated and checked against both inputs.
-    unsafe { output_frame.write(result) };
-    STATUS_OK
-}
-
 /// Plans the final geometry for a clipboard paste operation.
 ///
 /// # Safety

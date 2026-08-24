@@ -56,6 +56,8 @@ class TestProjectRecovery : public QObject {
     void staleOrphanedSnapshotsAreRemoved();
     void timerBackupCompletesAsynchronously();
     void timerBackupQueuesLatestSnapshot();
+    void queuedWriteUsesLatestGeneration();
+    void removalInvalidatesQueuedWrite();
 
   private:
     void markDirty(TimelineController &controller);
@@ -463,6 +465,80 @@ void TestProjectRecovery::timerBackupQueuesLatestSnapshot() {
     TimelineController recovered;
     QVERIFY(recovered.loadRecovery(entry.snapshotPath, entry.id, entry.originalProjectUrl));
     QCOMPARE(recovered.project()->width(), 2222);
+}
+
+void TestProjectRecovery::queuedWriteUsesLatestGeneration() {
+    QThreadPool *threadPool = QThreadPool::globalInstance();
+    const int originalMaxThreadCount = threadPool->maxThreadCount();
+    threadPool->setMaxThreadCount(1);
+
+    QSemaphore blockerStarted;
+    QSemaphore releaseBlocker;
+    QFuture<void> blockerFuture = QtConcurrent::run(threadPool, [&]() {
+        blockerStarted.release();
+        releaseBlocker.acquire();
+    });
+    const auto restoreThreadPool = qScopeGuard([&]() {
+        releaseBlocker.release();
+        blockerFuture.waitForFinished();
+        threadPool->setMaxThreadCount(originalMaxThreadCount);
+    });
+    QVERIFY(blockerStarted.tryAcquire(1, 5000));
+
+    TimelineController controller;
+    markDirty(controller);
+    controller.project()->setWidth(1111);
+    QFuture<ProjectRecoveryWriteResult> first = ProjectRecoveryManager::writeAsync(
+        controller.recoveryId(), QString(), QStringLiteral("First"), controller.timeline(), controller.project());
+    controller.project()->setWidth(2222);
+    QFuture<ProjectRecoveryWriteResult> second = ProjectRecoveryManager::writeAsync(
+        controller.recoveryId(), QString(), QStringLiteral("Second"), controller.timeline(), controller.project());
+
+    releaseBlocker.release();
+    first.waitForFinished();
+    second.waitForFinished();
+    QVERIFY(first.result().success);
+    QVERIFY(second.result().success);
+
+    const ProjectRecoveryEntry entry = recoveryEntryFor(controller);
+    QVERIFY(entry.valid);
+    QCOMPARE(entry.displayName, QStringLiteral("Second"));
+    QCOMPARE(QDir(m_recoveryRoot).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).size(), 1);
+
+    TimelineController recovered;
+    QVERIFY(recovered.loadRecovery(entry.snapshotPath, entry.id, entry.originalProjectUrl));
+    QCOMPARE(recovered.project()->width(), 2222);
+}
+
+void TestProjectRecovery::removalInvalidatesQueuedWrite() {
+    QThreadPool *threadPool = QThreadPool::globalInstance();
+    const int originalMaxThreadCount = threadPool->maxThreadCount();
+    threadPool->setMaxThreadCount(1);
+
+    QSemaphore blockerStarted;
+    QSemaphore releaseBlocker;
+    QFuture<void> blockerFuture = QtConcurrent::run(threadPool, [&]() {
+        blockerStarted.release();
+        releaseBlocker.acquire();
+    });
+    const auto restoreThreadPool = qScopeGuard([&]() {
+        releaseBlocker.release();
+        blockerFuture.waitForFinished();
+        threadPool->setMaxThreadCount(originalMaxThreadCount);
+    });
+    QVERIFY(blockerStarted.tryAcquire(1, 5000));
+
+    TimelineController controller;
+    markDirty(controller);
+    QFuture<ProjectRecoveryWriteResult> pending = ProjectRecoveryManager::writeAsync(
+        controller.recoveryId(), QString(), QStringLiteral("Discarded"), controller.timeline(), controller.project());
+    QVERIFY(ProjectRecoveryManager::remove(controller.recoveryId()));
+
+    releaseBlocker.release();
+    pending.waitForFinished();
+    QVERIFY(pending.result().success);
+    QVERIFY(ProjectRecoveryManager::entries().isEmpty());
+    QVERIFY(QDir(m_recoveryRoot).entryList({QStringLiteral("*.aviqtl")}, QDir::Files).isEmpty());
 }
 
 QTEST_MAIN(TestProjectRecovery)

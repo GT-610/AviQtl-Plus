@@ -8,6 +8,8 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <span>
+#include <utility>
 #include <vector>
 
 Q_DECLARE_LOGGING_CATEGORY(lcAudioDecoder)
@@ -32,7 +34,12 @@ class AudioDecoder : public MediaDecoder {
     void setPlaying(bool playing) override;
 
     int getSamplesInto(double startTime, int count, float *out) override;
+    struct PeakRange {
+        double startSec = 0.0;
+        double durationSec = 0.0;
+    };
     std::vector<float> getPeaks(double startSec, double durationSec, int pixelWidth);
+    std::vector<float> getPeaks(std::span<const PeakRange> ranges);
     double totalDurationSec() const;
 
     struct CacheStats {
@@ -50,6 +57,9 @@ class AudioDecoder : public MediaDecoder {
     };
     CacheStats cacheStats() const;
 
+  signals:
+    void waveformReady();
+
   protected:
     void startDecoding() override;
 
@@ -62,7 +72,7 @@ class AudioDecoder : public MediaDecoder {
     // Chunk-based streaming decode
     struct AudioChunk {
         int64_t index = 0;
-        std::vector<float> data; // interleaved stereo float32
+        std::shared_ptr<const std::vector<float>> data; // interleaved stereo float32
         bool fullyDecoded = false;
     };
 
@@ -123,8 +133,6 @@ class AudioDecoder : public MediaDecoder {
     // Separate mutex for FFmpeg seek/decode operations
     QMutex m_ffmpegMutex;
 
-    // Seek state
-    std::atomic<qint64> m_seekTargetMs{-1};
 };
 
 } // namespace AviQtl::Core

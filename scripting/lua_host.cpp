@@ -1,12 +1,20 @@
 #include "lua_host.hpp"
 #include <QDebug>
 #include <QLoggingCategory>
+#include <algorithm>
 #include <lua.hpp> // Standard Lua/LuaJIT header
 #include <unordered_map>
 
 Q_LOGGING_CATEGORY(lcScripting, "aviqtl.scripting")
 
 namespace AviQtl::Scripting {
+namespace {
+
+void instructionLimitHook(lua_State *state, lua_Debug *) {
+    luaL_error(state, "Lua execution budget exceeded");
+}
+
+} // namespace
 
 auto LuaHost::instance() -> LuaHost & {
     static LuaHost inst;
@@ -16,6 +24,12 @@ auto LuaHost::instance() -> LuaHost & {
 LuaHost::LuaHost() = default;
 
 LuaHost::~LuaHost() = default;
+
+void LuaHost::installInstructionLimit(lua_State *state, int instructionBudget) {
+    lua_sethook(state, instructionLimitHook, LUA_MASKCOUNT, std::max(instructionBudget, 1));
+}
+
+void LuaHost::clearInstructionLimit(lua_State *state) { lua_sethook(state, nullptr, 0, 0); }
 
 void LuaHost::setupSafeLuaState(lua_State *L) {
     if (L == nullptr) return;
@@ -142,7 +156,9 @@ auto LuaHost::evaluate(const std::string &expression, double time, int index, do
     }
 
     lua_rawgeti(threadL, LUA_REGISTRYINDEX, ref);
+    installInstructionLimit(threadL);
     int ret = lua_pcall(threadL, 0, 1, 0);
+    clearInstructionLimit(threadL);
 
     if (ret != LUA_OK) {
         const char *errMsg = lua_tostring(threadL, -1);

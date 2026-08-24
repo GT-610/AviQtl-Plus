@@ -17,6 +17,8 @@ class LuaHost {
 
     // Shared Lua state setup: safe libraries + dangerous function removal
     static void setupSafeLuaState(lua_State *L);
+    static void installInstructionLimit(lua_State *L, int instructionBudget = 1000000);
+    static void clearInstructionLimit(lua_State *L);
 
   private:
     LuaHost();
