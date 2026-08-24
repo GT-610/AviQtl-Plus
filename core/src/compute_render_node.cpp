@@ -1,4 +1,5 @@
 #include "compute_render_node.hpp"
+#include "bounded_file.hpp"
 #include "performance_metrics.hpp"
 #include <QColor>
 #include <QCoreApplication>
@@ -200,15 +201,20 @@ bool ComputeRenderNode::ensureBuffers(QRhi *rhi) {
         m_shaderLoadError.clear();
         if (!m_shaderPath.isEmpty()) {
             QFile f(m_shaderPath);
-            if (f.open(QIODevice::ReadOnly)) {
-                QShader nextShader = QShader::fromSerialized(f.readAll());
+            QString readError;
+            const auto shaderData = AviQtl::Core::Internal::readFileBounded(
+                f, AviQtl::Core::Internal::FileSizeLimit::ComputeShader,
+                &readError);
+            if (shaderData.has_value()) {
+                QShader nextShader = QShader::fromSerialized(*shaderData);
                 if (nextShader.isValid()) {
                     m_shader = nextShader;
                 } else {
                     m_shaderLoadError = QStringLiteral("Compute shader file is invalid: %1").arg(m_shaderPath);
                 }
             } else {
-                m_shaderLoadError = QStringLiteral("Compute shader file cannot be opened: %1").arg(m_shaderPath);
+                m_shaderLoadError = QStringLiteral("Compute shader file cannot be read: %1: %2")
+                                        .arg(m_shaderPath, readError);
             }
         }
         if (!m_shaderLoadError.isEmpty())

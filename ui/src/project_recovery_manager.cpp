@@ -44,6 +44,7 @@ quint64 nextRecoveryGeneration() {
 }
 
 quint64 registerRecoveryWrite(const QString &id) {
+    QMutexLocker mutationLocker(&recoveryMutationMutex());
     QMutexLocker locker(&recoveryGenerationMutex());
     const quint64 generation = nextRecoveryGeneration();
     recoveryGenerations().insert(id, generation);
@@ -87,6 +88,79 @@ bool setError(QString *errorMessage, const QString &message) {
     if (errorMessage != nullptr)
         *errorMessage = message;
     return false;
+}
+
+bool removeRecoveryLocked(const QString &id) {
+    if (!isValidRecoveryId(id))
+        return false;
+
+    QMutexLocker generationLocker(&recoveryGenerationMutex());
+    recoveryGenerations().remove(id);
+
+    bool snapshotsRemoved = true;
+    const QDir root(ProjectRecoveryManager::recoveryRoot());
+    const QFileInfoList snapshots = root.entryInfoList({id + QStringLiteral("*.aviqtl")}, QDir::Files);
+    for (const QFileInfo &snapshot : snapshots) {
+        if (isValidSnapshotFileName(id, snapshot.fileName()))
+            snapshotsRemoved = QFile::remove(snapshot.filePath()) && snapshotsRemoved;
+    }
+    const bool metadataRemoved = !QFileInfo::exists(metadataPath(id)) ||
+                                 (snapshotsRemoved && QFile::remove(metadataPath(id)));
+    return metadataRemoved && snapshotsRemoved;
+}
+
+QList<ProjectRecoveryEntry> recoveryEntriesLocked() {
+    QList<ProjectRecoveryEntry> result;
+    const QDir root(ProjectRecoveryManager::recoveryRoot());
+    const QFileInfoList files = root.entryInfoList({QStringLiteral("*.json")}, QDir::Files, QDir::Time);
+    for (const QFileInfo &info : files) {
+        ProjectRecoveryEntry entry;
+        entry.id = info.completeBaseName();
+
+        if (!isValidRecoveryId(entry.id)) {
+            entry.error = QStringLiteral("Recovery identifier is invalid");
+            result.append(entry);
+            continue;
+        }
+        if (info.isSymLink()) {
+            entry.error = QStringLiteral("Recovery metadata must not be a symbolic link");
+            result.append(entry);
+            continue;
+        }
+
+        QFile file(info.filePath());
+        QJsonParseError parseError;
+        if (!file.open(QIODevice::ReadOnly)) {
+            entry.error = file.errorString();
+        } else {
+            const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
+            if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+                entry.error = parseError.error != QJsonParseError::NoError ? parseError.errorString() : QStringLiteral("Recovery metadata must be a JSON object");
+            } else {
+                const QJsonObject metadata = document.object();
+                entry.originalProjectUrl = metadata.value(QStringLiteral("originalProjectUrl")).toString();
+                entry.displayName = metadata.value(QStringLiteral("displayName")).toString();
+                entry.savedAt = QDateTime::fromString(metadata.value(QStringLiteral("savedAt")).toString(), Qt::ISODateWithMs);
+                const QString snapshotFile = snapshotFileNameFromMetadata(entry.id, metadata);
+                entry.snapshotPath = snapshotFile.isEmpty() ? QString() : snapshotPath(snapshotFile);
+                if (metadata.value(QStringLiteral("id")).toString() != entry.id) {
+                    entry.error = QStringLiteral("Recovery identifier does not match its file name");
+                } else if (snapshotFile.isEmpty()) {
+                    entry.error = QStringLiteral("Recovery snapshot file name is invalid");
+                } else if (!entry.savedAt.isValid()) {
+                    entry.error = QStringLiteral("Recovery timestamp is invalid");
+                } else if (!QFileInfo::exists(entry.snapshotPath)) {
+                    entry.error = QStringLiteral("Recovery snapshot is missing");
+                } else if (QFileInfo(entry.snapshotPath).isSymLink()) {
+                    entry.error = QStringLiteral("Recovery snapshot must not be a symbolic link");
+                } else {
+                    entry.valid = true;
+                }
+            }
+        }
+        result.append(entry);
+    }
+    return result;
 }
 
 bool writeCapturedSnapshot(const QString &id, quint64 generation, const QString &originalProjectUrl,
@@ -161,95 +235,31 @@ QFuture<ProjectRecoveryWriteResult> ProjectRecoveryManager::writeAsync(const QSt
 }
 
 bool ProjectRecoveryManager::remove(const QString &id) {
-    if (!isValidRecoveryId(id))
-        return false;
-
     QMutexLocker mutationLocker(&recoveryMutationMutex());
-    QMutexLocker generationLocker(&recoveryGenerationMutex());
-    recoveryGenerations().remove(id);
-
-    bool snapshotsRemoved = true;
-    const QDir root(recoveryRoot());
-    const QFileInfoList snapshots = root.entryInfoList({id + QStringLiteral("*.aviqtl")}, QDir::Files);
-    for (const QFileInfo &snapshot : snapshots) {
-        if (isValidSnapshotFileName(id, snapshot.fileName()))
-            snapshotsRemoved = QFile::remove(snapshot.filePath()) && snapshotsRemoved;
-    }
-    const bool metadataRemoved = !QFileInfo::exists(metadataPath(id)) || (snapshotsRemoved && QFile::remove(metadataPath(id)));
-    return metadataRemoved && snapshotsRemoved;
+    return removeRecoveryLocked(id);
 }
 
 QList<ProjectRecoveryEntry> ProjectRecoveryManager::entries() {
     QMutexLocker mutationLocker(&recoveryMutationMutex());
-    QList<ProjectRecoveryEntry> result;
-    const QDir root(recoveryRoot());
-    const QFileInfoList files = root.entryInfoList({QStringLiteral("*.json")}, QDir::Files, QDir::Time);
-    for (const QFileInfo &info : files) {
-        ProjectRecoveryEntry entry;
-        entry.id = info.completeBaseName();
-
-        if (!isValidRecoveryId(entry.id)) {
-            entry.error = QStringLiteral("Recovery identifier is invalid");
-            result.append(entry);
-            continue;
-        }
-        if (info.isSymLink()) {
-            entry.error = QStringLiteral("Recovery metadata must not be a symbolic link");
-            result.append(entry);
-            continue;
-        }
-
-        QFile file(info.filePath());
-        QJsonParseError parseError;
-        if (!file.open(QIODevice::ReadOnly)) {
-            entry.error = file.errorString();
-        } else {
-            const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
-            if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
-                entry.error = parseError.error != QJsonParseError::NoError ? parseError.errorString() : QStringLiteral("Recovery metadata must be a JSON object");
-            } else {
-                const QJsonObject metadata = document.object();
-                entry.originalProjectUrl = metadata.value(QStringLiteral("originalProjectUrl")).toString();
-                entry.displayName = metadata.value(QStringLiteral("displayName")).toString();
-                entry.savedAt = QDateTime::fromString(metadata.value(QStringLiteral("savedAt")).toString(), Qt::ISODateWithMs);
-                const QString snapshotFile = snapshotFileNameFromMetadata(entry.id, metadata);
-                entry.snapshotPath = snapshotFile.isEmpty() ? QString() : snapshotPath(snapshotFile);
-                if (metadata.value(QStringLiteral("id")).toString() != entry.id) {
-                    entry.error = QStringLiteral("Recovery identifier does not match its file name");
-                } else if (snapshotFile.isEmpty()) {
-                    entry.error = QStringLiteral("Recovery snapshot file name is invalid");
-                } else if (!entry.savedAt.isValid()) {
-                    entry.error = QStringLiteral("Recovery timestamp is invalid");
-                } else if (!QFileInfo::exists(entry.snapshotPath)) {
-                    entry.error = QStringLiteral("Recovery snapshot is missing");
-                } else if (QFileInfo(entry.snapshotPath).isSymLink()) {
-                    entry.error = QStringLiteral("Recovery snapshot must not be a symbolic link");
-                } else {
-                    entry.valid = true;
-                }
-            }
-        }
-        result.append(entry);
-    }
-    return result;
+    return recoveryEntriesLocked();
 }
 
 void ProjectRecoveryManager::cleanupStale(int maximumAgeDays) {
     if (maximumAgeDays < 0)
         return;
     const QDateTime cutoff = QDateTime::currentDateTimeUtc().addDays(-maximumAgeDays);
-    const QList<ProjectRecoveryEntry> recoveryEntries = entries();
+    QMutexLocker mutationLocker(&recoveryMutationMutex());
+    const QList<ProjectRecoveryEntry> recoveryEntries = recoveryEntriesLocked();
     QSet<QString> referencedSnapshots;
     for (const ProjectRecoveryEntry &entry : recoveryEntries) {
         const QDateTime entryTimestamp = entry.savedAt.isValid() ? entry.savedAt : QFileInfo(metadataPath(entry.id)).lastModified().toUTC();
         if (entryTimestamp.isValid() && entryTimestamp < cutoff)
-            remove(entry.id);
+            removeRecoveryLocked(entry.id);
         else if (entry.valid)
             referencedSnapshots.insert(QFileInfo(entry.snapshotPath).absoluteFilePath());
     }
 
     const QDir root(recoveryRoot());
-    QMutexLocker mutationLocker(&recoveryMutationMutex());
     const QFileInfoList snapshots = root.entryInfoList({QStringLiteral("*.aviqtl")}, QDir::Files);
     for (const QFileInfo &snapshot : snapshots) {
         const QString id = recoveryIdFromSnapshotFileName(snapshot.fileName());

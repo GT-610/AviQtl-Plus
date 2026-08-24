@@ -13,6 +13,7 @@ inline constexpr qint64 RepositoryMetadata = 16LL * 1024LL * 1024LL;
 inline constexpr qint64 PluginScript = 8LL * 1024LL * 1024LL;
 inline constexpr qint64 InstalledPackageState = 4LL * 1024LL * 1024LL;
 inline constexpr qint64 EffectDefinition = 1LL * 1024LL * 1024LL;
+inline constexpr qint64 ComputeShader = 1LL * 1024LL * 1024LL;
 inline constexpr qint64 PluginManifest = 256LL * 1024LL;
 } // namespace FileSizeLimit
 
