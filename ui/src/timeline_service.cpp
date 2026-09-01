@@ -572,6 +572,24 @@ bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction
     return false;
 }
 
+void TimelineService::publishClipGeometryChange(const QList<int> &clipIds, bool emitSignal) {
+    if (emitSignal) {
+        emit clipsChanged();
+    }
+    if (m_selection == nullptr || !clipIds.contains(m_selection->selectedClipId())) {
+        return;
+    }
+    const auto *clip = findClipById(m_selection->selectedClipId());
+    if (clip == nullptr) {
+        return;
+    }
+    QVariantMap data = m_selection->selectedClipData();
+    data.insert(QStringLiteral("layer"), clip->layer);
+    data.insert(QStringLiteral("startFrame"), clip->startFrame);
+    data.insert(QStringLiteral("durationFrames"), clip->durationFrames);
+    m_selection->refreshSelectionData(clip->id, data);
+}
+
 void TimelineService::beginTimelineProjectionTransaction() {
     if (m_timelineProjectionTransactionDepth == 0) {
         m_timelineProjectionTransactionAborted = false;

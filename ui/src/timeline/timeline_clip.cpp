@@ -233,7 +233,8 @@ void TimelineService::updateClip(int id, int layer, int startFrame, int duration
         clipName = clip->effects.first()->name();
     }
 
-    m_undoStack->push(new MoveClipCommand(this, id, clip->layer, clip->startFrame, clip->durationFrames, layer, startFrame, duration, clipName));
+    m_undoStack->push(
+        new MoveClipCommand(this, id, layer, startFrame, duration, clipName));
 }
 
 void TimelineService::insertLayers(int targetLayer, int count, bool above) {

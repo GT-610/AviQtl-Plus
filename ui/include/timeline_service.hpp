@@ -44,6 +44,7 @@ class TimelineService : public QObject {
     bool endTimelineProjectionTransaction();
     bool endTimelineProjectionTransaction(TimelineEditTransaction *transaction);
     bool applyTimelineEditTransaction(const TimelineEditTransaction &transaction, bool forward);
+    void publishClipGeometryChange(const QList<int> &clipIds, bool emitSignal = true);
     QUndoStack *undoStack() const { return m_undoStack; }
 
     // 操作 (公開API)

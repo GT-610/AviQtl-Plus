@@ -25,17 +25,18 @@ class AddClipCommand : public QUndoCommand {
 
 class MoveClipCommand : public QUndoCommand {
   public:
-    MoveClipCommand(TimelineService *service, int clipId, int oldLayer, int oldStart, int oldDuration, int newLayer, int newStart, int newDuration, const QString &clipName, bool prevalidated = false);
+    MoveClipCommand(TimelineService *service, int clipId, int newLayer, int newStart,
+                    int newDuration, const QString &clipName, bool prevalidated = false);
     void undo() override;
     void redo() override;
 
   private:
     TimelineService *m_service;
     int m_clipId;
-    int m_oldLayer, m_oldStart, m_oldDuration;
     int m_newLayer, m_newStart, m_newDuration;
     QString m_clipName;
     bool m_prevalidated;
+    TimelineEditTransaction m_transaction;
 };
 
 struct ClipMoveChange {
@@ -61,6 +62,7 @@ class MoveClipsCommand : public QUndoCommand {
     TimelineService *m_service;
     QList<ClipMoveChange> m_moves;
     bool m_prevalidated;
+    TimelineEditTransaction m_transaction;
 };
 
 class SetClipByUpperObjectCommand : public QUndoCommand {

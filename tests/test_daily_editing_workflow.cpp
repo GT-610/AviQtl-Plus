@@ -73,6 +73,7 @@ class TestDailyEditingWorkflow : public QObject {
     void rejectedProjectionTransactionRestoresRuntimeModel();
     void projectionSynchronizationFailureRollsBackState();
     void targetedTimelineEditsPreserveExtensions();
+    void clipGeometryUndoReplaysRustTransactions();
     void targetedEffectTransactionsPreserveExtensionsAndOrdering();
     void targetedAudioPluginTransactionsPreserveExtensionsAndOrdering();
     void audioParameterDurationUsesRustState();
@@ -615,6 +616,103 @@ void TestDailyEditingWorkflow::targetedTimelineEditsPreserveExtensions() {
     QCOMPARE(updatedClip.value(QStringLiteral("start")).toInt(), 12);
     QCOMPARE(updatedClip.value(QStringLiteral("duration")).toInt(), 40);
     QVERIFY(updatedClip.value(QStringLiteral("clipByUpperObject")).toBool());
+}
+
+void TestDailyEditingWorkflow::clipGeometryUndoReplaysRustTransactions() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int firstId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    const auto *first = timeline.findClipById(firstId);
+    QVERIFY(first != nullptr);
+    const int originalStart = first->startFrame;
+    const int originalDuration = first->durationFrames;
+
+    timeline.selectClip(firstId);
+    timeline.updateClip(firstId, 1, 20, 40);
+    first = timeline.findClipById(firstId);
+    QVERIFY(first != nullptr);
+    QCOMPARE(first->layer, 1);
+    QCOMPARE(first->startFrame, 20);
+    QCOMPARE(first->durationFrames, 40);
+
+    timeline.setLayerStateInternal(0, 1, true, UpdateLayerStateCommand::Lock);
+    QSignalSpy clipsChanged(&timeline, &TimelineService::clipsChanged);
+    timeline.undo();
+    first = timeline.findClipById(firstId);
+    QVERIFY(first != nullptr);
+    QCOMPARE(first->layer, 0);
+    QCOMPARE(first->startFrame, originalStart);
+    QCOMPARE(first->durationFrames, originalDuration);
+    QCOMPARE(clipsChanged.count(), 1);
+    QCOMPARE(selection.selectedClipData().value(QStringLiteral("layer")).toInt(), 0);
+
+    clipsChanged.clear();
+    timeline.redo();
+    first = timeline.findClipById(firstId);
+    QVERIFY(first != nullptr);
+    QCOMPARE(first->layer, 1);
+    QCOMPARE(first->startFrame, 20);
+    QCOMPARE(first->durationFrames, 40);
+    QCOMPARE(clipsChanged.count(), 1);
+    QCOMPARE(selection.selectedClipData().value(QStringLiteral("durationFrames")).toInt(), 40);
+
+    timeline.setLayerStateInternal(0, 1, false, UpdateLayerStateCommand::Lock);
+    timeline.undo();
+    const int secondId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 100, 0);
+    timeline.applySelectionIds({firstId, secondId});
+    timeline.moveSelectedClips(2, 5);
+
+    first = timeline.findClipById(firstId);
+    const auto *second = timeline.findClipById(secondId);
+    QVERIFY(first != nullptr);
+    QVERIFY(second != nullptr);
+    QCOMPARE(first->layer, 2);
+    QCOMPARE(second->layer, 2);
+    const int firstMovedStart = first->startFrame;
+    const int secondMovedStart = second->startFrame;
+
+    timeline.setLayerStateInternal(0, 2, true, UpdateLayerStateCommand::Lock);
+    clipsChanged.clear();
+    timeline.undo();
+    first = timeline.findClipById(firstId);
+    second = timeline.findClipById(secondId);
+    QVERIFY(first != nullptr);
+    QVERIFY(second != nullptr);
+    QCOMPARE(first->layer, 0);
+    QCOMPARE(second->layer, 0);
+    QCOMPARE(clipsChanged.count(), 1);
+    QCOMPARE(selection.selectedClipData().value(QStringLiteral("layer")).toInt(), 0);
+
+    clipsChanged.clear();
+    timeline.redo();
+    first = timeline.findClipById(firstId);
+    second = timeline.findClipById(secondId);
+    QVERIFY(first != nullptr);
+    QVERIFY(second != nullptr);
+    QCOMPARE(first->layer, 2);
+    QCOMPARE(second->layer, 2);
+    QCOMPARE(first->startFrame, firstMovedStart);
+    QCOMPARE(second->startFrame, secondMovedStart);
+    QCOMPARE(clipsChanged.count(), 1);
+    QCOMPARE(selection.selectedClipData().value(QStringLiteral("layer")).toInt(), 2);
+
+    const QVariantList rustClips =
+        timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    for (const int clipId : {firstId, secondId}) {
+        const auto *projected = timeline.findClipById(clipId);
+        QVERIFY(projected != nullptr);
+        const auto rustIt = std::ranges::find_if(rustClips, [clipId](const QVariant &value) {
+            return value.toMap().value(QStringLiteral("id")).toInt() == clipId;
+        });
+        QVERIFY(rustIt != rustClips.cend());
+        const QVariantMap rustClip = rustIt->toMap();
+        QCOMPARE(projected->layer, rustClip.value(QStringLiteral("layer")).toInt());
+        QCOMPARE(projected->startFrame, rustClip.value(QStringLiteral("start")).toInt());
+        QCOMPARE(projected->durationFrames,
+                 rustClip.value(QStringLiteral("duration")).toInt());
+    }
 }
 
 void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOrdering() {
