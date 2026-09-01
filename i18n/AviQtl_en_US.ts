@@ -1990,22 +1990,22 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineService</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="251"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="252"/>
         <source>レイヤーを上に挿入</source>
         <translation>Insert Layer Above</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="251"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="252"/>
         <source>レイヤーを下に挿入</source>
         <translation>Insert Layer Below</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="266"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="267"/>
         <source>レイヤーをまとめて下へ移動</source>
         <translation>Move layers down together</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="267"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="268"/>
         <source>レイヤーをまとめて上へ移動</source>
         <translation>Move layers up together</translation>
     </message>
@@ -3980,37 +3980,37 @@ Please restart the application to apply the update.</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="12"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="13"/>
         <source>クリップ追加: %1</source>
         <translation>Add clip: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="28"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="32"/>
         <source>クリップ移動: %1</source>
         <translation>Move clip: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="57"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="95"/>
         <source>上のオブジェクトでクリッピング</source>
         <translation>Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="57"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="95"/>
         <source>上のオブジェクトでクリッピング解除</source>
         <translation>Disable Clip by Upper Object</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="64"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="102"/>
         <source>パラメータ変更: %1 - %2</source>
         <translation>Parameter change: %1 - %2</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="84"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="122"/>
         <source>エフェクト追加: %1</source>
         <translation>Add effect: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="91"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="129"/>
         <source>エフェクト削除: %1</source>
         <translation>Delete effect: %1</translation>
     </message>
@@ -4020,159 +4020,159 @@ Please restart the application to apply the update.</translation>
         <translation>Change effect order</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="113"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="151"/>
         <source>オーディオプラグイン順序変更</source>
         <translation>Change audio plugin order</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="119"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="157"/>
         <source>エフェクト有効/無効切り替え</source>
         <translation>Toggle effect enabled/disabled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="125"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="163"/>
         <source>オーディオプラグイン有効/無効切り替え</source>
         <translation>Toggle audio plugin enabled/disabled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="133"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="171"/>
         <source>エフェクト貼り付け</source>
         <translation>Paste effect</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="140"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="178"/>
         <source>レイヤーロック</source>
         <translation>Lock layer</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="140"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="178"/>
         <source>ロック解除</source>
         <translation>Unlock</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="140"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="178"/>
         <source>レイヤー非表示</source>
         <translation>Hide layer</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="140"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="178"/>
         <source>レイヤー表示</source>
         <translation>Show layer</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="141"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="179"/>
         <source>%1: レイヤー %2</source>
         <translation>%1: Layer %2</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="153"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="191"/>
         <source>クリップ分割: %1</source>
         <translation>Split clip: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="315"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="353"/>
         <source>切り取り: %1</source>
         <translation>Cut: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="326"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="364"/>
         <source>貼り付け: %1</source>
         <translation>Paste: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="338"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="376"/>
         <source>キーフレーム設定: %1</source>
         <translation>Set keyframe: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="365"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="403"/>
         <source>キーフレーム削除: %1 [%2]</source>
         <translation>Delete keyframe: %1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="372"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="410"/>
         <source>キーフレーム移動: %1 [%2 -&gt; %3]</source>
         <translation>Move keyframe: %1 [%2 -&gt; %3]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="377"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="415"/>
         <source>シーン追加: %1</source>
         <translation>Add scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="390"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="428"/>
         <source>シーン削除: %1</source>
         <translation>Delete scene: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="397"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="435"/>
         <source>シーン設定変更: %1</source>
         <translation>Scene settings change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="406"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="444"/>
         <source>オーディオプラグインキーフレーム設定: %1</source>
         <translation>Audio plugin keyframe set: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="433"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="471"/>
         <source>オーディオプラグインキーフレーム削除: %1 [%2]</source>
         <translation>Audio plugin keyframe delete: %1 [%2]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="440"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="478"/>
         <source>オーディオプラグインキーフレーム移動: %1 [%2 -&gt; %3]</source>
         <translation>Audio plugin keyframe move: %1 [%2 -&gt; %3]</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="447"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="485"/>
         <source>オーディオプラグインパラメータ変更: %1</source>
         <translation>Audio plugin parameter change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="466"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="504"/>
         <source>オーディオプラグイン追加: %1</source>
         <translation>Add audio plugin: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_commands.cpp" line="476"/>
+        <location filename="../ui/src/timeline/timeline_commands.cpp" line="514"/>
         <source>オーディオプラグイン削除: %1</source>
         <translation>Remove audio plugin: %1</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="108"/>
-        <location filename="../ui/src/timeline_service.cpp" line="170"/>
+        <location filename="../ui/src/timeline_service.cpp" line="189"/>
         <source>ルート</source>
         <translation>Root</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="317"/>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="347"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="318"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="348"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>Absolute move multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="383"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="384"/>
         <source>複数クリップ変形: %1</source>
         <translation>Transform multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="655"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="663"/>
         <source>クリップ削除</source>
         <translation>Delete clip</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="655"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="663"/>
         <source>複数クリップ削除: %1</source>
         <translation>Delete multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="878"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="886"/>
         <source>複数クリップ分割: %1</source>
         <translation>Split multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="927"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="935"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>Paste multiple clips: %1</translation>
     </message>
