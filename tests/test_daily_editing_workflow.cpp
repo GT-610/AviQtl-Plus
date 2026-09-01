@@ -6,7 +6,9 @@
 #include "video_frame_store.hpp"
 #include "video_encoder.hpp"
 #include <QColor>
+#include <QCoreApplication>
 #include <QDataStream>
+#include <QEvent>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
@@ -74,6 +76,7 @@ class TestDailyEditingWorkflow : public QObject {
     void projectionSynchronizationFailureRollsBackState();
     void targetedTimelineEditsPreserveExtensions();
     void clipGeometryUndoReplaysRustTransactions();
+    void clipCrudUndoReplaysRustTransactions();
     void targetedEffectTransactionsPreserveExtensionsAndOrdering();
     void targetedAudioPluginTransactionsPreserveExtensionsAndOrdering();
     void audioParameterDurationUsesRustState();
@@ -712,6 +715,106 @@ void TestDailyEditingWorkflow::clipGeometryUndoReplaysRustTransactions() {
         QCOMPARE(projected->startFrame, rustClip.value(QStringLiteral("start")).toInt());
         QCOMPARE(projected->durationFrames,
                  rustClip.value(QStringLiteral("duration")).toInt());
+    }
+}
+
+void TestDailyEditingWorkflow::clipCrudUndoReplaysRustTransactions() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+
+    const int createdId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 2);
+    const auto *created = timeline.findClipById(createdId);
+    QVERIFY(created != nullptr);
+    QCOMPARE(created->effects.size(), 2);
+    const QVariantMap createdDocument = timeline.timelineStateSnapshot()
+                                            .value(QStringLiteral("clips"))
+                                            .toList()
+                                            .first()
+                                            .toMap();
+
+    timeline.undo();
+    QVERIFY(timeline.findClipById(createdId) == nullptr);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    timeline.setLayerStateInternal(0, 2, true, UpdateLayerStateCommand::Lock);
+    timeline.redo();
+    created = timeline.findClipById(createdId);
+    QVERIFY(created != nullptr);
+    QCOMPARE(created->layer, 2);
+    QCOMPARE(created->effects.size(), 2);
+    QCOMPARE(created->effects.at(0)->id(), QStringLiteral("transform"));
+    QCOMPARE(created->effects.at(1)->id(), QStringLiteral("text"));
+    const QVariantList recreatedDocuments =
+        timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    const auto recreatedIt = std::ranges::find_if(
+        recreatedDocuments, [createdId](const QVariant &value) {
+            return value.toMap().value(QStringLiteral("id")).toInt() == createdId;
+        });
+    QVERIFY(recreatedIt != recreatedDocuments.cend());
+    QCOMPARE(recreatedIt->toMap(), createdDocument);
+
+    timeline.setLayerStateInternal(0, 2, false, UpdateLayerStateCommand::Lock);
+    timeline.undoStack()->clear();
+
+    QList<int> clipIds;
+    for (int index = 0; index < 4; ++index) {
+        const int clipId = timeline.nextClipId();
+        timeline.createClip(QStringLiteral("text"), index * 100, index);
+        clipIds.append(clipId);
+    }
+    QCOMPARE(timeline.clips().size(), 5);
+    timeline.undoStack()->clear();
+
+    const auto projectedIds = [&timeline]() {
+        QList<int> ids;
+        for (const auto &clip : timeline.clips()) {
+            ids.append(clip.id);
+        }
+        return ids;
+    };
+    const auto rustIds = [&timeline]() {
+        QList<int> ids;
+        const QVariantList documents =
+            timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+        for (const QVariant &document : documents) {
+            ids.append(document.toMap().value(QStringLiteral("id")).toInt());
+        }
+        return ids;
+    };
+    const QList<int> originalOrder = projectedIds();
+    QCOMPARE(rustIds(), originalOrder);
+
+    timeline.deleteClipsByIds({clipIds.at(1), clipIds.at(3)});
+    QList<int> deletedOrder = originalOrder;
+    deletedOrder.removeAll(clipIds.at(1));
+    deletedOrder.removeAll(clipIds.at(3));
+    QCOMPARE(projectedIds(), deletedOrder);
+    QCOMPARE(rustIds(), deletedOrder);
+
+    timeline.undo();
+    QCOMPARE(projectedIds(), originalOrder);
+    QCOMPARE(rustIds(), originalOrder);
+    for (int clipId : {clipIds.at(1), clipIds.at(3)}) {
+        const auto *restored = timeline.findClipById(clipId);
+        QVERIFY(restored != nullptr);
+        QCOMPARE(restored->effects.size(), 2);
+        QCOMPARE(restored->effects.at(0)->id(), QStringLiteral("transform"));
+        QCOMPARE(restored->effects.at(1)->id(), QStringLiteral("text"));
+    }
+
+    timeline.redo();
+    QCOMPARE(projectedIds(), deletedOrder);
+    QCOMPARE(rustIds(), deletedOrder);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    timeline.undo();
+    QCOMPARE(projectedIds(), originalOrder);
+    QCOMPARE(rustIds(), originalOrder);
+    for (int clipId : {clipIds.at(1), clipIds.at(3)}) {
+        const auto *restored = timeline.findClipById(clipId);
+        QVERIFY(restored != nullptr);
+        QCOMPARE(restored->effects.size(), 2);
     }
 }
 

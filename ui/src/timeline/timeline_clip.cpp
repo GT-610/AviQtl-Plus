@@ -91,6 +91,18 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
                                          bool emitSignal, int duration,
                                          const QString &effectId,
                                          const QVariantMap &effectParams) {
+    createClipInternal(clipId, type, startFrame, layer, emitSignal, duration, effectId,
+                       effectParams, nullptr);
+}
+
+void TimelineService::createClipInternal(int clipId, const QString &type, int startFrame, int layer,
+                                         bool emitSignal, int duration,
+                                         const QString &effectId,
+                                         const QVariantMap &effectParams,
+                                         TimelineEditTransaction *transaction) {
+    if (transaction != nullptr) {
+        transaction->clear();
+    }
     startFrame = std::max(startFrame, 0);
     layer = std::max(layer, 0);
 
@@ -187,7 +199,7 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
                 effect->deleteLater();
             }
         }
-    })) {
+    }, {}, transaction)) {
         qWarning() << "Rust rejected clip creation";
         return;
     }
@@ -750,6 +762,72 @@ bool TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSigna
         emit clipsChanged();
         emit clipCreated(clip.id, clip.layer, clip.startFrame, clip.durationFrames, clip.type);
     }
+    return true;
+}
+
+bool TimelineService::restoreClipProjectionsInternal(
+    const QList<ClipProjectionRestore> &restores) {
+    QSet<int> restoredIds;
+    for (const auto &restore : restores) {
+        if (restore.clip.id < 0 || restoredIds.contains(restore.clip.id) ||
+            findClipById(restore.clip.id) != nullptr) {
+            return false;
+        }
+        restoredIds.insert(restore.clip.id);
+        const auto sceneIt = std::ranges::find_if(
+            m_scenes, [&restore](const SceneData &scene) { return scene.id == restore.clip.sceneId; });
+        if (sceneIt == m_scenes.cend()) {
+            return false;
+        }
+    }
+
+    QList<ClipProjectionRestore> ordered = restores;
+    std::ranges::sort(ordered, [](const ClipProjectionRestore &left,
+                                 const ClipProjectionRestore &right) {
+        if (left.clip.sceneId != right.clip.sceneId) {
+            return left.clip.sceneId < right.clip.sceneId;
+        }
+        return left.index < right.index;
+    });
+    for (const auto &restore : std::as_const(ordered)) {
+        auto sceneIt = std::ranges::find_if(
+            m_scenes, [&restore](const SceneData &scene) { return scene.id == restore.clip.sceneId; });
+        ClipData restored = deepCopyClip(restore.clip);
+        restored.id = restore.clip.id;
+        const qsizetype index = std::clamp<qsizetype>(restore.index, 0, sceneIt->clips.size());
+        sceneIt->clips.insert(index, std::move(restored));
+    }
+    invalidateCurrentSceneCache();
+    return true;
+}
+
+bool TimelineService::removeClipProjectionsInternal(const QList<int> &clipIds) {
+    QSet<int> uniqueIds;
+    for (int clipId : clipIds) {
+        if (clipId < 0 || uniqueIds.contains(clipId) || findClipById(clipId) == nullptr) {
+            return false;
+        }
+        uniqueIds.insert(clipId);
+    }
+
+    for (int clipId : clipIds) {
+        for (auto &scene : m_scenes) {
+            const auto clipIt = std::ranges::find_if(
+                scene.clips, [clipId](const ClipData &clip) { return clip.id == clipId; });
+            if (clipIt == scene.clips.end()) {
+                continue;
+            }
+            const ClipData removed = *clipIt;
+            scene.clips.erase(clipIt);
+            for (auto *effect : removed.effects) {
+                if (effect != nullptr) {
+                    effect->deleteLater();
+                }
+            }
+            break;
+        }
+    }
+    invalidateCurrentSceneCache();
     return true;
 }
 
