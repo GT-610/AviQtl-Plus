@@ -572,6 +572,43 @@ bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction
     return false;
 }
 
+bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction &transaction,
+                                                   bool forward,
+                                                   std::function<bool()> applyProjection,
+                                                   std::function<bool()> rollbackProjection) {
+    if (!transaction.isValid() || !applyProjection || !rollbackProjection) {
+        return false;
+    }
+    if (!applyProjection()) {
+        return false;
+    }
+
+    const QVariantMap &patch = forward ? transaction.forward : transaction.inverse;
+    const QVariantMap &rollbackPatch = forward ? transaction.inverse : transaction.forward;
+    if (!applyTimelinePatch(patch)) {
+        if (!rollbackProjection()) {
+            qWarning() << "Failed to roll back a structural Qt timeline projection";
+        }
+        return false;
+    }
+    if (synchronizeTimelineProjection()) {
+        return true;
+    }
+
+    const bool rustRestored = applyTimelinePatch(rollbackPatch);
+    const bool projectionRestored = rollbackProjection();
+    if (!rustRestored) {
+        qWarning() << "Failed to roll back a replayed structural Rust timeline transaction";
+    }
+    if (!projectionRestored) {
+        qWarning() << "Failed to roll back a replayed structural Qt timeline projection";
+    }
+    if (rustRestored && projectionRestored && !synchronizeTimelineProjection()) {
+        qWarning() << "Failed to restore the Qt timeline projection after structural replay rollback";
+    }
+    return false;
+}
+
 void TimelineService::publishClipGeometryChange(const QList<int> &clipIds, bool emitSignal) {
     if (emitSignal) {
         emit clipsChanged();

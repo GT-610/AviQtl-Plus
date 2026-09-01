@@ -23,6 +23,11 @@ struct TimelineEditTransaction {
     }
 };
 
+struct ClipProjectionRestore {
+    ClipData clip;
+    qsizetype index = 0;
+};
+
 class TimelineService : public QObject {
     Q_OBJECT
   public:
@@ -44,6 +49,9 @@ class TimelineService : public QObject {
     bool endTimelineProjectionTransaction();
     bool endTimelineProjectionTransaction(TimelineEditTransaction *transaction);
     bool applyTimelineEditTransaction(const TimelineEditTransaction &transaction, bool forward);
+    bool applyTimelineEditTransaction(const TimelineEditTransaction &transaction, bool forward,
+                                      std::function<bool()> applyProjection,
+                                      std::function<bool()> rollbackProjection);
     void publishClipGeometryChange(const QList<int> &clipIds, bool emitSignal = true);
     QUndoStack *undoStack() const { return m_undoStack; }
 
@@ -120,6 +128,10 @@ class TimelineService : public QObject {
                             bool emitSignal = true, int duration = 0,
                             const QString &effectId = {},
                             const QVariantMap &effectParams = {});
+    void createClipInternal(int clipId, const QString &type, int startFrame, int layer,
+                            bool emitSignal, int duration, const QString &effectId,
+                            const QVariantMap &effectParams,
+                            TimelineEditTransaction *transaction);
     void updateClipInternal(int id, int layer, int startFrame, int duration,
                             bool emitSignal = true, bool forcePosition = false,
                             bool commitState = true);
@@ -132,6 +144,8 @@ class TimelineService : public QObject {
     bool addClipsDirectInternal(const QList<ClipData> &clips);
     bool addClipDirectInternal(const ClipData &clip, bool emitSignal = true,
                                bool commitState = true);
+    bool restoreClipProjectionsInternal(const QList<ClipProjectionRestore> &restores);
+    bool removeClipProjectionsInternal(const QList<int> &clipIds);
     void restoreEffectInternal(int clipId, const QVariantMap &data);
     void removeEffectInternal(int clipId, int effectIndex);
     void removeMultipleEffectsInternal(int clipId, const QList<int> &sortedDescIndices, QList<QVariantMap> *outData);
