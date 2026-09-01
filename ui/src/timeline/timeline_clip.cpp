@@ -418,6 +418,13 @@ auto TimelineService::resolveDragPosition(int clipId, int targetLayer, int propo
 
 void TimelineService::updateClipInternal(int id, int layer, int startFrame, int duration,
                                          bool emitSignal, bool forcePosition, bool commitState) {
+    updateClipInternal(id, layer, startFrame, duration, emitSignal, forcePosition, commitState,
+                       nullptr);
+}
+
+void TimelineService::updateClipInternal(int id, int layer, int startFrame, int duration,
+                                         bool emitSignal, bool forcePosition, bool commitState,
+                                         TimelineEditTransaction *transaction) {
     const auto *existingClip = findClipById(id);
     if (existingClip == nullptr) {
         return;
@@ -504,7 +511,7 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
                             for (auto &plugin : restored->audioPlugins) {
                                 plugin.invalidateKeyframeCache();
                             }
-                        })) {
+                        }, {}, transaction)) {
                     qWarning() << "Rust rejected clip geometry update";
                     return;
                 }

@@ -12,6 +12,17 @@
 namespace AviQtl::UI {
 class SelectionService;
 
+struct TimelineEditTransaction {
+    QVariantMap forward;
+    QVariantMap inverse;
+
+    [[nodiscard]] bool isValid() const { return !forward.isEmpty() && !inverse.isEmpty(); }
+    void clear() {
+        forward.clear();
+        inverse.clear();
+    }
+};
+
 class TimelineService : public QObject {
     Q_OBJECT
   public:
@@ -31,6 +42,8 @@ class TimelineService : public QObject {
                             int nextSceneHint = 1);
     void beginTimelineProjectionTransaction();
     bool endTimelineProjectionTransaction();
+    bool endTimelineProjectionTransaction(TimelineEditTransaction *transaction);
+    bool applyTimelineEditTransaction(const TimelineEditTransaction &transaction, bool forward);
     QUndoStack *undoStack() const { return m_undoStack; }
 
     // 操作 (公開API)
@@ -109,6 +122,9 @@ class TimelineService : public QObject {
     void updateClipInternal(int id, int layer, int startFrame, int duration,
                             bool emitSignal = true, bool forcePosition = false,
                             bool commitState = true);
+    void updateClipInternal(int id, int layer, int startFrame, int duration, bool emitSignal,
+                            bool forcePosition, bool commitState,
+                            TimelineEditTransaction *transaction);
     void setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal = true,
                                       bool commitState = true);
     void addEffectInternal(int clipId, const QString &effectId);
@@ -180,7 +196,11 @@ class TimelineService : public QObject {
     bool commitTimelineProjection();
     bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
                                 std::function<void()> commitAction = {});
-    bool applyTimelineEditRequest(const QVariantMap &request, QVariantMap &inversePatch);
+    bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
+                                std::function<void()> commitAction,
+                                TimelineEditTransaction *transaction);
+    bool applyTimelineEditRequest(const QVariantMap &request,
+                                  TimelineEditTransaction &transaction);
     bool applyTimelinePatch(const QVariantMap &patch);
     bool synchronizeTimelineProjection();
     QVariantMap timelineSceneDocument(const SceneData &scene) const;
