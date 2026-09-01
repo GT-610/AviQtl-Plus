@@ -77,11 +77,8 @@ void AddClipCommand::redo() {
     if (clip == nullptr) {
         return;
     }
-    if (replaying) {
-        for (qsizetype index = 0; index < clip->effects.size(); ++index) {
-            emit m_service->clipsChanged();
-            emit m_service->clipEffectsChanged(clip->id);
-        }
+    if (replaying && !clip->effects.isEmpty()) {
+        emit m_service->clipEffectsChanged(clip->id);
     }
     emit m_service->clipsChanged();
     emit m_service->clipCreated(clip->id, clip->layer, clip->startFrame, clip->durationFrames, clip->type);
