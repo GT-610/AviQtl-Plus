@@ -2,6 +2,7 @@
 #include "effect_registry.hpp"
 #include "rust_keyframe_document.hpp"
 #include "timeline_service.hpp"
+#include <QDebug>
 #include <QObject>
 
 namespace AviQtl::UI {
@@ -23,12 +24,32 @@ void AddClipCommand::redo() {
     emit m_service->clipCreated(clip->id, clip->layer, clip->startFrame, clip->durationFrames, clip->type);
 }
 
-MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int oldLayer, int oldStart, int oldDuration, int newLayer, int newStart, int newDuration, const QString &clipName, bool prevalidated) // NOLINT(bugprone-easily-swappable-parameters)
-    : m_service(service), m_clipId(clipId), m_oldLayer(oldLayer), m_oldStart(oldStart), m_oldDuration(oldDuration), m_newLayer(newLayer), m_newStart(newStart), m_newDuration(newDuration), m_clipName(clipName), m_prevalidated(prevalidated) {
+MoveClipCommand::MoveClipCommand(TimelineService *service, int clipId, int newLayer,
+                                 int newStart, int newDuration, const QString &clipName,
+                                 bool prevalidated) // NOLINT(bugprone-easily-swappable-parameters)
+    : m_service(service), m_clipId(clipId), m_newLayer(newLayer), m_newStart(newStart),
+      m_newDuration(newDuration), m_clipName(clipName), m_prevalidated(prevalidated) {
     setText(QObject::tr("クリップ移動: %1").arg(clipName));
 }
-void MoveClipCommand::undo() { m_service->updateClipInternal(m_clipId, m_oldLayer, m_oldStart, m_oldDuration, true, true); }
-void MoveClipCommand::redo() { m_service->updateClipInternal(m_clipId, m_newLayer, m_newStart, m_newDuration, true, m_prevalidated); }
+void MoveClipCommand::undo() {
+    if (m_service->applyTimelineEditTransaction(m_transaction, false)) {
+        m_service->publishClipGeometryChange({m_clipId});
+    } else {
+        qWarning() << "Failed to undo a Rust clip geometry transaction";
+    }
+}
+void MoveClipCommand::redo() {
+    if (!m_transaction.isValid()) {
+        m_service->updateClipInternal(m_clipId, m_newLayer, m_newStart, m_newDuration, true,
+                                      m_prevalidated, true, &m_transaction);
+        return;
+    }
+    if (m_service->applyTimelineEditTransaction(m_transaction, true)) {
+        m_service->publishClipGeometryChange({m_clipId});
+    } else {
+        qWarning() << "Failed to redo a Rust clip geometry transaction";
+    }
+}
 
 MoveClipsCommand::MoveClipsCommand(TimelineService *service, QList<ClipMoveChange> moves,
                                    QString commandText, bool prevalidated)
@@ -40,6 +61,23 @@ void MoveClipsCommand::undo() { apply(false); }
 void MoveClipsCommand::redo() { apply(true); }
 
 void MoveClipsCommand::apply(bool forward) {
+    if (m_transaction.isValid()) {
+        if (!m_service->applyTimelineEditTransaction(m_transaction, forward)) {
+            qWarning() << "Failed to replay a Rust batch clip geometry transaction";
+            return;
+        }
+        QList<int> clipIds;
+        clipIds.reserve(m_moves.size());
+        for (const auto &move : std::as_const(m_moves)) {
+            clipIds.append(move.clipId);
+        }
+        m_service->publishClipGeometryChange(clipIds);
+        return;
+    }
+    if (!forward) {
+        qWarning() << "Cannot undo an uncommitted Rust batch clip geometry transaction";
+        return;
+    }
     m_service->beginTimelineProjectionTransaction();
     for (const auto &move : std::as_const(m_moves)) {
         m_service->updateClipInternal(
@@ -48,7 +86,7 @@ void MoveClipsCommand::apply(bool forward) {
             forward ? move.newDuration : move.oldDuration, false,
             forward ? m_prevalidated : true);
     }
-    if (m_service->endTimelineProjectionTransaction()) {
+    if (m_service->endTimelineProjectionTransaction(&m_transaction)) {
         emit m_service->clipsChanged();
     }
 }
