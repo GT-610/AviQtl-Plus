@@ -7,18 +7,81 @@
 
 namespace AviQtl::UI {
 
+namespace {
+
+bool captureClipProjection(TimelineService *service, int clipId,
+                           ClipProjectionRestore &restore, QObject *snapshotOwner) {
+    for (const auto &scene : service->getAllScenes()) {
+        for (qsizetype index = 0; index < scene.clips.size(); ++index) {
+            if (scene.clips.at(index).id != clipId) {
+                continue;
+            }
+            restore.clip = service->deepCopyClip(scene.clips.at(index));
+            restore.clip.id = clipId;
+            restore.index = index;
+            for (auto *effect : std::as_const(restore.clip.effects)) {
+                if (effect != nullptr) {
+                    effect->setParent(snapshotOwner);
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
 AddClipCommand::AddClipCommand(TimelineService *service, int clipId, QString type, int startFrame, int layer, const QString &clipName, int duration, QString effectId,
                                QVariantMap effectParams) // NOLINT(bugprone-easily-swappable-parameters)
-    : m_service(service), m_clipId(clipId), m_type(std::move(type)), m_startFrame(startFrame), m_layer(layer), m_clipName(clipName), m_duration(duration), m_effectId(std::move(effectId)), m_effectParams(std::move(effectParams)) {
+    : m_service(service), m_clipId(clipId), m_type(std::move(type)), m_startFrame(startFrame), m_layer(layer), m_clipName(clipName), m_duration(duration), m_effectId(std::move(effectId)), m_effectParams(std::move(effectParams)), m_snapshotOwner(std::make_unique<QObject>()) {
     setText(QObject::tr("クリップ追加: %1").arg(clipName));
 }
-void AddClipCommand::undo() { m_service->deleteClipInternal(m_clipId); }
+
+AddClipCommand::~AddClipCommand() = default;
+
+void AddClipCommand::undo() {
+    if (!m_transaction.isValid()) {
+        return;
+    }
+    if (m_service->applyTimelineEditTransaction(
+            m_transaction, false,
+            [this]() { return m_service->removeClipProjectionsInternal({m_clipId}); },
+            [this]() { return m_service->restoreClipProjectionsInternal({m_restore}); })) {
+        emit m_service->clipsChanged();
+    } else {
+        qWarning() << "Failed to undo a Rust clip creation transaction";
+    }
+}
+
 void AddClipCommand::redo() {
-    m_service->createClipInternal(m_clipId, m_type, m_startFrame, m_layer, false, m_duration,
-                                  m_effectId, m_effectParams);
+    const bool replaying = m_transaction.isValid();
+    if (replaying) {
+        if (!m_service->applyTimelineEditTransaction(
+                m_transaction, true,
+                [this]() { return m_service->restoreClipProjectionsInternal({m_restore}); },
+                [this]() { return m_service->removeClipProjectionsInternal({m_clipId}); })) {
+            qWarning() << "Failed to redo a Rust clip creation transaction";
+            return;
+        }
+    } else {
+        m_service->createClipInternal(m_clipId, m_type, m_startFrame, m_layer, false, m_duration,
+                                      m_effectId, m_effectParams, &m_transaction);
+        if (!m_transaction.isValid() ||
+            !captureClipProjection(m_service, m_clipId, m_restore, m_snapshotOwner.get())) {
+            qWarning() << "Failed to capture a committed Rust clip creation transaction";
+            return;
+        }
+    }
     auto *clip = m_service->findClipById(m_clipId);
     if (clip == nullptr) {
         return;
+    }
+    if (replaying) {
+        for (qsizetype index = 0; index < clip->effects.size(); ++index) {
+            emit m_service->clipsChanged();
+            emit m_service->clipEffectsChanged(clip->id);
+        }
     }
     emit m_service->clipsChanged();
     emit m_service->clipCreated(clip->id, clip->layer, clip->startFrame, clip->durationFrames, clip->type);
@@ -323,27 +386,64 @@ void SplitClipCommand::redo() {
     }
 }
 
-DeleteClipsCommand::DeleteClipsCommand(TimelineService *service, const QList<int> &clipIds, const QString &macroText) : m_service(service), m_clipIds(clipIds) {
+DeleteClipsCommand::DeleteClipsCommand(TimelineService *service, const QList<int> &clipIds,
+                                       const QString &macroText)
+    : m_service(service), m_snapshotOwner(std::make_unique<QObject>()) {
     setText(macroText);
     for (int id : std::as_const(clipIds)) {
-        const auto *clip = service->findClipById(id);
-        if (clip != nullptr) {
-            ClipData snap = service->deepCopyClip(*clip);
-            snap.id = id; // 重要: 削除前の元のIDをスナップショットに保存
-            m_snapshots.append(snap);
+        if (m_clipIds.contains(id)) {
+            continue;
+        }
+        ClipProjectionRestore restore;
+        if (captureClipProjection(service, id, restore, m_snapshotOwner.get())) {
+            m_clipIds.append(id);
+            m_restores.append(std::move(restore));
         }
     }
 }
+
+DeleteClipsCommand::~DeleteClipsCommand() = default;
+
 void DeleteClipsCommand::redo() {
+    if (m_clipIds.isEmpty()) {
+        return;
+    }
+    if (m_transaction.isValid()) {
+        if (!m_service->applyTimelineEditTransaction(
+                m_transaction, true,
+                [this]() { return m_service->removeClipProjectionsInternal(m_clipIds); },
+                [this]() { return m_service->restoreClipProjectionsInternal(m_restores); })) {
+            qWarning() << "Failed to redo a Rust clip deletion transaction";
+            return;
+        }
+        emit m_service->clipsChanged();
+        return;
+    }
+
     m_service->beginTimelineProjectionTransaction();
     for (int id : std::as_const(m_clipIds)) {
         m_service->deleteClipInternal(id, false);
     }
-    if (m_service->endTimelineProjectionTransaction()) {
+    if (!m_service->endTimelineProjectionTransaction(&m_transaction)) {
+        qWarning() << "Failed to commit a Rust clip deletion transaction";
+        return;
+    }
+    emit m_service->clipsChanged();
+}
+
+void DeleteClipsCommand::undo() {
+    if (!m_transaction.isValid()) {
+        return;
+    }
+    if (m_service->applyTimelineEditTransaction(
+            m_transaction, false,
+            [this]() { return m_service->restoreClipProjectionsInternal(m_restores); },
+            [this]() { return m_service->removeClipProjectionsInternal(m_clipIds); })) {
         emit m_service->clipsChanged();
+    } else {
+        qWarning() << "Failed to undo a Rust clip deletion transaction";
     }
 }
-void DeleteClipsCommand::undo() { m_service->addClipsDirectInternal(m_snapshots); }
 
 CutClipCommand::CutClipCommand(TimelineService *service, int clipId, const QString &clipName) : m_service(service), m_clipId(clipId) {
     const auto *clip = service->findClipById(clipId);

@@ -8,6 +8,7 @@ namespace AviQtl::UI {
 class AddClipCommand : public QUndoCommand {
   public:
     AddClipCommand(TimelineService *service, int clipId, QString type, int startFrame, int layer, const QString &clipName, int duration = 0, QString effectId = {}, QVariantMap effectParams = {});
+    ~AddClipCommand() override;
     void undo() override;
     void redo() override;
 
@@ -21,6 +22,9 @@ class AddClipCommand : public QUndoCommand {
     int m_duration;
     QString m_effectId;
     QVariantMap m_effectParams;
+    ClipProjectionRestore m_restore;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class MoveClipCommand : public QUndoCommand {
@@ -221,13 +225,16 @@ class SplitClipCommand : public QUndoCommand {
 class DeleteClipsCommand : public QUndoCommand {
   public:
     DeleteClipsCommand(TimelineService *service, const QList<int> &clipIds, const QString &macroText);
+    ~DeleteClipsCommand() override;
     void undo() override;
     void redo() override;
 
   private:
     TimelineService *m_service;
     QList<int> m_clipIds;
-    QList<ClipData> m_snapshots; // 削除されたクリップの復元用スナップショット
+    QList<ClipProjectionRestore> m_restores;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class PasteClipCommand : public QUndoCommand {
