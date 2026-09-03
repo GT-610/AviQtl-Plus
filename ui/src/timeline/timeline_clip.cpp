@@ -579,11 +579,19 @@ void TimelineService::setClipByUpperObjectInternal(int clipId, bool enabled, boo
         return;
     }
     if (emitSignal) {
-        emit clipsChanged();
+        publishClipCompositingChange(clipId);
     }
+}
+
+void TimelineService::publishClipCompositingChange(int clipId) {
+    const auto *clip = findClipById(clipId);
+    if (clip == nullptr) {
+        return;
+    }
+    emit clipsChanged();
     if (m_selection != nullptr && m_selection->selectedClipId() == clipId) {
         QVariantMap data = m_selection->selectedClipData();
-        data.insert(QStringLiteral("clipByUpperObject"), enabled);
+        data.insert(QStringLiteral("clipByUpperObject"), clip->clipByUpperObject);
         m_selection->refreshSelectionData(clipId, data);
     }
 }
@@ -767,10 +775,28 @@ bool TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSigna
 
 bool TimelineService::restoreClipProjectionsInternal(
     const QList<ClipProjectionRestore> &restores) {
+    return replaceClipProjectionsInternal({}, restores);
+}
+
+bool TimelineService::removeClipProjectionsInternal(const QList<int> &clipIds) {
+    return replaceClipProjectionsInternal(clipIds, {});
+}
+
+bool TimelineService::replaceClipProjectionsInternal(
+    const QList<int> &removeIds, const QList<ClipProjectionRestore> &restores) {
+    QSet<int> removedIds;
+    for (int clipId : removeIds) {
+        if (clipId < 0 || removedIds.contains(clipId) || findClipById(clipId) == nullptr) {
+            return false;
+        }
+        removedIds.insert(clipId);
+    }
+
     QSet<int> restoredIds;
     for (const auto &restore : restores) {
         if (restore.clip.id < 0 || restoredIds.contains(restore.clip.id) ||
-            findClipById(restore.clip.id) != nullptr) {
+            (findClipById(restore.clip.id) != nullptr &&
+             !removedIds.contains(restore.clip.id))) {
             return false;
         }
         restoredIds.insert(restore.clip.id);
@@ -781,7 +807,30 @@ bool TimelineService::restoreClipProjectionsInternal(
         }
     }
 
-    QList<ClipProjectionRestore> ordered = restores;
+    QList<ClipProjectionRestore> prepared;
+    prepared.reserve(restores.size());
+    for (const auto &restore : restores) {
+        ClipData clip = deepCopyClip(restore.clip);
+        clip.id = restore.clip.id;
+        prepared.append({.clip = std::move(clip), .index = restore.index});
+    }
+
+    QList<ClipData> removed;
+    removed.reserve(removeIds.size());
+    for (int clipId : removeIds) {
+        for (auto &scene : m_scenes) {
+            const auto clipIt = std::ranges::find_if(
+                scene.clips, [clipId](const ClipData &clip) { return clip.id == clipId; });
+            if (clipIt == scene.clips.end()) {
+                continue;
+            }
+            removed.append(*clipIt);
+            scene.clips.erase(clipIt);
+            break;
+        }
+    }
+
+    QList<ClipProjectionRestore> ordered = std::move(prepared);
     std::ranges::sort(ordered, [](const ClipProjectionRestore &left,
                                  const ClipProjectionRestore &right) {
         if (left.clip.sceneId != right.clip.sceneId) {
@@ -792,39 +841,14 @@ bool TimelineService::restoreClipProjectionsInternal(
     for (const auto &restore : std::as_const(ordered)) {
         auto sceneIt = std::ranges::find_if(
             m_scenes, [&restore](const SceneData &scene) { return scene.id == restore.clip.sceneId; });
-        ClipData restored = deepCopyClip(restore.clip);
-        restored.id = restore.clip.id;
         const qsizetype index = std::clamp<qsizetype>(restore.index, 0, sceneIt->clips.size());
-        sceneIt->clips.insert(index, std::move(restored));
+        sceneIt->clips.insert(index, restore.clip);
     }
-    invalidateCurrentSceneCache();
-    return true;
-}
-
-bool TimelineService::removeClipProjectionsInternal(const QList<int> &clipIds) {
-    QSet<int> uniqueIds;
-    for (int clipId : clipIds) {
-        if (clipId < 0 || uniqueIds.contains(clipId) || findClipById(clipId) == nullptr) {
-            return false;
-        }
-        uniqueIds.insert(clipId);
-    }
-
-    for (int clipId : clipIds) {
-        for (auto &scene : m_scenes) {
-            const auto clipIt = std::ranges::find_if(
-                scene.clips, [clipId](const ClipData &clip) { return clip.id == clipId; });
-            if (clipIt == scene.clips.end()) {
-                continue;
+    for (const auto &clip : std::as_const(removed)) {
+        for (auto *effect : clip.effects) {
+            if (effect != nullptr) {
+                effect->deleteLater();
             }
-            const ClipData removed = *clipIt;
-            scene.clips.erase(clipIt);
-            for (auto *effect : removed.effects) {
-                if (effect != nullptr) {
-                    effect->deleteLater();
-                }
-            }
-            break;
         }
     }
     invalidateCurrentSceneCache();

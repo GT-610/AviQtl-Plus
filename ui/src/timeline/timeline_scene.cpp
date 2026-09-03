@@ -340,6 +340,79 @@ void TimelineService::restoreSceneInternal(const SceneData &scene, qsizetype ind
     emit scenesChanged();
 }
 
+bool TimelineService::restoreSceneProjectionsInternal(
+    const QList<SceneProjectionRestore> &restores) {
+    return replaceSceneProjectionsInternal({}, restores);
+}
+
+bool TimelineService::removeSceneProjectionsInternal(const QList<int> &sceneIds) {
+    return replaceSceneProjectionsInternal(sceneIds, {});
+}
+
+bool TimelineService::replaceSceneProjectionsInternal(
+    const QList<int> &removeIds, const QList<SceneProjectionRestore> &restores) {
+    QSet<int> removedIds;
+    for (int sceneId : removeIds) {
+        const bool exists = std::ranges::any_of(
+            m_scenes, [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+        if (sceneId < 0 || removedIds.contains(sceneId) || !exists) {
+            return false;
+        }
+        removedIds.insert(sceneId);
+    }
+
+    QSet<int> restoredIds;
+    for (const auto &restore : restores) {
+        const bool exists = std::ranges::any_of(
+            m_scenes, [&restore](const SceneData &scene) {
+                return scene.id == restore.scene.id;
+            });
+        if (restore.scene.id < 0 || restoredIds.contains(restore.scene.id) ||
+            (exists && !removedIds.contains(restore.scene.id))) {
+            return false;
+        }
+        restoredIds.insert(restore.scene.id);
+    }
+
+    QList<SceneProjectionRestore> prepared;
+    prepared.reserve(restores.size());
+    for (const auto &restore : restores) {
+        SceneData scene = deepCopyScene(restore.scene);
+        scene.id = restore.scene.id;
+        prepared.append({.scene = std::move(scene), .index = restore.index});
+    }
+
+    QList<SceneData> removed;
+    removed.reserve(removeIds.size());
+    for (int sceneId : removeIds) {
+        const auto sceneIt = std::ranges::find_if(
+            m_scenes, [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+        removed.append(*sceneIt);
+        m_scenes.erase(sceneIt);
+    }
+
+    std::ranges::sort(prepared, [](const SceneProjectionRestore &left,
+                                   const SceneProjectionRestore &right) {
+        return left.index < right.index;
+    });
+    for (const auto &restore : std::as_const(prepared)) {
+        const qsizetype index = std::clamp<qsizetype>(restore.index, 0, m_scenes.size());
+        m_scenes.insert(index, restore.scene);
+    }
+
+    for (const auto &scene : std::as_const(removed)) {
+        for (const auto &clip : scene.clips) {
+            for (auto *effect : clip.effects) {
+                if (effect != nullptr) {
+                    effect->deleteLater();
+                }
+            }
+        }
+    }
+    invalidateCurrentSceneCache();
+    return true;
+}
+
 void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &data) {
     for (auto &scene : m_scenes) {
         if (scene.id == sceneId) {
@@ -377,6 +450,18 @@ void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &d
             return;
         }
     }
+}
+
+auto TimelineService::deepCopyScene(const SceneData &source) -> SceneData {
+    SceneData scene = source;
+    scene.clips.clear();
+    scene.clips.reserve(source.clips.size());
+    for (const auto &clip : source.clips) {
+        ClipData copied = deepCopyClip(clip);
+        copied.id = clip.id;
+        scene.clips.append(std::move(copied));
+    }
+    return scene;
 }
 
 } // namespace AviQtl::UI

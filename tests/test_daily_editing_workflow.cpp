@@ -77,6 +77,8 @@ class TestDailyEditingWorkflow : public QObject {
     void targetedTimelineEditsPreserveExtensions();
     void clipGeometryUndoReplaysRustTransactions();
     void clipCrudUndoReplaysRustTransactions();
+    void remainingStructuralUndoReplaysRustTransactions();
+    void effectAndAudioInsertionUndoReplaysRustTransactions();
     void targetedEffectTransactionsPreserveExtensionsAndOrdering();
     void targetedAudioPluginTransactionsPreserveExtensionsAndOrdering();
     void audioParameterDurationUsesRustState();
@@ -816,6 +818,182 @@ void TestDailyEditingWorkflow::clipCrudUndoReplaysRustTransactions() {
         QVERIFY(restored != nullptr);
         QCOMPARE(restored->effects.size(), 2);
     }
+}
+
+void TestDailyEditingWorkflow::remainingStructuralUndoReplaysRustTransactions() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int clipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    timeline.undoStack()->clear();
+
+    const QVariantMap original = timeline.timelineStateSnapshot();
+
+    timeline.setClipByUpperObject(clipId, true);
+    const QVariantMap composited = timeline.timelineStateSnapshot();
+    const auto *clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(clip->clipByUpperObject);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), original);
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(!clip->clipByUpperObject);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), composited);
+    clip = timeline.findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(clip->clipByUpperObject);
+    timeline.undo();
+    timeline.undoStack()->clear();
+
+    timeline.setLayerState(0, true, UpdateLayerStateCommand::Lock);
+    const QVariantMap locked = timeline.timelineStateSnapshot();
+    QVERIFY(timeline.isLayerLocked(0));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), original);
+    QVERIFY(!timeline.isLayerLocked(0));
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), locked);
+    QVERIFY(timeline.isLayerLocked(0));
+    timeline.undo();
+    timeline.undoStack()->clear();
+
+    const int splitId = timeline.nextClipId();
+    timeline.splitClip(clipId, 30);
+    const QVariantMap split = timeline.timelineStateSnapshot();
+    QVERIFY(timeline.findClipById(splitId) != nullptr);
+    timeline.undo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), original);
+    QVERIFY(timeline.findClipById(splitId) == nullptr);
+    timeline.redo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), split);
+    QVERIFY(timeline.findClipById(splitId) != nullptr);
+    timeline.undo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    timeline.undoStack()->clear();
+
+    timeline.cutClip(clipId);
+    const QVariantMap cut = timeline.timelineStateSnapshot();
+    QVERIFY(timeline.findClipById(clipId) == nullptr);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), original);
+    QVERIFY(timeline.findClipById(clipId) != nullptr);
+    timeline.redo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), cut);
+    QVERIFY(timeline.findClipById(clipId) == nullptr);
+    timeline.undo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    timeline.undoStack()->clear();
+
+    timeline.copyClip(clipId);
+    const int pastedId = timeline.nextClipId();
+    timeline.pasteClip(100, 2);
+    const QVariantMap pasted = timeline.timelineStateSnapshot();
+    QVERIFY(timeline.findClipById(pastedId) != nullptr);
+    timeline.undo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), original);
+    QVERIFY(timeline.findClipById(pastedId) == nullptr);
+    timeline.redo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), pasted);
+    QVERIFY(timeline.findClipById(pastedId) != nullptr);
+    timeline.undo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    timeline.undoStack()->clear();
+
+    const int sceneId = timeline.nextSceneId();
+    timeline.createScene(QStringLiteral("Replay Scene"));
+    const QVariantMap createdScene = timeline.timelineStateSnapshot();
+    QCOMPARE(timeline.currentSceneId(), sceneId);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), original);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), createdScene);
+    QCOMPARE(timeline.currentSceneId(), sceneId);
+
+    timeline.updateSceneSettings(sceneId, QStringLiteral("Updated Replay Scene"), 1280,
+                                 720, 30.0, 600, QStringLiteral("Frame"), 120.0,
+                                 0.0, 10, 4, true, 8);
+    const QVariantMap updatedScene = timeline.timelineStateSnapshot();
+    QCOMPARE(timeline.getAllScenes().at(1).name, QStringLiteral("Updated Replay Scene"));
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), createdScene);
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), updatedScene);
+    timeline.undoStack()->clear();
+
+    const int sceneClipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 5, 1);
+    timeline.undoStack()->clear();
+    const QVariantMap beforeSceneRemoval = timeline.timelineStateSnapshot();
+    timeline.removeScene(sceneId);
+    const QVariantMap removedScene = timeline.timelineStateSnapshot();
+    QVERIFY(timeline.findClipById(sceneClipId) == nullptr);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeSceneRemoval);
+    QVERIFY(timeline.findClipById(sceneClipId) != nullptr);
+    timeline.redo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), removedScene);
+    QVERIFY(timeline.findClipById(sceneClipId) == nullptr);
+}
+
+void TestDailyEditingWorkflow::effectAndAudioInsertionUndoReplaysRustTransactions() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int effectClipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    timeline.undoStack()->clear();
+
+    const QVariantMap beforeEffect = timeline.timelineStateSnapshot();
+    timeline.addEffect(effectClipId, QStringLiteral("blur"));
+    const QVariantMap afterEffect = timeline.timelineStateSnapshot();
+    const auto *effectClip = timeline.findClipById(effectClipId);
+    QVERIFY(effectClip != nullptr);
+    QCOMPARE(effectClip->effects.size(), 3);
+    timeline.undo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeEffect);
+    effectClip = timeline.findClipById(effectClipId);
+    QVERIFY(effectClip != nullptr);
+    QCOMPARE(effectClip->effects.size(), 2);
+    timeline.redo();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), afterEffect);
+    effectClip = timeline.findClipById(effectClipId);
+    QVERIFY(effectClip != nullptr);
+    QCOMPARE(effectClip->effects.size(), 3);
+
+    const int audioClipId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("audio"), 100, 1);
+    timeline.undoStack()->clear();
+    AudioPluginState plugin;
+    plugin.id = QStringLiteral("test.replay");
+    plugin.params.insert(QStringLiteral("0"), 0.5);
+
+    const QVariantMap beforePlugin = timeline.timelineStateSnapshot();
+    timeline.addAudioPlugin(audioClipId, plugin, QStringLiteral("Replay Plugin"));
+    const QVariantMap afterPlugin = timeline.timelineStateSnapshot();
+    const auto *audioClip = timeline.findClipById(audioClipId);
+    QVERIFY(audioClip != nullptr);
+    QCOMPARE(audioClip->audioPlugins.size(), 1);
+    timeline.undo();
+    QCOMPARE(timeline.timelineStateSnapshot(), beforePlugin);
+    audioClip = timeline.findClipById(audioClipId);
+    QVERIFY(audioClip != nullptr);
+    QVERIFY(audioClip->audioPlugins.isEmpty());
+    timeline.redo();
+    QCOMPARE(timeline.timelineStateSnapshot(), afterPlugin);
+    audioClip = timeline.findClipById(audioClipId);
+    QVERIFY(audioClip != nullptr);
+    QCOMPARE(audioClip->audioPlugins.size(), 1);
 }
 
 void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOrdering() {
