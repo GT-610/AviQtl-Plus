@@ -168,38 +168,65 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
         }
     }
 
-    auto &targetClips = clipsMutable();
     const int targetSceneId = m_currentSceneId;
-    const qsizetype insertedIndex = targetClips.size();
-    targetClips.append(newClip);
     const QVariantMap request{
         {QStringLiteral("operation"), QStringLiteral("insert_clip")},
         {QStringLiteral("clip"), timelineClipDocument(newClip)},
     };
-    if (!commitTimelineMutation(request, [this, targetSceneId, insertedIndex, clipId,
-                                           effects = newClip.effects]() {
-        auto sceneIt = std::ranges::find_if(m_scenes, [targetSceneId](const SceneData &scene) {
-            return scene.id == targetSceneId;
-        });
-        if (sceneIt != m_scenes.end()) {
-            if (insertedIndex < sceneIt->clips.size() &&
-                sceneIt->clips.at(insertedIndex).id == clipId) {
-                sceneIt->clips.removeAt(insertedIndex);
-            } else {
-                for (qsizetype index = sceneIt->clips.size(); index > 0; --index) {
-                    if (sceneIt->clips.at(index - 1).id == clipId) {
-                        sceneIt->clips.removeAt(index - 1);
-                        break;
+    const auto insertedIndex = std::make_shared<qsizetype>(-1);
+    const QList<EffectModel *> createdEffects = newClip.effects;
+    if (!commitTimelineStructureMutation(
+            request,
+            [this, targetSceneId, clipId, newClip, insertedIndex]() {
+                auto sceneIt = std::ranges::find_if(
+                    m_scenes, [targetSceneId](const SceneData &scene) {
+                        return scene.id == targetSceneId;
+                    });
+                if (sceneIt == m_scenes.end() || findClipById(clipId) != nullptr) {
+                    return false;
+                }
+                *insertedIndex = sceneIt->clips.size();
+                sceneIt->clips.append(newClip);
+                return true;
+            },
+            [this, targetSceneId, clipId, insertedIndex]() {
+                auto sceneIt = std::ranges::find_if(
+                    m_scenes, [targetSceneId](const SceneData &scene) {
+                        return scene.id == targetSceneId;
+                    });
+                if (sceneIt == m_scenes.end() || *insertedIndex < 0) {
+                    return false;
+                }
+                if (*insertedIndex < sceneIt->clips.size() &&
+                    sceneIt->clips.at(*insertedIndex).id == clipId) {
+                    sceneIt->clips.removeAt(*insertedIndex);
+                    return true;
+                }
+                const auto clipIt = std::ranges::find_if(
+                    sceneIt->clips,
+                    [clipId](const ClipData &clip) { return clip.id == clipId; });
+                if (clipIt == sceneIt->clips.end()) {
+                    return false;
+                }
+                sceneIt->clips.erase(clipIt);
+                return true;
+            },
+            {},
+            [this, createdEffects]() {
+                for (auto *effect : createdEffects) {
+                    const bool retained = std::ranges::any_of(
+                        m_scenes, [effect](const SceneData &scene) {
+                            return std::ranges::any_of(
+                                scene.clips, [effect](const ClipData &clip) {
+                                    return clip.effects.contains(effect);
+                                });
+                        });
+                    if (effect != nullptr && !retained) {
+                        effect->deleteLater();
                     }
                 }
-            }
-        }
-        for (auto *effect : effects) {
-            if (effect != nullptr) {
-                effect->deleteLater();
-            }
-        }
-    }, {}, transaction)) {
+            },
+            transaction)) {
         qWarning() << "Rust rejected clip creation";
         return;
     }
@@ -670,22 +697,50 @@ void TimelineService::deleteClipInternal(int clipId, bool emitSignal, bool commi
     auto &currentClips = clipsMutable();
     auto it = std::ranges::find_if(currentClips, [clipId](const ClipData &c) -> bool { return c.id == clipId; });
     if (it != currentClips.end()) {
-        const auto index = std::distance(currentClips.begin(), it);
         const ClipData removed = *it;
         const int sceneId = removed.sceneId;
-        currentClips.erase(it);
+        if (!commitState) {
+            currentClips.erase(it);
+            if (emitSignal) {
+                emit clipsChanged();
+            }
+            return;
+        }
         const QVariantMap request{
             {QStringLiteral("operation"), QStringLiteral("remove_clip")},
             {QStringLiteral("clip_id"), clipId},
         };
-        if (commitState && !commitTimelineMutation(
-                request, [this, sceneId, index, removed]() {
-                    auto sceneIt = std::ranges::find_if(m_scenes, [sceneId](const SceneData &scene) {
-                        return scene.id == sceneId;
-                    });
-                    if (sceneIt != m_scenes.end()) {
-                        sceneIt->clips.insert(std::min<qsizetype>(index, sceneIt->clips.size()), removed);
+        const auto removedIndex = std::make_shared<qsizetype>(-1);
+        if (!commitTimelineStructureMutation(
+                request,
+                [this, sceneId, clipId, removedIndex]() {
+                    auto sceneIt = std::ranges::find_if(
+                        m_scenes,
+                        [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+                    if (sceneIt == m_scenes.end()) {
+                        return false;
                     }
+                    const auto clipIt = std::ranges::find_if(
+                        sceneIt->clips,
+                        [clipId](const ClipData &clip) { return clip.id == clipId; });
+                    if (clipIt == sceneIt->clips.end()) {
+                        return false;
+                    }
+                    *removedIndex = std::distance(sceneIt->clips.begin(), clipIt);
+                    sceneIt->clips.erase(clipIt);
+                    return true;
+                },
+                [this, sceneId, removed, removedIndex]() {
+                    auto sceneIt = std::ranges::find_if(
+                        m_scenes,
+                        [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+                    if (sceneIt == m_scenes.end() || *removedIndex < 0 ||
+                        findClipById(removed.id) != nullptr) {
+                        return false;
+                    }
+                    sceneIt->clips.insert(
+                        std::min<qsizetype>(*removedIndex, sceneIt->clips.size()), removed);
+                    return true;
                 },
                 [removed]() {
                     for (auto *effect : removed.effects) {
@@ -714,32 +769,55 @@ bool TimelineService::addClipDirectInternal(const ClipData &clip, bool emitSigna
     }
     auto &targetClips = sceneIt->clips;
     const int targetSceneId = clip.sceneId;
-    const qsizetype insertedIndex = targetClips.size();
-    targetClips.append(clip);
+    if (!commitState) {
+        targetClips.append(clip);
+        if (emitSignal) {
+            emit clipsChanged();
+            emit clipCreated(clip.id, clip.layer, clip.startFrame, clip.durationFrames, clip.type);
+        }
+        return true;
+    }
     const QVariantMap request{
         {QStringLiteral("operation"), QStringLiteral("insert_clip")},
         {QStringLiteral("clip"), timelineClipDocument(clip)},
     };
-    if (commitState && !commitTimelineMutation(request, [this, targetSceneId, insertedIndex,
-                                                          clipId = clip.id]() {
-            auto sceneIt = std::ranges::find_if(m_scenes, [targetSceneId](const SceneData &scene) {
-                return scene.id == targetSceneId;
-            });
-            if (sceneIt == m_scenes.end()) {
-                return;
-            }
-            if (insertedIndex < sceneIt->clips.size() &&
-                sceneIt->clips.at(insertedIndex).id == clipId) {
-                sceneIt->clips.removeAt(insertedIndex);
-                return;
-            }
-            for (qsizetype index = sceneIt->clips.size(); index > 0; --index) {
-                if (sceneIt->clips.at(index - 1).id == clipId) {
-                    sceneIt->clips.removeAt(index - 1);
-                    return;
+    const auto insertedIndex = std::make_shared<qsizetype>(-1);
+    if (!commitTimelineStructureMutation(
+            request,
+            [this, targetSceneId, clip, insertedIndex]() {
+                auto sceneIt = std::ranges::find_if(
+                    m_scenes, [targetSceneId](const SceneData &scene) {
+                        return scene.id == targetSceneId;
+                    });
+                if (sceneIt == m_scenes.end() || findClipById(clip.id) != nullptr) {
+                    return false;
                 }
-            }
-        })) {
+                *insertedIndex = sceneIt->clips.size();
+                sceneIt->clips.append(clip);
+                return true;
+            },
+            [this, targetSceneId, clipId = clip.id, insertedIndex]() {
+                auto sceneIt = std::ranges::find_if(
+                    m_scenes, [targetSceneId](const SceneData &scene) {
+                        return scene.id == targetSceneId;
+                    });
+                if (sceneIt == m_scenes.end() || *insertedIndex < 0) {
+                    return false;
+                }
+                if (*insertedIndex < sceneIt->clips.size() &&
+                    sceneIt->clips.at(*insertedIndex).id == clipId) {
+                    sceneIt->clips.removeAt(*insertedIndex);
+                    return true;
+                }
+                const auto clipIt = std::ranges::find_if(
+                    sceneIt->clips,
+                    [clipId](const ClipData &candidate) { return candidate.id == clipId; });
+                if (clipIt == sceneIt->clips.end()) {
+                    return false;
+                }
+                sceneIt->clips.erase(clipIt);
+                return true;
+            })) {
         qWarning() << "Rust rejected direct clip insertion";
         return false;
     }

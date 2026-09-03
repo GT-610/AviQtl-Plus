@@ -416,7 +416,6 @@ class RemoveSceneCommand : public QUndoCommand {
   private:
     TimelineService *m_service;
     int m_sceneId;
-    qsizetype m_sceneIndex = -1;
     QList<SceneProjectionRestore> m_before;
     QList<SceneProjectionRestore> m_after;
     TimelineEditTransaction m_transaction;

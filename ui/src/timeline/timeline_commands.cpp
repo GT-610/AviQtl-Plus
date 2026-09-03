@@ -1063,7 +1063,6 @@ RemoveSceneCommand::RemoveSceneCommand(TimelineService *service, int sceneId, co
     const auto &scenes = service->getAllScenes();
     for (qsizetype index = 0; index < scenes.size(); ++index) {
         if (scenes.at(index).id == sceneId) {
-            m_sceneIndex = index;
             SceneProjectionRestore restore;
             if (captureSceneProjection(service, sceneId, restore, m_snapshotOwner.get())) {
                 m_before = {std::move(restore)};

@@ -84,6 +84,7 @@ class TestDailyEditingWorkflow : public QObject {
     void targetedAudioPluginTransactionsPreserveExtensionsAndOrdering();
     void audioParameterDurationUsesRustState();
     void targetedBatchFailureRollsBackRustAndQt();
+    void rustFirstStructuralMutationsStayAtomic();
     void sceneUndoRestoresItsClipsInRustState();
     void clipboardPasteTargetsCurrentScene();
     void pasteReportsResolvedClipEditTarget();
@@ -1506,6 +1507,58 @@ void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
     QCOMPARE(timeline.getAllScenes().first().clips.size(),
              previousScenes.first().clips.size());
     QCOMPARE(clipsChangedSpy.count(), 0);
+}
+
+void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int existingId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    timeline.undoStack()->clear();
+
+    auto *existing = timeline.findClipById(existingId);
+    QVERIFY(existing != nullptr);
+    QVERIFY(existing->effects.size() >= 2);
+    auto *detached = existing->effects.takeLast();
+    const QVariantMap beforeRejectedInsertion = timeline.timelineStateSnapshot();
+
+    ClipData rejected;
+    rejected.id = 900;
+    rejected.sceneId = 0;
+    rejected.type = QStringLiteral("test");
+    rejected.startFrame = 100;
+    rejected.durationFrames = 30;
+    rejected.layer = 1;
+    QSignalSpy clipsChangedSpy(&timeline, &TimelineService::clipsChanged);
+    QVERIFY(!timeline.addClipDirectInternal(rejected));
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeRejectedInsertion);
+    QVERIFY(timeline.findClipById(rejected.id) == nullptr);
+    QCOMPARE(clipsChangedSpy.count(), 0);
+    existing = timeline.findClipById(existingId);
+    QVERIFY(existing != nullptr);
+    existing->effects.append(detached);
+
+    ClipData first = rejected;
+    first.id = 901;
+    ClipData second = rejected;
+    second.id = 902;
+    second.startFrame = 140;
+    QVERIFY(timeline.addClipsDirectInternal({first, second}));
+    QCOMPARE(clipsChangedSpy.count(), 1);
+    QCOMPARE(timeline.clips().at(timeline.clips().size() - 2).id, first.id);
+    QCOMPARE(timeline.clips().last().id, second.id);
+
+    const QVariantList rustClips =
+        timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    QCOMPARE(rustClips.at(rustClips.size() - 2).toMap().value(QStringLiteral("id")).toInt(),
+             first.id);
+    QCOMPARE(rustClips.last().toMap().value(QStringLiteral("id")).toInt(), second.id);
+
+    const qsizetype sceneCount = timeline.getAllScenes().size();
+    QSignalSpy scenesChangedSpy(&timeline, &TimelineService::scenesChanged);
+    timeline.createSceneInternal(0, QStringLiteral("Duplicate root"));
+    QCOMPARE(timeline.getAllScenes().size(), sceneCount);
+    QCOMPARE(scenesChangedSpy.count(), 0);
 }
 
 void TestDailyEditingWorkflow::sceneUndoRestoresItsClipsInRustState() {
