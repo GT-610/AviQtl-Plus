@@ -954,7 +954,6 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
             effect->setParam(paramName, value);
             const std::optional<double> mediaDurationSeconds =
                 probeAudioDuration(*clip, effect, paramName);
-            const bool waveformChanged = affectsAudioWaveform(*clip, effect, paramName);
 
             if (!commitTimelineMutation(
                     setEffectParameterRequest(clipId, effectIndex, paramName, value,
@@ -970,39 +969,45 @@ void TimelineService::updateEffectParamInternal(int clipId, int effectIndex, con
                 qWarning() << "Rust rejected effect parameter update";
                 return;
             }
-            const bool durationChanged = clip->durationFrames != oldDuration;
-
-            emit effectParamChanged(clipId, effectIndex, paramName, value);
-
-            // [FIX-21] layerCount の変更は clipsChanged() を発行しない。
-            //
-            // 旧実装では layerCount パラメータ変更のたびに clipsChanged() を
-            // emit していたため、CompositeView の clipModel が全再構築され、
-            // CameraControlObject の destroy→recreate サイクルが毎回発生していた。
-            // これが SIGSEGV の主要トリガーの一つであった。
-            //
-            // layerCount の変更はカメラが参照するレイヤー範囲の変更であり、
-            // clipModel の再構築は不要。effectParamChanged シグナルだけで
-            // CameraControlObject.qml 側の evalParam() がリアクティブに再評価される。
-            //
-            // path / source / targetSceneId は実際にメディアや構造の変更を伴うため
-            // 引き続き clipsChanged() を発行する。
-            if (durationChanged || paramName == QLatin1String("path") || paramName == QLatin1String("source") || paramName == QStringLiteral("targetSceneId")) {
-                emit clipsChanged();
-            }
-            if (durationChanged || waveformChanged) {
-                emit clipEffectsChanged(clipId);
-            }
-
-            if (m_selection->selectedClipId() == clipId) {
-                QVariantMap data = m_selection->selectedClipData();
-                data.insert(paramName, value);
-                if (durationChanged) {
-                    data.insert(QStringLiteral("durationFrames"), clip->durationFrames);
-                }
-                m_selection->refreshSelectionData(clipId, data);
-            }
+            publishEffectParameterChange(clipId, effectIndex, paramName, oldDuration);
         }
+    }
+}
+
+void TimelineService::publishEffectParameterChange(int clipId, int effectIndex,
+                                                   const QString &paramName,
+                                                   int previousDuration) {
+    const auto *clip = findClipById(clipId);
+    if (clip == nullptr || effectIndex < 0 || effectIndex >= clip->effects.size()) {
+        return;
+    }
+    const auto *effect = clip->effects.at(effectIndex);
+    if (effect == nullptr) {
+        return;
+    }
+    const QVariant value = effect->params().value(paramName);
+    const bool durationChanged = clip->durationFrames != previousDuration;
+    const bool waveformChanged = affectsAudioWaveform(*clip, effect, paramName);
+
+    emit effectParamChanged(clipId, effectIndex, paramName, value);
+
+    // layerCount only changes the camera's layer range, so effectParamChanged is enough.
+    if (durationChanged || paramName == QLatin1String("path") ||
+        paramName == QLatin1String("source") ||
+        paramName == QStringLiteral("targetSceneId")) {
+        emit clipsChanged();
+    }
+    if (durationChanged || waveformChanged) {
+        emit clipEffectsChanged(clipId);
+    }
+
+    if (m_selection != nullptr && m_selection->selectedClipId() == clipId) {
+        QVariantMap data = m_selection->selectedClipData();
+        data.insert(paramName, value);
+        if (durationChanged) {
+            data.insert(QStringLiteral("durationFrames"), clip->durationFrames);
+        }
+        m_selection->refreshSelectionData(clipId, data);
     }
 }
 

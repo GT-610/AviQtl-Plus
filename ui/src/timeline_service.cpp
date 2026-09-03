@@ -177,6 +177,18 @@ TimelineEditTransaction combineTransactions(const QList<TimelineEditTransaction>
     };
 }
 
+void appendTransaction(TimelineEditTransaction *destination,
+                       TimelineEditTransaction transaction) {
+    if (destination == nullptr || !transaction.isValid()) {
+        return;
+    }
+    if (!destination->isValid()) {
+        *destination = std::move(transaction);
+        return;
+    }
+    *destination = combineTransactions({*destination, transaction});
+}
+
 } // namespace
 
 TimelineService::TimelineService(SelectionService *selection, QObject *parent) : QObject(parent), m_undoStack(new QUndoStack(this)), m_selection(selection) {
@@ -537,9 +549,9 @@ bool TimelineService::commitTimelineMutation(const QVariantMap &request,
     if (commitAction) {
         commitAction();
     }
-    if (committedTransaction != nullptr) {
-        *committedTransaction = std::move(transaction);
-    }
+    appendTransaction(committedTransaction != nullptr ? committedTransaction
+                                                       : m_timelineEditCapture,
+                      std::move(transaction));
     return true;
 }
 
@@ -607,6 +619,30 @@ bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction
         qWarning() << "Failed to restore the Qt timeline projection after structural replay rollback";
     }
     return false;
+}
+
+bool TimelineService::captureTimelineEdit(TimelineEditTransaction &transaction,
+                                          std::function<void()> edit) {
+    if (!edit || m_timelineEditCapture != nullptr) {
+        return false;
+    }
+    transaction.clear();
+    m_timelineEditCapture = &transaction;
+    struct CaptureReset {
+        TimelineEditTransaction *&capture;
+        ~CaptureReset() { capture = nullptr; }
+    } reset{m_timelineEditCapture};
+    edit();
+    return transaction.isValid();
+}
+
+bool TimelineService::mergeTimelineEditTransactions(
+    TimelineEditTransaction &transaction, const TimelineEditTransaction &next) const {
+    if (!transaction.isValid() || !next.isValid()) {
+        return false;
+    }
+    transaction = combineTransactions({transaction, next});
+    return transaction.isValid();
 }
 
 void TimelineService::publishClipGeometryChange(const QList<int> &clipIds, bool emitSignal) {
@@ -728,9 +764,9 @@ bool TimelineService::endTimelineProjectionTransaction(
                 action();
             }
         }
-        if (committedTransaction != nullptr) {
-            *committedTransaction = combineTransactions(transactions);
-        }
+        appendTransaction(committedTransaction != nullptr ? committedTransaction
+                                                           : m_timelineEditCapture,
+                          combineTransactions(transactions));
         return true;
     }
     for (auto it = transactions.crbegin(); it != transactions.crend(); ++it) {

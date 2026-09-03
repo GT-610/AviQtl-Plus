@@ -28,6 +28,11 @@ struct ClipProjectionRestore {
     qsizetype index = 0;
 };
 
+struct SceneProjectionRestore {
+    SceneData scene;
+    qsizetype index = 0;
+};
+
 class TimelineService : public QObject {
     Q_OBJECT
   public:
@@ -52,7 +57,14 @@ class TimelineService : public QObject {
     bool applyTimelineEditTransaction(const TimelineEditTransaction &transaction, bool forward,
                                       std::function<bool()> applyProjection,
                                       std::function<bool()> rollbackProjection);
+    bool captureTimelineEdit(TimelineEditTransaction &transaction,
+                             std::function<void()> edit);
+    bool mergeTimelineEditTransactions(TimelineEditTransaction &transaction,
+                                       const TimelineEditTransaction &next) const;
     void publishClipGeometryChange(const QList<int> &clipIds, bool emitSignal = true);
+    void publishClipCompositingChange(int clipId);
+    void publishEffectParameterChange(int clipId, int effectIndex, const QString &paramName,
+                                      int previousDuration);
     QUndoStack *undoStack() const { return m_undoStack; }
 
     // 操作 (公開API)
@@ -146,6 +158,12 @@ class TimelineService : public QObject {
                                bool commitState = true);
     bool restoreClipProjectionsInternal(const QList<ClipProjectionRestore> &restores);
     bool removeClipProjectionsInternal(const QList<int> &clipIds);
+    bool replaceClipProjectionsInternal(const QList<int> &removeIds,
+                                        const QList<ClipProjectionRestore> &restores);
+    bool restoreSceneProjectionsInternal(const QList<SceneProjectionRestore> &restores);
+    bool removeSceneProjectionsInternal(const QList<int> &sceneIds);
+    bool replaceSceneProjectionsInternal(const QList<int> &removeIds,
+                                         const QList<SceneProjectionRestore> &restores);
     void restoreEffectInternal(int clipId, const QVariantMap &data);
     void removeEffectInternal(int clipId, int effectIndex);
     void removeMultipleEffectsInternal(int clipId, const QList<int> &sortedDescIndices, QList<QVariantMap> *outData);
@@ -181,6 +199,7 @@ class TimelineService : public QObject {
 
     // ヘルパー
     ClipData deepCopyClip(const ClipData &source);
+    SceneData deepCopyScene(const SceneData &source);
 
     int allocateClipId();
     QList<int> allocateClipIds(qsizetype count);
@@ -227,6 +246,7 @@ class TimelineService : public QObject {
     QList<QVariantMap> m_timelineProjectionRequests;
     QList<std::function<void()>> m_timelineProjectionRollbacks;
     QList<std::function<void()>> m_timelineProjectionCommitActions;
+    TimelineEditTransaction *m_timelineEditCapture = nullptr;
     QUndoStack *m_undoStack;
     QList<ClipData> m_clipboard;
     std::unique_ptr<EffectModel> m_effectClipboard;
