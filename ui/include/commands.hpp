@@ -79,6 +79,7 @@ class SetClipByUpperObjectCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_clipId;
     bool m_enabled;
+    TimelineEditTransaction m_transaction;
 };
 
 class UpdateEffectParamCommand : public QUndoCommand {
@@ -97,6 +98,7 @@ class UpdateEffectParamCommand : public QUndoCommand {
     QVariant m_newValue;
     QVariant m_oldValue;
     QString m_effectName;
+    TimelineEditTransaction m_transaction;
 };
 
 class AddEffectCommand : public QUndoCommand {
@@ -110,6 +112,10 @@ class AddEffectCommand : public QUndoCommand {
     int m_clipId;
     QString m_effectId;
     QString m_effectName;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class RemoveEffectCommand : public QUndoCommand {
@@ -125,6 +131,10 @@ class RemoveEffectCommand : public QUndoCommand {
     int m_effectIndex;
     QVariantMap m_removedEffectData;
     QString m_effectName;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class RemoveMultipleEffectsCommand : public QUndoCommand {
@@ -139,6 +149,10 @@ class RemoveMultipleEffectsCommand : public QUndoCommand {
     int m_clipId;
     QList<int> m_sortedDescIndices;
     QList<QVariantMap> m_removedEffectsData;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class ReorderMultipleEffectsCommand : public QUndoCommand {
@@ -152,6 +166,10 @@ class ReorderMultipleEffectsCommand : public QUndoCommand {
     int m_clipId;
     QList<int> m_redoPerm; // 旧順序→新順序を適用する置換
     QList<int> m_undoPerm; // 新順序→旧順序を復元する置換
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class ReorderAudioPluginCommand : public QUndoCommand {
@@ -165,6 +183,10 @@ class ReorderAudioPluginCommand : public QUndoCommand {
     int m_clipId;
     QList<int> m_redoPerm;
     QList<int> m_undoPerm;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class SetEffectEnabledCommand : public QUndoCommand {
@@ -177,6 +199,7 @@ class SetEffectEnabledCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_clipId, m_effectIndex;
     bool m_enabled;
+    TimelineEditTransaction m_transaction;
 };
 
 class PasteEffectCommand : public QUndoCommand {
@@ -189,6 +212,10 @@ class PasteEffectCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_clipId, m_targetIndex;
     std::unique_ptr<EffectModel> m_effect;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class SetAudioPluginEnabledCommand : public QUndoCommand {
@@ -201,6 +228,7 @@ class SetAudioPluginEnabledCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_clipId, m_index;
     bool m_enabled;
+    TimelineEditTransaction m_transaction;
 };
 
 class SplitClipCommand : public QUndoCommand {
@@ -219,7 +247,10 @@ class SplitClipCommand : public QUndoCommand {
     int m_firstDuration;
     int m_secondDuration;
     QString m_clipName;
-    ClipData m_originalSnapshot;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class DeleteClipsCommand : public QUndoCommand {
@@ -247,6 +278,10 @@ class PasteClipCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_newClipId;
     ClipData m_clipData;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class CutClipCommand : public QUndoCommand {
@@ -258,7 +293,10 @@ class CutClipCommand : public QUndoCommand {
   private:
     TimelineService *m_service;
     int m_clipId;
-    ClipData m_snapshot;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class SetKeyframeCommand : public QUndoCommand {
@@ -276,6 +314,7 @@ class SetKeyframeCommand : public QUndoCommand {
     QVariant m_newValue, m_oldValue;
     QVariantMap m_newOptions, m_oldOptions;
     bool m_wasExisting;
+    TimelineEditTransaction m_transaction;
 };
 
 class RemoveKeyframeCommand : public QUndoCommand {
@@ -290,6 +329,7 @@ class RemoveKeyframeCommand : public QUndoCommand {
     QString m_paramName;
     QVariant m_savedValue;
     QVariantMap m_savedOptions;
+    TimelineEditTransaction m_transaction;
 };
 
 class MoveKeyframeCommand : public QUndoCommand {
@@ -302,6 +342,7 @@ class MoveKeyframeCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_clipId, m_effectIndex, m_oldFrame, m_newFrame;
     QString m_paramName;
+    TimelineEditTransaction m_transaction;
 };
 
 class SetAudioPluginKeyframeCommand : public QUndoCommand {
@@ -319,6 +360,7 @@ class SetAudioPluginKeyframeCommand : public QUndoCommand {
     QVariant m_newValue, m_oldValue;
     QVariantMap m_newOptions, m_oldOptions;
     bool m_wasExisting;
+    TimelineEditTransaction m_transaction;
 };
 
 class RemoveAudioPluginKeyframeCommand : public QUndoCommand {
@@ -333,6 +375,7 @@ class RemoveAudioPluginKeyframeCommand : public QUndoCommand {
     QString m_paramKey;
     QVariant m_savedValue;
     QVariantMap m_savedOptions;
+    TimelineEditTransaction m_transaction;
 };
 
 class MoveAudioPluginKeyframeCommand : public QUndoCommand {
@@ -345,6 +388,7 @@ class MoveAudioPluginKeyframeCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_clipId, m_pluginIndex, m_oldFrame, m_newFrame;
     QString m_paramKey;
+    TimelineEditTransaction m_transaction;
 };
 
 class AddSceneCommand : public QUndoCommand {
@@ -357,6 +401,10 @@ class AddSceneCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_sceneId;
     QString m_name;
+    QList<SceneProjectionRestore> m_before;
+    QList<SceneProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class RemoveSceneCommand : public QUndoCommand {
@@ -369,7 +417,10 @@ class RemoveSceneCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_sceneId;
     qsizetype m_sceneIndex = -1;
-    SceneData m_snapshot;
+    QList<SceneProjectionRestore> m_before;
+    QList<SceneProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class UpdateSceneSettingsCommand : public QUndoCommand {
@@ -382,6 +433,7 @@ class UpdateSceneSettingsCommand : public QUndoCommand {
     TimelineService *m_service;
     int m_sceneId;
     SceneData m_oldData, m_newData;
+    TimelineEditTransaction m_transaction;
 };
 
 class UpdateLayerStateCommand : public QUndoCommand {
@@ -396,6 +448,7 @@ class UpdateLayerStateCommand : public QUndoCommand {
     int m_sceneId, m_layer;
     bool m_value;
     StateType m_type;
+    TimelineEditTransaction m_transaction;
 };
 
 class SetAudioPluginParamCommand : public QUndoCommand {
@@ -414,6 +467,7 @@ class SetAudioPluginParamCommand : public QUndoCommand {
     float m_newValue;
     float m_oldValue;
     QString m_pluginName;
+    TimelineEditTransaction m_transaction;
 };
 
 class AddAudioPluginCommand : public QUndoCommand {
@@ -427,6 +481,10 @@ class AddAudioPluginCommand : public QUndoCommand {
     int m_clipId;
     AudioPluginState m_state;
     int m_insertedIndex;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 class RemoveAudioPluginCommand : public QUndoCommand {
@@ -443,6 +501,10 @@ class RemoveAudioPluginCommand : public QUndoCommand {
     AudioPluginState m_savedState;
     QVariantMap m_savedDocument;
     bool m_valid;
+    QList<ClipProjectionRestore> m_before;
+    QList<ClipProjectionRestore> m_after;
+    TimelineEditTransaction m_transaction;
+    std::unique_ptr<QObject> m_snapshotOwner;
 };
 
 } // namespace AviQtl::UI

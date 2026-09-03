@@ -362,8 +362,6 @@ bool TimelineService::replaceSceneProjectionsInternal(
     }
 
     QSet<int> restoredIds;
-    QList<SceneProjectionRestore> prepared;
-    prepared.reserve(restores.size());
     for (const auto &restore : restores) {
         const bool exists = std::ranges::any_of(
             m_scenes, [&restore](const SceneData &scene) {
@@ -374,6 +372,11 @@ bool TimelineService::replaceSceneProjectionsInternal(
             return false;
         }
         restoredIds.insert(restore.scene.id);
+    }
+
+    QList<SceneProjectionRestore> prepared;
+    prepared.reserve(restores.size());
+    for (const auto &restore : restores) {
         SceneData scene = deepCopyScene(restore.scene);
         scene.id = restore.scene.id;
         prepared.append({.scene = std::move(scene), .index = restore.index});
