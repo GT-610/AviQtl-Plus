@@ -1,6 +1,5 @@
 #include "commands.hpp"
 #include "effect_registry.hpp"
-#include "rust_keyframe_document.hpp"
 #include "timeline_service.hpp"
 #include <QDebug>
 #include <QObject>
@@ -628,8 +627,9 @@ void UpdateLayerStateCommand::redo() {
     }
 }
 
-SplitClipCommand::SplitClipCommand(TimelineService *service, int clipId, int frame, int originalDuration, int firstDuration, int secondDuration, const QString &clipName)
-    : m_service(service), m_originalClipId(clipId), m_newClipId(-1), m_splitFrame(frame), m_originalDuration(originalDuration), m_firstDuration(firstDuration), m_secondDuration(secondDuration),
+SplitClipCommand::SplitClipCommand(TimelineService *service, int clipId, int frame,
+                                   const QString &clipName)
+    : m_service(service), m_originalClipId(clipId), m_newClipId(-1), m_splitFrame(frame),
       m_clipName(clipName), m_snapshotOwner(std::make_unique<QObject>()) { // NOLINT(bugprone-easily-swappable-parameters)
     static_cast<void>(captureClipProjections(service, {clipId}, m_before,
                                              m_snapshotOwner.get()));
@@ -656,122 +656,28 @@ void SplitClipCommand::redo() {
         return;
     }
 
-    const bool captured = m_service->captureTimelineEdit(m_transaction, [this]() {
-        m_service->beginTimelineProjectionTransaction();
-        auto *original = m_service->findClipById(m_originalClipId);
-        if (original == nullptr) {
-            m_service->endTimelineProjectionTransaction();
-            return;
-        }
-
-        // 分割前の状態を保存・計算
+    bool splitAccepted = false;
+    const bool captured = m_service->captureTimelineEdit(m_transaction, [this, &splitAccepted]() {
         if (m_newClipId == -1) {
             m_newClipId = m_service->allocateClipId();
             if (m_newClipId < 0) {
-                m_service->endTimelineProjectionTransaction();
                 return;
             }
         }
-
-        // 後半部分のクリップを作成
-        ClipData newClip = m_service->deepCopyClip(*original);
-        newClip.id = m_newClipId;
-        newClip.startFrame = m_splitFrame;
-        newClip.durationFrames = m_secondDuration;
-
-        for (int i = 0; i < original->effects.size() && i < newClip.effects.size(); ++i) {
-            auto *originalEffect = original->effects.value(i);
-            auto *newEffect = newClip.effects.value(i);
-            if ((originalEffect == nullptr) || (newEffect == nullptr)) {
-                continue;
-            }
-
-            QVariantMap secondHalfTracks =
-                originalEffect->splitTracks(m_firstDuration, m_originalDuration);
-            originalEffect->syncTrackEndpoints(m_firstDuration);
-            newEffect->setKeyframeTracks(secondHalfTracks);
-            newEffect->syncTrackEndpoints(m_secondDuration);
-        }
-
-        for (int i = 0;
-             i < original->audioPlugins.size() && i < newClip.audioPlugins.size(); ++i) {
-            auto &originalPlugin = original->audioPlugins[i];
-            auto &newPlugin = newClip.audioPlugins[i];
-            QVariantMap firstTracks = originalPlugin.keyframeTracks;
-            QVariantMap secondTracks;
-            for (auto it = originalPlugin.params.cbegin();
-                 it != originalPlugin.params.cend(); ++it) {
-                const auto result = AviQtl::Core::RustKeyframeDocument::split(
-                    firstTracks.value(it.key()), it.value(), m_firstDuration,
-                    m_originalDuration);
-                if (!result) {
-                    continue;
-                }
-                firstTracks[it.key()] = result->track;
-                if (result->secondaryTrack) {
-                    secondTracks[it.key()] = *result->secondaryTrack;
-                }
-            }
-            originalPlugin.keyframeTracks = firstTracks;
-            originalPlugin.invalidateKeyframeCache();
-            newPlugin.keyframeTracks = secondTracks;
-            newPlugin.invalidateKeyframeCache();
-        }
-
-        m_service->updateClipInternal(m_originalClipId, original->layer,
-                                      original->startFrame, m_firstDuration, false, true,
-                                      false);
-        m_service->addClipDirectInternal(newClip, false, false);
-        const QVariantMap request{
-            {QStringLiteral("operation"), QStringLiteral("split_clip")},
-            {QStringLiteral("clip_id"), m_originalClipId},
-            {QStringLiteral("frame"), m_splitFrame},
-            {QStringLiteral("new_clip_id"), m_newClipId},
-        };
-        static_cast<void>(m_service->commitTimelineEdit(request, {}));
-        if (m_service->endTimelineProjectionTransaction()) {
-            emit m_service->clipsChanged();
-        } else {
-            const ClipData &originalSnapshot = m_before.first().clip;
-            if (auto *restored = m_service->findClipById(m_originalClipId);
-                restored != nullptr) {
-                restored->layer = originalSnapshot.layer;
-                restored->startFrame = originalSnapshot.startFrame;
-                restored->durationFrames = originalSnapshot.durationFrames;
-                restored->params = originalSnapshot.params;
-                restored->audioPlugins = originalSnapshot.audioPlugins;
-                for (auto &plugin : restored->audioPlugins) {
-                    plugin.invalidateKeyframeCache();
-                }
-                for (qsizetype index = 0;
-                     index < restored->effects.size() &&
-                     index < originalSnapshot.effects.size();
-                     ++index) {
-                    auto *effect = restored->effects.at(index);
-                    const auto *snapshotEffect = originalSnapshot.effects.at(index);
-                    if (effect == nullptr || snapshotEffect == nullptr) {
-                        continue;
-                    }
-                    effect->setEnabled(snapshotEffect->isEnabled());
-                    effect->setParams(snapshotEffect->params());
-                    effect->syncTrackEndpoints(originalSnapshot.durationFrames);
-                    effect->setKeyframeTracks(snapshotEffect->keyframeTracks());
-                }
-            }
-            for (auto *effect : std::as_const(newClip.effects)) {
-                if (effect != nullptr) {
-                    effect->deleteLater();
-                }
-            }
-            m_newClipId = -1;
-        }
+        splitAccepted =
+            m_service->splitClipInternal(m_originalClipId, m_splitFrame, m_newClipId);
     });
-    if (!captured || m_newClipId < 0 ||
+    if (!captured || !splitAccepted || m_newClipId < 0 ||
         !captureClipProjections(m_service, {m_originalClipId, m_newClipId}, m_after,
                                 m_snapshotOwner.get())) {
         m_transaction.clear();
+        if (!splitAccepted) {
+            m_newClipId = -1;
+        }
         qWarning() << "Failed to capture a Rust clip split transaction";
+        return;
     }
+    emit m_service->clipsChanged();
 }
 
 DeleteClipsCommand::DeleteClipsCommand(TimelineService *service, const QList<int> &clipIds,

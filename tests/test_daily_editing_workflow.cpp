@@ -888,14 +888,20 @@ void TestDailyEditingWorkflow::remainingStructuralUndoReplaysRustTransactions() 
     timeline.undoStack()->clear();
 
     const int splitId = timeline.nextClipId();
+    QSignalSpy splitChanges(&timeline, &TimelineService::clipsChanged);
     timeline.splitClip(clipId, 30);
+    QCOMPARE(splitChanges.count(), 1);
     const QVariantMap split = timeline.timelineStateSnapshot();
     QVERIFY(timeline.findClipById(splitId) != nullptr);
+    splitChanges.clear();
     timeline.undo();
+    QCOMPARE(splitChanges.count(), 1);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     QCOMPARE(timeline.timelineStateSnapshot(), original);
     QVERIFY(timeline.findClipById(splitId) == nullptr);
+    splitChanges.clear();
     timeline.redo();
+    QCOMPARE(splitChanges.count(), 1);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     QCOMPARE(timeline.timelineStateSnapshot(), split);
     QVERIFY(timeline.findClipById(splitId) != nullptr);
@@ -1074,10 +1080,14 @@ void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOr
     clip = timeline.findClipById(clipId);
     QVERIFY(clip != nullptr);
     auto detachedEffect = std::unique_ptr<EffectModel>(clip->effects.at(2)->clone());
+    QSignalSpy rejectedEffectChanges(&timeline, &TimelineService::clipEffectsChanged);
+    QSignalSpy rejectedClipChanges(&timeline, &TimelineService::clipsChanged);
     timeline.pasteEffectInternal(clipId, 0, detachedEffect.get());
     QCOMPARE(timeline.timelineStateSnapshot(), before);
     QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
                                        QStringLiteral("blur")}));
+    QCOMPARE(rejectedEffectChanges.count(), 0);
+    QCOMPARE(rejectedClipChanges.count(), 0);
 
     SelectionService pasteSelection;
     TimelineService pasteTimeline(&pasteSelection);
@@ -1553,6 +1563,20 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
     QCOMPARE(rustClips.at(rustClips.size() - 2).toMap().value(QStringLiteral("id")).toInt(),
              first.id);
     QCOMPARE(rustClips.last().toMap().value(QStringLiteral("id")).toInt(), second.id);
+
+    const qsizetype effectObjectCount = timeline.findChildren<EffectModel *>().size();
+    const QVariantMap beforeRejectedSplit = timeline.timelineStateSnapshot();
+    QVERIFY(!timeline.splitClipInternal(existingId, 30, existingId));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeRejectedSplit);
+    QCOMPARE(timeline.findChildren<EffectModel *>().size(), effectObjectCount);
+
+    constexpr int splitId = 903;
+    QVERIFY(timeline.splitClipInternal(existingId, 30, splitId));
+    QCOMPARE(timeline.clips().at(1).id, splitId);
+    const QVariantList splitRustClips =
+        timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    QCOMPARE(splitRustClips.at(1).toMap().value(QStringLiteral("id")).toInt(), splitId);
 
     const qsizetype sceneCount = timeline.getAllScenes().size();
     QSignalSpy scenesChangedSpy(&timeline, &TimelineService::scenesChanged);

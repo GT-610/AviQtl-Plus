@@ -136,6 +136,7 @@ class TimelineService : public QObject {
 
     // 内部用 (コマンドから呼び出される)
     void deleteClipInternal(int clipId, bool emitSignal = true, bool commitState = true);
+    bool splitClipInternal(int clipId, int frame, int newClipId);
     void createClipInternal(int clipId, const QString &type, int startFrame, int layer,
                             bool emitSignal = true, int duration = 0,
                             const QString &effectId = {},
@@ -191,8 +192,6 @@ class TimelineService : public QObject {
     void removeAudioPluginKeyframeInternal(int clipId, int pluginIndex, const QString &paramKey, int frame);
     void moveAudioPluginKeyframeInternal(int clipId, int pluginIndex, const QString &paramKey, int oldFrame, int newFrame);
     void setLayerStateInternal(int sceneId, int layer, bool value, int type);
-    bool commitTimelineEdit(const QVariantMap &request, std::function<void()> rollback,
-                            std::function<void()> commitAction = {});
     ClipData *findClipById(int clipId);
     const ClipData *findClipById(int clipId) const;
 
@@ -227,11 +226,6 @@ class TimelineService : public QObject {
     void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
     void abortTimelineProjectionTransaction();
     bool commitTimelineProjection();
-    bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
-                                std::function<void()> commitAction = {});
-    bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
-                                std::function<void()> commitAction,
-                                TimelineEditTransaction *transaction);
     bool commitTimelineStateMutation(const QVariantMap &request,
                                      std::function<void()> commitAction = {});
     bool commitTimelineStateMutation(const QVariantMap &request,

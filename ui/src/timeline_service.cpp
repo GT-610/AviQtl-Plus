@@ -505,39 +505,31 @@ bool TimelineService::applyTimelineEditRequest(const QVariantMap &request,
     return true;
 }
 
-bool TimelineService::commitTimelineMutation(const QVariantMap &request,
-                                             std::function<void()> rollback,
-                                             std::function<void()> commitAction) {
-    return commitTimelineMutation(request, std::move(rollback), std::move(commitAction), nullptr);
+bool TimelineService::commitTimelineStateMutation(const QVariantMap &request,
+                                                   std::function<void()> commitAction) {
+    return commitTimelineStateMutation(request, std::move(commitAction), nullptr);
 }
 
-bool TimelineService::commitTimelineMutation(const QVariantMap &request,
-                                             std::function<void()> rollback,
-                                             std::function<void()> commitAction,
-                                             TimelineEditTransaction *committedTransaction) {
+bool TimelineService::commitTimelineStateMutation(
+    const QVariantMap &request, std::function<void()> commitAction,
+    TimelineEditTransaction *committedTransaction) {
     if (committedTransaction != nullptr) {
         committedTransaction->clear();
     }
     if (m_timelineProjectionTransactionDepth > 0) {
         m_timelineProjectionRequests.append(request);
-        m_timelineProjectionRollbacks.append(std::move(rollback));
+        m_timelineProjectionRollbacks.append(std::function<void()>{});
         m_timelineProjectionCommitActions.append(std::move(commitAction));
         return true;
     }
     TimelineEditTransaction transaction;
     if (!applyTimelineEditRequest(request, transaction)) {
-        if (rollback) {
-            rollback();
-        }
         return false;
     }
     if (!synchronizeTimelineProjection()) {
         const bool rustRestored = applyTimelinePatch(transaction.inverse);
         if (!rustRestored) {
             qWarning() << "Failed to roll back a Rust targeted timeline edit";
-        }
-        if (rollback) {
-            rollback();
         }
         if (rustRestored && !synchronizeTimelineProjection()) {
             qWarning() << "Failed to restore the Qt timeline projection after edit rollback";
@@ -551,17 +543,6 @@ bool TimelineService::commitTimelineMutation(const QVariantMap &request,
                                                        : m_timelineEditCapture,
                       std::move(transaction));
     return true;
-}
-
-bool TimelineService::commitTimelineStateMutation(const QVariantMap &request,
-                                                   std::function<void()> commitAction) {
-    return commitTimelineStateMutation(request, std::move(commitAction), nullptr);
-}
-
-bool TimelineService::commitTimelineStateMutation(
-    const QVariantMap &request, std::function<void()> commitAction,
-    TimelineEditTransaction *committedTransaction) {
-    return commitTimelineMutation(request, {}, std::move(commitAction), committedTransaction);
 }
 
 bool TimelineService::commitTimelineStructureMutation(
@@ -625,12 +606,6 @@ bool TimelineService::commitTimelineStructureMutation(
                                                        : m_timelineEditCapture,
                       std::move(transaction));
     return true;
-}
-
-bool TimelineService::commitTimelineEdit(const QVariantMap &request,
-                                         std::function<void()> rollback,
-                                         std::function<void()> commitAction) {
-    return commitTimelineMutation(request, std::move(rollback), std::move(commitAction));
 }
 
 bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction &transaction,
