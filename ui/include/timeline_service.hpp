@@ -233,6 +233,11 @@ class TimelineService : public QObject {
     bool commitTimelineMutation(const QVariantMap &request, std::function<void()> rollback,
                                 std::function<void()> commitAction,
                                 TimelineEditTransaction *transaction);
+    bool commitTimelineStateMutation(const QVariantMap &request,
+                                     std::function<void()> commitAction = {});
+    bool commitTimelineStateMutation(const QVariantMap &request,
+                                     std::function<void()> commitAction,
+                                     TimelineEditTransaction *transaction);
     bool applyTimelineEditRequest(const QVariantMap &request,
                                   TimelineEditTransaction &transaction);
     bool applyTimelinePatch(const QVariantMap &patch);

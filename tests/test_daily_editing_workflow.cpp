@@ -73,6 +73,7 @@ class TestDailyEditingWorkflow : public QObject {
     void audioPluginKeyframeEvaluationIsCompatible();
     void audioPluginKeyframeMutationsAreUndoable();
     void rejectedProjectionTransactionRestoresRuntimeModel();
+    void rustRejectedValueEditDoesNotTouchProjection();
     void projectionSynchronizationFailureRollsBackState();
     void targetedTimelineEditsPreserveExtensions();
     void clipGeometryUndoReplaysRustTransactions();
@@ -550,6 +551,32 @@ void TestDailyEditingWorkflow::rejectedProjectionTransactionRestoresRuntimeModel
     QVERIFY(clip->effects.size() >= 2);
     QCOMPARE(clip->effects.at(1), removedEffect);
     QCOMPARE(removedEffect->isEnabled(), previousEnabled);
+}
+
+void TestDailyEditingWorkflow::rustRejectedValueEditDoesNotTouchProjection() {
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("text"), 0, 0);
+
+    auto *clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(!clip->effects.isEmpty());
+    auto *effect = clip->effects.first();
+    QVERIFY(effect != nullptr);
+    const QVariantMap before = controller.timeline()->timelineStateSnapshot();
+    const int previousLayer = clip->layer;
+    const int previousStart = clip->startFrame;
+    const int previousDuration = clip->durationFrames;
+    QSignalSpy keyframeChanges(effect, &EffectModel::keyframeTracksChanged);
+
+    controller.timeline()->updateClipInternal(clipId, 128, previousStart,
+                                              previousDuration + 10, false, true);
+
+    QCOMPARE(controller.timeline()->timelineStateSnapshot(), before);
+    QCOMPARE(clip->layer, previousLayer);
+    QCOMPARE(clip->startFrame, previousStart);
+    QCOMPARE(clip->durationFrames, previousDuration);
+    QCOMPARE(keyframeChanges.count(), 0);
 }
 
 void TestDailyEditingWorkflow::projectionSynchronizationFailureRollsBackState() {

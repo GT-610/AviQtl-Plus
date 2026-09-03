@@ -28,7 +28,7 @@ class TestProjectSerializer : public QObject {
     void sceneStateAndMediaPathsRoundTrip();
     void invalidGridSettingsUseDefaults();
     void invalidJsonDoesNotReplaceProjectState();
-    void transactionSnapshotIncludesPendingProjection();
+    void transactionSnapshotUsesCommittedRustState();
     void rejectedTimelineStateDoesNotReplaceProjectSettings();
     void rejectedTimelineStateDeletesTemporaryEffects();
     void missingEffectsDoNotShiftRuntimeMetadata();
@@ -92,7 +92,7 @@ void TestProjectSerializer::saveSnapshotIsCanonicalizedByRust() {
     QCOMPARE(clip.value(QStringLiteral("layer")).toInt(), 127);
 }
 
-void TestProjectSerializer::transactionSnapshotIncludesPendingProjection() {
+void TestProjectSerializer::transactionSnapshotUsesCommittedRustState() {
     SelectionService selection;
     TimelineService timeline(&selection);
     ProjectService project;
@@ -106,16 +106,29 @@ void TestProjectSerializer::transactionSnapshotIncludesPendingProjection() {
     clips[0] = clip;
     document.insert(QStringLiteral("clips"), clips);
     QVERIFY(timeline.resetTimelineState(document, timeline.nextClipId(), timeline.nextSceneId()));
+    const QVariantMap committedBefore = timeline.timelineStateSnapshot();
+    const QVariantMap clipBefore = committedBefore.value(QStringLiteral("clips"))
+                                       .toList()
+                                       .first()
+                                       .toMap();
 
     timeline.beginTimelineProjectionTransaction();
     timeline.updateClipInternal(clipId, 3, 24, 60, false, true);
     const QVariantMap snapshot = ProjectSerializer::captureSnapshot(&timeline, &project);
     const QVariantMap capturedClip = snapshot.value(QStringLiteral("clips")).toList().first().toMap();
-    QCOMPARE(capturedClip.value(QStringLiteral("layer")).toInt(), 3);
-    QCOMPARE(capturedClip.value(QStringLiteral("start")).toInt(), 24);
-    QCOMPARE(capturedClip.value(QStringLiteral("duration")).toInt(), 60);
+    QCOMPARE(capturedClip.value(QStringLiteral("layer")), clipBefore.value(QStringLiteral("layer")));
+    QCOMPARE(capturedClip.value(QStringLiteral("start")), clipBefore.value(QStringLiteral("start")));
+    QCOMPARE(capturedClip.value(QStringLiteral("duration")), clipBefore.value(QStringLiteral("duration")));
     QCOMPARE(capturedClip.value(QStringLiteral("reviewExtension")).toString(), QStringLiteral("preserved"));
     QVERIFY(timeline.endTimelineProjectionTransaction());
+    const QVariantMap committedAfter = timeline.captureTimelineSnapshot();
+    const QVariantMap clipAfter = committedAfter.value(QStringLiteral("clips"))
+                                      .toList()
+                                      .first()
+                                      .toMap();
+    QCOMPARE(clipAfter.value(QStringLiteral("layer")).toInt(), 3);
+    QCOMPARE(clipAfter.value(QStringLiteral("start")).toInt(), 24);
+    QCOMPARE(clipAfter.value(QStringLiteral("duration")).toInt(), 60);
 }
 
 void TestProjectSerializer::sceneStateAndMediaPathsRoundTrip() {
@@ -156,7 +169,8 @@ void TestProjectSerializer::sceneStateAndMediaPathsRoundTrip() {
     QVERIFY(clip != nullptr);
     auto imageEffect = std::find_if(clip->effects.begin(), clip->effects.end(), [](const EffectModel *effect) { return effect != nullptr && effect->id() == QLatin1String("image"); });
     QVERIFY(imageEffect != clip->effects.end());
-    (*imageEffect)->setParam(QStringLiteral("path"), mediaPath);
+    const int imageEffectIndex = static_cast<int>(std::distance(clip->effects.begin(), imageEffect));
+    timeline.updateEffectParam(clipId, imageEffectIndex, QStringLiteral("path"), mediaPath);
 
     const QString projectPath = dir.filePath(QStringLiteral("portable.aviqtl"));
     QString error;

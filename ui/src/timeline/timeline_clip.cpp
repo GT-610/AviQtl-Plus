@@ -438,7 +438,7 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
 void TimelineService::updateClipInternal(int id, int layer, int startFrame, int duration,
                                          bool emitSignal, bool forcePosition, bool commitState,
                                          TimelineEditTransaction *transaction) {
-    const auto *existingClip = findClipById(id);
+    auto *existingClip = findClipById(id);
     if (existingClip == nullptr) {
         return;
     }
@@ -464,85 +464,63 @@ void TimelineService::updateClipInternal(int id, int layer, int startFrame, int 
         }
     }
 
-    for (auto &clip : clipsMutable()) {
-        if (clip.id == id) {
-            if (clip.layer != layer || clip.startFrame != startFrame || clip.durationFrames != duration) {
-                const int oldLayer = clip.layer;
-                const int oldStartFrame = clip.startFrame;
-                const int oldDuration = clip.durationFrames;
-                QList<QVariantMap> oldEffectTracks;
-                oldEffectTracks.reserve(clip.effects.size());
-                for (const auto *effect : std::as_const(clip.effects)) {
-                    oldEffectTracks.append(effect != nullptr ? effect->keyframeTracks() : QVariantMap{});
-                }
-                const QList<AudioPluginState> oldAudioPlugins = clip.audioPlugins;
-                clip.layer = layer;
-                clip.startFrame = startFrame;
-                clip.durationFrames = duration;
-                for (auto *effect : std::as_const(clip.effects)) {
-                    if (effect != nullptr) {
-                        effect->syncTrackEndpoints(duration);
-                    }
-                }
-                for (auto &plugin : clip.audioPlugins) {
-                    for (auto it = plugin.params.cbegin(); it != plugin.params.cend(); ++it) {
-                        const auto result = AviQtl::Core::RustKeyframeDocument::sync(
-                            plugin.keyframeTracks.value(it.key()), it.value(), oldDuration,
-                            duration);
-                        if (result) {
-                            plugin.keyframeTracks[it.key()] = result->track;
-                        }
-                    }
-                    plugin.invalidateKeyframeCache();
-                }
-                const QVariantMap request{
-                    {QStringLiteral("operation"), QStringLiteral("update_clip_geometry")},
-                    {QStringLiteral("clip_id"), id},
-                    {QStringLiteral("layer"), layer},
-                    {QStringLiteral("start"), startFrame},
-                    {QStringLiteral("duration"), duration},
-                };
-                if (commitState && !commitTimelineMutation(
-                        request, [this, id, oldLayer, oldStartFrame, oldDuration, oldEffectTracks,
-                                  oldAudioPlugins]() {
-                            auto *restored = findClipById(id);
-                            if (restored == nullptr) {
-                                return;
-                            }
-                            restored->layer = oldLayer;
-                            restored->startFrame = oldStartFrame;
-                            restored->durationFrames = oldDuration;
-                            for (qsizetype index = 0;
-                                 index < restored->effects.size() && index < oldEffectTracks.size();
-                                 ++index) {
-                                if (auto *effect = restored->effects.at(index); effect != nullptr) {
-                                    effect->syncTrackEndpoints(oldDuration);
-                                    effect->setKeyframeTracks(oldEffectTracks.at(index));
-                                }
-                            }
-                            restored->audioPlugins = oldAudioPlugins;
-                            for (auto &plugin : restored->audioPlugins) {
-                                plugin.invalidateKeyframeCache();
-                            }
-                        }, {}, transaction)) {
-                    qWarning() << "Rust rejected clip geometry update";
-                    return;
-                }
-                if (emitSignal) {
-                    emit clipsChanged();
-                }
-                // 選択中のクリップであればSelectionServiceのキャッシュも更新する
-                if (m_selection->selectedClipId() == id) {
-                    QVariantMap data = m_selection->selectedClipData();
-                    data.insert(QStringLiteral("layer"), layer);
-                    data.insert(QStringLiteral("startFrame"), startFrame);
-                    data.insert(QStringLiteral("durationFrames"), duration);
-                    m_selection->refreshSelectionData(id, data);
-                }
-            }
-            break;
+    if (existingClip->layer == layer && existingClip->startFrame == startFrame &&
+        existingClip->durationFrames == duration) {
+        return;
+    }
+
+    const auto publishChange = [this, id, emitSignal]() {
+        if (emitSignal) {
+            emit clipsChanged();
+        }
+        if (m_selection == nullptr || m_selection->selectedClipId() != id) {
+            return;
+        }
+        const auto *committedClip = findClipById(id);
+        if (committedClip == nullptr) {
+            return;
+        }
+        QVariantMap data = m_selection->selectedClipData();
+        data.insert(QStringLiteral("layer"), committedClip->layer);
+        data.insert(QStringLiteral("startFrame"), committedClip->startFrame);
+        data.insert(QStringLiteral("durationFrames"), committedClip->durationFrames);
+        m_selection->refreshSelectionData(id, data);
+    };
+
+    if (commitState) {
+        const QVariantMap request{
+            {QStringLiteral("operation"), QStringLiteral("update_clip_geometry")},
+            {QStringLiteral("clip_id"), id},
+            {QStringLiteral("layer"), layer},
+            {QStringLiteral("start"), startFrame},
+            {QStringLiteral("duration"), duration},
+        };
+        if (!commitTimelineStateMutation(request, publishChange, transaction)) {
+            qWarning() << "Rust rejected clip geometry update";
+        }
+        return;
+    }
+
+    const int oldDuration = existingClip->durationFrames;
+    existingClip->layer = layer;
+    existingClip->startFrame = startFrame;
+    existingClip->durationFrames = duration;
+    for (auto *effect : std::as_const(existingClip->effects)) {
+        if (effect != nullptr) {
+            effect->syncTrackEndpoints(duration);
         }
     }
+    for (auto &plugin : existingClip->audioPlugins) {
+        for (auto it = plugin.params.cbegin(); it != plugin.params.cend(); ++it) {
+            const auto result = AviQtl::Core::RustKeyframeDocument::sync(
+                plugin.keyframeTracks.value(it.key()), it.value(), oldDuration, duration);
+            if (result) {
+                plugin.keyframeTracks[it.key()] = result->track;
+            }
+        }
+        plugin.invalidateKeyframeCache();
+    }
+    publishChange();
 }
 
 auto TimelineService::clipByUpperObject(int clipId) const -> bool {
@@ -564,19 +542,18 @@ void TimelineService::setClipByUpperObjectInternal(int clipId, bool enabled, boo
     if (clip == nullptr || clip->clipByUpperObject == enabled) {
         return;
     }
-    clip->clipByUpperObject = enabled;
     const QVariantMap request{
         {QStringLiteral("operation"), QStringLiteral("set_clip_by_upper_object")},
         {QStringLiteral("clip_id"), clipId},
         {QStringLiteral("enabled"), enabled},
     };
-    if (commitState && !commitTimelineMutation(request, [this, clipId, previous = !enabled]() {
-            if (auto *restored = findClipById(clipId); restored != nullptr) {
-                restored->clipByUpperObject = previous;
-            }
-        })) {
-        qWarning() << "Rust rejected clip compositing update";
-        return;
+    if (commitState) {
+        if (!commitTimelineStateMutation(request)) {
+            qWarning() << "Rust rejected clip compositing update";
+            return;
+        }
+    } else {
+        clip->clipByUpperObject = enabled;
     }
     if (emitSignal) {
         publishClipCompositingChange(clipId);

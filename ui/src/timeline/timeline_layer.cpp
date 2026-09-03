@@ -16,42 +16,20 @@ void TimelineService::setLayerStateInternal(int sceneId, int layer, bool value, 
     if (it == m_scenes.end()) {
         return;
     }
-    const bool previous = type == UpdateLayerStateCommand::Lock
-                              ? it->lockedLayers.contains(layer)
-                              : it->hiddenLayers.contains(layer);
-    if (type == UpdateLayerStateCommand::Lock) {
-        if (value) {
-            it->lockedLayers.insert(layer);
-        } else {
-            it->lockedLayers.remove(layer);
-        }
+    SceneData updated = *it;
+    QSet<int> &layers = type == UpdateLayerStateCommand::Lock ? updated.lockedLayers
+                                                              : updated.hiddenLayers;
+    if (value) {
+        layers.insert(layer);
     } else {
-        if (value) {
-            it->hiddenLayers.insert(layer);
-        } else {
-            it->hiddenLayers.remove(layer);
-        }
+        layers.remove(layer);
     }
     const QVariantMap request{
         {QStringLiteral("operation"), QStringLiteral("update_scene")},
         {QStringLiteral("scene_id"), sceneId},
-        {QStringLiteral("scene"), timelineSceneDocument(*it)},
+        {QStringLiteral("scene"), timelineSceneDocument(updated)},
     };
-    if (!commitTimelineMutation(request, [this, sceneId, layer, type, previous]() {
-            auto restored = std::ranges::find_if(
-                m_scenes, [sceneId](const SceneData &scene) { return scene.id == sceneId; });
-            if (restored == m_scenes.end()) {
-                return;
-            }
-            QSet<int> &layers = type == UpdateLayerStateCommand::Lock
-                                    ? restored->lockedLayers
-                                    : restored->hiddenLayers;
-            if (previous) {
-                layers.insert(layer);
-            } else {
-                layers.remove(layer);
-            }
-        })) {
+    if (!commitTimelineStateMutation(request)) {
         qWarning() << "Rust rejected layer-state update";
         return;
     }
