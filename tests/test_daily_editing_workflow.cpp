@@ -73,6 +73,7 @@ class TestDailyEditingWorkflow : public QObject {
     void audioPluginKeyframeEvaluationIsCompatible();
     void audioPluginKeyframeMutationsAreUndoable();
     void rejectedProjectionTransactionRestoresRuntimeModel();
+    void rustRejectedValueEditDoesNotTouchProjection();
     void projectionSynchronizationFailureRollsBackState();
     void targetedTimelineEditsPreserveExtensions();
     void clipGeometryUndoReplaysRustTransactions();
@@ -83,6 +84,7 @@ class TestDailyEditingWorkflow : public QObject {
     void targetedAudioPluginTransactionsPreserveExtensionsAndOrdering();
     void audioParameterDurationUsesRustState();
     void targetedBatchFailureRollsBackRustAndQt();
+    void rustFirstStructuralMutationsStayAtomic();
     void sceneUndoRestoresItsClipsInRustState();
     void clipboardPasteTargetsCurrentScene();
     void pasteReportsResolvedClipEditTarget();
@@ -552,6 +554,32 @@ void TestDailyEditingWorkflow::rejectedProjectionTransactionRestoresRuntimeModel
     QCOMPARE(removedEffect->isEnabled(), previousEnabled);
 }
 
+void TestDailyEditingWorkflow::rustRejectedValueEditDoesNotTouchProjection() {
+    TimelineController controller;
+    const int clipId = controller.timeline()->nextClipId();
+    controller.createObject(QStringLiteral("text"), 0, 0);
+
+    auto *clip = controller.timeline()->findClipById(clipId);
+    QVERIFY(clip != nullptr);
+    QVERIFY(!clip->effects.isEmpty());
+    auto *effect = clip->effects.first();
+    QVERIFY(effect != nullptr);
+    const QVariantMap before = controller.timeline()->timelineStateSnapshot();
+    const int previousLayer = clip->layer;
+    const int previousStart = clip->startFrame;
+    const int previousDuration = clip->durationFrames;
+    QSignalSpy keyframeChanges(effect, &EffectModel::keyframeTracksChanged);
+
+    controller.timeline()->updateClipInternal(clipId, 128, previousStart,
+                                              previousDuration + 10, false, true);
+
+    QCOMPARE(controller.timeline()->timelineStateSnapshot(), before);
+    QCOMPARE(clip->layer, previousLayer);
+    QCOMPARE(clip->startFrame, previousStart);
+    QCOMPARE(clip->durationFrames, previousDuration);
+    QCOMPARE(keyframeChanges.count(), 0);
+}
+
 void TestDailyEditingWorkflow::projectionSynchronizationFailureRollsBackState() {
     TimelineController controller;
     const int clipId = controller.timeline()->nextClipId();
@@ -860,14 +888,20 @@ void TestDailyEditingWorkflow::remainingStructuralUndoReplaysRustTransactions() 
     timeline.undoStack()->clear();
 
     const int splitId = timeline.nextClipId();
+    QSignalSpy splitChanges(&timeline, &TimelineService::clipsChanged);
     timeline.splitClip(clipId, 30);
+    QCOMPARE(splitChanges.count(), 1);
     const QVariantMap split = timeline.timelineStateSnapshot();
     QVERIFY(timeline.findClipById(splitId) != nullptr);
+    splitChanges.clear();
     timeline.undo();
+    QCOMPARE(splitChanges.count(), 1);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     QCOMPARE(timeline.timelineStateSnapshot(), original);
     QVERIFY(timeline.findClipById(splitId) == nullptr);
+    splitChanges.clear();
     timeline.redo();
+    QCOMPARE(splitChanges.count(), 1);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     QCOMPARE(timeline.timelineStateSnapshot(), split);
     QVERIFY(timeline.findClipById(splitId) != nullptr);
@@ -1046,10 +1080,14 @@ void TestDailyEditingWorkflow::targetedEffectTransactionsPreserveExtensionsAndOr
     clip = timeline.findClipById(clipId);
     QVERIFY(clip != nullptr);
     auto detachedEffect = std::unique_ptr<EffectModel>(clip->effects.at(2)->clone());
+    QSignalSpy rejectedEffectChanges(&timeline, &TimelineService::clipEffectsChanged);
+    QSignalSpy rejectedClipChanges(&timeline, &TimelineService::clipsChanged);
     timeline.pasteEffectInternal(clipId, 0, detachedEffect.get());
     QCOMPARE(timeline.timelineStateSnapshot(), before);
     QCOMPARE(effectIds(), QStringList({QStringLiteral("transform"), QStringLiteral("text"),
                                        QStringLiteral("blur")}));
+    QCOMPARE(rejectedEffectChanges.count(), 0);
+    QCOMPARE(rejectedClipChanges.count(), 0);
 
     SelectionService pasteSelection;
     TimelineService pasteTimeline(&pasteSelection);
@@ -1481,6 +1519,73 @@ void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
     QCOMPARE(clipsChangedSpy.count(), 0);
 }
 
+void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
+    SelectionService selection;
+    TimelineService timeline(&selection);
+    const int existingId = timeline.nextClipId();
+    timeline.createClip(QStringLiteral("text"), 0, 0);
+    timeline.undoStack()->clear();
+
+    auto *existing = timeline.findClipById(existingId);
+    QVERIFY(existing != nullptr);
+    QVERIFY(existing->effects.size() >= 2);
+    auto *detached = existing->effects.takeLast();
+    const QVariantMap beforeRejectedInsertion = timeline.timelineStateSnapshot();
+
+    ClipData rejected;
+    rejected.id = 900;
+    rejected.sceneId = 999;
+    rejected.type = QStringLiteral("test");
+    rejected.startFrame = 100;
+    rejected.durationFrames = 30;
+    rejected.layer = 1;
+    QSignalSpy clipsChangedSpy(&timeline, &TimelineService::clipsChanged);
+    QVERIFY(!timeline.addClipDirectInternal(rejected));
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeRejectedInsertion);
+    QVERIFY(timeline.findClipById(rejected.id) == nullptr);
+    QCOMPARE(clipsChangedSpy.count(), 0);
+    existing = timeline.findClipById(existingId);
+    QVERIFY(existing != nullptr);
+    existing->effects.append(detached);
+
+    ClipData first = rejected;
+    first.id = 901;
+    first.sceneId = 0;
+    ClipData second = first;
+    second.id = 902;
+    second.startFrame = 140;
+    QVERIFY(timeline.addClipsDirectInternal({first, second}));
+    QCOMPARE(clipsChangedSpy.count(), 1);
+    QCOMPARE(timeline.clips().at(timeline.clips().size() - 2).id, first.id);
+    QCOMPARE(timeline.clips().last().id, second.id);
+
+    const QVariantList rustClips =
+        timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    QCOMPARE(rustClips.at(rustClips.size() - 2).toMap().value(QStringLiteral("id")).toInt(),
+             first.id);
+    QCOMPARE(rustClips.last().toMap().value(QStringLiteral("id")).toInt(), second.id);
+
+    const qsizetype effectObjectCount = timeline.findChildren<EffectModel *>().size();
+    const QVariantMap beforeRejectedSplit = timeline.timelineStateSnapshot();
+    QVERIFY(!timeline.splitClipInternal(existingId, 30, existingId));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeRejectedSplit);
+    QCOMPARE(timeline.findChildren<EffectModel *>().size(), effectObjectCount);
+
+    constexpr int splitId = 903;
+    QVERIFY(timeline.splitClipInternal(existingId, 30, splitId));
+    QCOMPARE(timeline.clips().at(1).id, splitId);
+    const QVariantList splitRustClips =
+        timeline.timelineStateSnapshot().value(QStringLiteral("clips")).toList();
+    QCOMPARE(splitRustClips.at(1).toMap().value(QStringLiteral("id")).toInt(), splitId);
+
+    const qsizetype sceneCount = timeline.getAllScenes().size();
+    QSignalSpy scenesChangedSpy(&timeline, &TimelineService::scenesChanged);
+    timeline.createSceneInternal(0, QStringLiteral("Duplicate root"));
+    QCOMPARE(timeline.getAllScenes().size(), sceneCount);
+    QCOMPARE(scenesChangedSpy.count(), 0);
+}
+
 void TestDailyEditingWorkflow::sceneUndoRestoresItsClipsInRustState() {
     SelectionService selection;
     TimelineService timeline(&selection);
@@ -1660,7 +1765,7 @@ void TestDailyEditingWorkflow::audioPluginKeyframeMutationsAreUndoable() {
     QVariantList points = controller.audioPluginKeyframeListForUi(
         clipId, 0, QStringLiteral("0"));
     QCOMPARE(points.size(), 2);
-    QCOMPARE(points.at(1).toMap().value(QStringLiteral("value")).typeId(), QMetaType::Int);
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("value")).toInt(), 100);
     QCOMPARE(points.at(1).toMap().value(QStringLiteral("points")).toList(), customPoints);
 
     controller.timeline()->moveAudioPluginKeyframe(clipId, 0, QStringLiteral("0"), 10, 8);

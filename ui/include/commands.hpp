@@ -233,7 +233,8 @@ class SetAudioPluginEnabledCommand : public QUndoCommand {
 
 class SplitClipCommand : public QUndoCommand {
   public:
-    SplitClipCommand(TimelineService *service, int clipId, int frame, int originalDuration, int firstDuration, int secondDuration, const QString &clipName);
+    SplitClipCommand(TimelineService *service, int clipId, int frame,
+                     const QString &clipName);
     ~SplitClipCommand() override;
     void undo() override;
     void redo() override;
@@ -243,9 +244,6 @@ class SplitClipCommand : public QUndoCommand {
     int m_originalClipId;
     int m_newClipId;
     int m_splitFrame;
-    int m_originalDuration;
-    int m_firstDuration;
-    int m_secondDuration;
     QString m_clipName;
     QList<ClipProjectionRestore> m_before;
     QList<ClipProjectionRestore> m_after;
@@ -416,7 +414,6 @@ class RemoveSceneCommand : public QUndoCommand {
   private:
     TimelineService *m_service;
     int m_sceneId;
-    qsizetype m_sceneIndex = -1;
     QList<SceneProjectionRestore> m_before;
     QList<SceneProjectionRestore> m_after;
     TimelineEditTransaction m_transaction;

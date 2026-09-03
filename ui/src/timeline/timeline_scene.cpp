@@ -237,26 +237,38 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
     newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
     const qsizetype insertedIndex = m_scenes.size();
-    m_scenes.append(newScene);
-    invalidateCurrentSceneCache();
     const QVariantMap request{
         {QStringLiteral("operation"), QStringLiteral("insert_scene")},
         {QStringLiteral("scene"), timelineSceneDocument(newScene)},
     };
-    if (!commitTimelineMutation(request, [this, sceneId, insertedIndex]() {
-            if (insertedIndex < m_scenes.size() && m_scenes.at(insertedIndex).id == sceneId) {
-                m_scenes.removeAt(insertedIndex);
-                invalidateCurrentSceneCache();
-                return;
-            }
-            for (qsizetype index = m_scenes.size(); index > 0; --index) {
-                if (m_scenes.at(index - 1).id == sceneId) {
-                    m_scenes.removeAt(index - 1);
-                    invalidateCurrentSceneCache();
-                    return;
+    if (!commitTimelineStructureMutation(
+            request,
+            [this, newScene]() {
+                if (std::ranges::any_of(m_scenes, [sceneId = newScene.id](const SceneData &scene) {
+                        return scene.id == sceneId;
+                    })) {
+                    return false;
                 }
-            }
-        })) {
+                m_scenes.append(newScene);
+                invalidateCurrentSceneCache();
+                return true;
+            },
+            [this, sceneId, insertedIndex]() {
+                if (insertedIndex < m_scenes.size() &&
+                    m_scenes.at(insertedIndex).id == sceneId) {
+                    m_scenes.removeAt(insertedIndex);
+                    invalidateCurrentSceneCache();
+                    return true;
+                }
+                const auto sceneIt = std::ranges::find_if(
+                    m_scenes, [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+                if (sceneIt == m_scenes.end()) {
+                    return false;
+                }
+                m_scenes.erase(sceneIt);
+                invalidateCurrentSceneCache();
+                return true;
+            })) {
         qWarning() << "Rust rejected scene creation";
         return;
     }
@@ -272,16 +284,27 @@ void TimelineService::removeSceneInternal(int sceneId) {
     if (it != m_scenes.end()) {
         const SceneData removed = *it;
         const auto removedIndex = std::distance(m_scenes.begin(), it);
-        m_scenes.erase(it);
-        invalidateCurrentSceneCache();
         const QVariantMap request{
             {QStringLiteral("operation"), QStringLiteral("remove_scene")},
             {QStringLiteral("scene_id"), sceneId},
         };
-        if (!commitTimelineMutation(
-                request, [this, removedIndex, removed]() {
+        if (!commitTimelineStructureMutation(
+                request,
+                [this, sceneId]() {
+                    const auto removedIt = std::ranges::find_if(
+                        m_scenes,
+                        [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+                    if (removedIt == m_scenes.end()) {
+                        return false;
+                    }
+                    m_scenes.erase(removedIt);
+                    invalidateCurrentSceneCache();
+                    return true;
+                },
+                [this, removedIndex, removed]() {
                     m_scenes.insert(std::min<qsizetype>(removedIndex, m_scenes.size()), removed);
                     invalidateCurrentSceneCache();
+                    return true;
                 },
                 [removed]() {
                     for (const auto &clip : removed.clips) {
@@ -300,44 +323,6 @@ void TimelineService::removeSceneInternal(int sceneId) {
         }
         emit scenesChanged();
     }
-}
-
-void TimelineService::restoreSceneInternal(const SceneData &scene, qsizetype index) {
-    beginTimelineProjectionTransaction();
-    const qsizetype insertedIndex = std::clamp(index, qsizetype{0}, m_scenes.size());
-    m_scenes.insert(insertedIndex, scene);
-    invalidateCurrentSceneCache();
-    const QVariantMap request{
-        {QStringLiteral("operation"), QStringLiteral("insert_scene")},
-        {QStringLiteral("index"), insertedIndex},
-        {QStringLiteral("scene"), timelineSceneDocument(scene)},
-    };
-    static_cast<void>(commitTimelineMutation(request, [this, sceneId = scene.id, insertedIndex]() {
-            if (insertedIndex < m_scenes.size() && m_scenes.at(insertedIndex).id == sceneId) {
-                m_scenes.removeAt(insertedIndex);
-                invalidateCurrentSceneCache();
-                return;
-            }
-            for (qsizetype index = m_scenes.size(); index > 0; --index) {
-                if (m_scenes.at(index - 1).id == sceneId) {
-                    m_scenes.removeAt(index - 1);
-                    invalidateCurrentSceneCache();
-                    return;
-                }
-            }
-        }));
-    for (const ClipData &clip : scene.clips) {
-        const QVariantMap clipRequest{
-            {QStringLiteral("operation"), QStringLiteral("insert_clip")},
-            {QStringLiteral("clip"), timelineClipDocument(clip)},
-        };
-        static_cast<void>(commitTimelineMutation(clipRequest, {}));
-    }
-    if (!endTimelineProjectionTransaction()) {
-        qWarning() << "Rust rejected scene restoration";
-        return;
-    }
-    emit scenesChanged();
 }
 
 bool TimelineService::restoreSceneProjectionsInternal(
@@ -414,42 +399,35 @@ bool TimelineService::replaceSceneProjectionsInternal(
 }
 
 void TimelineService::applySceneSettingsInternal(int sceneId, const SceneData &data) {
-    for (auto &scene : m_scenes) {
-        if (scene.id == sceneId) {
-            const SceneData oldData = scene;
-            scene.name = data.name;
-            scene.width = data.width;
-            scene.height = data.height;
-            scene.fps = data.fps;
-            scene.totalFrames = data.totalFrames;
-            scene.gridMode = data.gridMode;
-            scene.gridBpm = data.gridBpm;
-            scene.gridOffset = data.gridOffset;
-            scene.gridInterval = data.gridInterval;
-            scene.gridSubdivision = data.gridSubdivision;
-            scene.enableSnap = data.enableSnap;
-            scene.magneticSnapRange = data.magneticSnapRange;
-            const QVariantMap request{
-                {QStringLiteral("operation"), QStringLiteral("update_scene")},
-                {QStringLiteral("scene_id"), sceneId},
-                {QStringLiteral("scene"), timelineSceneDocument(scene)},
-            };
-            if (!commitTimelineMutation(request, [this, sceneId, oldData]() {
-                    auto restored = std::ranges::find_if(
-                        m_scenes,
-                        [sceneId](const SceneData &candidate) { return candidate.id == sceneId; });
-                    if (restored != m_scenes.end()) {
-                        *restored = oldData;
-                        invalidateCurrentSceneCache();
-                    }
-                })) {
-                qWarning() << "Rust rejected scene settings update";
-                return;
-            }
-            emit scenesChanged();
-            return;
-        }
+    const auto sceneIt = std::ranges::find_if(
+        m_scenes, [sceneId](const SceneData &scene) { return scene.id == sceneId; });
+    if (sceneIt == m_scenes.end()) {
+        return;
     }
+
+    SceneData updated = *sceneIt;
+    updated.name = data.name;
+    updated.width = data.width;
+    updated.height = data.height;
+    updated.fps = data.fps;
+    updated.totalFrames = data.totalFrames;
+    updated.gridMode = data.gridMode;
+    updated.gridBpm = data.gridBpm;
+    updated.gridOffset = data.gridOffset;
+    updated.gridInterval = data.gridInterval;
+    updated.gridSubdivision = data.gridSubdivision;
+    updated.enableSnap = data.enableSnap;
+    updated.magneticSnapRange = data.magneticSnapRange;
+    const QVariantMap request{
+        {QStringLiteral("operation"), QStringLiteral("update_scene")},
+        {QStringLiteral("scene_id"), sceneId},
+        {QStringLiteral("scene"), timelineSceneDocument(updated)},
+    };
+    if (!commitTimelineStateMutation(request)) {
+        qWarning() << "Rust rejected scene settings update";
+        return;
+    }
+    emit scenesChanged();
 }
 
 auto TimelineService::deepCopyScene(const SceneData &source) -> SceneData {
