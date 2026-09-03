@@ -1257,9 +1257,6 @@ void TimelineService::setKeyframeInternal(int clipId, int effectIndex, const QSt
                     params.insert(paramName, *projection->baseValue);
                     committedEffect->setParams(params);
                 }
-                QVariantMap tracks = committedEffect->keyframeTracks();
-                tracks.insert(paramName, projection->track);
-                committedEffect->setKeyframeTracks(tracks, committedClip->durationFrames);
             })) {
         qWarning() << "Rust rejected effect keyframe update";
         return;
@@ -1288,17 +1285,7 @@ void TimelineService::removeKeyframeInternal(int clipId, int effectIndex, const 
         return;
     }
     if (!commitTimelineStateMutation(
-            removeEffectKeyframeRequest(clipId, effectIndex, paramName, frame),
-            [this, clipId, effectIndex, paramName, projection]() {
-                auto *committedClip = findClipById(clipId);
-                if (committedClip == nullptr || effectIndex >= committedClip->effects.size()) {
-                    return;
-                }
-                auto *committedEffect = committedClip->effects.at(effectIndex);
-                QVariantMap tracks = committedEffect->keyframeTracks();
-                tracks.insert(paramName, projection->track);
-                committedEffect->setKeyframeTracks(tracks, committedClip->durationFrames);
-            })) {
+            removeEffectKeyframeRequest(clipId, effectIndex, paramName, frame))) {
         qWarning() << "Rust rejected effect keyframe removal";
         return;
     }
@@ -1322,17 +1309,7 @@ void TimelineService::moveKeyframeInternal(int clipId, int effectIndex, const QS
         return;
     }
     if (!commitTimelineStateMutation(
-            moveEffectKeyframeRequest(clipId, effectIndex, paramName, oldFrame, newFrame),
-            [this, clipId, effectIndex, paramName, projection]() {
-                auto *committedClip = findClipById(clipId);
-                if (committedClip == nullptr || effectIndex >= committedClip->effects.size()) {
-                    return;
-                }
-                auto *committedEffect = committedClip->effects.at(effectIndex);
-                QVariantMap tracks = committedEffect->keyframeTracks();
-                tracks.insert(paramName, projection->track);
-                committedEffect->setKeyframeTracks(tracks, committedClip->durationFrames);
-            })) {
+            moveEffectKeyframeRequest(clipId, effectIndex, paramName, oldFrame, newFrame))) {
         qWarning() << "Rust rejected effect keyframe move";
         return;
     }
@@ -1463,8 +1440,6 @@ void TimelineService::setAudioPluginKeyframeInternal(int clipId, int pluginIndex
                 if (projection->baseValue) {
                     committedPlugin.params.insert(paramKey, *projection->baseValue);
                 }
-                committedPlugin.keyframeTracks.insert(paramKey, projection->track);
-                committedPlugin.invalidateKeyframeCache();
             })) {
         qWarning() << "Rust rejected audio plugin keyframe update";
         return;
@@ -1485,16 +1460,7 @@ void TimelineService::removeAudioPluginKeyframeInternal(int clipId, int pluginIn
         return;
     }
     if (!commitTimelineStateMutation(
-            removeAudioPluginKeyframeRequest(clipId, pluginIndex, paramKey, frame),
-            [this, clipId, pluginIndex, paramKey, projection]() {
-                auto *committedClip = findClipById(clipId);
-                if (committedClip == nullptr || pluginIndex >= committedClip->audioPlugins.size()) {
-                    return;
-                }
-                auto &committedPlugin = committedClip->audioPlugins[pluginIndex];
-                committedPlugin.keyframeTracks.insert(paramKey, projection->track);
-                committedPlugin.invalidateKeyframeCache();
-            })) {
+            removeAudioPluginKeyframeRequest(clipId, pluginIndex, paramKey, frame))) {
         qWarning() << "Rust rejected audio plugin keyframe removal";
         return;
     }
@@ -1515,16 +1481,7 @@ void TimelineService::moveAudioPluginKeyframeInternal(int clipId, int pluginInde
         return;
     }
     if (!commitTimelineStateMutation(
-            moveAudioPluginKeyframeRequest(clipId, pluginIndex, paramKey, oldFrame, newFrame),
-            [this, clipId, pluginIndex, paramKey, projection]() {
-                auto *committedClip = findClipById(clipId);
-                if (committedClip == nullptr || pluginIndex >= committedClip->audioPlugins.size()) {
-                    return;
-                }
-                auto &committedPlugin = committedClip->audioPlugins[pluginIndex];
-                committedPlugin.keyframeTracks.insert(paramKey, projection->track);
-                committedPlugin.invalidateKeyframeCache();
-            })) {
+            moveAudioPluginKeyframeRequest(clipId, pluginIndex, paramKey, oldFrame, newFrame))) {
         qWarning() << "Rust rejected audio plugin keyframe move";
         return;
     }

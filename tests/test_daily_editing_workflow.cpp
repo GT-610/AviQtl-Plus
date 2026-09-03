@@ -1534,7 +1534,7 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
 
     ClipData rejected;
     rejected.id = 900;
-    rejected.sceneId = 0;
+    rejected.sceneId = 999;
     rejected.type = QStringLiteral("test");
     rejected.startFrame = 100;
     rejected.durationFrames = 30;
@@ -1550,7 +1550,8 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
 
     ClipData first = rejected;
     first.id = 901;
-    ClipData second = rejected;
+    first.sceneId = 0;
+    ClipData second = first;
     second.id = 902;
     second.startFrame = 140;
     QVERIFY(timeline.addClipsDirectInternal({first, second}));
@@ -1764,7 +1765,7 @@ void TestDailyEditingWorkflow::audioPluginKeyframeMutationsAreUndoable() {
     QVariantList points = controller.audioPluginKeyframeListForUi(
         clipId, 0, QStringLiteral("0"));
     QCOMPARE(points.size(), 2);
-    QCOMPARE(points.at(1).toMap().value(QStringLiteral("value")).typeId(), QMetaType::Int);
+    QCOMPARE(points.at(1).toMap().value(QStringLiteral("value")).toInt(), 100);
     QCOMPARE(points.at(1).toMap().value(QStringLiteral("points")).toList(), customPoints);
 
     controller.timeline()->moveAudioPluginKeyframe(clipId, 0, QStringLiteral("0"), 10, 8);
