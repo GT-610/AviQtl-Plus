@@ -662,8 +662,9 @@ void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
 
 void TestQmlCompositeCapture::exportsAnimatedTextAndDecodesDistinctFrames() {
     QQmlEngine engine;
-    auto *context = engine.rootContext();
     Workspace workspace;
+    TestSettingsManager settings;
+    TestWindowManager windowManager;
     workspace.newProject();
     TimelineController *controller = workspace.currentTimeline();
     QVERIFY(controller != nullptr);
@@ -678,42 +679,26 @@ void TestQmlCompositeCapture::exportsAnimatedTextAndDecodesDistinctFrames() {
     controller->setKeyframe(textClipId, 0, QStringLiteral("x"), 0, -70.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
     controller->setKeyframe(textClipId, 0, QStringLiteral("x"), 1, 70.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
 
-    context->setContextProperty(QStringLiteral("Workspace"), &workspace);
-    context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
-    context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
-    context->setContextProperty(QStringLiteral("DefaultWidth"), 320);
-    context->setContextProperty(QStringLiteral("DefaultHeight"), 180);
-    context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
+    QString error;
+    std::unique_ptr<QObject> root = createMainWindow(engine, workspace, settings, windowManager, &error);
+    QVERIFY2(root != nullptr, qPrintable(error));
+    auto *mainWindow = qobject_cast<QQuickWindow *>(root.get());
+    QVERIFY(mainWindow != nullptr);
+    QTRY_VERIFY_WITH_TIMEOUT(mainWindow->isExposed(), 5'000);
 
-    QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/CompositeView.qml")));
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> object(component.create(context));
-    QVERIFY2(object != nullptr, qPrintable(component.errorString()));
-    auto *compositeView = qobject_cast<QQuickItem *>(object.get());
+    auto *compositeView = controller->compositeView();
     QVERIFY(compositeView != nullptr);
-    compositeView->setProperty("clipModel", controller->getSceneClips(controller->currentSceneId()));
-
-    QQuickWindow window;
-    window.setGeometry(0, 0, 320, 180);
-    compositeView->setParentItem(window.contentItem());
-    compositeView->setSize(QSizeF(320, 180));
-    compositeView->setProperty("projectWidth", 320);
-    compositeView->setProperty("projectHeight", 180);
-    compositeView->setProperty("sceneId", controller->currentSceneId());
-    window.show();
-    QTRY_VERIFY_WITH_TIMEOUT(window.isExposed(), 5'000);
-    if (!QSGRendererInterface::isApiRhiBased(window.rendererInterface()->graphicsApi()))
-        QSKIP("Qt Quick 3D rendering requires an RHI-based graphics API");
-
-    controller->setCompositeView(compositeView);
-    const QMetaObject::Connection ecsConnection = connect(&ECSRenderBridge::instance(), &ECSRenderBridge::renderStatesChanged, compositeView,
-                                                          [compositeView]() { syncEcsRenderData(compositeView); });
-    QVERIFY(ecsConnection);
     controller->transport()->setCurrentFrame_seek(1);
     controller->transport()->setCurrentFrame_seek(0);
-    syncEcsRenderData(compositeView);
-    window.update();
+    const QString clipKey = QString::number(textClipId);
+    QTRY_VERIFY_WITH_TIMEOUT(ECSRenderBridge::instance().renderStateMap().contains(clipKey), 5'000);
+    QTRY_VERIFY_WITH_TIMEOUT(compositeView->property("ecsRenderData").toMap().contains(clipKey), 5'000);
+    QCOMPARE(compositeView->property("ecsRenderData").toMap().value(clipKey).toMap().value(QStringLiteral("x")).toDouble(), -70.0);
+
+    if (!QSGRendererInterface::isApiRhiBased(mainWindow->rendererInterface()->graphicsApi()))
+        QSKIP("Qt Quick 3D rendering requires an RHI-based graphics API");
+
+    mainWindow->update();
     auto *view3D = compositeView->property("view3D").value<QQuickItem *>();
     QVERIFY(view3D != nullptr);
     QVERIFY(brightPixelCenterX(grabView3DUntilVisible(view3D)) >= 0.0);
@@ -721,24 +706,24 @@ void TestQmlCompositeCapture::exportsAnimatedTextAndDecodesDistinctFrames() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString outputPath = dir.filePath(QStringLiteral("animated-text.mp4"));
-    Core::VideoEncoder::Config config;
-    config.width = 320;
-    config.height = 180;
-    config.fps_num = 30;
-    config.fps_den = 1;
-    config.crf = 18;
-    config.codecName = QStringLiteral("libx264");
-    config.audioCodecName = QStringLiteral("aac");
-    config.outputUrl = outputPath;
-    config.startFrame = 0;
-    config.endFrame = 2;
-    config.preset = QStringLiteral("ultrafast");
+    const QVariantMap config = {
+        {QStringLiteral("width"), 320},
+        {QStringLiteral("height"), 180},
+        {QStringLiteral("fps_num"), 30},
+        {QStringLiteral("fps_den"), 1},
+        {QStringLiteral("crf"), 18},
+        {QStringLiteral("codecName"), QStringLiteral("libx264")},
+        {QStringLiteral("audioCodecName"), QStringLiteral("aac")},
+        {QStringLiteral("outputUrl"), outputPath},
+        {QStringLiteral("startFrame"), 0},
+        {QStringLiteral("endFrame"), 2},
+        {QStringLiteral("preset"), QStringLiteral("ultrafast")},
+    };
 
-    TimelineExportManager exportManager(controller);
-    QSignalSpy exportSpy(&exportManager, &TimelineExportManager::exportFinished);
-    QVERIFY(exportManager.exportVideoAsync(config));
+    QSignalSpy exportSpy(controller, &TimelineController::exportFinished);
+    controller->exportVideoAsync(config);
     QTRY_COMPARE_WITH_TIMEOUT(exportSpy.count(), 1, 20'000);
-    QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 20'000);
+    QTRY_VERIFY_WITH_TIMEOUT(!controller->isExporting(), 20'000);
     const QList<QVariant> exportResult = exportSpy.takeFirst();
     QVERIFY2(exportResult.at(0).toBool(), qPrintable(exportResult.at(1).toString()));
     QCOMPARE(exportResult.at(1).toString(), QStringLiteral("Export complete"));
