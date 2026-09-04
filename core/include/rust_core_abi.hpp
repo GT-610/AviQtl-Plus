@@ -37,6 +37,7 @@ enum AviQtlCoreStatus : std::uint32_t {
 };
 
 struct AviQtlTimelineState;
+struct AviQtlTimelineBakePlan;
 
 struct AviQtlEasingParameters {
     double amplitude;
@@ -240,6 +241,32 @@ static_assert(offsetof(AviQtlAudioBakeOutput, source_start_time) == 12);
 static_assert(offsetof(AviQtlAudioBakeOutput, mute) == 44);
 static_assert(offsetof(AviQtlAudioBakeOutput, direct_mode) == 56);
 
+struct AviQtlEffectParamEntry {
+    std::uint32_t clip_id;
+    std::uint8_t effect_index;
+    std::uint8_t param_type;
+    std::uint8_t reserved[2];
+    std::uint8_t param_name[20];
+    float value[4];
+};
+static_assert(sizeof(AviQtlEffectParamEntry) == 44);
+static_assert(alignof(AviQtlEffectParamEntry) == 4);
+static_assert(offsetof(AviQtlEffectParamEntry, param_name) == 8);
+static_assert(offsetof(AviQtlEffectParamEntry, value) == 28);
+
+struct AviQtlSceneBakeCounts {
+    std::size_t render_count;
+    std::size_t audio_count;
+    std::size_t param_count;
+    std::uint64_t clips_visited;
+    std::uint64_t selected_effect_count;
+    std::uint64_t numeric_batch_calls;
+    std::uint64_t numeric_track_count;
+};
+static_assert(sizeof(AviQtlSceneBakeCounts) == 56);
+static_assert(alignof(AviQtlSceneBakeCounts) == 8);
+static_assert(offsetof(AviQtlSceneBakeCounts, clips_visited) == 24);
+
 struct AviQtlTimelineClipGeometry {
     std::int32_t clip_id;
     std::int32_t layer;
@@ -310,6 +337,11 @@ std::uint32_t aviqtl_numeric_interpolation_from_name(const std::uint8_t *value, 
 
 std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input, AviQtlRenderBakeOutput *output);
 std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input, AviQtlAudioBakeOutput *output);
+std::uint32_t aviqtl_timeline_bake_plan_create(const std::uint8_t *input, std::size_t inputLength, AviQtlTimelineBakePlan **outputHandle);
+void aviqtl_timeline_bake_plan_destroy(AviQtlTimelineBakePlan *handle);
+std::uint32_t aviqtl_timeline_bake_plan_reset(AviQtlTimelineBakePlan *handle, const std::uint8_t *input, std::size_t inputLength);
+std::size_t aviqtl_timeline_bake_plan_effect_count(AviQtlTimelineBakePlan *handle);
+std::uint32_t aviqtl_timeline_bake_plan_evaluate(AviQtlTimelineBakePlan *handle, std::int32_t currentFrame, std::uint32_t fullBake, std::int32_t prefetchFrames, AviQtlRenderBakeOutput *renderOutput, std::size_t renderCapacity, AviQtlAudioBakeOutput *audioOutput, std::size_t audioCapacity, AviQtlEffectParamEntry *paramOutput, std::size_t paramCapacity, AviQtlSceneBakeCounts *counts);
 
 std::uint32_t aviqtl_timeline_find_vacant_frame(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, const std::int32_t *excludedIds, std::size_t excludedIdsLength, std::int32_t layer, std::int32_t startFrame, std::int32_t durationFrames,
                                                 std::int32_t *outputFrame);

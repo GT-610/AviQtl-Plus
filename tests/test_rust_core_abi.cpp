@@ -54,6 +54,13 @@ class TestRustCoreAbi : public QObject {
         QCOMPARE(alignof(AviQtlAudioBakeInput), std::size_t{8});
         QCOMPARE(sizeof(AviQtlAudioBakeOutput), std::size_t{60});
         QCOMPARE(alignof(AviQtlAudioBakeOutput), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlEffectParamEntry), std::size_t{44});
+        QCOMPARE(alignof(AviQtlEffectParamEntry), std::size_t{4});
+        QCOMPARE(offsetof(AviQtlEffectParamEntry, param_name), std::size_t{8});
+        QCOMPARE(offsetof(AviQtlEffectParamEntry, value), std::size_t{28});
+        QCOMPARE(sizeof(AviQtlSceneBakeCounts), std::size_t{56});
+        QCOMPARE(alignof(AviQtlSceneBakeCounts), std::size_t{8});
+        QCOMPARE(offsetof(AviQtlSceneBakeCounts, clips_visited), std::size_t{24});
         QCOMPARE(sizeof(AviQtlTimelineClipGeometry), std::size_t{16});
         QCOMPARE(alignof(AviQtlTimelineClipGeometry), std::size_t{4});
         QCOMPARE(sizeof(AviQtlTimelineMoveInput), std::size_t{24});

@@ -232,7 +232,7 @@ fn custom_points(point: &Map<String, Value>) -> Vec<f64> {
     ]
 }
 
-fn parse_hex_color(value: &str) -> Option<[u8; 4]> {
+pub(crate) fn parse_hex_color(value: &str) -> Option<[u8; 4]> {
     let hex = value.strip_prefix('#')?;
     let parsed = u32::from_str_radix(hex, 16).ok()?;
     match hex.len() {
@@ -354,6 +354,14 @@ fn evaluate_track(points: &[Value], frame: i32, fallback: &Value) -> Value {
     point_value(&points[points.len() - 1])
         .cloned()
         .unwrap_or_else(|| fallback.clone())
+}
+
+pub(crate) fn resolve_track(track: &Value, fallback: &Value, duration: i32) -> Vec<Value> {
+    flatten(&normalize_track(track, fallback, duration))
+}
+
+pub(crate) fn evaluate_resolved_track(points: &[Value], frame: i32, fallback: &Value) -> Value {
+    evaluate_track(points, frame, fallback)
 }
 
 fn evaluate_request(request: EvaluationRequest) -> EvaluationResponse {

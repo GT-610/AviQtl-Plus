@@ -67,6 +67,9 @@ def _split_top_level(text: str) -> list[str]:
 
 def _rust_type(type_name: str) -> str:
     type_name = " ".join(type_name.strip().split())
+    array = re.fullmatch(r"\[(.+);\s*(\d+)\]", type_name)
+    if array is not None:
+        return f"[{_rust_type(array.group(1))};{array.group(2)}]"
     if type_name.startswith("*const "):
         return f"*const<{_rust_type(type_name[7:])}>"
     if type_name.startswith("*mut "):
@@ -90,10 +93,13 @@ def _c_type(type_name: str) -> str:
 
 
 def _c_declaration_type(declaration: str) -> tuple[str, str]:
-    match = re.search(r"([A-Za-z_]\w*)\s*$", declaration.strip())
+    match = re.search(r"([A-Za-z_]\w*)\s*(?:\[\s*(\d+)\s*\])?\s*$", declaration.strip())
     if match is None:
         raise ValueError(f"cannot parse C++ declaration: {declaration}")
-    return match.group(1), _c_type(declaration[: match.start()])
+    field_type = _c_type(declaration[: match.start()])
+    if match.group(2) is not None:
+        field_type = f"[{field_type};{match.group(2)}]"
+    return match.group(1), field_type
 
 
 def parse_rust_functions(sources: dict[str, str]) -> dict[str, tuple[str, tuple[str, ...]]]:

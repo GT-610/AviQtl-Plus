@@ -226,6 +226,29 @@ pub struct AviQtlAudioBakeOutput {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlEffectParamEntry {
+    pub clip_id: u32,
+    pub effect_index: u8,
+    pub param_type: u8,
+    pub reserved: [u8; 2],
+    pub param_name: [u8; 20],
+    pub value: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlSceneBakeCounts {
+    pub render_count: usize,
+    pub audio_count: usize,
+    pub param_count: usize,
+    pub clips_visited: u64,
+    pub selected_effect_count: u64,
+    pub numeric_batch_calls: u64,
+    pub numeric_track_count: u64,
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub struct AviQtlTimelineClipGeometry {
     pub clip_id: i32,
@@ -369,6 +392,13 @@ mod tests {
         assert_eq!(offset_of!(AviQtlRenderBakeInput, effect_start_index), 28);
         assert_eq!(offset_of!(AviQtlRenderBakeInput, x), 36);
         assert_eq!(offset_of!(AviQtlRenderBakeInput, opacity), 64);
+        assert_eq!(size_of::<AviQtlEffectParamEntry>(), 44);
+        assert_eq!(align_of::<AviQtlEffectParamEntry>(), 4);
+        assert_eq!(offset_of!(AviQtlEffectParamEntry, param_name), 8);
+        assert_eq!(offset_of!(AviQtlEffectParamEntry, value), 28);
+        assert_eq!(size_of::<AviQtlSceneBakeCounts>(), 56);
+        assert_eq!(align_of::<AviQtlSceneBakeCounts>(), 8);
+        assert_eq!(offset_of!(AviQtlSceneBakeCounts, clips_visited), 24);
 
         assert_eq!(size_of::<AviQtlRenderBakeOutput>(), 72);
         assert_eq!(align_of::<AviQtlRenderBakeOutput>(), 8);

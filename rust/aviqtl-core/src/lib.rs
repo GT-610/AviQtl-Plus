@@ -2,6 +2,7 @@
 
 mod abi;
 mod audio;
+mod bake_plan;
 mod effect;
 mod keyframe;
 mod keyframe_document;
