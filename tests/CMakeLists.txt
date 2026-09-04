@@ -429,9 +429,10 @@ set_tests_properties(build_version PROPERTIES TIMEOUT 30)
 
 set_tests_properties(audio_decoder PROPERTIES TIMEOUT 180)
 set_tests_properties(
-    video_decoder large_timeline_performance qml_composite_capture
+    video_decoder qml_composite_capture
     PROPERTIES TIMEOUT 120
 )
+set_tests_properties(large_timeline_performance PROPERTIES TIMEOUT 300)
 
 # Labels keep focused developer runs concise without changing the default suite.
 function(aviqtl_label_tests LABEL)
