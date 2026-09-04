@@ -335,7 +335,7 @@ fn safe_archive_path(value: &str) -> bool {
     true
 }
 
-fn valid_recovery_id(value: &str) -> bool {
+pub(crate) fn valid_recovery_id(value: &str) -> bool {
     if value.len() != 36
         || !value.bytes().enumerate().all(|(index, byte)| match index {
             8 | 13 | 18 | 23 => byte == b'-',
@@ -347,7 +347,7 @@ fn valid_recovery_id(value: &str) -> bool {
     value.bytes().any(|byte| byte != b'0' && byte != b'-')
 }
 
-fn valid_recovery_snapshot_name(id: &str, file_name: &str) -> bool {
+pub(crate) fn valid_recovery_snapshot_name(id: &str, file_name: &str) -> bool {
     if !valid_recovery_id(id)
         || file_name.contains('/')
         || file_name.contains('\\')

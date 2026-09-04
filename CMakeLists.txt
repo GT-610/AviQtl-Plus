@@ -257,6 +257,7 @@ set(CORE_SOURCES
     core/include/rust_permission_state.hpp
     core/include/rust_plugin_document.hpp
     core/include/rust_project_document.hpp
+    core/include/rust_recovery_document.hpp
     core/include/rust_preset_document.hpp
     core/include/rust_settings_document.hpp
     core/include/rust_script_document.hpp

@@ -27,6 +27,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_PERMISSION_STATE = 1ULL << 18,
     AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_STATE = 1ULL << 19,
     AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_CATALOG_STATE = 1ULL << 20,
+    AVIQTL_RUST_CORE_CAPABILITY_RECOVERY_DOCUMENT = 1ULL << 21,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -539,6 +540,9 @@ std::int32_t aviqtl_package_type(const std::uint8_t *value, std::size_t valueLen
 std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_recovery_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_recovery_snapshot_name_is_valid(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *fileName, std::size_t fileNameLength);
+std::uint32_t aviqtl_recovery_metadata_inspect_json(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *metadata, std::size_t metadataLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_recovery_metadata_build_json(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *originalProjectUrl, std::size_t originalProjectUrlLength, const std::uint8_t *displayName, std::size_t displayNameLength, const std::uint8_t *savedAt, std::size_t savedAtLength, const std::uint8_t *snapshotFile, std::size_t snapshotFileLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_recovery_snapshot_id(const std::uint8_t *fileName, std::size_t fileNameLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::uint32_t aviqtl_settings_state_create_defaults(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, AviQtlSettingsState **outputHandle);
 std::uint32_t aviqtl_settings_state_create(const std::uint8_t *input, std::size_t inputLength, AviQtlSettingsState **outputHandle);

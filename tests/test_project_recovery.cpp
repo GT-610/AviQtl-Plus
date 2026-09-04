@@ -50,6 +50,7 @@ class TestProjectRecovery : public QObject {
     void invalidIdentifiersAreRejected();
     void successiveWritesReplaceSnapshotGeneration();
     void legacySnapshotMetadataRemainsReadable();
+    void invalidMetadataFieldsAreRejected();
     void failedMetadataOpenPreservesPreviousSnapshot();
     void staleRecoveriesAreRemoved();
     void staleCorruptMetadataIsRemoved();
@@ -328,6 +329,54 @@ void TestProjectRecovery::legacySnapshotMetadataRemainsReadable() {
     const ProjectRecoveryEntry legacyEntry = ProjectRecoveryManager::entries().first();
     QVERIFY(legacyEntry.valid);
     QCOMPARE(legacyEntry.snapshotPath, legacyPath);
+}
+
+void TestProjectRecovery::invalidMetadataFieldsAreRejected() {
+    const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString otherId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString metadataPath = QDir(m_recoveryRoot).filePath(id + QStringLiteral(".json"));
+    const QString snapshotFile = id + QStringLiteral(".aviqtl");
+    QFile snapshot(QDir(m_recoveryRoot).filePath(snapshotFile));
+    QVERIFY(snapshot.open(QIODevice::WriteOnly));
+    QVERIFY(snapshot.write("snapshot") > 0);
+    snapshot.close();
+
+    QFile metadata(metadataPath);
+    const auto writeMetadata = [&metadata](const QJsonObject &value) {
+        if (!metadata.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return false;
+        const QByteArray document = QJsonDocument(value).toJson(QJsonDocument::Compact);
+        const bool written = metadata.write(document) == document.size();
+        metadata.close();
+        return written;
+    };
+    QJsonObject value{
+        {QStringLiteral("id"), otherId},
+        {QStringLiteral("displayName"), QStringLiteral("Invalid")},
+        {QStringLiteral("savedAt"), QStringLiteral("2026-09-04T12:30:45.123Z")},
+        {QStringLiteral("snapshotFile"), snapshotFile},
+    };
+    QVERIFY(writeMetadata(value));
+    auto entries = ProjectRecoveryManager::entries();
+    QCOMPARE(entries.size(), 1);
+    QVERIFY(!entries.first().valid);
+    QCOMPARE(entries.first().error,
+             QStringLiteral("Recovery identifier does not match its file name"));
+
+    value.insert(QStringLiteral("id"), id);
+    value.insert(QStringLiteral("snapshotFile"), QStringLiteral("../outside.aviqtl"));
+    QVERIFY(writeMetadata(value));
+    entries = ProjectRecoveryManager::entries();
+    QVERIFY(!entries.first().valid);
+    QCOMPARE(entries.first().error,
+             QStringLiteral("Recovery snapshot file name is invalid"));
+
+    value.insert(QStringLiteral("snapshotFile"), snapshotFile);
+    value.insert(QStringLiteral("savedAt"), QStringLiteral("2025-02-29T12:30:45Z"));
+    QVERIFY(writeMetadata(value));
+    entries = ProjectRecoveryManager::entries();
+    QVERIFY(!entries.first().valid);
+    QCOMPARE(entries.first().error, QStringLiteral("Recovery timestamp is invalid"));
 }
 
 void TestProjectRecovery::failedMetadataOpenPreservesPreviousSnapshot() {

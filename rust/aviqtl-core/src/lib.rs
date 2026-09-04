@@ -12,6 +12,7 @@ mod plugin;
 mod policy;
 mod preset;
 mod project;
+mod recovery;
 mod script;
 mod settings;
 mod timeline;
