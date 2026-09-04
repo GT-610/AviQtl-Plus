@@ -694,6 +694,9 @@ mod tests {
                     {"id": "audio", "params": {"playMode": "時間直接指定"},
                      "keyframes": {"playMode": {"start": {"frame": 0, "value": "開始時間＋再生速度"},
                          "points": [{"frame": 10, "value": "時間直接指定"}]}}},
+                    {"id": "video", "params": {"playMode": "Direct Frame"},
+                     "keyframes": {"playMode": {"start": {"frame": 0, "value": "起始帧＋播放速度"},
+                         "points": [{"frame": 10, "value": "直接指定帧"}]}}},
                     {"id": "label", "params": {"playMode": "時間直接指定"}}
                 ]}]
             }"#,
@@ -712,6 +715,18 @@ mod tests {
         );
         assert_eq!(
             normalized["clips"][0]["effects"][1]["params"]["playMode"],
+            "direct"
+        );
+        assert_eq!(
+            normalized["clips"][0]["effects"][1]["keyframes"]["playMode"]["start"]["value"],
+            "normal"
+        );
+        assert_eq!(
+            normalized["clips"][0]["effects"][1]["keyframes"]["playMode"]["points"][0]["value"],
+            "direct"
+        );
+        assert_eq!(
+            normalized["clips"][0]["effects"][2]["params"]["playMode"],
             "時間直接指定"
         );
     }

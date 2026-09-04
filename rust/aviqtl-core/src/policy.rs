@@ -83,10 +83,20 @@ pub(crate) enum PlaybackMode {
 
 pub(crate) fn playback_mode(value: &str) -> Option<PlaybackMode> {
     match value {
-        "normal" | "開始フレーム＋再生速度" | "開始時間＋再生速度" => {
-            Some(PlaybackMode::Normal)
-        }
-        "direct" | "フレーム直接指定" | "時間直接指定" => Some(PlaybackMode::Direct),
+        "normal"
+        | "開始フレーム＋再生速度"
+        | "開始時間＋再生速度"
+        | "Start Frame + Playback Speed"
+        | "Start Time + Playback Speed"
+        | "起始帧＋播放速度"
+        | "开始时间＋播放速度" => Some(PlaybackMode::Normal),
+        "direct"
+        | "フレーム直接指定"
+        | "時間直接指定"
+        | "Direct Frame"
+        | "Direct Time"
+        | "直接指定帧"
+        | "直接指定时间" => Some(PlaybackMode::Direct),
         _ => None,
     }
 }
@@ -593,6 +603,26 @@ mod tests {
             Some(PlaybackMode::Direct)
         );
         assert_eq!(playback_mode("時間直接指定"), Some(PlaybackMode::Direct));
+        assert_eq!(
+            playback_mode("Start Frame + Playback Speed"),
+            Some(PlaybackMode::Normal)
+        );
+        assert_eq!(
+            playback_mode("Start Time + Playback Speed"),
+            Some(PlaybackMode::Normal)
+        );
+        assert_eq!(playback_mode("Direct Frame"), Some(PlaybackMode::Direct));
+        assert_eq!(playback_mode("Direct Time"), Some(PlaybackMode::Direct));
+        assert_eq!(
+            playback_mode("起始帧＋播放速度"),
+            Some(PlaybackMode::Normal)
+        );
+        assert_eq!(
+            playback_mode("开始时间＋播放速度"),
+            Some(PlaybackMode::Normal)
+        );
+        assert_eq!(playback_mode("直接指定帧"), Some(PlaybackMode::Direct));
+        assert_eq!(playback_mode("直接指定时间"), Some(PlaybackMode::Direct));
         assert_eq!(playback_mode("モード: 直接"), None);
         assert_eq!(canonical_playback_mode("時間直接指定"), Some("direct"));
         assert!(is_video_file("CLIP.MOV"));

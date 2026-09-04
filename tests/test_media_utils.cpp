@@ -21,6 +21,14 @@ private slots:
         QCOMPARE(playbackMode(QStringLiteral("開始時間＋再生速度")), PlaybackMode::Normal);
         QCOMPARE(playbackMode(QStringLiteral("フレーム直接指定")), PlaybackMode::Direct);
         QCOMPARE(playbackMode(QStringLiteral("時間直接指定")), PlaybackMode::Direct);
+        QCOMPARE(playbackMode(QStringLiteral("Start Frame + Playback Speed")), PlaybackMode::Normal);
+        QCOMPARE(playbackMode(QStringLiteral("Start Time + Playback Speed")), PlaybackMode::Normal);
+        QCOMPARE(playbackMode(QStringLiteral("Direct Frame")), PlaybackMode::Direct);
+        QCOMPARE(playbackMode(QStringLiteral("Direct Time")), PlaybackMode::Direct);
+        QCOMPARE(playbackMode(QStringLiteral("起始帧＋播放速度")), PlaybackMode::Normal);
+        QCOMPARE(playbackMode(QStringLiteral("开始时间＋播放速度")), PlaybackMode::Normal);
+        QCOMPARE(playbackMode(QStringLiteral("直接指定帧")), PlaybackMode::Direct);
+        QCOMPARE(playbackMode(QStringLiteral("直接指定时间")), PlaybackMode::Direct);
     }
 
     void playbackMode_rejectsUnknownValues() {
