@@ -590,8 +590,9 @@ int TimelineController::clampVideoDuration(int clipId, int requestedDuration, in
             continue;
         }
         const auto &p = eff->params();
-        const QString playMode = p.value(QStringLiteral("playMode"), "開始フレーム＋再生速度").toString();
-        if (playMode == QStringLiteral("フレーム直接指定")) {
+        const QString playMode = p.value(QStringLiteral("playMode"), "normal").toString();
+        if (AviQtl::Core::MediaUtils::playbackMode(playMode) ==
+            AviQtl::Core::MediaUtils::PlaybackMode::Direct) {
             isDirectMode = true;
             break;
         }
@@ -625,8 +626,9 @@ int TimelineController::clampAudioDuration(int clipId, int requestedDuration, in
             continue;
         }
         const auto &p = eff->params();
-        const QString playMode = p.value(QStringLiteral("playMode"), "開始時間＋再生速度").toString();
-        if (playMode == QStringLiteral("時間直接指定")) {
+        const QString playMode = p.value(QStringLiteral("playMode"), "normal").toString();
+        if (AviQtl::Core::MediaUtils::playbackMode(playMode) ==
+            AviQtl::Core::MediaUtils::PlaybackMode::Direct) {
             isDirectMode = true;
             break;
         }
@@ -809,7 +811,8 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
     const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
     const bool linkedVideo = sourceIsVideo && params.value(QStringLiteral("linkedVideo"), false).toBool();
     const QString playMode = params.value(QStringLiteral("playMode")).toString();
-    const bool directMode = AviQtl::Core::MediaUtils::isDirectAudioMode(playMode);
+    const bool directMode = AviQtl::Core::MediaUtils::playbackMode(playMode) ==
+                            AviQtl::Core::MediaUtils::PlaybackMode::Direct;
 
     std::vector<AviQtl::Core::AudioDecoder::PeakRange> peakRanges;
     std::vector<float> displayGains;

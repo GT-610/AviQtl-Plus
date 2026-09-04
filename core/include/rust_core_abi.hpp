@@ -353,8 +353,9 @@ std::uint32_t aviqtl_timeline_plan_index_move(std::size_t length, std::int32_t o
 std::uint32_t aviqtl_timeline_plan_multi_reorder(std::size_t length, const std::int32_t *indices, std::size_t indicesLength, std::int32_t targetIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo, std::size_t *outputSelectedCount);
 
 std::uint32_t aviqtl_keyframe_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_keyframe_evaluate_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
-std::uint32_t aviqtl_media_is_direct_audio_mode(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_media_playback_mode(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_media_is_video_file(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_audio_parameter_affects_duration(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_audio_parameter_affects_waveform(const std::uint8_t *value, std::size_t valueLength);

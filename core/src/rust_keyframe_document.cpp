@@ -11,6 +11,9 @@
 namespace AviQtl::Core::RustKeyframeDocument {
 namespace {
 
+using JsonOperation = std::uint32_t (*)(const std::uint8_t *, std::size_t, std::uint8_t *,
+                                        std::size_t, std::size_t *);
+
 QVariant encodeDomainValue(const QVariant &value) {
     const auto tagged = [](QString type, const QVariant &payload) {
         return QVariantMap{
@@ -85,10 +88,10 @@ QVariant decodeDomainValue(const QVariant &value) {
     return decoded;
 }
 
-std::optional<TrackResult> apply(const QVariantMap &request) {
+std::optional<QVariantMap> invoke(JsonOperation operation, const QVariantMap &request) {
     const QByteArray input = QJsonDocument::fromVariant(request).toJson(QJsonDocument::Compact);
     std::size_t required = 0;
-    auto status = aviqtl_keyframe_document_apply_json(
+    auto status = operation(
         reinterpret_cast<const std::uint8_t *>(input.constData()),
         static_cast<std::size_t>(input.size()), nullptr, 0, &required);
     if (status != AVIQTL_RUST_CORE_STATUS_BUFFER_TOO_SMALL || required == 0 ||
@@ -99,7 +102,7 @@ std::optional<TrackResult> apply(const QVariantMap &request) {
 
     QByteArray output(static_cast<qsizetype>(required), Qt::Uninitialized);
     std::size_t written = 0;
-    status = aviqtl_keyframe_document_apply_json(
+    status = operation(
         reinterpret_cast<const std::uint8_t *>(input.constData()),
         static_cast<std::size_t>(input.size()),
         reinterpret_cast<std::uint8_t *>(output.data()), required, &written);
@@ -114,7 +117,15 @@ std::optional<TrackResult> apply(const QVariantMap &request) {
         qWarning() << "Rust keyframe document returned invalid JSON:" << parseError.errorString();
         return std::nullopt;
     }
-    const QVariantMap response = document.object().toVariantMap();
+    return document.object().toVariantMap();
+}
+
+std::optional<TrackResult> apply(const QVariantMap &request) {
+    const auto invoked = invoke(aviqtl_keyframe_document_apply_json, request);
+    if (!invoked) {
+        return std::nullopt;
+    }
+    const QVariantMap &response = *invoked;
     TrackResult result{
         .track = decodeDomainValue(response.value(QStringLiteral("track"))).toMap(),
         .flat = decodeDomainValue(response.value(QStringLiteral("flat"))).toList(),
@@ -198,6 +209,19 @@ std::optional<TrackResult> split(const QVariant &track, const QVariant &fallback
         {QStringLiteral("original_duration"), originalDuration},
     };
     return apply(request);
+}
+
+std::optional<QVariant> evaluate(const QVariantList &track, int frame, const QVariant &fallback) {
+    const QVariantMap request{
+        {QStringLiteral("track"), encodeDomainValue(track)},
+        {QStringLiteral("fallback"), encodeDomainValue(fallback)},
+        {QStringLiteral("frame"), frame},
+    };
+    const auto response = invoke(aviqtl_keyframe_evaluate_json, request);
+    if (!response || !response->contains(QStringLiteral("value"))) {
+        return std::nullopt;
+    }
+    return decodeDomainValue(response->value(QStringLiteral("value")));
 }
 
 } // namespace AviQtl::Core::RustKeyframeDocument

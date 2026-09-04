@@ -12,6 +12,7 @@
 #include <bitset>
 #include <limits>
 #include <optional>
+#include <QColor>
 #include <QDebug>
 #include <QSet>
 #include <unordered_map>
@@ -289,7 +290,8 @@ std::optional<AudioComponent> bakeAudioState(const AviQtl::Core::Clip &clip, con
                 input.has_audio_effect = 1;
                 const QString playMode = effect.params.value(QStringLiteral("playMode")).toString();
                 input.direct_mode = static_cast<std::uint32_t>(
-                    AviQtl::Core::MediaUtils::isDirectAudioMode(playMode));
+                    AviQtl::Core::MediaUtils::playbackMode(playMode) ==
+                    AviQtl::Core::MediaUtils::PlaybackMode::Direct);
                 input.source_start_time = evalFloatOr(rt, QStringLiteral("startTime"), 0.0F, relFrame);
                 input.speed_percent = evalFloatOr(
                     rt, QStringLiteral("speed"), static_cast<float>(AviQtl::kDefaultSpeed), relFrame);

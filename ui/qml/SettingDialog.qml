@@ -1076,14 +1076,18 @@ Common.AviQtlWindow {
                                         Layout.fillWidth: true
                                         model: [{
                                             "text": qsTr("開始時間＋再生速度"),
-                                            "value": "開始時間＋再生速度"
+                                            "value": "normal"
                                         }, {
                                             "text": qsTr("時間直接指定"),
-                                            "value": "時間直接指定"
+                                            "value": "direct"
                                         }]
                                         textRole: "text"
                                         currentIndex: {
-                                            var currentValue = root.audioParamValue("playMode", "開始時間＋再生速度");
+                                            var currentValue = root.audioParamValue("playMode", "normal");
+                                            if (currentValue === "開始時間＋再生速度")
+                                                currentValue = "normal";
+                                            else if (currentValue === "時間直接指定")
+                                                currentValue = "direct";
                                             for (var i = 0; i < model.length; ++i) {
                                                 if (model[i].value === currentValue)
                                                     return i;

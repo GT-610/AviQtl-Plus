@@ -17,13 +17,19 @@ enum class PackageType : std::int32_t {
     Object = 2,
 };
 
+enum class PlaybackMode : std::int32_t {
+    Invalid = -1,
+    Normal = 0,
+    Direct = 1,
+};
+
 inline QByteArray utf8(QStringView value) { return value.toString().toUtf8(); }
 
-inline bool isDirectAudioMode(QStringView value) {
+inline PlaybackMode playbackMode(QStringView value) {
     const QByteArray encoded = utf8(value);
-    return aviqtl_media_is_direct_audio_mode(
-               reinterpret_cast<const std::uint8_t *>(encoded.constData()),
-               static_cast<std::size_t>(encoded.size())) != 0;
+    return static_cast<PlaybackMode>(aviqtl_media_playback_mode(
+        reinterpret_cast<const std::uint8_t *>(encoded.constData()),
+        static_cast<std::size_t>(encoded.size())));
 }
 
 inline bool isVideoFile(QStringView value) {

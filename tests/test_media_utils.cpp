@@ -10,16 +10,22 @@ class TestMediaUtils : public QObject {
     Q_OBJECT
 
 private slots:
-    // --- isDirectAudioMode ---
-    void isDirectAudioMode_true() {
-        QVERIFY(isDirectAudioMode(QStringLiteral("直接")));
-        QVERIFY(isDirectAudioMode(QStringLiteral("モード: 直接")));
+    // --- playbackMode ---
+    void playbackMode_stableValues() {
+        QCOMPARE(playbackMode(QStringLiteral("normal")), PlaybackMode::Normal);
+        QCOMPARE(playbackMode(QStringLiteral("direct")), PlaybackMode::Direct);
     }
 
-    void isDirectAudioMode_false() {
-        QVERIFY(!isDirectAudioMode(QStringLiteral("")));
-        QVERIFY(!isDirectAudioMode(QStringLiteral("再生")));
-        QVERIFY(!isDirectAudioMode(QStringLiteral("normal")));
+    void playbackMode_legacyValues() {
+        QCOMPARE(playbackMode(QStringLiteral("開始フレーム＋再生速度")), PlaybackMode::Normal);
+        QCOMPARE(playbackMode(QStringLiteral("開始時間＋再生速度")), PlaybackMode::Normal);
+        QCOMPARE(playbackMode(QStringLiteral("フレーム直接指定")), PlaybackMode::Direct);
+        QCOMPARE(playbackMode(QStringLiteral("時間直接指定")), PlaybackMode::Direct);
+    }
+
+    void playbackMode_rejectsUnknownValues() {
+        QCOMPARE(playbackMode(QStringLiteral("")), PlaybackMode::Invalid);
+        QCOMPARE(playbackMode(QStringLiteral("モード: 直接")), PlaybackMode::Invalid);
     }
 
     // --- isVideoFile ---

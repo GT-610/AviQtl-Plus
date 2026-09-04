@@ -2,6 +2,7 @@ use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_INVALID_JSON, STATUS_OK,
     STATUS_OVERLAPPING_BUFFERS, STATUS_UNSUPPORTED_VERSION, ranges_overlap, slice_is_valid,
 };
+use crate::policy::canonical_playback_mode;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -413,6 +414,49 @@ fn normalize_audio_plugins(value: Option<&Value>) -> Value {
     Value::Array(plugins)
 }
 
+fn normalize_playback_value(value: &mut Value) {
+    if let Some(canonical) = value.as_str().and_then(canonical_playback_mode) {
+        *value = Value::String(canonical.to_owned());
+    }
+}
+
+fn normalize_playback_track(track: &mut Value) {
+    let normalize_point = |point: &mut Value| {
+        if let Some(value) = point
+            .as_object_mut()
+            .and_then(|point| point.get_mut("value"))
+        {
+            normalize_playback_value(value);
+        }
+    };
+    if let Some(points) = track.as_array_mut() {
+        for point in points {
+            normalize_point(point);
+        }
+        return;
+    }
+    let Some(track) = track.as_object_mut() else {
+        return;
+    };
+    if let Some(start) = track.get_mut("start") {
+        normalize_point(start);
+    }
+    if let Some(points) = track.get_mut("points").and_then(Value::as_array_mut) {
+        for point in points {
+            normalize_point(point);
+        }
+    }
+}
+
+fn normalize_playback_parameters(effect_id: &str, params: &mut Map<String, Value>) {
+    if !matches!(effect_id, "audio" | "video") {
+        return;
+    }
+    if let Some(value) = params.get_mut("playMode") {
+        normalize_playback_value(value);
+    }
+}
+
 fn normalize_effects(value: Option<&Value>) -> Value {
     let effects = array(value)
         .into_iter()
@@ -424,18 +468,19 @@ fn normalize_effects(value: Option<&Value>) -> Value {
             };
             let name = string(effect.get("name"), "");
             let enabled = boolean(effect.get("enabled"), true);
-            set_string(&mut effect, "id", id);
+            let is_media_effect = matches!(id.as_str(), "audio" | "video");
+            set_string(&mut effect, "id", id.clone());
             set_string(&mut effect, "name", name);
             set_boolean(&mut effect, "enabled", enabled);
-            effect.insert(
-                "params".to_owned(),
-                Value::Object(object(effect.get("params"))),
-            );
+            let mut params = object(effect.get("params"));
+            normalize_playback_parameters(&id, &mut params);
+            effect.insert("params".to_owned(), Value::Object(params));
             if effect.contains_key("keyframes") {
-                effect.insert(
-                    "keyframes".to_owned(),
-                    Value::Object(object(effect.get("keyframes"))),
-                );
+                let mut keyframes = object(effect.get("keyframes"));
+                if is_media_effect && let Some(track) = keyframes.get_mut("playMode") {
+                    normalize_playback_track(track);
+                }
+                effect.insert("keyframes".to_owned(), Value::Object(keyframes));
             }
             Value::Object(effect)
         })
@@ -636,6 +681,39 @@ mod tests {
         assert_eq!(normalized["scenes"][0]["sceneExtension"], true);
         assert_eq!(normalized["clips"][0]["clipExtension"], "kept");
         assert_eq!(normalized["clips"][0]["effects"][0]["effectExtension"], 7);
+    }
+
+    #[test]
+    fn normalizes_legacy_playback_modes_without_changing_labels() {
+        let normalized = normalize(
+            r#"{
+                "version": 3,
+                "settings": {},
+                "scenes": [{"id": 1}],
+                "clips": [{"id": 2, "sceneId": 1, "type": "audio", "effects": [
+                    {"id": "audio", "params": {"playMode": "時間直接指定"},
+                     "keyframes": {"playMode": {"start": {"frame": 0, "value": "開始時間＋再生速度"},
+                         "points": [{"frame": 10, "value": "時間直接指定"}]}}},
+                    {"id": "label", "params": {"playMode": "時間直接指定"}}
+                ]}]
+            }"#,
+        );
+        assert_eq!(
+            normalized["clips"][0]["effects"][0]["params"]["playMode"],
+            "direct"
+        );
+        assert_eq!(
+            normalized["clips"][0]["effects"][0]["keyframes"]["playMode"]["start"]["value"],
+            "normal"
+        );
+        assert_eq!(
+            normalized["clips"][0]["effects"][0]["keyframes"]["playMode"]["points"][0]["value"],
+            "direct"
+        );
+        assert_eq!(
+            normalized["clips"][0]["effects"][1]["params"]["playMode"],
+            "時間直接指定"
+        );
     }
 
     #[test]

@@ -74,8 +74,28 @@ const API_PERMISSIONS: [(&str, &str); 33] = [
     ("log", "log.output"),
 ];
 
-pub(crate) fn is_direct_audio_mode(value: &str) -> bool {
-    value.contains("直接")
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(i32)]
+pub(crate) enum PlaybackMode {
+    Normal = 0,
+    Direct = 1,
+}
+
+pub(crate) fn playback_mode(value: &str) -> Option<PlaybackMode> {
+    match value {
+        "normal" | "開始フレーム＋再生速度" | "開始時間＋再生速度" => {
+            Some(PlaybackMode::Normal)
+        }
+        "direct" | "フレーム直接指定" | "時間直接指定" => Some(PlaybackMode::Direct),
+        _ => None,
+    }
+}
+
+pub(crate) fn canonical_playback_mode(value: &str) -> Option<&'static str> {
+    match playback_mode(value)? {
+        PlaybackMode::Normal => Some("normal"),
+        PlaybackMode::Direct => Some("direct"),
+    }
 }
 
 pub(crate) fn is_video_file(value: &str) -> bool {
@@ -348,9 +368,11 @@ fn valid_recovery_snapshot_name(id: &str, file_name: &str) -> bool {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn aviqtl_media_is_direct_audio_mode(value: *const u8, value_length: usize) -> u32 {
+pub extern "C" fn aviqtl_media_playback_mode(value: *const u8, value_length: usize) -> i32 {
     // SAFETY: The helper validates the pointer/length pair before borrowing it.
-    u32::from(unsafe { utf8(value, value_length) }.is_some_and(is_direct_audio_mode))
+    unsafe { utf8(value, value_length) }
+        .and_then(playback_mode)
+        .map_or(-1, |mode| mode as i32)
 }
 
 #[unsafe(no_mangle)]
@@ -556,8 +578,23 @@ mod tests {
 
     #[test]
     fn media_policy_matches_timeline_semantics() {
-        assert!(is_direct_audio_mode("モード: 直接"));
-        assert!(!is_direct_audio_mode("normal"));
+        assert_eq!(playback_mode("normal"), Some(PlaybackMode::Normal));
+        assert_eq!(playback_mode("direct"), Some(PlaybackMode::Direct));
+        assert_eq!(
+            playback_mode("開始フレーム＋再生速度"),
+            Some(PlaybackMode::Normal)
+        );
+        assert_eq!(
+            playback_mode("開始時間＋再生速度"),
+            Some(PlaybackMode::Normal)
+        );
+        assert_eq!(
+            playback_mode("フレーム直接指定"),
+            Some(PlaybackMode::Direct)
+        );
+        assert_eq!(playback_mode("時間直接指定"), Some(PlaybackMode::Direct));
+        assert_eq!(playback_mode("モード: 直接"), None);
+        assert_eq!(canonical_playback_mode("時間直接指定"), Some("direct"));
         assert!(is_video_file("CLIP.MOV"));
         assert!(!is_video_file("clip.mp4.bak"));
         assert!(audio_parameter_affects_duration("startTime"));

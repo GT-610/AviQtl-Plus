@@ -5,7 +5,8 @@ use crate::abi::{
 };
 use crate::keyframe_document::{move_track, remove_track, set_track, split_track, sync_track};
 use crate::policy::{
-    audio_duration_frames, audio_parameter_affects_duration, is_direct_audio_mode, is_video_file,
+    PlaybackMode, audio_duration_frames, audio_parameter_affects_duration, is_video_file,
+    playback_mode,
 };
 use crate::project::{
     AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, ProjectDocument, ProjectError,
@@ -1368,7 +1369,8 @@ fn update_audio_clip_duration(
         .params
         .get("playMode")
         .and_then(Value::as_str)
-        .is_some_and(is_direct_audio_mode);
+        .and_then(playback_mode)
+        == Some(PlaybackMode::Direct);
     let linked_video = effect
         .params
         .get("linkedVideo")
