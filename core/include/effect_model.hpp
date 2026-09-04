@@ -251,7 +251,10 @@ class EffectModel : public QObject {
             if (resolved != m_resolvedCache.constEnd()) {
                 const auto value =
                     Core::KeyframeUtils::evaluateResolvedTrack(*resolved, frame, fallback);
-                baseValue = value.value_or(evaluateTrack(*resolved, frame, fallback));
+                if (value.has_value())
+                    baseValue = *value;
+                else
+                    baseValue = evaluateTrack(*resolved, frame, fallback);
             }
         }
 
