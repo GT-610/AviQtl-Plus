@@ -162,7 +162,9 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     }
 
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
-    const int sr = std::max(1, settings.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toInt());
+    const int sr = std::max(
+        1, settings.intValue(QStringLiteral("defaultProjectSampleRate"),
+                             AviQtl::kDefaultSampleRate));
     // AudioMixer currently produces stereo interleaved samples regardless of the
     // playback-device channel layout. Keep the export stream consistent with it.
     if (!encoder.addAudioStream(sr, kExportAudioChannels)) {
@@ -179,8 +181,10 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
 
     emit exportStarted(totalFrames);
 
-    const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
+    const int grabTimeout =
+        settings.intValue(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs);
+    const int progInterval =
+        std::max(1, settings.intValue(QStringLiteral("exportProgressInterval"), 5));
 
     // Accumulate audio sample time with integer numerators to avoid drift.
     int64_t audioSampleAccumulator = 0;
@@ -366,7 +370,8 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
     QDir outputDir(dir);
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
     const int totalFrames = endFrame - startFrame;
-    const int configuredPadding = std::clamp(settings.value(QStringLiteral("exportSequencePadding"), 6).toInt(), 2, 10);
+    const int configuredPadding =
+        std::clamp(settings.intValue(QStringLiteral("exportSequencePadding"), 6), 2, 10);
     const int padDigits = std::max(configuredPadding, static_cast<int>(QString::number(std::max(0, endFrame - 1)).length()));
     const QString extension = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
     const QByteArray imageFormat = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
@@ -417,8 +422,10 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
     ExportModeGuard exportModeGuard(view);
 
-    const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
+    const int grabTimeout =
+        settings.intValue(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs);
+    const int progInterval =
+        std::max(1, settings.intValue(QStringLiteral("exportProgressInterval"), 5));
 
     QElapsedTimer timer;
     timer.start();

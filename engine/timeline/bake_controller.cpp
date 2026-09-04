@@ -189,8 +189,8 @@ void BakeController::bake(int sceneId, int currentFrame) {
     const bool fullBake =
         settings.value(QStringLiteral("bakeStrategy"), QStringLiteral("OnDemand")).toString() ==
         QStringLiteral("FullBake");
-    const int prefetch = std::max(
-        0, settings.value(QStringLiteral("onDemandPrefetchFrames"), 30).toInt());
+    const int prefetch =
+        std::max(0, settings.intValue(QStringLiteral("onDemandPrefetchFrames"), 30));
 
     AviQtl::RustCore::SceneBakeResult result;
     const auto status = m_cache->plan.evaluate(currentFrame, fullBake, prefetch, result);

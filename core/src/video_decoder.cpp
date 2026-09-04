@@ -206,10 +206,12 @@ hwinitdone:
     if (m_hwDeviceCtx == nullptr) {
         if ((codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
             m_decCtx->thread_type = FF_THREAD_FRAME;
-            m_decCtx->thread_count = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("videoDecoderThreads"), 0).toInt();
+            m_decCtx->thread_count = AviQtl::Core::SettingsManager::instance().intValue(
+                QStringLiteral("videoDecoderThreads"), 0);
         } else if ((codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) != 0) {
             m_decCtx->thread_type = FF_THREAD_SLICE;
-            m_decCtx->thread_count = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("videoDecoderThreads"), 0).toInt();
+            m_decCtx->thread_count = AviQtl::Core::SettingsManager::instance().intValue(
+                QStringLiteral("videoDecoderThreads"), 0);
         }
     }
 
@@ -286,7 +288,8 @@ auto VideoDecoder::buildIndex() -> bool {
     if (m_stream->nb_frames > 0) {
         m_index.reserve(m_stream->nb_frames);
     } else {
-        m_index.reserve(SettingsManager::instance().value(QStringLiteral("videoDecoderIndexReserve"), 108000).toInt());
+        m_index.reserve(SettingsManager::instance().intValue(
+            QStringLiteral("videoDecoderIndexReserve"), 108000));
     }
 
     AVPacket *pkt = av_packet_alloc();
@@ -746,8 +749,9 @@ void VideoDecoder::decodeTask(int targetFrame, double fps, quint64 generation) {
 }
 
 void VideoDecoder::updateCacheSize() {
-    int sizeMB = SettingsManager::instance().settings().value(QStringLiteral("cacheSize"), 512).toInt();
-    int minSizeMB = SettingsManager::instance().value(QStringLiteral("videoDecoderMinCacheMB"), 64).toInt();
+    int sizeMB = SettingsManager::instance().intValue(QStringLiteral("cacheSize"), 512);
+    int minSizeMB =
+        SettingsManager::instance().intValue(QStringLiteral("videoDecoderMinCacheMB"), 64);
     sizeMB = std::max(sizeMB, minSizeMB);
     const qsizetype totalBytes = static_cast<qsizetype>(sizeMB) * 1024 * 1024;
     const qsizetype gopBytes = totalBytes / 4;

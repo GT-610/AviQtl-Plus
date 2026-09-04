@@ -50,7 +50,7 @@ void addRecentProject(const QString &fileUrl, ProjectService *project) {
     }
 
     // 最大件数でトリミング
-    int maxRecent = settingsManager.value(QStringLiteral("recentProjectMaxCount"), 10).toInt();
+    int maxRecent = settingsManager.intValue(QStringLiteral("recentProjectMaxCount"), 10);
     while (newList.size() > maxRecent) {
         newList.removeLast();
     }

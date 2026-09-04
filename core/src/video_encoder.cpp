@@ -258,7 +258,7 @@ auto VideoEncoder::open(const Config &config) -> bool {
     const quint64 frameBytes = static_cast<quint64>(std::max(1, config.width)) *
                                static_cast<quint64>(std::max(1, config.height)) * 4ULL;
     const quint64 queueBudgetBytes = static_cast<quint64>(std::max(
-        16, SettingsManager::instance().value(QStringLiteral("exportEncoderQueueMB"), 128).toInt())) * 1024ULL * 1024ULL;
+        16, SettingsManager::instance().intValue(QStringLiteral("exportEncoderQueueMB"), 128))) * 1024ULL * 1024ULL;
     m_maxQueueSize = std::clamp<std::size_t>(static_cast<std::size_t>(queueBudgetBytes / frameBytes),
                                              kMinEncoderQueueTasks, kMaxEncoderQueueTasks);
     m_headerWritten = false;
@@ -339,7 +339,8 @@ auto VideoEncoder::open(const Config &config) -> bool {
 
         frames_ctx->width = config.width;
         frames_ctx->height = config.height;
-        frames_ctx->initial_pool_size = SettingsManager::instance().value(QStringLiteral("hwFramePoolSize"), 32).toInt();
+        frames_ctx->initial_pool_size =
+            SettingsManager::instance().intValue(QStringLiteral("hwFramePoolSize"), 32);
 
         if (av_hwframe_ctx_init(hw_frames_ref) >= 0) {
             m_encCtx->hw_frames_ctx = hw_frames_ref;

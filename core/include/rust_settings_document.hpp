@@ -2,8 +2,12 @@
 
 #include "rust_core_abi.hpp"
 #include <QByteArray>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonValue>
+#include <QString>
+#include <QVariant>
 #include <QVariantMap>
 #include <cstdint>
 #include <optional>
@@ -22,6 +26,31 @@ enum class Status : std::uint32_t {
 struct MergeResult {
     QVariantMap settings;
     bool migrated = false;
+};
+
+class State final {
+  public:
+    State() = default;
+    State(const State &) = delete;
+    State &operator=(const State &) = delete;
+    State(State &&other) noexcept;
+    State &operator=(State &&other) noexcept;
+    ~State();
+
+    [[nodiscard]] bool isValid() const { return m_handle != nullptr; }
+    [[nodiscard]] Status reset(const QVariantMap &settings);
+    [[nodiscard]] Status mergeLoaded(const QByteArray &loaded, bool &migrated);
+    [[nodiscard]] Status snapshot(QVariantMap &settings) const;
+    [[nodiscard]] Status persistentJson(QByteArray &output) const;
+    [[nodiscard]] Status setValue(const QString &key, const QVariant &value, bool &changed,
+                                  bool &persistent);
+    [[nodiscard]] Status removeValue(const QString &key, bool &changed, bool &persistent);
+    [[nodiscard]] int intValue(const QString &key, int fallback) const;
+    [[nodiscard]] double doubleValue(const QString &key, double fallback) const;
+    [[nodiscard]] bool boolValue(const QString &key, bool fallback) const;
+
+  private:
+    AviQtlSettingsState *m_handle = nullptr;
 };
 
 inline QByteArray encode(const QVariantMap &value) { return QJsonDocument(QJsonObject::fromVariantMap(value)).toJson(QJsonDocument::Compact); }

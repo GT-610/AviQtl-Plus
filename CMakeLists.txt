@@ -225,6 +225,7 @@ set(CORE_SOURCES
     core/src/rust_keyframe_adapter.cpp
     core/src/rust_keyframe_document.cpp
     core/src/rust_permission_state.cpp
+    core/src/rust_settings_state.cpp
     core/src/rust_timeline_state.cpp
     core/src/settings_manager.cpp
     core/src/shader_compiler.cpp

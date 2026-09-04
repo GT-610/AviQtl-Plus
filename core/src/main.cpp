@@ -108,7 +108,7 @@ auto main(int argc, char *argv[]) -> int {
     Core::ThemeController::instance();
 
     // スプラッシュ
-    int splashSize = settings.value(QStringLiteral("splashSize"), 128).toInt();
+    int splashSize = settings.intValue(QStringLiteral("splashSize"), 128);
     QQuickView splash;
     splash.setColor(Qt::transparent);
     splash.setFlags(Qt::SplashScreen | Qt::FramelessWindowHint);
@@ -144,7 +144,7 @@ auto main(int argc, char *argv[]) -> int {
 
     QTimer luaTimer;
     QObject::connect(&luaTimer, &QTimer::timeout, [&]() { modEngine.onUpdate(); });
-    luaTimer.start(settings.value(QStringLiteral("luaHookIntervalMs"), 16).toInt());
+    luaTimer.start(settings.intValue(QStringLiteral("luaHookIntervalMs"), 16));
 
     // プラグインロード
     QTimer::singleShot(10, [&]() {
@@ -154,7 +154,7 @@ auto main(int argc, char *argv[]) -> int {
         auto &sm = Core::SettingsManager::instance();
 
         auto loadRegistry = [&](const QString &key) {
-            if (sm.value(QStringLiteral("pluginEnable") + key, true).toBool()) {
+            if (sm.boolValue(QStringLiteral("pluginEnable") + key, true)) {
                 const QStringList paths = sm.value(QStringLiteral("pluginPaths") + key).toStringList();
                 const QDir appDir(QCoreApplication::applicationDirPath());
                 QString resPath = QDir(appDir.absolutePath() + QStringLiteral("/../Resources")).canonicalPath();
@@ -177,7 +177,7 @@ auto main(int argc, char *argv[]) -> int {
         loadRegistry(QStringLiteral("Objects"));
 
         // Enable hot reload if setting is enabled
-        if (sm.value(QStringLiteral("luaHotReload"), false).toBool()) {
+        if (sm.boolValue(QStringLiteral("luaHotReload"), false)) {
             modEngine.enableHotReload(true);
         }
 

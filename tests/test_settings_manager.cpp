@@ -26,9 +26,28 @@ class TestSettingsManager : public QObject {
 
     void performanceDefaults() {
         SettingsManager &settings = SettingsManager::instance();
-        QCOMPARE(settings.value(QStringLiteral("previewRenderScale")).toDouble(), 1.0);
-        QCOMPARE(settings.value(QStringLiteral("previewMsaaSamples")).toInt(), 0);
-        QCOMPARE(settings.value(QStringLiteral("exportEncoderQueueMB")).toInt(), 128);
+        QCOMPARE(settings.doubleValue(QStringLiteral("previewRenderScale"), 0.0), 1.0);
+        QCOMPARE(settings.intValue(QStringLiteral("previewMsaaSamples"), -1), 0);
+        QCOMPARE(settings.intValue(QStringLiteral("exportEncoderQueueMB"), 0), 128);
+    }
+
+    void typedValuesUseRustState() {
+        SettingsManager &settings = SettingsManager::instance();
+        settings.setValue(QStringLiteral("_test.intString"), QStringLiteral("42"));
+        settings.setValue(QStringLiteral("_test.double"), 1.25);
+        settings.setValue(QStringLiteral("_test.falseString"), QStringLiteral("false"));
+        settings.setValue(QStringLiteral("_test.trueString"), QStringLiteral("enabled"));
+
+        QCOMPARE(settings.intValue(QStringLiteral("_test.intString"), -1), 42);
+        QCOMPARE(settings.doubleValue(QStringLiteral("_test.double"), -1.0), 1.25);
+        QVERIFY(!settings.boolValue(QStringLiteral("_test.falseString"), true));
+        QVERIFY(settings.boolValue(QStringLiteral("_test.trueString"), false));
+        QCOMPARE(settings.intValue(QStringLiteral("_test.missing"), 77), 77);
+
+        settings.removeValue(QStringLiteral("_test.intString"));
+        settings.removeValue(QStringLiteral("_test.double"));
+        settings.removeValue(QStringLiteral("_test.falseString"));
+        settings.removeValue(QStringLiteral("_test.trueString"));
     }
 
     void setAndGetValue() {

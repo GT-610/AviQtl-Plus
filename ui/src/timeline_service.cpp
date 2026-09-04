@@ -192,16 +192,19 @@ void appendTransaction(TimelineEditTransaction *destination,
 } // namespace
 
 TimelineService::TimelineService(SelectionService *selection, QObject *parent) : QObject(parent), m_undoStack(new QUndoStack(this)), m_selection(selection) {
-    const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
-    m_undoStack->setUndoLimit(settings.value(QStringLiteral("undoCount"), 32).toInt());
+    const auto &settings = AviQtl::Core::SettingsManager::instance();
+    m_undoStack->setUndoLimit(settings.intValue(QStringLiteral("undoCount"), 32));
 
     // 初期シーンを作成
     SceneData rootScene;
     rootScene.id = 0;
     rootScene.name = QObject::tr("ルート");
-    rootScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
-    rootScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
-    rootScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
+    rootScene.width =
+        settings.intValue(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth);
+    rootScene.height =
+        settings.intValue(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight);
+    rootScene.fps =
+        settings.doubleValue(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps);
     m_scenes.append(rootScene);
     if (!resetTimelineState(projectionDocument(m_scenes, {}))) {
         qWarning() << "Failed to initialize Rust timeline state";

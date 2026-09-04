@@ -355,7 +355,11 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_VIDEO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
-        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
+        const int importDuration =
+            probedDuration > 0
+                ? probedDuration
+                : AviQtl::Core::SettingsManager::instance().intValue(
+                      QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration);
         startFrame = findVacantFrameForLinkedMedia(m_timeline, layer, startFrame, importDuration);
 
         const QList<int> clipIds = m_timeline->allocateClipIds(2);
@@ -380,7 +384,11 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         const double sceneFps = getSceneFps();
         const double probedSeconds = AviQtl::Core::MediaUtils::mediaDurationSeconds(filePath, AVMEDIA_TYPE_AUDIO);
         const int probedDuration = probedSeconds > 0.0 ? std::max(1, static_cast<int>(std::ceil(probedSeconds * sceneFps))) : 0;
-        const int importDuration = probedDuration > 0 ? probedDuration : AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
+        const int importDuration =
+            probedDuration > 0
+                ? probedDuration
+                : AviQtl::Core::SettingsManager::instance().intValue(
+                      QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration);
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
         const int clipId = m_timeline->allocateClipId();
@@ -394,7 +402,8 @@ auto TimelineController::importMediaFile(const QString &fileUrl, int startFrame,
         m_timeline->undoStack()->endMacro();
         return editResult(startFrame, layer, importDuration);
     } else if (imageExts.contains(suffix)) {
-        const int importDuration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
+        const int importDuration = AviQtl::Core::SettingsManager::instance().intValue(
+            QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration);
         startFrame = m_timeline->findVacantFrame(layer, startFrame, importDuration, -1);
 
         const int clipId = m_timeline->allocateClipId();

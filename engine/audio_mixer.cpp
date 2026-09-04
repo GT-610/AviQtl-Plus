@@ -16,7 +16,8 @@ namespace AviQtl::Engine {
 Q_LOGGING_CATEGORY(lcAudioMixer, "aviqtl.audio_mixer")
 
 AudioMixer::AudioMixer(QObject *parent) : QObject(parent) {
-    int sampleRate = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), AviQtl::kDefaultSampleRate).toInt();
+    int sampleRate = AviQtl::Core::SettingsManager::instance().intValue(
+        QStringLiteral("_runtime_projectSampleRate"), AviQtl::kDefaultSampleRate);
     m_format.setSampleRate(sampleRate);
     m_format.setChannelCount(2);
     m_format.setSampleFormat(QAudioFormat::Float);

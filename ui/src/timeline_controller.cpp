@@ -297,13 +297,14 @@ bool TimelineController::hasUnsavedChanges() const {
 
 void TimelineController::configureAutoBackup() {
     const auto &settings = AviQtl::Core::SettingsManager::instance();
-    const bool enabled = settings.value(QStringLiteral("enableAutoBackup"), true).toBool();
+    const bool enabled = settings.boolValue(QStringLiteral("enableAutoBackup"), true);
     if (!enabled) {
         m_autoBackupTimer->stop();
         discardRecovery();
         return;
     }
-    const int intervalMinutes = std::clamp(settings.value(QStringLiteral("backupInterval"), 5).toInt(), 1, 24 * 60);
+    const int intervalMinutes =
+        std::clamp(settings.intValue(QStringLiteral("backupInterval"), 5), 1, 24 * 60);
     m_autoBackupTimer->start(intervalMinutes * 60 * 1000);
 }
 
@@ -318,7 +319,7 @@ QString TimelineController::recoveryDisplayName() const {
 
 void TimelineController::writeRecoveryAsync() {
     const auto &settings = AviQtl::Core::SettingsManager::instance();
-    if (!settings.value(QStringLiteral("enableAutoBackup"), true).toBool() || !hasUnsavedChanges())
+    if (!settings.boolValue(QStringLiteral("enableAutoBackup"), true) || !hasUnsavedChanges())
         return;
     if (m_recoveryWriteWatcher->isRunning()) {
         m_recoveryWritePending = true;

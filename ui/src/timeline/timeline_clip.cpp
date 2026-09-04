@@ -96,7 +96,8 @@ int TimelineService::createClip(const QString &type, int startFrame, int layer) 
     if (!meta.name.isEmpty()) {
         clipName = meta.name;
     }
-    const int duration = AviQtl::Core::SettingsManager::instance().value(QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration).toInt();
+    const int duration = AviQtl::Core::SettingsManager::instance().intValue(
+        QStringLiteral("defaultClipDuration"), AviQtl::kDefaultClipDuration);
     int safeFrame = findVacantFrame(layer, startFrame, duration, -1);
     m_undoStack->push(new AddClipCommand(this, id, type, safeFrame, layer, clipName));
     return safeFrame;
