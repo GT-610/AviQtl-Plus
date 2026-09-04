@@ -23,6 +23,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_DOCUMENT = 1ULL << 14,
     AVIQTL_RUST_CORE_CAPABILITY_PLUGIN_DOCUMENT = 1ULL << 15,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_STATE = 1ULL << 16,
+    AVIQTL_RUST_CORE_CAPABILITY_AUDIO_PLANNING = 1ULL << 17,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -103,6 +104,116 @@ static_assert(sizeof(AviQtlAudioBatchResult) == 24);
 static_assert(alignof(AviQtlAudioBatchResult) == 4);
 static_assert(offsetof(AviQtlAudioBatchResult, clip_id) == 0);
 static_assert(offsetof(AviQtlAudioBatchResult, meter) == 8);
+
+struct AviQtlAudioPlaybackContext {
+    std::int32_t current_frame;
+    std::int32_t samples_per_frame;
+    std::int32_t sample_rate;
+    std::int32_t reserved;
+    double fps;
+    double mixer_playback_speed;
+};
+static_assert(sizeof(AviQtlAudioPlaybackContext) == 32);
+static_assert(alignof(AviQtlAudioPlaybackContext) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackContext, fps) == 16);
+static_assert(offsetof(AviQtlAudioPlaybackContext, mixer_playback_speed) == 24);
+
+struct AviQtlAudioPlaybackInput {
+    std::int32_t clip_id;
+    std::int32_t start_frame;
+    std::int32_t duration_frames;
+    std::int32_t previous_frame;
+    double source_start_time;
+    double playback_speed;
+    double direct_time;
+    double previous_phase;
+    float fade_in_seconds;
+    float fade_out_seconds;
+    float volume;
+    float master_volume;
+    float pan;
+    std::uint32_t mute;
+    std::uint32_t solo;
+    std::uint32_t limiter;
+    std::uint32_t direct_mode;
+    std::uint32_t decoder_available;
+    std::uint32_t has_previous_phase;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlAudioPlaybackInput) == 96);
+static_assert(alignof(AviQtlAudioPlaybackInput) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackInput, source_start_time) == 16);
+static_assert(offsetof(AviQtlAudioPlaybackInput, fade_in_seconds) == 48);
+static_assert(offsetof(AviQtlAudioPlaybackInput, mute) == 68);
+static_assert(offsetof(AviQtlAudioPlaybackInput, reserved) == 92);
+
+struct AviQtlAudioPlaybackPlan {
+    std::int32_t clip_id;
+    std::uint32_t action;
+    double source_start_time;
+    double source_rate;
+    double next_phase;
+    std::int32_t source_sample_count;
+    std::uint32_t report_meter;
+    std::uint32_t mute;
+    std::uint32_t solo;
+    AviQtlAudioMixParameters parameters;
+};
+static_assert(sizeof(AviQtlAudioPlaybackPlan) == 88);
+static_assert(alignof(AviQtlAudioPlaybackPlan) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackPlan, source_start_time) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackPlan, source_sample_count) == 32);
+static_assert(offsetof(AviQtlAudioPlaybackPlan, parameters) == 48);
+
+struct AviQtlWaveformContext {
+    std::int32_t pixel_width;
+    std::int32_t display_duration_frames;
+    double fps;
+    std::uint32_t has_audio_effect;
+    std::uint32_t direct_mode;
+    std::uint32_t linked_video;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlWaveformContext) == 32);
+static_assert(alignof(AviQtlWaveformContext) == 8);
+static_assert(offsetof(AviQtlWaveformContext, fps) == 8);
+static_assert(offsetof(AviQtlWaveformContext, linked_video) == 24);
+
+struct AviQtlWaveformSamplingPoint {
+    std::int32_t relative_frame;
+    std::int32_t next_relative_frame;
+};
+static_assert(sizeof(AviQtlWaveformSamplingPoint) == 8);
+static_assert(alignof(AviQtlWaveformSamplingPoint) == 4);
+static_assert(offsetof(AviQtlWaveformSamplingPoint, next_relative_frame) == 4);
+
+struct AviQtlWaveformEvaluatedPoint {
+    double direct_time;
+    double next_direct_time;
+    double start_time;
+    double speed_percent;
+    double volume;
+    double master_volume;
+    double pan;
+    double fade_in_seconds;
+    double fade_out_seconds;
+    std::uint32_t mute;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlWaveformEvaluatedPoint) == 80);
+static_assert(alignof(AviQtlWaveformEvaluatedPoint) == 8);
+static_assert(offsetof(AviQtlWaveformEvaluatedPoint, speed_percent) == 24);
+static_assert(offsetof(AviQtlWaveformEvaluatedPoint, mute) == 72);
+
+struct AviQtlWaveformPlan {
+    double source_start_seconds;
+    double source_duration_seconds;
+    float display_gain;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlWaveformPlan) == 24);
+static_assert(alignof(AviQtlWaveformPlan) == 8);
+static_assert(offsetof(AviQtlWaveformPlan, display_gain) == 16);
 
 struct AviQtlNumericKeyframe {
     std::int32_t frame;
@@ -330,6 +441,9 @@ double aviqtl_easing_evaluate(std::uint32_t kind, double t, const double *points
 
 std::uint32_t aviqtl_audio_resample_stereo_linear(const float *input, std::size_t inputLength, float *output, std::size_t outputLength, double sourceRate);
 std::uint32_t aviqtl_audio_mix_stereo_batch(const AviQtlAudioBatchTrack *tracks, std::size_t tracksLength, float *master, std::size_t masterLength, AviQtlAudioBatchResult *results, std::size_t resultsLength);
+std::uint32_t aviqtl_audio_plan_playback_batch(const AviQtlAudioPlaybackContext *context, const AviQtlAudioPlaybackInput *inputs, std::size_t inputsLength, AviQtlAudioPlaybackPlan *output, std::size_t outputLength);
+std::uint32_t aviqtl_audio_waveform_sampling_points(const AviQtlWaveformContext *context, AviQtlWaveformSamplingPoint *output, std::size_t outputLength);
+std::uint32_t aviqtl_audio_plan_waveform(const AviQtlWaveformContext *context, const AviQtlWaveformEvaluatedPoint *evaluated, std::size_t evaluatedLength, AviQtlWaveformPlan *output, std::size_t outputLength);
 
 std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks, std::size_t tracksLength, std::int32_t frame, double *output, std::size_t outputLength);
 std::uint32_t aviqtl_numeric_keyframe_evaluate_typed(const AviQtlNumericTrackView *track, std::int32_t frame, std::uint32_t discrete, double *output);

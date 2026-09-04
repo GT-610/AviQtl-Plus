@@ -131,36 +131,79 @@ void AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::vec
     m_batchTracks.clear();
     m_batchResults.clear();
     m_batchReportMeters.clear();
+    m_playbackInputs.clear();
+    m_playbackPlans.clear();
 
     const auto state = Timeline::ECS::instance().getSnapshot();
     if (state == nullptr) {
         return;
     }
     const auto &audioStates = state->audioStates;
-    bool hasSolo = false;
     for (const auto &audio : audioStates) {
-        if (audio.solo && !audio.mute && currentFrame >= audio.startFrame && currentFrame < audio.startFrame + audio.durationFrames) {
-            hasSolo = true;
-            break;
-        }
+        const int clipId = audio.clipId;
+        const auto decoder = m_decoders.constFind(clipId);
+        const auto previousFrame = m_clipLastFrame.constFind(clipId);
+        const auto previousPhase = m_clipPhase.constFind(clipId);
+        const bool hasPreviousPhase = previousFrame != m_clipLastFrame.cend() &&
+                                      previousPhase != m_clipPhase.cend();
+        m_playbackInputs.push_back({
+            .clip_id = clipId,
+            .start_frame = audio.startFrame,
+            .duration_frames = audio.durationFrames,
+            .previous_frame = hasPreviousPhase ? previousFrame.value() : 0,
+            .source_start_time = static_cast<double>(audio.sourceStartTime),
+            .playback_speed = static_cast<double>(audio.playbackSpeed),
+            .direct_time = static_cast<double>(audio.directTime),
+            .previous_phase = hasPreviousPhase ? previousPhase.value() : 0.0,
+            .fade_in_seconds = audio.fadeInSec,
+            .fade_out_seconds = audio.fadeOutSec,
+            .volume = audio.volume,
+            .master_volume = audio.masterVolume,
+            .pan = audio.pan,
+            .mute = audio.mute ? 1U : 0U,
+            .solo = audio.solo ? 1U : 0U,
+            .limiter = audio.limiter ? 1U : 0U,
+            .direct_mode = audio.directMode ? 1U : 0U,
+            .decoder_available = decoder != m_decoders.cend() && !decoder.value().isNull() ? 1U : 0U,
+            .has_previous_phase = hasPreviousPhase ? 1U : 0U,
+            .reserved = 0,
+        });
     }
 
-    for (const auto &audio : audioStates) {
-        int clipId = audio.clipId;
-        if (audio.mute || (hasSolo && !audio.solo)) {
+    m_playbackPlans.resize(m_playbackInputs.size());
+    const AviQtl::RustCore::AudioPlaybackContext playbackContext{
+        .current_frame = currentFrame,
+        .samples_per_frame = samplesPerFrame,
+        .sample_rate = m_format.sampleRate(),
+        .reserved = 0,
+        .fps = fps,
+        .mixer_playback_speed = mixerPlaybackSpeed,
+    };
+    const auto planStatus = AviQtl::RustCore::planPlaybackBatch(
+        playbackContext, m_playbackInputs, m_playbackPlans);
+    if (planStatus != AviQtl::RustCore::AudioStatus::Ok) {
+        qCWarning(lcAudioMixer) << "Rust audio playback planning failed with status"
+                                << static_cast<std::uint32_t>(planStatus);
+        return;
+    }
+
+    for (const auto &plan : m_playbackPlans) {
+        const auto action = static_cast<AviQtl::RustCore::AudioPlaybackAction>(plan.action);
+        if (action == AviQtl::RustCore::AudioPlaybackAction::Skip) {
+            continue;
+        }
+        const int clipId = plan.clip_id;
+        if (action == AviQtl::RustCore::AudioPlaybackAction::Silence) {
             m_batchTracks.push_back({
                 .samples = nullptr,
                 .samples_length = 0,
-                .parameters = {},
+                .parameters = plan.parameters,
                 .clip_id = clipId,
-                .mute = audio.mute ? 1U : 0U,
-                .solo = audio.solo ? 1U : 0U,
+                .mute = plan.mute,
+                .solo = plan.solo,
                 .reserved = 0,
             });
-            m_batchReportMeters.push_back(1U);
-            continue;
-        }
-        if (currentFrame < audio.startFrame || currentFrame >= audio.startFrame + audio.durationFrames) {
+            m_batchReportMeters.push_back(static_cast<std::uint8_t>(plan.report_meter));
             continue;
         }
 
@@ -169,54 +212,41 @@ void AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::vec
             m_batchTracks.push_back({
                 .samples = nullptr,
                 .samples_length = 0,
-                .parameters = {},
+                .parameters = plan.parameters,
                 .clip_id = clipId,
                 .mute = 0,
-                .solo = audio.solo ? 1U : 0U,
+                .solo = plan.solo,
                 .reserved = 0,
             });
             m_batchReportMeters.push_back(0U);
             continue;
         }
 
-        const double relTime = static_cast<double>(currentFrame - audio.startFrame) / fps;
-        double startTime = audio.directMode ? static_cast<double>(audio.directTime) : static_cast<double>(audio.sourceStartTime) + (relTime * static_cast<double>(audio.playbackSpeed));
-        const double sourceRate = std::max(0.0, mixerPlaybackSpeed * (audio.directMode ? 1.0 : static_cast<double>(audio.playbackSpeed)));
-        auto lastFrameIt = m_clipLastFrame.find(clipId);
-        if (!audio.directMode && lastFrameIt != m_clipLastFrame.end() && currentFrame == lastFrameIt.value() + 1) {
-            auto phaseIt = m_clipPhase.find(clipId);
-            if (phaseIt != m_clipPhase.end()) {
-                startTime = phaseIt.value();
-            }
-        } else {
-            // シークまたは初回再生時
-            m_clipPhase[clipId] = startTime;
-        }
         m_clipLastFrame[clipId] = currentFrame;
+        m_clipPhase[clipId] = plan.next_phase;
 
         auto *decoder = decIt.value().data();
         auto &clipSamples = m_clipBuffers[clipId];
 
-        if (std::abs(sourceRate - 1.0) > 0.01) {
-            // リサンプリングが必要な場合
-            // 必要ソースサンプル数を計算（補間用に2サンプル余分に要求）
-            int neededSamples = static_cast<int>(std::ceil(samplesPerFrame * sourceRate)) + 2;
-            fetchRawSamples(decoder, startTime, neededSamples * 2, m_rawSamples); // Stereo
+        if (action == AviQtl::RustCore::AudioPlaybackAction::FetchResample) {
+            fetchRawSamples(decoder, plan.source_start_time, plan.source_sample_count * 2,
+                            m_rawSamples);
 
             clipSamples.resize(static_cast<std::size_t>(samplesPerFrame) * 2);
-            const auto status = AviQtl::RustCore::resampleStereoLinear(m_rawSamples, clipSamples, sourceRate);
+            const auto status = AviQtl::RustCore::resampleStereoLinear(
+                m_rawSamples, clipSamples, plan.source_rate);
             if (status != AviQtl::RustCore::AudioStatus::Ok) {
                 qCWarning(lcAudioMixer) << "Rust audio resampling failed with status"
                                         << static_cast<std::uint32_t>(status);
                 std::fill(clipSamples.begin(), clipSamples.end(), 0.0F);
             }
-            // 次のフレームのための開始位置を進める（m_playbackSpeed 分の秒数）
-            m_clipPhase[clipId] = startTime + ((static_cast<double>(samplesPerFrame) / m_format.sampleRate()) * sourceRate);
+        } else if (action == AviQtl::RustCore::AudioPlaybackAction::FetchDirect) {
+            fetchRawSamples(decoder, plan.source_start_time, plan.source_sample_count * 2,
+                            clipSamples);
         } else {
-            // 1倍速の場合はそのまま取得
-            int neededSamples = samplesPerFrame;
-            fetchRawSamples(decoder, startTime, neededSamples * 2, clipSamples);
-            m_clipPhase[clipId] = startTime + (static_cast<double>(samplesPerFrame) / m_format.sampleRate());
+            qCWarning(lcAudioMixer) << "Rust returned an unknown audio playback action"
+                                    << plan.action;
+            continue;
         }
 
         auto chainIt = m_chains.find(clipId);
@@ -224,26 +254,16 @@ void AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::vec
             chainIt.value()->process(clipSamples.data(), samplesPerFrame);
         }
 
-        const double clipDurationSec = fps > 0.0 ? static_cast<double>(audio.durationFrames) / fps : 0.0;
         m_batchTracks.push_back({
             .samples = clipSamples.data(),
             .samples_length = clipSamples.size(),
-            .parameters = {
-                .relative_time = relTime,
-                .duration = clipDurationSec,
-                .fade_in_seconds = audio.fadeInSec,
-                .fade_out_seconds = audio.fadeOutSec,
-                .volume = audio.volume,
-                .master_volume = audio.masterVolume,
-                .pan = audio.pan,
-                .limiter = audio.limiter ? 1U : 0U,
-            },
+            .parameters = plan.parameters,
             .clip_id = clipId,
             .mute = 0,
-            .solo = audio.solo ? 1U : 0U,
+            .solo = plan.solo,
             .reserved = 0,
         });
-        m_batchReportMeters.push_back(1U);
+        m_batchReportMeters.push_back(static_cast<std::uint8_t>(plan.report_meter));
     }
 
     m_batchResults.resize(m_batchTracks.size());
@@ -273,6 +293,8 @@ void AudioMixer::mix(int currentFrame, double fps, int samplesPerFrame, std::vec
     m_batchTracks.clear();
     m_batchResults.clear();
     m_batchReportMeters.clear();
+    m_playbackInputs.clear();
+    m_playbackPlans.clear();
     lock.unlock();
     for (const MeterUpdate &update : meterUpdates) {
         emit audioMeterChanged(update.clipId, update.peakLeft, update.peakRight,

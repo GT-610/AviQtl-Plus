@@ -66,6 +66,8 @@ class AudioMixer : public QObject {
     std::vector<float> m_playbackBuffer;
     std::vector<float> m_rawSamples;
     std::unordered_map<int, std::vector<float>> m_clipBuffers;
+    std::vector<AviQtl::RustCore::AudioPlaybackInput> m_playbackInputs;
+    std::vector<AviQtl::RustCore::AudioPlaybackPlan> m_playbackPlans;
     std::vector<AviQtl::RustCore::AudioBatchTrack> m_batchTracks;
     std::vector<AviQtl::RustCore::AudioBatchResult> m_batchResults;
     std::vector<std::uint8_t> m_batchReportMeters;

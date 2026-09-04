@@ -2,6 +2,7 @@
 #include "commands.hpp"
 #include "constants.hpp"
 #include "core/include/media_utils.hpp"
+#include "core/include/rust_audio_dsp.hpp"
 #include "core/include/rust_core_policy.hpp"
 #include "core/include/rust_keyframe_adapter.hpp"
 #include "core/include/rust_keyframe_document.hpp"
@@ -804,8 +805,6 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
         }
     }
 
-    const double frameStepSec = 1.0 / fps;
-    const double clipDurationSec = static_cast<double>(displayDurationFrames) / fps;
     const QVariantMap params = audioEffect != nullptr ? audioEffect->params() : QVariantMap();
     const QString source = params.value(QStringLiteral("source")).toString();
     const bool sourceIsVideo = AviQtl::Core::MediaUtils::isVideoFile(source);
@@ -814,69 +813,100 @@ auto TimelineController::getWaveformPeaks(int clipId, int pixelWidth, int displa
     const bool directMode = AviQtl::Core::MediaUtils::playbackMode(playMode) ==
                             AviQtl::Core::MediaUtils::PlaybackMode::Direct;
 
-    std::vector<AviQtl::Core::AudioDecoder::PeakRange> peakRanges;
-    std::vector<float> displayGains;
-    peakRanges.reserve(static_cast<std::size_t>(pixelWidth));
-    displayGains.reserve(static_cast<std::size_t>(pixelWidth));
-    for (int i = 0; i < pixelWidth; ++i) {
-        const int relFrame = std::clamp(static_cast<int>(std::floor(static_cast<double>(displayDurationFrames) * static_cast<double>(i) / static_cast<double>(pixelWidth))), 0, std::max(0, displayDurationFrames - 1));
-        const int nextRelFrame = std::clamp(static_cast<int>(std::ceil(static_cast<double>(displayDurationFrames) * static_cast<double>(i + 1) / static_cast<double>(pixelWidth))), relFrame + 1, displayDurationFrames);
-        const double relSec = static_cast<double>(relFrame) / fps;
-        const double nextRelSec = static_cast<double>(nextRelFrame) / fps;
+    const AviQtl::RustCore::WaveformContext waveformContext{
+        .pixel_width = pixelWidth,
+        .display_duration_frames = displayDurationFrames,
+        .fps = fps,
+        .has_audio_effect = audioEffect != nullptr ? 1U : 0U,
+        .direct_mode = directMode ? 1U : 0U,
+        .linked_video = linkedVideo ? 1U : 0U,
+        .reserved = 0,
+    };
+    std::vector<AviQtl::RustCore::WaveformSamplingPoint> samplingPoints(
+        static_cast<std::size_t>(pixelWidth));
+    if (AviQtl::RustCore::waveformSamplingPoints(waveformContext, samplingPoints) !=
+        AviQtl::RustCore::AudioStatus::Ok) {
+        qWarning() << "Rust waveform sampling-point planning failed";
+        return QVariantList(pixelWidth * 2, 0.0);
+    }
 
-        double sourceStartSec = 0.0;
-        double sourceDurationSec = frameStepSec;
-        double volume = 1.0;
-        double masterVolume = 1.0;
-        double pan = 0.0;
-        double fadeIn = 0.0;
-        double fadeOut = 0.0;
-        bool mute = false;
-
-        if (audioEffect != nullptr) {
-            volume = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("volume"), relFrame, fps).toDouble());
-            masterVolume = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("masterVolume"), relFrame, fps).toDouble());
-            pan = std::clamp(audioEffect->evaluatedParam(QStringLiteral("pan"), relFrame, fps).toDouble(), -1.0, 1.0);
-            fadeIn = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("fadeIn"), relFrame, fps).toDouble());
-            fadeOut = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("fadeOut"), relFrame, fps).toDouble());
-            mute = audioEffect->evaluatedParam(QStringLiteral("mute"), relFrame, fps).toBool();
-
+    std::vector<AviQtl::RustCore::WaveformEvaluatedPoint> evaluatedPoints(
+        static_cast<std::size_t>(pixelWidth));
+    if (audioEffect != nullptr) {
+        for (std::size_t index = 0; index < samplingPoints.size(); ++index) {
+            const auto point = samplingPoints[index];
+            auto &evaluated = evaluatedPoints[index];
+            evaluated.volume = audioEffect
+                                   ->evaluatedParam(QStringLiteral("volume"),
+                                                    point.relative_frame, fps)
+                                   .toDouble();
+            evaluated.master_volume = audioEffect
+                                          ->evaluatedParam(QStringLiteral("masterVolume"),
+                                                           point.relative_frame, fps)
+                                          .toDouble();
+            evaluated.pan = audioEffect
+                                ->evaluatedParam(QStringLiteral("pan"), point.relative_frame, fps)
+                                .toDouble();
+            evaluated.fade_in_seconds = audioEffect
+                                            ->evaluatedParam(QStringLiteral("fadeIn"),
+                                                             point.relative_frame, fps)
+                                            .toDouble();
+            evaluated.fade_out_seconds = audioEffect
+                                             ->evaluatedParam(QStringLiteral("fadeOut"),
+                                                              point.relative_frame, fps)
+                                             .toDouble();
+            evaluated.mute = audioEffect
+                                     ->evaluatedParam(QStringLiteral("mute"),
+                                                      point.relative_frame, fps)
+                                     .toBool()
+                                 ? 1U
+                                 : 0U;
             if (directMode) {
-                const double directTime = audioEffect->evaluatedParam(QStringLiteral("directTime"), relFrame, fps).toDouble();
-                const double nextDirectTime = audioEffect->evaluatedParam(QStringLiteral("directTime"), nextRelFrame, fps).toDouble();
-                sourceStartSec = std::min(directTime, nextDirectTime);
-                sourceDurationSec = std::max(std::abs(nextDirectTime - directTime), frameStepSec);
+                evaluated.direct_time = audioEffect
+                                            ->evaluatedParam(QStringLiteral("directTime"),
+                                                             point.relative_frame, fps)
+                                            .toDouble();
+                evaluated.next_direct_time = audioEffect
+                                                 ->evaluatedParam(
+                                                     QStringLiteral("directTime"),
+                                                     point.next_relative_frame, fps)
+                                                 .toDouble();
             } else {
-                const double startTime = std::max(0.0, audioEffect->evaluatedParam(QStringLiteral("startTime"), relFrame, fps).toDouble());
-                const double speed = linkedVideo ? AviQtl::kDefaultSpeed : audioEffect->evaluatedParam(QStringLiteral("speed"), relFrame, fps).toDouble();
-                const double sourceRate = std::max(0.0, speed / AviQtl::kDefaultSpeed);
-                sourceStartSec = startTime + (relSec * sourceRate);
-                sourceDurationSec = std::max((nextRelSec - relSec) * sourceRate, frameStepSec);
+                evaluated.start_time = audioEffect
+                                           ->evaluatedParam(QStringLiteral("startTime"),
+                                                            point.relative_frame, fps)
+                                           .toDouble();
+                if (!linkedVideo) {
+                    evaluated.speed_percent = audioEffect
+                                                  ->evaluatedParam(QStringLiteral("speed"),
+                                                                   point.relative_frame, fps)
+                                                  .toDouble();
+                }
             }
-        } else {
-            sourceStartSec = relSec;
-            sourceDurationSec = std::max(clipDurationSec / static_cast<double>(pixelWidth), frameStepSec);
         }
+    }
 
-        peakRanges.push_back({.startSec = sourceStartSec, .durationSec = sourceDurationSec});
-        double fadeGain = 1.0;
-        if (fadeIn > 0.0) {
-            fadeGain = std::min(fadeGain, std::clamp(relSec / fadeIn, 0.0, 1.0));
-        }
-        if (fadeOut > 0.0) {
-            fadeGain = std::min(fadeGain, std::clamp((clipDurationSec - relSec) / fadeOut, 0.0, 1.0));
-        }
-        const double outputVolume = volume * masterVolume * fadeGain;
-        const double leftVol = mute ? 0.0 : outputVolume * (pan <= 0.0 ? 1.0 : 1.0 - pan);
-        const double rightVol = mute ? 0.0 : outputVolume * (pan >= 0.0 ? 1.0 : 1.0 + pan);
-        const float displayGain = static_cast<float>(std::clamp((leftVol + rightVol) * 0.5, 0.0, 2.0));
-        displayGains.push_back(displayGain);
+    std::vector<AviQtl::RustCore::WaveformPlan> waveformPlans(
+        static_cast<std::size_t>(pixelWidth));
+    if (AviQtl::RustCore::planWaveform(waveformContext, evaluatedPoints, waveformPlans) !=
+        AviQtl::RustCore::AudioStatus::Ok) {
+        qWarning() << "Rust waveform range planning failed";
+        return QVariantList(pixelWidth * 2, 0.0);
+    }
+
+    std::vector<AviQtl::Core::AudioDecoder::PeakRange> peakRanges;
+    peakRanges.reserve(waveformPlans.size());
+    for (const auto &plan : waveformPlans) {
+        peakRanges.push_back({
+            .startSec = plan.source_start_seconds,
+            .durationSec = plan.source_duration_seconds,
+        });
     }
 
     std::vector<float> rawPeaks = decoder->getPeaks(peakRanges);
-    for (std::size_t pixel = 0; pixel < displayGains.size(); ++pixel) {
-        rawPeaks[pixel * 2] *= displayGains[pixel];
-        rawPeaks[pixel * 2 + 1] *= displayGains[pixel];
+    for (std::size_t pixel = 0; pixel < waveformPlans.size(); ++pixel) {
+        rawPeaks[pixel * 2] *= waveformPlans[pixel].display_gain;
+        rawPeaks[pixel * 2 + 1] *= waveformPlans[pixel].display_gain;
     }
 
     QVariantList result;

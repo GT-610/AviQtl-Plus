@@ -24,6 +24,8 @@ class TestRustCoreAbi : public QObject {
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_EFFECT_DOCUMENT);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_DOCUMENT);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PLUGIN_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_STATE);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_AUDIO_PLANNING);
         QCOMPARE(aviqtl_project_current_version(), std::int32_t{3});
     }
 
@@ -40,6 +42,20 @@ class TestRustCoreAbi : public QObject {
         }
         QCOMPARE(sizeof(AviQtlAudioBatchResult), std::size_t{24});
         QCOMPARE(alignof(AviQtlAudioBatchResult), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlAudioPlaybackContext), std::size_t{32});
+        QCOMPARE(alignof(AviQtlAudioPlaybackContext), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlAudioPlaybackInput), std::size_t{96});
+        QCOMPARE(alignof(AviQtlAudioPlaybackInput), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlAudioPlaybackPlan), std::size_t{88});
+        QCOMPARE(alignof(AviQtlAudioPlaybackPlan), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlWaveformContext), std::size_t{32});
+        QCOMPARE(alignof(AviQtlWaveformContext), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlWaveformSamplingPoint), std::size_t{8});
+        QCOMPARE(alignof(AviQtlWaveformSamplingPoint), std::size_t{4});
+        QCOMPARE(sizeof(AviQtlWaveformEvaluatedPoint), std::size_t{80});
+        QCOMPARE(alignof(AviQtlWaveformEvaluatedPoint), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlWaveformPlan), std::size_t{24});
+        QCOMPARE(alignof(AviQtlWaveformPlan), std::size_t{8});
         QCOMPARE(sizeof(AviQtlNumericKeyframe), std::size_t{48});
         QCOMPARE(alignof(AviQtlNumericKeyframe), std::size_t{8});
         if constexpr (sizeof(void *) == 8) {

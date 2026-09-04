@@ -18,6 +18,7 @@ pub const CAPABILITY_EFFECT_DOCUMENT: u64 = 1 << 13;
 pub const CAPABILITY_SCRIPT_DOCUMENT: u64 = 1 << 14;
 pub const CAPABILITY_PLUGIN_DOCUMENT: u64 = 1 << 15;
 pub const CAPABILITY_TIMELINE_STATE: u64 = 1 << 16;
+pub const CAPABILITY_AUDIO_PLANNING: u64 = 1 << 17;
 pub const CAPABILITIES: u64 = CAPABILITY_EASING
     | CAPABILITY_AUDIO_DSP
     | CAPABILITY_NUMERIC_KEYFRAME_BATCH
@@ -34,7 +35,8 @@ pub const CAPABILITIES: u64 = CAPABILITY_EASING
     | CAPABILITY_EFFECT_DOCUMENT
     | CAPABILITY_SCRIPT_DOCUMENT
     | CAPABILITY_PLUGIN_DOCUMENT
-    | CAPABILITY_TIMELINE_STATE;
+    | CAPABILITY_TIMELINE_STATE
+    | CAPABILITY_AUDIO_PLANNING;
 
 pub const STATUS_OK: u32 = 0;
 pub const STATUS_INVALID_ARGUMENT: u32 = 1;
@@ -72,7 +74,7 @@ pub struct AviQtlEasingParameters {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct AviQtlAudioMixParameters {
     pub relative_time: f64,
     pub duration: f64,
@@ -111,6 +113,101 @@ pub struct AviQtlAudioBatchResult {
     pub clip_id: i32,
     pub mixed: u32,
     pub meter: AviQtlAudioMeter,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlAudioPlaybackContext {
+    pub current_frame: i32,
+    pub samples_per_frame: i32,
+    pub sample_rate: i32,
+    pub reserved: i32,
+    pub fps: f64,
+    pub mixer_playback_speed: f64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlAudioPlaybackInput {
+    pub clip_id: i32,
+    pub start_frame: i32,
+    pub duration_frames: i32,
+    pub previous_frame: i32,
+    pub source_start_time: f64,
+    pub playback_speed: f64,
+    pub direct_time: f64,
+    pub previous_phase: f64,
+    pub fade_in_seconds: f32,
+    pub fade_out_seconds: f32,
+    pub volume: f32,
+    pub master_volume: f32,
+    pub pan: f32,
+    pub mute: u32,
+    pub solo: u32,
+    pub limiter: u32,
+    pub direct_mode: u32,
+    pub decoder_available: u32,
+    pub has_previous_phase: u32,
+    pub reserved: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlAudioPlaybackPlan {
+    pub clip_id: i32,
+    pub action: u32,
+    pub source_start_time: f64,
+    pub source_rate: f64,
+    pub next_phase: f64,
+    pub source_sample_count: i32,
+    pub report_meter: u32,
+    pub mute: u32,
+    pub solo: u32,
+    pub parameters: AviQtlAudioMixParameters,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlWaveformContext {
+    pub pixel_width: i32,
+    pub display_duration_frames: i32,
+    pub fps: f64,
+    pub has_audio_effect: u32,
+    pub direct_mode: u32,
+    pub linked_video: u32,
+    pub reserved: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlWaveformSamplingPoint {
+    pub relative_frame: i32,
+    pub next_relative_frame: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlWaveformEvaluatedPoint {
+    pub direct_time: f64,
+    pub next_direct_time: f64,
+    pub start_time: f64,
+    pub speed_percent: f64,
+    pub volume: f64,
+    pub master_volume: f64,
+    pub pan: f64,
+    pub fade_in_seconds: f64,
+    pub fade_out_seconds: f64,
+    pub mute: u32,
+    pub reserved: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct AviQtlWaveformPlan {
+    pub source_start_seconds: f64,
+    pub source_duration_seconds: f64,
+    pub display_gain: f32,
+    pub reserved: u32,
 }
 
 #[repr(C)]
@@ -376,6 +473,48 @@ mod tests {
         assert_eq!(align_of::<AviQtlAudioBatchResult>(), 4);
         assert_eq!(offset_of!(AviQtlAudioBatchResult, clip_id), 0);
         assert_eq!(offset_of!(AviQtlAudioBatchResult, meter), 8);
+
+        assert_eq!(size_of::<AviQtlAudioPlaybackContext>(), 32);
+        assert_eq!(align_of::<AviQtlAudioPlaybackContext>(), 8);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackContext, fps), 16);
+        assert_eq!(
+            offset_of!(AviQtlAudioPlaybackContext, mixer_playback_speed),
+            24
+        );
+
+        assert_eq!(size_of::<AviQtlAudioPlaybackInput>(), 96);
+        assert_eq!(align_of::<AviQtlAudioPlaybackInput>(), 8);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackInput, source_start_time), 16);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackInput, fade_in_seconds), 48);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackInput, mute), 68);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackInput, reserved), 92);
+
+        assert_eq!(size_of::<AviQtlAudioPlaybackPlan>(), 88);
+        assert_eq!(align_of::<AviQtlAudioPlaybackPlan>(), 8);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackPlan, source_start_time), 8);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackPlan, source_sample_count), 32);
+        assert_eq!(offset_of!(AviQtlAudioPlaybackPlan, parameters), 48);
+
+        assert_eq!(size_of::<AviQtlWaveformContext>(), 32);
+        assert_eq!(align_of::<AviQtlWaveformContext>(), 8);
+        assert_eq!(offset_of!(AviQtlWaveformContext, fps), 8);
+        assert_eq!(offset_of!(AviQtlWaveformContext, linked_video), 24);
+
+        assert_eq!(size_of::<AviQtlWaveformSamplingPoint>(), 8);
+        assert_eq!(align_of::<AviQtlWaveformSamplingPoint>(), 4);
+        assert_eq!(
+            offset_of!(AviQtlWaveformSamplingPoint, next_relative_frame),
+            4
+        );
+
+        assert_eq!(size_of::<AviQtlWaveformEvaluatedPoint>(), 80);
+        assert_eq!(align_of::<AviQtlWaveformEvaluatedPoint>(), 8);
+        assert_eq!(offset_of!(AviQtlWaveformEvaluatedPoint, speed_percent), 24);
+        assert_eq!(offset_of!(AviQtlWaveformEvaluatedPoint, mute), 72);
+
+        assert_eq!(size_of::<AviQtlWaveformPlan>(), 24);
+        assert_eq!(align_of::<AviQtlWaveformPlan>(), 8);
+        assert_eq!(offset_of!(AviQtlWaveformPlan, display_gain), 16);
 
         assert_eq!(size_of::<AviQtlNumericKeyframe>(), 48);
         assert_eq!(align_of::<AviQtlNumericKeyframe>(), 8);
