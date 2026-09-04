@@ -44,7 +44,7 @@ fn numeric_version_part(value: &str) -> Option<i32> {
     value.trim().parse::<i32>().ok()
 }
 
-fn compare_versions(left: &str, right: &str) -> i32 {
+pub(crate) fn compare_versions(left: &str, right: &str) -> i32 {
     if left == right {
         return 0;
     }

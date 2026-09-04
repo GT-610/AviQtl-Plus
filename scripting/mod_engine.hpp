@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <QVariantMap>
 #include <lua.hpp>
+#include <optional>
 
 #include "script_params.hpp"
 
@@ -56,7 +57,7 @@ struct PluginManifest {
     QString author;
     QString description;
     QString minAppVersion;
-    bool isValid() const { return !id.isEmpty() && !name.isEmpty() && !version.isEmpty(); }
+    bool isValid() const;
 };
 
 struct PluginInfo {
@@ -122,7 +123,9 @@ class ModEngine {
     void loadSingleFilePlugin(const QFileInfo &fileInfo);
     void loadDirectoryPlugin(const QString &subdir, const QString &pluginsPath);
     bool loadPlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile);
-    bool validatePlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile) const;
+    std::optional<PluginManifest> validatePlugin(const PluginManifest &manifest,
+                                                 const QString &scriptPath,
+                                                 bool singleFile) const;
     QList<PluginManifest> m_loadedPlugins;
     QList<PluginInfo> m_pluginInfos;
     struct PluginRuntime {

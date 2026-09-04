@@ -1,8 +1,7 @@
 #include "mod_engine.hpp"
 #include "../core/include/bounded_file.hpp"
 #include "../core/include/permission_manager.hpp"
-#include "../core/include/rust_package_document.hpp"
-#include "../core/include/rust_core_policy.hpp"
+#include "../core/include/rust_plugin_document.hpp"
 #include "../core/include/settings_manager.hpp"
 #include "../core/include/version.hpp"
 #include "../ui/include/timeline_controller.hpp"
@@ -21,12 +20,26 @@ namespace AviQtl::Scripting {
 // Lua から参照できるグローバルポインタ (QPointer で lifetime 安全に監視)
 static QPointer<AviQtl::UI::TimelineController> g_ctrl;
 
-// A plugin is compatible unless it demands a newer app version than we run.
-static bool isPluginCompatible(const PluginManifest &manifest) {
-    if (manifest.minAppVersion.isEmpty())
-        return true;
-    const QString appVersion = QString::fromUtf8(AviQtl::VERSION_STRING);
-    return AviQtl::RustCore::Package::compareVersions(appVersion, manifest.minAppVersion) >= 0;
+static QVariantMap manifestToVariantMap(const PluginManifest &manifest) {
+    return {
+        {QStringLiteral("id"), manifest.id},
+        {QStringLiteral("name"), manifest.name},
+        {QStringLiteral("version"), manifest.version},
+        {QStringLiteral("author"), manifest.author},
+        {QStringLiteral("description"), manifest.description},
+        {QStringLiteral("minAppVersion"), manifest.minAppVersion},
+    };
+}
+
+static PluginManifest manifestFromVariantMap(const QVariantMap &manifest) {
+    return {
+        manifest.value(QStringLiteral("id")).toString(),
+        manifest.value(QStringLiteral("name")).toString(),
+        manifest.value(QStringLiteral("version")).toString(),
+        manifest.value(QStringLiteral("author")).toString(),
+        manifest.value(QStringLiteral("description")).toString(),
+        manifest.value(QStringLiteral("minAppVersion")).toString(),
+    };
 }
 
 static QString singleFilePluginId(const QFileInfo &fileInfo) {
@@ -38,6 +51,11 @@ static QString pluginPathIdentity(const QString &path) {
     const QFileInfo info(path);
     const QString canonicalPath = info.canonicalFilePath();
     return canonicalPath.isEmpty() ? info.absoluteFilePath() : canonicalPath;
+}
+
+bool PluginManifest::isValid() const {
+    const auto normalized = AviQtl::RustCore::Plugin::normalizeManifest(manifestToVariantMap(*this));
+    return normalized.has_value() && normalized->valid;
 }
 
 static constexpr std::array<const char *, 6> kPluginHookNames = {
@@ -674,41 +692,53 @@ void ModEngine::loadDirectoryPlugin(const QString &subdir, const QString &plugin
     loadPlugin(loadManifest(manifestDir), mainLua, false);
 }
 
-bool ModEngine::validatePlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile) const {
-    if (!manifest.isValid() || manifest.id.size() > 255 || manifest.name.size() > 255 ||
-        manifest.version.size() > 64 || manifest.minAppVersion.size() > 64) {
-        qWarning() << "[ModEngine] Skipping plugin with an invalid manifest:" << scriptPath;
-        return false;
-    }
-    const bool hasValidIdentity = singleFile
-                                      ? manifest.id == singleFilePluginId(QFileInfo(scriptPath))
-                                      : AviQtl::RustCore::Policy::isValidPackageId(manifest.id) &&
-                                            !manifest.id.startsWith(QStringLiteral("file:"));
-    if (!hasValidIdentity) {
-        qWarning() << "[ModEngine] Skipping plugin with an invalid ID:" << manifest.id;
-        return false;
-    }
-    if (!isPluginCompatible(manifest)) {
-        qWarning() << "[ModEngine] Skipping plugin" << scriptPath << ": requires AviQtl"
-                   << manifest.minAppVersion << "or newer (current:"
-                   << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
-        return false;
-    }
+std::optional<PluginManifest> ModEngine::validatePlugin(const PluginManifest &manifest,
+                                                        const QString &scriptPath,
+                                                        bool singleFile) const {
     const QString pathIdentity = pluginPathIdentity(scriptPath);
-    const auto duplicate = std::find_if(m_pluginInfos.cbegin(), m_pluginInfos.cend(), [&manifest, &pathIdentity](const PluginInfo &loaded) {
-        return loaded.manifest.id == manifest.id ||
-               loaded.filePath == pathIdentity;
-    });
-    if (duplicate != m_pluginInfos.cend()) {
-        qWarning() << "[ModEngine] Skipping duplicate plugin ID:" << manifest.id;
-        return false;
+    QVariantList loaded;
+    loaded.reserve(m_pluginInfos.size());
+    for (const PluginInfo &info : m_pluginInfos) {
+        loaded.append(QVariantMap{
+            {QStringLiteral("id"), info.manifest.id},
+            {QStringLiteral("path"), info.filePath},
+        });
     }
-    return true;
+    const auto validation = AviQtl::RustCore::Plugin::validateManifest(
+        manifestToVariantMap(manifest), singleFile,
+        singleFile ? singleFilePluginId(QFileInfo(scriptPath)) : QString(),
+        QString::fromUtf8(AviQtl::VERSION_STRING), pathIdentity, loaded);
+    if (!validation.has_value() || validation->status == QStringLiteral("invalid_manifest")) {
+        qWarning() << "[ModEngine] Skipping plugin with an invalid manifest:" << scriptPath;
+        return std::nullopt;
+    }
+    const PluginManifest normalized = manifestFromVariantMap(validation->manifest);
+    if (validation->status == QStringLiteral("invalid_id")) {
+        qWarning() << "[ModEngine] Skipping plugin with an invalid ID:" << normalized.id;
+        return std::nullopt;
+    }
+    if (validation->status == QStringLiteral("requires_newer_app")) {
+        qWarning() << "[ModEngine] Skipping plugin" << scriptPath << ": requires AviQtl"
+                   << normalized.minAppVersion << "or newer (current:"
+                   << QString::fromUtf8(AviQtl::VERSION_STRING) << ")";
+        return std::nullopt;
+    }
+    if (validation->status == QStringLiteral("duplicate")) {
+        qWarning() << "[ModEngine] Skipping duplicate plugin ID:" << normalized.id;
+        return std::nullopt;
+    }
+    if (validation->status != QStringLiteral("ok")) {
+        qWarning() << "[ModEngine] Skipping plugin after manifest validation:" << scriptPath;
+        return std::nullopt;
+    }
+    return normalized;
 }
 
-bool ModEngine::loadPlugin(const PluginManifest &manifest, const QString &scriptPath, bool singleFile) {
-    if (!validatePlugin(manifest, scriptPath, singleFile))
+bool ModEngine::loadPlugin(const PluginManifest &candidate, const QString &scriptPath, bool singleFile) {
+    const auto validated = validatePlugin(candidate, scriptPath, singleFile);
+    if (!validated.has_value())
         return false;
+    const PluginManifest &manifest = *validated;
 
     QString readError;
     const auto script = AviQtl::Core::Internal::readFileBounded(
@@ -821,6 +851,11 @@ PluginManifest ModEngine::loadManifest(const QString &pluginDir) {
     manifest.author = getString("author");
     manifest.description = getString("description");
     manifest.minAppVersion = getString("min_app_version");
+
+    const auto normalized =
+        AviQtl::RustCore::Plugin::normalizeManifest(manifestToVariantMap(manifest));
+    if (normalized.has_value())
+        manifest = manifestFromVariantMap(normalized->manifest);
 
     lua_pop(ls, 1); // Pop the table
     lua_close(ls);

@@ -2,8 +2,23 @@ use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_INVALID_JSON, STATUS_OK,
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
+use crate::package::compare_versions;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
+
+const MANIFEST_ID_LIMIT: usize = 255;
+const MANIFEST_NAME_LIMIT: usize = 255;
+const MANIFEST_VERSION_LIMIT: usize = 64;
+const MANIFEST_MIN_APP_VERSION_LIMIT: usize = 64;
+
+const MANIFEST_FIELDS: [&str; 6] = [
+    "id",
+    "name",
+    "version",
+    "author",
+    "description",
+    "minAppVersion",
+];
 
 fn text(value: Option<&Value>) -> String {
     value.and_then(Value::as_str).unwrap_or_default().to_owned()
@@ -21,6 +36,68 @@ fn objects(value: Option<&Value>) -> Vec<Map<String, Value>> {
         .filter_map(Value::as_object)
         .cloned()
         .collect()
+}
+
+fn utf16_len(value: &str) -> usize {
+    value.encode_utf16().count()
+}
+
+fn normalize_manifest(mut manifest: Map<String, Value>) -> Map<String, Value> {
+    for field in MANIFEST_FIELDS {
+        manifest.insert(
+            field.to_owned(),
+            Value::String(text(manifest.get(field)).trim().to_owned()),
+        );
+    }
+    manifest
+}
+
+fn manifest_shape_is_valid(manifest: &Map<String, Value>) -> bool {
+    let id = text(manifest.get("id"));
+    let name = text(manifest.get("name"));
+    let version = text(manifest.get("version"));
+    let minimum_app_version = text(manifest.get("minAppVersion"));
+    !id.is_empty()
+        && !name.is_empty()
+        && !version.is_empty()
+        && utf16_len(&id) <= MANIFEST_ID_LIMIT
+        && utf16_len(&name) <= MANIFEST_NAME_LIMIT
+        && utf16_len(&version) <= MANIFEST_VERSION_LIMIT
+        && utf16_len(&minimum_app_version) <= MANIFEST_MIN_APP_VERSION_LIMIT
+}
+
+fn validate_manifest(
+    manifest: Map<String, Value>,
+    single_file: bool,
+    expected_id: &str,
+    app_version: &str,
+    path_identity: &str,
+    loaded: &[Map<String, Value>],
+) -> (Map<String, Value>, &'static str) {
+    let manifest = normalize_manifest(manifest);
+    if !manifest_shape_is_valid(&manifest) {
+        return (manifest, "invalid_manifest");
+    }
+    let id = text(manifest.get("id"));
+    let valid_identity = if single_file {
+        !expected_id.is_empty() && id == expected_id
+    } else {
+        crate::policy::valid_package_id(&id) && !id.starts_with("file:")
+    };
+    if !valid_identity {
+        return (manifest, "invalid_id");
+    }
+    let minimum_app_version = text(manifest.get("minAppVersion"));
+    if !minimum_app_version.is_empty() && compare_versions(app_version, &minimum_app_version) < 0 {
+        return (manifest, "requires_newer_app");
+    }
+    if loaded.iter().any(|plugin| {
+        text(plugin.get("id")) == id
+            || (!path_identity.is_empty() && text(plugin.get("path")) == path_identity)
+    }) {
+        return (manifest, "duplicate");
+    }
+    (manifest, "ok")
 }
 
 fn normalize_category(category: &str) -> String {
@@ -248,6 +325,35 @@ fn filtered_plugins(plugins: Vec<Map<String, Value>>, category: &str) -> Vec<Val
 
 fn apply(input: &Map<String, Value>) -> Option<Map<String, Value>> {
     match text(input.get("operation")).as_str() {
+        "normalizeManifest" => {
+            let manifest = normalize_manifest(input.get("manifest")?.as_object()?.clone());
+            Some(
+                json!({
+                    "manifest": manifest,
+                    "valid": manifest_shape_is_valid(&manifest)
+                })
+                .as_object()
+                .cloned()?,
+            )
+        }
+        "validateManifest" => {
+            let (manifest, status) = validate_manifest(
+                input.get("manifest")?.as_object()?.clone(),
+                input
+                    .get("singleFile")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+                &text(input.get("expectedId")),
+                &text(input.get("appVersion")),
+                &text(input.get("pathIdentity")),
+                &objects(input.get("loaded")),
+            );
+            Some(
+                json!({"manifest": manifest, "status": status})
+                    .as_object()
+                    .cloned()?,
+            )
+        }
         "parseDiscovery" => Some(
             json!({
                 "plugins": parse_discovery_output(
@@ -353,6 +459,115 @@ pub unsafe extern "C" fn aviqtl_plugin_document_apply_json(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manifest_rules_normalize_fields_and_match_qstring_limits() {
+        let manifest = normalize_manifest(
+            json!({
+                "id": "  org.aviqtl.example  ",
+                "name": " Example ",
+                "version": " 1.2.3 ",
+                "author": " Author ",
+                "description": " Description ",
+                "minAppVersion": " 0.5.0 "
+            })
+            .as_object()
+            .expect("fixture")
+            .clone(),
+        );
+        assert_eq!(text(manifest.get("id")), "org.aviqtl.example");
+        assert_eq!(text(manifest.get("name")), "Example");
+        assert_eq!(text(manifest.get("author")), "Author");
+        assert!(manifest_shape_is_valid(&manifest));
+
+        let mut too_long = manifest.clone();
+        too_long.insert("name".to_owned(), Value::String("😀".repeat(128)));
+        assert!(!manifest_shape_is_valid(&too_long));
+    }
+
+    #[test]
+    fn manifest_rules_own_identity_compatibility_and_duplicate_checks() {
+        let manifest = json!({
+            "id": "org.aviqtl.example",
+            "name": "Example",
+            "version": "1.0.0",
+            "minAppVersion": "0.6.0"
+        })
+        .as_object()
+        .expect("fixture")
+        .clone();
+        assert_eq!(
+            validate_manifest(
+                manifest.clone(),
+                false,
+                "",
+                "0.5.9",
+                "/plugin/main.lua",
+                &[]
+            )
+            .1,
+            "requires_newer_app"
+        );
+        assert_eq!(
+            validate_manifest(
+                manifest.clone(),
+                false,
+                "",
+                "0.6.0",
+                "/plugin/main.lua",
+                &[]
+            )
+            .1,
+            "ok"
+        );
+        assert_eq!(
+            validate_manifest(
+                manifest.clone(),
+                false,
+                "",
+                "0.6.0",
+                "/plugin/main.lua",
+                &objects(Some(
+                    &json!([{"id": "org.aviqtl.example", "path": "/other/main.lua"}])
+                )),
+            )
+            .1,
+            "duplicate"
+        );
+
+        let file_manifest = json!({
+            "id": "file:example.lua",
+            "name": "example",
+            "version": "file"
+        })
+        .as_object()
+        .expect("fixture")
+        .clone();
+        assert_eq!(
+            validate_manifest(
+                file_manifest.clone(),
+                true,
+                "file:example.lua",
+                "0.6.0",
+                "/plugin/example.lua",
+                &[],
+            )
+            .1,
+            "ok"
+        );
+        assert_eq!(
+            validate_manifest(
+                file_manifest,
+                true,
+                "file:renamed.lua",
+                "0.6.0",
+                "/plugin/example.lua",
+                &[],
+            )
+            .1,
+            "invalid_id"
+        );
+    }
 
     #[test]
     fn discovery_parser_normalizes_complete_plugin_blocks() {

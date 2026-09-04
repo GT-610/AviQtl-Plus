@@ -19,6 +19,16 @@ enum class Status : std::uint32_t {
     InvalidJson = AVIQTL_RUST_CORE_STATUS_INVALID_JSON,
 };
 
+struct ManifestNormalization {
+    QVariantMap manifest;
+    bool valid = false;
+};
+
+struct ManifestValidation {
+    QVariantMap manifest;
+    QString status;
+};
+
 inline std::optional<QVariantMap> apply(const QVariantMap &input) {
     const QByteArray json =
         QJsonDocument(QJsonObject::fromVariantMap(input)).toJson(QJsonDocument::Compact);
@@ -40,6 +50,39 @@ inline std::optional<QVariantMap> apply(const QVariantMap &input) {
     return document.isObject()
                ? std::optional<QVariantMap>{document.object().toVariantMap()}
                : std::nullopt;
+}
+
+inline std::optional<ManifestNormalization> normalizeManifest(const QVariantMap &manifest) {
+    const auto result = apply({
+        {QStringLiteral("operation"), QStringLiteral("normalizeManifest")},
+        {QStringLiteral("manifest"), manifest},
+    });
+    if (!result.has_value())
+        return std::nullopt;
+    return ManifestNormalization{
+        result->value(QStringLiteral("manifest")).toMap(),
+        result->value(QStringLiteral("valid")).toBool(),
+    };
+}
+
+inline std::optional<ManifestValidation> validateManifest(
+    const QVariantMap &manifest, bool singleFile, const QString &expectedId,
+    const QString &appVersion, const QString &pathIdentity, const QVariantList &loaded) {
+    const auto result = apply({
+        {QStringLiteral("operation"), QStringLiteral("validateManifest")},
+        {QStringLiteral("manifest"), manifest},
+        {QStringLiteral("singleFile"), singleFile},
+        {QStringLiteral("expectedId"), expectedId},
+        {QStringLiteral("appVersion"), appVersion},
+        {QStringLiteral("pathIdentity"), pathIdentity},
+        {QStringLiteral("loaded"), loaded},
+    });
+    if (!result.has_value())
+        return std::nullopt;
+    return ManifestValidation{
+        result->value(QStringLiteral("manifest")).toMap(),
+        result->value(QStringLiteral("status")).toString(),
+    };
 }
 
 inline std::optional<QVariantList> parseDiscovery(const QString &output, const QString &format,
