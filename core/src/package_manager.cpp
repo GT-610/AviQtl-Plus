@@ -115,6 +115,13 @@ PackageManager::PackageManager(QObject *parent) : QObject(parent) {
     QTimer::singleShot(0, this, [this]() { loadCachedPackages(); });
 }
 
+QVariantList PackageManager::packageList() const {
+    QVariantList packages;
+    if (m_catalogState.snapshot(packages) != RustCore::Package::Status::Ok)
+        return {};
+    return packages;
+}
+
 void PackageManager::setBusy(bool busy) {
     if (m_isBusy == busy)
         return;
@@ -144,6 +151,8 @@ void PackageManager::setHasUpdatesAvailable(bool available) {
 }
 
 void PackageManager::loadCachedPackages() {
+    if (m_catalogState.clear() != RustCore::Package::Status::Ok)
+        qWarning() << "[PackageManager] Failed to clear the Rust package catalog.";
     const QString cacheDir = getReposCachePath();
     QVariantMap installed = loadInstalledPackagesFromFile();
 
@@ -220,7 +229,11 @@ void PackageManager::refreshRepositories() {
     if (m_isBusy)
         return;
     setBusy(true);
-    m_packageList.clear();
+    if (m_catalogState.clear() != RustCore::Package::Status::Ok) {
+        emit errorOccurred(tr("Failed to reset the package catalog."));
+        setBusy(false);
+        return;
+    }
     emit packageListChanged();
 
     QVariantMap installed = loadInstalledPackagesFromFile();
@@ -351,11 +364,11 @@ void PackageManager::onCatalogFetched(const QVariantMap &repoInfo, const QByteAr
 void PackageManager::mergeCatalogPackages(const QVariantList &packages, const QVariantMap &repoInfo,
                                           const QVariantList &repositories,
                                           const QVariantMap &installed) {
-    const auto merged = RustCore::Package::mergeCatalogBatch(
-        m_packageList, packages, repoInfo, repositories, installed,
-        QLocale::system().name().left(2), appVersionString());
-    if (merged.has_value())
-        m_packageList = *merged;
+    if (m_catalogState.merge(packages, repoInfo, repositories, installed,
+                             QLocale::system().name().left(2), appVersionString()) !=
+        RustCore::Package::Status::Ok) {
+        qWarning() << "[PackageManager] Failed to merge a repository into the Rust catalog.";
+    }
 }
 
 void PackageManager::finishSyncWhenIdle() {
@@ -369,7 +382,7 @@ void PackageManager::finishSyncWhenIdle() {
     emit repositoryRefreshed();
 }
 
-void PackageManager::updateUpdateState() { setHasUpdatesAvailable(RustCore::Package::hasUpdates(m_packageList)); }
+void PackageManager::updateUpdateState() { setHasUpdatesAvailable(m_catalogState.hasUpdates()); }
 
 // --- Metadata Fetching ---
 
@@ -386,7 +399,12 @@ void PackageManager::fetchPackageMetadata(const QString &packageId, const QStrin
         return;
     }
 
-    const QVariantMap catalogEntry = RustCore::Package::find(m_packageList, packageId, sourceRepo);
+    QVariantMap catalogEntry;
+    if (m_catalogState.find(packageId, sourceRepo, catalogEntry) !=
+        RustCore::Package::Status::Ok) {
+        emit errorOccurred(tr("Package catalog is unavailable."));
+        return;
+    }
     if (catalogEntry.isEmpty()) {
         emit errorOccurred(tr("Package not found: %1").arg(packageId));
         return;
@@ -551,7 +569,13 @@ void PackageManager::installPackage(const QString &packageId, const QString &sou
         return;
     }
 
-    const QVariantMap package = RustCore::Package::find(m_packageList, packageId, sourceRepo);
+    QVariantMap package;
+    if (m_catalogState.find(packageId, sourceRepo, package) !=
+        RustCore::Package::Status::Ok) {
+        m_pendingInstall.clear();
+        emit errorOccurred(tr("Package catalog is unavailable."));
+        return;
+    }
     if (package.isEmpty()) {
         m_pendingInstall.clear();
         emit errorOccurred(tr("Package not found: %1").arg(packageId));
@@ -715,7 +739,11 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     setStatus(tr("Installation complete: %1").arg(packageId));
     setBusy(false);
 
-    m_packageList = RustCore::Package::setInstalled(m_packageList, packageId, version);
+    bool catalogChanged = false;
+    if (m_catalogState.setInstalled(packageId, version, catalogChanged) !=
+        RustCore::Package::Status::Ok) {
+        qWarning() << "[PackageManager] Failed to update installed package state in the Rust catalog.";
+    }
     emit packageListChanged();
 
     emit packageInstalled(packageId);
@@ -754,7 +782,11 @@ void PackageManager::removePackage(const QString &packageId) {
             emit errorOccurred(tr("Failed to remove package; the installed state and files were restored."));
         return;
     }
-    m_packageList = RustCore::Package::setInstalled(m_packageList, packageId, std::nullopt);
+    bool catalogChanged = false;
+    if (m_catalogState.setInstalled(packageId, std::nullopt, catalogChanged) !=
+        RustCore::Package::Status::Ok) {
+        qWarning() << "[PackageManager] Failed to remove installed package state from the Rust catalog.";
+    }
     emit packageListChanged();
     updateUpdateState();
     if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
@@ -769,7 +801,9 @@ void PackageManager::removePackage(const QString &packageId) {
 }
 
 QVariantList PackageManager::getPackagesByType(const QString &type) const {
-    QVariantList result = RustCore::Package::filter(m_packageList, type);
+    QVariantList result;
+    if (m_catalogState.filter(type, result) != RustCore::Package::Status::Ok)
+        return {};
     if (type == QStringLiteral("installed") || type == QStringLiteral("mod")) {
         const QDir pluginsDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")));
         QStringList installedModDirectories;
@@ -812,7 +846,12 @@ void PackageManager::upgradeAllPackages() {
     if (m_isBusy)
         return;
     m_upgradeQueue.clear();
-    for (const QString &packageId : RustCore::Package::upgradeIds(m_packageList))
+    QStringList upgradeIds;
+    if (m_catalogState.upgradeIds(upgradeIds) != RustCore::Package::Status::Ok) {
+        setStatus(tr("Package catalog is unavailable."));
+        return;
+    }
+    for (const QString &packageId : upgradeIds)
         m_upgradeQueue.enqueue(packageId);
     if (m_upgradeQueue.isEmpty()) {
         setStatus(tr("No packages to upgrade."));

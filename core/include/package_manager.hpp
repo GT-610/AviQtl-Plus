@@ -1,4 +1,5 @@
 #pragma once
+#include "rust_package_document.hpp"
 #include <QObject>
 #include <QQueue>
 #include <QHash>
@@ -26,7 +27,7 @@ class PackageManager : public QObject {
     QString statusText() const { return m_statusText; }
     bool hasUpdatesAvailable() const { return m_hasUpdatesAvailable; }
     double progress() const { return m_progress; }
-    QVariantList packageList() const { return m_packageList; }
+    QVariantList packageList() const;
     QVariantList repositories() const;
 
     Q_INVOKABLE void sync();
@@ -80,7 +81,7 @@ class PackageManager : public QObject {
     void compileShadersInDirectory(const QString &directory);
 
     bool m_isBusy = false;
-    QVariantList m_packageList;
+    RustCore::Package::CatalogState m_catalogState;
     QNetworkAccessManager *m_networkManager;
     int m_pendingRequests = 0;
 

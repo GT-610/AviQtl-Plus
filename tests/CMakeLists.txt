@@ -194,6 +194,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME rust_package_state
+    SOURCES test_rust_package_state.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI
@@ -418,7 +424,8 @@ aviqtl_label_tests(unit
     effect_registry shader_compiler document_model settings_manager performance_metrics
     theme_controller media_decoder media_utils keyframe_utils effect_model
     video_frame_store dense_component_map audio_plugin_chain audio_dsp triple_buffer
-    rust_timeline_edit rust_timeline_domain rust_keyframe_document lua_host plugin_manifest
+    rust_timeline_edit rust_timeline_domain rust_keyframe_document rust_package_state
+    lua_host plugin_manifest
     mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
     project_recovery build_version

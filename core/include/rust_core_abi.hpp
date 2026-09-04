@@ -26,6 +26,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_PLANNING = 1ULL << 17,
     AVIQTL_RUST_CORE_CAPABILITY_PERMISSION_STATE = 1ULL << 18,
     AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_STATE = 1ULL << 19,
+    AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_CATALOG_STATE = 1ULL << 20,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -43,6 +44,7 @@ struct AviQtlTimelineState;
 struct AviQtlTimelineBakePlan;
 struct AviQtlPermissionState;
 struct AviQtlSettingsState;
+struct AviQtlPackageCatalogState;
 
 struct AviQtlEasingParameters {
     double amplitude;
@@ -558,6 +560,16 @@ std::uint32_t aviqtl_preset_normalize_json(const std::uint8_t *effectId, std::si
                                            std::size_t *outputLength);
 
 std::uint32_t aviqtl_package_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_create(AviQtlPackageCatalogState **outputHandle);
+void aviqtl_package_catalog_state_destroy(AviQtlPackageCatalogState *handle);
+std::uint32_t aviqtl_package_catalog_state_clear(AviQtlPackageCatalogState *handle);
+std::uint32_t aviqtl_package_catalog_state_merge_json(AviQtlPackageCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_package_catalog_state_snapshot_json(const AviQtlPackageCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_has_updates(const AviQtlPackageCatalogState *handle);
+std::uint32_t aviqtl_package_catalog_state_find_json(const AviQtlPackageCatalogState *handle, const std::uint8_t *packageId, std::size_t packageIdLength, const std::uint8_t *sourceRepository, std::size_t sourceRepositoryLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_filter_json(const AviQtlPackageCatalogState *handle, const std::uint8_t *filter, std::size_t filterLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_upgrade_ids_json(const AviQtlPackageCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_set_installed(AviQtlPackageCatalogState *handle, const std::uint8_t *packageId, std::size_t packageIdLength, const std::uint8_t *version, std::size_t versionLength, std::uint32_t installed, std::uint32_t *changed);
 
 std::uint32_t aviqtl_effect_metadata_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 

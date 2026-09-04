@@ -36,6 +36,33 @@ struct InstallSelection {
     QString type;
 };
 
+class CatalogState final {
+  public:
+    CatalogState();
+    CatalogState(const CatalogState &) = delete;
+    CatalogState &operator=(const CatalogState &) = delete;
+    CatalogState(CatalogState &&other) noexcept;
+    CatalogState &operator=(CatalogState &&other) noexcept;
+    ~CatalogState();
+
+    [[nodiscard]] bool isValid() const { return m_handle != nullptr; }
+    [[nodiscard]] Status clear();
+    [[nodiscard]] Status merge(const QVariantList &packages, const QVariantMap &repository,
+                               const QVariantList &repositories, const QVariantMap &installed,
+                               const QString &language, const QString &appVersion);
+    [[nodiscard]] Status snapshot(QVariantList &catalog) const;
+    [[nodiscard]] bool hasUpdates() const;
+    [[nodiscard]] Status find(const QString &packageId, const QString &sourceRepository,
+                              QVariantMap &package) const;
+    [[nodiscard]] Status filter(const QString &filter, QVariantList &catalog) const;
+    [[nodiscard]] Status upgradeIds(QStringList &ids) const;
+    [[nodiscard]] Status setInstalled(const QString &packageId,
+                                      const std::optional<QString> &version, bool &changed);
+
+  private:
+    AviQtlPackageCatalogState *m_handle = nullptr;
+};
+
 inline std::optional<QVariantMap> apply(const QVariantMap &input) {
     const QByteArray json = QJsonDocument(QJsonObject::fromVariantMap(input)).toJson(QJsonDocument::Compact);
     const auto *data = reinterpret_cast<const std::uint8_t *>(json.constData());
@@ -51,81 +78,6 @@ inline std::optional<QVariantMap> apply(const QVariantMap &input) {
         return std::nullopt;
     const QJsonDocument document = QJsonDocument::fromJson(QByteArray(reinterpret_cast<const char *>(output.data()), static_cast<qsizetype>(output.size())));
     return document.isObject() ? std::optional<QVariantMap>{document.object().toVariantMap()} : std::nullopt;
-}
-
-inline std::optional<QVariantList> mergeCatalogBatch(const QVariantList &catalog, const QVariantList &packages, const QVariantMap &repository, const QVariantList &repositories, const QVariantMap &installed, const QString &language, const QString &appVersion) {
-    const auto result = apply({
-        {QStringLiteral("operation"), QStringLiteral("mergeCatalogBatch")},
-        {QStringLiteral("catalog"), catalog},
-        {QStringLiteral("packages"), packages},
-        {QStringLiteral("repository"), repository},
-        {QStringLiteral("repositories"), repositories},
-        {QStringLiteral("installed"), installed},
-        {QStringLiteral("language"), language},
-        {QStringLiteral("appVersion"), appVersion},
-    });
-    return result.has_value() ? std::optional<QVariantList>{result->value(QStringLiteral("catalog")).toList()} : std::nullopt;
-}
-
-inline bool hasUpdates(const QVariantList &catalog) {
-    const auto result = apply({
-        {QStringLiteral("operation"), QStringLiteral("hasUpdates")},
-        {QStringLiteral("catalog"), catalog},
-    });
-    return result.has_value() && result->value(QStringLiteral("value")).toBool();
-}
-
-inline int compareVersions(const QString &left, const QString &right) {
-    const auto result = apply({
-        {QStringLiteral("operation"), QStringLiteral("compareVersions")},
-        {QStringLiteral("left"), left},
-        {QStringLiteral("right"), right},
-    });
-    return result.has_value() ? result->value(QStringLiteral("value")).toInt() : 0;
-}
-
-inline QStringList upgradeIds(const QVariantList &catalog) {
-    const auto result = apply({
-        {QStringLiteral("operation"), QStringLiteral("upgradeIds")},
-        {QStringLiteral("catalog"), catalog},
-    });
-    QStringList ids;
-    if (result.has_value()) {
-        for (const QVariant &id : result->value(QStringLiteral("ids")).toList())
-            ids.append(id.toString());
-    }
-    return ids;
-}
-
-inline QVariantList filter(const QVariantList &catalog, const QString &filter) {
-    const auto result = apply({
-        {QStringLiteral("operation"), QStringLiteral("filter")},
-        {QStringLiteral("catalog"), catalog},
-        {QStringLiteral("filter"), filter},
-    });
-    return result.has_value() ? result->value(QStringLiteral("catalog")).toList() : QVariantList{};
-}
-
-inline QVariantMap find(const QVariantList &catalog, const QString &packageId, const QString &sourceRepository) {
-    const auto result = apply({
-        {QStringLiteral("operation"), QStringLiteral("find")},
-        {QStringLiteral("catalog"), catalog},
-        {QStringLiteral("packageId"), packageId},
-        {QStringLiteral("sourceRepository"), sourceRepository},
-    });
-    return result.has_value() ? result->value(QStringLiteral("package")).toMap() : QVariantMap{};
-}
-
-inline QVariantList setInstalled(const QVariantList &catalog, const QString &packageId, const std::optional<QString> &version) {
-    QVariantMap input{
-        {QStringLiteral("operation"), QStringLiteral("setInstalled")},
-        {QStringLiteral("catalog"), catalog},
-        {QStringLiteral("packageId"), packageId},
-    };
-    if (version.has_value())
-        input.insert(QStringLiteral("version"), *version);
-    const auto result = apply(input);
-    return result.has_value() ? result->value(QStringLiteral("catalog")).toList() : catalog;
 }
 
 inline RepositoryMutation mutateRepositories(const QVariantList &repositories, RepositoryOperation operation, const QString &url, bool enabled = true, int priority = 10) {
