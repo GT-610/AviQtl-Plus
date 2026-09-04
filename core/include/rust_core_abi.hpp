@@ -29,6 +29,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_CATALOG_STATE = 1ULL << 20,
     AVIQTL_RUST_CORE_CAPABILITY_RECOVERY_DOCUMENT = 1ULL << 21,
     AVIQTL_RUST_CORE_CAPABILITY_EXPORT_PLANNING = 1ULL << 22,
+    AVIQTL_RUST_CORE_CAPABILITY_EFFECT_CATALOG_STATE = 1ULL << 23,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -47,6 +48,7 @@ struct AviQtlTimelineBakePlan;
 struct AviQtlPermissionState;
 struct AviQtlSettingsState;
 struct AviQtlPackageCatalogState;
+struct AviQtlEffectCatalogState;
 
 struct AviQtlEasingParameters {
     double amplitude;
@@ -702,6 +704,12 @@ std::uint32_t aviqtl_package_catalog_state_upgrade_ids_json(const AviQtlPackageC
 std::uint32_t aviqtl_package_catalog_state_set_installed(AviQtlPackageCatalogState *handle, const std::uint8_t *packageId, std::size_t packageIdLength, const std::uint8_t *version, std::size_t versionLength, std::uint32_t installed, std::uint32_t *changed);
 
 std::uint32_t aviqtl_effect_metadata_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_effect_catalog_state_create(AviQtlEffectCatalogState **outputHandle);
+void aviqtl_effect_catalog_state_destroy(AviQtlEffectCatalogState *handle);
+std::uint32_t aviqtl_effect_catalog_state_register_json(AviQtlEffectCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_effect_catalog_state_snapshot_json(const AviQtlEffectCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_effect_catalog_state_find_json(const AviQtlEffectCatalogState *handle, const std::uint8_t *id, std::size_t idLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_effect_catalog_state_remove_ids_json(AviQtlEffectCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
 
 std::uint32_t aviqtl_script_metadata_parse_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 

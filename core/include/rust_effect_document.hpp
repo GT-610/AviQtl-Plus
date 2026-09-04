@@ -4,6 +4,8 @@
 #include <QByteArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStringList>
+#include <QVariantList>
 #include <QVariantMap>
 #include <cstdint>
 #include <optional>
@@ -17,6 +19,25 @@ enum class Status : std::uint32_t {
     OverlappingBuffers = AVIQTL_RUST_CORE_STATUS_OVERLAPPING_BUFFERS,
     BufferTooSmall = AVIQTL_RUST_CORE_STATUS_BUFFER_TOO_SMALL,
     InvalidJson = AVIQTL_RUST_CORE_STATUS_INVALID_JSON,
+};
+
+class CatalogState final {
+  public:
+    CatalogState();
+    CatalogState(const CatalogState &) = delete;
+    CatalogState &operator=(const CatalogState &) = delete;
+    CatalogState(CatalogState &&other) noexcept;
+    CatalogState &operator=(CatalogState &&other) noexcept;
+    ~CatalogState();
+
+    [[nodiscard]] bool isValid() const { return m_handle != nullptr; }
+    [[nodiscard]] Status registerMetadata(const QVariantMap &metadata);
+    [[nodiscard]] Status snapshot(QVariantList &catalog) const;
+    [[nodiscard]] Status find(const QString &id, QVariantMap &metadata) const;
+    [[nodiscard]] Status removeIds(const QStringList &ids);
+
+  private:
+    AviQtlEffectCatalogState *m_handle = nullptr;
 };
 
 inline std::optional<QVariantMap> normalizeMetadata(const QByteArray &input) {

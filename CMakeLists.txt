@@ -222,6 +222,7 @@ set(CORE_SOURCES
     core/src/permission_manager.cpp
     core/src/preset_manager.cpp
     core/src/project_serializer.cpp
+    core/src/rust_effect_state.cpp
     core/src/rust_keyframe_adapter.cpp
     core/src/rust_keyframe_document.cpp
     core/src/rust_permission_state.cpp

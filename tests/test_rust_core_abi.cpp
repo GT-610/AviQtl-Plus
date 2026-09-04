@@ -31,6 +31,7 @@ class TestRustCoreAbi : public QObject {
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_CATALOG_STATE);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_RECOVERY_DOCUMENT);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_EXPORT_PLANNING);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_EFFECT_CATALOG_STATE);
         QCOMPARE(aviqtl_project_current_version(), std::int32_t{3});
     }
 
