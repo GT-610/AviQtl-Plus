@@ -30,6 +30,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_RECOVERY_DOCUMENT = 1ULL << 21,
     AVIQTL_RUST_CORE_CAPABILITY_EXPORT_PLANNING = 1ULL << 22,
     AVIQTL_RUST_CORE_CAPABILITY_EFFECT_CATALOG_STATE = 1ULL << 23,
+    AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_PLUGIN_CATALOG_STATE = 1ULL << 24,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -49,6 +50,7 @@ struct AviQtlPermissionState;
 struct AviQtlSettingsState;
 struct AviQtlPackageCatalogState;
 struct AviQtlEffectCatalogState;
+struct AviQtlScriptPluginCatalogState;
 
 struct AviQtlEasingParameters {
     double amplitude;
@@ -714,6 +716,12 @@ std::uint32_t aviqtl_effect_catalog_state_remove_ids_json(AviQtlEffectCatalogSta
 std::uint32_t aviqtl_script_metadata_parse_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::uint32_t aviqtl_plugin_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_script_plugin_catalog_state_create(AviQtlScriptPluginCatalogState **outputHandle);
+void aviqtl_script_plugin_catalog_state_destroy(AviQtlScriptPluginCatalogState *handle);
+std::uint32_t aviqtl_script_plugin_catalog_state_clear(AviQtlScriptPluginCatalogState *handle);
+std::uint32_t aviqtl_script_plugin_catalog_state_store_json(AviQtlScriptPluginCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_script_plugin_catalog_state_snapshot_json(const AviQtlScriptPluginCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_script_plugin_catalog_state_find_json(const AviQtlScriptPluginCatalogState *handle, const std::uint8_t *id, std::size_t idLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);

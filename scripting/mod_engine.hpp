@@ -12,6 +12,7 @@
 #include <lua.hpp>
 #include <optional>
 
+#include "rust_plugin_document.hpp"
 #include "script_params.hpp"
 
 namespace AviQtl::Core {
@@ -80,8 +81,8 @@ class ModEngine {
     // Plugin management
     PluginManifest loadManifest(const QString &pluginDir);
     ScriptMetadata loadScriptParams(const QString &scriptPath);
-    QList<PluginManifest> loadedPlugins() const { return m_loadedPlugins; }
-    QList<PluginInfo> pluginInfos() const { return m_pluginInfos; }
+    QList<PluginManifest> loadedPlugins() const;
+    QList<PluginInfo> pluginInfos() const;
     void unloadPlugins();
 
     // Script parameters
@@ -126,8 +127,7 @@ class ModEngine {
     std::optional<PluginManifest> validatePlugin(const PluginManifest &manifest,
                                                  const QString &scriptPath,
                                                  bool singleFile) const;
-    QList<PluginManifest> m_loadedPlugins;
-    QList<PluginInfo> m_pluginInfos;
+    AviQtl::RustCore::Plugin::CatalogState m_pluginCatalogState;
     struct PluginRuntime {
         QString pluginId;
         QHash<QByteArray, int> hookRefs;

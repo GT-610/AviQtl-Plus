@@ -42,6 +42,25 @@ static PluginManifest manifestFromVariantMap(const QVariantMap &manifest) {
     };
 }
 
+static QVariantMap pluginInfoToVariantMap(const PluginInfo &info) {
+    return {
+        {QStringLiteral("manifest"), manifestToVariantMap(info.manifest)},
+        {QStringLiteral("scriptMeta"), ScriptParamParser::toVariantMap(info.scriptMeta)},
+        {QStringLiteral("filePath"), info.filePath},
+        {QStringLiteral("paramValues"), info.paramValues},
+    };
+}
+
+static PluginInfo pluginInfoFromVariantMap(const QVariantMap &value) {
+    PluginInfo info;
+    info.manifest = manifestFromVariantMap(value.value(QStringLiteral("manifest")).toMap());
+    info.scriptMeta =
+        ScriptParamParser::fromVariantMap(value.value(QStringLiteral("scriptMeta")).toMap());
+    info.filePath = value.value(QStringLiteral("filePath")).toString();
+    info.paramValues = value.value(QStringLiteral("paramValues")).toMap();
+    return info;
+}
+
 static QString singleFilePluginId(const QFileInfo &fileInfo) {
     // Keep the existing identity format because permissions and parameters are persisted by ID.
     return QStringLiteral("file:%1").arg(fileInfo.fileName());
@@ -484,6 +503,27 @@ auto ModEngine::instance() -> ModEngine & {
     return inst;
 }
 
+QList<PluginManifest> ModEngine::loadedPlugins() const {
+    QList<PluginManifest> manifests;
+    const QList<PluginInfo> infos = pluginInfos();
+    manifests.reserve(infos.size());
+    for (const PluginInfo &info : infos)
+        manifests.append(info.manifest);
+    return manifests;
+}
+
+QList<PluginInfo> ModEngine::pluginInfos() const {
+    QVariantList catalog;
+    if (m_pluginCatalogState.snapshot(catalog) != AviQtl::RustCore::Plugin::Status::Ok)
+        return {};
+
+    QList<PluginInfo> infos;
+    infos.reserve(catalog.size());
+    for (const QVariant &plugin : catalog)
+        infos.append(pluginInfoFromVariantMap(plugin.toMap()));
+    return infos;
+}
+
 ModEngine::~ModEngine() {
     releasePluginHooks();
     if (L != nullptr) {
@@ -697,8 +737,9 @@ std::optional<PluginManifest> ModEngine::validatePlugin(const PluginManifest &ma
                                                         bool singleFile) const {
     const QString pathIdentity = pluginPathIdentity(scriptPath);
     QVariantList loaded;
-    loaded.reserve(m_pluginInfos.size());
-    for (const PluginInfo &info : m_pluginInfos) {
+    const QList<PluginInfo> infos = pluginInfos();
+    loaded.reserve(infos.size());
+    for (const PluginInfo &info : infos) {
         loaded.append(QVariantMap{
             {QStringLiteral("id"), info.manifest.id},
             {QStringLiteral("path"), info.filePath},
@@ -784,9 +825,13 @@ bool ModEngine::loadPlugin(const PluginManifest &candidate, const QString &scrip
         return false;
     }
 
+    if (m_pluginCatalogState.store(pluginInfoToVariantMap(info)) !=
+        AviQtl::RustCore::Plugin::Status::Ok) {
+        qCritical() << "[ModEngine] Failed to store plugin catalog state:" << manifest.id;
+        clearHookGlobals();
+        return false;
+    }
     capturePluginHooks(manifest.id);
-    m_pluginInfos.append(info);
-    m_loadedPlugins.append(manifest);
     qInfo() << "[ModEngine] Loaded plugin:" << manifest.name << "v" << manifest.version << "(" << manifest.id << ")";
     return true;
 }
@@ -866,8 +911,8 @@ void ModEngine::unloadPlugins() {
     if (!m_pluginRuntimes.isEmpty()) {
         onUnload();
     }
-    m_loadedPlugins.clear();
-    m_pluginInfos.clear();
+    if (m_pluginCatalogState.clear() != AviQtl::RustCore::Plugin::Status::Ok)
+        qWarning() << "[ModEngine] Failed to clear plugin catalog state";
     m_currentPluginId.clear();
     resetLuaState();
     qInfo() << "[ModEngine] Plugins unloaded and Lua state reset";
@@ -1064,24 +1109,29 @@ ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {
 }
 
 QVariantMap ModEngine::getPluginParams(const QString &pluginId) const {
-    for (const PluginInfo &info : m_pluginInfos) {
-        if (info.manifest.id == pluginId) {
-            return info.paramValues;
-        }
-    }
-    return QVariantMap();
+    QVariantMap plugin;
+    if (m_pluginCatalogState.find(pluginId, plugin) !=
+        AviQtl::RustCore::Plugin::Status::Ok)
+        return {};
+    return plugin.value(QStringLiteral("paramValues")).toMap();
 }
 
 void ModEngine::setPluginParam(const QString &pluginId, const QString &key, const QVariant &value) {
-    for (PluginInfo &info : m_pluginInfos) {
-        if (info.manifest.id == pluginId) {
-            info.paramValues[key] = value;
-            // Save to settings for persistence
-            QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(pluginId, key);
-            AviQtl::Core::SettingsManager::instance().setValue(settingsKey, value);
-            return;
-        }
-    }
+    QVariantMap plugin;
+    if (m_pluginCatalogState.find(pluginId, plugin) !=
+            AviQtl::RustCore::Plugin::Status::Ok ||
+        plugin.isEmpty())
+        return;
+
+    QVariantMap paramValues = plugin.value(QStringLiteral("paramValues")).toMap();
+    paramValues.insert(key, value);
+    plugin.insert(QStringLiteral("paramValues"), paramValues);
+    if (m_pluginCatalogState.store(plugin) != AviQtl::RustCore::Plugin::Status::Ok)
+        return;
+
+    // Save to settings for persistence.
+    const QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(pluginId, key);
+    AviQtl::Core::SettingsManager::instance().setValue(settingsKey, value);
 }
 
 void ModEngine::injectPluginParams(lua_State *L, const PluginInfo &info) {

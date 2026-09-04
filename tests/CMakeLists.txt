@@ -206,6 +206,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME rust_plugin_state
+    SOURCES test_rust_plugin_state.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME rust_export_plan
     SOURCES test_rust_export_plan.cpp
     LINKS AviQtl_Core

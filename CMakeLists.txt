@@ -226,6 +226,7 @@ set(CORE_SOURCES
     core/src/rust_keyframe_adapter.cpp
     core/src/rust_keyframe_document.cpp
     core/src/rust_permission_state.cpp
+    core/src/rust_plugin_state.cpp
     core/src/rust_package_state.cpp
     core/src/rust_settings_state.cpp
     core/src/rust_timeline_state.cpp

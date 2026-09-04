@@ -3,6 +3,7 @@
 #include "rust_core_abi.hpp"
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QString>
 #include <QVariantList>
 #include <QVariantMap>
 #include <cstdint>
@@ -27,6 +28,25 @@ struct ManifestNormalization {
 struct ManifestValidation {
     QVariantMap manifest;
     QString status;
+};
+
+class CatalogState final {
+  public:
+    CatalogState();
+    CatalogState(const CatalogState &) = delete;
+    CatalogState &operator=(const CatalogState &) = delete;
+    CatalogState(CatalogState &&other) noexcept;
+    CatalogState &operator=(CatalogState &&other) noexcept;
+    ~CatalogState();
+
+    [[nodiscard]] bool isValid() const { return m_handle != nullptr; }
+    [[nodiscard]] Status clear();
+    [[nodiscard]] Status store(const QVariantMap &plugin);
+    [[nodiscard]] Status snapshot(QVariantList &plugins) const;
+    [[nodiscard]] Status find(const QString &id, QVariantMap &plugin) const;
+
+  private:
+    AviQtlScriptPluginCatalogState *m_handle = nullptr;
 };
 
 inline std::optional<QVariantMap> apply(const QVariantMap &input) {

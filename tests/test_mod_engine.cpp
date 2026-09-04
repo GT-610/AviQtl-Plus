@@ -227,7 +227,7 @@ void TestModEngine::filePluginsUseSyntheticPermissionIdentity() {
     });
 
     QVERIFY(QDir().mkpath(pluginsPath));
-    QVERIFY(writeTextFile(filePath, QStringLiteral(R"(
+    QVERIFY(writeTextFile(filePath, QStringLiteral(R"(--track@amount:Amount,0,10,3
 function AviQtlOnLoad()
     aviqtl.settings.set("file_load", "called")
 end
@@ -235,9 +235,23 @@ end
 
     engine.loadPlugins();
     const QList<PluginInfo> infos = engine.pluginInfos();
-    QVERIFY(std::any_of(infos.cbegin(), infos.cend(), [&pluginId](const PluginInfo &info) {
+    const auto infoIt = std::find_if(infos.cbegin(), infos.cend(), [&pluginId](const PluginInfo &info) {
         return info.manifest.id == pluginId;
-    }));
+    });
+    QVERIFY(infoIt != infos.cend());
+    QCOMPARE(infoIt->scriptMeta.params.size(), 1);
+    QCOMPARE(infoIt->scriptMeta.params.constFirst().varName, QStringLiteral("amount"));
+    QCOMPARE(infoIt->scriptMeta.params.constFirst().defaultValue.toDouble(), 3.0);
+    QCOMPARE(engine.getPluginParams(pluginId).value(QStringLiteral("amount")).toDouble(), 3.0);
+    engine.setPluginParam(pluginId, QStringLiteral("amount"), 7.0);
+    QCOMPARE(engine.getPluginParams(pluginId).value(QStringLiteral("amount")).toDouble(), 7.0);
+    const QList<PluginInfo> updatedInfos = engine.pluginInfos();
+    const auto updatedInfoIt =
+        std::find_if(updatedInfos.cbegin(), updatedInfos.cend(), [&pluginId](const PluginInfo &info) {
+            return info.manifest.id == pluginId;
+        });
+    QVERIFY(updatedInfoIt != updatedInfos.cend());
+    QCOMPARE(updatedInfoIt->paramValues.value(QStringLiteral("amount")).toDouble(), 7.0);
     const QVariantList installedPackages = PackageManager::instance().getPackagesByType(QStringLiteral("installed"));
     const auto packageIt = std::find_if(installedPackages.cbegin(), installedPackages.cend(), [&pluginId](const QVariant &entry) {
         return entry.toMap().value(QStringLiteral("id")).toString() == pluginId;

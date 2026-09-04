@@ -2,6 +2,7 @@
 #include <QList>
 #include <QString>
 #include <QVariant>
+#include <QVariantMap>
 
 namespace AviQtl::Scripting {
 
@@ -55,6 +56,8 @@ class ScriptParamParser {
   public:
     static ScriptMetadata parse(const QString &scriptContent);
     static ScriptMetadata parseHeader(const QStringList &lines);
+    static QVariantMap toVariantMap(const ScriptMetadata &metadata);
+    static ScriptMetadata fromVariantMap(const QVariantMap &metadata);
 };
 
 } // namespace AviQtl::Scripting
