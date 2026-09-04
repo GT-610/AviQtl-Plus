@@ -22,7 +22,7 @@ const AUDIO_WAVEFORM_PARAMETERS: [&str; 14] = [
     "limiter",
 ];
 
-const PERMISSION_NAMES: [&str; 13] = [
+pub(crate) const PERMISSION_NAMES: [&str; 13] = [
     "transport.control",
     "clip.read",
     "clip.modify",
@@ -271,7 +271,7 @@ pub(crate) fn audio_duration_frames(
     }
 }
 
-fn permission_from_name(value: &str) -> i32 {
+pub(crate) fn permission_from_name(value: &str) -> i32 {
     PERMISSION_NAMES
         .iter()
         .position(|name| *name == value)

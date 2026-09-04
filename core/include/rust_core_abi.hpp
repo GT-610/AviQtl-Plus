@@ -24,6 +24,7 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_PLUGIN_DOCUMENT = 1ULL << 15,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_STATE = 1ULL << 16,
     AVIQTL_RUST_CORE_CAPABILITY_AUDIO_PLANNING = 1ULL << 17,
+    AVIQTL_RUST_CORE_CAPABILITY_PERMISSION_STATE = 1ULL << 18,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -39,6 +40,7 @@ enum AviQtlCoreStatus : std::uint32_t {
 
 struct AviQtlTimelineState;
 struct AviQtlTimelineBakePlan;
+struct AviQtlPermissionState;
 
 struct AviQtlEasingParameters {
     double amplitude;
@@ -514,6 +516,17 @@ std::int32_t aviqtl_permission_from_name(const std::uint8_t *value, std::size_t 
 std::int32_t aviqtl_permission_for_api(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_permission_count();
 const std::uint8_t *aviqtl_permission_name(std::int32_t permission, std::size_t *outputLength);
+std::uint32_t aviqtl_permission_state_create(const std::uint8_t *input, std::size_t inputLength, AviQtlPermissionState **outputHandle);
+void aviqtl_permission_state_destroy(AviQtlPermissionState *handle);
+std::uint32_t aviqtl_permission_state_reset(AviQtlPermissionState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_permission_state_snapshot_json(const AviQtlPermissionState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_permission_state_has(const AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength, std::int32_t permission);
+std::uint32_t aviqtl_permission_state_grant(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength, std::int32_t permission);
+std::uint32_t aviqtl_permission_state_revoke(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength, std::int32_t permission, std::uint32_t *pluginExisted);
+std::uint32_t aviqtl_permission_state_grant_all(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
+std::uint32_t aviqtl_permission_state_revoke_all(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
+std::uint64_t aviqtl_permission_state_mask(const AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
+std::uint32_t aviqtl_permission_state_is_authorized(const AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
 
 std::uint32_t aviqtl_package_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_package_type(const std::uint8_t *value, std::size_t valueLength);

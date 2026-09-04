@@ -1,9 +1,8 @@
 #pragma once
 #include <QObject>
-#include <QSet>
 #include <QString>
 #include <QStringList>
-#include <QVariantMap>
+#include "rust_permission_state.hpp"
 #include <optional>
 
 namespace AviQtl::Core {
@@ -65,8 +64,7 @@ class PermissionManager : public QObject {
   private:
     explicit PermissionManager(QObject *parent = nullptr);
 
-    // Map: pluginId -> set of granted permissions
-    QMap<QString, QSet<PluginPermission>> m_permissions;
+    AviQtl::RustCore::PermissionState m_state;
 };
 
 } // namespace AviQtl::Core

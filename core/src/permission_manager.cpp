@@ -1,9 +1,6 @@
 #include "permission_manager.hpp"
 #include "rust_core_policy.hpp"
 #include "settings_manager.hpp"
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
 
 namespace AviQtl::Core {
 
@@ -32,11 +29,7 @@ PermissionManager::PermissionManager(QObject *parent) : QObject(parent) {
 }
 
 bool PermissionManager::hasPermission(const QString &pluginId, PluginPermission permission) const {
-    auto it = m_permissions.constFind(pluginId);
-    if (it == m_permissions.constEnd()) {
-        return false;
-    }
-    return it->contains(permission);
+    return m_state.has(pluginId, static_cast<int>(permission));
 }
 
 bool PermissionManager::hasPermission(const QString &pluginId, const QString &permissionName) const {
@@ -57,7 +50,11 @@ bool PermissionManager::hasApiPermission(const QString &pluginId, const char *ap
 }
 
 void PermissionManager::grantPermission(const QString &pluginId, PluginPermission permission) {
-    m_permissions[pluginId].insert(permission);
+    if (m_state.grant(pluginId, static_cast<int>(permission)) !=
+        RustCore::PermissionStateStatus::Ok) {
+        qWarning() << "[PermissionManager] Failed to grant permission for plugin:" << pluginId;
+        return;
+    }
     savePermissions();
     emit permissionsChanged(pluginId);
 }
@@ -72,12 +69,13 @@ void PermissionManager::grantPermission(const QString &pluginId, const QString &
 }
 
 void PermissionManager::revokePermission(const QString &pluginId, PluginPermission permission) {
-    auto it = m_permissions.find(pluginId);
-    if (it != m_permissions.end()) {
-        it->remove(permission);
-        if (it->isEmpty()) {
-            m_permissions.erase(it);
-        }
+    bool pluginExisted = false;
+    const auto status = m_state.revoke(pluginId, static_cast<int>(permission), pluginExisted);
+    if (status != RustCore::PermissionStateStatus::Ok) {
+        qWarning() << "[PermissionManager] Failed to revoke permission for plugin:" << pluginId;
+        return;
+    }
+    if (pluginExisted) {
         savePermissions();
         emit permissionsChanged(pluginId);
     }
@@ -93,27 +91,31 @@ void PermissionManager::revokePermission(const QString &pluginId, const QString 
 }
 
 void PermissionManager::grantAllPermissions(const QString &pluginId) {
-    QSet<PluginPermission> allPerms;
-    for (int permission = 0; permission < kPermissionCount; ++permission)
-        allPerms.insert(static_cast<PluginPermission>(permission));
-    m_permissions[pluginId] = allPerms;
+    if (m_state.grantAll(pluginId) != RustCore::PermissionStateStatus::Ok) {
+        qWarning() << "[PermissionManager] Failed to grant all permissions for plugin:"
+                   << pluginId;
+        return;
+    }
     savePermissions();
     emit permissionsChanged(pluginId);
 }
 
 void PermissionManager::revokeAllPermissions(const QString &pluginId) {
-    m_permissions.remove(pluginId);
+    if (m_state.revokeAll(pluginId) != RustCore::PermissionStateStatus::Ok) {
+        qWarning() << "[PermissionManager] Failed to revoke all permissions for plugin:"
+                   << pluginId;
+        return;
+    }
     savePermissions();
     emit permissionsChanged(pluginId);
 }
 
 QVariantList PermissionManager::getPluginPermissions(const QString &pluginId) const {
     QVariantList result;
-    auto it = m_permissions.constFind(pluginId);
-    if (it != m_permissions.constEnd()) {
-        for (PluginPermission p : *it) {
-            result.append(permissionName(p));
-        }
+    const std::uint64_t mask = m_state.mask(pluginId);
+    for (int permission = 0; permission < kPermissionCount; ++permission) {
+        if ((mask & (std::uint64_t{1} << permission)) != 0)
+            result.append(permissionName(static_cast<PluginPermission>(permission)));
     }
     return result;
 }
@@ -136,43 +138,27 @@ QStringList PermissionManager::allPermissionNames() {
 }
 
 void PermissionManager::loadPermissions() {
-    m_permissions.clear();
-
     auto &sm = SettingsManager::instance();
-    QVariantMap permData = sm.value(QStringLiteral("pluginPermissions")).toMap();
-
-    for (auto it = permData.constBegin(); it != permData.constEnd(); ++it) {
-        const QString pluginId = it.key();
-        const QStringList permNames = it.value().toStringList();
-        QSet<PluginPermission> perms;
-        for (const QString &name : permNames) {
-            const auto permission = permissionFromName(name);
-            if (permission.has_value())
-                perms.insert(*permission);
-        }
-        m_permissions[pluginId] = perms;
+    const QVariantMap permissionData =
+        sm.value(QStringLiteral("pluginPermissions")).toMap();
+    if (m_state.reset(permissionData) != RustCore::PermissionStateStatus::Ok) {
+        qCritical() << "[PermissionManager] Rust core failed to load permission state";
     }
 }
 
 void PermissionManager::savePermissions() {
     QVariantMap permData;
-    for (auto it = m_permissions.constBegin(); it != m_permissions.constEnd(); ++it) {
-        const QString pluginId = it.key();
-        const QSet<PluginPermission> &perms = it.value();
-        QStringList permNames;
-        for (PluginPermission p : perms) {
-            permNames.append(permissionName(p));
-        }
-        permData[pluginId] = permNames;
+    if (m_state.snapshot(permData) != RustCore::PermissionStateStatus::Ok) {
+        qWarning() << "[PermissionManager] Rust core failed to serialize permission state";
+        return;
     }
 
     auto &sm = SettingsManager::instance();
     sm.setValue(QStringLiteral("pluginPermissions"), permData);
-    sm.save();
 }
 
 bool PermissionManager::isPluginAuthorized(const QString &pluginId) const {
-    return m_permissions.contains(pluginId) && !m_permissions[pluginId].isEmpty();
+    return m_state.isAuthorized(pluginId);
 }
 
 } // namespace AviQtl::Core
