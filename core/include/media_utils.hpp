@@ -5,8 +5,10 @@
 
 namespace AviQtl::Core::MediaUtils {
 
-inline bool isDirectAudioMode(QStringView playMode) {
-    return RustCore::Policy::isDirectAudioMode(playMode);
+using PlaybackMode = RustCore::Policy::PlaybackMode;
+
+inline PlaybackMode playbackMode(QStringView value) {
+    return RustCore::Policy::playbackMode(value);
 }
 
 inline bool isVideoFile(QStringView path) {

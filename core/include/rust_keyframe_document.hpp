@@ -31,5 +31,6 @@ std::optional<TrackResult> sync(const QVariant &track, const QVariant &fallback,
                                 int newDuration);
 std::optional<TrackResult> split(const QVariant &track, const QVariant &fallback,
                                  int firstHalfDuration, int originalDuration);
+std::optional<QVariant> evaluate(const QVariantList &track, int frame, const QVariant &fallback);
 
 } // namespace AviQtl::Core::RustKeyframeDocument

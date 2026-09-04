@@ -35,6 +35,11 @@ class RustAbiContractCheckerTest(unittest.TestCase):
         errors = check_rust_abi.compare_contract(self.sources, header)
         self.assertTrue(any("field mismatch for AviQtlEasingParameters" in error for error in errors))
 
+    def test_array_field_drift_is_reported(self):
+        header = self.header.replace("    std::uint8_t param_name[20];", "    std::uint8_t param_name[19];", 1)
+        errors = check_rust_abi.compare_contract(self.sources, header)
+        self.assertTrue(any("field mismatch for AviQtlEffectParamEntry" in error for error in errors))
+
     def test_missing_export_attribute_is_reported(self):
         sources = dict(self.sources)
         sources["abi.rs"] = sources["abi.rs"].replace(

@@ -249,8 +249,9 @@ void TimelineMediaManager::updateMediaDecoders() {
                             if (eff->id() != QStringLiteral("video")) {
                                 continue;
                             }
-                            const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始フレーム＋再生速度").toString();
-                            if (playMode == QStringLiteral("フレーム直接指定")) {
+                            const QString playMode = eff->params().value(QStringLiteral("playMode"), "normal").toString();
+                            if (AviQtl::Core::MediaUtils::playbackMode(playMode) ==
+                                AviQtl::Core::MediaUtils::PlaybackMode::Direct) {
                                 return;
                             }
                             startVideoFrame = eff->params().value(QStringLiteral("startFrame"), 0).toInt();
@@ -344,8 +345,9 @@ void TimelineMediaManager::updateVideoClipFrame(AviQtl::Core::VideoDecoder *vid,
             continue;
         }
 
-        const QString playMode = eff->params().value(QStringLiteral("playMode"), "開始フレーム＋再生速度").toString();
-        const bool isDirect = (playMode == QStringLiteral("フレーム直接指定"));
+        const QString playMode = eff->params().value(QStringLiteral("playMode"), "normal").toString();
+        const bool isDirect = AviQtl::Core::MediaUtils::playbackMode(playMode) ==
+                              AviQtl::Core::MediaUtils::PlaybackMode::Direct;
 
         if (isDirect) {
             const int absFrame = eff->evaluatedParam(QStringLiteral("directFrame"), relFrame, fps).toInt();

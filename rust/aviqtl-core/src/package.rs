@@ -5,6 +5,7 @@ use crate::abi::{
 use crate::policy::valid_package_id;
 use semver::Version;
 use serde_json::{Map, Value, json};
+use std::sync::Mutex;
 
 fn text(value: Option<&Value>) -> String {
     match value {
@@ -44,7 +45,7 @@ fn numeric_version_part(value: &str) -> Option<i32> {
     value.trim().parse::<i32>().ok()
 }
 
-fn compare_versions(left: &str, right: &str) -> i32 {
+pub(crate) fn compare_versions(left: &str, right: &str) -> i32 {
     if left == right {
         return 0;
     }
@@ -66,7 +67,7 @@ fn compare_versions(left: &str, right: &str) -> i32 {
         };
         if !ordering.is_eq() {
             return if ordering.is_lt() { -1 } else { 1 };
-        }
+        };
     }
     match left_parts.len().cmp(&right_parts.len()) {
         std::cmp::Ordering::Less => -1,
@@ -320,24 +321,29 @@ fn find_package(
 }
 
 fn set_installed(
-    mut catalog: Vec<Map<String, Value>>,
+    catalog: &mut [Map<String, Value>],
     package_id: &str,
     version: Option<&str>,
-) -> Vec<Value> {
+) -> bool {
     if let Some(package) = catalog
         .iter_mut()
         .find(|package| text(package.get("id")) == package_id)
     {
-        if let Some(version) = version {
-            package.insert(
-                "installed_version".to_owned(),
-                Value::String(version.to_owned()),
-            );
-        } else {
-            package.remove("installed_version");
-        }
+        return match version {
+            Some(version)
+                if package.get("installed_version").and_then(Value::as_str) != Some(version) =>
+            {
+                package.insert(
+                    "installed_version".to_owned(),
+                    Value::String(version.to_owned()),
+                );
+                true
+            }
+            Some(_) => false,
+            None => package.remove("installed_version").is_some(),
+        };
     }
-    catalog.into_iter().map(Value::Object).collect()
+    false
 }
 
 fn mutate_repositories(
@@ -493,45 +499,7 @@ fn select_install(
 
 fn apply(input: &Map<String, Value>) -> Option<Map<String, Value>> {
     let operation = text(input.get("operation"));
-    let catalog = objects(input.get("catalog"));
     match operation.as_str() {
-        "mergeCatalogBatch" => {
-            let packages = objects(input.get("packages"));
-            let repository = input.get("repository")?.as_object()?;
-            let repositories = objects(input.get("repositories"));
-            let installed = input.get("installed")?.as_object()?;
-            let language = text(input.get("language"));
-            let app_version = text(input.get("appVersion"));
-            object(json!({
-                "catalog": merge_catalog_packages(
-                    catalog,
-                    &packages,
-                    repository,
-                    &repositories,
-                    installed,
-                    &language,
-                    &app_version,
-                )
-            }))
-        }
-        "compareVersions" => object(
-            json!({"value": compare_versions(&text(input.get("left")), &text(input.get("right")))}),
-        ),
-        "hasUpdates" => object(json!({"value": has_updates(&catalog)})),
-        "upgradeIds" => object(json!({"ids": upgrade_ids(&catalog)})),
-        "filter" => object(json!({
-            "catalog": filter_catalog(&catalog, &text(input.get("filter")))
-        })),
-        "find" => object(json!({
-            "package": find_package(&catalog, &text(input.get("packageId")), &text(input.get("sourceRepository")))
-        })),
-        "setInstalled" => object(json!({
-            "catalog": set_installed(
-                catalog,
-                &text(input.get("packageId")),
-                input.get("version").and_then(Value::as_str)
-            )
-        })),
         "repositories" => {
             let (repositories, changed) = mutate_repositories(
                 objects(input.get("repositories")),
@@ -558,6 +526,401 @@ fn apply(input: &Map<String, Value>) -> Option<Map<String, Value>> {
         })),
         _ => None,
     }
+}
+
+pub struct AviQtlPackageCatalogState {
+    catalog: Mutex<Vec<Map<String, Value>>>,
+}
+
+fn with_catalog<T>(
+    handle: *const AviQtlPackageCatalogState,
+    operation: impl FnOnce(&[Map<String, Value>]) -> T,
+) -> Option<T> {
+    // SAFETY: Non-null handles are required to originate from the catalog-state create function.
+    let state = unsafe { handle.as_ref() }?;
+    let catalog = state.catalog.lock().ok()?;
+    Some(operation(&catalog))
+}
+
+fn with_catalog_mut<T>(
+    handle: *mut AviQtlPackageCatalogState,
+    operation: impl FnOnce(&mut Vec<Map<String, Value>>) -> T,
+) -> Option<T> {
+    // SAFETY: Non-null handles are required to originate from the catalog-state create function.
+    let state = unsafe { handle.as_ref() }?;
+    let mut catalog = state.catalog.lock().ok()?;
+    Some(operation(&mut catalog))
+}
+
+unsafe fn input_bytes<'a>(input: *const u8, input_length: usize) -> &'a [u8] {
+    if input_length == 0 {
+        &[]
+    } else {
+        // SAFETY: Callers validate the full input range before invoking this helper.
+        unsafe { std::slice::from_raw_parts(input, input_length) }
+    }
+}
+
+fn output_ranges_valid(
+    inputs: &[(*const u8, usize)],
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> Result<(), u32> {
+    if !slice_is_valid(output, output_capacity) || !slice_is_valid(output_length, 1) {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+    let mut overlaps = Vec::with_capacity(inputs.len() * 2 + 1);
+    overlaps.push(ranges_overlap(output, output_capacity, output_length, 1));
+    for (input, input_length) in inputs {
+        overlaps.push(ranges_overlap(
+            *input,
+            *input_length,
+            output,
+            output_capacity,
+        ));
+        overlaps.push(ranges_overlap(*input, *input_length, output_length, 1));
+    }
+    if overlaps.iter().any(Option::is_none) {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+    if overlaps.into_iter().flatten().any(|overlap| overlap) {
+        return Err(STATUS_OVERLAPPING_BUFFERS);
+    }
+    Ok(())
+}
+
+unsafe fn write_json(
+    value: &impl serde::Serialize,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    let Ok(json) = serde_json::to_vec(value) else {
+        return STATUS_INVALID_JSON;
+    };
+    // SAFETY: The caller validates and de-overlaps the output-length range.
+    unsafe { output_length.write(json.len()) };
+    if output_capacity < json.len() {
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+    if !json.is_empty() {
+        // SAFETY: The caller validates the output range and capacity.
+        let output = unsafe { std::slice::from_raw_parts_mut(output, output_capacity) };
+        output[..json.len()].copy_from_slice(&json);
+    }
+    STATUS_OK
+}
+
+/// Creates an empty Rust-owned package catalog.
+///
+/// # Safety
+///
+/// `output_handle` must point to writable storage for one handle. A returned handle must be
+/// destroyed exactly once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_create(
+    output_handle: *mut *mut AviQtlPackageCatalogState,
+) -> u32 {
+    if !slice_is_valid(output_handle, 1) {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    let handle = Box::into_raw(Box::new(AviQtlPackageCatalogState {
+        catalog: Mutex::new(Vec::new()),
+    }));
+    // SAFETY: The output handle was validated above.
+    unsafe { output_handle.write(handle) };
+    STATUS_OK
+}
+
+/// Destroys Rust-owned package catalog state. A null handle is accepted.
+///
+/// # Safety
+///
+/// A non-null handle must have been returned by the catalog-state create function exactly once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_destroy(
+    handle: *mut AviQtlPackageCatalogState,
+) {
+    if !handle.is_null() {
+        // SAFETY: The caller guarantees unique ownership of one live handle.
+        drop(unsafe { Box::from_raw(handle) });
+    }
+}
+
+/// Clears all package catalog entries.
+///
+/// # Safety
+///
+/// The handle must be live.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_clear(
+    handle: *mut AviQtlPackageCatalogState,
+) -> u32 {
+    if handle.is_null() {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    with_catalog_mut(handle, Vec::clear)
+        .map(|()| STATUS_OK)
+        .unwrap_or(STATUS_INVALID_ARGUMENT)
+}
+
+/// Merges one repository package batch into the package catalog.
+///
+/// # Safety
+///
+/// The handle must be live and the input range must contain a readable UTF-8 JSON object.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_merge_json(
+    handle: *mut AviQtlPackageCatalogState,
+    input: *const u8,
+    input_length: usize,
+) -> u32 {
+    if handle.is_null() || !slice_is_valid(input, input_length) {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    // SAFETY: The input range was validated above.
+    let Some(input) = serde_json::from_slice::<Value>(unsafe { input_bytes(input, input_length) })
+        .ok()
+        .and_then(|value| value.as_object().cloned())
+    else {
+        return STATUS_INVALID_JSON;
+    };
+    let packages = objects(input.get("packages"));
+    let Some(repository) = input.get("repository").and_then(Value::as_object) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let repositories = objects(input.get("repositories"));
+    let Some(installed) = input.get("installed").and_then(Value::as_object) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let language = text(input.get("language"));
+    let app_version = text(input.get("appVersion"));
+    with_catalog_mut(handle, |catalog| {
+        *catalog = merge_catalog_packages(
+            std::mem::take(catalog),
+            &packages,
+            repository,
+            &repositories,
+            installed,
+            &language,
+            &app_version,
+        );
+    })
+    .map(|()| STATUS_OK)
+    .unwrap_or(STATUS_INVALID_ARGUMENT)
+}
+
+unsafe fn catalog_json(
+    handle: *const AviQtlPackageCatalogState,
+    value: impl FnOnce(&[Map<String, Value>]) -> Value,
+    inputs: &[(*const u8, usize)],
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    if handle.is_null() {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    if let Err(status) = output_ranges_valid(inputs, output, output_capacity, output_length) {
+        return status;
+    }
+    with_catalog(handle, |catalog| {
+        let value = value(catalog);
+        // SAFETY: Output ranges were validated and checked for overlap above.
+        unsafe { write_json(&value, output, output_capacity, output_length) }
+    })
+    .unwrap_or(STATUS_INVALID_ARGUMENT)
+}
+
+/// Serializes the complete package catalog as a JSON array.
+///
+/// # Safety
+///
+/// The handle must be live. Output ranges must be writable, valid, and non-overlapping.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_snapshot_json(
+    handle: *const AviQtlPackageCatalogState,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    // SAFETY: This function forwards the caller's state/output contract unchanged.
+    unsafe {
+        catalog_json(
+            handle,
+            |catalog| Value::Array(catalog.iter().cloned().map(Value::Object).collect()),
+            &[],
+            output,
+            output_capacity,
+            output_length,
+        )
+    }
+}
+
+/// Reports whether any installed package has a newer catalog version.
+///
+/// # Safety
+///
+/// The handle must be live.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_has_updates(
+    handle: *const AviQtlPackageCatalogState,
+) -> u32 {
+    with_catalog(handle, has_updates)
+        .map(u32::from)
+        .unwrap_or(0)
+}
+
+/// Serializes the matching package as a JSON object, or an empty object when absent.
+///
+/// # Safety
+///
+/// The handle and input ranges must be valid. Output ranges must be writable and disjoint.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_find_json(
+    handle: *const AviQtlPackageCatalogState,
+    package_id: *const u8,
+    package_id_length: usize,
+    source_repository: *const u8,
+    source_repository_length: usize,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    let package_id_input = package_id;
+    let source_repository_input = source_repository;
+    let Some(package_id) = (unsafe { crate::abi::utf8(package_id_input, package_id_length) })
+    else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let Some(source_repository) =
+        (unsafe { crate::abi::utf8(source_repository_input, source_repository_length) })
+    else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let package_id = package_id.to_owned();
+    let source_repository = source_repository.to_owned();
+    // SAFETY: The input strings are now owned and the original ranges are used only for overlap validation.
+    unsafe {
+        catalog_json(
+            handle,
+            |catalog| match find_package(catalog, &package_id, &source_repository) {
+                Value::Object(package) => Value::Object(package),
+                _ => Value::Object(Map::new()),
+            },
+            &[
+                (package_id_input, package_id_length),
+                (source_repository_input, source_repository_length),
+            ],
+            output,
+            output_capacity,
+            output_length,
+        )
+    }
+}
+
+/// Serializes catalog entries matching a type/filter as a JSON array.
+///
+/// # Safety
+///
+/// The handle and filter range must be valid. Output ranges must be writable and disjoint.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_filter_json(
+    handle: *const AviQtlPackageCatalogState,
+    filter: *const u8,
+    filter_length: usize,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    let filter_input = filter;
+    let Some(filter) = (unsafe { crate::abi::utf8(filter_input, filter_length) }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let filter = filter.to_owned();
+    // SAFETY: The filter is now owned and the original range is used only for overlap validation.
+    unsafe {
+        catalog_json(
+            handle,
+            |catalog| Value::Array(filter_catalog(catalog, &filter)),
+            &[(filter_input, filter_length)],
+            output,
+            output_capacity,
+            output_length,
+        )
+    }
+}
+
+/// Serializes package IDs eligible for upgrade as a JSON array.
+///
+/// # Safety
+///
+/// The handle must be live. Output ranges must be writable, valid, and non-overlapping.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_upgrade_ids_json(
+    handle: *const AviQtlPackageCatalogState,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    // SAFETY: This function forwards the caller's state/output contract unchanged.
+    unsafe {
+        catalog_json(
+            handle,
+            |catalog| Value::Array(upgrade_ids(catalog)),
+            &[],
+            output,
+            output_capacity,
+            output_length,
+        )
+    }
+}
+
+/// Updates the installed version projection for one package.
+///
+/// # Safety
+///
+/// The handle and string ranges must be valid. `changed` must be writable and disjoint.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_package_catalog_state_set_installed(
+    handle: *mut AviQtlPackageCatalogState,
+    package_id: *const u8,
+    package_id_length: usize,
+    version: *const u8,
+    version_length: usize,
+    installed: u32,
+    changed: *mut u32,
+) -> u32 {
+    if handle.is_null() || !slice_is_valid(changed, 1) {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    let Some(package_id) = (unsafe { crate::abi::utf8(package_id, package_id_length) }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let Some(version) = (unsafe { crate::abi::utf8(version, version_length) }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let overlaps = [
+        ranges_overlap(package_id.as_ptr(), package_id_length, changed, 1),
+        ranges_overlap(version.as_ptr(), version_length, changed, 1),
+    ];
+    if overlaps.iter().any(Option::is_none) {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    if overlaps.into_iter().flatten().any(|overlap| overlap) {
+        return STATUS_OVERLAPPING_BUFFERS;
+    }
+    let package_id = package_id.to_owned();
+    let version = (installed != 0).then(|| version.to_owned());
+    let Some(was_changed) = with_catalog_mut(handle, |catalog| {
+        set_installed(catalog, &package_id, version.as_deref())
+    }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    // SAFETY: The output flag was validated and checked against the string ranges.
+    unsafe { changed.write(u32::from(was_changed)) };
+    STATUS_OK
 }
 
 #[unsafe(no_mangle)]
@@ -619,6 +982,22 @@ pub unsafe extern "C" fn aviqtl_package_document_apply_json(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn collect_json(mut function: impl FnMut(*mut u8, usize, *mut usize) -> u32) -> Value {
+        let mut required = 0;
+        assert_eq!(
+            function(std::ptr::null_mut(), 0, &mut required),
+            STATUS_BUFFER_TOO_SMALL
+        );
+        let mut output = vec![0_u8; required];
+        let mut written = 0;
+        assert_eq!(
+            function(output.as_mut_ptr(), output.len(), &mut written),
+            STATUS_OK
+        );
+        assert_eq!(written, output.len());
+        serde_json::from_slice(&output).expect("state output")
+    }
 
     #[test]
     fn version_comparison_preserves_existing_component_rules() {
@@ -825,9 +1204,11 @@ mod tests {
             Some("effect.one")
         );
 
-        let removed = set_installed(catalog.clone(), "effect.one", None);
+        let mut removed = catalog.clone();
+        assert!(set_installed(&mut removed, "effect.one", None));
         assert!(removed[0].get("installed_version").is_none());
-        let installed = set_installed(catalog.clone(), "object.two", Some("1.0.0"));
+        let mut installed = catalog.clone();
+        assert!(set_installed(&mut installed, "object.two", Some("1.0.0")));
         assert_eq!(
             installed[1]
                 .get("installed_version")
@@ -846,5 +1227,128 @@ mod tests {
         );
         assert!(has_updates(&catalog));
         assert_eq!(upgrade_ids(&catalog), [json!("effect.one")]);
+    }
+
+    #[test]
+    fn catalog_state_owns_merge_queries_and_installed_projection() {
+        let mut handle = std::ptr::null_mut();
+        // SAFETY: The handle-output range is writable and receives one owned state handle.
+        assert_eq!(
+            unsafe { aviqtl_package_catalog_state_create(&mut handle) },
+            STATUS_OK
+        );
+        assert!(!handle.is_null());
+
+        let merge = br#"{
+            "packages":[{
+                "id":"effect.one",
+                "type":"effect",
+                "version":"2.0.0",
+                "display_name":{"en":"Effect One"},
+                "metadata_url":"https://repo/effect.json"
+            }],
+            "repository":{"url":"https://repo"},
+            "repositories":[{"url":"https://repo","priority":1}],
+            "installed":{"effect.one":{"version":"1.0.0"}},
+            "language":"en",
+            "appVersion":"0.5.9"
+        }"#;
+        // SAFETY: The state handle and immutable JSON byte range are valid.
+        assert_eq!(
+            unsafe { aviqtl_package_catalog_state_merge_json(handle, merge.as_ptr(), merge.len()) },
+            STATUS_OK
+        );
+        // SAFETY: The state handle remains live.
+        assert_eq!(
+            unsafe { aviqtl_package_catalog_state_has_updates(handle) },
+            1
+        );
+
+        let snapshot = collect_json(|output, capacity, length| {
+            // SAFETY: The live handle and callback-provided output ranges satisfy the contract.
+            unsafe { aviqtl_package_catalog_state_snapshot_json(handle, output, capacity, length) }
+        });
+        assert_eq!(snapshot[0]["id"], "effect.one");
+        assert_eq!(snapshot[0]["installed_version"], "1.0.0");
+
+        let package_id = b"effect.one";
+        let repository = b"https://repo";
+        let found = collect_json(|output, capacity, length| {
+            // SAFETY: String and output ranges are valid and disjoint.
+            unsafe {
+                aviqtl_package_catalog_state_find_json(
+                    handle,
+                    package_id.as_ptr(),
+                    package_id.len(),
+                    repository.as_ptr(),
+                    repository.len(),
+                    output,
+                    capacity,
+                    length,
+                )
+            }
+        });
+        assert_eq!(found["display_name"], "Effect One");
+
+        let filter = b"installed";
+        let installed = collect_json(|output, capacity, length| {
+            // SAFETY: String and output ranges are valid and disjoint.
+            unsafe {
+                aviqtl_package_catalog_state_filter_json(
+                    handle,
+                    filter.as_ptr(),
+                    filter.len(),
+                    output,
+                    capacity,
+                    length,
+                )
+            }
+        });
+        assert_eq!(installed.as_array().map(Vec::len), Some(1));
+
+        let version = b"2.0.0";
+        let mut changed = 0;
+        // SAFETY: The live handle, strings, and changed flag are valid and disjoint.
+        assert_eq!(
+            unsafe {
+                aviqtl_package_catalog_state_set_installed(
+                    handle,
+                    package_id.as_ptr(),
+                    package_id.len(),
+                    version.as_ptr(),
+                    version.len(),
+                    1,
+                    &mut changed,
+                )
+            },
+            STATUS_OK
+        );
+        assert_eq!(changed, 1);
+        // SAFETY: The state handle remains live.
+        assert_eq!(
+            unsafe { aviqtl_package_catalog_state_has_updates(handle) },
+            0
+        );
+
+        let before_invalid = collect_json(|output, capacity, length| {
+            // SAFETY: The live handle and callback-provided output ranges satisfy the contract.
+            unsafe { aviqtl_package_catalog_state_snapshot_json(handle, output, capacity, length) }
+        });
+        let invalid = b"not-json";
+        // SAFETY: The state handle and immutable byte range are valid.
+        assert_eq!(
+            unsafe {
+                aviqtl_package_catalog_state_merge_json(handle, invalid.as_ptr(), invalid.len())
+            },
+            STATUS_INVALID_JSON
+        );
+        let after_invalid = collect_json(|output, capacity, length| {
+            // SAFETY: The live handle and callback-provided output ranges satisfy the contract.
+            unsafe { aviqtl_package_catalog_state_snapshot_json(handle, output, capacity, length) }
+        });
+        assert_eq!(after_invalid, before_invalid);
+
+        // SAFETY: The handle is destroyed exactly once at the end of the test.
+        unsafe { aviqtl_package_catalog_state_destroy(handle) };
     }
 }

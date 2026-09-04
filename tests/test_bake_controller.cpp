@@ -339,7 +339,7 @@ class TestBakeController : public QObject {
         Effect audio;
         audio.id = QStringLiteral("audio");
         audio.params = {
-            {QStringLiteral("playMode"), QStringLiteral("直接指定")},
+            {QStringLiteral("playMode"), QStringLiteral("direct")},
             {QStringLiteral("startTime"), -2.0},
             {QStringLiteral("speed"), -50.0},
             {QStringLiteral("directTime"), -3.0},

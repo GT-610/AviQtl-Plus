@@ -121,13 +121,15 @@ class CarlaHostedPlugin final : public IAudioPlugin {
 
         const auto &sm = AviQtl::Core::SettingsManager::instance();
         if (m_sampleRate <= 1.0) {
-            m_sampleRate = sm.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toDouble();
+            m_sampleRate = sm.doubleValue(QStringLiteral("defaultProjectSampleRate"),
+                                          AviQtl::kDefaultSampleRate);
             if (m_sampleRate <= 0.0) {
                 m_sampleRate = AviQtl::kDefaultSampleRate;
             }
         }
         if (m_maxBlockSize <= 0) {
-            m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), AviQtl::kAudioMaxBlockSize).toInt();
+            m_maxBlockSize = sm.intValue(QStringLiteral("audioPluginMaxBlockSize"),
+                                         AviQtl::kAudioMaxBlockSize);
             if (m_maxBlockSize <= 0) {
                 m_maxBlockSize = AviQtl::kAudioMaxBlockSize;
             }
@@ -492,11 +494,16 @@ auto discoverFormat(const QString &tool, const FormatConfig &cfg, std::atomic<bo
     // 起動期に不変な設定値を一括読み出し（繰り返し SettingsManager を叩かない）
     const auto &sm = AviQtl::Core::SettingsManager::instance();
     QStringList searchPaths = sm.value(QStringLiteral("pluginPaths") + cfg.format, QStringList()).toStringList();
-    const int discoveryThreads = sm.value(QStringLiteral("pluginDiscoveryThreads"), std::max(2, QThread::idealThreadCount() - 1)).toInt();
-    const int waitStartedMs = sm.value(QStringLiteral("pluginDiscoveryWaitStartedMs"), 3000).toInt();
-    const int timeoutMs = sm.value(QStringLiteral("pluginDiscoveryTimeoutMs"), 5000).toInt();
-    const int waitReadyReadMs = sm.value(QStringLiteral("pluginDiscoveryWaitReadyReadMs"), 200).toInt();
-    const int waitFinishedMs = sm.value(QStringLiteral("pluginDiscoveryWaitFinishedMs"), 1000).toInt();
+    const int discoveryThreads = sm.intValue(
+        QStringLiteral("pluginDiscoveryThreads"),
+        std::max(2, QThread::idealThreadCount() - 1));
+    const int waitStartedMs =
+        sm.intValue(QStringLiteral("pluginDiscoveryWaitStartedMs"), 3000);
+    const int timeoutMs = sm.intValue(QStringLiteral("pluginDiscoveryTimeoutMs"), 5000);
+    const int waitReadyReadMs =
+        sm.intValue(QStringLiteral("pluginDiscoveryWaitReadyReadMs"), 200);
+    const int waitFinishedMs =
+        sm.intValue(QStringLiteral("pluginDiscoveryWaitFinishedMs"), 1000);
 
     QStringList targets;
     QSet<QString> visited;
@@ -635,7 +642,7 @@ void AudioPluginManager::scanPlugins() {
         if (m_stopRequested) {
             break;
         }
-        bool isEnabled = settings.value(QStringLiteral("pluginEnable") + cfg.format, true).toBool();
+        bool isEnabled = settings.boolValue(QStringLiteral("pluginEnable") + cfg.format, true);
         if (!isEnabled) {
             continue;
         }

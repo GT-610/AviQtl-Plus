@@ -3,7 +3,6 @@
 #include "constants.hpp"
 #include <QImage>
 #include <QLoggingCategory>
-#include <QMap>
 #include <QObject>
 #include <QSize>
 #include <QString>
@@ -35,21 +34,23 @@ class VideoEncoder : public QObject {
     Q_OBJECT
   public:
     struct Config {
-        int width;
-        int height;
-        int fps_num;
-        int fps_den;
-        int64_t bitrate = 15'000'000;
-        int crf = -1;                                     // -1 = bitrate mode, 0~51 = CRF mode
-        QString codecName = QStringLiteral("libx264");    // software fallback, works on all platforms
-        QString audioCodecName = QStringLiteral("aac");
-        int64_t audioBitrate = 192'000;
+        Config();
+
+        int width = 0;
+        int height = 0;
+        int fps_num = 0;
+        int fps_den = 0;
+        int64_t bitrate = 0;
+        int crf = 0; // -1 = bitrate mode, 0~51 = CRF mode
+        QString codecName;
+        QString audioCodecName;
+        int64_t audioBitrate = 0;
         QString outputUrl;
         int startFrame = 0;
-        int endFrame = -1; // -1 = タイムライン末尾まで
+        int endFrame = 0; // -1 = タイムライン末尾まで
         QString preset;   // e.g. ultrafast, fast, medium, slow
         QString profile;  // e.g. baseline, main, high (H.264)
-        int gopSize = 0;  // 0 = encoder default
+        int gopSize = 0; // 0 = encoder default
     };
 
     explicit VideoEncoder(QObject *parent = nullptr);

@@ -76,7 +76,66 @@ auto stringOrDefault(const QVariantMap &metadata, const QString &key, const QStr
     return value.metaType().id() == QMetaType::QString ? value.toString() : fallback;
 }
 
+auto effectMetadataToMap(const EffectMetadata &metadata) -> QVariantMap {
+    return {
+        {QStringLiteral("id"), metadata.id},
+        {QStringLiteral("name"), metadata.name},
+        {QStringLiteral("version"), metadata.version},
+        {QStringLiteral("kind"), metadata.kind},
+        {QStringLiteral("categories"), metadata.categories},
+        {QStringLiteral("qmlSource"), metadata.qmlSource},
+        {QStringLiteral("color"), metadata.color},
+        {QStringLiteral("source"), metadata.source},
+        {QStringLiteral("packageId"), metadata.packageId},
+        {QStringLiteral("sourcePath"), metadata.sourcePath},
+        {QStringLiteral("defaultParams"), metadata.defaultParams},
+        {QStringLiteral("uiDefinition"), metadata.uiDefinition},
+    };
+}
+
+auto effectMetadataFromMap(const QVariantMap &metadata) -> EffectMetadata {
+    EffectMetadata result;
+    result.id = metadata.value(QStringLiteral("id")).toString();
+    result.name = metadata.value(QStringLiteral("name")).toString();
+    result.version = metadata.value(QStringLiteral("version")).toString();
+    result.kind = metadata.value(QStringLiteral("kind")).toString();
+    result.categories = metadata.value(QStringLiteral("categories")).toStringList();
+    result.qmlSource = metadata.value(QStringLiteral("qmlSource")).toString();
+    result.color = metadata.value(QStringLiteral("color")).toString();
+    result.source = metadata.value(QStringLiteral("source")).toString();
+    result.packageId = metadata.value(QStringLiteral("packageId")).toString();
+    result.sourcePath = metadata.value(QStringLiteral("sourcePath")).toString();
+    result.defaultParams = metadata.value(QStringLiteral("defaultParams")).toMap();
+    result.uiDefinition = metadata.value(QStringLiteral("uiDefinition")).toMap();
+    return result;
+}
+
 } // namespace
+
+void EffectRegistry::registerEffect(const EffectMetadata &meta) {
+    if (m_catalogState.registerMetadata(effectMetadataToMap(meta)) != RustCore::Effect::Status::Ok) {
+        qCWarning(lcEffectRegistry).noquote() << "Unable to register effect metadata:" << meta.id;
+    }
+}
+
+EffectMetadata EffectRegistry::getEffect(const QString &id) const {
+    QVariantMap metadata;
+    if (m_catalogState.find(id, metadata) != RustCore::Effect::Status::Ok)
+        return {};
+    return effectMetadataFromMap(metadata);
+}
+
+QList<EffectMetadata> EffectRegistry::getAllEffects() const {
+    QVariantList catalog;
+    if (m_catalogState.snapshot(catalog) != RustCore::Effect::Status::Ok)
+        return {};
+
+    QList<EffectMetadata> effects;
+    effects.reserve(catalog.size());
+    for (const QVariant &metadata : catalog)
+        effects.append(effectMetadataFromMap(metadata.toMap()));
+    return effects;
+}
 
 QString filesystemPathIdentity(const QString &path) {
     QFileInfo current(path);
@@ -222,16 +281,16 @@ void EffectRegistry::loadEffectsFromDirectory(const QString &path, const QString
 
 void EffectRegistry::removeEffectsFromDirectory(const QString &path) {
     const QDir directory(filesystemPathIdentity(path));
-    for (auto it = m_orderedIds.begin(); it != m_orderedIds.end();) {
-        const auto effectIt = m_effects.constFind(*it);
-        const QString relativeSourcePath = effectIt == m_effects.cend() ? QStringLiteral("..") : QDir::cleanPath(directory.relativeFilePath(filesystemPathIdentity(effectIt->sourcePath)));
+    QStringList removedIds;
+    const QList<EffectMetadata> effects = getAllEffects();
+    for (const EffectMetadata &effect : effects) {
+        const QString relativeSourcePath = QDir::cleanPath(directory.relativeFilePath(filesystemPathIdentity(effect.sourcePath)));
         if (relativeSourcePath != QStringLiteral("..") && !relativeSourcePath.startsWith(QStringLiteral("../")) && !QDir::isAbsolutePath(relativeSourcePath)) {
-            m_effects.remove(*it);
-            it = m_orderedIds.erase(it);
-        } else {
-            ++it;
+            removedIds.append(effect.id);
         }
     }
+    if (!removedIds.isEmpty() && m_catalogState.removeIds(removedIds) != RustCore::Effect::Status::Ok)
+        qCWarning(lcEffectRegistry).noquote() << "Unable to remove effect metadata for:" << path;
 }
 
 } // namespace AviQtl::Core

@@ -1,12 +1,11 @@
 #include "project_recovery_manager.hpp"
 #include "project_serializer.hpp"
 #include "rust_core_policy.hpp"
+#include "rust_recovery_document.hpp"
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QHash>
 #include <QMutex>
 #include <QMutexLocker>
@@ -19,7 +18,6 @@
 namespace AviQtl::UI {
 namespace {
 QString metadataPath(const QString &id) { return QDir(ProjectRecoveryManager::recoveryRoot()).filePath(id + QStringLiteral(".json")); }
-QString legacySnapshotFileName(const QString &id) { return id + QStringLiteral(".aviqtl"); }
 QString generatedSnapshotFileName(const QString &id) { return id + QLatin1Char('-') + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".aviqtl"); }
 QString snapshotPath(const QString &fileName) { return QDir(ProjectRecoveryManager::recoveryRoot()).filePath(fileName); }
 
@@ -63,25 +61,33 @@ bool isValidSnapshotFileName(const QString &id, const QString &fileName) {
     return AviQtl::RustCore::Policy::isValidRecoverySnapshotName(id, fileName);
 }
 
-QString snapshotFileNameFromMetadata(const QString &id, const QJsonObject &metadata) {
-    const QString fileName = metadata.value(QStringLiteral("snapshotFile")).toString(legacySnapshotFileName(id));
-    return isValidSnapshotFileName(id, fileName) ? fileName : QString();
+QString recoveryMetadataError(const QString &status) {
+    if (status == QStringLiteral("mismatched_id"))
+        return QStringLiteral("Recovery identifier does not match its file name");
+    if (status == QStringLiteral("invalid_snapshot"))
+        return QStringLiteral("Recovery snapshot file name is invalid");
+    if (status == QStringLiteral("invalid_timestamp"))
+        return QStringLiteral("Recovery timestamp is invalid");
+    if (status == QStringLiteral("invalid_id"))
+        return QStringLiteral("Recovery identifier is invalid");
+    return status == QStringLiteral("ok") ? QString()
+                                           : QStringLiteral("Recovery metadata is invalid");
 }
 
 QString existingSnapshotFileName(const QString &id) {
     QFile file(metadataPath(id));
     if (!file.open(QIODevice::ReadOnly))
         return {};
-    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
-    return document.isObject() ? snapshotFileNameFromMetadata(id, document.object()) : QString();
+    const auto inspection = AviQtl::RustCore::Recovery::inspectMetadata(id, file.readAll());
+    if (!inspection.has_value() || inspection->status != QStringLiteral("ok") ||
+        !isValidSnapshotFileName(id, inspection->snapshotFile)) {
+        return {};
+    }
+    return inspection->snapshotFile;
 }
 
 QString recoveryIdFromSnapshotFileName(const QString &fileName) {
-    constexpr qsizetype uuidLength = 36;
-    if (!fileName.endsWith(QStringLiteral(".aviqtl")) || fileName.size() < uuidLength + 7)
-        return {};
-    const QString id = fileName.first(uuidLength);
-    return isValidSnapshotFileName(id, fileName) ? id : QString();
+    return AviQtl::RustCore::Recovery::snapshotId(fileName);
 }
 
 bool setError(QString *errorMessage, const QString &message) {
@@ -129,32 +135,31 @@ QList<ProjectRecoveryEntry> recoveryEntriesLocked() {
         }
 
         QFile file(info.filePath());
-        QJsonParseError parseError;
         if (!file.open(QIODevice::ReadOnly)) {
             entry.error = file.errorString();
         } else {
-            const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
-            if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
-                entry.error = parseError.error != QJsonParseError::NoError ? parseError.errorString() : QStringLiteral("Recovery metadata must be a JSON object");
+            const auto inspection =
+                AviQtl::RustCore::Recovery::inspectMetadata(entry.id, file.readAll());
+            if (!inspection.has_value()) {
+                entry.error = QStringLiteral("Recovery metadata must be a JSON object");
             } else {
-                const QJsonObject metadata = document.object();
-                entry.originalProjectUrl = metadata.value(QStringLiteral("originalProjectUrl")).toString();
-                entry.displayName = metadata.value(QStringLiteral("displayName")).toString();
-                entry.savedAt = QDateTime::fromString(metadata.value(QStringLiteral("savedAt")).toString(), Qt::ISODateWithMs);
-                const QString snapshotFile = snapshotFileNameFromMetadata(entry.id, metadata);
-                entry.snapshotPath = snapshotFile.isEmpty() ? QString() : snapshotPath(snapshotFile);
-                if (metadata.value(QStringLiteral("id")).toString() != entry.id) {
-                    entry.error = QStringLiteral("Recovery identifier does not match its file name");
-                } else if (snapshotFile.isEmpty()) {
-                    entry.error = QStringLiteral("Recovery snapshot file name is invalid");
-                } else if (!entry.savedAt.isValid()) {
-                    entry.error = QStringLiteral("Recovery timestamp is invalid");
-                } else if (!QFileInfo::exists(entry.snapshotPath)) {
-                    entry.error = QStringLiteral("Recovery snapshot is missing");
-                } else if (QFileInfo(entry.snapshotPath).isSymLink()) {
-                    entry.error = QStringLiteral("Recovery snapshot must not be a symbolic link");
-                } else {
-                    entry.valid = true;
+                entry.originalProjectUrl = inspection->originalProjectUrl;
+                entry.displayName = inspection->displayName;
+                entry.savedAt = QDateTime::fromString(inspection->savedAt, Qt::ISODateWithMs);
+                entry.snapshotPath = inspection->snapshotFile.isEmpty()
+                                         ? QString()
+                                         : snapshotPath(inspection->snapshotFile);
+                entry.error = recoveryMetadataError(inspection->status);
+                if (entry.error.isEmpty()) {
+                    if (!entry.savedAt.isValid()) {
+                        entry.error = QStringLiteral("Recovery timestamp could not be decoded");
+                    } else if (!QFileInfo::exists(entry.snapshotPath)) {
+                        entry.error = QStringLiteral("Recovery snapshot is missing");
+                    } else if (QFileInfo(entry.snapshotPath).isSymLink()) {
+                        entry.error = QStringLiteral("Recovery snapshot must not be a symbolic link");
+                    } else {
+                        entry.valid = true;
+                    }
                 }
             }
         }
@@ -192,20 +197,20 @@ bool writeCapturedSnapshot(const QString &id, quint64 generation, const QString 
     }
     const QString previousSnapshotFile = existingSnapshotFileName(id);
 
-    QJsonObject metadata;
-    metadata.insert(QStringLiteral("id"), id);
-    metadata.insert(QStringLiteral("originalProjectUrl"), originalProjectUrl);
-    metadata.insert(QStringLiteral("displayName"), displayName);
-    metadata.insert(QStringLiteral("savedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-    metadata.insert(QStringLiteral("snapshotFile"), newSnapshotFile);
+    const auto metadata = AviQtl::RustCore::Recovery::buildMetadata(
+        id, originalProjectUrl, displayName,
+        QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs), newSnapshotFile);
+    if (!metadata.has_value()) {
+        QFile::remove(snapshotPath(newSnapshotFile));
+        return setError(errorMessage, QStringLiteral("Could not build recovery metadata"));
+    }
 
     QSaveFile file(metadataPath(id));
     if (!file.open(QIODevice::WriteOnly)) {
         QFile::remove(snapshotPath(newSnapshotFile));
         return setError(errorMessage, file.errorString());
     }
-    const QByteArray document = QJsonDocument(metadata).toJson(QJsonDocument::Compact);
-    if (file.write(document) != document.size() || !file.commit()) {
+    if (file.write(*metadata) != metadata->size() || !file.commit()) {
         const QString error = file.errorString();
         file.cancelWriting();
         QFile::remove(snapshotPath(newSnapshotFile));

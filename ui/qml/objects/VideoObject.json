@@ -5,7 +5,7 @@
     "params": {
         "path": "",
         "opacity": 1.0,
-        "playMode": "開始フレーム＋再生速度",
+        "playMode": "normal",
         "startFrame": 0,
         "speed": 100.0,
         "directFrame": 0
@@ -31,8 +31,14 @@
                 "param": "playMode",
                 "label": "再生モード",
                 "options": [
-                    "開始フレーム＋再生速度",
-                    "フレーム直接指定"
+                    {
+                        "value": "normal",
+                        "label": "開始フレーム＋再生速度"
+                    },
+                    {
+                        "value": "direct",
+                        "label": "フレーム直接指定"
+                    }
                 ]
             },
             {

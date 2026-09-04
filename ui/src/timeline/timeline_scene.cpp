@@ -102,13 +102,16 @@ bool TimelineService::setScenes(const QList<SceneData> &scenes) {
     m_scenes = scenes;
     invalidateCurrentSceneCache();
     if (m_scenes.isEmpty()) {
-        const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
+        const auto &settings = AviQtl::Core::SettingsManager::instance();
         SceneData rootScene;
         rootScene.id = 0;
         rootScene.name = QObject::tr("ルート");
-        rootScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
-        rootScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
-        rootScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
+        rootScene.width =
+            settings.intValue(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth);
+        rootScene.height =
+            settings.intValue(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight);
+        rootScene.fps =
+            settings.doubleValue(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps);
         m_scenes.append(rootScene);
         invalidateCurrentSceneCache();
     }
@@ -232,10 +235,13 @@ void TimelineService::createSceneInternal(int sceneId, const QString &name) {
     SceneData newScene;
     newScene.id = sceneId;
     newScene.name = name;
-    const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
-    newScene.width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
-    newScene.height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
-    newScene.fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
+    const auto &settings = AviQtl::Core::SettingsManager::instance();
+    newScene.width =
+        settings.intValue(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth);
+    newScene.height =
+        settings.intValue(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight);
+    newScene.fps =
+        settings.doubleValue(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps);
     const qsizetype insertedIndex = m_scenes.size();
     const QVariantMap request{
         {QStringLiteral("operation"), QStringLiteral("insert_scene")},

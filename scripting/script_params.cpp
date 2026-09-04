@@ -6,6 +6,30 @@
 namespace AviQtl::Scripting {
 
 namespace {
+auto parameterTypeName(ScriptParamType type) -> QString {
+    switch (type) {
+    case ScriptParamType::Track:
+        return QStringLiteral("track");
+    case ScriptParamType::Check:
+        return QStringLiteral("check");
+    case ScriptParamType::Color:
+        return QStringLiteral("color");
+    case ScriptParamType::Select:
+        return QStringLiteral("select");
+    case ScriptParamType::Text:
+        return QStringLiteral("text");
+    case ScriptParamType::String:
+        return QStringLiteral("string");
+    case ScriptParamType::File:
+        return QStringLiteral("file");
+    case ScriptParamType::Folder:
+        return QStringLiteral("folder");
+    case ScriptParamType::Value:
+        return QStringLiteral("value");
+    }
+    return QStringLiteral("track");
+}
+
 auto parameterType(const QString &value) -> ScriptParamType {
     if (value == QStringLiteral("check"))
         return ScriptParamType::Check;
@@ -49,6 +73,29 @@ auto parameterFromMap(const QVariantMap &value) -> ScriptParam {
     return parameter;
 }
 
+auto parameterToMap(const ScriptParam &parameter) -> QVariantMap {
+    QVariantList options;
+    options.reserve(parameter.options.size());
+    for (const ScriptParamOption &option : parameter.options) {
+        options.append(QVariantMap{
+            {QStringLiteral("label"), option.label},
+            {QStringLiteral("value"), option.value},
+        });
+    }
+    return {
+        {QStringLiteral("type"), parameterTypeName(parameter.type)},
+        {QStringLiteral("varName"), parameter.varName},
+        {QStringLiteral("label"), parameter.label},
+        {QStringLiteral("defaultValue"), parameter.defaultValue},
+        {QStringLiteral("minValue"), parameter.minValue},
+        {QStringLiteral("maxValue"), parameter.maxValue},
+        {QStringLiteral("step"), parameter.step},
+        {QStringLiteral("options"), options},
+        {QStringLiteral("groupName"), parameter.groupName},
+        {QStringLiteral("isSectionCheck"), parameter.isSectionCheck},
+    };
+}
+
 auto metadataFromMap(const QVariantMap &value) -> ScriptMetadata {
     ScriptMetadata metadata;
     metadata.information = value.value(QStringLiteral("information")).toString();
@@ -69,13 +116,52 @@ auto metadataFromMap(const QVariantMap &value) -> ScriptMetadata {
     }
     return metadata;
 }
+
+auto metadataToMap(const ScriptMetadata &metadata) -> QVariantMap {
+    QVariantList parameters;
+    parameters.reserve(metadata.params.size());
+    for (const ScriptParam &parameter : metadata.params)
+        parameters.append(parameterToMap(parameter));
+
+    QVariantList groups;
+    groups.reserve(metadata.groups.size());
+    for (const ScriptGroup &group : metadata.groups) {
+        QVariantList groupParameters;
+        groupParameters.reserve(group.params.size());
+        for (const ScriptParam &parameter : group.params)
+            groupParameters.append(parameterToMap(parameter));
+        groups.append(QVariantMap{
+            {QStringLiteral("name"), group.name},
+            {QStringLiteral("defaultExpanded"), group.defaultExpanded},
+            {QStringLiteral("params"), groupParameters},
+        });
+    }
+
+    return {
+        {QStringLiteral("information"), metadata.information},
+        {QStringLiteral("scriptType"), metadata.scriptType},
+        {QStringLiteral("requireVersion"), metadata.requireVersion},
+        {QStringLiteral("isFilter"), metadata.isFilter},
+        {QStringLiteral("label"), metadata.label},
+        {QStringLiteral("params"), parameters},
+        {QStringLiteral("groups"), groups},
+    };
+}
 } // namespace
 
 ScriptMetadata ScriptParamParser::parse(const QString &scriptContent) {
     const auto metadata = AviQtl::RustCore::Script::parse(scriptContent);
-    return metadata.has_value() ? metadataFromMap(*metadata) : ScriptMetadata{};
+    return metadata.has_value() ? fromVariantMap(*metadata) : ScriptMetadata{};
 }
 
 ScriptMetadata ScriptParamParser::parseHeader(const QStringList &lines) { return parse(lines.join(QLatin1Char('\n'))); }
+
+QVariantMap ScriptParamParser::toVariantMap(const ScriptMetadata &metadata) {
+    return metadataToMap(metadata);
+}
+
+ScriptMetadata ScriptParamParser::fromVariantMap(const QVariantMap &metadata) {
+    return metadataFromMap(metadata);
+}
 
 } // namespace AviQtl::Scripting

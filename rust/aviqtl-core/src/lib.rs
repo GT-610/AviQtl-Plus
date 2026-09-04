@@ -2,14 +2,18 @@
 
 mod abi;
 mod audio;
+mod bake_plan;
 mod effect;
+mod export;
 mod keyframe;
 mod keyframe_document;
 mod package;
+mod permission;
 mod plugin;
 mod policy;
 mod preset;
 mod project;
+mod recovery;
 mod script;
 mod settings;
 mod timeline;

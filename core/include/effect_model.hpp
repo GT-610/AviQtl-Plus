@@ -248,8 +248,14 @@ class EffectModel : public QObject {
                             ? QVariant(*numeric)
                             : Core::KeyframeUtils::numericResultWithSourceType(*resolved, frame, *numeric);
         } else {
-            if (resolved != m_resolvedCache.constEnd())
-                baseValue = evaluateTrack(*resolved, frame, fallback);
+            if (resolved != m_resolvedCache.constEnd()) {
+                const auto value =
+                    Core::KeyframeUtils::evaluateResolvedTrack(*resolved, frame, fallback);
+                if (value.has_value())
+                    baseValue = *value;
+                else
+                    baseValue = evaluateTrack(*resolved, frame, fallback);
+            }
         }
 
         // Check expression only if param is known to be an expression

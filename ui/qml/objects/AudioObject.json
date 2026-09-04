@@ -6,7 +6,7 @@
     "params": {
         "source": "",
         "linkedVideo": false,
-        "playMode": "開始時間＋再生速度",
+        "playMode": "normal",
         "startTime": 0,
         "speed": 100.0,
         "directTime": 0,
@@ -38,8 +38,14 @@
                 "param": "playMode",
                 "label": "再生モード",
                 "options": [
-                    "開始時間＋再生速度",
-                    "時間直接指定"
+                    {
+                        "value": "normal",
+                        "label": "開始時間＋再生速度"
+                    },
+                    {
+                        "value": "direct",
+                        "label": "時間直接指定"
+                    }
                 ]
             },
             {

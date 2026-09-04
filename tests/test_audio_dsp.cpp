@@ -223,6 +223,98 @@ private slots:
         QCOMPARE(results[2].mixed, std::uint32_t{0});
     }
 
+    void plansPlaybackActionsAndContinuousPhase() {
+        const AudioPlaybackContext context{
+            .current_frame = 11,
+            .samples_per_frame = 480,
+            .sample_rate = 48000,
+            .reserved = 0,
+            .fps = 60.0,
+            .mixer_playback_speed = 1.5,
+        };
+        AudioPlaybackInput solo{
+            .clip_id = 10,
+            .start_frame = 10,
+            .duration_frames = 10,
+            .previous_frame = 10,
+            .source_start_time = 1.0,
+            .playback_speed = 1.0,
+            .direct_time = 0.0,
+            .previous_phase = 5.0,
+            .fade_in_seconds = 0.0F,
+            .fade_out_seconds = 0.0F,
+            .volume = 1.0F,
+            .master_volume = 1.0F,
+            .pan = 0.0F,
+            .mute = 0,
+            .solo = 1,
+            .limiter = 0,
+            .direct_mode = 0,
+            .decoder_available = 1,
+            .has_previous_phase = 1,
+            .reserved = 0,
+        };
+        AudioPlaybackInput normal = solo;
+        normal.clip_id = 11;
+        normal.solo = 0;
+        normal.has_previous_phase = 0;
+        const std::array<AudioPlaybackInput, 2> inputs = {solo, normal};
+        std::array<AudioPlaybackPlan, 2> plans{};
+
+        QCOMPARE(static_cast<std::uint32_t>(planPlaybackBatch(context, inputs, plans)),
+                 static_cast<std::uint32_t>(AudioStatus::Ok));
+        QCOMPARE(plans[0].action,
+                 static_cast<std::uint32_t>(AudioPlaybackAction::FetchResample));
+        QVERIFY(std::abs(plans[0].source_start_time - 5.0) < 1e-9);
+        QVERIFY(std::abs(plans[0].source_rate - 1.5) < 1e-9);
+        QCOMPARE(plans[0].source_sample_count, 722);
+        QVERIFY(std::abs(plans[0].next_phase - 5.015) < 1e-9);
+        QCOMPARE(plans[1].action, static_cast<std::uint32_t>(AudioPlaybackAction::Silence));
+        QCOMPARE(plans[1].report_meter, std::uint32_t{1});
+    }
+
+    void plansWaveformSamplingRangesAndDisplayGain() {
+        const WaveformContext context{
+            .pixel_width = 2,
+            .display_duration_frames = 10,
+            .fps = 10.0,
+            .has_audio_effect = 1,
+            .direct_mode = 0,
+            .linked_video = 1,
+            .reserved = 0,
+        };
+        std::array<WaveformSamplingPoint, 2> sampling{};
+        QCOMPARE(static_cast<std::uint32_t>(waveformSamplingPoints(context, sampling)),
+                 static_cast<std::uint32_t>(AudioStatus::Ok));
+        QCOMPARE(sampling[0].relative_frame, 0);
+        QCOMPARE(sampling[0].next_relative_frame, 5);
+        QCOMPARE(sampling[1].relative_frame, 5);
+        QCOMPARE(sampling[1].next_relative_frame, 10);
+
+        const WaveformEvaluatedPoint value{
+            .direct_time = 0.0,
+            .next_direct_time = 0.0,
+            .start_time = 1.0,
+            .speed_percent = 400.0,
+            .volume = 2.0,
+            .master_volume = 0.5,
+            .pan = 0.5,
+            .fade_in_seconds = 1.0,
+            .fade_out_seconds = 0.0,
+            .mute = 0,
+            .reserved = 0,
+        };
+        const std::array<WaveformEvaluatedPoint, 2> evaluated = {value, value};
+        std::array<WaveformPlan, 2> plans{};
+        QCOMPARE(static_cast<std::uint32_t>(planWaveform(context, evaluated, plans)),
+                 static_cast<std::uint32_t>(AudioStatus::Ok));
+        QVERIFY(std::abs(plans[0].source_start_seconds - 1.0) < 1e-9);
+        QVERIFY(std::abs(plans[0].source_duration_seconds - 0.5) < 1e-9);
+        QCOMPARE(plans[0].display_gain, 0.0F);
+        QVERIFY(std::abs(plans[1].source_start_seconds - 1.5) < 1e-9);
+        QVERIFY(std::abs(plans[1].display_gain - 0.375F) < 1e-6F);
+    }
+
     void rejectsInvalidBatchResultCount() {
         const std::vector<float> samples = {0.0F, 0.0F};
         const std::array<AudioBatchTrack, 1> tracks = {{

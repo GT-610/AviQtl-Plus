@@ -313,6 +313,17 @@ void TestPackageDeploy::rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemo
     QVERIFY(!QDir(packageDir).exists());
     QVERIFY(registry.getEffect(effectId).id.isEmpty());
     QVERIFY(!manager.hasUpdatesAvailable());
+    const QVariantList refreshedPackages = manager.packageList();
+    const auto refreshedPackage = std::find_if(
+        refreshedPackages.cbegin(), refreshedPackages.cend(),
+        [&removablePackageId](const QVariant &entry) {
+            return entry.toMap().value(QStringLiteral("id")).toString() == removablePackageId;
+        });
+    QVERIFY(refreshedPackage != refreshedPackages.cend());
+    QVERIFY(refreshedPackage->toMap()
+                .value(QStringLiteral("installed_version"))
+                .toString()
+                .isEmpty());
 }
 
 void TestPackageDeploy::deploysPackageFiles_data() {

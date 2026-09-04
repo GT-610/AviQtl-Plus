@@ -23,6 +23,14 @@ enum AviQtlCoreCapability : std::uint64_t {
     AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_DOCUMENT = 1ULL << 14,
     AVIQTL_RUST_CORE_CAPABILITY_PLUGIN_DOCUMENT = 1ULL << 15,
     AVIQTL_RUST_CORE_CAPABILITY_TIMELINE_STATE = 1ULL << 16,
+    AVIQTL_RUST_CORE_CAPABILITY_AUDIO_PLANNING = 1ULL << 17,
+    AVIQTL_RUST_CORE_CAPABILITY_PERMISSION_STATE = 1ULL << 18,
+    AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_STATE = 1ULL << 19,
+    AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_CATALOG_STATE = 1ULL << 20,
+    AVIQTL_RUST_CORE_CAPABILITY_RECOVERY_DOCUMENT = 1ULL << 21,
+    AVIQTL_RUST_CORE_CAPABILITY_EXPORT_PLANNING = 1ULL << 22,
+    AVIQTL_RUST_CORE_CAPABILITY_EFFECT_CATALOG_STATE = 1ULL << 23,
+    AVIQTL_RUST_CORE_CAPABILITY_SCRIPT_PLUGIN_CATALOG_STATE = 1ULL << 24,
 };
 
 enum AviQtlCoreStatus : std::uint32_t {
@@ -37,6 +45,12 @@ enum AviQtlCoreStatus : std::uint32_t {
 };
 
 struct AviQtlTimelineState;
+struct AviQtlTimelineBakePlan;
+struct AviQtlPermissionState;
+struct AviQtlSettingsState;
+struct AviQtlPackageCatalogState;
+struct AviQtlEffectCatalogState;
+struct AviQtlScriptPluginCatalogState;
 
 struct AviQtlEasingParameters {
     double amplitude;
@@ -102,6 +116,116 @@ static_assert(sizeof(AviQtlAudioBatchResult) == 24);
 static_assert(alignof(AviQtlAudioBatchResult) == 4);
 static_assert(offsetof(AviQtlAudioBatchResult, clip_id) == 0);
 static_assert(offsetof(AviQtlAudioBatchResult, meter) == 8);
+
+struct AviQtlAudioPlaybackContext {
+    std::int32_t current_frame;
+    std::int32_t samples_per_frame;
+    std::int32_t sample_rate;
+    std::int32_t reserved;
+    double fps;
+    double mixer_playback_speed;
+};
+static_assert(sizeof(AviQtlAudioPlaybackContext) == 32);
+static_assert(alignof(AviQtlAudioPlaybackContext) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackContext, fps) == 16);
+static_assert(offsetof(AviQtlAudioPlaybackContext, mixer_playback_speed) == 24);
+
+struct AviQtlAudioPlaybackInput {
+    std::int32_t clip_id;
+    std::int32_t start_frame;
+    std::int32_t duration_frames;
+    std::int32_t previous_frame;
+    double source_start_time;
+    double playback_speed;
+    double direct_time;
+    double previous_phase;
+    float fade_in_seconds;
+    float fade_out_seconds;
+    float volume;
+    float master_volume;
+    float pan;
+    std::uint32_t mute;
+    std::uint32_t solo;
+    std::uint32_t limiter;
+    std::uint32_t direct_mode;
+    std::uint32_t decoder_available;
+    std::uint32_t has_previous_phase;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlAudioPlaybackInput) == 96);
+static_assert(alignof(AviQtlAudioPlaybackInput) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackInput, source_start_time) == 16);
+static_assert(offsetof(AviQtlAudioPlaybackInput, fade_in_seconds) == 48);
+static_assert(offsetof(AviQtlAudioPlaybackInput, mute) == 68);
+static_assert(offsetof(AviQtlAudioPlaybackInput, reserved) == 92);
+
+struct AviQtlAudioPlaybackPlan {
+    std::int32_t clip_id;
+    std::uint32_t action;
+    double source_start_time;
+    double source_rate;
+    double next_phase;
+    std::int32_t source_sample_count;
+    std::uint32_t report_meter;
+    std::uint32_t mute;
+    std::uint32_t solo;
+    AviQtlAudioMixParameters parameters;
+};
+static_assert(sizeof(AviQtlAudioPlaybackPlan) == 88);
+static_assert(alignof(AviQtlAudioPlaybackPlan) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackPlan, source_start_time) == 8);
+static_assert(offsetof(AviQtlAudioPlaybackPlan, source_sample_count) == 32);
+static_assert(offsetof(AviQtlAudioPlaybackPlan, parameters) == 48);
+
+struct AviQtlWaveformContext {
+    std::int32_t pixel_width;
+    std::int32_t display_duration_frames;
+    double fps;
+    std::uint32_t has_audio_effect;
+    std::uint32_t direct_mode;
+    std::uint32_t linked_video;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlWaveformContext) == 32);
+static_assert(alignof(AviQtlWaveformContext) == 8);
+static_assert(offsetof(AviQtlWaveformContext, fps) == 8);
+static_assert(offsetof(AviQtlWaveformContext, linked_video) == 24);
+
+struct AviQtlWaveformSamplingPoint {
+    std::int32_t relative_frame;
+    std::int32_t next_relative_frame;
+};
+static_assert(sizeof(AviQtlWaveformSamplingPoint) == 8);
+static_assert(alignof(AviQtlWaveformSamplingPoint) == 4);
+static_assert(offsetof(AviQtlWaveformSamplingPoint, next_relative_frame) == 4);
+
+struct AviQtlWaveformEvaluatedPoint {
+    double direct_time;
+    double next_direct_time;
+    double start_time;
+    double speed_percent;
+    double volume;
+    double master_volume;
+    double pan;
+    double fade_in_seconds;
+    double fade_out_seconds;
+    std::uint32_t mute;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlWaveformEvaluatedPoint) == 80);
+static_assert(alignof(AviQtlWaveformEvaluatedPoint) == 8);
+static_assert(offsetof(AviQtlWaveformEvaluatedPoint, speed_percent) == 24);
+static_assert(offsetof(AviQtlWaveformEvaluatedPoint, mute) == 72);
+
+struct AviQtlWaveformPlan {
+    double source_start_seconds;
+    double source_duration_seconds;
+    float display_gain;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlWaveformPlan) == 24);
+static_assert(alignof(AviQtlWaveformPlan) == 8);
+static_assert(offsetof(AviQtlWaveformPlan, display_gain) == 16);
 
 struct AviQtlNumericKeyframe {
     std::int32_t frame;
@@ -240,6 +364,32 @@ static_assert(offsetof(AviQtlAudioBakeOutput, source_start_time) == 12);
 static_assert(offsetof(AviQtlAudioBakeOutput, mute) == 44);
 static_assert(offsetof(AviQtlAudioBakeOutput, direct_mode) == 56);
 
+struct AviQtlEffectParamEntry {
+    std::uint32_t clip_id;
+    std::uint8_t effect_index;
+    std::uint8_t param_type;
+    std::uint8_t reserved[2];
+    std::uint8_t param_name[20];
+    float value[4];
+};
+static_assert(sizeof(AviQtlEffectParamEntry) == 44);
+static_assert(alignof(AviQtlEffectParamEntry) == 4);
+static_assert(offsetof(AviQtlEffectParamEntry, param_name) == 8);
+static_assert(offsetof(AviQtlEffectParamEntry, value) == 28);
+
+struct AviQtlSceneBakeCounts {
+    std::size_t render_count;
+    std::size_t audio_count;
+    std::size_t param_count;
+    std::uint64_t clips_visited;
+    std::uint64_t selected_effect_count;
+    std::uint64_t numeric_batch_calls;
+    std::uint64_t numeric_track_count;
+};
+static_assert(sizeof(AviQtlSceneBakeCounts) == 56);
+static_assert(alignof(AviQtlSceneBakeCounts) == 8);
+static_assert(offsetof(AviQtlSceneBakeCounts, clips_visited) == 24);
+
 struct AviQtlTimelineClipGeometry {
     std::int32_t clip_id;
     std::int32_t layer;
@@ -291,6 +441,119 @@ static_assert(offsetof(AviQtlSceneSettings, fps) == 8);
 static_assert(offsetof(AviQtlSceneSettings, grid_bpm) == 24);
 static_assert(offsetof(AviQtlSceneSettings, magnetic_snap_range) == 52);
 
+enum AviQtlExportConfigurationError : std::uint32_t {
+    AVIQTL_EXPORT_CONFIGURATION_OK = 0,
+    AVIQTL_EXPORT_CONFIGURATION_MISSING_OUTPUT_PATH = 1,
+    AVIQTL_EXPORT_CONFIGURATION_INVALID_OUTPUT_SIZE = 2,
+    AVIQTL_EXPORT_CONFIGURATION_INVALID_FPS = 3,
+    AVIQTL_EXPORT_CONFIGURATION_INVALID_RANGE = 4,
+    AVIQTL_EXPORT_CONFIGURATION_PROJECT_FPS_MISMATCH = 5,
+};
+
+enum AviQtlExportImageFormat : std::uint32_t {
+    AVIQTL_EXPORT_IMAGE_FORMAT_PNG = 0,
+    AVIQTL_EXPORT_IMAGE_FORMAT_JPEG = 1,
+};
+
+enum AviQtlExportCodecBackend : std::uint32_t {
+    AVIQTL_EXPORT_CODEC_BACKEND_SOFTWARE = 0,
+    AVIQTL_EXPORT_CODEC_BACKEND_CUDA = 1,
+    AVIQTL_EXPORT_CODEC_BACKEND_VAAPI = 2,
+    AVIQTL_EXPORT_CODEC_BACKEND_QSV = 3,
+    AVIQTL_EXPORT_CODEC_BACKEND_D3D11VA = 4,
+    AVIQTL_EXPORT_CODEC_BACKEND_DXVA2 = 5,
+    AVIQTL_EXPORT_CODEC_BACKEND_VIDEOTOOLBOX = 6,
+    AVIQTL_EXPORT_CODEC_BACKEND_AMF = 7,
+};
+
+enum AviQtlExportFixedGopMode : std::uint32_t {
+    AVIQTL_EXPORT_FIXED_GOP_NONE = 0,
+    AVIQTL_EXPORT_FIXED_GOP_X264 = 1,
+    AVIQTL_EXPORT_FIXED_GOP_X265 = 2,
+    AVIQTL_EXPORT_FIXED_GOP_NVENC = 3,
+};
+
+struct AviQtlExportVideoDefaults {
+    std::int32_t width;
+    std::int32_t height;
+    std::int32_t fps_num;
+    std::int32_t fps_den;
+    std::int64_t bitrate;
+    std::int32_t crf;
+    std::int32_t gop_size;
+    std::int64_t audio_bitrate;
+    std::int32_t start_frame;
+    std::int32_t end_frame;
+};
+static_assert(sizeof(AviQtlExportVideoDefaults) == 48);
+static_assert(alignof(AviQtlExportVideoDefaults) == 8);
+static_assert(offsetof(AviQtlExportVideoDefaults, bitrate) == 16);
+static_assert(offsetof(AviQtlExportVideoDefaults, audio_bitrate) == 32);
+
+struct AviQtlExportVideoRequest {
+    std::int32_t width;
+    std::int32_t height;
+    std::int32_t fps_num;
+    std::int32_t fps_den;
+    std::int32_t start_frame;
+    std::int32_t end_frame;
+    std::int32_t timeline_duration;
+    std::uint32_t output_path_present;
+    double project_fps;
+};
+static_assert(sizeof(AviQtlExportVideoRequest) == 40);
+static_assert(alignof(AviQtlExportVideoRequest) == 8);
+static_assert(offsetof(AviQtlExportVideoRequest, project_fps) == 32);
+
+struct AviQtlExportVideoPlan {
+    std::int32_t start_frame;
+    std::int32_t end_frame;
+    std::int32_t total_frames;
+    std::uint32_t error;
+};
+static_assert(sizeof(AviQtlExportVideoPlan) == 16);
+static_assert(alignof(AviQtlExportVideoPlan) == 4);
+
+struct AviQtlExportImageSequenceRequest {
+    std::int32_t start_frame;
+    std::int32_t end_frame;
+    std::int32_t timeline_duration;
+    std::int32_t configured_padding;
+    std::uint32_t output_path_present;
+};
+static_assert(sizeof(AviQtlExportImageSequenceRequest) == 20);
+static_assert(alignof(AviQtlExportImageSequenceRequest) == 4);
+
+struct AviQtlExportImageSequencePlan {
+    std::int32_t start_frame;
+    std::int32_t end_frame;
+    std::int32_t total_frames;
+    std::int32_t pad_digits;
+    std::uint32_t image_format;
+    std::uint32_t error;
+};
+static_assert(sizeof(AviQtlExportImageSequencePlan) == 24);
+static_assert(alignof(AviQtlExportImageSequencePlan) == 4);
+
+struct AviQtlExportAudioFramePlan {
+    std::int64_t cumulative_samples;
+    std::int32_t samples_for_frame;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(AviQtlExportAudioFramePlan) == 16);
+static_assert(alignof(AviQtlExportAudioFramePlan) == 8);
+static_assert(offsetof(AviQtlExportAudioFramePlan, samples_for_frame) == 8);
+
+struct AviQtlExportProgressPlan {
+    std::int32_t progress;
+    std::int32_t current_frame;
+    std::int32_t total_frames;
+    std::int32_t eta_seconds;
+    std::uint32_t should_emit;
+};
+static_assert(sizeof(AviQtlExportProgressPlan) == 20);
+static_assert(alignof(AviQtlExportProgressPlan) == 4);
+
 extern "C" {
 
 std::uint32_t aviqtl_core_abi_version();
@@ -303,6 +566,9 @@ double aviqtl_easing_evaluate(std::uint32_t kind, double t, const double *points
 
 std::uint32_t aviqtl_audio_resample_stereo_linear(const float *input, std::size_t inputLength, float *output, std::size_t outputLength, double sourceRate);
 std::uint32_t aviqtl_audio_mix_stereo_batch(const AviQtlAudioBatchTrack *tracks, std::size_t tracksLength, float *master, std::size_t masterLength, AviQtlAudioBatchResult *results, std::size_t resultsLength);
+std::uint32_t aviqtl_audio_plan_playback_batch(const AviQtlAudioPlaybackContext *context, const AviQtlAudioPlaybackInput *inputs, std::size_t inputsLength, AviQtlAudioPlaybackPlan *output, std::size_t outputLength);
+std::uint32_t aviqtl_audio_waveform_sampling_points(const AviQtlWaveformContext *context, AviQtlWaveformSamplingPoint *output, std::size_t outputLength);
+std::uint32_t aviqtl_audio_plan_waveform(const AviQtlWaveformContext *context, const AviQtlWaveformEvaluatedPoint *evaluated, std::size_t evaluatedLength, AviQtlWaveformPlan *output, std::size_t outputLength);
 
 std::uint32_t aviqtl_numeric_keyframe_batch_evaluate(const AviQtlNumericTrackView *tracks, std::size_t tracksLength, std::int32_t frame, double *output, std::size_t outputLength);
 std::uint32_t aviqtl_numeric_keyframe_evaluate_typed(const AviQtlNumericTrackView *track, std::int32_t frame, std::uint32_t discrete, double *output);
@@ -310,6 +576,11 @@ std::uint32_t aviqtl_numeric_interpolation_from_name(const std::uint8_t *value, 
 
 std::uint32_t aviqtl_timeline_bake_render(const AviQtlRenderBakeInput *input, AviQtlRenderBakeOutput *output);
 std::uint32_t aviqtl_timeline_bake_audio(const AviQtlAudioBakeInput *input, AviQtlAudioBakeOutput *output);
+std::uint32_t aviqtl_timeline_bake_plan_create(const std::uint8_t *input, std::size_t inputLength, AviQtlTimelineBakePlan **outputHandle);
+void aviqtl_timeline_bake_plan_destroy(AviQtlTimelineBakePlan *handle);
+std::uint32_t aviqtl_timeline_bake_plan_reset(AviQtlTimelineBakePlan *handle, const std::uint8_t *input, std::size_t inputLength);
+std::size_t aviqtl_timeline_bake_plan_effect_count(AviQtlTimelineBakePlan *handle);
+std::uint32_t aviqtl_timeline_bake_plan_evaluate(AviQtlTimelineBakePlan *handle, std::int32_t currentFrame, std::uint32_t fullBake, std::int32_t prefetchFrames, AviQtlRenderBakeOutput *renderOutput, std::size_t renderCapacity, AviQtlAudioBakeOutput *audioOutput, std::size_t audioCapacity, AviQtlEffectParamEntry *paramOutput, std::size_t paramCapacity, AviQtlSceneBakeCounts *counts);
 
 std::uint32_t aviqtl_timeline_find_vacant_frame(const AviQtlTimelineClipGeometry *clips, std::size_t clipsLength, const std::int32_t *excludedIds, std::size_t excludedIdsLength, std::int32_t layer, std::int32_t startFrame, std::int32_t durationFrames,
                                                 std::int32_t *outputFrame);
@@ -334,7 +605,9 @@ void aviqtl_timeline_state_destroy(AviQtlTimelineState *handle);
 std::uint32_t aviqtl_timeline_state_reset(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength, std::int32_t nextClipHint, std::int32_t nextSceneHint);
 std::uint32_t aviqtl_timeline_state_snapshot_json(AviQtlTimelineState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 std::uint32_t aviqtl_timeline_state_plan_json(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
-std::uint32_t aviqtl_timeline_state_apply_patch_json(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_timeline_state_plan_batch_json(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_transaction_combine_json(const std::uint8_t *first, std::size_t firstLength, const std::uint8_t *second, std::size_t secondLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_timeline_state_apply_transaction_json(AviQtlTimelineState *handle, const std::uint8_t *input, std::size_t inputLength, std::uint32_t forward);
 std::uint32_t aviqtl_timeline_state_reserve_clip_ids(AviQtlTimelineState *handle, std::size_t count, std::int32_t *output, std::size_t outputLength);
 std::uint32_t aviqtl_timeline_state_reserve_scene_ids(AviQtlTimelineState *handle, std::size_t count, std::int32_t *output, std::size_t outputLength);
 std::int32_t aviqtl_timeline_state_next_clip_id(AviQtlTimelineState *handle);
@@ -353,8 +626,9 @@ std::uint32_t aviqtl_timeline_plan_index_move(std::size_t length, std::int32_t o
 std::uint32_t aviqtl_timeline_plan_multi_reorder(std::size_t length, const std::int32_t *indices, std::size_t indicesLength, std::int32_t targetIndex, std::int32_t minimumIndex, std::int32_t *redo, std::int32_t *undo, std::size_t *outputSelectedCount);
 
 std::uint32_t aviqtl_keyframe_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_keyframe_evaluate_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
-std::uint32_t aviqtl_media_is_direct_audio_mode(const std::uint8_t *value, std::size_t valueLength);
+std::int32_t aviqtl_media_playback_mode(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_media_is_video_file(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_audio_parameter_affects_duration(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_audio_parameter_affects_waveform(const std::uint8_t *value, std::size_t valueLength);
@@ -367,16 +641,51 @@ std::int32_t aviqtl_permission_from_name(const std::uint8_t *value, std::size_t 
 std::int32_t aviqtl_permission_for_api(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_permission_count();
 const std::uint8_t *aviqtl_permission_name(std::int32_t permission, std::size_t *outputLength);
+std::uint32_t aviqtl_permission_state_create(const std::uint8_t *input, std::size_t inputLength, AviQtlPermissionState **outputHandle);
+void aviqtl_permission_state_destroy(AviQtlPermissionState *handle);
+std::uint32_t aviqtl_permission_state_reset(AviQtlPermissionState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_permission_state_snapshot_json(const AviQtlPermissionState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_permission_state_has(const AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength, std::int32_t permission);
+std::uint32_t aviqtl_permission_state_grant(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength, std::int32_t permission);
+std::uint32_t aviqtl_permission_state_revoke(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength, std::int32_t permission, std::uint32_t *pluginExisted);
+std::uint32_t aviqtl_permission_state_grant_all(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
+std::uint32_t aviqtl_permission_state_revoke_all(AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
+std::uint64_t aviqtl_permission_state_mask(const AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
+std::uint32_t aviqtl_permission_state_is_authorized(const AviQtlPermissionState *handle, const std::uint8_t *plugin, std::size_t pluginLength);
 
 std::uint32_t aviqtl_package_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
 std::int32_t aviqtl_package_type(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_recovery_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_recovery_snapshot_name_is_valid(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *fileName, std::size_t fileNameLength);
+std::uint32_t aviqtl_recovery_metadata_inspect_json(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *metadata, std::size_t metadataLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_recovery_metadata_build_json(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *originalProjectUrl, std::size_t originalProjectUrlLength, const std::uint8_t *displayName, std::size_t displayNameLength, const std::uint8_t *savedAt, std::size_t savedAtLength, const std::uint8_t *snapshotFile, std::size_t snapshotFileLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_recovery_snapshot_id(const std::uint8_t *fileName, std::size_t fileNameLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
-std::uint32_t aviqtl_settings_defaults_json(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
-std::uint32_t aviqtl_settings_merge_json(const std::uint8_t *base, std::size_t baseLength, const std::uint8_t *loaded, std::size_t loadedLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::uint32_t *migrated);
-std::uint32_t aviqtl_settings_persistent_json(const std::uint8_t *settings, std::size_t settingsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_export_video_defaults(AviQtlExportVideoDefaults *output);
+const std::uint8_t *aviqtl_export_default_video_codec(std::size_t *outputLength);
+const std::uint8_t *aviqtl_export_default_audio_codec(std::size_t *outputLength);
+std::uint32_t aviqtl_export_plan_video(const AviQtlExportVideoRequest *request, AviQtlExportVideoPlan *output);
+std::uint32_t aviqtl_export_plan_image_sequence(const AviQtlExportImageSequenceRequest *request, const std::uint8_t *format, std::size_t formatLength, AviQtlExportImageSequencePlan *output);
+std::uint32_t aviqtl_export_plan_audio_frame(std::int32_t frameIndex, std::int32_t sampleRate, std::int32_t fpsNum, std::int32_t fpsDen, AviQtlExportAudioFramePlan *output);
+std::uint32_t aviqtl_export_plan_progress(std::int32_t done, std::int32_t totalFrames, std::int32_t interval, std::int64_t elapsedMs, AviQtlExportProgressPlan *output);
+std::uint32_t aviqtl_export_codec_backend(const std::uint8_t *codecName, std::size_t codecNameLength);
+const std::uint8_t *aviqtl_export_codec_fallback(const std::uint8_t *codecName, std::size_t codecNameLength, std::size_t *outputLength);
+std::uint32_t aviqtl_export_fixed_gop_mode(const std::uint8_t *codecName, std::size_t codecNameLength);
+std::size_t aviqtl_export_encoder_queue_size(std::int32_t width, std::int32_t height, std::int32_t budgetMb);
+
+std::uint32_t aviqtl_settings_state_create_defaults(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, AviQtlSettingsState **outputHandle);
+std::uint32_t aviqtl_settings_state_create(const std::uint8_t *input, std::size_t inputLength, AviQtlSettingsState **outputHandle);
+void aviqtl_settings_state_destroy(AviQtlSettingsState *handle);
+std::uint32_t aviqtl_settings_state_reset(AviQtlSettingsState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_settings_state_merge_json(AviQtlSettingsState *handle, const std::uint8_t *loaded, std::size_t loadedLength, std::uint32_t *migrated);
+std::uint32_t aviqtl_settings_state_snapshot_json(const AviQtlSettingsState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_settings_state_persistent_json(const AviQtlSettingsState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_settings_state_set_value_json(AviQtlSettingsState *handle, const std::uint8_t *key, std::size_t keyLength, const std::uint8_t *valueDocument, std::size_t valueDocumentLength, std::uint32_t *changed, std::uint32_t *persistent);
+std::uint32_t aviqtl_settings_state_remove_value(AviQtlSettingsState *handle, const std::uint8_t *key, std::size_t keyLength, std::uint32_t *changed, std::uint32_t *persistent);
+std::int32_t aviqtl_settings_state_get_i32(const AviQtlSettingsState *handle, const std::uint8_t *key, std::size_t keyLength, std::int32_t fallback);
+double aviqtl_settings_state_get_f64(const AviQtlSettingsState *handle, const std::uint8_t *key, std::size_t keyLength, double fallback);
+std::uint32_t aviqtl_settings_state_get_bool(const AviQtlSettingsState *handle, const std::uint8_t *key, std::size_t keyLength, std::uint32_t fallback);
 
 std::uint32_t aviqtl_preset_name_is_safe(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_preset_build_json(const std::uint8_t *effectId, std::size_t effectIdLength, const std::uint8_t *name, std::size_t nameLength, std::uint32_t enabled, const std::uint8_t *params, std::size_t paramsLength, const std::uint8_t *keyframes,
@@ -385,12 +694,34 @@ std::uint32_t aviqtl_preset_normalize_json(const std::uint8_t *effectId, std::si
                                            std::size_t *outputLength);
 
 std::uint32_t aviqtl_package_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_create(AviQtlPackageCatalogState **outputHandle);
+void aviqtl_package_catalog_state_destroy(AviQtlPackageCatalogState *handle);
+std::uint32_t aviqtl_package_catalog_state_clear(AviQtlPackageCatalogState *handle);
+std::uint32_t aviqtl_package_catalog_state_merge_json(AviQtlPackageCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_package_catalog_state_snapshot_json(const AviQtlPackageCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_has_updates(const AviQtlPackageCatalogState *handle);
+std::uint32_t aviqtl_package_catalog_state_find_json(const AviQtlPackageCatalogState *handle, const std::uint8_t *packageId, std::size_t packageIdLength, const std::uint8_t *sourceRepository, std::size_t sourceRepositoryLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_filter_json(const AviQtlPackageCatalogState *handle, const std::uint8_t *filter, std::size_t filterLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_upgrade_ids_json(const AviQtlPackageCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_package_catalog_state_set_installed(AviQtlPackageCatalogState *handle, const std::uint8_t *packageId, std::size_t packageIdLength, const std::uint8_t *version, std::size_t versionLength, std::uint32_t installed, std::uint32_t *changed);
 
 std::uint32_t aviqtl_effect_metadata_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_effect_catalog_state_create(AviQtlEffectCatalogState **outputHandle);
+void aviqtl_effect_catalog_state_destroy(AviQtlEffectCatalogState *handle);
+std::uint32_t aviqtl_effect_catalog_state_register_json(AviQtlEffectCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_effect_catalog_state_snapshot_json(const AviQtlEffectCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_effect_catalog_state_find_json(const AviQtlEffectCatalogState *handle, const std::uint8_t *id, std::size_t idLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_effect_catalog_state_remove_ids_json(AviQtlEffectCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
 
 std::uint32_t aviqtl_script_metadata_parse_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::uint32_t aviqtl_plugin_document_apply_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_script_plugin_catalog_state_create(AviQtlScriptPluginCatalogState **outputHandle);
+void aviqtl_script_plugin_catalog_state_destroy(AviQtlScriptPluginCatalogState *handle);
+std::uint32_t aviqtl_script_plugin_catalog_state_clear(AviQtlScriptPluginCatalogState *handle);
+std::uint32_t aviqtl_script_plugin_catalog_state_store_json(AviQtlScriptPluginCatalogState *handle, const std::uint8_t *input, std::size_t inputLength);
+std::uint32_t aviqtl_script_plugin_catalog_state_snapshot_json(const AviQtlScriptPluginCatalogState *handle, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_script_plugin_catalog_state_find_json(const AviQtlScriptPluginCatalogState *handle, const std::uint8_t *id, std::size_t idLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
 
 std::int32_t aviqtl_project_current_version();
 std::uint32_t aviqtl_project_normalize_json(const std::uint8_t *input, std::size_t inputLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);

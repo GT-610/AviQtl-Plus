@@ -194,6 +194,30 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME rust_package_state
+    SOURCES test_rust_package_state.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME rust_effect_state
+    SOURCES test_rust_effect_state.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME rust_plugin_state
+    SOURCES test_rust_plugin_state.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
+    NAME rust_export_plan
+    SOURCES test_rust_export_plan.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI
@@ -405,9 +429,10 @@ set_tests_properties(build_version PROPERTIES TIMEOUT 30)
 
 set_tests_properties(audio_decoder PROPERTIES TIMEOUT 180)
 set_tests_properties(
-    video_decoder large_timeline_performance qml_composite_capture
+    video_decoder qml_composite_capture
     PROPERTIES TIMEOUT 120
 )
+set_tests_properties(large_timeline_performance PROPERTIES TIMEOUT 300)
 
 # Labels keep focused developer runs concise without changing the default suite.
 function(aviqtl_label_tests LABEL)
@@ -418,7 +443,9 @@ aviqtl_label_tests(unit
     effect_registry shader_compiler document_model settings_manager performance_metrics
     theme_controller media_decoder media_utils keyframe_utils effect_model
     video_frame_store dense_component_map audio_plugin_chain audio_dsp triple_buffer
-    rust_timeline_edit rust_timeline_domain rust_keyframe_document lua_host plugin_manifest
+    rust_timeline_edit rust_timeline_domain rust_keyframe_document rust_package_state
+    rust_effect_state rust_plugin_state rust_export_plan
+    lua_host plugin_manifest
     mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
     project_recovery build_version

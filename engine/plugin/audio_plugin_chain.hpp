@@ -13,8 +13,10 @@ class AudioPluginChain {
   public:
     AudioPluginChain() {
         const auto &sm = AviQtl::Core::SettingsManager::instance();
-        m_sampleRate = sm.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toDouble();
-        m_maxBlockSize = sm.value(QStringLiteral("audioPluginMaxBlockSize"), AviQtl::kAudioMaxBlockSize).toInt();
+        m_sampleRate = sm.doubleValue(QStringLiteral("defaultProjectSampleRate"),
+                                      AviQtl::kDefaultSampleRate);
+        m_maxBlockSize = sm.intValue(QStringLiteral("audioPluginMaxBlockSize"),
+                                     AviQtl::kAudioMaxBlockSize);
     }
     AudioPluginChain(double sampleRate, int maxBlockSize)
         : m_sampleRate(sampleRate), m_maxBlockSize(maxBlockSize) {}

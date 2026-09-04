@@ -2,6 +2,7 @@
 #include "constants.hpp"
 #include "engine/audio_mixer.hpp"
 #include "performance_metrics.hpp"
+#include "rust_export_plan.hpp"
 #include "settings_manager.hpp"
 #include "timeline_controller.hpp"
 #include "video_encoder.hpp"
@@ -153,6 +154,16 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         return;
     }
 
+    const auto exportPlan = AviQtl::RustCore::Export::planVideo(
+        config.width, config.height, config.fps_num, config.fps_den, config.startFrame,
+        config.endFrame, m_controller->timelineDuration(), !config.outputUrl.trimmed().isEmpty(),
+        m_controller->project()->fps());
+    if (static_cast<AviQtl::RustCore::Export::ConfigurationError>(exportPlan.error) !=
+        AviQtl::RustCore::Export::ConfigurationError::None) {
+        finishExport(false, tr("Encoder error: initialization failed"));
+        return;
+    }
+
     ExportModeGuard exportModeGuard(view);
 
     AviQtl::Core::VideoEncoder encoder;
@@ -162,7 +173,9 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     }
 
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
-    const int sr = std::max(1, settings.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toInt());
+    const int sr = std::max(
+        1, settings.intValue(QStringLiteral("defaultProjectSampleRate"),
+                             AviQtl::kDefaultSampleRate));
     // AudioMixer currently produces stereo interleaved samples regardless of the
     // playback-device channel layout. Keep the export stream consistent with it.
     if (!encoder.addAudioStream(sr, kExportAudioChannels)) {
@@ -173,23 +186,19 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
     }
 
     const double fps = m_controller->project()->fps();
-    const int startFrame = config.startFrame;
-    const int endFrame = config.endFrame >= 0 ? config.endFrame : m_controller->timelineDuration();
-    const int totalFrames = endFrame - startFrame;
+    const int startFrame = exportPlan.start_frame;
+    const int endFrame = exportPlan.end_frame;
+    const int totalFrames = exportPlan.total_frames;
 
     emit exportStarted(totalFrames);
 
-    const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
-
-    // Accumulate audio sample time with integer numerators to avoid drift.
-    int64_t audioSampleAccumulator = 0;
-    const int64_t audioSampleNum = sr;
-    const int64_t scaledFpsDen = static_cast<int64_t>(fps * 1000.0);
+    const int grabTimeout =
+        settings.intValue(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs);
+    const int progInterval =
+        std::max(1, settings.intValue(QStringLiteral("exportProgressInterval"), 5));
 
     QElapsedTimer timer;
     timer.start();
-    qint64 elapsedMs = 0;
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
@@ -237,11 +246,17 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         }
         AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::ExportFrames);
 
-        // Calculate audio samples for this frame using fractional accumulation to prevent A/V drift.
-        // Keep the denominator as a scaled integer to preserve fractional frame rates.
-        const int64_t nextAudioSample = ((frame - startFrame + 1LL) * audioSampleNum * 1000LL) / scaledFpsDen;
-        const int samplesNeeded = static_cast<int>(nextAudioSample - audioSampleAccumulator);
-        audioSampleAccumulator = nextAudioSample;
+        AviQtlExportAudioFramePlan audioPlan{};
+        if (AviQtl::RustCore::Export::planAudioFrame(
+                frame - startFrame, sr, config.fps_num, config.fps_den, audioPlan) !=
+            AviQtl::RustCore::Export::Status::Ok) {
+            encoder.close();
+            QFile::remove(config.outputUrl);
+            finishExport(false,
+                         tr("Encoder error: audio planning failed for frame %1").arg(frame));
+            return;
+        }
+        const int samplesNeeded = audioPlan.samples_for_frame;
 
         if (samplesNeeded > 0) {
             std::vector<float> audio;
@@ -255,12 +270,11 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         }
 
         const int done = frame - startFrame + 1;
-        if (done % progInterval == 0 || done == totalFrames) {
-            elapsedMs = timer.elapsed();
-            const double msPerFrame = static_cast<double>(elapsedMs) / done;
-            const int remainingFrames = totalFrames - done;
-            const int etaSeconds = static_cast<int>((msPerFrame * remainingFrames) / 1000.0);
-            emit exportProgressChanged(done * 100 / totalFrames, done, totalFrames, etaSeconds);
+        const auto progressPlan = AviQtl::RustCore::Export::planProgress(
+            done, totalFrames, progInterval, timer.elapsed());
+        if (progressPlan.should_emit != 0) {
+            emit exportProgressChanged(progressPlan.progress, progressPlan.current_frame,
+                                       progressPlan.total_frames, progressPlan.eta_seconds);
         }
     }
 
@@ -365,11 +379,24 @@ bool TimelineExportManager::waitForRenderFrame(QPointer<QQuickItem> targetItem, 
 void TimelineExportManager::runImageSequenceExport(const QString &dir, int quality, const QString &format, int startFrame, int endFrame) {
     QDir outputDir(dir);
     const AviQtl::Core::SettingsManager &settings = AviQtl::Core::SettingsManager::instance();
-    const int totalFrames = endFrame - startFrame;
-    const int configuredPadding = std::clamp(settings.value(QStringLiteral("exportSequencePadding"), 6).toInt(), 2, 10);
-    const int padDigits = std::max(configuredPadding, static_cast<int>(QString::number(std::max(0, endFrame - 1)).length()));
-    const QString extension = (format == QStringLiteral("JPEG")) ? QStringLiteral(".jpg") : QStringLiteral(".png");
-    const QByteArray imageFormat = (format == QStringLiteral("JPEG")) ? "JPEG" : "PNG";
+    const auto exportPlan = AviQtl::RustCore::Export::planImageSequence(
+        startFrame, endFrame, m_controller->timelineDuration(),
+        settings.intValue(QStringLiteral("exportSequencePadding"), 6),
+        !dir.trimmed().isEmpty(), format);
+    if (static_cast<AviQtl::RustCore::Export::ConfigurationError>(exportPlan.error) !=
+        AviQtl::RustCore::Export::ConfigurationError::None) {
+        finishExport(false, tr("Output error: invalid image sequence configuration"));
+        return;
+    }
+    startFrame = exportPlan.start_frame;
+    endFrame = exportPlan.end_frame;
+    const int totalFrames = exportPlan.total_frames;
+    const int padDigits = exportPlan.pad_digits;
+    const auto plannedImageFormat =
+        static_cast<AviQtl::RustCore::Export::ImageFormat>(exportPlan.image_format);
+    const QString extension = AviQtl::RustCore::Export::imageExtension(plannedImageFormat);
+    const QByteArray imageFormat =
+        AviQtl::RustCore::Export::imageEncoderName(plannedImageFormat);
     const int saveQuality = quality;
 
     emit exportStarted(totalFrames);
@@ -417,12 +444,13 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
 
     ExportModeGuard exportModeGuard(view);
 
-    const int grabTimeout = settings.value(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs).toInt();
-    const int progInterval = std::max(1, settings.value(QStringLiteral("exportProgressInterval"), 5).toInt());
+    const int grabTimeout =
+        settings.intValue(QStringLiteral("exportFrameGrabTimeoutMs"), kDefaultGrabTimeoutMs);
+    const int progInterval =
+        std::max(1, settings.intValue(QStringLiteral("exportProgressInterval"), 5));
 
     QElapsedTimer timer;
     timer.start();
-    qint64 elapsedMs = 0;
 
     for (int frame = startFrame; frame < endFrame; ++frame) {
         if (m_cancelRequested.load()) {
@@ -469,12 +497,11 @@ void TimelineExportManager::runImageSequenceExport(const QString &dir, int quali
         AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::ExportFrames);
 
         const int done = frame - startFrame + 1;
-        if (done % progInterval == 0 || done == totalFrames) {
-            elapsedMs = timer.elapsed();
-            const double msPerFrame = static_cast<double>(elapsedMs) / done;
-            const int remainingFrames = totalFrames - done;
-            const int etaSeconds = static_cast<int>((msPerFrame * remainingFrames) / 1000.0);
-            emit exportProgressChanged(done * 100 / totalFrames, done, totalFrames, etaSeconds);
+        const auto progressPlan = AviQtl::RustCore::Export::planProgress(
+            done, totalFrames, progInterval, timer.elapsed());
+        if (progressPlan.should_emit != 0) {
+            emit exportProgressChanged(progressPlan.progress, progressPlan.current_frame,
+                                       progressPlan.total_frames, progressPlan.eta_seconds);
         }
     }
 

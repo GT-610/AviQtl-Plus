@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <utility>
 
 Q_LOGGING_CATEGORY(lcSettings, "aviqtl.settings")
 
@@ -53,12 +54,12 @@ auto SettingsManager::instance() -> SettingsManager & {
 }
 
 SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
-    const auto defaults = RustCore::Settings::defaults(platformDefaultSettings());
     // Defaults are required to establish the complete settings schema; continuing with a
     // partial map would make later reads silently depend on unrelated caller fallbacks.
-    if (!defaults.has_value())
+    if (m_state.initializeDefaults(platformDefaultSettings()) !=
+            RustCore::Settings::Status::Ok ||
+        !syncProjection())
         qFatal("[SettingsManager] Rust core failed to construct the settings document");
-    m_settings = *defaults;
     load();
 }
 
@@ -89,7 +90,10 @@ auto SettingsManager::getSettingsFilePath() -> QString {
 
 void SettingsManager::setSettings(const QVariantMap &settings) {
     if (m_settings != settings) {
-        m_settings = settings;
+        if (m_state.reset(settings) != RustCore::Settings::Status::Ok || !syncProjection()) {
+            qWarning() << "Failed to replace Rust settings state";
+            return;
+        }
         emit settingsChanged();
         save(); // 変更時に自動保存
     }
@@ -105,13 +109,13 @@ void SettingsManager::load() {
 
     const QByteArray contents = file.readAll();
     file.close();
-    const auto merged = RustCore::Settings::merge(m_settings, contents);
-    if (!merged.has_value()) {
+    bool migrated = false;
+    if (m_state.mergeLoaded(contents, migrated) != RustCore::Settings::Status::Ok ||
+        !syncProjection()) {
         qWarning() << "Failed to parse settings:" << path;
         return;
     }
-    m_settings = merged->settings;
-    if (merged->migrated) {
+    if (migrated) {
         qCInfo(lcSettings) << "Migrated packageRepositoryUrls to packageRepositories";
         save();
     }
@@ -128,13 +132,12 @@ void SettingsManager::save() {
         return;
     }
 
-    const auto persistentJson = RustCore::Settings::persistentJson(m_settings);
-    if (!persistentJson.has_value()) {
+    QByteArray payload;
+    if (m_state.persistentJson(payload) != RustCore::Settings::Status::Ok) {
         qWarning() << "Failed to serialize settings:" << path;
         file.cancelWriting();
         return;
     }
-    const QByteArray &payload = *persistentJson;
     qint64 written = file.write(payload);
 
     if (written != payload.size()) {
@@ -152,20 +155,39 @@ void SettingsManager::save() {
 }
 
 void SettingsManager::setValue(const QString &key, const QVariant &value) {
-    if (m_settings.value(key) != value) {
-        m_settings.insert(key, value);
+    bool changed = false;
+    bool persistent = false;
+    if (m_state.setValue(key, value, changed, persistent) != RustCore::Settings::Status::Ok) {
+        qWarning() << "Failed to update Rust settings state for key:" << key;
+        return;
+    }
+    if (changed) {
+        if (!syncProjection()) {
+            qCritical() << "Failed to project Rust settings state after updating key:" << key;
+            return;
+        }
         emit settingsChanged();
         // Runtime keys starting with "_" are not saved to disk
-        if (!key.startsWith(QStringLiteral("_"))) {
+        if (persistent) {
             save();
         }
     }
 }
 
 void SettingsManager::removeValue(const QString &key) {
-    if (m_settings.remove(key) > 0) {
+    bool changed = false;
+    bool persistent = false;
+    if (m_state.removeValue(key, changed, persistent) != RustCore::Settings::Status::Ok) {
+        qWarning() << "Failed to remove key from Rust settings state:" << key;
+        return;
+    }
+    if (changed) {
+        if (!syncProjection()) {
+            qCritical() << "Failed to project Rust settings state after removing key:" << key;
+            return;
+        }
         emit settingsChanged();
-        if (!key.startsWith(QStringLiteral("_"))) {
+        if (persistent) {
             save();
         }
     }
@@ -173,12 +195,32 @@ void SettingsManager::removeValue(const QString &key) {
 
 auto SettingsManager::value(const QString &key, const QVariant &defaultValue) const -> QVariant { return m_settings.value(key, defaultValue); }
 
+auto SettingsManager::intValue(const QString &key, int defaultValue) const -> int {
+    return m_state.intValue(key, defaultValue);
+}
+
+auto SettingsManager::doubleValue(const QString &key, double defaultValue) const -> double {
+    return m_state.doubleValue(key, defaultValue);
+}
+
+auto SettingsManager::boolValue(const QString &key, bool defaultValue) const -> bool {
+    return m_state.boolValue(key, defaultValue);
+}
+
 auto SettingsManager::shortcuts() const -> QVariantMap { return m_settings.value(QStringLiteral("shortcuts")).toMap(); }
 
 auto SettingsManager::shortcut(const QString &actionId, const QString &fallbackValue) const -> QString {
     const QVariantMap shortcutMap = shortcuts();
     const QString value = shortcutMap.value(actionId, fallbackValue).toString();
     return value.isEmpty() ? fallbackValue : value;
+}
+
+bool SettingsManager::syncProjection() {
+    QVariantMap projected;
+    if (m_state.snapshot(projected) != RustCore::Settings::Status::Ok)
+        return false;
+    m_settings = std::move(projected);
+    return true;
 }
 
 } // namespace AviQtl::Core

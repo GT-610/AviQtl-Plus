@@ -50,6 +50,8 @@ class TestProjectRecovery : public QObject {
     void invalidIdentifiersAreRejected();
     void successiveWritesReplaceSnapshotGeneration();
     void legacySnapshotMetadataRemainsReadable();
+    void invalidMetadataFieldsAreRejected();
+    void invalidSnapshotMetadataCannotDeleteOutsideRecoveryRoot();
     void failedMetadataOpenPreservesPreviousSnapshot();
     void staleRecoveriesAreRemoved();
     void staleCorruptMetadataIsRemoved();
@@ -328,6 +330,86 @@ void TestProjectRecovery::legacySnapshotMetadataRemainsReadable() {
     const ProjectRecoveryEntry legacyEntry = ProjectRecoveryManager::entries().first();
     QVERIFY(legacyEntry.valid);
     QCOMPARE(legacyEntry.snapshotPath, legacyPath);
+}
+
+void TestProjectRecovery::invalidMetadataFieldsAreRejected() {
+    const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString otherId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString metadataPath = QDir(m_recoveryRoot).filePath(id + QStringLiteral(".json"));
+    const QString snapshotFile = id + QStringLiteral(".aviqtl");
+    QFile snapshot(QDir(m_recoveryRoot).filePath(snapshotFile));
+    QVERIFY(snapshot.open(QIODevice::WriteOnly));
+    QVERIFY(snapshot.write("snapshot") > 0);
+    snapshot.close();
+
+    QFile metadata(metadataPath);
+    const auto writeMetadata = [&metadata](const QJsonObject &value) {
+        if (!metadata.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return false;
+        const QByteArray document = QJsonDocument(value).toJson(QJsonDocument::Compact);
+        const bool written = metadata.write(document) == document.size();
+        metadata.close();
+        return written;
+    };
+    QJsonObject value{
+        {QStringLiteral("id"), otherId},
+        {QStringLiteral("displayName"), QStringLiteral("Invalid")},
+        {QStringLiteral("savedAt"), QStringLiteral("2026-09-04T12:30:45.123Z")},
+        {QStringLiteral("snapshotFile"), snapshotFile},
+    };
+    QVERIFY(writeMetadata(value));
+    auto entries = ProjectRecoveryManager::entries();
+    QCOMPARE(entries.size(), 1);
+    QVERIFY(!entries.first().valid);
+    QCOMPARE(entries.first().error,
+             QStringLiteral("Recovery identifier does not match its file name"));
+
+    value.insert(QStringLiteral("id"), id);
+    value.insert(QStringLiteral("snapshotFile"), QStringLiteral("../outside.aviqtl"));
+    QVERIFY(writeMetadata(value));
+    entries = ProjectRecoveryManager::entries();
+    QVERIFY(!entries.first().valid);
+    QCOMPARE(entries.first().error,
+             QStringLiteral("Recovery snapshot file name is invalid"));
+
+    value.insert(QStringLiteral("snapshotFile"), snapshotFile);
+    value.insert(QStringLiteral("savedAt"), QStringLiteral("2025-02-29T12:30:45Z"));
+    QVERIFY(writeMetadata(value));
+    entries = ProjectRecoveryManager::entries();
+    QVERIFY(!entries.first().valid);
+    QCOMPARE(entries.first().error, QStringLiteral("Recovery timestamp is invalid"));
+}
+
+void TestProjectRecovery::invalidSnapshotMetadataCannotDeleteOutsideRecoveryRoot() {
+    TimelineController controller;
+    markDirty(controller);
+    writeRecovery(controller);
+    const ProjectRecoveryEntry entry = recoveryEntryFor(controller);
+    QVERIFY(entry.valid);
+
+    const QString outsideName =
+        QStringLiteral("outside-%1.aviqtl").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    const QString outsidePath =
+        QDir(m_recoveryRoot).absoluteFilePath(QStringLiteral("../") + outsideName);
+    const auto cleanup = qScopeGuard([outsidePath]() { QFile::remove(outsidePath); });
+    QFile outside(outsidePath);
+    QVERIFY(outside.open(QIODevice::WriteOnly));
+    QVERIFY(outside.write("outside") > 0);
+    outside.close();
+
+    QFile metadata(QDir(m_recoveryRoot).filePath(entry.id + QStringLiteral(".json")));
+    QVERIFY(metadata.open(QIODevice::ReadOnly));
+    QJsonObject object = QJsonDocument::fromJson(metadata.readAll()).object();
+    metadata.close();
+    object.insert(QStringLiteral("snapshotFile"), QStringLiteral("../") + outsideName);
+    QVERIFY(metadata.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    const QByteArray document = QJsonDocument(object).toJson(QJsonDocument::Compact);
+    QCOMPARE(metadata.write(document), document.size());
+    metadata.close();
+
+    controller.project()->setWidth(controller.project()->width() + 1);
+    writeRecovery(controller);
+    QVERIFY(QFileInfo::exists(outsidePath));
 }
 
 void TestProjectRecovery::failedMetadataOpenPreservesPreviousSnapshot() {

@@ -3,6 +3,7 @@
 #include "rust_core_abi.hpp"
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QString>
 #include <QVariantList>
 #include <QVariantMap>
 #include <cstdint>
@@ -17,6 +18,35 @@ enum class Status : std::uint32_t {
     OverlappingBuffers = AVIQTL_RUST_CORE_STATUS_OVERLAPPING_BUFFERS,
     BufferTooSmall = AVIQTL_RUST_CORE_STATUS_BUFFER_TOO_SMALL,
     InvalidJson = AVIQTL_RUST_CORE_STATUS_INVALID_JSON,
+};
+
+struct ManifestNormalization {
+    QVariantMap manifest;
+    bool valid = false;
+};
+
+struct ManifestValidation {
+    QVariantMap manifest;
+    QString status;
+};
+
+class CatalogState final {
+  public:
+    CatalogState();
+    CatalogState(const CatalogState &) = delete;
+    CatalogState &operator=(const CatalogState &) = delete;
+    CatalogState(CatalogState &&other) noexcept;
+    CatalogState &operator=(CatalogState &&other) noexcept;
+    ~CatalogState();
+
+    [[nodiscard]] bool isValid() const { return m_handle != nullptr; }
+    [[nodiscard]] Status clear();
+    [[nodiscard]] Status store(const QVariantMap &plugin);
+    [[nodiscard]] Status snapshot(QVariantList &plugins) const;
+    [[nodiscard]] Status find(const QString &id, QVariantMap &plugin) const;
+
+  private:
+    AviQtlScriptPluginCatalogState *m_handle = nullptr;
 };
 
 inline std::optional<QVariantMap> apply(const QVariantMap &input) {
@@ -40,6 +70,39 @@ inline std::optional<QVariantMap> apply(const QVariantMap &input) {
     return document.isObject()
                ? std::optional<QVariantMap>{document.object().toVariantMap()}
                : std::nullopt;
+}
+
+inline std::optional<ManifestNormalization> normalizeManifest(const QVariantMap &manifest) {
+    const auto result = apply({
+        {QStringLiteral("operation"), QStringLiteral("normalizeManifest")},
+        {QStringLiteral("manifest"), manifest},
+    });
+    if (!result.has_value())
+        return std::nullopt;
+    return ManifestNormalization{
+        result->value(QStringLiteral("manifest")).toMap(),
+        result->value(QStringLiteral("valid")).toBool(),
+    };
+}
+
+inline std::optional<ManifestValidation> validateManifest(
+    const QVariantMap &manifest, bool singleFile, const QString &expectedId,
+    const QString &appVersion, const QString &pathIdentity, const QVariantList &loaded) {
+    const auto result = apply({
+        {QStringLiteral("operation"), QStringLiteral("validateManifest")},
+        {QStringLiteral("manifest"), manifest},
+        {QStringLiteral("singleFile"), singleFile},
+        {QStringLiteral("expectedId"), expectedId},
+        {QStringLiteral("appVersion"), appVersion},
+        {QStringLiteral("pathIdentity"), pathIdentity},
+        {QStringLiteral("loaded"), loaded},
+    });
+    if (!result.has_value())
+        return std::nullopt;
+    return ManifestValidation{
+        result->value(QStringLiteral("manifest")).toMap(),
+        result->value(QStringLiteral("status")).toString(),
+    };
 }
 
 inline std::optional<QVariantList> parseDiscovery(const QString &output, const QString &format,

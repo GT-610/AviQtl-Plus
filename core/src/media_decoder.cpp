@@ -6,7 +6,8 @@
 namespace AviQtl::Core {
 
 MediaDecoder::MediaDecoder(int clipId, QUrl source, QObject *parent) : QObject(parent), m_clipId(clipId), m_clipIdString(QString::number(clipId)), m_source(std::move(source)) {
-    m_sampleRate = SettingsManager::instance().value(QStringLiteral("_runtime_projectSampleRate"), AviQtl::kDefaultSampleRate).toInt();
+    m_sampleRate = SettingsManager::instance().intValue(
+        QStringLiteral("_runtime_projectSampleRate"), AviQtl::kDefaultSampleRate);
 }
 
 void MediaDecoder::scheduleStart() { QMetaObject::invokeMethod(this, &MediaDecoder::startDecoding, Qt::QueuedConnection); }

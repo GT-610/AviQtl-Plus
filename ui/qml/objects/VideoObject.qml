@@ -7,7 +7,7 @@ Common.BaseObject {
     id: base
 
     property string path: String(evalParam("video", "path", ""))
-    property string playMode: String(evalParam("video", "playMode", "開始フレーム＋再生速度"))
+    property string playMode: String(evalParam("video", "playMode", "normal"))
     property int startFrame: Number(evalParam("video", "startFrame", 0))
     property real speed: Number(evalParam("video", "speed", 100))
     property int directFrame: Math.ceil(Number(evalParam("video", "directFrame", 0)))

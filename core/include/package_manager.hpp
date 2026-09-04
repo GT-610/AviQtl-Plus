@@ -1,10 +1,12 @@
 #pragma once
+#include "rust_package_document.hpp"
 #include <QObject>
 #include <QQueue>
 #include <QHash>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
+#include <optional>
 
 class QNetworkAccessManager;
 
@@ -26,7 +28,7 @@ class PackageManager : public QObject {
     QString statusText() const { return m_statusText; }
     bool hasUpdatesAvailable() const { return m_hasUpdatesAvailable; }
     double progress() const { return m_progress; }
-    QVariantList packageList() const { return m_packageList; }
+    QVariantList packageList() const;
     QVariantList repositories() const;
 
     Q_INVOKABLE void sync();
@@ -71,6 +73,8 @@ class PackageManager : public QObject {
     void onCatalogFetched(const QVariantMap &repoInfo, const QByteArray &data, const QVariantMap &installed);
     void finishSyncWhenIdle();
     void updateUpdateState();
+    bool packageListSnapshot(QVariantList &packages) const;
+    void notifyPackageListChanged();
     void fetchPackageMetadataForInstall(const QString &packageId, const QString &sourceRepo, const QString &version);
     void continueInstallWithMetadata(const QString &packageId, const QString &sourceRepo, const QString &version, const QVariantMap &detail);
     static QString detailCacheKey(const QString &packageId, const QString &sourceRepo);
@@ -80,7 +84,7 @@ class PackageManager : public QObject {
     void compileShadersInDirectory(const QString &directory);
 
     bool m_isBusy = false;
-    QVariantList m_packageList;
+    RustCore::Package::CatalogState m_catalogState;
     QNetworkAccessManager *m_networkManager;
     int m_pendingRequests = 0;
 
@@ -90,6 +94,7 @@ class PackageManager : public QObject {
     QQueue<QString> m_upgradeQueue;
     QHash<QString, QVariantMap> m_packageDetails;
     QVariantMap m_pendingInstall;
+    mutable std::optional<QVariantList> m_packageListCache;
 };
 
 } // namespace AviQtl::Core

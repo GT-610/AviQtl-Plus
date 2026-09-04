@@ -13,11 +13,12 @@ class ProjectService : public QObject {
     Q_PROPERTY(int sampleRate READ sampleRate WRITE setSampleRate NOTIFY sampleRateChanged)
   public:
     explicit ProjectService(QObject *parent = nullptr) : QObject(parent) {
-        const auto &settings = AviQtl::Core::SettingsManager::instance().settings();
-        m_width = settings.value(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth).toInt();
-        m_height = settings.value(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight).toInt();
-        m_fps = settings.value(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps).toDouble();
-        m_sampleRate = settings.value(QStringLiteral("defaultProjectSampleRate"), AviQtl::kDefaultSampleRate).toInt();
+        const auto &settings = AviQtl::Core::SettingsManager::instance();
+        m_width = settings.intValue(QStringLiteral("defaultProjectWidth"), AviQtl::kDefaultWidth);
+        m_height = settings.intValue(QStringLiteral("defaultProjectHeight"), AviQtl::kDefaultHeight);
+        m_fps = settings.doubleValue(QStringLiteral("defaultProjectFps"), AviQtl::kDefaultFps);
+        m_sampleRate = settings.intValue(QStringLiteral("defaultProjectSampleRate"),
+                                         AviQtl::kDefaultSampleRate);
         AviQtl::Core::SettingsManager::instance().setValue(QStringLiteral("_runtime_projectSampleRate"), m_sampleRate);
     }
 
