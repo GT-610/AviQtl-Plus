@@ -241,6 +241,35 @@ private slots:
         QCOMPARE(evaluateResolvedParam(params, resolved, QStringLiteral("x"), 0).toDouble(), 42.0);
     }
 
+    void evaluateResolvedTrack_matchesTypedDocumentEvaluation() {
+        QVariantList colorTrack;
+        QVariantMap start = makePoint(0, QStringLiteral("#80ff0000"),
+                                      QStringLiteral("custom"));
+        start[QStringLiteral("points")] =
+            QVariantList{0.33, 0.33, 0.66, 0.66, 1.0, 1.0};
+        colorTrack.append(start);
+        colorTrack.append(
+            makePoint(100, QStringLiteral("#400000ff"), QStringLiteral("none")));
+        for (const int frame : {0, 25, 50, 75, 100}) {
+            const auto direct = evaluateResolvedTrack(
+                colorTrack, frame, QStringLiteral("#00000000"));
+            QVERIFY(direct.has_value());
+            QCOMPARE(*direct,
+                     AviQtl::Core::RustKeyframeDocument::evaluate(
+                         colorTrack, frame, QStringLiteral("#00000000"))
+                         .value());
+        }
+
+        const QVariantList labels{
+            makePoint(0, QStringLiteral("first"), QStringLiteral("linear")),
+            makePoint(10, QStringLiteral("second"), QStringLiteral("none")),
+        };
+        QCOMPARE(evaluateResolvedTrack(labels, 5, QStringLiteral("fallback")).value(),
+                 QStringLiteral("first"));
+        QCOMPARE(evaluateResolvedTrack(labels, 10, QStringLiteral("fallback")).value(),
+                 QStringLiteral("second"));
+    }
+
     // --- Rust keyframe normalization ---
     void keyframeDocument_normalizeClipsBeyondDuration() {
         QVariantList points;
