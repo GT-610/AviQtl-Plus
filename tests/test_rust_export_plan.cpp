@@ -61,16 +61,28 @@ class TestRustExportPlan : public QObject {
     }
 
     void plansExactAudioSamples() {
-        const auto first = planAudioFrame(0, 48'000, 60'000, 1'001);
+        AviQtlExportAudioFramePlan first{};
+        QCOMPARE(planAudioFrame(0, 48'000, 60'000, 1'001, first), Status::Ok);
         QCOMPARE(first.samples_for_frame, 800);
         QCOMPARE(first.cumulative_samples, std::int64_t{800});
 
-        const auto second = planAudioFrame(1, 48'000, 60'000, 1'001);
+        AviQtlExportAudioFramePlan second{};
+        QCOMPARE(planAudioFrame(1, 48'000, 60'000, 1'001, second), Status::Ok);
         QCOMPARE(second.samples_for_frame, 801);
         QCOMPARE(second.cumulative_samples, std::int64_t{1'601});
 
-        const auto oneMinute = planAudioFrame(3'595, 48'000, 60'000, 1'001);
+        AviQtlExportAudioFramePlan oneMinute{};
+        QCOMPARE(planAudioFrame(3'595, 48'000, 60'000, 1'001, oneMinute), Status::Ok);
         QCOMPARE(oneMinute.cumulative_samples, std::int64_t{2'879'676});
+
+        AviQtlExportAudioFramePlan invalid{.cumulative_samples = 9,
+                                           .samples_for_frame = 8,
+                                           .reserved = 7};
+        QCOMPARE(planAudioFrame(-1, 48'000, 60'000, 1'001, invalid),
+                 Status::InvalidArgument);
+        QCOMPARE(invalid.cumulative_samples, std::int64_t{9});
+        QCOMPARE(invalid.samples_for_frame, 8);
+        QCOMPARE(invalid.reserved, std::uint32_t{7});
     }
 
     void plansProgressUpdates() {

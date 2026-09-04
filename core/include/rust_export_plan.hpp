@@ -8,6 +8,11 @@
 
 namespace AviQtl::RustCore::Export {
 
+enum class Status : std::uint32_t {
+    Ok = AVIQTL_RUST_CORE_STATUS_OK,
+    InvalidArgument = AVIQTL_RUST_CORE_STATUS_INVALID_ARGUMENT,
+};
+
 enum class ConfigurationError : std::uint32_t {
     None = AVIQTL_EXPORT_CONFIGURATION_OK,
     MissingOutputPath = AVIQTL_EXPORT_CONFIGURATION_MISSING_OUTPUT_PATH,
@@ -106,11 +111,10 @@ inline AviQtlExportImageSequencePlan planImageSequence(
     return output;
 }
 
-inline AviQtlExportAudioFramePlan planAudioFrame(int frameIndex, int sampleRate, int fpsNum,
-                                                 int fpsDen) {
-    AviQtlExportAudioFramePlan output{};
-    aviqtl_export_plan_audio_frame(frameIndex, sampleRate, fpsNum, fpsDen, &output);
-    return output;
+inline Status planAudioFrame(int frameIndex, int sampleRate, int fpsNum, int fpsDen,
+                             AviQtlExportAudioFramePlan &output) {
+    return static_cast<Status>(
+        aviqtl_export_plan_audio_frame(frameIndex, sampleRate, fpsNum, fpsDen, &output));
 }
 
 inline AviQtlExportProgressPlan planProgress(int done, int totalFrames, int interval,

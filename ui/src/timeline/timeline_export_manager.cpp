@@ -246,8 +246,16 @@ void TimelineExportManager::runExport(const AviQtl::Core::VideoEncoder::Config &
         }
         AviQtl::Core::PerformanceMetrics::instance().add(AviQtl::Core::PerformanceCounter::ExportFrames);
 
-        const auto audioPlan = AviQtl::RustCore::Export::planAudioFrame(
-            frame - startFrame, sr, config.fps_num, config.fps_den);
+        AviQtlExportAudioFramePlan audioPlan{};
+        if (AviQtl::RustCore::Export::planAudioFrame(
+                frame - startFrame, sr, config.fps_num, config.fps_den, audioPlan) !=
+            AviQtl::RustCore::Export::Status::Ok) {
+            encoder.close();
+            QFile::remove(config.outputUrl);
+            finishExport(false,
+                         tr("Encoder error: audio planning failed for frame %1").arg(frame));
+            return;
+        }
         const int samplesNeeded = audioPlan.samples_for_frame;
 
         if (samplesNeeded > 0) {

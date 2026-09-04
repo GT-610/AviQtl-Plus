@@ -43,11 +43,17 @@ void TimelineController::exportVideoAsync(const QVariantMap &cfg) {
     c.height = cfg.value(QStringLiteral("height"), c.height).toInt();
     c.fps_num = cfg.value(QStringLiteral("fps_num"), c.fps_num).toInt();
     c.fps_den = cfg.value(QStringLiteral("fps_den"), c.fps_den).toInt();
-    c.bitrate = cfg.value(QStringLiteral("bitrate"), c.bitrate).toLongLong();
+    c.bitrate =
+        cfg.value(QStringLiteral("bitrate"),
+                  QVariant::fromValue(static_cast<qlonglong>(c.bitrate)))
+            .toLongLong();
     c.crf = cfg.value(QStringLiteral("crf"), c.crf).toInt();
     c.codecName = cfg.value(QStringLiteral("codecName"), c.codecName).toString();
     c.audioCodecName = cfg.value(QStringLiteral("audioCodecName"), c.audioCodecName).toString();
-    c.audioBitrate = cfg.value(QStringLiteral("audioBitrate"), c.audioBitrate).toLongLong();
+    c.audioBitrate =
+        cfg.value(QStringLiteral("audioBitrate"),
+                  QVariant::fromValue(static_cast<qlonglong>(c.audioBitrate)))
+            .toLongLong();
     c.outputUrl = cfg.value(QStringLiteral("outputUrl")).toString();
     c.startFrame = cfg.value(QStringLiteral("startFrame"), c.startFrame).toInt();
     c.endFrame = cfg.value(QStringLiteral("endFrame"), c.endFrame).toInt();
