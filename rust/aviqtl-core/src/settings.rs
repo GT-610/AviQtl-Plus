@@ -270,7 +270,7 @@ fn with_state<T>(
     handle: *const AviQtlSettingsState,
     operation: impl FnOnce(&Map<String, Value>) -> T,
 ) -> Option<T> {
-    // SAFETY: Non-null handles are required to originate from `aviqtl_settings_state_create`.
+    // SAFETY: Non-null handles are required to originate from a settings-state create function.
     let state = unsafe { handle.as_ref() }?;
     let guard = state.settings.lock().ok()?;
     Some(operation(&guard))
@@ -280,7 +280,7 @@ fn with_state_mut<T>(
     handle: *mut AviQtlSettingsState,
     operation: impl FnOnce(&mut Map<String, Value>) -> T,
 ) -> Option<T> {
-    // SAFETY: Non-null handles are required to originate from `aviqtl_settings_state_create`.
+    // SAFETY: Non-null handles are required to originate from a settings-state create function.
     let state = unsafe { handle.as_ref() }?;
     let mut guard = state.settings.lock().ok()?;
     Some(operation(&mut guard))
@@ -314,146 +314,6 @@ unsafe fn write_json(
     STATUS_OK
 }
 
-fn single_ranges_valid(
-    input: *const u8,
-    input_length: usize,
-    output: *mut u8,
-    output_capacity: usize,
-    output_length: *mut usize,
-) -> Result<(), u32> {
-    if !slice_is_valid(input, input_length)
-        || !slice_is_valid(output, output_capacity)
-        || !slice_is_valid(output_length, 1)
-    {
-        return Err(STATUS_INVALID_ARGUMENT);
-    }
-    let overlaps = [
-        ranges_overlap(input, input_length, output, output_capacity),
-        ranges_overlap(input, input_length, output_length, 1),
-        ranges_overlap(output, output_capacity, output_length, 1),
-    ];
-    if overlaps.iter().any(Option::is_none) {
-        return Err(STATUS_INVALID_ARGUMENT);
-    }
-    if overlaps.into_iter().flatten().any(|overlap| overlap) {
-        return Err(STATUS_OVERLAPPING_BUFFERS);
-    }
-    Ok(())
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aviqtl_settings_defaults_json(
-    platform_defaults: *const u8,
-    platform_defaults_length: usize,
-    output: *mut u8,
-    output_capacity: usize,
-    output_length: *mut usize,
-) -> u32 {
-    if let Err(status) = single_ranges_valid(
-        platform_defaults,
-        platform_defaults_length,
-        output,
-        output_capacity,
-        output_length,
-    ) {
-        return status;
-    }
-    // SAFETY: The input range was validated above.
-    let input = unsafe { input_bytes(platform_defaults, platform_defaults_length) };
-    let Some(platform_defaults) = parse_object(input) else {
-        return STATUS_INVALID_JSON;
-    };
-    let Ok(json) = serde_json::to_vec(&default_settings(&platform_defaults)) else {
-        return STATUS_INVALID_JSON;
-    };
-    // SAFETY: Output ranges were validated and checked for overlap above.
-    unsafe { write_json(json, output, output_capacity, output_length) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aviqtl_settings_merge_json(
-    base: *const u8,
-    base_length: usize,
-    loaded: *const u8,
-    loaded_length: usize,
-    output: *mut u8,
-    output_capacity: usize,
-    output_length: *mut usize,
-    migrated: *mut u32,
-) -> u32 {
-    if !slice_is_valid(base, base_length)
-        || !slice_is_valid(loaded, loaded_length)
-        || !slice_is_valid(output, output_capacity)
-        || !slice_is_valid(output_length, 1)
-        || !slice_is_valid(migrated, 1)
-    {
-        return STATUS_INVALID_ARGUMENT;
-    }
-    let overlaps = [
-        ranges_overlap(base, base_length, output, output_capacity),
-        ranges_overlap(base, base_length, output_length, 1),
-        ranges_overlap(base, base_length, migrated, 1),
-        ranges_overlap(loaded, loaded_length, output, output_capacity),
-        ranges_overlap(loaded, loaded_length, output_length, 1),
-        ranges_overlap(loaded, loaded_length, migrated, 1),
-        ranges_overlap(output, output_capacity, output_length, 1),
-        ranges_overlap(output, output_capacity, migrated, 1),
-        ranges_overlap(output_length, 1, migrated, 1),
-    ];
-    if overlaps.iter().any(Option::is_none) {
-        return STATUS_INVALID_ARGUMENT;
-    }
-    if overlaps.into_iter().flatten().any(|overlap| overlap) {
-        return STATUS_OVERLAPPING_BUFFERS;
-    }
-
-    // SAFETY: Both input ranges were validated above.
-    let Some(base) = parse_object(unsafe { input_bytes(base, base_length) }) else {
-        return STATUS_INVALID_JSON;
-    };
-    // SAFETY: Both input ranges were validated above.
-    let Some(loaded) = parse_object(unsafe { input_bytes(loaded, loaded_length) }) else {
-        return STATUS_INVALID_JSON;
-    };
-    let (settings, was_migrated) = merge_settings(&base, &loaded);
-    let Ok(json) = serde_json::to_vec(&settings) else {
-        return STATUS_INVALID_JSON;
-    };
-    // SAFETY: The flag range was validated and de-overlapped above.
-    unsafe { migrated.write(u32::from(was_migrated)) };
-    // SAFETY: Output ranges were validated and checked for overlap above.
-    unsafe { write_json(json, output, output_capacity, output_length) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aviqtl_settings_persistent_json(
-    settings: *const u8,
-    settings_length: usize,
-    output: *mut u8,
-    output_capacity: usize,
-    output_length: *mut usize,
-) -> u32 {
-    if let Err(status) = single_ranges_valid(
-        settings,
-        settings_length,
-        output,
-        output_capacity,
-        output_length,
-    ) {
-        return status;
-    }
-    // SAFETY: The input range was validated above.
-    let input = unsafe { input_bytes(settings, settings_length) };
-    let Some(settings) = parse_object(input) else {
-        return STATUS_INVALID_JSON;
-    };
-    let Ok(json) = serde_json::to_vec(&persistent_settings(&settings)) else {
-        return STATUS_INVALID_JSON;
-    };
-    // SAFETY: Output ranges were validated and checked for overlap above.
-    unsafe { write_json(json, output, output_capacity, output_length) }
-}
-
 fn output_ranges_valid(
     output: *mut u8,
     output_capacity: usize,
@@ -467,6 +327,49 @@ fn output_ranges_valid(
         Some(true) => Err(STATUS_OVERLAPPING_BUFFERS),
         None => Err(STATUS_INVALID_ARGUMENT),
     }
+}
+
+/// Creates Rust-owned settings state from the platform-specific portions of the default schema.
+///
+/// # Safety
+///
+/// The input range must be readable UTF-8 JSON. `output_handle` must point to writable storage
+/// for one handle and may not overlap the input. A returned handle must be destroyed exactly once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_settings_state_create_defaults(
+    platform_defaults: *const u8,
+    platform_defaults_length: usize,
+    output_handle: *mut *mut AviQtlSettingsState,
+) -> u32 {
+    if !slice_is_valid(platform_defaults, platform_defaults_length)
+        || !slice_is_valid(output_handle, 1)
+    {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    match ranges_overlap(
+        platform_defaults,
+        platform_defaults_length,
+        output_handle,
+        1,
+    ) {
+        Some(true) => return STATUS_OVERLAPPING_BUFFERS,
+        Some(false) => {}
+        None => return STATUS_INVALID_ARGUMENT,
+    }
+    // SAFETY: The output handle was validated and is disjoint from the input.
+    unsafe { output_handle.write(std::ptr::null_mut()) };
+    // SAFETY: The input range was validated above.
+    let Some(platform_defaults) =
+        parse_object(unsafe { input_bytes(platform_defaults, platform_defaults_length) })
+    else {
+        return STATUS_INVALID_JSON;
+    };
+    let handle = Box::into_raw(Box::new(AviQtlSettingsState {
+        settings: Mutex::new(default_settings(&platform_defaults)),
+    }));
+    // SAFETY: The output handle was validated and does not overlap the input.
+    unsafe { output_handle.write(handle) };
+    STATUS_OK
 }
 
 /// Creates Rust-owned settings state from a JSON object.
@@ -489,6 +392,8 @@ pub unsafe extern "C" fn aviqtl_settings_state_create(
         Some(false) => {}
         None => return STATUS_INVALID_ARGUMENT,
     }
+    // SAFETY: The output handle was validated and is disjoint from the input.
+    unsafe { output_handle.write(std::ptr::null_mut()) };
     // SAFETY: The input range was validated above.
     let Some(settings) = parse_object(unsafe { input_bytes(input, input_length) }) else {
         return STATUS_INVALID_JSON;
@@ -505,7 +410,7 @@ pub unsafe extern "C" fn aviqtl_settings_state_create(
 ///
 /// # Safety
 ///
-/// A non-null handle must have been returned by `aviqtl_settings_state_create` exactly once.
+/// A non-null handle must have been returned by a settings-state create function exactly once.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aviqtl_settings_state_destroy(handle: *mut AviQtlSettingsState) {
     if !handle.is_null() {
@@ -1102,6 +1007,33 @@ mod tests {
         assert_eq!(persisted.get("answer"), Some(&json!(42)));
 
         // SAFETY: The handle was returned by create and has not yet been destroyed.
+        unsafe { aviqtl_settings_state_destroy(handle) };
+    }
+
+    #[test]
+    fn settings_state_default_creation_owns_the_complete_schema() {
+        let platform = br#"{"pluginPathsVST3":["/platform/vst3"],"theme":"Light"}"#;
+        let mut handle = std::ptr::null_mut();
+        // SAFETY: All byte and handle-output ranges are valid and disjoint.
+        assert_eq!(
+            unsafe {
+                aviqtl_settings_state_create_defaults(
+                    platform.as_ptr(),
+                    platform.len(),
+                    &mut handle,
+                )
+            },
+            STATUS_OK
+        );
+        // SAFETY: `handle` is live until the destroy call below.
+        let defaults = unsafe { state_snapshot(handle, false) };
+        assert_eq!(defaults.get("theme"), Some(&json!("Dark")));
+        assert_eq!(
+            defaults.get("pluginPathsVST3"),
+            Some(&json!(["/platform/vst3"]))
+        );
+        assert_eq!(defaults.get("defaultProjectWidth"), Some(&json!(1920)));
+        // SAFETY: The handle was returned by create-defaults and has not been destroyed.
         unsafe { aviqtl_settings_state_destroy(handle) };
     }
 

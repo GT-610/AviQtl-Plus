@@ -54,13 +54,12 @@ auto SettingsManager::instance() -> SettingsManager & {
 }
 
 SettingsManager::SettingsManager(QObject *parent) : QObject(parent) {
-    const auto defaults = RustCore::Settings::defaults(platformDefaultSettings());
     // Defaults are required to establish the complete settings schema; continuing with a
     // partial map would make later reads silently depend on unrelated caller fallbacks.
-    if (!defaults.has_value())
+    if (m_state.initializeDefaults(platformDefaultSettings()) !=
+            RustCore::Settings::Status::Ok ||
+        !syncProjection())
         qFatal("[SettingsManager] Rust core failed to construct the settings document");
-    if (m_state.reset(*defaults) != RustCore::Settings::Status::Ok || !syncProjection())
-        qFatal("[SettingsManager] Rust core failed to initialize settings state");
     load();
 }
 

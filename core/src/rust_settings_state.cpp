@@ -1,9 +1,26 @@
 #include "rust_settings_document.hpp"
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <limits>
+#include <optional>
 #include <utility>
 
 namespace AviQtl::RustCore::Settings {
 namespace {
+
+QByteArray encode(const QVariantMap &value) {
+    return QJsonDocument(QJsonObject::fromVariantMap(value)).toJson(QJsonDocument::Compact);
+}
+
+std::optional<QVariantMap> decode(const QByteArray &value) {
+    const QJsonDocument document = QJsonDocument::fromJson(value);
+    if (!document.isObject()) {
+        return std::nullopt;
+    }
+    return document.object().toVariantMap();
+}
 
 template <typename Function>
 auto withUtf8(const QString &value, Function function) -> decltype(function(nullptr, 0)) {
@@ -45,6 +62,19 @@ State &State::operator=(State &&other) noexcept {
 
 State::~State() { aviqtl_settings_state_destroy(m_handle); }
 
+Status State::initializeDefaults(const QVariantMap &platformDefaults) {
+    const QByteArray input = encode(platformDefaults);
+    AviQtlSettingsState *replacement = nullptr;
+    const auto status = static_cast<Status>(aviqtl_settings_state_create_defaults(
+        reinterpret_cast<const std::uint8_t *>(input.constData()),
+        static_cast<std::size_t>(input.size()), &replacement));
+    if (status == Status::Ok) {
+        aviqtl_settings_state_destroy(m_handle);
+        m_handle = replacement;
+    }
+    return status;
+}
+
 Status State::reset(const QVariantMap &settings) {
     const QByteArray input = encode(settings);
     const auto *data = reinterpret_cast<const std::uint8_t *>(input.constData());
@@ -84,7 +114,7 @@ Status State::snapshot(QVariantMap &settings) const {
     if (status != Status::Ok) {
         return status;
     }
-    const auto decoded = decode(std::vector<std::uint8_t>(output.cbegin(), output.cend()));
+    const auto decoded = decode(output);
     if (!decoded.has_value()) {
         return Status::InvalidJson;
     }

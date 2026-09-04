@@ -538,9 +538,7 @@ std::uint32_t aviqtl_package_archive_path_is_safe(const std::uint8_t *value, std
 std::uint32_t aviqtl_recovery_id_is_valid(const std::uint8_t *value, std::size_t valueLength);
 std::uint32_t aviqtl_recovery_snapshot_name_is_valid(const std::uint8_t *id, std::size_t idLength, const std::uint8_t *fileName, std::size_t fileNameLength);
 
-std::uint32_t aviqtl_settings_defaults_json(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
-std::uint32_t aviqtl_settings_merge_json(const std::uint8_t *base, std::size_t baseLength, const std::uint8_t *loaded, std::size_t loadedLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength, std::uint32_t *migrated);
-std::uint32_t aviqtl_settings_persistent_json(const std::uint8_t *settings, std::size_t settingsLength, std::uint8_t *output, std::size_t outputCapacity, std::size_t *outputLength);
+std::uint32_t aviqtl_settings_state_create_defaults(const std::uint8_t *platformDefaults, std::size_t platformDefaultsLength, AviQtlSettingsState **outputHandle);
 std::uint32_t aviqtl_settings_state_create(const std::uint8_t *input, std::size_t inputLength, AviQtlSettingsState **outputHandle);
 void aviqtl_settings_state_destroy(AviQtlSettingsState *handle);
 std::uint32_t aviqtl_settings_state_reset(AviQtlSettingsState *handle, const std::uint8_t *input, std::size_t inputLength);
