@@ -200,6 +200,12 @@ aviqtl_add_test(
 )
 
 aviqtl_add_test(
+    NAME rust_export_plan
+    SOURCES test_rust_export_plan.cpp
+    LINKS AviQtl_Core
+)
+
+aviqtl_add_test(
     NAME effect_model
     SOURCES test_effect_model.cpp
     LINKS AviQtl_UI
@@ -425,6 +431,7 @@ aviqtl_label_tests(unit
     theme_controller media_decoder media_utils keyframe_utils effect_model
     video_frame_store dense_component_map audio_plugin_chain audio_dsp triple_buffer
     rust_timeline_edit rust_timeline_domain rust_keyframe_document rust_package_state
+    rust_export_plan
     lua_host plugin_manifest
     mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object

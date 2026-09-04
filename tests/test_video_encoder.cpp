@@ -19,7 +19,17 @@ class TestVideoEncoder : public QObject {
   private slots:
     void defaultConfigUsesSoftwareCodec() {
         VideoEncoder::Config c;
+        QCOMPARE(c.width, 1920);
+        QCOMPARE(c.height, 1080);
+        QCOMPARE(c.fps_num, 60'000);
+        QCOMPARE(c.fps_den, 1'000);
+        QCOMPARE(c.bitrate, std::int64_t{15'000'000});
+        QCOMPARE(c.crf, -1);
         QCOMPARE(c.codecName, QStringLiteral("libx264"));
+        QCOMPARE(c.audioCodecName, QStringLiteral("aac"));
+        QCOMPARE(c.audioBitrate, std::int64_t{192'000});
+        QCOMPARE(c.startFrame, 0);
+        QCOMPARE(c.endFrame, -1);
     }
 
     void openFailsWithInvalidPath() {

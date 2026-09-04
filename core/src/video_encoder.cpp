@@ -1,4 +1,5 @@
 #include "video_encoder.hpp"
+#include "rust_export_plan.hpp"
 #include "settings_manager.hpp"
 #include <QDebug>
 #include <QLoggingCategory>
@@ -22,9 +23,6 @@ extern "C" {
 Q_LOGGING_CATEGORY(lcVideoEncoder, "aviqtl.video_encoder")
 
 namespace AviQtl::Core {
-
-constexpr std::size_t kMaxEncoderQueueTasks = 16;
-constexpr std::size_t kMinEncoderQueueTasks = 2;
 
 namespace {
 
@@ -71,7 +69,45 @@ private:
 using AvPacketPtr = AvPointer<AVPacket, av_packet_free>;
 using AvFramePtr = AvPointer<AVFrame, av_frame_free>;
 
+AVHWDeviceType hardwareDeviceType(AviQtl::RustCore::Export::CodecBackend backend) {
+    using Backend = AviQtl::RustCore::Export::CodecBackend;
+    switch (backend) {
+    case Backend::Cuda:
+        return AV_HWDEVICE_TYPE_CUDA;
+    case Backend::Vaapi:
+        return AV_HWDEVICE_TYPE_VAAPI;
+    case Backend::Qsv:
+        return AV_HWDEVICE_TYPE_QSV;
+    case Backend::D3d11va:
+        return AV_HWDEVICE_TYPE_D3D11VA;
+    case Backend::Dxva2:
+        return AV_HWDEVICE_TYPE_DXVA2;
+    case Backend::VideoToolbox:
+        return AV_HWDEVICE_TYPE_VIDEOTOOLBOX;
+    case Backend::Software:
+    case Backend::Amf:
+        return AV_HWDEVICE_TYPE_NONE;
+    }
+    return AV_HWDEVICE_TYPE_NONE;
+}
+
 } // namespace
+
+VideoEncoder::Config::Config() {
+    const auto defaults = AviQtl::RustCore::Export::videoDefaults();
+    width = defaults.values.width;
+    height = defaults.values.height;
+    fps_num = defaults.values.fps_num;
+    fps_den = defaults.values.fps_den;
+    bitrate = defaults.values.bitrate;
+    crf = defaults.values.crf;
+    codecName = defaults.videoCodec;
+    audioCodecName = defaults.audioCodec;
+    audioBitrate = defaults.values.audio_bitrate;
+    startFrame = defaults.values.start_frame;
+    endFrame = defaults.values.end_frame;
+    gopSize = defaults.values.gop_size;
+}
 
 VideoEncoder::VideoEncoder(QObject *parent) : QObject(parent) {}
 
@@ -106,24 +142,15 @@ QStringList VideoEncoder::availableVideoEncoders() {
                 continue;
             }
 
+            const auto backend = AviQtl::RustCore::Export::codecBackend(name);
             // AMF encoders don't need HW device context probing (managed internally by AMD SDK)
-            if (name.contains(QLatin1String("amf"))) {
+            if (backend == AviQtl::RustCore::Export::CodecBackend::Amf) {
                 result.append(name);
                 continue;
             }
 
-            // For other hardware encoders, test if the device can be created
-            if (name.contains(QLatin1String("nvenc")) || name.contains(QLatin1String("vaapi")) ||
-                name.contains(QLatin1String("qsv"))) {
-                AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
-                if (name.contains(QLatin1String("nvenc"))) {
-                    type = AV_HWDEVICE_TYPE_CUDA;
-                } else if (name.contains(QLatin1String("vaapi"))) {
-                    type = AV_HWDEVICE_TYPE_VAAPI;
-                } else if (name.contains(QLatin1String("qsv"))) {
-                    type = AV_HWDEVICE_TYPE_QSV;
-                }
-
+            const AVHWDeviceType type = hardwareDeviceType(backend);
+            if (type != AV_HWDEVICE_TYPE_NONE) {
                 AVBufferRef *hwDeviceCtx = nullptr;
                 int err = av_hwdevice_ctx_create(&hwDeviceCtx, type, nullptr, nullptr, 0);
                 if (err < 0) {
@@ -171,21 +198,7 @@ QStringList VideoEncoder::availableAudioEncoders() {
 }
 
 QString VideoEncoder::fallbackEncoder(const QString &hwEncoder) {
-    static const QMap<QString, QString> fallbackMap = {
-        {QStringLiteral("h264_nvenc"), QStringLiteral("libx264")},
-        {QStringLiteral("h264_amf"), QStringLiteral("libx264")},
-        {QStringLiteral("h264_qsv"), QStringLiteral("libx264")},
-        {QStringLiteral("h264_vaapi"), QStringLiteral("libx264")},
-        {QStringLiteral("hevc_nvenc"), QStringLiteral("libx265")},
-        {QStringLiteral("hevc_amf"), QStringLiteral("libx265")},
-        {QStringLiteral("hevc_qsv"), QStringLiteral("libx265")},
-        {QStringLiteral("hevc_vaapi"), QStringLiteral("libx265")},
-        {QStringLiteral("av1_nvenc"), QStringLiteral("libaom-av1")},
-        {QStringLiteral("av1_amf"), QStringLiteral("libaom-av1")},
-        {QStringLiteral("av1_vaapi"), QStringLiteral("libaom-av1")},
-    };
-
-    return fallbackMap.value(hwEncoder, hwEncoder);
+    return AviQtl::RustCore::Export::fallbackCodec(hwEncoder);
 }
 
 void VideoEncoder::cleanup() {
@@ -218,31 +231,14 @@ void VideoEncoder::cleanup() {
 }
 
 auto VideoEncoder::initHardware(const QString &codecName) -> bool {
-    int err = 0;
-    AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
-
-    // コーデック名から適切なHWデバイスタイプを推論
-    if (codecName.contains(QLatin1String("nvenc"))) {
-        type = AV_HWDEVICE_TYPE_CUDA;
-    } else if (codecName.contains(QLatin1String("vaapi"))) {
-        type = AV_HWDEVICE_TYPE_VAAPI;
-    } else if (codecName.contains(QLatin1String("qsv"))) {
-        type = AV_HWDEVICE_TYPE_QSV;
-    } else if (codecName.contains(QLatin1String("d3d11"))) {
-        type = AV_HWDEVICE_TYPE_D3D11VA;
-    } else if (codecName.contains(QLatin1String("dxva2"))) {
-        type = AV_HWDEVICE_TYPE_DXVA2;
-    } else if (codecName.contains(QLatin1String("videotoolbox"))) {
-        type = AV_HWDEVICE_TYPE_VIDEOTOOLBOX;
-    } else if (codecName.contains(QLatin1String("amf"))) {
-        type = AV_HWDEVICE_TYPE_NONE;
-    }
+    const AVHWDeviceType type =
+        hardwareDeviceType(AviQtl::RustCore::Export::codecBackend(codecName));
 
     if (type == AV_HWDEVICE_TYPE_NONE) {
         return true; // SWエンコードまたはデバイス不要
     }
 
-    err = av_hwdevice_ctx_create(&m_hwDeviceCtx, type, nullptr, nullptr, 0);
+    const int err = av_hwdevice_ctx_create(&m_hwDeviceCtx, type, nullptr, nullptr, 0);
     if (err < 0) {
         qWarning() << "Failed to create HW device context for" << codecName << "Error:" << err;
         return false;
@@ -255,12 +251,9 @@ auto VideoEncoder::open(const Config &config) -> bool {
     std::scoped_lock lock(m_mutex);
     cleanup();
     m_config = config;
-    const quint64 frameBytes = static_cast<quint64>(std::max(1, config.width)) *
-                               static_cast<quint64>(std::max(1, config.height)) * 4ULL;
-    const quint64 queueBudgetBytes = static_cast<quint64>(std::max(
-        16, SettingsManager::instance().intValue(QStringLiteral("exportEncoderQueueMB"), 128))) * 1024ULL * 1024ULL;
-    m_maxQueueSize = std::clamp<std::size_t>(static_cast<std::size_t>(queueBudgetBytes / frameBytes),
-                                             kMinEncoderQueueTasks, kMaxEncoderQueueTasks);
+    m_maxQueueSize = AviQtl::RustCore::Export::encoderQueueSize(
+        config.width, config.height,
+        SettingsManager::instance().intValue(QStringLiteral("exportEncoderQueueMB"), 128));
     m_headerWritten = false;
     m_encodedFrameCount = 0;
 
@@ -360,11 +353,13 @@ auto VideoEncoder::open(const Config &config) -> bool {
         m_encCtx->gop_size = config.gopSize;
         m_encCtx->keyint_min = config.gopSize;
         int sceneCutResult = 0;
-        if (m_config.codecName == QLatin1String("libx264")) {
+        using FixedGopMode = AviQtl::RustCore::Export::FixedGopMode;
+        const auto fixedGopMode = AviQtl::RustCore::Export::fixedGopMode(m_config.codecName);
+        if (fixedGopMode == FixedGopMode::X264) {
             sceneCutResult = av_opt_set_int(m_encCtx->priv_data, "sc_threshold", 0, 0);
-        } else if (m_config.codecName == QLatin1String("libx265")) {
+        } else if (fixedGopMode == FixedGopMode::X265) {
             sceneCutResult = av_opt_set(m_encCtx->priv_data, "x265-params", "scenecut=0", 0);
-        } else if (m_config.codecName.contains(QLatin1String("nvenc"))) {
+        } else if (fixedGopMode == FixedGopMode::Nvenc) {
             sceneCutResult = av_opt_set_int(m_encCtx->priv_data, "no-scenecut", 1, 0);
         }
         if (sceneCutResult < 0) {

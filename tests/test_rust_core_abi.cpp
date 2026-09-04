@@ -30,6 +30,7 @@ class TestRustCoreAbi : public QObject {
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_SETTINGS_STATE);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_PACKAGE_CATALOG_STATE);
         QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_RECOVERY_DOCUMENT);
+        QVERIFY(capabilities & AVIQTL_RUST_CORE_CAPABILITY_EXPORT_PLANNING);
         QCOMPARE(aviqtl_project_current_version(), std::int32_t{3});
     }
 
@@ -89,6 +90,16 @@ class TestRustCoreAbi : public QObject {
         QCOMPARE(alignof(AviQtlTimelinePosition), std::size_t{4});
         QCOMPARE(sizeof(AviQtlSceneSettings), std::size_t{56});
         QCOMPARE(alignof(AviQtlSceneSettings), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlExportVideoDefaults), std::size_t{48});
+        QCOMPARE(alignof(AviQtlExportVideoDefaults), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlExportVideoRequest), std::size_t{40});
+        QCOMPARE(alignof(AviQtlExportVideoRequest), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlExportVideoPlan), std::size_t{16});
+        QCOMPARE(sizeof(AviQtlExportImageSequenceRequest), std::size_t{20});
+        QCOMPARE(sizeof(AviQtlExportImageSequencePlan), std::size_t{24});
+        QCOMPARE(sizeof(AviQtlExportAudioFramePlan), std::size_t{16});
+        QCOMPARE(alignof(AviQtlExportAudioFramePlan), std::size_t{8});
+        QCOMPARE(sizeof(AviQtlExportProgressPlan), std::size_t{20});
     }
 };
 

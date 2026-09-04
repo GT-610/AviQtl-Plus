@@ -4,6 +4,7 @@ mod abi;
 mod audio;
 mod bake_plan;
 mod effect;
+mod export;
 mod keyframe;
 mod keyframe_document;
 mod package;

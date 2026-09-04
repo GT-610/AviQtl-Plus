@@ -249,6 +249,7 @@ set(CORE_SOURCES
     core/include/rust_core_abi.hpp
     core/include/rust_core_policy.hpp
     core/include/rust_effect_document.hpp
+    core/include/rust_export_plan.hpp
     core/include/rust_audio_dsp.hpp
     core/include/rust_keyframe_adapter.hpp
     core/include/rust_keyframe_core.hpp
