@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
+#include <optional>
 
 class QNetworkAccessManager;
 
@@ -72,6 +73,8 @@ class PackageManager : public QObject {
     void onCatalogFetched(const QVariantMap &repoInfo, const QByteArray &data, const QVariantMap &installed);
     void finishSyncWhenIdle();
     void updateUpdateState();
+    bool packageListSnapshot(QVariantList &packages) const;
+    void notifyPackageListChanged();
     void fetchPackageMetadataForInstall(const QString &packageId, const QString &sourceRepo, const QString &version);
     void continueInstallWithMetadata(const QString &packageId, const QString &sourceRepo, const QString &version, const QVariantMap &detail);
     static QString detailCacheKey(const QString &packageId, const QString &sourceRepo);
@@ -91,6 +94,7 @@ class PackageManager : public QObject {
     QQueue<QString> m_upgradeQueue;
     QHash<QString, QVariantMap> m_packageDetails;
     QVariantMap m_pendingInstall;
+    mutable std::optional<QVariantList> m_packageListCache;
 };
 
 } // namespace AviQtl::Core

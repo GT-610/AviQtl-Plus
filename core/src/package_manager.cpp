@@ -25,6 +25,7 @@
 #include <QXmlStreamReader>
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 namespace AviQtl::Core {
 
@@ -117,9 +118,23 @@ PackageManager::PackageManager(QObject *parent) : QObject(parent) {
 
 QVariantList PackageManager::packageList() const {
     QVariantList packages;
+    return packageListSnapshot(packages) ? packages : QVariantList{};
+}
+
+bool PackageManager::packageListSnapshot(QVariantList &packages) const {
+    if (m_packageListCache.has_value()) {
+        packages = *m_packageListCache;
+        return true;
+    }
     if (m_catalogState.snapshot(packages) != RustCore::Package::Status::Ok)
-        return {};
-    return packages;
+        return false;
+    m_packageListCache = packages;
+    return true;
+}
+
+void PackageManager::notifyPackageListChanged() {
+    m_packageListCache.reset();
+    emit packageListChanged();
 }
 
 void PackageManager::setBusy(bool busy) {
@@ -180,7 +195,7 @@ void PackageManager::loadCachedPackages() {
         }
         mergeCatalogPackages(catalogPackages, repoInfo, configuredRepositories, installed);
     }
-    emit packageListChanged();
+    notifyPackageListChanged();
     updateUpdateState();
     setStatus(tr("Packages loaded from cache (Press Sync to check for updates)"));
 }
@@ -234,7 +249,7 @@ void PackageManager::refreshRepositories() {
         setBusy(false);
         return;
     }
-    emit packageListChanged();
+    notifyPackageListChanged();
 
     QVariantMap installed = loadInstalledPackagesFromFile();
     installed.insert(QStringLiteral("org.aviqtl.app"), QVariantMap{{QStringLiteral("version"), appVersionString()}});
@@ -374,7 +389,7 @@ void PackageManager::mergeCatalogPackages(const QVariantList &packages, const QV
 void PackageManager::finishSyncWhenIdle() {
     if (m_pendingRequests > 0)
         return;
-    emit packageListChanged();
+    notifyPackageListChanged();
     updateUpdateState();
     setProgress(1.0);
     setStatus(tr("Sync complete"));
@@ -740,11 +755,12 @@ void PackageManager::extractAndDeploy(const QString &packageId, const QString &a
     setBusy(false);
 
     bool catalogChanged = false;
-    if (m_catalogState.setInstalled(packageId, version, catalogChanged) !=
-        RustCore::Package::Status::Ok) {
+    const auto catalogStatus = m_catalogState.setInstalled(packageId, version, catalogChanged);
+    if (catalogStatus != RustCore::Package::Status::Ok) {
         qWarning() << "[PackageManager] Failed to update installed package state in the Rust catalog.";
+    } else if (catalogChanged) {
+        notifyPackageListChanged();
     }
-    emit packageListChanged();
 
     emit packageInstalled(packageId);
     updateUpdateState();
@@ -783,11 +799,13 @@ void PackageManager::removePackage(const QString &packageId) {
         return;
     }
     bool catalogChanged = false;
-    if (m_catalogState.setInstalled(packageId, std::nullopt, catalogChanged) !=
-        RustCore::Package::Status::Ok) {
+    const auto catalogStatus =
+        m_catalogState.setInstalled(packageId, std::nullopt, catalogChanged);
+    if (catalogStatus != RustCore::Package::Status::Ok) {
         qWarning() << "[PackageManager] Failed to remove installed package state from the Rust catalog.";
+    } else if (catalogChanged) {
+        notifyPackageListChanged();
     }
-    emit packageListChanged();
     updateUpdateState();
     if (packageType == QStringLiteral("effect") || packageType == QStringLiteral("object")) {
         const QString deployDir = Internal::PackageDeployment::deployDirectory(packageType);
@@ -802,8 +820,18 @@ void PackageManager::removePackage(const QString &packageId) {
 
 QVariantList PackageManager::getPackagesByType(const QString &type) const {
     QVariantList result;
-    if (m_catalogState.filter(type, result) != RustCore::Package::Status::Ok)
+    QVariantList packages;
+    if (!packageListSnapshot(packages))
         return {};
+    for (const QVariant &entry : std::as_const(packages)) {
+        const QVariantMap package = entry.toMap();
+        const bool matches =
+            type == QStringLiteral("installed")
+                ? !package.value(QStringLiteral("installed_version")).toString().isEmpty()
+                : package.value(QStringLiteral("type")).toString() == type;
+        if (matches)
+            result.append(entry);
+    }
     if (type == QStringLiteral("installed") || type == QStringLiteral("mod")) {
         const QDir pluginsDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins")));
         QStringList installedModDirectories;
