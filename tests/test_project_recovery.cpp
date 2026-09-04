@@ -51,6 +51,7 @@ class TestProjectRecovery : public QObject {
     void successiveWritesReplaceSnapshotGeneration();
     void legacySnapshotMetadataRemainsReadable();
     void invalidMetadataFieldsAreRejected();
+    void invalidSnapshotMetadataCannotDeleteOutsideRecoveryRoot();
     void failedMetadataOpenPreservesPreviousSnapshot();
     void staleRecoveriesAreRemoved();
     void staleCorruptMetadataIsRemoved();
@@ -377,6 +378,38 @@ void TestProjectRecovery::invalidMetadataFieldsAreRejected() {
     entries = ProjectRecoveryManager::entries();
     QVERIFY(!entries.first().valid);
     QCOMPARE(entries.first().error, QStringLiteral("Recovery timestamp is invalid"));
+}
+
+void TestProjectRecovery::invalidSnapshotMetadataCannotDeleteOutsideRecoveryRoot() {
+    TimelineController controller;
+    markDirty(controller);
+    writeRecovery(controller);
+    const ProjectRecoveryEntry entry = recoveryEntryFor(controller);
+    QVERIFY(entry.valid);
+
+    const QString outsideName =
+        QStringLiteral("outside-%1.aviqtl").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    const QString outsidePath =
+        QDir(m_recoveryRoot).absoluteFilePath(QStringLiteral("../") + outsideName);
+    const auto cleanup = qScopeGuard([outsidePath]() { QFile::remove(outsidePath); });
+    QFile outside(outsidePath);
+    QVERIFY(outside.open(QIODevice::WriteOnly));
+    QVERIFY(outside.write("outside") > 0);
+    outside.close();
+
+    QFile metadata(QDir(m_recoveryRoot).filePath(entry.id + QStringLiteral(".json")));
+    QVERIFY(metadata.open(QIODevice::ReadOnly));
+    QJsonObject object = QJsonDocument::fromJson(metadata.readAll()).object();
+    metadata.close();
+    object.insert(QStringLiteral("snapshotFile"), QStringLiteral("../") + outsideName);
+    QVERIFY(metadata.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    const QByteArray document = QJsonDocument(object).toJson(QJsonDocument::Compact);
+    QCOMPARE(metadata.write(document), document.size());
+    metadata.close();
+
+    controller.project()->setWidth(controller.project()->width() + 1);
+    writeRecovery(controller);
+    QVERIFY(QFileInfo::exists(outsidePath));
 }
 
 void TestProjectRecovery::failedMetadataOpenPreservesPreviousSnapshot() {

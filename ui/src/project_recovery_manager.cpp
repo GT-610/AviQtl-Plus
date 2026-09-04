@@ -79,7 +79,11 @@ QString existingSnapshotFileName(const QString &id) {
     if (!file.open(QIODevice::ReadOnly))
         return {};
     const auto inspection = AviQtl::RustCore::Recovery::inspectMetadata(id, file.readAll());
-    return inspection.has_value() ? inspection->snapshotFile : QString();
+    if (!inspection.has_value() || inspection->status != QStringLiteral("ok") ||
+        !isValidSnapshotFileName(id, inspection->snapshotFile)) {
+        return {};
+    }
+    return inspection->snapshotFile;
 }
 
 QString recoveryIdFromSnapshotFileName(const QString &fileName) {
