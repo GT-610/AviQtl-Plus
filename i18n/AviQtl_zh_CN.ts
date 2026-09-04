@@ -1543,242 +1543,254 @@
     <name>AviQtl::Core::PackageManager</name>
     <message>
         <location filename="../core/src/package_manager.cpp" line="113"/>
-        <location filename="../core/src/package_manager.cpp" line="237"/>
+        <location filename="../core/src/package_manager.cpp" line="250"/>
         <source>Idle</source>
         <translation>空闲</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="176"/>
+        <location filename="../core/src/package_manager.cpp" line="185"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>已从缓存加载软件包（按「同步」检查更新）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="229"/>
+        <location filename="../core/src/package_manager.cpp" line="242"/>
         <source>Syncing repository...</source>
         <translation>正在同步仓库...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="188"/>
-        <location filename="../core/src/package_manager.cpp" line="261"/>
+        <location filename="../core/src/package_manager.cpp" line="197"/>
+        <location filename="../core/src/package_manager.cpp" line="274"/>
         <source>Repository URL must use HTTPS: %1</source>
         <translation>软件源 URL 必须使用 HTTPS：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="287"/>
+        <location filename="../core/src/package_manager.cpp" line="300"/>
         <source>Catalog URL must use HTTPS: %1</source>
         <translation>目录 URL 必须使用 HTTPS：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="367"/>
+        <location filename="../core/src/package_manager.cpp" line="380"/>
         <source>Sync complete</source>
         <translation>同步完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="391"/>
-        <location filename="../core/src/package_manager.cpp" line="557"/>
+        <location filename="../core/src/package_manager.cpp" line="409"/>
+        <location filename="../core/src/package_manager.cpp" line="581"/>
         <source>Package not found: %1</source>
         <translation>未找到软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="397"/>
+        <location filename="../core/src/package_manager.cpp" line="415"/>
         <source>No metadata URL for package: %1</source>
         <translation>软件包没有元数据 URL：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="402"/>
+        <location filename="../core/src/package_manager.cpp" line="420"/>
         <source>Fetching package details: %1</source>
         <translation>正在获取软件包详情：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="405"/>
+        <location filename="../core/src/package_manager.cpp" line="423"/>
         <source>Invalid or insecure metadata URL for package: %1</source>
         <translation>软件包元数据 URL 无效或不安全：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="416"/>
+        <location filename="../core/src/package_manager.cpp" line="434"/>
         <source>Failed to fetch package metadata (%1): %2</source>
         <translation>获取软件包元数据失败 (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="431"/>
+        <location filename="../core/src/package_manager.cpp" line="449"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
         <translation>软件包 %1 的元数据校验和不匹配：预期为 %2，实际为 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="438"/>
-        <location filename="../core/src/package_manager.cpp" line="444"/>
+        <location filename="../core/src/package_manager.cpp" line="456"/>
+        <location filename="../core/src/package_manager.cpp" line="462"/>
         <source>Invalid metadata format for package: %1</source>
         <translation>软件包的元数据格式无效：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="516"/>
+        <location filename="../core/src/package_manager.cpp" line="534"/>
         <source>No download URL found for package %1 version %2</source>
         <translation>未找到软件包 %1 版本 %2 的下载 URL</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="521"/>
+        <location filename="../core/src/package_manager.cpp" line="539"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
         <translation>软件包 %1 需要 AviQtl %2 或更新版本（当前：%3）</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="696"/>
+        <location filename="../core/src/package_manager.cpp" line="720"/>
         <source>Package deployment failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>软件包部署失败且自动回滚未能完成，备份已保留。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="698"/>
+        <location filename="../core/src/package_manager.cpp" line="722"/>
         <source>Failed to deploy package; the previous installation was restored.</source>
         <translation>软件包部署失败，已恢复先前安装。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="715"/>
+        <location filename="../core/src/package_manager.cpp" line="739"/>
         <source>Installation complete: %1</source>
         <translation>安装完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="550"/>
+        <location filename="../core/src/package_manager.cpp" line="568"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl 有可用更新。请重启以应用。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="511"/>
-        <location filename="../core/src/package_manager.cpp" line="542"/>
-        <location filename="../core/src/package_manager.cpp" line="563"/>
-        <location filename="../core/src/package_manager.cpp" line="578"/>
+        <location filename="../core/src/package_manager.cpp" line="529"/>
+        <location filename="../core/src/package_manager.cpp" line="560"/>
+        <location filename="../core/src/package_manager.cpp" line="587"/>
+        <location filename="../core/src/package_manager.cpp" line="602"/>
         <source>Invalid package ID or type.</source>
         <translation>软件包 ID 或类型无效。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="585"/>
+        <location filename="../core/src/package_manager.cpp" line="609"/>
         <source>Invalid or insecure package download URL.</source>
         <translation>软件包下载 URL 无效或不安全。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="590"/>
+        <location filename="../core/src/package_manager.cpp" line="614"/>
         <source>Downloading package: %1</source>
         <translation>正在下载软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="606"/>
+        <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Download failed: %1</source>
         <translation>下载失败：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="613"/>
+        <location filename="../core/src/package_manager.cpp" line="637"/>
         <source>Failed to create temporary directory.</source>
         <translation>创建临时目录失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="624"/>
+        <location filename="../core/src/package_manager.cpp" line="648"/>
         <source>Failed to save downloaded file.</source>
         <translation>保存下载文件失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="604"/>
-        <location filename="../core/src/package_manager.cpp" line="630"/>
+        <location filename="../core/src/package_manager.cpp" line="628"/>
+        <location filename="../core/src/package_manager.cpp" line="654"/>
         <source>Package archive exceeds the maximum allowed size.</source>
         <translation>软件包归档超过允许的最大大小。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="274"/>
-        <location filename="../core/src/package_manager.cpp" line="327"/>
+        <location filename="../core/src/package_manager.cpp" line="233"/>
+        <source>Failed to reset the package catalog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="287"/>
+        <location filename="../core/src/package_manager.cpp" line="340"/>
         <source>Repository metadata exceeds the maximum allowed size.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="301"/>
-        <location filename="../core/src/package_manager.cpp" line="316"/>
+        <location filename="../core/src/package_manager.cpp" line="314"/>
+        <location filename="../core/src/package_manager.cpp" line="329"/>
         <source>Repository catalog exceeds the maximum allowed size.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="414"/>
-        <location filename="../core/src/package_manager.cpp" line="422"/>
+        <location filename="../core/src/package_manager.cpp" line="405"/>
+        <location filename="../core/src/package_manager.cpp" line="576"/>
+        <location filename="../core/src/package_manager.cpp" line="851"/>
+        <source>Package catalog is unavailable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="432"/>
+        <location filename="../core/src/package_manager.cpp" line="440"/>
         <source>Package metadata exceeds the maximum allowed size: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="526"/>
+        <location filename="../core/src/package_manager.cpp" line="544"/>
         <source>Package installation could not be validated.</source>
         <translation>无法验证软件包安装。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="645"/>
+        <location filename="../core/src/package_manager.cpp" line="669"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
         <translation>校验和不一致 %1：期望 %2，实际 %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="650"/>
+        <location filename="../core/src/package_manager.cpp" line="674"/>
         <source>Extracting package...</source>
         <translation>正在解压软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="661"/>
+        <location filename="../core/src/package_manager.cpp" line="685"/>
         <source>Failed to create extraction directory.</source>
         <translation>创建解压目录失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="669"/>
+        <location filename="../core/src/package_manager.cpp" line="693"/>
         <source>Failed to extract package archive.</source>
         <translation>解压软件包归档失败。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="688"/>
+        <location filename="../core/src/package_manager.cpp" line="712"/>
         <source>Deploying package files...</source>
         <translation>正在部署软件包文件...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="733"/>
+        <location filename="../core/src/package_manager.cpp" line="761"/>
         <source>Invalid package ID.</source>
         <translation>无效的软件包ID。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="740"/>
+        <location filename="../core/src/package_manager.cpp" line="768"/>
         <source>Cannot remove package because its installed type is missing or invalid.</source>
         <translation>已安装软件包的类型缺失或无效，无法删除。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="744"/>
+        <location filename="../core/src/package_manager.cpp" line="772"/>
         <source>Removing package: %1</source>
         <translation>正在删除软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="752"/>
+        <location filename="../core/src/package_manager.cpp" line="780"/>
         <source>Package removal failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>软件包删除失败且自动回滚未能完成，备份已保留。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="754"/>
+        <location filename="../core/src/package_manager.cpp" line="782"/>
         <source>Failed to remove package; the installed state and files were restored.</source>
         <translation>软件包删除失败，已恢复安装状态和文件。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="767"/>
+        <location filename="../core/src/package_manager.cpp" line="799"/>
         <source>Removal complete: %1</source>
         <translation>删除完成：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="818"/>
+        <location filename="../core/src/package_manager.cpp" line="857"/>
         <source>No packages to upgrade.</source>
         <translation>没有可升级的软件包。</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="822"/>
+        <location filename="../core/src/package_manager.cpp" line="861"/>
         <source>Upgrading all packages...</source>
         <translation>正在升级所有软件包...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="829"/>
+        <location filename="../core/src/package_manager.cpp" line="868"/>
         <source>All upgrades complete.</source>
         <translation>所有升级已完成</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="834"/>
+        <location filename="../core/src/package_manager.cpp" line="873"/>
         <source>Upgrading package: %1</source>
         <translation>正在升级软件包：%1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="635"/>
+        <location filename="../core/src/package_manager.cpp" line="659"/>
         <source>Failed to write the complete downloaded package.</source>
         <translation>无法完整写入下载的软件包。</translation>
     </message>
@@ -1786,53 +1798,53 @@
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="197"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="198"/>
         <source>プロパティ変更: %1</source>
         <translation>属性更改：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="239"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="240"/>
         <source>開始フレーム変更</source>
         <translation>起始帧更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="256"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="257"/>
         <source>長さ変更</source>
         <translation>长度更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="273"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="274"/>
         <source>レイヤー変更</source>
         <translation>图层更改</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="373"/>
         <source>動画</source>
         <translation>视频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="371"/>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="390"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="376"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
         <source>音声</source>
         <translation>音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="389"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
         <source>音声をインポート</source>
         <translation>导入音频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="403"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="413"/>
         <source>画像をインポート</source>
         <translation>导入图片</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="404"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="414"/>
         <source>画像</source>
         <translation>图像</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="548"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="558"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>调整多个片段大小：%1</translation>
     </message>
@@ -1862,57 +1874,55 @@
         <translation>找不到媒体效果：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="367"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="372"/>
         <source>動画をインポート</source>
         <translation>导入视频</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="344"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="345"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="204"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>找不到文件：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="410"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="420"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="215"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>不支持的文件格式：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="41"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="72"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="16"/>
         <source>missing output path</source>
         <translation>缺少输出路径</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="45"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="18"/>
         <source>invalid output size</source>
         <translation>输出尺寸无效</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="49"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="20"/>
         <source>invalid FPS</source>
         <translation>帧率无效</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="55"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="78"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="22"/>
         <source>export end frame must be after start frame</source>
         <translation>导出结束帧必须晚于起始帧</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="61"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
         <source>export FPS does not match project FPS</source>
         <translation>导出帧率与项目帧率不匹配</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="66"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="83"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="70"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="84"/>
         <source>export is already running</source>
         <translation>导出已在进行中</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline_controller.cpp" line="316"/>
+        <location filename="../ui/src/timeline_controller.cpp" line="317"/>
         <source>Untitled project</source>
         <translation>未命名项目</translation>
     </message>
@@ -1920,69 +1930,75 @@
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="130"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="152"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="278"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="381"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="131"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="153"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="284"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="400"/>
         <source>Frame capture error: no preview view is available</source>
         <translation>帧捕获错误：没有可用的预览视图</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="160"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="163"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
         <source>Encoder error: initialization failed</source>
         <translation>编码器错误：初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="184"/>
         <source>Encoder error: audio stream initialization failed</source>
         <translation>编码器错误：音频流初始化失败</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="198"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="430"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="450"/>
         <source>Export cancelled</source>
         <translation>导出已取消</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="440"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="218"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="460"/>
         <source>Frame render timeout: failed to render frame %1</source>
         <translation>帧渲染超时：无法渲染第 %1 帧</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="454"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="232"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="474"/>
         <source>Frame grab error: failed to capture frame %1</source>
         <translation>帧捕获错误：无法捕获第 %1 帧</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="244"/>
         <source>Encoder error: failed to queue video frame %1</source>
         <translation>编码器错误：无法将第 %1 帧视频加入队列</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="252"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="259"/>
         <source>Encoder error: failed to queue audio for frame %1</source>
         <translation>编码器错误：无法将第 %1 帧的音频加入队列</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="481"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="274"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="500"/>
         <source>Export complete</source>
         <translation>导出完成</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="388"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="380"/>
+        <source>Output error: invalid image sequence configuration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="407"/>
         <source>Output error: cannot create output directory</source>
         <translation>输出错误：无法创建输出目录</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="413"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="432"/>
         <source>Output error: output file already exists: %1</source>
         <translation>输出错误：输出文件已存在：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="464"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="484"/>
         <source>Output error: failed to save frame %1</source>
         <translation>输出错误：无法保存帧 %1</translation>
     </message>
@@ -1990,22 +2006,22 @@
 <context>
     <name>AviQtl::UI::TimelineService</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="295"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="296"/>
         <source>レイヤーを上に挿入</source>
         <translation>向上插入图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="295"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="296"/>
         <source>レイヤーを下に挿入</source>
         <translation>向下插入图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="310"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="311"/>
         <source>レイヤーをまとめて下へ移動</source>
         <translation>批量下移图层</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="311"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="312"/>
         <source>レイヤーをまとめて上へ移動</source>
         <translation>批量上移图层</translation>
     </message>
@@ -4141,38 +4157,38 @@
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="108"/>
-        <location filename="../ui/src/timeline_service.cpp" line="201"/>
+        <location filename="../ui/src/timeline_service.cpp" line="170"/>
         <source>ルート</source>
         <translation>根</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="361"/>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="391"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="362"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="392"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>绝对移动多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="427"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="428"/>
         <source>複数クリップ変形: %1</source>
         <translation>变换多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="691"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="692"/>
         <source>クリップ削除</source>
         <translation>删除片段</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="691"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="692"/>
         <source>複数クリップ削除: %1</source>
         <translation>删除多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1110"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1111"/>
         <source>複数クリップ分割: %1</source>
         <translation>分割多个片段：%1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1159"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1160"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>粘贴多个片段：%1</translation>
     </message>
@@ -4420,87 +4436,87 @@
         <translation>直接指定时间</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1104"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1108"/>
         <source>Start</source>
         <translation>开始</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1153"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1157"/>
         <source>Channel Strip</source>
         <translation>通道条</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1161"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1165"/>
         <source>Limit</source>
         <translation>限幅</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1225"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1229"/>
         <source>MUTE</source>
         <translation>静音</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1233"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1237"/>
         <source>SOLO</source>
         <translation>独奏</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1258"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1262"/>
         <source>メーター</source>
         <translation>电平表</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1331"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1335"/>
         <source>Carlaプラグインチェーン</source>
         <translation>Carla插件链</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1341"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1345"/>
         <source>左側のリストでプラグインを選択・並べ替えできます。</source>
         <translation>可以在左侧列表中选择和重新排序插件。</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1341"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1345"/>
         <source>上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。</source>
         <translation>请通过顶部的“添加插件”或菜单添加Carla插件。</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1727"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1731"/>
         <source> (直線)</source>
         <translation>（直线）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1728"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1732"/>
         <source> (加速)</source>
         <translation>（加速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1729"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1733"/>
         <source> (減速)</source>
         <translation>（减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1730"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1734"/>
         <source> (加減速)</source>
         <translation>（加减速）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1731"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1735"/>
         <source> (ベジェ)</source>
         <translation>（贝塞尔）</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2291"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2295"/>
         <source>Browse effect catalog...</source>
         <translation>浏览效果目录...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2396"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2400"/>
         <source>エフェクトを追加</source>
         <translation>添加效果</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2407"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2411"/>
         <source>検索...</source>
         <translation>搜索...</translation>
     </message>

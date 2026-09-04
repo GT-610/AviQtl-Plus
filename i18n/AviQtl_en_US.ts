@@ -1543,242 +1543,254 @@ This software is released under the GNU Affero General Public License Version 3.
     <name>AviQtl::Core::PackageManager</name>
     <message>
         <location filename="../core/src/package_manager.cpp" line="113"/>
-        <location filename="../core/src/package_manager.cpp" line="237"/>
+        <location filename="../core/src/package_manager.cpp" line="250"/>
         <source>Idle</source>
         <translation>Idle</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="176"/>
+        <location filename="../core/src/package_manager.cpp" line="185"/>
         <source>Packages loaded from cache (Press Sync to check for updates)</source>
         <translation>Packages loaded from cache (Press Sync to check for updates)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="229"/>
+        <location filename="../core/src/package_manager.cpp" line="242"/>
         <source>Syncing repository...</source>
         <translation>Syncing repository...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="188"/>
-        <location filename="../core/src/package_manager.cpp" line="261"/>
+        <location filename="../core/src/package_manager.cpp" line="197"/>
+        <location filename="../core/src/package_manager.cpp" line="274"/>
         <source>Repository URL must use HTTPS: %1</source>
         <translation>Repository URL must use HTTPS: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="287"/>
+        <location filename="../core/src/package_manager.cpp" line="300"/>
         <source>Catalog URL must use HTTPS: %1</source>
         <translation>Catalog URL must use HTTPS: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="367"/>
+        <location filename="../core/src/package_manager.cpp" line="380"/>
         <source>Sync complete</source>
         <translation>Sync complete</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="391"/>
-        <location filename="../core/src/package_manager.cpp" line="557"/>
+        <location filename="../core/src/package_manager.cpp" line="409"/>
+        <location filename="../core/src/package_manager.cpp" line="581"/>
         <source>Package not found: %1</source>
         <translation>Package not found: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="397"/>
+        <location filename="../core/src/package_manager.cpp" line="415"/>
         <source>No metadata URL for package: %1</source>
         <translation>No metadata URL for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="402"/>
+        <location filename="../core/src/package_manager.cpp" line="420"/>
         <source>Fetching package details: %1</source>
         <translation>Fetching package details: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="405"/>
+        <location filename="../core/src/package_manager.cpp" line="423"/>
         <source>Invalid or insecure metadata URL for package: %1</source>
         <translation>Invalid or insecure metadata URL for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="416"/>
+        <location filename="../core/src/package_manager.cpp" line="434"/>
         <source>Failed to fetch package metadata (%1): %2</source>
         <translation>Failed to fetch package metadata (%1): %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="431"/>
+        <location filename="../core/src/package_manager.cpp" line="449"/>
         <source>Metadata checksum mismatch for package %1: expected %2, got %3</source>
         <translation>Metadata checksum mismatch for package %1: expected %2, got %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="438"/>
-        <location filename="../core/src/package_manager.cpp" line="444"/>
+        <location filename="../core/src/package_manager.cpp" line="456"/>
+        <location filename="../core/src/package_manager.cpp" line="462"/>
         <source>Invalid metadata format for package: %1</source>
         <translation>Invalid metadata format for package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="516"/>
+        <location filename="../core/src/package_manager.cpp" line="534"/>
         <source>No download URL found for package %1 version %2</source>
         <translation>No download URL found for package %1 version %2</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="521"/>
+        <location filename="../core/src/package_manager.cpp" line="539"/>
         <source>Package %1 requires AviQtl %2 or newer (current: %3)</source>
         <translation>Package %1 requires AviQtl %2 or newer (current: %3)</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="696"/>
+        <location filename="../core/src/package_manager.cpp" line="720"/>
         <source>Package deployment failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>Package deployment failed and automatic rollback was incomplete; the backup was preserved.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="698"/>
+        <location filename="../core/src/package_manager.cpp" line="722"/>
         <source>Failed to deploy package; the previous installation was restored.</source>
         <translation>Failed to deploy package; the previous installation was restored.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="715"/>
+        <location filename="../core/src/package_manager.cpp" line="739"/>
         <source>Installation complete: %1</source>
         <translation>Installation complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="550"/>
+        <location filename="../core/src/package_manager.cpp" line="568"/>
         <source>AviQtl update available. Restart to apply.</source>
         <translation>AviQtl update available. Restart to apply.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="511"/>
-        <location filename="../core/src/package_manager.cpp" line="542"/>
-        <location filename="../core/src/package_manager.cpp" line="563"/>
-        <location filename="../core/src/package_manager.cpp" line="578"/>
+        <location filename="../core/src/package_manager.cpp" line="529"/>
+        <location filename="../core/src/package_manager.cpp" line="560"/>
+        <location filename="../core/src/package_manager.cpp" line="587"/>
+        <location filename="../core/src/package_manager.cpp" line="602"/>
         <source>Invalid package ID or type.</source>
         <translation>Invalid package ID or type.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="585"/>
+        <location filename="../core/src/package_manager.cpp" line="609"/>
         <source>Invalid or insecure package download URL.</source>
         <translation>Invalid or insecure package download URL.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="590"/>
+        <location filename="../core/src/package_manager.cpp" line="614"/>
         <source>Downloading package: %1</source>
         <translation>Downloading package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="606"/>
+        <location filename="../core/src/package_manager.cpp" line="630"/>
         <source>Download failed: %1</source>
         <translation>Download failed: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="613"/>
+        <location filename="../core/src/package_manager.cpp" line="637"/>
         <source>Failed to create temporary directory.</source>
         <translation>Failed to create temporary directory.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="624"/>
+        <location filename="../core/src/package_manager.cpp" line="648"/>
         <source>Failed to save downloaded file.</source>
         <translation>Failed to save downloaded file.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="604"/>
-        <location filename="../core/src/package_manager.cpp" line="630"/>
+        <location filename="../core/src/package_manager.cpp" line="628"/>
+        <location filename="../core/src/package_manager.cpp" line="654"/>
         <source>Package archive exceeds the maximum allowed size.</source>
         <translation>Package archive exceeds the maximum allowed size.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="274"/>
-        <location filename="../core/src/package_manager.cpp" line="327"/>
+        <location filename="../core/src/package_manager.cpp" line="233"/>
+        <source>Failed to reset the package catalog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="287"/>
+        <location filename="../core/src/package_manager.cpp" line="340"/>
         <source>Repository metadata exceeds the maximum allowed size.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="301"/>
-        <location filename="../core/src/package_manager.cpp" line="316"/>
+        <location filename="../core/src/package_manager.cpp" line="314"/>
+        <location filename="../core/src/package_manager.cpp" line="329"/>
         <source>Repository catalog exceeds the maximum allowed size.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="414"/>
-        <location filename="../core/src/package_manager.cpp" line="422"/>
+        <location filename="../core/src/package_manager.cpp" line="405"/>
+        <location filename="../core/src/package_manager.cpp" line="576"/>
+        <location filename="../core/src/package_manager.cpp" line="851"/>
+        <source>Package catalog is unavailable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../core/src/package_manager.cpp" line="432"/>
+        <location filename="../core/src/package_manager.cpp" line="440"/>
         <source>Package metadata exceeds the maximum allowed size: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="526"/>
+        <location filename="../core/src/package_manager.cpp" line="544"/>
         <source>Package installation could not be validated.</source>
         <translation>Package installation could not be validated.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="645"/>
+        <location filename="../core/src/package_manager.cpp" line="669"/>
         <source>Checksum mismatch for %1: expected %2, got %3</source>
         <translation>Checksum mismatch for %1: expected %2, got %3</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="650"/>
+        <location filename="../core/src/package_manager.cpp" line="674"/>
         <source>Extracting package...</source>
         <translation>Extracting package...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="661"/>
+        <location filename="../core/src/package_manager.cpp" line="685"/>
         <source>Failed to create extraction directory.</source>
         <translation>Failed to create extraction directory.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="669"/>
+        <location filename="../core/src/package_manager.cpp" line="693"/>
         <source>Failed to extract package archive.</source>
         <translation>Failed to extract package archive.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="688"/>
+        <location filename="../core/src/package_manager.cpp" line="712"/>
         <source>Deploying package files...</source>
         <translation>Deploying package files...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="733"/>
+        <location filename="../core/src/package_manager.cpp" line="761"/>
         <source>Invalid package ID.</source>
         <translation>Invalid package ID.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="740"/>
+        <location filename="../core/src/package_manager.cpp" line="768"/>
         <source>Cannot remove package because its installed type is missing or invalid.</source>
         <translation>Cannot remove package because its installed type is missing or invalid.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="744"/>
+        <location filename="../core/src/package_manager.cpp" line="772"/>
         <source>Removing package: %1</source>
         <translation>Removing package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="752"/>
+        <location filename="../core/src/package_manager.cpp" line="780"/>
         <source>Package removal failed and automatic rollback was incomplete; the backup was preserved.</source>
         <translation>Package removal failed and automatic rollback was incomplete; the backup was preserved.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="754"/>
+        <location filename="../core/src/package_manager.cpp" line="782"/>
         <source>Failed to remove package; the installed state and files were restored.</source>
         <translation>Failed to remove package; the installed state and files were restored.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="767"/>
+        <location filename="../core/src/package_manager.cpp" line="799"/>
         <source>Removal complete: %1</source>
         <translation>Removal complete: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="818"/>
+        <location filename="../core/src/package_manager.cpp" line="857"/>
         <source>No packages to upgrade.</source>
         <translation>No packages to upgrade.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="822"/>
+        <location filename="../core/src/package_manager.cpp" line="861"/>
         <source>Upgrading all packages...</source>
         <translation>Upgrading all packages...</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="829"/>
+        <location filename="../core/src/package_manager.cpp" line="868"/>
         <source>All upgrades complete.</source>
         <translation>All upgrades complete.</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="834"/>
+        <location filename="../core/src/package_manager.cpp" line="873"/>
         <source>Upgrading package: %1</source>
         <translation>Upgrading package: %1</translation>
     </message>
     <message>
-        <location filename="../core/src/package_manager.cpp" line="635"/>
+        <location filename="../core/src/package_manager.cpp" line="659"/>
         <source>Failed to write the complete downloaded package.</source>
         <translation>Failed to write the complete downloaded package.</translation>
     </message>
@@ -1786,53 +1798,53 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineController</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="197"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="198"/>
         <source>プロパティ変更: %1</source>
         <translation>Property change: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="239"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="240"/>
         <source>開始フレーム変更</source>
         <translation>Start frame change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="256"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="257"/>
         <source>長さ変更</source>
         <translation>Length change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="273"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="274"/>
         <source>レイヤー変更</source>
         <translation>Layer change</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="368"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="373"/>
         <source>動画</source>
         <translation>Video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="371"/>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="390"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="376"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="399"/>
         <source>音声</source>
         <translation>Audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="389"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="398"/>
         <source>音声をインポート</source>
         <translation>Import audio</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="403"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="413"/>
         <source>画像をインポート</source>
         <translation>Import image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="404"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="414"/>
         <source>画像</source>
         <translation>Image</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="548"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="558"/>
         <source>複数クリップリサイズ: %1</source>
         <translation>Resize multiple clips: %1</translation>
     </message>
@@ -1862,57 +1874,55 @@ This software is released under the GNU Affero General Public License Version 3.
         <translation>Media effect not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="367"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="372"/>
         <source>動画をインポート</source>
         <translation>Import video</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="344"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="345"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="204"/>
         <source>ファイルが見つかりません: %1</source>
         <translation>File not found: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="410"/>
+        <location filename="../ui/src/timeline/timeline_controller_clip.cpp" line="420"/>
         <location filename="../ui/src/timeline/timeline_controller_project.cpp" line="215"/>
         <source>サポートされていないファイル形式です: %1</source>
         <translation>Unsupported file format: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="41"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="72"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="16"/>
         <source>missing output path</source>
         <translation>missing output path</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="45"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="18"/>
         <source>invalid output size</source>
         <translation>invalid output size</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="49"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="20"/>
         <source>invalid FPS</source>
         <translation>invalid FPS</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="55"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="78"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="22"/>
         <source>export end frame must be after start frame</source>
         <translation>export end frame must be after start frame</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="61"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="24"/>
         <source>export FPS does not match project FPS</source>
         <translation>export FPS does not match project FPS</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="66"/>
-        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="83"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="70"/>
+        <location filename="../ui/src/timeline/timeline_controller_export.cpp" line="84"/>
         <source>export is already running</source>
         <translation>export is already running</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline_controller.cpp" line="316"/>
+        <location filename="../ui/src/timeline_controller.cpp" line="317"/>
         <source>Untitled project</source>
         <translation>Untitled project</translation>
     </message>
@@ -1920,69 +1930,75 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineExportManager</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="130"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="152"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="278"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="381"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="131"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="153"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="284"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="400"/>
         <source>Frame capture error: no preview view is available</source>
         <translation>Frame capture error: no preview view is available</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="160"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="163"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
         <source>Encoder error: initialization failed</source>
         <translation>Encoder error: initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="171"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="184"/>
         <source>Encoder error: audio stream initialization failed</source>
         <translation>Encoder error: audio stream initialization failed</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="198"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="430"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="207"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="450"/>
         <source>Export cancelled</source>
         <translation>Export cancelled</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="209"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="440"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="218"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="460"/>
         <source>Frame render timeout: failed to render frame %1</source>
         <translation>Frame render timeout: failed to render frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="223"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="454"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="232"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="474"/>
         <source>Frame grab error: failed to capture frame %1</source>
         <translation>Frame grab error: failed to capture frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="235"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="244"/>
         <source>Encoder error: failed to queue video frame %1</source>
         <translation>Encoder error: failed to queue video frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="252"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="259"/>
         <source>Encoder error: failed to queue audio for frame %1</source>
         <translation>Encoder error: failed to queue audio for frame %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="268"/>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="481"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="274"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="500"/>
         <source>Export complete</source>
         <translation>Export complete</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="388"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="380"/>
+        <source>Output error: invalid image sequence configuration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="407"/>
         <source>Output error: cannot create output directory</source>
         <translation>Output error: cannot create output directory</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="413"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="432"/>
         <source>Output error: output file already exists: %1</source>
         <translation>Output error: output file already exists: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="464"/>
+        <location filename="../ui/src/timeline/timeline_export_manager.cpp" line="484"/>
         <source>Output error: failed to save frame %1</source>
         <translation>Output error: failed to save frame %1</translation>
     </message>
@@ -1990,22 +2006,22 @@ This software is released under the GNU Affero General Public License Version 3.
 <context>
     <name>AviQtl::UI::TimelineService</name>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="295"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="296"/>
         <source>レイヤーを上に挿入</source>
         <translation>Insert Layer Above</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="295"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="296"/>
         <source>レイヤーを下に挿入</source>
         <translation>Insert Layer Below</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="310"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="311"/>
         <source>レイヤーをまとめて下へ移動</source>
         <translation>Move layers down together</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="311"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="312"/>
         <source>レイヤーをまとめて上へ移動</source>
         <translation>Move layers up together</translation>
     </message>
@@ -4141,38 +4157,38 @@ Please restart the application to apply the update.</translation>
     </message>
     <message>
         <location filename="../ui/src/timeline/timeline_scene.cpp" line="108"/>
-        <location filename="../ui/src/timeline_service.cpp" line="201"/>
+        <location filename="../ui/src/timeline_service.cpp" line="170"/>
         <source>ルート</source>
         <translation>Root</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="361"/>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="391"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="362"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="392"/>
         <source>複数クリップ絶対移動: %1</source>
         <translation>Absolute move multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="427"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="428"/>
         <source>複数クリップ変形: %1</source>
         <translation>Transform multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="691"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="692"/>
         <source>クリップ削除</source>
         <translation>Delete clip</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="691"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="692"/>
         <source>複数クリップ削除: %1</source>
         <translation>Delete multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1110"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1111"/>
         <source>複数クリップ分割: %1</source>
         <translation>Split multiple clips: %1</translation>
     </message>
     <message>
-        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1159"/>
+        <location filename="../ui/src/timeline/timeline_clip.cpp" line="1160"/>
         <source>複数クリップ貼り付け: %1</source>
         <translation>Paste multiple clips: %1</translation>
     </message>
@@ -4420,87 +4436,87 @@ Please restart the application to apply the update.</translation>
         <translation>Direct Time</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1104"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1108"/>
         <source>Start</source>
         <translation>Start</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1153"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1157"/>
         <source>Channel Strip</source>
         <translation>Channel Strip</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1161"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1165"/>
         <source>Limit</source>
         <translation>Limit</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1225"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1229"/>
         <source>MUTE</source>
         <translation>MUTE</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1233"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1237"/>
         <source>SOLO</source>
         <translation>SOLO</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1258"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1262"/>
         <source>メーター</source>
         <translation>Meters</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1331"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1335"/>
         <source>Carlaプラグインチェーン</source>
         <translation>Carla Plugin Chain</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1341"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1345"/>
         <source>左側のリストでプラグインを選択・並べ替えできます。</source>
         <translation>Select and reorder plugins in the list on the left.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1341"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1345"/>
         <source>上部の「プラグイン追加」またはメニューからCarlaプラグインを追加してください。</source>
         <translation>Add Carla plugins from Add Plugin at the top or from the menu.</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1727"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1731"/>
         <source> (直線)</source>
         <translation> (Linear)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1728"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1732"/>
         <source> (加速)</source>
         <translation> (Ease In)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1729"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1733"/>
         <source> (減速)</source>
         <translation> (Ease Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1730"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1734"/>
         <source> (加減速)</source>
         <translation> (Ease In/Out)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="1731"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="1735"/>
         <source> (ベジェ)</source>
         <translation> (Bezier)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2291"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2295"/>
         <source>Browse effect catalog...</source>
         <translation>Browse effect catalog...</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2396"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2400"/>
         <source>エフェクトを追加</source>
         <translation>Add Effect</translation>
     </message>
     <message>
-        <location filename="../ui/qml/SettingDialog.qml" line="2407"/>
+        <location filename="../ui/qml/SettingDialog.qml" line="2411"/>
         <source>検索...</source>
         <translation>Search...</translation>
     </message>
