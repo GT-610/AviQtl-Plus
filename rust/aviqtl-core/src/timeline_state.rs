@@ -772,6 +772,20 @@ impl TimelineState {
         }
     }
 
+    fn plan_batch(&self, requests: Vec<EditRequest>) -> Result<Transaction, StateError> {
+        if requests.is_empty() {
+            return Err(StateError::InvalidArgument);
+        }
+        let mut candidate = self.clone();
+        let mut transactions = Vec::with_capacity(requests.len());
+        for request in requests {
+            let transaction = candidate.plan(request)?;
+            candidate.apply_patch(&transaction.forward)?;
+            transactions.push(transaction);
+        }
+        combine_transactions(transactions)
+    }
+
     fn plan_split(
         &self,
         clip_id: i32,
@@ -1104,6 +1118,26 @@ fn transaction(forward: Vec<PatchOperation>, inverse: Vec<PatchOperation>) -> Tr
             operations: inverse,
         },
     }
+}
+
+fn combine_transactions(transactions: Vec<Transaction>) -> Result<Transaction, StateError> {
+    if transactions.is_empty()
+        || transactions.iter().any(|transaction| {
+            transaction.forward.operations.is_empty() || transaction.inverse.operations.is_empty()
+        })
+    {
+        return Err(StateError::InvalidArgument);
+    }
+
+    let mut forward = Vec::new();
+    let mut inverse = Vec::new();
+    for transaction in &transactions {
+        forward.extend(transaction.forward.operations.iter().cloned());
+    }
+    for transaction in transactions.into_iter().rev() {
+        inverse.extend(transaction.inverse.operations);
+    }
+    Ok(transaction(forward, inverse))
 }
 
 fn replacement_transaction(forward: PatchOperation, inverse: PatchOperation) -> Transaction {
@@ -1784,16 +1818,119 @@ pub unsafe extern "C" fn aviqtl_timeline_state_plan_json(
     unsafe { write_json(&transaction, output, output_capacity, output_length) }
 }
 
-/// Atomically applies a patch produced by the state planner.
+/// Plans a sequence of reversible edits against a temporary state without mutating the handle.
+/// Later requests observe the effects of earlier requests, and the returned transaction applies
+/// or rolls back the complete sequence atomically.
+///
+/// # Safety
+///
+/// The handle must be live, input readable, and output ranges writable and disjoint from input.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_timeline_state_plan_batch_json(
+    handle: *mut AviQtlTimelineState,
+    input: *const u8,
+    input_length: usize,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    if ranges_overlap(input, input_length, output, output_capacity) != Some(false)
+        || ranges_overlap(input, input_length, output_length, 1) != Some(false)
+    {
+        return if slice_is_valid(input, input_length)
+            && slice_is_valid(output, output_capacity)
+            && slice_is_valid(output_length, 1)
+        {
+            STATUS_OVERLAPPING_BUFFERS
+        } else {
+            STATUS_INVALID_ARGUMENT
+        };
+    }
+    // SAFETY: The caller upholds the handle and input contracts above.
+    let (Some(handle), Some(bytes)) = (unsafe { state_from_handle(handle) }, unsafe {
+        input_bytes(input, input_length)
+    }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let requests: Vec<EditRequest> = match serde_json::from_slice(bytes) {
+        Ok(requests) => requests,
+        Err(_) => return STATUS_INVALID_JSON,
+    };
+    let Ok(guard) = handle.state.lock() else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let transaction = match guard.plan_batch(requests) {
+        Ok(transaction) => transaction,
+        Err(error) => return error.status(),
+    };
+    // SAFETY: All ranges were validated as disjoint above.
+    unsafe { write_json(&transaction, output, output_capacity, output_length) }
+}
+
+/// Combines two planner-produced transactions without exposing their patch representation.
+///
+/// # Safety
+///
+/// Both inputs must be readable. Output ranges must be writable and pairwise disjoint from both
+/// inputs and each other.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aviqtl_timeline_transaction_combine_json(
+    first: *const u8,
+    first_length: usize,
+    second: *const u8,
+    second_length: usize,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    let ranges = [
+        ranges_overlap(first, first_length, output, output_capacity),
+        ranges_overlap(first, first_length, output_length, 1),
+        ranges_overlap(second, second_length, output, output_capacity),
+        ranges_overlap(second, second_length, output_length, 1),
+        ranges_overlap(output, output_capacity, output_length, 1),
+    ];
+    if ranges.iter().any(Option::is_none) {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    if ranges.into_iter().flatten().any(|overlap| overlap) {
+        return STATUS_OVERLAPPING_BUFFERS;
+    }
+    // SAFETY: Both input ranges were validated above.
+    let (Some(first_bytes), Some(second_bytes)) =
+        (unsafe { input_bytes(first, first_length) }, unsafe {
+            input_bytes(second, second_length)
+        })
+    else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let first: Transaction = match serde_json::from_slice(first_bytes) {
+        Ok(transaction) => transaction,
+        Err(_) => return STATUS_INVALID_JSON,
+    };
+    let second: Transaction = match serde_json::from_slice(second_bytes) {
+        Ok(transaction) => transaction,
+        Err(_) => return STATUS_INVALID_JSON,
+    };
+    let transaction = match combine_transactions(vec![first, second]) {
+        Ok(transaction) => transaction,
+        Err(error) => return error.status(),
+    };
+    // SAFETY: All ranges were validated as disjoint above.
+    unsafe { write_json(&transaction, output, output_capacity, output_length) }
+}
+
+/// Atomically applies one direction of a planner-produced transaction.
 ///
 /// # Safety
 ///
 /// The handle must be live and input readable for the duration of the call.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aviqtl_timeline_state_apply_patch_json(
+pub unsafe extern "C" fn aviqtl_timeline_state_apply_transaction_json(
     handle: *mut AviQtlTimelineState,
     input: *const u8,
     input_length: usize,
+    forward: u32,
 ) -> u32 {
     // SAFETY: The caller upholds the handle and input contracts above.
     let (Some(handle), Some(bytes)) = (unsafe { state_from_handle(handle) }, unsafe {
@@ -1801,14 +1938,19 @@ pub unsafe extern "C" fn aviqtl_timeline_state_apply_patch_json(
     }) else {
         return STATUS_INVALID_ARGUMENT;
     };
-    let patch: Patch = match serde_json::from_slice(bytes) {
-        Ok(patch) => patch,
+    let transaction: Transaction = match serde_json::from_slice(bytes) {
+        Ok(transaction) => transaction,
         Err(_) => return STATUS_INVALID_JSON,
     };
     let Ok(mut guard) = handle.state.lock() else {
         return STATUS_INVALID_ARGUMENT;
     };
-    match guard.apply_patch(&patch) {
+    let patch = if forward != 0 {
+        &transaction.forward
+    } else {
+        &transaction.inverse
+    };
+    match guard.apply_patch(patch) {
         Ok(()) => STATUS_OK,
         Err(error) => error.status(),
     }
@@ -2024,6 +2166,84 @@ mod tests {
             ],
         };
         assert_eq!(state.apply_patch(&patch), Err(StateError::Conflict));
+        assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn batch_planning_is_sequential_reversible_and_non_mutating() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        let before = state.document.clone();
+        let transaction = state
+            .plan_batch(vec![
+                EditRequest::UpdateClipGeometry {
+                    clip_id: 1,
+                    layer: 2,
+                    start: 14,
+                    duration: 20,
+                },
+                EditRequest::SetClipByUpperObject {
+                    clip_id: 1,
+                    enabled: true,
+                },
+            ])
+            .expect("batch plans");
+        assert_eq!(state.document, before);
+
+        state
+            .apply_patch(&transaction.forward)
+            .expect("combined forward applies");
+        assert_eq!(state.document.clips[0].layer, 2);
+        assert_eq!(state.document.clips[0].start, 14);
+        assert!(state.document.clips[0].clip_by_upper_object);
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("combined inverse applies");
+        assert_eq!(state.document, before);
+
+        assert_eq!(
+            state.plan_batch(vec![
+                EditRequest::UpdateClipGeometry {
+                    clip_id: 1,
+                    layer: 3,
+                    start: 8,
+                    duration: 10,
+                },
+                EditRequest::RemoveClip { clip_id: 99 },
+            ]),
+            Err(StateError::InvalidArgument)
+        );
+        assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn transaction_combination_reverses_inverse_order() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        let before = state.document.clone();
+        let first = state
+            .plan(EditRequest::UpdateClipGeometry {
+                clip_id: 1,
+                layer: 1,
+                start: 4,
+                duration: 16,
+            })
+            .expect("first transaction plans");
+        state.apply_patch(&first.forward).expect("first applies");
+        let second = state
+            .plan(EditRequest::SetClipByUpperObject {
+                clip_id: 1,
+                enabled: true,
+            })
+            .expect("second transaction plans");
+        state.apply_patch(&first.inverse).expect("first restores");
+
+        let combined = combine_transactions(vec![first, second]).expect("transactions combine");
+        state
+            .apply_patch(&combined.forward)
+            .expect("combined forward applies");
+        assert!(state.document.clips[0].clip_by_upper_object);
+        state
+            .apply_patch(&combined.inverse)
+            .expect("combined inverse applies");
         assert_eq!(state.document, before);
     }
 

@@ -13,14 +13,10 @@ namespace AviQtl::UI {
 class SelectionService;
 
 struct TimelineEditTransaction {
-    QVariantMap forward;
-    QVariantMap inverse;
+    QByteArray document;
 
-    [[nodiscard]] bool isValid() const { return !forward.isEmpty() && !inverse.isEmpty(); }
-    void clear() {
-        forward.clear();
-        inverse.clear();
-    }
+    [[nodiscard]] bool isValid() const { return !document.isEmpty(); }
+    void clear() { document.clear(); }
 };
 
 struct ClipProjectionRestore {
@@ -239,7 +235,9 @@ class TimelineService : public QObject {
                                          TimelineEditTransaction *transaction = nullptr);
     bool applyTimelineEditRequest(const QVariantMap &request,
                                   TimelineEditTransaction &transaction);
-    bool applyTimelinePatch(const QVariantMap &patch);
+    bool applyTimelineTransaction(const TimelineEditTransaction &transaction, bool forward);
+    void appendTimelineEditTransaction(TimelineEditTransaction *destination,
+                                       TimelineEditTransaction transaction) const;
     bool synchronizeTimelineProjection();
     QVariantMap timelineSceneDocument(const SceneData &scene) const;
     QVariantMap timelineClipDocument(const ClipData &clip) const;

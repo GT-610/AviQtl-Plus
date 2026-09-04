@@ -34,7 +34,13 @@ class TimelineState final {
     [[nodiscard]] TimelineStateStatus snapshot(QByteArray &output) const;
     [[nodiscard]] TimelineStateStatus plan(const QByteArray &request,
                                            QByteArray &transaction) const;
-    [[nodiscard]] TimelineStateStatus applyPatch(const QByteArray &patch);
+    [[nodiscard]] TimelineStateStatus planBatch(const QByteArray &requests,
+                                                QByteArray &transaction) const;
+    [[nodiscard]] TimelineStateStatus combineTransactions(const QByteArray &first,
+                                                          const QByteArray &second,
+                                                          QByteArray &transaction) const;
+    [[nodiscard]] TimelineStateStatus applyTransaction(const QByteArray &transaction,
+                                                       bool forward);
     [[nodiscard]] TimelineStateStatus reserveClipIds(std::size_t count,
                                                      std::vector<std::int32_t> &output);
     [[nodiscard]] TimelineStateStatus reserveSceneIds(std::size_t count,

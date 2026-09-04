@@ -158,37 +158,6 @@ QByteArray compactJson(const QVariantMap &value) {
     return QJsonDocument(QJsonObject::fromVariantMap(value)).toJson(QJsonDocument::Compact);
 }
 
-TimelineEditTransaction combineTransactions(const QList<TimelineEditTransaction> &transactions) {
-    QVariantList forwardOperations;
-    QVariantList inverseOperations;
-    for (const TimelineEditTransaction &transaction : transactions) {
-        forwardOperations.append(
-            transaction.forward.value(QStringLiteral("operations")).toList());
-    }
-    for (auto it = transactions.crbegin(); it != transactions.crend(); ++it) {
-        inverseOperations.append(it->inverse.value(QStringLiteral("operations")).toList());
-    }
-    if (forwardOperations.isEmpty() || inverseOperations.isEmpty()) {
-        return {};
-    }
-    return {
-        .forward = {{QStringLiteral("operations"), forwardOperations}},
-        .inverse = {{QStringLiteral("operations"), inverseOperations}},
-    };
-}
-
-void appendTransaction(TimelineEditTransaction *destination,
-                       TimelineEditTransaction transaction) {
-    if (destination == nullptr || !transaction.isValid()) {
-        return;
-    }
-    if (!destination->isValid()) {
-        *destination = std::move(transaction);
-        return;
-    }
-    *destination = combineTransactions({*destination, transaction});
-}
-
 } // namespace
 
 TimelineService::TimelineService(SelectionService *selection, QObject *parent) : QObject(parent), m_undoStack(new QUndoStack(this)), m_selection(selection) {
@@ -285,20 +254,14 @@ bool TimelineService::commitTimelineProjection() {
         {QStringLiteral("operation"), QStringLiteral("replace_document")},
         {QStringLiteral("document"), proposed},
     };
-    QByteArray transactionBytes;
-    auto status = m_timelineState.plan(compactJson(request), transactionBytes);
+    TimelineEditTransaction transaction;
+    auto status = m_timelineState.plan(compactJson(request), transaction.document);
     if (status != AviQtl::RustCore::TimelineStateStatus::Ok) {
         qWarning() << "Rust timeline state transaction planning failed:"
                    << static_cast<std::uint32_t>(status);
         return false;
     }
-    const QVariantMap transaction = jsonObject(transactionBytes);
-    const QVariantMap forward = transaction.value(QStringLiteral("forward")).toMap();
-    if (forward.isEmpty()) {
-        qWarning() << "Rust timeline state returned an invalid transaction";
-        return false;
-    }
-    status = m_timelineState.applyPatch(compactJson(forward));
+    status = m_timelineState.applyTransaction(transaction.document, true);
     if (status != AviQtl::RustCore::TimelineStateStatus::Ok) {
         qWarning() << "Rust timeline state transaction failed:" << static_cast<std::uint32_t>(status);
         return false;
@@ -314,13 +277,15 @@ QVariantMap TimelineService::timelineClipDocument(const ClipData &clip) const {
     return clipDocument(clip);
 }
 
-bool TimelineService::applyTimelinePatch(const QVariantMap &patch) {
-    if (patch.isEmpty()) {
+bool TimelineService::applyTimelineTransaction(const TimelineEditTransaction &transaction,
+                                               bool forward) {
+    if (!transaction.isValid()) {
         return false;
     }
-    const auto status = m_timelineState.applyPatch(compactJson(patch));
+    const auto status = m_timelineState.applyTransaction(transaction.document, forward);
     if (status != AviQtl::RustCore::TimelineStateStatus::Ok) {
-        qWarning() << "Rust timeline state patch failed:" << static_cast<std::uint32_t>(status);
+        qWarning() << "Rust timeline state transaction failed:"
+                   << static_cast<std::uint32_t>(status);
         return false;
     }
     return true;
@@ -486,26 +451,43 @@ bool TimelineService::synchronizeTimelineProjection() {
 bool TimelineService::applyTimelineEditRequest(const QVariantMap &request,
                                                TimelineEditTransaction &transaction) {
     transaction.clear();
-    QByteArray transactionBytes;
-    const auto status = m_timelineState.plan(compactJson(request), transactionBytes);
+    const auto status = m_timelineState.plan(compactJson(request), transaction.document);
     if (status != AviQtl::RustCore::TimelineStateStatus::Ok) {
         qWarning() << "Rust targeted timeline edit planning failed:"
                    << static_cast<std::uint32_t>(status);
         return false;
     }
-    const QVariantMap transactionDocument = jsonObject(transactionBytes);
-    transaction.forward = transactionDocument.value(QStringLiteral("forward")).toMap();
-    transaction.inverse = transactionDocument.value(QStringLiteral("inverse")).toMap();
     if (!transaction.isValid()) {
         qWarning() << "Rust targeted timeline edit returned an invalid transaction";
         transaction.clear();
         return false;
     }
-    if (!applyTimelinePatch(transaction.forward)) {
+    if (!applyTimelineTransaction(transaction, true)) {
         transaction.clear();
         return false;
     }
     return true;
+}
+
+void TimelineService::appendTimelineEditTransaction(TimelineEditTransaction *destination,
+                                                    TimelineEditTransaction transaction) const {
+    if (destination == nullptr || !transaction.isValid()) {
+        return;
+    }
+    if (!destination->isValid()) {
+        *destination = std::move(transaction);
+        return;
+    }
+    QByteArray combined;
+    const auto status = m_timelineState.combineTransactions(
+        destination->document, transaction.document, combined);
+    if (status != AviQtl::RustCore::TimelineStateStatus::Ok) {
+        qWarning() << "Rust timeline transaction combination failed:"
+                   << static_cast<std::uint32_t>(status);
+        destination->clear();
+        return;
+    }
+    destination->document = std::move(combined);
 }
 
 bool TimelineService::commitTimelineStateMutation(const QVariantMap &request,
@@ -530,7 +512,7 @@ bool TimelineService::commitTimelineStateMutation(
         return false;
     }
     if (!synchronizeTimelineProjection()) {
-        const bool rustRestored = applyTimelinePatch(transaction.inverse);
+        const bool rustRestored = applyTimelineTransaction(transaction, false);
         if (!rustRestored) {
             qWarning() << "Failed to roll back a Rust targeted timeline edit";
         }
@@ -542,9 +524,9 @@ bool TimelineService::commitTimelineStateMutation(
     if (commitAction) {
         commitAction();
     }
-    appendTransaction(committedTransaction != nullptr ? committedTransaction
-                                                       : m_timelineEditCapture,
-                      std::move(transaction));
+    appendTimelineEditTransaction(committedTransaction != nullptr ? committedTransaction
+                                                                   : m_timelineEditCapture,
+                                  std::move(transaction));
     return true;
 }
 
@@ -589,7 +571,7 @@ bool TimelineService::commitTimelineStructureMutation(
         return false;
     }
     if (!apply() || !synchronizeTimelineProjection()) {
-        const bool rustRestored = applyTimelinePatch(transaction.inverse);
+        const bool rustRestored = applyTimelineTransaction(transaction, false);
         if (!rustRestored) {
             qWarning() << "Failed to roll back a structural Rust timeline edit";
         }
@@ -605,9 +587,9 @@ bool TimelineService::commitTimelineStructureMutation(
     if (commitAction) {
         commitAction();
     }
-    appendTransaction(committedTransaction != nullptr ? committedTransaction
-                                                       : m_timelineEditCapture,
-                      std::move(transaction));
+    appendTimelineEditTransaction(committedTransaction != nullptr ? committedTransaction
+                                                                   : m_timelineEditCapture,
+                                  std::move(transaction));
     return true;
 }
 
@@ -616,15 +598,13 @@ bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction
     if (!transaction.isValid()) {
         return false;
     }
-    const QVariantMap &patch = forward ? transaction.forward : transaction.inverse;
-    const QVariantMap &rollbackPatch = forward ? transaction.inverse : transaction.forward;
-    if (!applyTimelinePatch(patch)) {
+    if (!applyTimelineTransaction(transaction, forward)) {
         return false;
     }
     if (synchronizeTimelineProjection()) {
         return true;
     }
-    if (!applyTimelinePatch(rollbackPatch)) {
+    if (!applyTimelineTransaction(transaction, !forward)) {
         qWarning() << "Failed to roll back a replayed Rust timeline transaction";
         return false;
     }
@@ -641,13 +621,11 @@ bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction
     if (!transaction.isValid() || !applyProjection || !rollbackProjection) {
         return false;
     }
-    const QVariantMap &patch = forward ? transaction.forward : transaction.inverse;
-    const QVariantMap &rollbackPatch = forward ? transaction.inverse : transaction.forward;
-    if (!applyTimelinePatch(patch)) {
+    if (!applyTimelineTransaction(transaction, forward)) {
         return false;
     }
     if (!applyProjection()) {
-        if (!applyTimelinePatch(rollbackPatch)) {
+        if (!applyTimelineTransaction(transaction, !forward)) {
             qWarning() << "Failed to roll back a replayed structural Rust timeline transaction";
         } else if (!synchronizeTimelineProjection()) {
             qWarning() << "Failed to restore the Qt timeline projection after structural replay rejection";
@@ -658,7 +636,7 @@ bool TimelineService::applyTimelineEditTransaction(const TimelineEditTransaction
         return true;
     }
 
-    const bool rustRestored = applyTimelinePatch(rollbackPatch);
+    const bool rustRestored = applyTimelineTransaction(transaction, !forward);
     const bool projectionRestored = rollbackProjection();
     if (!rustRestored) {
         qWarning() << "Failed to roll back a replayed structural Rust timeline transaction";
@@ -692,8 +670,13 @@ bool TimelineService::mergeTimelineEditTransactions(
     if (!transaction.isValid() || !next.isValid()) {
         return false;
     }
-    transaction = combineTransactions({transaction, next});
-    return transaction.isValid();
+    QByteArray combined;
+    if (m_timelineState.combineTransactions(transaction.document, next.document, combined) !=
+        AviQtl::RustCore::TimelineStateStatus::Ok) {
+        return false;
+    }
+    transaction.document = std::move(combined);
+    return true;
 }
 
 void TimelineService::publishClipGeometryChange(const QList<int> &clipIds, bool emitSignal) {
@@ -784,39 +767,45 @@ bool TimelineService::endTimelineProjectionTransaction(
         }
         return false;
     }
-    bool committed = false;
-    QList<TimelineEditTransaction> transactions;
+    bool committed = requests.isEmpty();
+    bool rustApplied = false;
+    TimelineEditTransaction transaction;
     const bool batchClipGeometry = requests.size() > 1 && std::ranges::all_of(
             requests, [](const QVariantMap &request) {
                 return request.value(QStringLiteral("operation")).toString() ==
                        QStringLiteral("update_clip_geometry");
             });
-    if (batchClipGeometry) {
+    if (!requests.isEmpty()) {
+        QVariantList plannedRequests;
+        if (batchClipGeometry) {
             QVariantList updates;
             updates.reserve(requests.size());
             for (QVariantMap request : std::as_const(requests)) {
                 request.remove(QStringLiteral("operation"));
                 updates.append(std::move(request));
             }
-            const QVariantMap batchRequest{
+            plannedRequests.append(QVariantMap{
                 {QStringLiteral("operation"), QStringLiteral("batch_update_clip_geometry")},
                 {QStringLiteral("updates"), updates},
-            };
-            TimelineEditTransaction transaction;
-            committed = applyTimelineEditRequest(batchRequest, transaction);
-            if (committed) {
-                transactions.append(std::move(transaction));
+            });
+        } else {
+            plannedRequests.reserve(requests.size());
+            for (const QVariantMap &request : std::as_const(requests)) {
+                plannedRequests.append(request);
             }
-    } else {
-        committed = true;
-        transactions.reserve(requests.size());
-        for (const QVariantMap &request : std::as_const(requests)) {
-            TimelineEditTransaction transaction;
-            if (!applyTimelineEditRequest(request, transaction)) {
-                committed = false;
-                break;
-            }
-            transactions.append(std::move(transaction));
+        }
+        const QByteArray requestDocument =
+            QJsonDocument::fromVariant(plannedRequests).toJson(QJsonDocument::Compact);
+        const auto planStatus =
+            m_timelineState.planBatch(requestDocument, transaction.document);
+        committed = planStatus == AviQtl::RustCore::TimelineStateStatus::Ok &&
+                    transaction.isValid();
+        if (!committed) {
+            qWarning() << "Rust timeline batch planning failed:"
+                       << static_cast<std::uint32_t>(planStatus);
+        } else {
+            rustApplied = applyTimelineTransaction(transaction, true);
+            committed = rustApplied;
         }
     }
     if (committed) {
@@ -836,17 +825,15 @@ bool TimelineService::endTimelineProjectionTransaction(
                 action();
             }
         }
-        appendTransaction(committedTransaction != nullptr ? committedTransaction
-                                                           : m_timelineEditCapture,
-                          combineTransactions(transactions));
+        appendTimelineEditTransaction(committedTransaction != nullptr ? committedTransaction
+                                                                       : m_timelineEditCapture,
+                                      std::move(transaction));
         return true;
     }
     bool rustRestored = true;
-    for (auto it = transactions.crbegin(); it != transactions.crend(); ++it) {
-        if (!applyTimelinePatch(it->inverse)) {
-            qWarning() << "Failed to roll back a Rust targeted timeline edit";
-            rustRestored = false;
-        }
+    if (rustApplied && !applyTimelineTransaction(transaction, false)) {
+        qWarning() << "Failed to roll back a Rust targeted timeline edit";
+        rustRestored = false;
     }
     for (auto it = rollbacks.rbegin(); it != rollbacks.rend(); ++it) {
         if (*it) {
@@ -858,7 +845,7 @@ bool TimelineService::endTimelineProjectionTransaction(
             action();
         }
     }
-    if (rustRestored && !transactions.isEmpty() && !synchronizeTimelineProjection()) {
+    if (rustRestored && rustApplied && !synchronizeTimelineProjection()) {
         qWarning() << "Failed to restore the Qt timeline projection after transaction rollback";
     }
     return false;

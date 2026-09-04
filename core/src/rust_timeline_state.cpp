@@ -80,13 +80,54 @@ TimelineStateStatus TimelineState::plan(const QByteArray &request, QByteArray &t
         transaction);
 }
 
-TimelineStateStatus TimelineState::applyPatch(const QByteArray &patch) {
+TimelineStateStatus TimelineState::planBatch(const QByteArray &requests,
+                                             QByteArray &transaction) const {
+    transaction.clear();
     if (m_handle == nullptr) {
         return TimelineStateStatus::InvalidArgument;
     }
-    return static_cast<TimelineStateStatus>(aviqtl_timeline_state_apply_patch_json(
-        m_handle, reinterpret_cast<const std::uint8_t *>(patch.constData()),
-        static_cast<std::size_t>(patch.size())));
+    const auto *input = reinterpret_cast<const std::uint8_t *>(requests.constData());
+    const auto inputLength = static_cast<std::size_t>(requests.size());
+    return collectJson(
+        m_handle,
+        [input, inputLength](AviQtlTimelineState *handle, std::uint8_t *output,
+                             std::size_t capacity, std::size_t *length) {
+            return aviqtl_timeline_state_plan_batch_json(handle, input, inputLength, output,
+                                                         capacity, length);
+        },
+        transaction);
+}
+
+TimelineStateStatus TimelineState::combineTransactions(const QByteArray &first,
+                                                       const QByteArray &second,
+                                                       QByteArray &transaction) const {
+    transaction.clear();
+    if (m_handle == nullptr) {
+        return TimelineStateStatus::InvalidArgument;
+    }
+    const auto *firstData = reinterpret_cast<const std::uint8_t *>(first.constData());
+    const auto firstLength = static_cast<std::size_t>(first.size());
+    const auto *secondData = reinterpret_cast<const std::uint8_t *>(second.constData());
+    const auto secondLength = static_cast<std::size_t>(second.size());
+    return collectJson(
+        m_handle,
+        [firstData, firstLength, secondData, secondLength](AviQtlTimelineState *,
+                                                          std::uint8_t *output,
+                                                          std::size_t capacity,
+                                                          std::size_t *length) {
+            return aviqtl_timeline_transaction_combine_json(
+                firstData, firstLength, secondData, secondLength, output, capacity, length);
+        },
+        transaction);
+}
+
+TimelineStateStatus TimelineState::applyTransaction(const QByteArray &transaction, bool forward) {
+    if (m_handle == nullptr) {
+        return TimelineStateStatus::InvalidArgument;
+    }
+    return static_cast<TimelineStateStatus>(aviqtl_timeline_state_apply_transaction_json(
+        m_handle, reinterpret_cast<const std::uint8_t *>(transaction.constData()),
+        static_cast<std::size_t>(transaction.size()), forward ? 1U : 0U));
 }
 
 TimelineStateStatus TimelineState::reserveClipIds(std::size_t count,
