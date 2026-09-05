@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
+import AviQtl.UI 1.0
 import "common" as Common
 import "common/TimelineHelper.js" as TH
 
@@ -939,6 +940,7 @@ ApplicationWindow {
             id: compositeView
 
             // タイムラインの存在に依存するプロパティ
+            ecsRenderData: ECSRenderBridge.renderStateMap
             sceneId: Workspace.currentTimeline?.currentSceneId ?? -1
             currentFrame: Workspace.currentTimeline?.transport?.currentFrame ?? 0
             clipModel: {

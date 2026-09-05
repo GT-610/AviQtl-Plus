@@ -123,11 +123,12 @@ class TestQmlCompositeCapture : public QObject {
 
   private slots:
     void initTestCase();
+    void cleanup();
     void loadsDeployedQmlAssetsWithoutRuntimeErrors();
     void previewQualitySettingsUpdateViewGeometry();
     void capturesCompositeView3DOutput();
     void capturesAnimatedTextAndMonochromeEffect();
-    void exportsAnimatedTextAndDecodesDistinctFrames();
+    void exportsDeployedRectangleAndDecodesDistinctFrames();
     void discardingUnsavedProjectsCompletesApplicationQuit();
     void savingUnsavedProjectCompletesApplicationQuit();
 
@@ -150,6 +151,8 @@ class TestQmlCompositeCapture : public QObject {
     static DecodedVideo decodeVideo(const QString &path);
     static QObject *findSaveConfirmDialog(QObject *root);
     static QObject *findSaveDialog(QObject *root);
+
+    std::unique_ptr<QQmlEngine> m_engine;
 };
 
 namespace {
@@ -158,7 +161,6 @@ std::unique_ptr<QObject> createMainWindow(QQmlEngine &engine, Workspace &workspa
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &settings);
     context->setContextProperty(QStringLiteral("WindowManager"), &windowManager);
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
     context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
     context->setContextProperty(QStringLiteral("DefaultTotalFrames"), 1'800);
@@ -181,53 +183,43 @@ void TestQmlCompositeCapture::initTestCase() {
     qmlRegisterType<Core::VideoEncoder>("AviQtl.Core", 1, 0, "VideoEncoder");
     qmlRegisterUncreatableType<TimelineController>("AviQtl.UI", 1, 0, "TimelineController", "Managed by C++");
     qmlRegisterSingletonInstance<ECSRenderBridge>("AviQtl.UI", 1, 0, "ECSRenderBridge", &ECSRenderBridge::instance());
+    m_engine = std::make_unique<QQmlEngine>();
 
-    Core::EffectMetadata transform;
-    transform.id = QStringLiteral("transform");
-    transform.name = QStringLiteral("Transform");
-    transform.version = QStringLiteral("1.0.0");
-    transform.kind = QStringLiteral("effect");
-    transform.categories = {QStringLiteral("Basic")};
-    transform.defaultParams = {{QStringLiteral("x"), 0.0}, {QStringLiteral("y"), 0.0}, {QStringLiteral("z"), 0.0},
-                               {QStringLiteral("scale"), 100.0}, {QStringLiteral("opacity"), 1.0}};
-    Core::EffectRegistry::instance().registerEffect(transform);
+    const QString effectsDir = QStringLiteral(AVIQTL_DEPLOYED_EFFECTS_DIR);
+    const QString objectsDir = QStringLiteral(AVIQTL_DEPLOYED_OBJECTS_DIR);
+    QVERIFY2(QFileInfo(effectsDir).isDir(), qPrintable(QStringLiteral("Missing deployed effects directory: %1").arg(effectsDir)));
+    QVERIFY2(QFileInfo(objectsDir).isDir(), qPrintable(QStringLiteral("Missing deployed objects directory: %1").arg(objectsDir)));
 
-    Core::EffectMetadata text;
-    text.id = QStringLiteral("text");
-    text.name = QStringLiteral("Text");
-    text.version = QStringLiteral("1.0.0");
-    text.kind = QStringLiteral("object");
-    text.categories = {QStringLiteral("Text")};
-    text.qmlSource = QUrl::fromLocalFile(QStringLiteral(AVIQTL_SOURCE_DIR) + QStringLiteral("/ui/qml/objects/TextObject.qml")).toString();
-    text.defaultParams = {{QStringLiteral("text"), QStringLiteral("Text")}, {QStringLiteral("fontSize"), 48.0}, {QStringLiteral("color"), QStringLiteral("#ffffff")}};
-    Core::EffectRegistry::instance().registerEffect(text);
+    auto &registry = Core::EffectRegistry::instance();
+    registry.loadEffectsFromDirectory(effectsDir, QStringLiteral("built-in"));
+    registry.loadEffectsFromDirectory(objectsDir, QStringLiteral("built-in"));
 
-    Core::EffectMetadata monochrome;
-    monochrome.id = QStringLiteral("monochrome");
-    monochrome.name = QStringLiteral("Monochrome");
-    monochrome.version = QStringLiteral("1.0.0");
-    monochrome.kind = QStringLiteral("effect");
-    monochrome.categories = {QStringLiteral("Color")};
-    // Load from AviQtl's deployed assets. The test executable has a different
-    // output directory from the app bundle on macOS/Xcode.
-    const QString monochromeQmlPath = QStringLiteral(AVIQTL_DEPLOYED_EFFECTS_DIR "/Monochrome.qml");
-    QVERIFY2(QFileInfo::exists(monochromeQmlPath), qPrintable(QStringLiteral("Missing deployed effect: %1").arg(monochromeQmlPath)));
-    monochrome.qmlSource = QUrl::fromLocalFile(monochromeQmlPath).toString();
-    monochrome.defaultParams = {{QStringLiteral("strength"), 100.0}, {QStringLiteral("color"), QStringLiteral("#ffffff")},
-                                {QStringLiteral("preserveLuma"), true}};
-    Core::EffectRegistry::instance().registerEffect(monochrome);
+    for (const QString &id : {QStringLiteral("transform"), QStringLiteral("monochrome"),
+                              QStringLiteral("text"), QStringLiteral("rect")}) {
+        const Core::EffectMetadata metadata = registry.getEffect(id);
+        QVERIFY2(!metadata.qmlSource.isEmpty(), qPrintable(QStringLiteral("Missing deployed registry entry: %1").arg(id)));
+        QVERIFY2(QFileInfo::exists(QUrl(metadata.qmlSource).toLocalFile()),
+                 qPrintable(QStringLiteral("Missing deployed QML for %1: %2").arg(id, metadata.qmlSource)));
+    }
+}
+
+void TestQmlCompositeCapture::cleanup() {
+    QQmlContext *context = m_engine->rootContext();
+    context->setContextProperty(QStringLiteral("Workspace"), static_cast<QObject *>(nullptr));
+    context->setContextProperty(QStringLiteral("SettingsManager"), static_cast<QObject *>(nullptr));
+    context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(nullptr));
+    m_engine->collectGarbage();
 }
 
 void TestQmlCompositeCapture::loadsDeployedQmlAssetsWithoutRuntimeErrors() {
     QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(?:TypeError|ReferenceError|Final member).*$")));
-    QQmlEngine engine;
+    QQmlEngine &engine = *m_engine;
     Workspace workspace;
     workspace.newProject();
     QQmlContext *context = engine.rootContext();
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
     context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
@@ -267,14 +259,13 @@ void TestQmlCompositeCapture::previewQualitySettingsUpdateViewGeometry() {
     settings.setValue(QStringLiteral("previewRenderScale"), 1.0);
     settings.setValue(QStringLiteral("previewMsaaSamples"), 0);
 
-    QQmlEngine engine;
+    QQmlEngine &engine = *m_engine;
     Workspace workspace;
     workspace.newProject();
     QQmlContext *context = engine.rootContext();
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &settings);
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), 400);
     context->setContextProperty(QStringLiteral("DefaultHeight"), 200);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
@@ -507,14 +498,13 @@ TestQmlCompositeCapture::DecodedVideo TestQmlCompositeCapture::decodeVideo(const
 }
 
 void TestQmlCompositeCapture::capturesCompositeView3DOutput() {
-    QQmlEngine engine;
+    QQmlEngine &engine = *m_engine;
     auto *context = engine.rootContext();
     Workspace workspace;
     workspace.newProject();
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
     context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
@@ -556,7 +546,7 @@ void TestQmlCompositeCapture::capturesCompositeView3DOutput() {
 }
 
 void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
-    QQmlEngine engine;
+    QQmlEngine &engine = *m_engine;
     auto *context = engine.rootContext();
     Workspace workspace;
     workspace.newProject();
@@ -581,7 +571,6 @@ void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), 320);
     context->setContextProperty(QStringLiteral("DefaultHeight"), 180);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
@@ -660,10 +649,11 @@ void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
     QVERIFY2(std::abs(colorAfterEffect.x() - colorAfterEffect.z()) < 8.0F, qPrintable(afterMessage));
 }
 
-void TestQmlCompositeCapture::exportsAnimatedTextAndDecodesDistinctFrames() {
-    QQmlEngine engine;
-    auto *context = engine.rootContext();
+void TestQmlCompositeCapture::exportsDeployedRectangleAndDecodesDistinctFrames() {
+    QQmlEngine &engine = *m_engine;
     Workspace workspace;
+    TestSettingsManager settings;
+    TestWindowManager windowManager;
     workspace.newProject();
     TimelineController *controller = workspace.currentTimeline();
     QVERIFY(controller != nullptr);
@@ -671,74 +661,103 @@ void TestQmlCompositeCapture::exportsAnimatedTextAndDecodesDistinctFrames() {
     controller->project()->setHeight(180);
     controller->project()->setFps(30.0);
 
-    const int textClipId = controller->timeline()->nextClipId();
-    controller->createObject(QStringLiteral("text"), 0, 0);
-    controller->updateClipEffectParam(textClipId, 1, QStringLiteral("text"), QStringLiteral("Export"));
-    controller->updateClipEffectParam(textClipId, 1, QStringLiteral("fontSize"), 40.0);
-    controller->setKeyframe(textClipId, 0, QStringLiteral("x"), 0, -70.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
-    controller->setKeyframe(textClipId, 0, QStringLiteral("x"), 1, 70.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
+    QString error;
+    std::unique_ptr<QObject> root = createMainWindow(engine, workspace, settings, windowManager, &error);
+    QVERIFY2(root != nullptr, qPrintable(error));
+    auto *mainWindow = qobject_cast<QQuickWindow *>(root.get());
+    QVERIFY(mainWindow != nullptr);
+    QTRY_VERIFY_WITH_TIMEOUT(mainWindow->isExposed(), 5'000);
 
-    context->setContextProperty(QStringLiteral("Workspace"), &workspace);
-    context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
-    context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
-    context->setContextProperty(QStringLiteral("DefaultWidth"), 320);
-    context->setContextProperty(QStringLiteral("DefaultHeight"), 180);
-    context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
+    const int rectClipId = controller->timeline()->nextClipId();
+    constexpr int clipStartFrame = 140;
+    controller->createObject(QStringLiteral("rect"), clipStartFrame, 0);
+    controller->updateClipEffectParam(rectClipId, 1, QStringLiteral("sizeW"), 100.0);
+    controller->updateClipEffectParam(rectClipId, 1, QStringLiteral("sizeH"), 80.0);
+    controller->updateClipEffectParam(rectClipId, 1, QStringLiteral("color"), QStringLiteral("#00ff00"));
+    controller->setKeyframe(rectClipId, 0, QStringLiteral("x"), 0, -70.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
+    controller->setKeyframe(rectClipId, 0, QStringLiteral("x"), 1, 70.0, {{QStringLiteral("interp"), QStringLiteral("linear")}});
 
-    QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/qt/qml/AviQtl/ui/qml/CompositeView.qml")));
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> object(component.create(context));
-    QVERIFY2(object != nullptr, qPrintable(component.errorString()));
-    auto *compositeView = qobject_cast<QQuickItem *>(object.get());
+    const QVariantList clipModel = controller->getSceneClips(controller->currentSceneId());
+    QCOMPARE(clipModel.size(), 1);
+    const QVariantMap clipData = clipModel.first().toMap();
+    QCOMPARE(clipData.value(QStringLiteral("id")).toInt(), rectClipId);
+    QCOMPARE(clipData.value(QStringLiteral("type")).toString(), QStringLiteral("rect"));
+    const QUrl rectQmlSource(clipData.value(QStringLiteral("qmlSource")).toString());
+    QVERIFY2(rectQmlSource.isLocalFile(), qPrintable(rectQmlSource.toString()));
+    QVERIFY2(QFileInfo::exists(rectQmlSource.toLocalFile()), qPrintable(rectQmlSource.toLocalFile()));
+    QVERIFY2(rectQmlSource.toLocalFile().startsWith(QStringLiteral(AVIQTL_DEPLOYED_OBJECTS_DIR)),
+             qPrintable(rectQmlSource.toLocalFile()));
+    const QList<QObject *> effectModels = clipData.value(QStringLiteral("effectModels")).value<QList<QObject *>>();
+    QCOMPARE(effectModels.size(), 2);
+    QCOMPARE(effectModels.at(0)->property("id").toString(), QStringLiteral("transform"));
+    QCOMPARE(effectModels.at(1)->property("id").toString(), QStringLiteral("rect"));
+
+    auto *compositeView = controller->compositeView();
     QVERIFY(compositeView != nullptr);
-    compositeView->setProperty("clipModel", controller->getSceneClips(controller->currentSceneId()));
+    controller->transport()->setCurrentFrame_seek(clipStartFrame - 1);
+    controller->transport()->setCurrentFrame_seek(clipStartFrame);
+    const QString clipKey = QString::number(rectClipId);
+    QTRY_VERIFY_WITH_TIMEOUT(ECSRenderBridge::instance().renderStateMap().contains(clipKey), 5'000);
+    QTRY_VERIFY_WITH_TIMEOUT(compositeView->property("ecsRenderData").toMap().contains(clipKey), 5'000);
+    QCOMPARE(compositeView->property("ecsRenderData").toMap().value(clipKey).toMap().value(QStringLiteral("x")).toDouble(), -70.0);
+    QTRY_COMPARE_WITH_TIMEOUT(compositeView->property("clipModel").toList().size(), 1, 5'000);
 
-    QQuickWindow window;
-    window.setGeometry(0, 0, 320, 180);
-    compositeView->setParentItem(window.contentItem());
-    compositeView->setSize(QSizeF(320, 180));
-    compositeView->setProperty("projectWidth", 320);
-    compositeView->setProperty("projectHeight", 180);
-    compositeView->setProperty("sceneId", controller->currentSceneId());
-    window.show();
-    QTRY_VERIFY_WITH_TIMEOUT(window.isExposed(), 5'000);
-    if (!QSGRendererInterface::isApiRhiBased(window.rendererInterface()->graphicsApi()))
+    QObject *clipNode = nullptr;
+    for (QObject *candidate : compositeView->findChildren<QObject *>()) {
+        if (candidate->metaObject()->indexOfProperty("clipIdRole") >= 0 &&
+            candidate->property("clipIdRole").toInt() == rectClipId) {
+            clipNode = candidate;
+            break;
+        }
+    }
+    QVERIFY(clipNode != nullptr);
+    QCOMPARE(clipNode->property("clipQmlSourceRole").toUrl(), rectQmlSource);
+
+    QObject *nodeLoader = nullptr;
+    for (QObject *candidate : clipNode->findChildren<QObject *>()) {
+        if (candidate->metaObject()->indexOfProperty("componentFactory") >= 0 &&
+            candidate->property("source").toUrl() == rectQmlSource) {
+            nodeLoader = candidate;
+            break;
+        }
+    }
+    QVERIFY(nodeLoader != nullptr);
+    QTRY_COMPARE_WITH_TIMEOUT(nodeLoader->property("status").toInt(), static_cast<int>(QQmlComponent::Ready), 5'000);
+    QObject *rectItem = nodeLoader->property("item").value<QObject *>();
+    QVERIFY(rectItem != nullptr);
+    QObject *displayOutput = rectItem->property("displayOutput").value<QObject *>();
+    QVERIFY(displayOutput != nullptr);
+    QVERIFY(displayOutput->property("sourceItem").value<QObject *>() != nullptr);
+
+    if (!QSGRendererInterface::isApiRhiBased(mainWindow->rendererInterface()->graphicsApi()))
         QSKIP("Qt Quick 3D rendering requires an RHI-based graphics API");
 
-    controller->setCompositeView(compositeView);
-    const QMetaObject::Connection ecsConnection = connect(&ECSRenderBridge::instance(), &ECSRenderBridge::renderStatesChanged, compositeView,
-                                                          [compositeView]() { syncEcsRenderData(compositeView); });
-    QVERIFY(ecsConnection);
-    controller->transport()->setCurrentFrame_seek(1);
-    controller->transport()->setCurrentFrame_seek(0);
-    syncEcsRenderData(compositeView);
-    window.update();
+    mainWindow->update();
     auto *view3D = compositeView->property("view3D").value<QQuickItem *>();
     QVERIFY(view3D != nullptr);
     QVERIFY(brightPixelCenterX(grabView3DUntilVisible(view3D)) >= 0.0);
 
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
-    const QString outputPath = dir.filePath(QStringLiteral("animated-text.mp4"));
-    Core::VideoEncoder::Config config;
-    config.width = 320;
-    config.height = 180;
-    config.fps_num = 30;
-    config.fps_den = 1;
-    config.crf = 18;
-    config.codecName = QStringLiteral("libx264");
-    config.audioCodecName = QStringLiteral("aac");
-    config.outputUrl = outputPath;
-    config.startFrame = 0;
-    config.endFrame = 2;
-    config.preset = QStringLiteral("ultrafast");
+    const QString outputPath = dir.filePath(QStringLiteral("deployed-rectangle.mp4"));
+    const QVariantMap config = {
+        {QStringLiteral("width"), 320},
+        {QStringLiteral("height"), 180},
+        {QStringLiteral("fps_num"), 30},
+        {QStringLiteral("fps_den"), 1},
+        {QStringLiteral("crf"), 18},
+        {QStringLiteral("codecName"), QStringLiteral("libx264")},
+        {QStringLiteral("audioCodecName"), QStringLiteral("aac")},
+        {QStringLiteral("outputUrl"), outputPath},
+        {QStringLiteral("startFrame"), clipStartFrame},
+        {QStringLiteral("endFrame"), clipStartFrame + 2},
+        {QStringLiteral("preset"), QStringLiteral("ultrafast")},
+    };
 
-    TimelineExportManager exportManager(controller);
-    QSignalSpy exportSpy(&exportManager, &TimelineExportManager::exportFinished);
-    QVERIFY(exportManager.exportVideoAsync(config));
+    QSignalSpy exportSpy(controller, &TimelineController::exportFinished);
+    controller->exportVideoAsync(config);
     QTRY_COMPARE_WITH_TIMEOUT(exportSpy.count(), 1, 20'000);
-    QTRY_VERIFY_WITH_TIMEOUT(!exportManager.isExporting(), 20'000);
+    QTRY_VERIFY_WITH_TIMEOUT(!controller->isExporting(), 20'000);
     const QList<QVariant> exportResult = exportSpy.takeFirst();
     QVERIFY2(exportResult.at(0).toBool(), qPrintable(exportResult.at(1).toString()));
     QCOMPARE(exportResult.at(1).toString(), QStringLiteral("Export complete"));
@@ -758,7 +777,7 @@ void TestQmlCompositeCapture::exportsAnimatedTextAndDecodesDistinctFrames() {
     QVERIFY(firstCenterX >= 0.0);
     QVERIFY(lastCenterX >= 0.0);
     QVERIFY2(lastCenterX > firstCenterX + 40.0,
-             qPrintable(QStringLiteral("decoded text center did not move: frame 0=%1, frame 1=%2").arg(firstCenterX).arg(lastCenterX)));
+             qPrintable(QStringLiteral("decoded rectangle center did not move: frame 0=%1, frame 1=%2").arg(firstCenterX).arg(lastCenterX)));
 }
 
 QObject *TestQmlCompositeCapture::findSaveConfirmDialog(QObject *root) {
@@ -774,7 +793,7 @@ QObject *TestQmlCompositeCapture::findSaveDialog(QObject *root) {
 }
 
 void TestQmlCompositeCapture::discardingUnsavedProjectsCompletesApplicationQuit() {
-    QQmlEngine engine;
+    QQmlEngine &engine = *m_engine;
     Workspace workspace;
     TestSettingsManager settings;
     TestWindowManager windowManager;
@@ -811,7 +830,7 @@ void TestQmlCompositeCapture::savingUnsavedProjectCompletesApplicationQuit() {
     QVERIFY(dir.isValid());
     const QString projectUrl = QUrl::fromLocalFile(dir.filePath(QStringLiteral("quit-after-save.aviqtl"))).toString();
 
-    QQmlEngine engine;
+    QQmlEngine &engine = *m_engine;
     Workspace workspace;
     TestSettingsManager settings;
     TestWindowManager windowManager;
