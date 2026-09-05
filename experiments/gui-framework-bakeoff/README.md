@@ -18,6 +18,19 @@ source-code size are recorded for context but do not contribute to the selection
 The GUI implementations must use `aviqtl-gui-lab-core` unchanged. Framework-specific state must not
 leak into the dataset, workload, or metrics model.
 
+## Measurement conditions
+
+The final macOS comparison was run serially with only the built-in 60 Hz display attached, while
+the session was unlocked and the display was configured not to sleep. Do not collect GUI numbers
+while the session is locked or the test window is occluded: macOS may stop a window's display link,
+which makes a frame-counted run stall and invalidates cross-framework timing.
+
+No adapter imposes a fixed target frame interval. egui continuously requests repaint through
+eframe, Slint schedules the next model update after the previous frame is presented, and GPUI-CE
+uses `Window::request_animation_frame()`. Presentation therefore follows each backend's native
+display synchronization. Run the GUI adapters one at a time so they do not compete for the same
+display and GPU resources.
+
 ## Commit plan
 
 1. Add the shared workload, metrics schema, headless baseline, and experiment protocol.
@@ -81,3 +94,6 @@ cargo run --release --manifest-path experiments/gui-framework-bakeoff/Cargo.toml
 
 On macOS the preview uses GPUI-CE's public `CVPixelBuffer` surface path. `--interactive` keeps the
 window open for its text-input, clip-selection, property-editing, and auxiliary-window checks.
+
+The final measurements and recommendation are summarized in
+[`reports/framework-comparison.md`](reports/framework-comparison.md).

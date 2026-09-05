@@ -2,10 +2,7 @@
 
 mod text_input;
 
-use std::{
-    env, process,
-    time::{Duration, Instant},
-};
+use std::{env, process, time::Instant};
 
 use aviqtl_gui_lab_core::{
     BenchmarkConfig, FrameMetrics, MetricsCollector, RunMetadata, ScriptedWorkload,
@@ -23,8 +20,8 @@ use core_video::pixel_buffer::{
     CVPixelBuffer, CVPixelBufferKeys, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
 };
 use gpui::{
-    AnyElement, App, Bounds, Context, Entity, FontWeight, Render, SharedString, Task,
-    TitlebarOptions, Window, WindowBounds, WindowOptions, div, prelude::*, px, rgb, rgba, size,
+    AnyElement, App, Bounds, Context, Entity, FontWeight, Render, SharedString, TitlebarOptions,
+    Window, WindowBounds, WindowOptions, div, prelude::*, px, rgb, rgba, size,
 };
 
 use crate::text_input::{TextInput, TextInputEditor, install_key_bindings};
@@ -36,7 +33,6 @@ const TIMELINE_HEIGHT: f32 = 390.0;
 const TIMELINE_HEADER_HEIGHT: f32 = 30.0;
 const PREVIEW_WIDTH: usize = 640;
 const PREVIEW_HEIGHT: usize = 360;
-const FRAME_INTERVAL: Duration = Duration::from_nanos(16_666_667);
 
 fn main() {
     let (config, interactive) = parse_configuration();
@@ -98,7 +94,6 @@ struct GpuiLab {
     project_filter: Entity<TextInputEditor>,
     opacity: f32,
     position: [f32; 2],
-    _frame_task: Task<()>,
     #[cfg(target_os = "macos")]
     preview_buffer: CVPixelBuffer,
 }
@@ -130,23 +125,6 @@ impl GpuiLab {
             config.frames,
             config.warmup_frames,
         );
-        let frame_task = cx.spawn(async move |this, cx| {
-            let mut next_tick = Instant::now();
-            loop {
-                next_tick += FRAME_INTERVAL;
-                let wait = next_tick.saturating_duration_since(Instant::now());
-                if !wait.is_zero() {
-                    cx.background_executor().timer(wait).await;
-                }
-                if this.update(cx, |_, cx| cx.notify()).is_err() {
-                    break;
-                }
-                if Instant::now().saturating_duration_since(next_tick) >= FRAME_INTERVAL {
-                    next_tick = Instant::now();
-                }
-            }
-        });
-
         Self {
             config,
             interactive,
@@ -161,7 +139,6 @@ impl GpuiLab {
             project_filter: cx.new(|cx| TextInputEditor::new("素材を検索 / 搜索素材", window, cx)),
             opacity: 0.82,
             position: [0.0, 0.0],
-            _frame_task: frame_task,
             #[cfg(target_os = "macos")]
             preview_buffer: create_preview_buffer(),
         }
@@ -623,6 +600,7 @@ impl Render for GpuiLab {
             });
         }
         self.finish_if_ready(window, cx);
+        window.request_animation_frame();
         root
     }
 }

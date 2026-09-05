@@ -1,6 +1,11 @@
 #![deny(unsafe_code)]
 
-use std::{cell::RefCell, env, process, rc::Rc, time::Instant};
+use std::{
+    cell::RefCell,
+    env, process,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use aviqtl_gui_lab_core::{
     BenchmarkConfig, FrameMetrics, MetricsCollector, RunMetadata, ScriptedWorkload,
@@ -236,13 +241,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let state = Rc::new(RefCell::new(SlintState::new(config, interactive)));
+    let frame_state = state.clone();
+    let rendering_clip_model = clip_model.clone();
     let app_weak = app.as_weak();
     app.window()
-        .set_rendering_notifier(move |rendering_state, graphics_api| {
+        .set_rendering_notifier(move |rendering_phase, graphics_api| {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
-            match rendering_state {
+            match rendering_phase {
                 slint::RenderingState::RenderingSetup => {
                     let slint::GraphicsAPI::WGPU29 { device, queue, .. } = graphics_api else {
                         eprintln!("Slint did not provide the required WGPU29 renderer");
@@ -252,7 +259,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     app.window().request_redraw();
                 }
                 slint::RenderingState::AfterRendering => {
-                    let complete = state.borrow_mut().advance(&app, &clip_model);
+                    let complete = frame_state.borrow_mut().presented();
                     if complete && !interactive {
                         let close_weak = app.as_weak();
                         slint::invoke_from_event_loop(move || {
@@ -265,14 +272,32 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             process::exit(1);
                         });
                     } else {
-                        app.window().request_redraw();
+                        let next_weak = app.as_weak();
+                        let next_state = frame_state.clone();
+                        let next_clip_model = rendering_clip_model.clone();
+                        slint::Timer::single_shot(Duration::ZERO, move || {
+                            if let Some(app) = next_weak.upgrade() {
+                                next_state.borrow_mut().prepare(&app, &next_clip_model);
+                                app.window().request_redraw();
+                            }
+                        });
                     }
                 }
                 _ => {}
             }
         })?;
 
-    app.run()?;
+    app.show()?;
+    #[cfg(target_os = "macos")]
+    slint::private_unstable_api::re_exports::macos_bring_all_windows_to_front();
+    let initial_weak = app.as_weak();
+    slint::Timer::single_shot(Duration::ZERO, move || {
+        if let Some(app) = initial_weak.upgrade() {
+            state.borrow_mut().prepare(&app, &clip_model);
+            app.window().request_redraw();
+        }
+    });
+    slint::run_event_loop()?;
     Ok(())
 }
 
@@ -301,6 +326,13 @@ struct SlintState {
     visible: Vec<VisibleClip>,
     metrics: Option<MetricsCollector>,
     previous_frame: Option<Instant>,
+    pending_frame: Option<PendingFrame>,
+}
+
+struct PendingFrame {
+    frame_cpu: Duration,
+    query_cpu: Duration,
+    visible_clips: usize,
 }
 
 impl SlintState {
@@ -333,15 +365,15 @@ impl SlintState {
             visible: Vec::with_capacity(512),
             metrics: Some(metrics),
             previous_frame: None,
+            pending_frame: None,
         }
     }
 
-    fn advance(&mut self, app: &MainWindow, clip_model: &VecModel<ClipView>) -> bool {
+    fn prepare(&mut self, app: &MainWindow, clip_model: &VecModel<ClipView>) {
+        if self.pending_frame.is_some() {
+            return;
+        }
         let frame_started = Instant::now();
-        let frame_interval = self
-            .previous_frame
-            .replace(frame_started)
-            .map(|previous| frame_started.saturating_duration_since(previous));
         self.workload.advance();
         self.workload.resize(
             app.get_timeline_width().max(1.0),
@@ -393,13 +425,30 @@ impl SlintState {
             6500.0 + (self.workload.frame_index() as f32).sin() * 400.0
         )));
 
+        self.pending_frame = Some(PendingFrame {
+            frame_cpu: frame_started.elapsed(),
+            query_cpu,
+            visible_clips: self.visible.len(),
+        });
+    }
+
+    fn presented(&mut self) -> bool {
+        let Some(pending) = self.pending_frame.take() else {
+            return false;
+        };
+        let presented = Instant::now();
+        let frame_interval = self
+            .previous_frame
+            .replace(presented)
+            .map(|previous| presented.saturating_duration_since(previous));
+
         let mut complete = false;
         if let Some(metrics) = &mut self.metrics {
             metrics.record(FrameMetrics {
-                frame_cpu: frame_started.elapsed(),
-                query_cpu,
+                frame_cpu: pending.frame_cpu,
+                query_cpu: pending.query_cpu,
                 frame_interval,
-                visible_clips: self.visible.len(),
+                visible_clips: pending.visible_clips,
             });
             complete = metrics.is_complete();
         }

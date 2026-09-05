@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_unix_ms": 1788585607254,
+  "generated_unix_ms": 1788592603014,
   "metadata": {
     "framework": "shared-headless-baseline",
     "framework_version": "0.1.0",
@@ -17,16 +17,16 @@
   "warmup_frames": 240,
   "measured_frames": 2160,
   "frame_cpu": {
-    "p50_us": 0.958,
-    "p95_us": 1.583,
-    "p99_us": 3.459,
-    "max_us": 41.042
+    "p50_us": 1.125,
+    "p95_us": 1.75,
+    "p99_us": 2.209,
+    "max_us": 8.833
   },
   "query_cpu": {
-    "p50_us": 0.916,
-    "p95_us": 1.541,
-    "p99_us": 3.417,
-    "max_us": 40.917
+    "p50_us": 1.083,
+    "p95_us": 1.666,
+    "p99_us": 2.125,
+    "max_us": 8.75
   },
   "frame_interval": null,
   "frames_over_16_67ms": null,

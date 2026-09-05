@@ -17,26 +17,27 @@ adapter, and the authoritative dataset and workload contain no GPUI state.
 
 ## Automated result
 
-The corrected absolute-deadline driver completed 2,400 frames and closed normally. Of 2,160
-measured frames:
+The native animation-frame driver completed 2,400 frames and closed normally. Of 2,160 measured
+frames:
 
 | Metric | Result |
 | --- | ---: |
-| UI/model preparation CPU p50 / p95 / p99 | 175.417 / 293.125 / 346.333 us |
-| UI/model preparation CPU maximum | 420.833 us |
-| Visible query CPU p95 | 15.334 us |
-| Frame interval p50 / p95 / p99 | 16.711 / 17.156 / 20.897 ms |
-| Frame interval maximum | 21.287 ms |
-| Frames over 16.67 ms | 1,749 |
-| Release binary | 6,926,168 bytes |
-| Peak resident set (180-frame resource run) | 93,814,784 bytes |
-| Process CPU in 3.15 s resource run | 0.71 s user + 0.11 s system |
+| UI/model preparation CPU p50 / p95 / p99 | 175.375 / 302.417 / 335.667 us |
+| UI/model preparation CPU maximum | 425.583 us |
+| Visible query CPU p95 | 14.250 us |
+| Frame interval p50 / p95 / p99 | 16.666 / 17.602 / 17.622 ms |
+| Frame interval maximum | 17.658 ms |
+| Frames over 16.67 ms | 931 |
+| Standalone release binary | 6,892,936 bytes |
+| Peak resident set | 93,224,960 bytes |
+| Process CPU in 40.17 s | 9.98 s user + 0.76 s system |
 
 The exact machine-readable result is in `gpui-macos.json`. Preparation CPU ends when the GPUI
 element tree has been constructed, so it excludes retained layout and Metal drawing. Cross-framework
-comparison should use process CPU and presented-frame intervals instead. The first driver slept a
-full 16.67 ms after each completed frame and therefore incorrectly added paint time to the period;
-the committed driver uses absolute deadlines and the report above is the corrected run.
+comparison should use process CPU and presented-frame intervals instead. The final driver uses
+`Window::request_animation_frame()`, backed by the macOS `CVDisplayLink`; it has no application-side
+target interval and follows the active display. Two additional 180-frame runs both closed normally
+in 3.14-3.15 seconds, with frame-interval p95 of 16.746-17.178 ms.
 
 ## Current evidence
 
