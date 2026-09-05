@@ -70,3 +70,14 @@ cargo run --release --manifest-path experiments/gui-framework-bakeoff/Cargo.toml
 ```
 
 The same `--interactive` option keeps the declarative UI open for its manual checks.
+
+Run the GPUI-CE adapter with its native macOS Metal renderer:
+
+```sh
+cargo run --release --manifest-path experiments/gui-framework-bakeoff/Cargo.toml \
+  -p aviqtl-gui-lab-gpui -- --frames 2400 --warmup 240 \
+  --report experiments/gui-framework-bakeoff/reports/gpui-macos.json
+```
+
+On macOS the preview uses GPUI-CE's public `CVPixelBuffer` surface path. `--interactive` keeps the
+window open for its text-input, clip-selection, property-editing, and auxiliary-window checks.

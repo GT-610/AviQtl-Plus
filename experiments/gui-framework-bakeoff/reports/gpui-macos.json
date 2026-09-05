@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "generated_unix_ms": 1788589445952,
+  "metadata": {
+    "framework": "GPUI-CE",
+    "framework_version": "0.2.2",
+    "renderer": "native Metal / CVPixelBuffer via CVMetalTextureCache",
+    "platform": "macos-aarch64",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)",
+    "profile": "release"
+  },
+  "dataset": {
+    "clip_count": 10000,
+    "layer_count": 300
+  },
+  "total_frames": 2400,
+  "warmup_frames": 240,
+  "measured_frames": 2160,
+  "frame_cpu": {
+    "p50_us": 175.417,
+    "p95_us": 293.125,
+    "p99_us": 346.333,
+    "max_us": 420.833
+  },
+  "query_cpu": {
+    "p50_us": 8.959,
+    "p95_us": 15.334,
+    "p99_us": 20.583,
+    "max_us": 28.125
+  },
+  "frame_interval": {
+    "p50_us": 16710.541,
+    "p95_us": 17156.25,
+    "p99_us": 20897.125,
+    "max_us": 21286.625
+  },
+  "frames_over_16_67ms": 1749,
+  "average_visible_clips": 87.13888888888889,
+  "maximum_visible_clips": 303
+}

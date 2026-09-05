@@ -1,0 +1,17 @@
+[package]
+name = "aviqtl-gui-lab-gpui"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+aviqtl-gui-lab-core.workspace = true
+gpui.workspace = true
+gpui-ce-platform.workspace = true
+serde_json.workspace = true
+unicode-segmentation.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10.0"
+core-video = { version = "0.5.2", features = ["metal"] }
