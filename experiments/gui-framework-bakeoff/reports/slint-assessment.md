@@ -21,22 +21,22 @@ The 2,400-frame run completed and closed normally. Of 2,160 measured frames:
 
 | Metric | Result |
 | --- | ---: |
-| Model update CPU p50 / p95 / p99 | 55.166 / 80.709 / 122.042 us |
-| Model update CPU maximum | 167.833 us |
-| Visible query CPU p95 | 2.042 us |
-| Frame interval p50 / p95 / p99 | 16.673 / 17.085 / 17.316 ms |
-| Frame interval maximum | 20.989 ms |
-| Frames over 16.67 ms | 1,100 |
+| Model update CPU p50 / p95 / p99 | 55.042 / 79.125 / 127.417 us |
+| Model update CPU maximum | 163.250 us |
+| Visible query CPU p95 | 1.916 us |
+| Frame interval p50 / p95 / p99 | 16.675 / 17.091 / 17.291 ms |
+| Frame interval maximum | 21.059 ms |
+| Frames over 16.67 ms | 1,099 |
 | Standalone release binary | 16,548,648 bytes |
-| Peak resident set | 127,172,608 bytes |
-| Process CPU in 40.27 s | 15.18 s user + 2.62 s system |
+| Peak resident set | 130,400,256 bytes |
+| Process CPU in 42.02 s | 15.14 s user + 2.61 s system |
 
 The exact machine-readable result is in `slint-macos.json`. Model-update CPU excludes Slint's
 retained-scene layout and rendering, while egui's prepare CPU includes rebuilding paint primitives;
 process CPU and presented-frame intervals are therefore the fairer cross-framework signals. The
 adapter starts each model update only after the prior frame has been presented, using a zero-delay
 single-shot event-loop task rather than a fixed-rate timer. Two additional 180-frame runs both
-closed normally in 3.20 seconds, with frame-interval p95 of 17.010-17.066 ms.
+closed normally in 3.19-3.20 seconds, with frame-interval p95 of 17.058-17.102 ms.
 
 ## Current evidence
 

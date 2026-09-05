@@ -27,12 +27,17 @@ All GUI runs used the same deterministic workload:
 - project, preview, inspector, and full-width timeline regions;
 - clip selection, CJK text-entry controls, and an auxiliary-window path;
 - 2,400 frames with 240 warm-up frames for the primary sample;
-- two additional 180-frame runs with 18 warm-up frames for repeatability.
+- two additional 180-frame runs with 18 warm-up frames for repeatability, plus one egui diagnostic
+  run after a short-sample outlier.
 
 The final runs were serial, with only the built-in 60 Hz display attached. The macOS session was
-unlocked and the display was configured not to sleep. No adapter used a fixed target frame interval:
-egui requested continuous repaint, Slint scheduled the next update after the previous presentation,
-and GPUI-CE used its native animation-frame request backed by `CVDisplayLink`.
+unlocked and the display was configured not to sleep. The AC charger remained connected, macOS
+reported `AC Power` before and after every primary run, Low Power Mode was disabled, and the battery
+remained at 97% while its status text said `discharging`. After all short repeats it read 96%, but
+the charger, `AC Power` source, and Low Power Mode state were unchanged. No adapter used a fixed
+target frame interval: egui requested continuous repaint, Slint scheduled the next update after the
+previous presentation, and GPUI-CE used its native animation-frame request backed by
+`CVDisplayLink`.
 
 This visibility condition matters. A locked or occluded macOS window can lose its display-link
 callbacks and stall a frame-counted benchmark. Results collected in that state were discarded.
@@ -41,9 +46,9 @@ callbacks and stall a frame-counted benchmark. Results collected in that state w
 
 | Framework | Presented interval p95 / p99 / max | Whole-process CPU | Peak RSS | Release binary | Normal dependency packages |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| egui | 16.890 / 17.101 / 17.745 ms | 6.32 CPU-s / 40.12 s (15.8% of one core) | 158.3 MiB | 10.52 MiB | 146 |
-| Slint | 17.085 / 17.316 / 20.989 ms | 17.80 CPU-s / 40.27 s (44.2% of one core) | 121.3 MiB | 15.78 MiB | 281 |
-| GPUI-CE | 17.602 / 17.622 / 17.658 ms | 10.74 CPU-s / 40.17 s (26.7% of one core) | 88.9 MiB | 6.57 MiB | 343 |
+| egui | 16.945 / 17.148 / 17.584 ms | 6.43 CPU-s / 40.80 s (15.8% of one core) | 158.7 MiB | 10.52 MiB | 146 |
+| Slint | 17.091 / 17.291 / 21.059 ms | 17.75 CPU-s / 42.02 s (42.2% of one core) | 124.4 MiB | 15.78 MiB | 281 |
+| GPUI-CE | 17.630 / 17.679 / 17.698 ms | 11.22 CPU-s / 40.73 s (27.5% of one core) | 90.2 MiB | 6.57 MiB | 343 |
 
 Binary sizes are from sequential standalone `cargo build --release -p <adapter>` builds. A single
 workspace build can unify optional features across members and is therefore not a stable size
@@ -60,16 +65,18 @@ line. Tail percentiles and maximum intervals are more informative here.
 
 ## Repeatability
 
-All six short runs exited automatically:
+All seven short runs exited automatically. The extra egui run was retained rather than replacing an
+outlier, so the table shows the observed scheduler noise instead of selecting only clean samples:
 
 | Framework | Run | Real time | Presented interval p95 / max | Peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| egui | 1 | 3.15 s | 16.985 / 17.304 ms | 156.9 MiB |
-| egui | 2 | 3.12 s | 16.941 / 17.403 ms | 157.0 MiB |
-| Slint | 1 | 3.20 s | 17.010 / 17.452 ms | 119.5 MiB |
-| Slint | 2 | 3.20 s | 17.066 / 17.449 ms | 120.0 MiB |
-| GPUI-CE | 1 | 3.14 s | 17.178 / 17.677 ms | 88.0 MiB |
-| GPUI-CE | 2 | 3.15 s | 16.746 / 17.677 ms | 87.7 MiB |
+| egui | 1 | 3.16 s | 16.950 / 17.442 ms | 157.0 MiB |
+| egui | 2 | 2.84 s | 17.027 / 21.779 ms | 156.7 MiB |
+| egui | 3 | 3.12 s | 16.902 / 32.345 ms | 158.1 MiB |
+| Slint | 1 | 3.20 s | 17.058 / 17.503 ms | 121.5 MiB |
+| Slint | 2 | 3.19 s | 17.102 / 17.453 ms | 122.8 MiB |
+| GPUI-CE | 1 | 3.16 s | 17.384 / 17.675 ms | 89.3 MiB |
+| GPUI-CE | 2 | 3.15 s | 17.331 / 17.692 ms | 88.9 MiB |
 
 ## Engineering comparison
 

@@ -22,22 +22,22 @@ frames:
 
 | Metric | Result |
 | --- | ---: |
-| UI/model preparation CPU p50 / p95 / p99 | 175.375 / 302.417 / 335.667 us |
-| UI/model preparation CPU maximum | 425.583 us |
-| Visible query CPU p95 | 14.250 us |
-| Frame interval p50 / p95 / p99 | 16.666 / 17.602 / 17.622 ms |
-| Frame interval maximum | 17.658 ms |
-| Frames over 16.67 ms | 931 |
+| UI/model preparation CPU p50 / p95 / p99 | 185.000 / 309.541 / 338.417 us |
+| UI/model preparation CPU maximum | 588.375 us |
+| Visible query CPU p95 | 14.375 us |
+| Frame interval p50 / p95 / p99 | 16.666 / 17.630 / 17.679 ms |
+| Frame interval maximum | 17.698 ms |
+| Frames over 16.67 ms | 813 |
 | Standalone release binary | 6,892,936 bytes |
-| Peak resident set | 93,224,960 bytes |
-| Process CPU in 40.17 s | 9.98 s user + 0.76 s system |
+| Peak resident set | 94,584,832 bytes |
+| Process CPU in 40.73 s | 10.44 s user + 0.78 s system |
 
 The exact machine-readable result is in `gpui-macos.json`. Preparation CPU ends when the GPUI
 element tree has been constructed, so it excludes retained layout and Metal drawing. Cross-framework
 comparison should use process CPU and presented-frame intervals instead. The final driver uses
 `Window::request_animation_frame()`, backed by the macOS `CVDisplayLink`; it has no application-side
 target interval and follows the active display. Two additional 180-frame runs both closed normally
-in 3.14-3.15 seconds, with frame-interval p95 of 16.746-17.178 ms.
+in 3.15-3.16 seconds, with frame-interval p95 of 17.331-17.384 ms.
 
 ## Current evidence
 

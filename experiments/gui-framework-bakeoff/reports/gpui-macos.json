@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_unix_ms": 1788592505277,
+  "generated_unix_ms": 1788594851812,
   "metadata": {
     "framework": "GPUI-CE",
     "framework_version": "0.2.2",
@@ -17,24 +17,24 @@
   "warmup_frames": 240,
   "measured_frames": 2160,
   "frame_cpu": {
-    "p50_us": 175.375,
-    "p95_us": 302.417,
-    "p99_us": 335.667,
-    "max_us": 425.583
+    "p50_us": 185.0,
+    "p95_us": 309.541,
+    "p99_us": 338.417,
+    "max_us": 588.375
   },
   "query_cpu": {
-    "p50_us": 10.042,
-    "p95_us": 14.25,
-    "p99_us": 16.5,
-    "max_us": 20.833
+    "p50_us": 10.5,
+    "p95_us": 14.375,
+    "p99_us": 16.625,
+    "max_us": 23.292
   },
   "frame_interval": {
-    "p50_us": 16665.5,
-    "p95_us": 17601.917,
-    "p99_us": 17622.292,
-    "max_us": 17658.042
+    "p50_us": 16665.583,
+    "p95_us": 17630.042,
+    "p99_us": 17679.333,
+    "max_us": 17697.917
   },
-  "frames_over_16_67ms": 931,
+  "frames_over_16_67ms": 813,
   "average_visible_clips": 87.13888888888889,
   "maximum_visible_clips": 303
 }

@@ -21,9 +21,10 @@ leak into the dataset, workload, or metrics model.
 ## Measurement conditions
 
 The final macOS comparison was run serially with only the built-in 60 Hz display attached, while
-the session was unlocked and the display was configured not to sleep. Do not collect GUI numbers
-while the session is locked or the test window is occluded: macOS may stop a window's display link,
-which makes a frame-counted run stall and invalidates cross-framework timing.
+the session was unlocked and the display was configured not to sleep. The final rerun kept the AC
+charger connected and Low Power Mode disabled for every framework. Do not collect GUI numbers while
+the session is locked or the test window is occluded: macOS may stop a window's display link, which
+makes a frame-counted run stall and invalidates cross-framework timing.
 
 No adapter imposes a fixed target frame interval. egui continuously requests repaint through
 eframe, Slint schedules the next model update after the previous frame is presented, and GPUI-CE
