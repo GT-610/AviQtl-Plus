@@ -77,7 +77,7 @@ Node {
         var res = [];
         for (var i = 0; i < rawEffectModels.length; i++) {
             var eff = rawEffectModels[i];
-            if (eff.kind === "effect")
+            if (eff.kind === "effect" && eff.id !== "transform")
                 res.push(eff);
 
         }
