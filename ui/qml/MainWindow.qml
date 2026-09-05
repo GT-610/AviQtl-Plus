@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
+import AviQtl.UI 1.0
 import "common" as Common
 import "common/TimelineHelper.js" as TH
 

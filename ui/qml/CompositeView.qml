@@ -1,6 +1,7 @@
 import QtQml
 import QtQuick
 import QtQuick3D
+import AviQtl.UI 1.0
 import "common" as Common
 
 Item {

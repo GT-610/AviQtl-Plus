@@ -158,7 +158,6 @@ std::unique_ptr<QObject> createMainWindow(QQmlEngine &engine, Workspace &workspa
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &settings);
     context->setContextProperty(QStringLiteral("WindowManager"), &windowManager);
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
     context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
     context->setContextProperty(QStringLiteral("DefaultTotalFrames"), 1'800);
@@ -227,7 +226,6 @@ void TestQmlCompositeCapture::loadsDeployedQmlAssetsWithoutRuntimeErrors() {
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
     context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
@@ -274,7 +272,6 @@ void TestQmlCompositeCapture::previewQualitySettingsUpdateViewGeometry() {
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &settings);
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), 400);
     context->setContextProperty(QStringLiteral("DefaultHeight"), 200);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
@@ -514,7 +511,6 @@ void TestQmlCompositeCapture::capturesCompositeView3DOutput() {
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), AviQtl::kDefaultWidth);
     context->setContextProperty(QStringLiteral("DefaultHeight"), AviQtl::kDefaultHeight);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
@@ -581,7 +577,6 @@ void TestQmlCompositeCapture::capturesAnimatedTextAndMonochromeEffect() {
     context->setContextProperty(QStringLiteral("Workspace"), &workspace);
     context->setContextProperty(QStringLiteral("SettingsManager"), &Core::SettingsManager::instance());
     context->setContextProperty(QStringLiteral("WindowManager"), static_cast<QObject *>(&WindowManager::instance()));
-    context->setContextProperty(QStringLiteral("ECSRenderBridge"), &ECSRenderBridge::instance());
     context->setContextProperty(QStringLiteral("DefaultWidth"), 320);
     context->setContextProperty(QStringLiteral("DefaultHeight"), 180);
     context->setContextProperty(QStringLiteral("AviQtlAssetUrl"), QString());
