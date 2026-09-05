@@ -60,3 +60,13 @@ cargo run --release --manifest-path experiments/gui-framework-bakeoff/Cargo.toml
 
 Add `--interactive` to keep the window open after measurement for CJK IME, focus, resizing, clip
 selection, and auxiliary-window checks.
+
+Run the Slint adapter with its FemtoVG-wgpu backend:
+
+```sh
+cargo run --release --manifest-path experiments/gui-framework-bakeoff/Cargo.toml \
+  -p aviqtl-gui-lab-slint -- --frames 2400 --warmup 240 \
+  --report experiments/gui-framework-bakeoff/reports/slint-macos.json
+```
+
+The same `--interactive` option keeps the declarative UI open for its manual checks.

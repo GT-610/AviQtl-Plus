@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "generated_unix_ms": 1788586793043,
+  "metadata": {
+    "framework": "Slint",
+    "framework_version": "1.17.1",
+    "renderer": "FemtoVG / wgpu 29 / imported texture",
+    "platform": "macos-aarch64",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)",
+    "profile": "release"
+  },
+  "dataset": {
+    "clip_count": 10000,
+    "layer_count": 300
+  },
+  "total_frames": 2400,
+  "warmup_frames": 240,
+  "measured_frames": 2160,
+  "frame_cpu": {
+    "p50_us": 55.0,
+    "p95_us": 78.875,
+    "p99_us": 120.416,
+    "max_us": 179.0
+  },
+  "query_cpu": {
+    "p50_us": 1.208,
+    "p95_us": 2.084,
+    "p99_us": 2.5,
+    "max_us": 4.416
+  },
+  "frame_interval": {
+    "p50_us": 16670.875,
+    "p95_us": 16973.0,
+    "p99_us": 17147.292,
+    "max_us": 21330.208
+  },
+  "frames_over_16_67ms": 1083,
+  "average_visible_clips": 87.13888888888889,
+  "maximum_visible_clips": 303
+}

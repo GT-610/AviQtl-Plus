@@ -4,6 +4,7 @@ members = [
     "crates/egui-adapter",
     "crates/lab-core",
     "crates/lab-driver",
+    "crates/slint-adapter",
 ]
 
 [workspace.package]
@@ -16,6 +17,7 @@ aviqtl-gui-lab-core = { path = "crates/lab-core" }
 eframe = { version = "0.36.0", default-features = false, features = ["accesskit", "default_fonts", "wgpu"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+slint = { version = "1.17.1", default-features = false, features = ["accessibility", "backend-winit", "compat-1-2", "renderer-femtovg-wgpu", "unstable-wgpu-29"] }
 
 [profile.dev]
 panic = "abort"
