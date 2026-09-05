@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "generated_unix_ms": 1788585607254,
+  "metadata": {
+    "framework": "shared-headless-baseline",
+    "framework_version": "0.1.0",
+    "renderer": "none",
+    "platform": "macos-aarch64",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)",
+    "profile": "release"
+  },
+  "dataset": {
+    "clip_count": 10000,
+    "layer_count": 300
+  },
+  "total_frames": 2400,
+  "warmup_frames": 240,
+  "measured_frames": 2160,
+  "frame_cpu": {
+    "p50_us": 0.958,
+    "p95_us": 1.583,
+    "p99_us": 3.459,
+    "max_us": 41.042
+  },
+  "query_cpu": {
+    "p50_us": 0.916,
+    "p95_us": 1.541,
+    "p99_us": 3.417,
+    "max_us": 40.917
+  },
+  "frame_interval": null,
+  "frames_over_16_67ms": null,
+  "average_visible_clips": 151.4962962962963,
+  "maximum_visible_clips": 501
+}
