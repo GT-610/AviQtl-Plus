@@ -46,6 +46,20 @@ def parse_semver(version_string: str) -> tuple[int, int, int]:
     )
 
 
+def normalize_macos_architecture(machine: str) -> str:
+    """Return the release-archive architecture name for a macOS host."""
+    normalized = machine.strip().lower()
+    aliases = {
+        "aarch64": "arm64",
+        "amd64": "x86_64",
+        "x64": "x86_64",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in {"arm64", "x86_64"}:
+        raise RuntimeError(f"Unsupported macOS architecture: {machine}")
+    return normalized
+
+
 def read_project_version(source_dir: Path) -> str:
     """Read the canonical application version from CMakeLists.txt."""
     cmake_path = source_dir / "CMakeLists.txt"
@@ -1409,8 +1423,6 @@ class XcodeBuilder(PlatformBuilder):
         self.run_cmd(["brew", "install"] + deps)
         self.logger.log("macOS dependency installation complete")
 
-        # macOS uses Universal binaries
-
     def get_cmake_config_cmd(self) -> List[str]:
         cmd = super().get_cmake_config_cmd()
         try:
@@ -1483,6 +1495,7 @@ class XcodeBuilder(PlatformBuilder):
 
         self.logger.log("Running codesign...")
         self.run_cmd(["codesign", "--deep", "--force", "--sign", "-", str(dest_app)])
+        self.run_cmd(["codesign", "--verify", "--deep", "--strict", str(dest_app)])
         self.logger.log(f"App bundle: {dest_app}")
 
     def cleanup_qt_quick_control_styles(self, app_bundle: Path):
@@ -1575,7 +1588,8 @@ class XcodeBuilder(PlatformBuilder):
             self.logger.log(f"  Fixed: {lib_path} -> {new_path}")
 
     def get_archive_name(self) -> str:
-        return "AviQtl-macOS-Xcode-Universal"
+        architecture = normalize_macos_architecture(platform.machine())
+        return f"AviQtl-macOS-Xcode-{architecture}"
 
     def create_zip(self, archive_name: str):
         archive_path = self.config.dist_dir / f"{archive_name}.zip"

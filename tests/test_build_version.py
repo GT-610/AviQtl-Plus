@@ -8,7 +8,14 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from BUILD import BuildConfig, Logger, MsvcBuilder, PlatformBuilder, parse_semver
+from BUILD import (
+    BuildConfig,
+    Logger,
+    MsvcBuilder,
+    PlatformBuilder,
+    normalize_macos_architecture,
+    parse_semver,
+)
 
 
 class RecordingBuilder(PlatformBuilder):
@@ -56,6 +63,21 @@ class TestBuildVersion(unittest.TestCase):
             with self.subTest(version=version):
                 with self.assertRaises(ValueError):
                     parse_semver(version)
+
+    def test_normalizes_macos_archive_architectures(self):
+        cases = {
+            "arm64": "arm64",
+            "aarch64": "arm64",
+            "x86_64": "x86_64",
+            "AMD64": "x86_64",
+            "x64": "x86_64",
+        }
+        for machine, expected in cases.items():
+            with self.subTest(machine=machine):
+                self.assertEqual(normalize_macos_architecture(machine), expected)
+
+        with self.assertRaises(RuntimeError):
+            normalize_macos_architecture("powerpc")
 
     def test_configure_refreshes_cmake_cache_but_keeps_build_artifacts(self):
         with tempfile.TemporaryDirectory() as temp_dir:

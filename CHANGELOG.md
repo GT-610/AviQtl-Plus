@@ -2,6 +2,38 @@
 
 All notable changes to AviQtl-Plus are documented in this file.
 
+## [0.6.2] - 2026-09-05
+
+### Added
+- Rust-owned scene bake plans, export and audio planning, runtime settings,
+  plugin permissions, package, effect, and script-plugin catalogs, and recovery
+  metadata
+- Automated Rust C ABI consistency checks and focused coverage for the new
+  authoritative core states
+
+### Changed
+- Rust timeline state is now authoritative for scene, clip, effect, keyframe,
+  and audio-plugin edits, including undo and redo transaction replay
+- Qt timeline objects and the native ECS are maintained as projections of the
+  committed Rust state instead of independent business-state owners
+- Keyframe evaluation, package catalog queries, audio playback, waveform
+  generation, video caching, and composite rendering reuse cached or batched data
+- Obsolete migration interfaces and duplicated native policy paths were removed
+
+### Fixed
+- Preview and exported video frames render deployed objects correctly after the
+  transform-pipeline optimization, including objects added after window creation
+- Untrusted project, package, plugin, recovery, and shader inputs are bounded and
+  validated before reaching native resources
+- Recovery generations, package deployment rollback, timeline projection rollback,
+  and cross-thread audio/video state updates preserve atomicity and ownership
+- Export now rejects invalid image-sequence and audio-planning states instead of
+  silently producing incomplete output
+- Localized playback-mode values and new package/export errors are normalized and
+  translated consistently
+- macOS release archives identify the architecture they actually contain and
+  verify the packaged app signature before archiving
+
 ## [0.6.1] - 2026-08-19
 
 ### Changed

@@ -59,8 +59,8 @@ jobs:
             artifact_path: dist/AviQtl-Arch-Linux-x86_64.zip
           - platform: macos
             runs_on: macos-14
-            artifact_name: AviQtl-macOS-Universal
-            artifact_path: dist/AviQtl-macOS-Xcode-Universal.zip
+            artifact_name: AviQtl-macOS
+            artifact_path: dist/AviQtl-macOS-Xcode-*.zip
           - platform: windows
             runs_on: windows-latest
             artifact_name: AviQtl-MSVC-Windows-x86_64
