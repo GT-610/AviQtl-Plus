@@ -48,3 +48,15 @@ Reports contain frame CPU percentiles, query percentiles, visible-item counts, t
 and environment metadata. GPU timing and resident-memory sampling are added by GUI adapters where
 the framework exposes reliable hooks.
 
+## GUI adapters
+
+Run the egui adapter with its wgpu backend:
+
+```sh
+cargo run --release --manifest-path experiments/gui-framework-bakeoff/Cargo.toml \
+  -p aviqtl-gui-lab-egui -- --frames 2400 --warmup 240 \
+  --report experiments/gui-framework-bakeoff/reports/egui-macos.json
+```
+
+Add `--interactive` to keep the window open after measurement for CJK IME, focus, resizing, clip
+selection, and auxiliary-window checks.

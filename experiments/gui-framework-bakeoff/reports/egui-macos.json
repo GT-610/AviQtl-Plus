@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "generated_unix_ms": 1788586624576,
+  "metadata": {
+    "framework": "egui",
+    "framework_version": "0.36.1",
+    "renderer": "wgpu 30 / caller-owned texture",
+    "platform": "macos-aarch64",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18) (Homebrew)",
+    "profile": "release"
+  },
+  "dataset": {
+    "clip_count": 10000,
+    "layer_count": 300
+  },
+  "total_frames": 2400,
+  "warmup_frames": 240,
+  "measured_frames": 2160,
+  "frame_cpu": {
+    "p50_us": 453.333,
+    "p95_us": 603.709,
+    "p99_us": 829.917,
+    "max_us": 2191.708
+  },
+  "query_cpu": {
+    "p50_us": 9.042,
+    "p95_us": 14.708,
+    "p99_us": 21.458,
+    "max_us": 26.042
+  },
+  "frame_interval": {
+    "p50_us": 16658.458,
+    "p95_us": 16937.75,
+    "p99_us": 17153.166,
+    "max_us": 17587.625
+  },
+  "frames_over_16_67ms": 975,
+  "average_visible_clips": 86.27546296296296,
+  "maximum_visible_clips": 300
+}
