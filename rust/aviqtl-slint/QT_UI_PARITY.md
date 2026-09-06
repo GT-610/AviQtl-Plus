@@ -33,7 +33,7 @@ still require the separately scheduled Computer Use suite.
 | Empty click | Select target layer and clear clip selection | foundation |
 | Box selection | Right drag previews intersections; Ctrl adds; release commits | parity |
 | Clip context menu | Right click selects an unselected clip and exposes the Qt command order | foundation |
-| Timeline context menu | Searchable object catalog plus Undo/Redo/Paste/settings | partial |
+| Timeline context menu | Searchable object catalog plus Undo/Redo/Paste/settings | foundation |
 | Clip drag | 3 px threshold; unselected anchor selects first; selected groups move together | parity |
 | Collision and snap | Rust planner resolves collisions; Shift bypasses grid/magnetic snapping | foundation |
 | Clip resize | Both handles resize all selected clips by one delta and preserve opposite edges | parity |
@@ -97,6 +97,17 @@ still require the separately scheduled Computer Use suite.
   per-file undo groups. Automated tests cover mixed sequential imports and complete undo; native
   Finder/Explorer/file-manager hover, cancellation, multi-file ordering, and drop feedback remain in
   the deferred GUI suite.
+- The timeline background menu now preserves Qt's built-in object grouping and command order. Paste
+  and object insertion use the right-clicked frame and layer rather than the playhead, with frame
+  snapping performed by the Rust workspace. The timeline-owned object catalog supports live
+  multi-field search, category filtering, selection, double-click insertion, and explicit
+  Add/Cancel actions. Its compact-window render, automatic search focus, Escape dismissal, category
+  navigation, selection, double-click insertion, and explicit Add/Cancel paths have Slint interaction
+  checks. Object construction reuses catalog defaults, collision avoidance, locked-layer rejection,
+  scene-object targeting, primary selection, and one-step Undo. Native background-menu navigation and
+  pointer feel still require the deferred interaction review because the available Computer Use
+  right-click action does not deliver the separate right-button release used to distinguish a click
+  from Qt-compatible right-drag box selection.
 - Primary/additive selection, right-button box selection, multi-clip move, and multi-clip resize have
   framework-neutral tests and Slint MCP interaction checks.
 - Open replaces only a clean pathless placeholder; Save, Save As, tab close, and application quit

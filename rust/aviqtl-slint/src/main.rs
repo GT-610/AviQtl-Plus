@@ -975,6 +975,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     timeline.set_scene_tabs(ModelRc::new(VecModel::<SceneTabData>::default()));
     timeline.set_clips(ModelRc::new(VecModel::<TimelineClipData>::default()));
     timeline.set_layers(ModelRc::new(VecModel::<LayerData>::default()));
+    timeline.set_object_media_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    timeline.set_object_primary_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    timeline.set_object_control_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    timeline.set_object_custom_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    timeline.set_object_extra_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    timeline.set_object_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    timeline.set_object_catalog_categories(ModelRc::new(VecModel::<SharedString>::default()));
+    initialize_timeline_object_catalog(&timeline, &effect_catalog);
     object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
     object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));
     object_settings
@@ -2270,28 +2278,127 @@ fn install_callbacks(
     let timeline_action_model = model.clone();
     let timeline_action_main = main.as_weak();
     let timeline_action_window = timeline.as_weak();
-    timeline.on_timeline_action(move |action| {
-        if let Some(workspace) = timeline_action_model.borrow_mut().current_workspace_mut() {
-            match action.as_str() {
-                "undo" => {
-                    workspace.undo();
+    let timeline_action_project_settings = project_settings.as_weak();
+    let timeline_action_scene_settings = scene_settings.as_weak();
+    let timeline_action_system_settings = system_settings.as_weak();
+    let timeline_action_settings = settings.clone();
+    timeline.on_timeline_action(move |action, frame, layer| {
+        match action.as_str() {
+            "undo" | "redo" | "paste" => {
+                let pixels_per_frame = timeline_action_window
+                    .upgrade()
+                    .map_or(1.0, |window| window.get_pixels_per_frame());
+                if let Some(workspace) = timeline_action_model.borrow_mut().current_workspace_mut()
+                {
+                    match action.as_str() {
+                        "undo" => {
+                            workspace.undo();
+                        }
+                        "redo" => {
+                            workspace.redo();
+                        }
+                        "paste" => {
+                            let frame = workspace.snap_timeline_frame(
+                                f64::from(frame),
+                                false,
+                                f64::from(pixels_per_frame),
+                            );
+                            workspace.paste_clips_at(frame, layer.clamp(0, 127));
+                        }
+                        _ => unreachable!(),
+                    }
                 }
-                "redo" => {
-                    workspace.redo();
-                }
-                "paste" => {
-                    let frame = workspace.playhead();
-                    let layer = workspace.selected_layer();
-                    workspace.paste_clips_at(frame, layer);
-                }
-                _ => {}
             }
+            "scene-settings" => {
+                let input =
+                    timeline_action_model
+                        .borrow()
+                        .current_workspace()
+                        .and_then(|workspace| {
+                            let scene_id = workspace.selected_scene_document()?.id;
+                            workspace
+                                .scene_settings(scene_id)
+                                .map(|settings| (scene_id, settings))
+                        });
+                if let (Some(window), Some((scene_id, input))) =
+                    (timeline_action_scene_settings.upgrade(), input)
+                {
+                    sync_scene_settings(&window, false, scene_id, &input);
+                    let _ = window.show();
+                }
+            }
+            "project-settings" => {
+                let input = timeline_action_model
+                    .borrow()
+                    .current_workspace()
+                    .map(WorkspaceModel::project_settings);
+                if let (Some(window), Some(input)) =
+                    (timeline_action_project_settings.upgrade(), input)
+                {
+                    sync_project_settings(&window, &input);
+                    let _ = window.show();
+                }
+            }
+            "system-settings" => {
+                if let Some(window) = timeline_action_system_settings.upgrade() {
+                    sync_system_settings(&window, &timeline_action_settings.borrow());
+                    let _ = window.show();
+                }
+            }
+            _ => {}
         }
         sync_weak_windows(
             &timeline_action_main,
             &timeline_action_window,
             &timeline_action_model,
         );
+    });
+
+    let object_filter_window = timeline.as_weak();
+    let object_filter_catalog = effect_catalog.clone();
+    timeline.on_filter_objects(move |query, category_index| {
+        if let Some(window) = object_filter_window.upgrade() {
+            sync_timeline_object_catalog(
+                &window,
+                &object_filter_catalog,
+                query.as_str(),
+                category_index,
+            );
+        }
+    });
+
+    let object_add_model = model.clone();
+    let object_add_settings = settings.clone();
+    let object_add_catalog = effect_catalog.clone();
+    let object_add_main = main.as_weak();
+    let object_add_timeline = timeline.as_weak();
+    timeline.on_add_catalog_object(move |object_id, frame, layer| {
+        let pixels_per_frame = object_add_timeline
+            .upgrade()
+            .map_or(1.0, |window| window.get_pixels_per_frame());
+        let default_duration = object_add_settings
+            .borrow()
+            .i32_value("defaultClipDuration", 100)
+            .max(1);
+        let added = object_add_model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                let frame = workspace.snap_timeline_frame(
+                    f64::from(frame),
+                    false,
+                    f64::from(pixels_per_frame),
+                );
+                workspace.insert_catalog_object_at(
+                    object_id.as_str(),
+                    frame,
+                    layer.clamp(0, 127),
+                    default_duration,
+                    &object_add_catalog,
+                )
+            });
+        sync_weak_windows(&object_add_main, &object_add_timeline, &object_add_model);
+        added
     });
 
     let scene_model = model.clone();
@@ -4389,6 +4496,104 @@ fn sync_effect_catalog(window: &ObjectSettingsWindow, catalog: &EffectCatalog, q
         })
         .collect::<Vec<_>>();
     update_vec_model(&window.get_effect_catalog_items(), items);
+}
+
+fn initialize_timeline_object_catalog(window: &TimelineWindow, catalog: &EffectCatalog) {
+    let categories = std::iter::once(SharedString::from("すべてのカテゴリ"))
+        .chain(
+            catalog
+                .categories("object")
+                .into_iter()
+                .map(SharedString::from),
+        )
+        .collect::<Vec<_>>();
+    update_vec_model(&window.get_object_catalog_categories(), categories);
+
+    const MEDIA_IDS: &[&str] = &["video", "image", "audio"];
+    const PRIMARY_IDS: &[&str] = &["text", "rect", "frame_buffer", "scene"];
+    const CONTROL_IDS: &[&str] = &["GroupControl", "camera_control"];
+    const CUSTOM_IDS: &[&str] = &[
+        "radial_lines",
+        "counter",
+        "lens_flare_object",
+        "star",
+        "track_line",
+        "pie_shape",
+        "polygon_shape",
+        "flare",
+    ];
+    update_vec_model(
+        &window.get_object_media_items(),
+        timeline_object_menu_items(catalog, MEDIA_IDS),
+    );
+    update_vec_model(
+        &window.get_object_primary_items(),
+        timeline_object_menu_items(catalog, PRIMARY_IDS),
+    );
+    update_vec_model(
+        &window.get_object_control_items(),
+        timeline_object_menu_items(catalog, CONTROL_IDS),
+    );
+    update_vec_model(
+        &window.get_object_custom_items(),
+        timeline_object_menu_items(catalog, CUSTOM_IDS),
+    );
+    let known_ids = MEDIA_IDS
+        .iter()
+        .chain(PRIMARY_IDS)
+        .chain(CONTROL_IDS)
+        .chain(CUSTOM_IDS)
+        .copied()
+        .collect::<Vec<_>>();
+    let extra_items = catalog
+        .entries("object")
+        .filter(|metadata| !known_ids.contains(&metadata.id.as_str()))
+        .map(|metadata| EffectCatalogItemData {
+            header: false,
+            id: SharedString::from(metadata.id.clone()),
+            name: SharedString::from(metadata.name.clone()),
+            categories: SharedString::from(metadata.categories.join(", ")),
+        })
+        .collect::<Vec<_>>();
+    update_vec_model(&window.get_object_extra_items(), extra_items);
+    sync_timeline_object_catalog(window, catalog, "", 0);
+}
+
+fn timeline_object_menu_items(catalog: &EffectCatalog, ids: &[&str]) -> Vec<EffectCatalogItemData> {
+    ids.iter()
+        .filter_map(|id| catalog.find(id))
+        .map(|metadata| EffectCatalogItemData {
+            header: false,
+            id: SharedString::from(metadata.id.clone()),
+            name: SharedString::from(metadata.name.clone()),
+            categories: SharedString::from(metadata.categories.join(", ")),
+        })
+        .collect()
+}
+
+fn sync_timeline_object_catalog(
+    window: &TimelineWindow,
+    catalog: &EffectCatalog,
+    query: &str,
+    category_index: i32,
+) {
+    let categories = catalog.categories("object");
+    let category = usize::try_from(category_index)
+        .ok()
+        .and_then(|index| index.checked_sub(1))
+        .and_then(|index| categories.get(index))
+        .map_or("", String::as_str);
+    let items = catalog
+        .query("object", query, category)
+        .into_iter()
+        .map(|metadata| EffectCatalogItemData {
+            header: false,
+            id: SharedString::from(metadata.id.clone()),
+            name: SharedString::from(metadata.name.clone()),
+            categories: SharedString::from(metadata.categories.join(", ")),
+        })
+        .collect::<Vec<_>>();
+    update_vec_model(&window.get_object_catalog_items(), items);
 }
 
 fn sync_audio_plugin_catalog(

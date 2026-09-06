@@ -1804,6 +1804,13 @@ export component TimelineWindow inherits Window {
     in property <[SceneTabData]> scene-tabs;
     in property <[TimelineClipData]> clips;
     in property <[LayerData]> layers;
+    in property <[EffectCatalogItemData]> object-media-items;
+    in property <[EffectCatalogItemData]> object-primary-items;
+    in property <[EffectCatalogItemData]> object-control-items;
+    in property <[EffectCatalogItemData]> object-custom-items;
+    in property <[EffectCatalogItemData]> object-extra-items;
+    in property <[EffectCatalogItemData]> object-catalog-items;
+    in property <[string]> object-catalog-categories;
     in property <int> duration: 3600;
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
@@ -1820,7 +1827,16 @@ export component TimelineWindow inherits Window {
     private property <int> box-start-layer: 0;
     private property <int> box-current-frame: 0;
     private property <int> box-current-layer: 0;
-    callback timeline-action(string);
+    in-out property <bool> object-picker-visible: false;
+    private property <string> object-filter: "";
+    private property <int> object-category-index: 0;
+    private property <int> object-catalog-selected-index: -1;
+    private property <string> object-catalog-selected-id: "";
+    private property <int> context-frame: 0;
+    private property <int> context-layer: 0;
+    callback timeline-action(string, int, int);
+    callback filter-objects(string, int);
+    callback add-catalog-object(string, int, int) -> bool;
     callback show-object-settings();
     callback show-scene-settings();
     callback scene-selected(int);
@@ -1855,6 +1871,26 @@ export component TimelineWindow inherits Window {
     function schedule-skimmer-left() {
         skimmer-leave-timer.running = false;
         skimmer-leave-timer.running = true;
+    }
+
+    function open-object-picker() {
+        root.object-filter = "";
+        root.object-category-index = 0;
+        root.object-catalog-selected-index = -1;
+        root.object-catalog-selected-id = "";
+        root.filter-objects("", 0);
+        root.object-picker-visible = true;
+    }
+
+    function accept-object-selection() {
+        if root.object-catalog-selected-id != ""
+            && root.add-catalog-object(
+                root.object-catalog-selected-id,
+                root.context-frame,
+                root.context-layer
+            ) {
+            root.object-picker-visible = false;
+        }
     }
 
     function file-drop-position-valid(window-x: float, window-y: float) -> bool {
@@ -2061,34 +2097,90 @@ export component TimelineWindow inherits Window {
 
                 timeline-menu := ContextMenuArea {
                     Menu {
-                        MenuItem { title: "元に戻す"; activated => { root.timeline-action("undo"); } }
-                        MenuItem { title: "やり直す"; activated => { root.timeline-action("redo"); } }
+                        MenuItem { title: "Browse object catalog..."; activated => { root.open-object-picker(); } }
                         MenuSeparator { }
-                        MenuItem { title: "貼り付け"; activated => { root.timeline-action("paste"); } }
+                        Menu {
+                            title: "オブジェクトを追加";
+                            Menu {
+                                title: "メディア";
+                                for item in root.object-media-items : MenuItem {
+                                    title: item.name;
+                                    activated => {
+                                        root.add-catalog-object(item.id, root.context-frame, root.context-layer);
+                                    }
+                                }
+                            }
+                            for item in root.object-primary-items : MenuItem {
+                                title: item.name;
+                                activated => {
+                                    root.add-catalog-object(item.id, root.context-frame, root.context-layer);
+                                }
+                            }
+                            Menu {
+                                title: "制御";
+                                for item in root.object-control-items : MenuItem {
+                                    title: item.name;
+                                    activated => {
+                                        root.add-catalog-object(item.id, root.context-frame, root.context-layer);
+                                    }
+                                }
+                            }
+                            Menu {
+                                title: "カスタムオブジェクト";
+                                for item in root.object-custom-items : MenuItem {
+                                    title: item.name;
+                                    activated => {
+                                        root.add-catalog-object(item.id, root.context-frame, root.context-layer);
+                                    }
+                                }
+                            }
+                            for item in root.object-extra-items : MenuItem {
+                                title: item.categories == ""
+                                    ? item.name
+                                    : item.categories + " / " + item.name;
+                                activated => {
+                                    root.add-catalog-object(item.id, root.context-frame, root.context-layer);
+                                }
+                            }
+                        }
                         MenuSeparator { }
-                        MenuItem { title: "オブジェクトを追加"; activated => { root.timeline-action("add-object"); } }
-                        MenuItem { title: "プロジェクト設定"; activated => { root.timeline-action("project-settings"); } }
+                        MenuItem { title: "元に戻す"; activated => { root.timeline-action("undo", root.context-frame, root.context-layer); } }
+                        MenuItem { title: "やり直す"; activated => { root.timeline-action("redo", root.context-frame, root.context-layer); } }
+                        MenuItem { title: "貼り付け"; activated => { root.timeline-action("paste", root.context-frame, root.context-layer); } }
+                        MenuSeparator { }
+                        MenuItem { title: "シーン設定..."; activated => { root.timeline-action("scene-settings", root.context-frame, root.context-layer); } }
+                        MenuItem { title: "プロジェクト設定..."; activated => { root.timeline-action("project-settings", root.context-frame, root.context-layer); } }
+                        MenuItem { title: "環境設定..."; activated => { root.timeline-action("system-settings", root.context-frame, root.context-layer); } }
                     }
                     background-touch := TouchArea {
+                        x: -root.shared-viewport-x;
+                        y: -root.shared-viewport-y;
+                        width: timeline-scroll.visible-width;
+                        height: timeline-scroll.visible-height;
+                        accessible-role: main;
+                        accessible-id: "timeline-viewport";
+                        accessible-label: "タイムライン編集領域";
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.move {
                                 root.update-skimmer(
-                                    self.mouse-x / (root.pixels-per-frame * 1px),
-                                    floor(self.mouse-y / 30px),
+                                    (self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px),
+                                    floor((self.mouse-y - root.shared-viewport-y) / 30px),
                                     event.modifiers.shift
                                 );
                             }
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                                 root.empty-clicked(
-                                    floor(self.mouse-x / (root.pixels-per-frame * 1px)),
-                                    floor(self.mouse-y / 30px)
+                                    floor((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px)),
+                                    floor((self.mouse-y - root.shared-viewport-y) / 30px)
                                 );
                             }
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
                                 root.box-active = true;
                                 root.box-dragging = false;
-                                root.box-start-frame = max(0, floor(self.mouse-x / (root.pixels-per-frame * 1px)));
-                                root.box-start-layer = max(0, floor(self.mouse-y / 30px));
+                                root.context-frame = max(0, floor((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px)));
+                                root.context-layer = min(127, max(0, floor((self.mouse-y - root.shared-viewport-y) / 30px)));
+                                root.box-start-frame = root.context-frame;
+                                root.box-start-layer = root.context-layer;
                                 root.box-current-frame = root.box-start-frame;
                                 root.box-current-layer = root.box-start-layer;
                                 root.box-selection-started(
@@ -2098,8 +2190,8 @@ export component TimelineWindow inherits Window {
                                 );
                             }
                             if event.kind == PointerEventKind.move && root.box-active {
-                                root.box-current-frame = max(0, floor(self.mouse-x / (root.pixels-per-frame * 1px)));
-                                root.box-current-layer = max(0, floor(self.mouse-y / 30px));
+                                root.box-current-frame = max(0, floor((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px)));
+                                root.box-current-layer = min(127, max(0, floor((self.mouse-y - root.shared-viewport-y) / 30px)));
                                 if abs(self.mouse-x - self.pressed-x) >= 3px || abs(self.mouse-y - self.pressed-y) >= 3px {
                                     root.box-dragging = true;
                                     root.box-selection-updated(root.box-current-frame, root.box-current-layer);
@@ -2110,7 +2202,10 @@ export component TimelineWindow inherits Window {
                                     root.box-selection-finished();
                                 } else {
                                     root.box-selection-cancelled();
-                                    timeline-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                                    timeline-menu.show({
+                                        x: self.mouse-x - root.shared-viewport-x,
+                                        y: self.mouse-y - root.shared-viewport-y
+                                    });
                                 }
                                 root.box-active = false;
                                 root.box-dragging = false;
@@ -2125,7 +2220,7 @@ export component TimelineWindow inherits Window {
                             root.apply-timeline-scroll(
                                 event.delta-x,
                                 event.delta-y,
-                                self.mouse-x,
+                                self.mouse-x - root.shared-viewport-x,
                                 event.modifiers.alt,
                                 event.modifiers.control,
                                 event.modifiers.shift,
@@ -2224,6 +2319,149 @@ export component TimelineWindow inherits Window {
             }
         }
             Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+        }
+    }
+
+    if root.object-picker-visible : object-picker-focus := FocusScope {
+        z: 200;
+        width: 100%;
+        height: 100%;
+        forward-focus: object-search;
+        init => { self.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.object-picker-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+        TouchArea { clicked => { root.object-picker-visible = false; } }
+        object-picker-panel := Rectangle {
+            width: min(parent.width - 40px, 760px);
+            height: min(parent.height - 40px, 560px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b3038;
+            border-width: 1px;
+            border-color: #646b78;
+            border-radius: 5px;
+            TouchArea { }
+            VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+                Text {
+                    text: "オブジェクト一覧";
+                    color: #f2f3f5;
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    object-search := LineEdit {
+                        horizontal-stretch: 1;
+                        text <=> root.object-filter;
+                        placeholder-text: "名前・カテゴリ・ID・パッケージを検索...";
+                        edited(value) => {
+                            root.object-catalog-selected-index = -1;
+                            root.object-catalog-selected-id = "";
+                            root.filter-objects(value, root.object-category-index);
+                        }
+                        accepted(value) => { root.accept-object-selection(); }
+                    }
+                    ComboBox {
+                        width: 220px;
+                        model: root.object-catalog-categories;
+                        current-index <=> root.object-category-index;
+                        selected(value) => {
+                            root.object-catalog-selected-index = -1;
+                            root.object-catalog-selected-id = "";
+                            root.filter-objects(root.object-filter, self.current-index);
+                        }
+                    }
+                }
+                Text {
+                    text: root.object-catalog-items.length + " 件";
+                    color: #aeb3bc;
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 4px;
+                        for item[index] in root.object-catalog-items : Rectangle {
+                            height: 64px;
+                            background: index == root.object-catalog-selected-index
+                                ? #42658f
+                                : (item-touch.has-hover ? #373d47 : #252a31);
+                            border-width: 1px;
+                            border-color: index == root.object-catalog-selected-index
+                                ? #82b4ef
+                                : #454b56;
+                            border-radius: 4px;
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 2px;
+                                Text {
+                                    text: item.name;
+                                    color: #f2f3f5;
+                                    font-weight: 700;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: item.categories == ""
+                                        ? item.id
+                                        : item.categories + "   ·   " + item.id;
+                                    color: #abb1bb;
+                                    overflow: elide;
+                                }
+                            }
+                            item-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                accessible-role: list-item;
+                                accessible-id: "object-catalog-" + item.id;
+                                accessible-label: item.name;
+                                accessible-description: item.categories == ""
+                                    ? item.id
+                                    : item.categories + ", " + item.id;
+                                accessible-item-selectable: true;
+                                accessible-item-selected: index == root.object-catalog-selected-index;
+                                accessible-item-index: index;
+                                accessible-item-count: root.object-catalog-items.length;
+                                accessible-action-default => {
+                                    root.object-catalog-selected-index = index;
+                                    root.object-catalog-selected-id = item.id;
+                                }
+                                clicked => {
+                                    root.object-catalog-selected-index = index;
+                                    root.object-catalog-selected-id = item.id;
+                                }
+                                double-clicked => {
+                                    root.object-catalog-selected-index = index;
+                                    root.object-catalog-selected-id = item.id;
+                                    root.accept-object-selection();
+                                }
+                            }
+                        }
+                        if root.object-catalog-items.length == 0 : Text {
+                            text: "一致するオブジェクトがありません";
+                            color: #aeb3bc;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button {
+                        text: "キャンセル";
+                        clicked => { root.object-picker-visible = false; }
+                    }
+                    Button {
+                        text: "追加";
+                        enabled: root.object-catalog-selected-id != "";
+                        clicked => { root.accept-object-selection(); }
+                    }
+                }
+            }
         }
     }
 }

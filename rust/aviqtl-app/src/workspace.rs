@@ -1798,6 +1798,85 @@ impl WorkspaceModel {
         self.paste_clips_at(frame, layer)
     }
 
+    pub fn insert_catalog_object_at(
+        &mut self,
+        object_id: &str,
+        requested_start: i32,
+        target_layer: i32,
+        default_duration_frames: i32,
+        catalog: &EffectCatalog,
+    ) -> bool {
+        let Some(object) = catalog
+            .find(object_id)
+            .filter(|entry| entry.kind == "object")
+        else {
+            self.status = format!("Object {object_id} is not available");
+            return false;
+        };
+        let transform = (object.id != "audio")
+            .then(|| catalog.find("transform"))
+            .flatten();
+        if object.id != "audio" && transform.is_none() {
+            self.status = "Standard drawing effect is not available".to_owned();
+            return false;
+        }
+        let layer = target_layer.clamp(0, 127);
+        if self
+            .selected_scene_document()
+            .is_some_and(|scene| scene.locked_layers.contains(&layer))
+        {
+            self.status = format!("Layer {} is locked", layer + 1);
+            return false;
+        }
+        let duration = default_duration_frames.max(1);
+        let start = match find_vacant_scene_frame(
+            &self.project.document,
+            self.selected_scene,
+            &[],
+            layer,
+            requested_start.max(0),
+            duration,
+        ) {
+            Ok(start) => start,
+            Err(error) => {
+                self.status = error.to_string();
+                return false;
+            }
+        };
+        let clip_id = match self.project.state.reserve_clip_ids(1) {
+            Ok(ids) => ids[0],
+            Err(error) => {
+                self.status = error.to_string();
+                return false;
+            }
+        };
+        let target_scene_id = (object.id == "scene").then(|| {
+            self.project
+                .document
+                .scenes
+                .iter()
+                .find(|scene| scene.id != self.selected_scene)
+                .map_or(-1, |scene| scene.id)
+        });
+        let clip = object_clip_from_metadata(
+            clip_id,
+            self.selected_scene,
+            start,
+            layer,
+            duration,
+            object,
+            transform,
+            target_scene_id,
+        );
+        if !self.execute(TimelineCommand::InsertClip { index: None, clip }) {
+            return false;
+        }
+        self.selection.replace([clip_id]);
+        self.reconcile_effect_selection();
+        self.status = format!("Added object {}", object.name);
+        true
+    }
+
     pub fn import_media_files(
         &mut self,
         paths: &[PathBuf],
@@ -2348,7 +2427,7 @@ fn effect_from_metadata(metadata: &EffectMetadata) -> EffectDocument {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn media_clip_from_metadata(
+fn object_clip_from_metadata(
     clip_id: i32,
     scene_id: i32,
     start: i32,
@@ -2356,22 +2435,17 @@ fn media_clip_from_metadata(
     duration: i32,
     object: &EffectMetadata,
     transform: Option<&EffectMetadata>,
-    path_parameter: &str,
-    path: &str,
-    linked_video: bool,
+    target_scene_id: Option<i32>,
 ) -> ClipDocument {
     let mut effects = transform
         .into_iter()
         .map(effect_from_metadata)
         .collect::<Vec<_>>();
     let mut object_effect = effect_from_metadata(object);
-    object_effect
-        .params
-        .insert(path_parameter.to_owned(), Value::from(path));
-    if linked_video {
+    if let Some(target_scene_id) = target_scene_id {
         object_effect
             .params
-            .insert("linkedVideo".to_owned(), Value::Bool(true));
+            .insert("targetSceneId".to_owned(), Value::from(target_scene_id));
     }
     effects.push(object_effect);
     ClipDocument {
@@ -2387,6 +2461,39 @@ fn media_clip_from_metadata(
         effects,
         extra: BTreeMap::new(),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn media_clip_from_metadata(
+    clip_id: i32,
+    scene_id: i32,
+    start: i32,
+    layer: i32,
+    duration: i32,
+    object: &EffectMetadata,
+    transform: Option<&EffectMetadata>,
+    path_parameter: &str,
+    path: &str,
+    linked_video: bool,
+) -> ClipDocument {
+    let mut clip = object_clip_from_metadata(
+        clip_id, scene_id, start, layer, duration, object, transform, None,
+    );
+    if let Some(object_effect) = clip
+        .effects
+        .iter_mut()
+        .find(|effect| effect.id == object.id)
+    {
+        object_effect
+            .params
+            .insert(path_parameter.to_owned(), Value::from(path));
+        if linked_video {
+            object_effect
+                .params
+                .insert("linkedVideo".to_owned(), Value::Bool(true));
+        }
+    }
+    clip
 }
 
 fn find_vacant_linked_media_frame(
@@ -2725,6 +2832,44 @@ mod tests {
         for path in paths {
             std::fs::remove_file(path).expect("temporary media placeholder is removable");
         }
+    }
+
+    #[test]
+    fn catalog_object_creation_uses_qt_defaults_selection_and_scene_target() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+
+        assert!(workspace.insert_catalog_object_at("rect", 0, 0, 25, &catalog));
+        let rectangle = workspace
+            .selected_clip_document()
+            .expect("new rectangle becomes the primary selection");
+        assert_eq!(
+            (rectangle.start, rectangle.duration, rectangle.layer),
+            (20, 25, 0)
+        );
+        assert_eq!(rectangle.effects[0].id, "transform");
+        assert_eq!(rectangle.effects[1].id, "rect");
+        assert_eq!(
+            workspace.status(),
+            format!(
+                "Added object {}",
+                catalog
+                    .find("rect")
+                    .expect("rectangle metadata exists")
+                    .name
+            )
+        );
+
+        assert!(workspace.undo());
+        assert_eq!(workspace.document().clips.len(), 3);
+        assert!(workspace.insert_catalog_object_at("scene", 10, 4, 30, &catalog));
+        let scene = workspace
+            .selected_clip_document()
+            .expect("new scene object becomes the primary selection");
+        assert_eq!((scene.start, scene.duration, scene.layer), (10, 30, 4));
+        assert_eq!(scene.effects[0].id, "transform");
+        assert_eq!(scene.effects[1].id, "scene");
+        assert_eq!(scene.effects[1].params["targetSceneId"], 2);
     }
 
     #[test]
