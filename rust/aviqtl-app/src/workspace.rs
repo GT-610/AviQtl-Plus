@@ -37,6 +37,8 @@ pub struct TimelineClip {
     pub start: i32,
     pub duration: i32,
     pub layer: i32,
+    pub audio: bool,
+    pub clip_by_upper_object: bool,
     pub selected: bool,
     pub primary: bool,
 }
@@ -160,6 +162,8 @@ impl WorkspaceModel {
                 start: clip.start,
                 duration: clip.duration,
                 layer: clip.layer,
+                audio: clip.clip_type == "audio",
+                clip_by_upper_object: clip.clip_by_upper_object,
                 selected: self.selection.is_visually_selected(clip.id),
                 primary: self.selection.primary() == Some(clip.id),
             })
@@ -2731,10 +2735,17 @@ mod tests {
         let mut workspace = workspace();
         assert_eq!(workspace.scene_tabs().len(), 2);
         assert_eq!(workspace.timeline_clips().len(), 2);
+        assert!(!workspace.timeline_clips()[0].audio);
+        assert!(!workspace.timeline_clips()[0].clip_by_upper_object);
+        assert!(workspace.toggle_clip_by_upper_object(1));
+        assert!(workspace.timeline_clips()[0].clip_by_upper_object);
         assert!(workspace.switch_scene(2));
         assert_eq!(workspace.timeline_clips().len(), 1);
         assert_eq!(workspace.timeline_clips()[0].id, 3);
         assert_eq!(workspace.playhead(), 0);
+
+        let audio_workspace = workspace_with_audio_plugins();
+        assert!(audio_workspace.timeline_clips()[0].audio);
     }
 
     #[test]

@@ -133,6 +133,15 @@ still require the separately scheduled Computer Use suite.
   XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
 - Clip, timeline, and layer context menus use Slint `ContextMenuArea`; native macOS menus are not
   included in Slint window snapshots and require the deferred native interaction suite.
+- The clip context menu now keeps Qt's selection rule and command order for Delete, Split,
+  Duplicate, Cut, and Copy. Visual clips expose the checked upper-object clipping action, the
+  effect-catalog browser, and the registry's ordered category tree, including nested paths such as
+  `変形/クロップ`. Audio clips omit those visual-only actions and instead expose hostable plugins
+  in the same normalized category order as Qt, including the `Other` fallback. Direct menu
+  insertion reuses the object-settings commands, selection projection, status updates, and one-step
+  Undo. The three object-settings entry points schedule a redraw after showing the previously hidden
+  window to cover the macOS first-surface paint gap; native first-open and audio-menu interaction
+  checks remain in the deferred suite.
 - The object-settings window now projects the selected clip's real effect stack and metadata-defined
   controls in source order. Slint forwards Ctrl/Shift selection, right-click selection and deletion,
   enable toggles, bounded numeric edits, booleans, strings, paths, colors, fonts, static choices, and

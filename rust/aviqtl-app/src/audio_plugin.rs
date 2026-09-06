@@ -5,7 +5,7 @@ use aviqtl_audio::{
 use aviqtl_carla::{CarlaLibraryPaths, CarlaPluginInfo, inspect_plugin as inspect_carla_plugin};
 use aviqtl_rust_core::api::{
     AudioPluginDocument, AudioPluginInfo, ProjectDocument, audio_plugin_categories,
-    parse_audio_plugin_discovery_output,
+    normalize_audio_plugin_category, parse_audio_plugin_discovery_output,
 };
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -160,7 +160,7 @@ impl AudioPluginCatalog {
             .map(|plugin| AudioPluginMenuEntry {
                 id: plugin.id.clone(),
                 name: plugin.name.clone(),
-                category: plugin.category.clone(),
+                category: normalize_audio_plugin_category(&plugin.category),
             })
             .collect::<Vec<_>>();
         entries.sort_by(|left, right| {
@@ -1117,6 +1117,13 @@ mod tests {
         assert_eq!(catalog.entries("aviqtl")[0].id, "meter");
         assert_eq!(catalog.entries("CLAP").len(), 3);
         assert_eq!(catalog.entries("gain-b.clap")[0].id, "gain-b");
+
+        let uncategorized = AudioPluginCatalog {
+            plugins: vec![plugin("unknown", "Unknown", "misc", "Vendor")],
+            categories: vec!["Other".to_owned()],
+            scanned: true,
+        };
+        assert_eq!(uncategorized.entries("")[0].category, "Other");
     }
 
     #[test]

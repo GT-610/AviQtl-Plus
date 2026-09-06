@@ -27,6 +27,8 @@ export struct TimelineClipData {
     start: int,
     duration: int,
     layer: int,
+    audio: bool,
+    clip-by-upper-object: bool,
     selected: bool,
     primary: bool,
 }
@@ -64,6 +66,17 @@ export struct EffectCatalogItemData {
     id: string,
     name: string,
     categories: string,
+}
+
+export struct CatalogMenuSubgroupData {
+    title: string,
+    items: [EffectCatalogItemData],
+}
+
+export struct CatalogMenuGroupData {
+    title: string,
+    items: [EffectCatalogItemData],
+    subgroups: [CatalogMenuSubgroupData],
 }
 
 export struct KeyframeMarkerData {
@@ -1103,6 +1116,16 @@ component LayerHeaderItem inherits Rectangle {
 
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
+    in property <[EffectCatalogItemData]> effect-root-items;
+    in property <[CatalogMenuGroupData]> effect-menu-groups;
+    in property <[EffectCatalogItemData]> audio-plugin-root-items;
+    in property <[CatalogMenuGroupData]> audio-plugin-menu-groups;
+    private property <[EffectCatalogItemData]> extension-root-items: root.clip-data.audio
+        ? root.audio-plugin-root-items
+        : root.effect-root-items;
+    private property <[CatalogMenuGroupData]> extension-menu-groups: root.clip-data.audio
+        ? root.audio-plugin-menu-groups
+        : root.effect-menu-groups;
     callback activate(int, bool);
     callback prepare-drag(int, bool);
     callback context-activate(int);
@@ -1154,8 +1177,39 @@ component TimelineClipItem inherits Rectangle {
             MenuItem { title: "切り取り"; activated => { root.command("cut", root.clip-data.id); } }
             MenuItem { title: "コピー"; activated => { root.command("copy", root.clip-data.id); } }
             MenuSeparator { }
-            MenuItem { title: "上のオブジェクトでクリッピング"; activated => { root.command("clipping", root.clip-data.id); } }
-            MenuItem { title: "フィルタ効果を追加"; activated => { root.command("add-effect", root.clip-data.id); } }
+            if !root.clip-data.audio : MenuItem {
+                title: "上のオブジェクトでクリッピング";
+                checkable: true;
+                checked: root.clip-data.clip-by-upper-object;
+                activated => { root.command("clipping", root.clip-data.id); }
+            }
+            if !root.clip-data.audio : MenuSeparator { }
+            if !root.clip-data.audio : MenuItem {
+                title: "Browse effect catalog...";
+                activated => { root.command("browse-effect", root.clip-data.id); }
+            }
+            if !root.clip-data.audio : MenuSeparator { }
+            Menu {
+                title: "エフェクトを追加";
+                for item in root.extension-root-items : MenuItem {
+                    title: item.name;
+                    activated => { root.command("add-extension:" + item.id, root.clip-data.id); }
+                }
+                for group in root.extension-menu-groups : Menu {
+                    title: group.title;
+                    for item in group.items : MenuItem {
+                        title: item.name;
+                        activated => { root.command("add-extension:" + item.id, root.clip-data.id); }
+                    }
+                    for subgroup in group.subgroups : Menu {
+                        title: subgroup.title;
+                        for item in subgroup.items : MenuItem {
+                            title: item.name;
+                            activated => { root.command("add-extension:" + item.id, root.clip-data.id); }
+                        }
+                    }
+                }
+            }
         }
         clip-touch := TouchArea {
             x: min(7px, parent.width / 2);
@@ -1811,6 +1865,10 @@ export component TimelineWindow inherits Window {
     in property <[EffectCatalogItemData]> object-extra-items;
     in property <[EffectCatalogItemData]> object-catalog-items;
     in property <[string]> object-catalog-categories;
+    in property <[EffectCatalogItemData]> effect-menu-root-items;
+    in property <[CatalogMenuGroupData]> effect-menu-groups;
+    in property <[EffectCatalogItemData]> audio-plugin-menu-root-items;
+    in property <[CatalogMenuGroupData]> audio-plugin-menu-groups;
     in property <int> duration: 3600;
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
@@ -2247,6 +2305,10 @@ export component TimelineWindow inherits Window {
                     y: clip.layer * 30px + 3px;
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
                     clip-data: clip;
+                    effect-root-items: root.effect-menu-root-items;
+                    effect-menu-groups: root.effect-menu-groups;
+                    audio-plugin-root-items: root.audio-plugin-menu-root-items;
+                    audio-plugin-menu-groups: root.audio-plugin-menu-groups;
                     activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }
                     prepare-drag(clip-id, additive) => { root.clip-drag-started(clip-id, additive); }
                     context-activate(clip-id) => { root.clip-context-selected(clip-id); }

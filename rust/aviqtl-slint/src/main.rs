@@ -982,7 +982,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     timeline.set_object_extra_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     timeline.set_object_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     timeline.set_object_catalog_categories(ModelRc::new(VecModel::<SharedString>::default()));
+    timeline.set_effect_menu_root_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    timeline.set_effect_menu_groups(ModelRc::new(VecModel::<CatalogMenuGroupData>::default()));
+    timeline.set_audio_plugin_menu_root_items(ModelRc::new(
+        VecModel::<EffectCatalogItemData>::default(),
+    ));
+    timeline
+        .set_audio_plugin_menu_groups(ModelRc::new(VecModel::<CatalogMenuGroupData>::default()));
     initialize_timeline_object_catalog(&timeline, &effect_catalog);
+    sync_timeline_effect_menu(&timeline, &effect_catalog);
+    sync_timeline_audio_plugin_menu(&timeline, &audio_plugin_catalog.borrow());
     object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
     object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));
     object_settings
@@ -1143,6 +1152,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("Audio plugin discovery warning: {diagnostic}");
             }
             *animation_audio_catalog.borrow_mut() = outcome.catalog;
+            if let Some(window) = animation_timeline.upgrade() {
+                sync_timeline_audio_plugin_menu(&window, &animation_audio_catalog.borrow());
+            }
             let hydration = {
                 let catalog = animation_audio_catalog.borrow();
                 animation_model.borrow_mut().hydrate_audio_plugins(&catalog)
@@ -1919,7 +1931,7 @@ fn install_callbacks(
     object_settings.on_load_effect_preset(move |index, name| {
         preset_load_ui.load_preset(index.max(0) as usize, name.as_str());
     });
-    let preset_delete_ui = object_settings_ui;
+    let preset_delete_ui = object_settings_ui.clone();
     object_settings.on_delete_effect_preset(move |index, name| {
         preset_delete_ui.delete_preset(index.max(0) as usize, name.as_str());
     });
@@ -2161,7 +2173,7 @@ fn install_callbacks(
     main.on_show_object_settings(move || {
         if let Some(window) = settings_window.upgrade() {
             sync_object_settings(&window, &settings_model.borrow(), &settings_catalog);
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
 
@@ -2271,7 +2283,7 @@ fn install_callbacks(
                 &timeline_settings_model.borrow(),
                 &timeline_settings_catalog,
             );
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
 
@@ -2579,9 +2591,13 @@ fn install_callbacks(
     let clip_command_main = main.as_weak();
     let clip_command_timeline = timeline.as_weak();
     let clip_command_settings = object_settings.as_weak();
-    let clip_command_catalog = effect_catalog.clone();
+    let clip_command_ui = object_settings_ui.clone();
     timeline.on_clip_command(move |action, clip_id| {
-        let open_effect_picker = action.as_str() == "add-effect";
+        let open_effect_picker = action.as_str() == "browse-effect";
+        let extension_id = action
+            .as_str()
+            .strip_prefix("add-extension:")
+            .map(str::to_owned);
         if let Some(workspace) = clip_command_model.borrow_mut().current_workspace_mut() {
             workspace.context_click_clip(clip_id);
             match action.as_str() {
@@ -2606,9 +2622,12 @@ fn install_callbacks(
                 "clipping" => {
                     workspace.toggle_clip_by_upper_object(clip_id);
                 }
-                "add-effect" => {}
                 _ => {}
             }
+        }
+        if let Some(extension_id) = extension_id {
+            clip_command_ui.add_effect(&extension_id);
+            return;
         }
         sync_weak_windows(
             &clip_command_main,
@@ -2616,11 +2635,10 @@ fn install_callbacks(
             &clip_command_model,
         );
         if open_effect_picker && let Some(window) = clip_command_settings.upgrade() {
-            sync_object_settings(&window, &clip_command_model.borrow(), &clip_command_catalog);
-            sync_effect_catalog(&window, &clip_command_catalog, "");
             window.set_effect_filter(SharedString::new());
+            clip_command_ui.sync();
             window.set_effect_picker_visible(true);
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
 
@@ -4151,6 +4169,17 @@ fn project_file_dialog() -> rfd::FileDialog {
         .add_filter("JSON files", &["json"])
 }
 
+fn show_and_redraw<T: ComponentHandle + 'static>(window: &T) -> Result<(), slint::PlatformError> {
+    window.show()?;
+    let window = window.as_weak();
+    Timer::single_shot(Duration::ZERO, move || {
+        if let Some(window) = window.upgrade() {
+            window.window().request_redraw();
+        }
+    });
+    Ok(())
+}
+
 fn show_error_dialog(message: &str) {
     let _ = rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
@@ -4362,6 +4391,8 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
             start: clip.start,
             duration: clip.duration,
             layer: clip.layer,
+            audio: clip.audio,
+            clip_by_upper_object: clip.clip_by_upper_object,
             selected: clip.selected,
             primary: clip.primary,
         })
@@ -4567,6 +4598,142 @@ fn timeline_object_menu_items(catalog: &EffectCatalog, ids: &[&str]) -> Vec<Effe
             id: SharedString::from(metadata.id.clone()),
             name: SharedString::from(metadata.name.clone()),
             categories: SharedString::from(metadata.categories.join(", ")),
+        })
+        .collect()
+}
+
+#[derive(Default)]
+struct CatalogMenuGroupBuilder {
+    title: String,
+    items: Vec<EffectCatalogItemData>,
+    subgroups: Vec<CatalogMenuSubgroupBuilder>,
+}
+
+#[derive(Default)]
+struct CatalogMenuSubgroupBuilder {
+    title: String,
+    items: Vec<EffectCatalogItemData>,
+}
+
+fn sync_timeline_effect_menu(window: &TimelineWindow, catalog: &EffectCatalog) {
+    let (root_items, groups) = timeline_effect_menu_entries(catalog);
+    update_vec_model(&window.get_effect_menu_root_items(), root_items);
+    update_vec_model(
+        &window.get_effect_menu_groups(),
+        catalog_menu_groups(groups),
+    );
+}
+
+fn timeline_effect_menu_entries(
+    catalog: &EffectCatalog,
+) -> (Vec<EffectCatalogItemData>, Vec<CatalogMenuGroupBuilder>) {
+    let mut root_items = Vec::new();
+    let mut groups = Vec::<CatalogMenuGroupBuilder>::new();
+    for metadata in catalog.entries("effect") {
+        for category_path in &metadata.categories {
+            let path = category_path
+                .split('/')
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>();
+            let item = EffectCatalogItemData {
+                header: false,
+                id: SharedString::from(metadata.id.clone()),
+                name: SharedString::from(metadata.name.clone()),
+                categories: SharedString::from(metadata.categories.join(", ")),
+            };
+            let Some(group_title) = path.first().copied() else {
+                root_items.push(item);
+                continue;
+            };
+            let group = catalog_menu_group_mut(&mut groups, group_title);
+            if path.len() == 1 {
+                group.items.push(item);
+            } else {
+                let subgroup_title = path[1..].join("/");
+                catalog_menu_subgroup_mut(&mut group.subgroups, &subgroup_title)
+                    .items
+                    .push(item);
+            }
+        }
+    }
+    (root_items, groups)
+}
+
+fn sync_timeline_audio_plugin_menu(window: &TimelineWindow, catalog: &AudioPluginCatalog) {
+    let mut root_items = Vec::new();
+    let mut groups = Vec::<CatalogMenuGroupBuilder>::new();
+    for plugin in catalog.entries("") {
+        let item = EffectCatalogItemData {
+            header: false,
+            id: SharedString::from(plugin.id),
+            name: SharedString::from(plugin.name),
+            categories: SharedString::from(plugin.category.clone()),
+        };
+        if plugin.category.is_empty() {
+            root_items.push(item);
+        } else {
+            catalog_menu_group_mut(&mut groups, &plugin.category)
+                .items
+                .push(item);
+        }
+    }
+    update_vec_model(&window.get_audio_plugin_menu_root_items(), root_items);
+    update_vec_model(
+        &window.get_audio_plugin_menu_groups(),
+        catalog_menu_groups(groups),
+    );
+}
+
+fn catalog_menu_group_mut<'a>(
+    groups: &'a mut Vec<CatalogMenuGroupBuilder>,
+    title: &str,
+) -> &'a mut CatalogMenuGroupBuilder {
+    let index = groups
+        .iter()
+        .position(|group| group.title == title)
+        .unwrap_or_else(|| {
+            groups.push(CatalogMenuGroupBuilder {
+                title: title.to_owned(),
+                ..CatalogMenuGroupBuilder::default()
+            });
+            groups.len() - 1
+        });
+    &mut groups[index]
+}
+
+fn catalog_menu_subgroup_mut<'a>(
+    groups: &'a mut Vec<CatalogMenuSubgroupBuilder>,
+    title: &str,
+) -> &'a mut CatalogMenuSubgroupBuilder {
+    let index = groups
+        .iter()
+        .position(|group| group.title == title)
+        .unwrap_or_else(|| {
+            groups.push(CatalogMenuSubgroupBuilder {
+                title: title.to_owned(),
+                ..CatalogMenuSubgroupBuilder::default()
+            });
+            groups.len() - 1
+        });
+    &mut groups[index]
+}
+
+fn catalog_menu_groups(groups: Vec<CatalogMenuGroupBuilder>) -> Vec<CatalogMenuGroupData> {
+    groups
+        .into_iter()
+        .map(|group| CatalogMenuGroupData {
+            title: SharedString::from(group.title),
+            items: ModelRc::new(VecModel::from(group.items)),
+            subgroups: ModelRc::new(VecModel::from(
+                group
+                    .subgroups
+                    .into_iter()
+                    .map(|subgroup| CatalogMenuSubgroupData {
+                        title: SharedString::from(subgroup.title),
+                        items: ModelRc::new(VecModel::from(subgroup.items)),
+                    })
+                    .collect::<Vec<_>>(),
+            )),
         })
         .collect()
 }
@@ -5433,6 +5600,36 @@ mod tests {
         AudioPluginSettings, KeyframePoint, ObjectControlKind, ObjectControlOption, ObjectEffect,
     };
     use serde_json::json;
+
+    #[test]
+    fn effect_context_menu_preserves_qt_category_paths() {
+        let (catalog, _) = EffectCatalog::load();
+        let (root_items, groups) = timeline_effect_menu_entries(&catalog);
+        assert!(root_items.is_empty());
+
+        let transform = groups
+            .iter()
+            .find(|group| group.title == "変形")
+            .expect("transform category exists");
+        assert!(
+            transform
+                .items
+                .iter()
+                .any(|item| item.id.as_str() == "mirror")
+        );
+        let crop = transform
+            .subgroups
+            .iter()
+            .find(|group| group.title == "クロップ")
+            .expect("nested crop category exists");
+        assert_eq!(
+            crop.items
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["clipping", "diagonal_clipping"]
+        );
+    }
 
     #[test]
     fn codec_selection_matches_the_qt_fallback_contract() {

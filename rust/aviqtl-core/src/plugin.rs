@@ -302,7 +302,7 @@ impl AudioPluginInfo {
             id: text(plugin.get("id")),
             name: text(plugin.get("name")),
             format: text(plugin.get("format")),
-            category: normalize_category(&text(plugin.get("category"))),
+            category: normalize_audio_plugin_category(&text(plugin.get("category"))),
             path: text(plugin.get("path")),
             label: text(plugin.get("label")),
             maker: text(plugin.get("maker")),
@@ -340,7 +340,7 @@ pub fn deduplicate_audio_plugins(plugins: Vec<AudioPluginInfo>) -> Vec<AudioPlug
 pub fn audio_plugin_categories(plugins: &[AudioPluginInfo]) -> Vec<String> {
     let mut categories = plugins
         .iter()
-        .map(|plugin| normalize_category(&plugin.category))
+        .map(|plugin| normalize_audio_plugin_category(&plugin.category))
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
@@ -357,10 +357,10 @@ pub fn audio_plugins_in_category(
     plugins: &[AudioPluginInfo],
     category: &str,
 ) -> Vec<AudioPluginInfo> {
-    let wanted = normalize_category(category);
+    let wanted = normalize_audio_plugin_category(category);
     let mut filtered = plugins
         .iter()
-        .filter(|plugin| normalize_category(&plugin.category) == wanted)
+        .filter(|plugin| normalize_audio_plugin_category(&plugin.category) == wanted)
         .cloned()
         .collect::<Vec<_>>();
     filtered.sort_by_key(|plugin| plugin.name.to_lowercase());
@@ -496,7 +496,8 @@ fn validate_manifest(
     (manifest, "ok")
 }
 
-fn normalize_category(category: &str) -> String {
+/// Normalizes an audio-plugin category for stable Qt-compatible menu grouping.
+pub fn normalize_audio_plugin_category(category: &str) -> String {
     let category = category.trim();
     let lower = category.to_lowercase();
     match lower.as_str() {
@@ -534,7 +535,7 @@ fn carla_category(category: i32) -> &'static str {
 }
 
 fn category_rank(category: &str) -> i32 {
-    match normalize_category(category).as_str() {
+    match normalize_audio_plugin_category(category).as_str() {
         "Filter" => 0,
         "EQ" => 1,
         "Dynamics" => 2,
@@ -562,7 +563,7 @@ fn normalize_plugin(mut plugin: Map<String, Value>, fallback_name: &str) -> Map<
     } else {
         label
     };
-    let category = normalize_category(&text(plugin.get("category")));
+    let category = normalize_audio_plugin_category(&text(plugin.get("category")));
     plugin.insert("name".to_owned(), Value::String(name));
     plugin.insert("label".to_owned(), Value::String(label));
     plugin.insert("category".to_owned(), Value::String(category));
@@ -635,7 +636,7 @@ fn parse_discovery_output(
                     .unwrap_or(trimmed);
                 current.insert(
                     "category".to_owned(),
-                    Value::String(normalize_category(category)),
+                    Value::String(normalize_audio_plugin_category(category)),
                 );
             }
             "audio.ins" => {
@@ -695,7 +696,9 @@ fn public_plugin(plugin: &Map<String, Value>, include_io: bool) -> Map<String, V
 fn categories(plugins: &[Map<String, Value>]) -> Vec<Value> {
     let mut categories = BTreeSet::new();
     for plugin in plugins {
-        categories.insert(normalize_category(&text(plugin.get("category"))));
+        categories.insert(normalize_audio_plugin_category(&text(
+            plugin.get("category"),
+        )));
     }
     let mut categories: Vec<_> = categories.into_iter().collect();
     categories.sort_by(|left, right| {
@@ -707,10 +710,10 @@ fn categories(plugins: &[Map<String, Value>]) -> Vec<Value> {
 }
 
 fn filtered_plugins(plugins: Vec<Map<String, Value>>, category: &str) -> Vec<Value> {
-    let wanted = normalize_category(category);
+    let wanted = normalize_audio_plugin_category(category);
     let mut plugins: Vec<_> = plugins
         .into_iter()
-        .filter(|plugin| normalize_category(&text(plugin.get("category"))) == wanted)
+        .filter(|plugin| normalize_audio_plugin_category(&text(plugin.get("category"))) == wanted)
         .collect();
     plugins.sort_by_key(|plugin| text(plugin.get("name")).to_lowercase());
     plugins

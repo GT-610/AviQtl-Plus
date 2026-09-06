@@ -37,8 +37,8 @@ pub use crate::permission::{PluginPermission, PluginPermissionState};
 pub use crate::plugin::{
     AudioPluginInfo, ScriptPluginIdentity, ScriptPluginManifest, ScriptPluginValidationStatus,
     audio_plugin_categories, audio_plugins_in_category, deduplicate_audio_plugins,
-    parse_audio_plugin_discovery_output, parse_script_plugin_manifest,
-    validate_script_plugin_manifest,
+    normalize_audio_plugin_category, parse_audio_plugin_discovery_output,
+    parse_script_plugin_manifest, validate_script_plugin_manifest,
 };
 pub use crate::preset::{
     EffectPreset, PresetError, build_effect_preset, parse_effect_preset, preset_name_is_safe,
