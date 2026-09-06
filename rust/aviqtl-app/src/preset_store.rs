@@ -20,7 +20,7 @@ impl PresetStore {
     }
 
     #[cfg(test)]
-    fn from_root(root: PathBuf) -> Self {
+    pub(crate) fn from_root(root: PathBuf) -> Self {
         Self { root }
     }
 

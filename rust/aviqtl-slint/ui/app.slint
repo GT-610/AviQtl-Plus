@@ -126,6 +126,11 @@ component EffectSidebarEntry inherits Rectangle {
     callback context-activate(int);
     callback remove(int);
     callback reorder(int, float);
+    callback save-preset(int, string);
+    callback load-preset(int, string);
+    callback delete-preset(int, string);
+    callback query-presets(int) -> [string];
+    in-out property <[string]> preset-names;
     private property <bool> drag-active: false;
     private property <bool> drag-threshold-crossed: false;
     private property <length> drag-y: 0px;
@@ -163,6 +168,27 @@ component EffectSidebarEntry inherits Rectangle {
                 enabled: root.effect.removable;
                 activated => { root.remove(root.effect.index); }
             }
+            MenuSeparator { }
+            MenuItem {
+                title: "プリセットを保存...";
+                activated => { root.save-preset(root.effect.index, root.effect.name); }
+            }
+            Menu {
+                title: "プリセットを読み込み";
+                enabled: root.preset-names.length > 0;
+                for preset in root.preset-names : MenuItem {
+                    title: preset;
+                    activated => { root.load-preset(root.effect.index, preset); }
+                }
+            }
+            Menu {
+                title: "プリセットを削除";
+                enabled: root.preset-names.length > 0;
+                for preset in root.preset-names : MenuItem {
+                    title: preset;
+                    activated => { root.delete-preset(root.effect.index, preset); }
+                }
+            }
         }
         effect-touch := TouchArea {
             mouse-cursor: pointer;
@@ -176,6 +202,7 @@ component EffectSidebarEntry inherits Rectangle {
                 }
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
                     root.context-activate(root.effect.index);
+                    root.preset-names = root.query-presets(root.effect.index);
                     effect-menu.show({ x: self.mouse-x, y: self.mouse-y });
                 }
             }
@@ -2151,6 +2178,10 @@ export component ObjectSettingsWindow inherits Window {
     in property <[EffectCatalogItemData]> effect-catalog-items;
     in-out property <bool> effect-picker-visible: false;
     in-out property <string> effect-filter: "";
+    in-out property <bool> preset-save-visible: false;
+    in-out property <int> preset-effect-index: -1;
+    in-out property <string> preset-effect-name: "";
+    in-out property <string> preset-name: "";
     callback select-effect(int, bool, bool);
     callback context-select-effect(int);
     callback reorder-effect(int, float);
@@ -2158,6 +2189,10 @@ export component ObjectSettingsWindow inherits Window {
     callback remove-effect(int);
     callback filter-effects(string);
     callback add-effect(string);
+    callback save-effect-preset(int, string);
+    callback load-effect-preset(int, string);
+    callback delete-effect-preset(int, string);
+    callback preset-names(int) -> [string];
     callback set-parameter-text(int, string, string);
     callback set-parameter-number(int, string, float);
     callback set-parameter-bool(int, string, bool);
@@ -2192,6 +2227,15 @@ export component ObjectSettingsWindow inherits Window {
                             context-activate(index) => { root.context-select-effect(index); }
                             remove(index) => { root.remove-effect(index); }
                             reorder(index, delta-y) => { root.reorder-effect(index, delta-y); }
+                            save-preset(index, effect-name) => {
+                                root.preset-effect-index = index;
+                                root.preset-effect-name = effect-name;
+                                root.preset-name = "";
+                                root.preset-save-visible = true;
+                            }
+                            load-preset(index, name) => { root.load-effect-preset(index, name); }
+                            delete-preset(index, name) => { root.delete-effect-preset(index, name); }
+                            query-presets(index) => { root.preset-names(index) }
                         }
                         if root.effects.length == 0 : Text {
                             text: "設定項目がありません";
@@ -2280,6 +2324,51 @@ export component ObjectSettingsWindow inherits Window {
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
                     Button { text: "閉じる"; clicked => { root.effect-picker-visible = false; } }
+                }
+            }
+        }
+    }
+
+    if root.preset-save-visible : Rectangle {
+        z: 110;
+        background: #99000000;
+        TouchArea { clicked => { root.preset-save-visible = false; } }
+        Rectangle {
+            width: min(parent.width - 48px, 420px);
+            height: 190px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b3038;
+            border-width: 1px;
+            border-color: #646b78;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                Text { text: "プリセットを保存"; font-size: 1.15rem; font-weight: 700; }
+                Text { text: root.preset-effect-name; color: #aeb3bc; overflow: elide; }
+                LineEdit {
+                    text <=> root.preset-name;
+                    placeholder-text: "プリセット名を入力...";
+                    accepted(value) => {
+                        if value != "" {
+                            root.save-effect-preset(root.preset-effect-index, value);
+                            root.preset-save-visible = false;
+                        }
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: "キャンセル"; clicked => { root.preset-save-visible = false; } }
+                    Button {
+                        text: "保存";
+                        enabled: root.preset-name != "";
+                        clicked => {
+                            root.save-effect-preset(root.preset-effect-index, root.preset-name);
+                            root.preset-save-visible = false;
+                        }
+                    }
                 }
             }
         }

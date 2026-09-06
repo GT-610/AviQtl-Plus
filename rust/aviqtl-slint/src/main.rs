@@ -5,6 +5,7 @@ use aviqtl_app::{
     SaveDecision, SceneSettingsInput, WorkspaceModel,
     effect_catalog::EffectCatalog,
     object_settings::{ObjectControl, ObjectSettings},
+    preset_store::PresetStore,
     selection::SelectionBox,
     settings::SettingsStore,
     timeline_interaction::{TimelineDragKind, TimelineDragRequest},
@@ -342,6 +343,7 @@ struct ObjectSettingsUi {
     window: slint::Weak<ObjectSettingsWindow>,
     model: Rc<RefCell<ApplicationModel>>,
     catalog: Rc<EffectCatalog>,
+    presets: Rc<PresetStore>,
 }
 
 impl ObjectSettingsUi {
@@ -435,6 +437,39 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| workspace.reorder_effects(source, target));
+        self.sync();
+    }
+
+    fn save_preset(&self, effect_index: usize, name: &str) {
+        let _ = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.save_effect_preset(&self.presets, effect_index, name)
+            });
+        self.sync();
+    }
+
+    fn load_preset(&self, effect_index: usize, name: &str) {
+        let _ = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.load_effect_preset(&self.presets, effect_index, name)
+            });
+        self.sync();
+    }
+
+    fn delete_preset(&self, effect_index: usize, name: &str) {
+        let _ = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.delete_effect_preset(&self.presets, effect_index, name)
+            });
         self.sync();
     }
 }
@@ -607,6 +642,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (effect_catalog, effect_catalog_status) = EffectCatalog::load();
     eprintln!("{effect_catalog_status}");
     let effect_catalog = Rc::new(effect_catalog);
+    let preset_store = Rc::new(PresetStore::load());
     let mut application_model = ApplicationModel::default();
     apply_runtime_settings(&mut application_model, &settings.borrow());
     let model = Rc::new(RefCell::new(application_model));
@@ -677,6 +713,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         model.clone(),
         settings.clone(),
         effect_catalog.clone(),
+        preset_store,
         lifecycle_ui,
     );
     install_keyboard_shortcuts(&main, &timeline, model.clone(), settings.clone());
@@ -831,6 +868,7 @@ fn install_callbacks(
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
     effect_catalog: Rc<EffectCatalog>,
+    preset_store: Rc<PresetStore>,
     lifecycle_ui: Rc<LifecycleUi>,
 ) {
     let WindowRefs {
@@ -849,6 +887,7 @@ fn install_callbacks(
         window: object_settings.as_weak(),
         model: model.clone(),
         catalog: effect_catalog.clone(),
+        presets: preset_store.clone(),
     };
     let object_select_ui = object_settings_ui.clone();
     object_settings.on_select_effect(move |index, control, shift| {
@@ -904,19 +943,13 @@ fn install_callbacks(
             serde_json::Value::Bool(value),
         );
     });
-    let object_option_ui = object_settings_ui;
+    let object_option_ui = object_settings_ui.clone();
     object_settings.on_set_parameter_option(move |index, param, option| {
         if option >= 0 {
             object_option_ui.set_option(index.max(0) as usize, param.as_str(), option as usize);
         }
     });
-    let object_reorder_ui = ObjectSettingsUi {
-        main: main.as_weak(),
-        timeline: timeline.as_weak(),
-        window: object_settings.as_weak(),
-        model: model.clone(),
-        catalog: effect_catalog.clone(),
-    };
+    let object_reorder_ui = object_settings_ui.clone();
     object_settings.on_reorder_effect(move |index, delta_y| {
         object_reorder_ui.reorder_effect(index.max(0) as usize, delta_y);
     });
@@ -927,15 +960,39 @@ fn install_callbacks(
             sync_effect_catalog(&window, &object_filter_catalog, query.as_str());
         }
     });
-    let object_add_ui = ObjectSettingsUi {
-        main: main.as_weak(),
-        timeline: timeline.as_weak(),
-        window: object_settings.as_weak(),
-        model: model.clone(),
-        catalog: effect_catalog.clone(),
-    };
+    let object_add_ui = object_settings_ui.clone();
     object_settings.on_add_effect(move |effect_id| {
         object_add_ui.add_effect(effect_id.as_str());
+    });
+    let preset_names_model = model.clone();
+    let preset_names_store = preset_store.clone();
+    object_settings.on_preset_names(move |index| {
+        let effect_id = preset_names_model
+            .borrow()
+            .current_workspace()
+            .and_then(WorkspaceModel::selected_clip_document)
+            .and_then(|clip| clip.effects.get(index.max(0) as usize))
+            .map(|effect| effect.id.clone());
+        let names = effect_id.map_or_else(Vec::new, |effect_id| {
+            preset_names_store
+                .names(&effect_id)
+                .into_iter()
+                .map(SharedString::from)
+                .collect()
+        });
+        ModelRc::new(VecModel::from(names))
+    });
+    let preset_save_ui = object_settings_ui.clone();
+    object_settings.on_save_effect_preset(move |index, name| {
+        preset_save_ui.save_preset(index.max(0) as usize, name.as_str());
+    });
+    let preset_load_ui = object_settings_ui.clone();
+    object_settings.on_load_effect_preset(move |index, name| {
+        preset_load_ui.load_preset(index.max(0) as usize, name.as_str());
+    });
+    let preset_delete_ui = object_settings_ui;
+    object_settings.on_delete_effect_preset(move |index, name| {
+        preset_delete_ui.delete_preset(index.max(0) as usize, name.as_str());
     });
     let create_model = model.clone();
     let create_main = main.as_weak();

@@ -1,12 +1,13 @@
 use crate::effect_catalog::EffectCatalog;
 use crate::effect_selection::EffectSelection;
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
+use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
 use crate::selection::{ClipSelection, SelectionBox};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
-    ClipDocument, EffectInsertion, ProjectDocument, ProjectSettings, SceneDocument,
+    ClipDocument, EffectInsertion, EffectPreset, ProjectDocument, ProjectSettings, SceneDocument,
     TimelineCommand, TimelineTransaction, clipboard_duration, inspect_keyframe_track,
     plan_clip_delta_move, plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion,
     plan_scene_layer_shift, snap_scene_frame,
@@ -305,6 +306,102 @@ impl WorkspaceModel {
             true
         } else {
             false
+        }
+    }
+
+    pub fn save_effect_preset(
+        &mut self,
+        store: &PresetStore,
+        effect_index: usize,
+        name: &str,
+    ) -> bool {
+        let Some(effect) = self
+            .selected_clip_document()
+            .and_then(|clip| clip.effects.get(effect_index))
+        else {
+            return false;
+        };
+        let effect_id = effect.id.clone();
+        let result = store.save(
+            &effect_id,
+            name,
+            effect.params.clone(),
+            effect.keyframes.clone().unwrap_or_default(),
+            effect.enabled,
+        );
+        match result {
+            Ok(()) => {
+                self.status = format!("Saved preset {name}");
+                true
+            }
+            Err(error) => {
+                self.status = error;
+                false
+            }
+        }
+    }
+
+    pub fn load_effect_preset(
+        &mut self,
+        store: &PresetStore,
+        effect_index: usize,
+        name: &str,
+    ) -> bool {
+        let Some(clip) = self.selected_clip_document().cloned() else {
+            return false;
+        };
+        let Some(effect_id) = clip
+            .effects
+            .get(effect_index)
+            .map(|effect| effect.id.clone())
+        else {
+            return false;
+        };
+        let preset = match store.load_preset(&effect_id, name) {
+            Ok(preset) => preset,
+            Err(error) => {
+                self.status = error;
+                return false;
+            }
+        };
+        let commands = match effect_preset_commands(&clip, effect_index, &preset) {
+            Ok(commands) => commands,
+            Err(error) => {
+                self.status = error;
+                return false;
+            }
+        };
+        for command in commands {
+            if !self.execute(command) {
+                return false;
+            }
+        }
+        self.status = format!("Loaded preset {}", preset.name);
+        true
+    }
+
+    pub fn delete_effect_preset(
+        &mut self,
+        store: &PresetStore,
+        effect_index: usize,
+        name: &str,
+    ) -> bool {
+        let Some(effect_id) = self
+            .selected_clip_document()
+            .and_then(|clip| clip.effects.get(effect_index))
+            .map(|effect| effect.id.clone())
+        else {
+            return false;
+        };
+        match store.delete(&effect_id, name) {
+            Ok(()) => {
+                self.status = format!("Deleted preset {name}");
+                true
+            }
+            Err(error) => {
+                self.status = error;
+                false
+            }
         }
     }
 
@@ -1155,6 +1252,56 @@ impl WorkspaceModel {
     }
 }
 
+fn effect_preset_commands(
+    clip: &ClipDocument,
+    effect_index: usize,
+    preset: &EffectPreset,
+) -> Result<Vec<TimelineCommand>, String> {
+    let Some(effect) = clip.effects.get(effect_index) else {
+        return Err("The preset target changed before it could be applied".to_owned());
+    };
+    if effect.id != preset.effect_id {
+        return Err("The preset target changed before it could be applied".to_owned());
+    }
+    let mut commands = preset
+        .params
+        .iter()
+        .map(|(name, value)| TimelineCommand::SetEffectParameter {
+            clip_id: clip.id,
+            effect_index,
+            param_name: name.clone(),
+            value: value.clone(),
+            media_duration_seconds: None,
+        })
+        .collect::<Vec<_>>();
+    for (name, track) in &preset.keyframes {
+        let fallback = preset
+            .params
+            .get(name)
+            .or_else(|| effect.params.get(name))
+            .cloned()
+            .unwrap_or(Value::Null);
+        commands.extend(
+            inspect_keyframe_track(Some(track), &fallback, clip.duration)
+                .into_iter()
+                .map(|point| TimelineCommand::SetEffectKeyframe {
+                    clip_id: clip.id,
+                    effect_index,
+                    param_name: name.clone(),
+                    frame: point.frame,
+                    value: point.value,
+                    options: point.options,
+                }),
+        );
+    }
+    commands.push(TimelineCommand::SetEffectEnabled {
+        clip_id: clip.id,
+        effect_index,
+        enabled: preset.enabled,
+    });
+    Ok(commands)
+}
+
 fn scene_settings_input(scene: &SceneDocument) -> SceneSettingsInput {
     SceneSettingsInput {
         name: scene.name.clone(),
@@ -1581,5 +1728,92 @@ mod tests {
         assert!(workspace.remove_effect(2));
         assert_eq!(workspace.document().clips[0].effects.len(), 3);
         assert_eq!(workspace.selected_effect_index(), Some(2));
+    }
+
+    #[test]
+    fn effect_preset_commands_preserve_qt_parameter_keyframe_and_enabled_order() {
+        let workspace = workspace_with_effects();
+        let clip = &workspace.document().clips[0];
+        let preset = EffectPreset {
+            version: 1,
+            effect_id: "blur".to_owned(),
+            name: "Soft".to_owned(),
+            enabled: false,
+            params: json!({"size": 12, "quality": 2})
+                .as_object()
+                .cloned()
+                .expect("params"),
+            keyframes: json!({
+                "size": [
+                    {"frame": 0, "value": 2, "interp": "linear"},
+                    {"frame": 20, "value": 12, "interp": "easeInOutQuad"}
+                ]
+            })
+            .as_object()
+            .cloned()
+            .expect("keyframes"),
+            extra: Default::default(),
+        };
+
+        let commands = effect_preset_commands(clip, 1, &preset).expect("preset plans");
+        assert!(matches!(
+            commands.first(),
+            Some(TimelineCommand::SetEffectParameter {
+                effect_index: 1,
+                ..
+            })
+        ));
+        assert!(commands.iter().any(|command| matches!(
+            command,
+            TimelineCommand::SetEffectKeyframe {
+                effect_index: 1,
+                param_name,
+                frame: 20,
+                options,
+                ..
+            } if param_name == "size" && options["interp"] == "easeInOutQuad"
+        )));
+        assert!(matches!(
+            commands.last(),
+            Some(TimelineCommand::SetEffectEnabled {
+                effect_index: 1,
+                enabled: false,
+                ..
+            })
+        ));
+
+        let mut stale = preset;
+        stale.effect_id = "mosaic".to_owned();
+        assert!(effect_preset_commands(clip, 1, &stale).is_err());
+    }
+
+    #[test]
+    fn workspace_preset_actions_round_trip_the_selected_effect() {
+        let root = std::env::temp_dir().join(format!(
+            "aviqtl-workspace-preset-{}-{}",
+            std::process::id(),
+            crate::recovery::generate_recovery_id()
+        ));
+        let store = PresetStore::from_root(root.clone());
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        assert!(workspace.set_effect_parameter(0, "count", json!(5.0)));
+        assert!(workspace.save_effect_preset(&store, 0, "Current"));
+        assert_eq!(store.names("rect"), ["Current"]);
+
+        assert!(workspace.set_effect_parameter(0, "count", json!(2.0)));
+        assert_eq!(
+            workspace.document().clips[0].effects[0].params["count"]["value"],
+            2
+        );
+        assert!(workspace.load_effect_preset(&store, 0, "Current"));
+        assert_eq!(
+            workspace.document().clips[0].effects[0].params["count"]["value"],
+            5
+        );
+
+        assert!(workspace.delete_effect_preset(&store, 0, "Current"));
+        assert!(store.names("rect").is_empty());
+        std::fs::remove_dir_all(root).expect("remove preset fixture");
     }
 }
