@@ -38,6 +38,12 @@ export struct LayerData {
     selected: bool,
 }
 
+export struct TimelineViewportData {
+    pixels-per-frame: float,
+    viewport-x: float,
+    viewport-y: float,
+}
+
 component SceneTab inherits Rectangle {
     in property <SceneTabData> scene;
     callback activate(int);
@@ -86,6 +92,7 @@ component LayerHeaderItem inherits Rectangle {
     in property <LayerData> layer;
     callback activate(int);
     callback command(string, int);
+    callback scroll-requested(length) -> bool;
     height: 30px;
     background: root.layer.selected ? #3d526f : header-touch.has-hover ? #353a44 : #2a2e36;
     border-width: 0px;
@@ -125,6 +132,9 @@ component LayerHeaderItem inherits Rectangle {
         }
         header-touch := TouchArea {
             mouse-cursor: pointer;
+            scroll-event(event) => {
+                if root.scroll-requested(event.delta-y) { accept } else { reject }
+            }
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                     root.activate(root.layer.index);
@@ -151,6 +161,9 @@ component TimelineClipItem inherits Rectangle {
     callback open-settings(int);
     callback command(string, int);
     callback drag-finished(string, int, float, float, bool);
+    callback pointer-hovered(float, float, bool);
+    callback pointer-left();
+    callback scroll-requested(length, length, length, bool, bool, bool) -> bool;
     private property <string> active-drag: "";
     private property <length> drag-x: 0px;
     private property <length> drag-y: 0px;
@@ -200,7 +213,24 @@ component TimelineClipItem inherits Rectangle {
             x: min(7px, parent.width / 2);
             width: max(parent.width - 14px, 1px);
             mouse-cursor: move;
+            scroll-event(event) => {
+                if root.scroll-requested(
+                    event.delta-x,
+                    event.delta-y,
+                    root.x + self.mouse-x,
+                    event.modifiers.alt,
+                    event.modifiers.control,
+                    event.modifiers.shift
+                ) { accept } else { reject }
+            }
             pointer-event(event) => {
+                if event.kind == PointerEventKind.move {
+                    root.pointer-hovered(
+                        (root.x + self.mouse-x) / 1px,
+                        (root.y + self.mouse-y) / 1px,
+                        event.modifiers.shift
+                    );
+                }
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                     root.active-drag = "move";
                     root.drag-x = 0px;
@@ -240,6 +270,7 @@ component TimelineClipItem inherits Rectangle {
                     root.drag-additive = false;
                 }
             }
+            changed has-hover => { if !self.has-hover { root.pointer-left(); } }
             double-clicked => { root.open-settings(root.clip-data.id); }
         }
     }
@@ -247,7 +278,24 @@ component TimelineClipItem inherits Rectangle {
         x: 0px;
         width: min(7px, parent.width / 2);
         mouse-cursor: ew-resize;
+        scroll-event(event) => {
+            if root.scroll-requested(
+                event.delta-x,
+                event.delta-y,
+                root.x + self.mouse-x,
+                event.modifiers.alt,
+                event.modifiers.control,
+                event.modifiers.shift
+            ) { accept } else { reject }
+        }
         pointer-event(event) => {
+            if event.kind == PointerEventKind.move {
+                root.pointer-hovered(
+                    (root.x + self.mouse-x) / 1px,
+                    (root.y + self.mouse-y) / 1px,
+                    event.modifiers.shift
+                );
+            }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.active-drag = "trim-start";
                 root.drag-x = 0px;
@@ -270,12 +318,30 @@ component TimelineClipItem inherits Rectangle {
                 root.threshold-crossed = false;
             }
         }
+        changed has-hover => { if !self.has-hover { root.pointer-left(); } }
     }
     trim-end-touch := TouchArea {
         x: parent.width - self.width;
         width: min(7px, parent.width / 2);
         mouse-cursor: ew-resize;
+        scroll-event(event) => {
+            if root.scroll-requested(
+                event.delta-x,
+                event.delta-y,
+                root.x + self.mouse-x,
+                event.modifiers.alt,
+                event.modifiers.control,
+                event.modifiers.shift
+            ) { accept } else { reject }
+        }
         pointer-event(event) => {
+            if event.kind == PointerEventKind.move {
+                root.pointer-hovered(
+                    (root.x + self.mouse-x) / 1px,
+                    (root.y + self.mouse-y) / 1px,
+                    event.modifiers.shift
+                );
+            }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.active-drag = "trim-end";
                 root.drag-x = 0px;
@@ -298,6 +364,7 @@ component TimelineClipItem inherits Rectangle {
                 root.threshold-crossed = false;
             }
         }
+        changed has-hover => { if !self.has-hover { root.pointer-left(); } }
     }
 }
 
@@ -572,6 +639,7 @@ export component MainWindow inherits Window {
     min-width: 480px;
     min-height: 300px;
     background: #181a20;
+    forward-focus: main-shortcuts;
 
     in property <[ProjectTabData]> project-tabs;
     in property <int> current-project: -1;
@@ -606,35 +674,36 @@ export component MainWindow inherits Window {
     callback previous-frame();
     callback toggle-playback();
     callback next-frame();
+    callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
 
     MenuBar {
         Menu {
             title: "ファイル";
-            MenuItem { title: "新規プロジェクト"; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + N); activated => { root.new-project(); } }
-            MenuItem { title: "プロジェクトを開く"; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + O); activated => { root.open-project(); } }
+            MenuItem { title: "新規プロジェクト"; enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
+            MenuItem { title: "プロジェクトを開く"; enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
             MenuSeparator { }
-            MenuItem { title: "プロジェクトの上書き保存"; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + S); activated => { root.save-project(); } }
-            MenuItem { title: "プロジェクトを名前を付けて保存..."; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + Shift + S); activated => { root.save-project-as(); } }
+            MenuItem { title: "プロジェクトの上書き保存"; enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
+            MenuItem { title: "プロジェクトを名前を付けて保存..."; enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
             MenuSeparator { }
-            MenuItem { title: "メディアの書き出し..."; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + E); activated => { root.export-media(); } }
+            MenuItem { title: "メディアの書き出し..."; enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
             MenuSeparator { }
-            MenuItem { title: "終了"; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + Q); activated => { root.quit-requested(); } }
+            MenuItem { title: "終了"; enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
         }
         Menu {
             title: "編集";
-            MenuItem { title: "元に戻す"; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + Z); activated => { root.undo(); } }
-            MenuItem { title: "やり直す"; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + Shift + Z); activated => { root.redo(); } }
+            MenuItem { title: "元に戻す"; enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
+            MenuItem { title: "やり直す"; enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
         }
         Menu {
             title: "設定";
-            MenuItem { title: "プロジェクト設定"; enabled: !root.save-confirmation-visible; shortcut: @keys(Alt + Return); activated => { root.show-project-settings(); } }
+            MenuItem { title: "プロジェクト設定"; enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
             MenuSeparator { }
-            MenuItem { title: "環境設定"; enabled: !root.save-confirmation-visible; shortcut: @keys(Control + P); activated => { root.show-system-settings(); } }
+            MenuItem { title: "環境設定"; enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
         }
         Menu {
             title: "表示";
-            MenuItem { title: "タイムラインの表示"; enabled: !root.save-confirmation-visible; shortcut: @keys(F3); activated => { root.show-timeline(); } }
-            MenuItem { title: "設定ダイアログの表示"; enabled: !root.save-confirmation-visible; shortcut: @keys(F4); activated => { root.show-object-settings(); } }
+            MenuItem { title: "タイムラインの表示"; enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
+            MenuItem { title: "設定ダイアログの表示"; enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
         }
         Menu {
             title: "ツール";
@@ -644,9 +713,26 @@ export component MainWindow inherits Window {
         }
     }
 
-    VerticalLayout {
-        spacing: 0px;
-        Rectangle {
+    main-shortcuts := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(event) => {
+            if !root.save-confirmation-visible && root.keyboard-shortcut(
+                event.text,
+                event.modifiers.alt,
+                event.modifiers.control,
+                event.modifiers.shift,
+                event.modifiers.meta
+            ) {
+                accept
+            } else {
+                reject
+            }
+        }
+
+        VerticalLayout {
+            spacing: 0px;
+            Rectangle {
             height: 28px;
             background: #23262d;
             HorizontalLayout {
@@ -661,7 +747,7 @@ export component MainWindow inherits Window {
                 Rectangle { horizontal-stretch: 1; }
             }
         }
-        Rectangle {
+            Rectangle {
             vertical-stretch: 1;
             background: #050506;
             Image {
@@ -671,7 +757,7 @@ export component MainWindow inherits Window {
                 height: 100%;
             }
         }
-        Rectangle {
+            Rectangle {
             height: 40px;
             background: #25282f;
             HorizontalLayout {
@@ -693,10 +779,11 @@ export component MainWindow inherits Window {
                 Text { text: "速度 1.0x"; vertical-alignment: center; }
             }
         }
-        Rectangle {
+            Rectangle {
             height: 22px;
             background: #1d2026;
             Text { text: root.status-text; x: 8px; vertical-alignment: center; color: #c7cad1; font-size: 0.82rem; }
+            }
         }
     }
 
@@ -764,6 +851,7 @@ export component TimelineWindow inherits Window {
     preferred-height: 300px;
     min-width: 720px;
     min-height: 220px;
+    forward-focus: timeline-shortcuts;
     in-out property <string> action-status: "";
     in property <[SceneTabData]> scene-tabs;
     in property <[TimelineClipData]> clips;
@@ -771,7 +859,10 @@ export component TimelineWindow inherits Window {
     in property <int> duration: 3600;
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
-    in property <float> pixels-per-frame: 1;
+    in-out property <float> pixels-per-frame: 1;
+    in-out property <bool> skimmer-visible: false;
+    in-out property <int> skimmer-frame: 0;
+    in-out property <int> skimmer-layer: 0;
     private property <length> shared-viewport-x: 0px;
     private property <length> shared-viewport-y: 0px;
     private property <bool> box-active: false;
@@ -798,10 +889,87 @@ export component TimelineWindow inherits Window {
     callback box-selection-updated(int, int);
     callback box-selection-finished();
     callback box-selection-cancelled();
+    callback skimmer-hovered(float, int, bool);
+    callback skimmer-left();
+    callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
+    callback timeline-scrolled(float, float, float, float, float, float, float, float, float, float, bool, bool, bool, bool) -> TimelineViewportData;
 
-    VerticalLayout {
-        spacing: 0px;
-        Rectangle {
+    function update-skimmer(frame: float, layer: int, ignore-snap: bool) {
+        skimmer-leave-timer.running = false;
+        root.skimmer-hovered(frame, layer, ignore-snap);
+    }
+
+    function schedule-skimmer-left() {
+        skimmer-leave-timer.running = false;
+        skimmer-leave-timer.running = true;
+    }
+
+    function apply-timeline-scroll(
+        delta-x: length,
+        delta-y: length,
+        content-x: length,
+        alt: bool,
+        control: bool,
+        shift: bool,
+        ruler-zoom: bool
+    ) -> bool {
+        let result = root.timeline-scrolled(
+            delta-x / 1px,
+            delta-y / 1px,
+            content-x / 1px,
+            root.shared-viewport-x / 1px,
+            root.shared-viewport-y / 1px,
+            timeline-scroll.visible-width / 1px,
+            timeline-scroll.viewport-width / 1px,
+            timeline-scroll.visible-height / 1px,
+            timeline-scroll.viewport-height / 1px,
+            root.duration,
+            alt,
+            control,
+            shift,
+            ruler-zoom
+        );
+        root.pixels-per-frame = result.pixels-per-frame;
+        root.shared-viewport-x = result.viewport-x * 1px;
+        root.shared-viewport-y = result.viewport-y * 1px;
+        return true;
+    }
+
+    function scroll-layers(delta-y: length) -> bool {
+        let minimum = min(0px, layer-scroll.visible-height - layer-scroll.viewport-height);
+        root.shared-viewport-y = max(minimum, min(0px, root.shared-viewport-y + delta-y));
+        return true;
+    }
+
+    skimmer-leave-timer := Timer {
+        interval: 1ms;
+        running: false;
+        triggered => {
+            self.running = false;
+            root.skimmer-left();
+        }
+    }
+
+    timeline-shortcuts := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(event) => {
+            if root.keyboard-shortcut(
+                event.text,
+                event.modifiers.alt,
+                event.modifiers.control,
+                event.modifiers.shift,
+                event.modifiers.meta
+            ) {
+                accept
+            } else {
+                reject
+            }
+        }
+
+        VerticalLayout {
+            spacing: 0px;
+            Rectangle {
             height: 28px;
             background: #2a2e36;
             HorizontalLayout {
@@ -816,7 +984,7 @@ export component TimelineWindow inherits Window {
                 Rectangle { horizontal-stretch: 1; }
             }
         }
-        Rectangle {
+            Rectangle {
             height: 32px;
             background: #343943;
             Rectangle { width: 60px; height: 100%; background: #2a2e36; }
@@ -841,9 +1009,24 @@ export component TimelineWindow inherits Window {
                         font-size: 0.78rem;
                     }
                 }
+                ruler-wheel := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    scroll-event(event) => {
+                        root.apply-timeline-scroll(
+                            event.delta-x,
+                            event.delta-y,
+                            self.mouse-x,
+                            false,
+                            false,
+                            false,
+                            true
+                        ) ? accept : reject
+                    }
+                }
             }
         }
-        HorizontalLayout {
+            HorizontalLayout {
             vertical-stretch: 1;
             spacing: 0px;
             layer-scroll := ScrollView {
@@ -858,6 +1041,7 @@ export component TimelineWindow inherits Window {
                     layer: layer;
                     activate(layer-index) => { root.layer-activated(layer-index); }
                     command(action, layer-index) => { root.layer-command(action, layer-index); }
+                    scroll-requested(delta-y) => { root.scroll-layers(delta-y) }
                 }
             }
 
@@ -882,6 +1066,13 @@ export component TimelineWindow inherits Window {
                     }
                     background-touch := TouchArea {
                         pointer-event(event) => {
+                            if event.kind == PointerEventKind.move {
+                                root.update-skimmer(
+                                    self.mouse-x / (root.pixels-per-frame * 1px),
+                                    floor(self.mouse-y / 30px),
+                                    event.modifiers.shift
+                                );
+                            }
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                                 root.empty-clicked(
                                     floor(self.mouse-x / (root.pixels-per-frame * 1px)),
@@ -925,6 +1116,18 @@ export component TimelineWindow inherits Window {
                                 root.box-dragging = false;
                             }
                         }
+                        scroll-event(event) => {
+                            root.apply-timeline-scroll(
+                                event.delta-x,
+                                event.delta-y,
+                                self.mouse-x,
+                                event.modifiers.alt,
+                                event.modifiers.control,
+                                event.modifiers.shift,
+                                false
+                            ) ? accept : reject
+                        }
+                        changed has-hover => { if !self.has-hover { root.schedule-skimmer-left(); } }
                     }
                 }
 
@@ -952,6 +1155,25 @@ export component TimelineWindow inherits Window {
                         root.show-object-settings();
                     }
                     command(action, clip-id) => { root.clip-command(action, clip-id); }
+                    pointer-hovered(content-x, content-y, ignore-snap) => {
+                        root.update-skimmer(
+                            content-x / root.pixels-per-frame,
+                            floor(content-y / 30),
+                            ignore-snap
+                        );
+                    }
+                    pointer-left => { root.schedule-skimmer-left(); }
+                    scroll-requested(delta-x, delta-y, content-x, alt, control, shift) => {
+                        root.apply-timeline-scroll(
+                            delta-x,
+                            delta-y,
+                            content-x,
+                            alt,
+                            control,
+                            shift,
+                            false
+                        )
+                    }
                     drag-finished(kind, clip-id, delta-x, delta-y, ignore-snap) => {
                         root.clip-drag-finished(kind, clip-id, delta-x, delta-y, ignore-snap);
                     }
@@ -965,6 +1187,12 @@ export component TimelineWindow inherits Window {
                     border-width: 1px;
                     border-color: #7aafefff;
                 }
+                if root.skimmer-visible : Rectangle {
+                    x: root.skimmer-frame * root.pixels-per-frame * 1px;
+                    width: 1px;
+                    height: 100%;
+                    background: #ff5a3dd9;
+                }
                 Rectangle {
                     x: root.playhead * root.pixels-per-frame * 1px;
                     width: 2px;
@@ -973,7 +1201,8 @@ export component TimelineWindow inherits Window {
                 }
             }
         }
-        Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+            Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+        }
     }
 }
 

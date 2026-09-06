@@ -26,8 +26,8 @@ still require the separately scheduled Computer Use suite.
 | Missing media | Conditional command, type-safe replacements, and project updates | foundation |
 | Quit | Visit dirty projects in tab order and complete Save/Discard/Cancel before exit | foundation |
 | Scene tabs | Left switches, right opens settings, root cannot close, plus creates | foundation |
-| Timeline focus | Window-scoped editor shortcuts; text inputs suppress editor shortcuts | missing |
-| Timeline skimmer | Snapped hover target, Shift bypass, command and import advancement | missing |
+| Timeline focus | Window-scoped editor shortcuts; text inputs suppress editor shortcuts | foundation |
+| Timeline skimmer | Snapped hover target, Shift bypass, command and import advancement | foundation |
 | Primary selection | Left click replaces selection and makes the clip primary | parity |
 | Additive selection | Ctrl+left toggles; newly added clip becomes primary | parity |
 | Empty click | Select target layer and clear clip selection | foundation |
@@ -42,9 +42,9 @@ still require the separately scheduled Computer Use suite.
 | Duplicate / Split | Current edit-target behavior and one grouped transaction | foundation |
 | Layer left click | Toggle visibility and select that layer | parity |
 | Layer context menu | Insert/shift ranges, lock, visibility, show/hide all, owned dialogs | foundation |
-| Layer shortcuts | Ctrl+L/Ctrl+H and Alt+arrows | missing |
+| Layer shortcuts | Ctrl+L/Ctrl+H and Alt+arrows | foundation |
 | File drop | Insert media at indicated frame/layer with Qt import rules | missing |
-| Timeline navigation | Qt wheel axes, anchored zoom, and both draggable scrollbars | partial |
+| Timeline navigation | Qt wheel axes, anchored zoom, and both draggable scrollbars | foundation |
 | Playback controls | Seek, frame counter, previous/play/next, speed, and end-frame behavior | foundation |
 | Object settings | Metadata order, pickers, keyframes, easing, and sidebar placement | missing |
 | Effect selection | Ctrl/Shift selection, single/multi reorder, enable, and scoped Delete | foundation |
@@ -75,6 +75,20 @@ still require the separately scheduled Computer Use suite.
   cancellation, and removal of partial outputs. Native modality, chooser behavior, close interception,
   and a user-observed output comparison remain in the deferred GUI suite.
 - Real project, scene, 128-layer, clip, selection, and transport models reach Slint.
+- Main and timeline `FocusScope`s resolve all 34 configurable Qt shortcut actions from the live
+  settings store. Editor shortcuts remain window-scoped and use the active timeline skimmer only
+  when the timeline window receives the key. Static Slint menu accelerators were removed so they
+  cannot continue firing after the user changes a binding; native shortcut labels remain part of
+  the deferred interaction review.
+- The timeline skimmer uses the same scene snapping service as Qt, supports Shift bypass, and
+  advances after Paste or Duplicate without discarding the clip selection. A one-shot leave timer
+  prevents transitions between a clip body, resize handles, and the timeline background from
+  briefly hiding the shared skimmer target.
+- Timeline wheel routing follows Qt: the dominant axis scrolls horizontally, Shift scrolls
+  vertically, Alt/Ctrl applies configured stepped zoom around the pointer, the ruler uses 1.1/0.9
+  anchored zoom, and the layer header scrolls the shared vertical viewport. Pure Rust tests cover
+  modifier routing, clamping, scale conversion, and pointer-anchor preservation; native touchpad
+  direction and scrollbar interaction remain in the deferred GUI suite.
 - Primary/additive selection, right-button box selection, multi-clip move, and multi-clip resize have
   framework-neutral tests and Slint MCP interaction checks.
 - Open replaces only a clean pathless placeholder; Save, Save As, tab close, and application quit

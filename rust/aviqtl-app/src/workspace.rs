@@ -6,7 +6,7 @@ use crate::transport::Transport;
 use aviqtl_rust_core::api::{
     ClipDocument, ProjectDocument, ProjectSettings, SceneDocument, TimelineCommand,
     TimelineTransaction, clipboard_duration, plan_clip_delta_move, plan_clipboard_paste,
-    plan_scene_layer_insertion, plan_scene_layer_shift,
+    plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
 };
 use std::collections::BTreeMap;
 use std::time::Instant;
@@ -801,6 +801,18 @@ impl WorkspaceModel {
         self.transport.seek(Instant::now(), self.playhead);
     }
 
+    pub fn set_edit_target(&mut self, frame: i32, layer: i32) {
+        self.seek(frame);
+        self.selection.set_selected_layer(layer);
+    }
+
+    pub fn snap_timeline_frame(&self, frame: f64, ignore_snap: bool, timeline_scale: f64) -> i32 {
+        self.selected_scene_document().map_or_else(
+            || frame.round().clamp(0.0, f64::from(i32::MAX)) as i32,
+            |scene| snap_scene_frame(frame, ignore_snap, scene, timeline_scale),
+        )
+    }
+
     pub fn set_playback_speed(&mut self, speed: f64) {
         self.transport.set_playback_speed(speed);
     }
@@ -1244,5 +1256,31 @@ mod tests {
 
         assert!(!workspace.is_playing());
         assert_eq!(workspace.playhead(), 42);
+    }
+
+    #[test]
+    fn advancing_the_edit_target_preserves_clip_selection() {
+        let mut workspace = workspace();
+        workspace.click_clip(1, false);
+
+        workspace.set_edit_target(80, 7);
+
+        assert_eq!(workspace.playhead(), 80);
+        assert_eq!(workspace.selected_layer(), 7);
+        assert_eq!(workspace.selected_clip_ids(), [1]);
+    }
+
+    #[test]
+    fn skimmer_uses_scene_snapping_and_shift_bypasses_it() {
+        let mut workspace = workspace();
+        let scene_id = workspace.selected_scene();
+        let mut settings = workspace.scene_settings(scene_id).expect("scene exists");
+        settings.grid_mode = "Frame".to_owned();
+        settings.grid_interval = 10;
+        settings.enable_snap = true;
+        assert!(workspace.update_scene_settings(scene_id, settings));
+
+        assert_eq!(workspace.snap_timeline_frame(16.0, false, 1.0), 20);
+        assert_eq!(workspace.snap_timeline_frame(16.0, true, 1.0), 16);
     }
 }

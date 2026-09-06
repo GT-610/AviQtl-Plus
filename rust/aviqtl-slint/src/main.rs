@@ -13,6 +13,7 @@ use aviqtl_export::{
     nearest_audio_bitrate, valid_export_path,
 };
 use aviqtl_preview::{MediaPreview, PlannedPreview, PreviewPlanner, PreviewSurface};
+use slint::platform::Key;
 use slint::wgpu_29::wgpu;
 use slint::{
     CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel,
@@ -51,6 +52,89 @@ const AUDIO_CODECS: [(&str, &str); 5] = [
 const PRESET_VALUES: [&str; 5] = ["ultrafast", "fast", "medium", "slow", "veryslow"];
 const PROFILE_VALUES: [&str; 4] = ["", "baseline", "main", "high"];
 const AUDIO_BITRATES: [i32; 5] = [96, 128, 192, 256, 320];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ShortcutAction {
+    NewProject,
+    OpenProject,
+    SaveProject,
+    SaveProjectAs,
+    ExportMedia,
+    Quit,
+    SystemSettings,
+    Undo,
+    Redo,
+    Copy,
+    Cut,
+    Paste,
+    Delete,
+    Duplicate,
+    PlayPause,
+    NextFrame,
+    PreviousFrame,
+    JumpStart,
+    JumpEnd,
+    ZoomIn,
+    ZoomOut,
+    ShowTimeline,
+    ShowObjectSettings,
+    ProjectSettings,
+    Split,
+    MoveUp,
+    MoveDown,
+    NudgeLeft,
+    NudgeRight,
+    AddScene,
+    SceneSettings,
+    RemoveScene,
+    ToggleLayerLock,
+    ToggleLayerVisibility,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ShortcutInput {
+    text: String,
+    alt: bool,
+    control: bool,
+    shift: bool,
+    meta: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ShortcutPattern {
+    text: String,
+    alt: bool,
+    control: bool,
+    shift: bool,
+    meta: bool,
+    ignore_shift: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct TimelineScrollInput {
+    delta_x: f32,
+    delta_y: f32,
+    content_x: f32,
+    viewport_x: f32,
+    viewport_y: f32,
+    visible_width: f32,
+    viewport_width: f32,
+    visible_height: f32,
+    viewport_height: f32,
+    duration_frames: f32,
+    alt: bool,
+    control: bool,
+    shift: bool,
+    ruler_zoom: bool,
+    pixels_per_frame: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct TimelineScrollPlan {
+    pixels_per_frame: f32,
+    viewport_x: f32,
+    viewport_y: f32,
+}
 
 const VALIDATION_PROJECT: &[u8] = br#"{
     "version": 3,
@@ -466,6 +550,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         settings.clone(),
         lifecycle_ui,
     );
+    install_keyboard_shortcuts(&main, &timeline, model.clone(), settings.clone());
     install_export_callbacks(
         &main,
         &export,
@@ -764,6 +849,9 @@ fn install_callbacks(
             .borrow_mut()
             .select_project(index.max(0) as usize)
         {
+            if let Some(window) = select_timeline.upgrade() {
+                window.set_skimmer_visible(false);
+            }
             sync_weak_windows(&select_main, &select_timeline, &select_model);
         }
     });
@@ -984,6 +1072,9 @@ fn install_callbacks(
         if let Some(workspace) = scene_model.borrow_mut().current_workspace_mut() {
             workspace.switch_scene(scene_id);
         }
+        if let Some(window) = scene_timeline.upgrade() {
+            window.set_skimmer_visible(false);
+        }
         sync_weak_windows(&scene_main, &scene_timeline, &scene_model);
     });
 
@@ -993,6 +1084,9 @@ fn install_callbacks(
     timeline.on_scene_closed(move |scene_id| {
         if let Some(workspace) = close_scene_model.borrow_mut().current_workspace_mut() {
             workspace.remove_scene(scene_id);
+        }
+        if let Some(window) = close_scene_timeline.upgrade() {
+            window.set_skimmer_visible(false);
         }
         sync_weak_windows(&close_scene_main, &close_scene_timeline, &close_scene_model);
     });
@@ -1271,6 +1365,33 @@ fn install_callbacks(
         sync_weak_windows(&empty_main, &empty_timeline, &empty_model);
     });
 
+    let skimmer_model = model.clone();
+    let skimmer_window = timeline.as_weak();
+    timeline.on_skimmer_hovered(move |frame, layer, ignore_snap| {
+        let Some(window) = skimmer_window.upgrade() else {
+            return;
+        };
+        let snapped_frame = skimmer_model
+            .borrow()
+            .current_workspace()
+            .map_or(0, |workspace| {
+                workspace.snap_timeline_frame(
+                    f64::from(frame),
+                    ignore_snap,
+                    f64::from(window.get_pixels_per_frame()),
+                )
+            });
+        window.set_skimmer_frame(snapped_frame);
+        window.set_skimmer_layer(layer.clamp(0, 127));
+        window.set_skimmer_visible(true);
+    });
+    let skimmer_leave_window = timeline.as_weak();
+    timeline.on_skimmer_left(move || {
+        if let Some(window) = skimmer_leave_window.upgrade() {
+            window.set_skimmer_visible(false);
+        }
+    });
+
     let box_state = Rc::new(RefCell::new(None::<SelectionBox>));
     let box_start_state = box_state.clone();
     timeline.on_box_selection_started(move |frame, layer, additive| {
@@ -1379,6 +1500,648 @@ fn install_callbacks(
         }
         sync_transport_weak(&playback_main, &playback_timeline, &playback_model);
     });
+}
+
+fn install_keyboard_shortcuts(
+    main: &MainWindow,
+    timeline: &TimelineWindow,
+    model: Rc<RefCell<ApplicationModel>>,
+    settings: Rc<RefCell<SettingsStore>>,
+) {
+    let main_window = main.as_weak();
+    let main_timeline = timeline.as_weak();
+    let main_model = model.clone();
+    let main_settings = settings.clone();
+    main.on_keyboard_shortcut(move |text, alt, control, shift, meta| {
+        handle_keyboard_shortcut(
+            ShortcutInput {
+                text: text.to_string(),
+                alt,
+                control,
+                shift,
+                meta,
+            },
+            true,
+            false,
+            &main_window,
+            &main_timeline,
+            &main_model,
+            &main_settings,
+        )
+    });
+
+    let timeline_main = main.as_weak();
+    let timeline_window = timeline.as_weak();
+    let timeline_model = model.clone();
+    let timeline_settings = settings.clone();
+    timeline.on_keyboard_shortcut(move |text, alt, control, shift, meta| {
+        handle_keyboard_shortcut(
+            ShortcutInput {
+                text: text.to_string(),
+                alt,
+                control,
+                shift,
+                meta,
+            },
+            true,
+            true,
+            &timeline_main,
+            &timeline_window,
+            &timeline_model,
+            &timeline_settings,
+        )
+    });
+
+    let scroll_window = timeline.as_weak();
+    let scroll_settings = settings.clone();
+    timeline.on_timeline_scrolled(
+        move |delta_x,
+              delta_y,
+              content_x,
+              viewport_x,
+              viewport_y,
+              visible_width,
+              viewport_width,
+              visible_height,
+              viewport_height,
+              duration_frames,
+              alt,
+              control,
+              shift,
+              ruler_zoom| {
+            let pixels_per_frame = scroll_window
+                .upgrade()
+                .map_or(1.0, |window| window.get_pixels_per_frame());
+            let plan = plan_timeline_scroll(
+                TimelineScrollInput {
+                    delta_x,
+                    delta_y,
+                    content_x,
+                    viewport_x,
+                    viewport_y,
+                    visible_width,
+                    viewport_width,
+                    visible_height,
+                    viewport_height,
+                    duration_frames,
+                    alt,
+                    control,
+                    shift,
+                    ruler_zoom,
+                    pixels_per_frame,
+                },
+                &scroll_settings.borrow(),
+            );
+            TimelineViewportData {
+                pixels_per_frame: plan.pixels_per_frame,
+                viewport_x: plan.viewport_x,
+                viewport_y: plan.viewport_y,
+            }
+        },
+    );
+}
+
+fn handle_keyboard_shortcut(
+    input: ShortcutInput,
+    editor_window: bool,
+    use_skimmer: bool,
+    main: &slint::Weak<MainWindow>,
+    timeline: &slint::Weak<TimelineWindow>,
+    model: &Rc<RefCell<ApplicationModel>>,
+    settings: &Rc<RefCell<SettingsStore>>,
+) -> bool {
+    let action = {
+        let settings = settings.borrow();
+        configured_shortcut_action(&settings, &input, editor_window)
+    };
+    let Some(action) = action else {
+        return false;
+    };
+    dispatch_shortcut(action, use_skimmer, main, timeline, model, settings);
+    true
+}
+
+fn configured_shortcut_action(
+    settings: &SettingsStore,
+    input: &ShortcutInput,
+    editor_window: bool,
+) -> Option<ShortcutAction> {
+    const BINDINGS: [(ShortcutAction, &str, &str, bool); 34] = [
+        (ShortcutAction::NewProject, "project.new", "Ctrl+N", false),
+        (ShortcutAction::OpenProject, "project.open", "Ctrl+O", false),
+        (
+            ShortcutAction::SystemSettings,
+            "app.settings",
+            "Ctrl+P",
+            false,
+        ),
+        (ShortcutAction::Quit, "app.quit", "Ctrl+Q", false),
+        (ShortcutAction::SaveProject, "project.save", "Ctrl+S", false),
+        (
+            ShortcutAction::SaveProjectAs,
+            "project.saveAs",
+            "Ctrl+Shift+S",
+            false,
+        ),
+        (
+            ShortcutAction::ProjectSettings,
+            "project.settings",
+            "Alt+Enter",
+            false,
+        ),
+        (
+            ShortcutAction::ExportMedia,
+            "project.export",
+            "Ctrl+E",
+            false,
+        ),
+        (ShortcutAction::ShowTimeline, "view.timeline", "F3", false),
+        (
+            ShortcutAction::ShowObjectSettings,
+            "view.objectSettings",
+            "F4",
+            false,
+        ),
+        (ShortcutAction::ZoomIn, "view.zoomIn", "Ctrl++", false),
+        (ShortcutAction::ZoomOut, "view.zoomOut", "Ctrl+-", false),
+        (ShortcutAction::Undo, "edit.undo", "Ctrl+Z", false),
+        (ShortcutAction::Redo, "edit.redo", "Ctrl+Shift+Z", false),
+        (ShortcutAction::Copy, "edit.copy", "Ctrl+C", true),
+        (ShortcutAction::Cut, "edit.cut", "Ctrl+X", true),
+        (ShortcutAction::Paste, "edit.paste", "Ctrl+V", true),
+        (ShortcutAction::Duplicate, "edit.duplicate", "Ctrl+D", true),
+        (ShortcutAction::Delete, "edit.delete", "Delete", true),
+        (ShortcutAction::Split, "timeline.split", "S", true),
+        (ShortcutAction::MoveUp, "timeline.moveUp", "Alt+Up", true),
+        (
+            ShortcutAction::MoveDown,
+            "timeline.moveDown",
+            "Alt+Down",
+            true,
+        ),
+        (
+            ShortcutAction::NudgeLeft,
+            "timeline.nudgeLeft",
+            "Alt+Left",
+            true,
+        ),
+        (
+            ShortcutAction::NudgeRight,
+            "timeline.nudgeRight",
+            "Alt+Right",
+            true,
+        ),
+        (
+            ShortcutAction::ToggleLayerLock,
+            "timeline.layerLock",
+            "Ctrl+L",
+            true,
+        ),
+        (
+            ShortcutAction::ToggleLayerVisibility,
+            "timeline.layerHide",
+            "Ctrl+H",
+            true,
+        ),
+        (
+            ShortcutAction::AddScene,
+            "timeline.addScene",
+            "Ctrl+T",
+            false,
+        ),
+        (
+            ShortcutAction::SceneSettings,
+            "timeline.sceneSettings",
+            "Alt+S",
+            true,
+        ),
+        (
+            ShortcutAction::RemoveScene,
+            "timeline.removeScene",
+            "Ctrl+Shift+Delete",
+            true,
+        ),
+        (
+            ShortcutAction::PlayPause,
+            "transport.playPause",
+            "Space",
+            false,
+        ),
+        (
+            ShortcutAction::PreviousFrame,
+            "transport.prevFrame",
+            "Left",
+            false,
+        ),
+        (
+            ShortcutAction::NextFrame,
+            "transport.nextFrame",
+            "Right",
+            false,
+        ),
+        (
+            ShortcutAction::JumpStart,
+            "transport.jumpStart",
+            "Home",
+            false,
+        ),
+        (ShortcutAction::JumpEnd, "transport.jumpEnd", "End", false),
+    ];
+
+    BINDINGS
+        .iter()
+        .find_map(|(action, key, fallback, editor_only)| {
+            if *editor_only && !editor_window {
+                return None;
+            }
+            let configured = shortcut_setting(settings, key, fallback);
+            shortcut_matches(&configured, input).then_some(*action)
+        })
+}
+
+fn shortcut_setting(settings: &SettingsStore, key: &str, fallback: &str) -> String {
+    settings
+        .value("shortcuts")
+        .and_then(serde_json::Value::as_object)
+        .and_then(|shortcuts| shortcuts.get(key))
+        .and_then(serde_json::Value::as_str)
+        .filter(|shortcut| !shortcut.trim().is_empty())
+        .unwrap_or(fallback)
+        .to_owned()
+}
+
+fn shortcut_matches(value: &str, input: &ShortcutInput) -> bool {
+    let Some(pattern) = parse_shortcut(value) else {
+        return false;
+    };
+    pattern.text == input.text.to_lowercase()
+        && pattern.alt == input.alt
+        && pattern.control == input.control
+        && pattern.meta == input.meta
+        && (pattern.ignore_shift || pattern.shift == input.shift)
+}
+
+fn parse_shortcut(value: &str) -> Option<ShortcutPattern> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    let plus_key = value.ends_with('+');
+    let mut parts = value
+        .split('+')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    let key_name = if plus_key { "+" } else { parts.pop()? };
+    let mut pattern = ShortcutPattern {
+        text: String::new(),
+        alt: false,
+        control: false,
+        shift: false,
+        meta: false,
+        ignore_shift: key_name == "+",
+    };
+    for modifier in parts {
+        match modifier.to_ascii_lowercase().as_str() {
+            "ctrl" => pattern.control = true,
+            "cmd" | "command" => {
+                if cfg!(target_os = "macos") {
+                    pattern.control = true;
+                } else {
+                    pattern.meta = true;
+                }
+            }
+            "control" => {
+                if cfg!(target_os = "macos") {
+                    pattern.meta = true;
+                } else {
+                    pattern.control = true;
+                }
+            }
+            "meta" | "super" => pattern.meta = true,
+            "alt" | "option" => pattern.alt = true,
+            "shift" => pattern.shift = true,
+            _ => return None,
+        }
+    }
+    pattern.text = shortcut_key_text(key_name)?;
+    Some(pattern)
+}
+
+fn shortcut_key_text(value: &str) -> Option<String> {
+    let named = match value.trim().to_ascii_lowercase().as_str() {
+        "left" | "arrowleft" => Some(Key::LeftArrow),
+        "right" | "arrowright" => Some(Key::RightArrow),
+        "up" | "arrowup" => Some(Key::UpArrow),
+        "down" | "arrowdown" => Some(Key::DownArrow),
+        "escape" | "esc" => Some(Key::Escape),
+        "tab" => Some(Key::Tab),
+        "backspace" => Some(Key::Backspace),
+        "enter" | "return" => Some(Key::Return),
+        "space" => Some(Key::Space),
+        "delete" | "del" => Some(Key::Delete),
+        "home" => Some(Key::Home),
+        "end" => Some(Key::End),
+        "pageup" => Some(Key::PageUp),
+        "pagedown" => Some(Key::PageDown),
+        "f1" => Some(Key::F1),
+        "f2" => Some(Key::F2),
+        "f3" => Some(Key::F3),
+        "f4" => Some(Key::F4),
+        "f5" => Some(Key::F5),
+        "f6" => Some(Key::F6),
+        "f7" => Some(Key::F7),
+        "f8" => Some(Key::F8),
+        "f9" => Some(Key::F9),
+        "f10" => Some(Key::F10),
+        "f11" => Some(Key::F11),
+        "f12" => Some(Key::F12),
+        _ => None,
+    };
+    if let Some(key) = named {
+        return Some(char::from(key).to_string());
+    }
+    let text = value.trim().to_lowercase();
+    (text.chars().count() == 1).then_some(text)
+}
+
+fn dispatch_shortcut(
+    action: ShortcutAction,
+    use_skimmer: bool,
+    main: &slint::Weak<MainWindow>,
+    timeline: &slint::Weak<TimelineWindow>,
+    model: &Rc<RefCell<ApplicationModel>>,
+    settings: &Rc<RefCell<SettingsStore>>,
+) {
+    let Some(main_window) = main.upgrade() else {
+        return;
+    };
+    let Some(timeline_window) = timeline.upgrade() else {
+        return;
+    };
+    match action {
+        ShortcutAction::NewProject => main_window.invoke_new_project(),
+        ShortcutAction::OpenProject => main_window.invoke_open_project(),
+        ShortcutAction::SaveProject => main_window.invoke_save_project(),
+        ShortcutAction::SaveProjectAs => main_window.invoke_save_project_as(),
+        ShortcutAction::ExportMedia => main_window.invoke_export_media(),
+        ShortcutAction::Quit => main_window.invoke_quit_requested(),
+        ShortcutAction::SystemSettings => main_window.invoke_show_system_settings(),
+        ShortcutAction::Undo => main_window.invoke_undo(),
+        ShortcutAction::Redo => main_window.invoke_redo(),
+        ShortcutAction::PlayPause => main_window.invoke_toggle_playback(),
+        ShortcutAction::PreviousFrame => main_window.invoke_previous_frame(),
+        ShortcutAction::NextFrame => main_window.invoke_next_frame(),
+        ShortcutAction::ShowTimeline => main_window.invoke_show_timeline(),
+        ShortcutAction::ShowObjectSettings => main_window.invoke_show_object_settings(),
+        ShortcutAction::ProjectSettings => main_window.invoke_show_project_settings(),
+        ShortcutAction::AddScene => timeline_window.invoke_show_scene_settings(),
+        ShortcutAction::SceneSettings => {
+            if let Some(scene_id) = model
+                .borrow()
+                .current_workspace()
+                .map(WorkspaceModel::selected_scene)
+            {
+                timeline_window.invoke_scene_settings(scene_id);
+            }
+        }
+        ShortcutAction::ZoomIn | ShortcutAction::ZoomOut => {
+            let direction = if action == ShortcutAction::ZoomIn {
+                1
+            } else {
+                -1
+            };
+            step_timeline_zoom(&timeline_window, &settings.borrow(), direction);
+        }
+        ShortcutAction::Copy
+        | ShortcutAction::Cut
+        | ShortcutAction::Paste
+        | ShortcutAction::Delete
+        | ShortcutAction::Duplicate
+        | ShortcutAction::JumpStart
+        | ShortcutAction::JumpEnd
+        | ShortcutAction::Split
+        | ShortcutAction::MoveUp
+        | ShortcutAction::MoveDown
+        | ShortcutAction::NudgeLeft
+        | ShortcutAction::NudgeRight
+        | ShortcutAction::RemoveScene
+        | ShortcutAction::ToggleLayerLock
+        | ShortcutAction::ToggleLayerVisibility => {
+            if let Some(workspace) = model.borrow_mut().current_workspace_mut() {
+                let skimmer_targets = use_skimmer && timeline_window.get_skimmer_visible();
+                let selected_layer = workspace.selected_layer();
+                let frame = if skimmer_targets {
+                    timeline_window.get_skimmer_frame()
+                } else {
+                    workspace.playhead()
+                };
+                let layer = if skimmer_targets {
+                    timeline_window.get_skimmer_layer()
+                } else {
+                    selected_layer
+                };
+                match action {
+                    ShortcutAction::Copy => {
+                        workspace.copy_selected_clips();
+                    }
+                    ShortcutAction::Cut => {
+                        workspace.cut_selected_clips();
+                    }
+                    ShortcutAction::Paste => {
+                        if let Some((next_frame, next_layer)) =
+                            workspace.paste_clips_at(frame, layer)
+                        {
+                            advance_shortcut_target(
+                                workspace,
+                                &timeline_window,
+                                skimmer_targets,
+                                next_frame,
+                                next_layer,
+                            );
+                        }
+                    }
+                    ShortcutAction::Delete => {
+                        workspace.remove_selected_clips();
+                    }
+                    ShortcutAction::Duplicate => {
+                        if let Some((next_frame, next_layer)) =
+                            workspace.duplicate_selected_clips_at(frame, layer)
+                        {
+                            advance_shortcut_target(
+                                workspace,
+                                &timeline_window,
+                                skimmer_targets,
+                                next_frame,
+                                next_layer,
+                            );
+                        }
+                    }
+                    ShortcutAction::JumpStart => workspace.seek(0),
+                    ShortcutAction::JumpEnd => {
+                        let end_frame = workspace
+                            .selected_scene_document()
+                            .map_or(0, |scene| scene.duration.max(0));
+                        workspace.seek(end_frame);
+                    }
+                    ShortcutAction::Split => {
+                        workspace.split_selected_clips_at(frame);
+                    }
+                    ShortcutAction::MoveUp => {
+                        workspace.move_selected_clips(-1, 0);
+                    }
+                    ShortcutAction::MoveDown => {
+                        workspace.move_selected_clips(1, 0);
+                    }
+                    ShortcutAction::NudgeLeft => {
+                        workspace.move_selected_clips(0, -1);
+                    }
+                    ShortcutAction::NudgeRight => {
+                        workspace.move_selected_clips(0, 1);
+                    }
+                    ShortcutAction::RemoveScene => {
+                        workspace.remove_scene(workspace.selected_scene());
+                    }
+                    ShortcutAction::ToggleLayerLock => {
+                        workspace.toggle_layer_lock(selected_layer);
+                    }
+                    ShortcutAction::ToggleLayerVisibility => {
+                        workspace.toggle_layer_visibility(selected_layer);
+                    }
+                    _ => unreachable!("direct timeline shortcut is exhaustively matched"),
+                }
+            }
+            sync_weak_windows(main, timeline, model);
+        }
+    }
+}
+
+fn advance_shortcut_target(
+    workspace: &mut WorkspaceModel,
+    timeline: &TimelineWindow,
+    skimmer_targets: bool,
+    frame: i32,
+    layer: i32,
+) {
+    if skimmer_targets {
+        timeline.set_skimmer_frame(frame.max(0));
+        timeline.set_skimmer_layer(layer.clamp(0, 127));
+    } else {
+        workspace.set_edit_target(frame, layer);
+    }
+}
+
+fn step_timeline_zoom(window: &TimelineWindow, settings: &SettingsStore, direction: i32) {
+    window.set_pixels_per_frame(stepped_timeline_scale(
+        window.get_pixels_per_frame(),
+        settings,
+        direction,
+    ));
+}
+
+fn stepped_timeline_scale(current_scale: f32, settings: &SettingsStore, direction: i32) -> f32 {
+    stepped_timeline_scale_with(current_scale, direction, timeline_zoom_settings(settings))
+}
+
+fn stepped_timeline_scale_with(
+    current_scale: f32,
+    direction: i32,
+    (minimum, maximum, step): (f32, f32, f32),
+) -> f32 {
+    let current = scale_to_zoom_percent(current_scale);
+    let next = (current + direction.signum() as f32 * step).clamp(minimum, maximum);
+    zoom_percent_to_scale(next)
+}
+
+fn plan_timeline_scroll(
+    input: TimelineScrollInput,
+    settings: &SettingsStore,
+) -> TimelineScrollPlan {
+    plan_timeline_scroll_with(input, timeline_zoom_settings(settings))
+}
+
+fn plan_timeline_scroll_with(
+    input: TimelineScrollInput,
+    zoom_settings: (f32, f32, f32),
+) -> TimelineScrollPlan {
+    let mut plan = TimelineScrollPlan {
+        pixels_per_frame: input.pixels_per_frame,
+        viewport_x: input.viewport_x,
+        viewport_y: input.viewport_y,
+    };
+    let dominant_delta = if input.delta_x.abs() > input.delta_y.abs() {
+        input.delta_x
+    } else {
+        input.delta_y
+    };
+    if dominant_delta.abs() <= f32::EPSILON {
+        return plan;
+    }
+
+    if input.ruler_zoom || input.alt || input.control {
+        let direction = if dominant_delta > 0.0 { 1 } else { -1 };
+        let new_scale = if input.ruler_zoom {
+            let (minimum, maximum, _) = zoom_settings;
+            (input.pixels_per_frame * if direction > 0 { 1.1 } else { 0.9 }).clamp(
+                zoom_percent_to_scale(minimum),
+                zoom_percent_to_scale(maximum),
+            )
+        } else {
+            stepped_timeline_scale_with(input.pixels_per_frame, direction, zoom_settings)
+        };
+        let mouse_x = input.content_x + input.viewport_x;
+        let anchor_frame = input.content_x / input.pixels_per_frame.max(f32::EPSILON);
+        let new_content_x = anchor_frame * new_scale - mouse_x;
+        plan.pixels_per_frame = new_scale;
+        plan.viewport_x = clamp_viewport(
+            -new_content_x,
+            input.visible_width,
+            (input.duration_frames * new_scale).max(input.visible_width),
+        );
+    } else if input.shift {
+        plan.viewport_y = clamp_viewport(
+            input.viewport_y + input.delta_y,
+            input.visible_height,
+            input.viewport_height,
+        );
+    } else {
+        plan.viewport_x = clamp_viewport(
+            input.viewport_x + dominant_delta,
+            input.visible_width,
+            input.viewport_width,
+        );
+    }
+    plan
+}
+
+fn timeline_zoom_settings(settings: &SettingsStore) -> (f32, f32, f32) {
+    let minimum = settings.i32_value("timelineZoomMin", 10).clamp(1, 400) as f32;
+    let maximum = settings
+        .i32_value("timelineZoomMax", 400)
+        .clamp(minimum as i32, 1_000) as f32;
+    let step = settings.i32_value("timelineZoomStep", 10).clamp(1, 100) as f32;
+    (minimum, maximum, step)
+}
+
+fn clamp_viewport(value: f32, visible: f32, viewport: f32) -> f32 {
+    value.clamp((visible - viewport).min(0.0), 0.0)
+}
+
+fn zoom_percent_to_scale(percent: f32) -> f32 {
+    let percent = percent.max(1.0);
+    if percent <= 100.0 {
+        percent / 100.0
+    } else {
+        1.0 + (percent - 100.0) * 9.0 / 300.0
+    }
+}
+
+fn scale_to_zoom_percent(scale: f32) -> f32 {
+    if scale <= 1.0 {
+        scale * 100.0
+    } else {
+        100.0 + (scale - 1.0) * 300.0 / 9.0
+    }
 }
 
 fn initialize_export_draft(window: &ExportWindow, settings: &SettingsStore) {
@@ -2416,5 +3179,122 @@ mod tests {
         );
         assert!(model.select_project(0));
         assert!(export_workspace_for_frame(&mut model, export_project).is_ok());
+    }
+
+    #[test]
+    fn shortcut_parser_preserves_qt_cross_platform_names_and_punctuation() {
+        let undo = parse_shortcut("Ctrl+Shift+Z").expect("undo shortcut parses");
+        assert!(undo.control);
+        assert!(undo.shift);
+        assert_eq!(undo.text, "z");
+
+        let settings = parse_shortcut("Alt+Enter").expect("settings shortcut parses");
+        assert!(settings.alt);
+        assert_eq!(settings.text, char::from(Key::Return).to_string());
+
+        let zoom = parse_shortcut("Ctrl++").expect("plus shortcut parses");
+        assert!(zoom.control);
+        assert!(zoom.ignore_shift);
+        assert_eq!(zoom.text, "+");
+        assert!(parse_shortcut("Ctrl+UnknownKey").is_none());
+    }
+
+    #[test]
+    fn shortcut_matching_uses_slint_command_and_physical_control_semantics() {
+        let command_save = ShortcutInput {
+            text: "s".to_owned(),
+            alt: false,
+            control: true,
+            shift: false,
+            meta: false,
+        };
+        assert!(shortcut_matches("Ctrl+S", &command_save));
+
+        let physical_control_save = ShortcutInput {
+            control: false,
+            meta: true,
+            ..command_save.clone()
+        };
+        assert!(shortcut_matches("Meta+S", &physical_control_save));
+        if cfg!(target_os = "macos") {
+            assert!(shortcut_matches("Command+S", &command_save));
+            assert!(!shortcut_matches("Control+S", &command_save));
+            assert!(shortcut_matches("Control+S", &physical_control_save));
+        } else {
+            assert!(shortcut_matches("Control+S", &command_save));
+            assert!(!shortcut_matches("Command+S", &command_save));
+            assert!(shortcut_matches("Command+S", &physical_control_save));
+        }
+    }
+
+    #[test]
+    fn zoom_mapping_matches_the_qt_piecewise_scale() {
+        assert_eq!(zoom_percent_to_scale(10.0), 0.1);
+        assert_eq!(zoom_percent_to_scale(100.0), 1.0);
+        assert_eq!(zoom_percent_to_scale(200.0), 4.0);
+        assert_eq!(zoom_percent_to_scale(400.0), 10.0);
+        assert!((scale_to_zoom_percent(4.0) - 200.0).abs() < f32::EPSILON);
+    }
+
+    fn timeline_scroll_input() -> TimelineScrollInput {
+        TimelineScrollInput {
+            delta_x: 20.0,
+            delta_y: 120.0,
+            content_x: 500.0,
+            viewport_x: -300.0,
+            viewport_y: -90.0,
+            visible_width: 800.0,
+            viewport_width: 3_600.0,
+            visible_height: 300.0,
+            viewport_height: 3_840.0,
+            duration_frames: 3_600.0,
+            alt: false,
+            control: false,
+            shift: false,
+            ruler_zoom: false,
+            pixels_per_frame: 1.0,
+        }
+    }
+
+    #[test]
+    fn timeline_wheel_matches_qt_axis_and_modifier_routing() {
+        let zoom = (10.0, 400.0, 10.0);
+        let horizontal = plan_timeline_scroll_with(timeline_scroll_input(), zoom);
+        assert_eq!(horizontal.viewport_x, -180.0);
+        assert_eq!(horizontal.viewport_y, -90.0);
+
+        let vertical = plan_timeline_scroll_with(
+            TimelineScrollInput {
+                shift: true,
+                ..timeline_scroll_input()
+            },
+            zoom,
+        );
+        assert_eq!(vertical.viewport_x, -300.0);
+        assert_eq!(vertical.viewport_y, 0.0);
+    }
+
+    #[test]
+    fn timeline_wheel_zoom_preserves_the_pointer_anchor() {
+        let zoom = (10.0, 400.0, 10.0);
+        let stepped = plan_timeline_scroll_with(
+            TimelineScrollInput {
+                control: true,
+                ..timeline_scroll_input()
+            },
+            zoom,
+        );
+        assert!((stepped.pixels_per_frame - 1.3).abs() < f32::EPSILON);
+        assert!((stepped.viewport_x + 450.0).abs() < f32::EPSILON);
+
+        let ruler = plan_timeline_scroll_with(
+            TimelineScrollInput {
+                ruler_zoom: true,
+                ..timeline_scroll_input()
+            },
+            zoom,
+        );
+        assert!((ruler.pixels_per_frame - 1.1).abs() < f32::EPSILON);
+        assert!((ruler.viewport_x + 350.0).abs() < f32::EPSILON);
     }
 }
