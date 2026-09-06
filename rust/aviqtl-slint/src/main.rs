@@ -1,7 +1,7 @@
 #![deny(unsafe_code)]
 
 use aviqtl_app::{
-    ApplicationModel, ProjectDefaults, ProjectSession,
+    ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, SaveDecision,
     selection::SelectionBox,
     timeline_interaction::{TimelineDragKind, TimelineDragRequest},
 };
@@ -10,8 +10,11 @@ use aviqtl_render::{
     BlendMode, CompositionLayer, CompositionSource, Compositor, LayerCrop, LayerTransform,
 };
 use slint::wgpu_29::wgpu;
-use slint::{ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
+use slint::{
+    CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel,
+};
 use std::cell::{Cell, RefCell};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -33,6 +36,113 @@ const VALIDATION_PROJECT: &[u8] = br#"{
         {"id": 3, "sceneId": 1, "type": "audio", "start": 60, "duration": 240, "layer": 3}
     ]
 }"#;
+
+struct LifecycleUi {
+    launcher: slint::Weak<ProjectLauncherWindow>,
+    main: slint::Weak<MainWindow>,
+    timeline: slint::Weak<TimelineWindow>,
+    object_settings: slint::Weak<ObjectSettingsWindow>,
+    model: Rc<RefCell<ApplicationModel>>,
+    quit_confirmed: Cell<bool>,
+}
+
+impl LifecycleUi {
+    fn handle(&self, mut step: LifecycleStep) {
+        loop {
+            if !matches!(step, LifecycleStep::ConfirmSave { .. })
+                && let Some(main) = self.main.upgrade()
+            {
+                main.set_save_confirmation_visible(false);
+            }
+
+            match step {
+                LifecycleStep::None | LifecycleStep::Cancelled => return,
+                LifecycleStep::ConfirmSave { project_name, .. } => {
+                    self.sync();
+                    if let Some(main) = self.main.upgrade() {
+                        main.set_save_confirmation_project(project_name.into());
+                        main.set_save_confirmation_visible(true);
+                        let _ = main.show();
+                    }
+                    return;
+                }
+                LifecycleStep::ChooseSavePath { suggested_path, .. } => {
+                    let path = choose_project_save_path(&suggested_path);
+                    step = self.model.borrow_mut().complete_save_path(path.as_deref());
+                }
+                LifecycleStep::ProjectSaved { .. } => {
+                    self.sync();
+                    return;
+                }
+                LifecycleStep::ProjectClosed { .. } => {
+                    self.sync();
+                    if self.model.borrow().launcher_visible() {
+                        if let Some(main) = self.main.upgrade() {
+                            let _ = main.hide();
+                        }
+                        if let Some(launcher) = self.launcher.upgrade() {
+                            let _ = launcher.show();
+                        }
+                    }
+                    return;
+                }
+                LifecycleStep::QuitReady => {
+                    self.quit_confirmed.set(true);
+                    self.hide_all_windows();
+                    return;
+                }
+                LifecycleStep::SaveFailed { message, .. } => {
+                    self.sync();
+                    show_error_dialog(&message);
+                    return;
+                }
+            }
+        }
+    }
+
+    fn open_project_dialog(&self, from_launcher: bool) {
+        if self.model.borrow().lifecycle_pending() {
+            return;
+        }
+        let Some(path) = choose_project_to_open() else {
+            return;
+        };
+        let result = self.model.borrow_mut().open_project(&path);
+        match result {
+            Ok(_) => {
+                self.sync();
+                if let Some(main) = self.main.upgrade() {
+                    let _ = main.show();
+                }
+                if from_launcher && let Some(launcher) = self.launcher.upgrade() {
+                    let _ = launcher.hide();
+                }
+            }
+            Err(message) => show_error_dialog(&message),
+        }
+    }
+
+    fn sync(&self) {
+        if let (Some(main), Some(timeline)) = (self.main.upgrade(), self.timeline.upgrade()) {
+            sync_windows(&main, &timeline, &self.model.borrow());
+        }
+    }
+
+    fn hide_all_windows(&self) {
+        if let Some(window) = self.timeline.upgrade() {
+            let _ = window.hide();
+        }
+        if let Some(window) = self.object_settings.upgrade() {
+            let _ = window.hide();
+        }
+        if let Some(window) = self.launcher.upgrade() {
+            let _ = window.hide();
+        }
+        if let Some(window) = self.main.upgrade() {
+            let _ = window.hide();
+        }
+    }
+}
 
 fn main() {
     if let Err(error) = run() {
@@ -81,7 +191,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     ));
     install_render_probe(&main, stats.clone(), WindowKind::Main)?;
     install_render_probe(&timeline, stats.clone(), WindowKind::Timeline)?;
-    install_callbacks(&launcher, &main, &timeline, &object_settings, model.clone());
+    let lifecycle_ui = Rc::new(LifecycleUi {
+        launcher: launcher.as_weak(),
+        main: main.as_weak(),
+        timeline: timeline.as_weak(),
+        object_settings: object_settings.as_weak(),
+        model: model.clone(),
+        quit_confirmed: Cell::new(false),
+    });
+    install_callbacks(
+        &launcher,
+        &main,
+        &timeline,
+        &object_settings,
+        model.clone(),
+        lifecycle_ui,
+    );
 
     if validation_frames.is_some() {
         let project =
@@ -156,12 +281,16 @@ fn install_callbacks(
     timeline: &TimelineWindow,
     object_settings: &ObjectSettingsWindow,
     model: Rc<RefCell<ApplicationModel>>,
+    lifecycle_ui: Rc<LifecycleUi>,
 ) {
     let create_model = model.clone();
     let create_main = main.as_weak();
     let create_timeline = timeline.as_weak();
     let create_launcher = launcher.as_weak();
     launcher.on_create_project(move |width, height, fps, sample_rate| {
+        if create_model.borrow().lifecycle_pending() {
+            return;
+        }
         let defaults = ProjectDefaults {
             width: parse_i32(&width, 1920, 1, 8000),
             height: parse_i32(&height, 1080, 1, 8000),
@@ -179,11 +308,82 @@ fn install_callbacks(
         }
     });
 
+    let launcher_open_ui = lifecycle_ui.clone();
+    launcher.on_open_project(move || launcher_open_ui.open_project_dialog(true));
+
     let new_launcher = launcher.as_weak();
+    let new_model = model.clone();
     main.on_new_project(move || {
+        if new_model.borrow().lifecycle_pending() {
+            return;
+        }
         if let Some(window) = new_launcher.upgrade() {
             let _ = window.show();
         }
+    });
+
+    let main_open_ui = lifecycle_ui.clone();
+    main.on_open_project(move || main_open_ui.open_project_dialog(false));
+
+    let save_ui = lifecycle_ui.clone();
+    main.on_save_project(move || {
+        let step = save_ui.model.borrow_mut().request_save_current_project();
+        save_ui.handle(step);
+    });
+
+    let save_as_ui = lifecycle_ui.clone();
+    main.on_save_project_as(move || {
+        let step = save_as_ui
+            .model
+            .borrow_mut()
+            .request_save_current_project_as();
+        save_as_ui.handle(step);
+    });
+
+    let quit_ui = lifecycle_ui.clone();
+    main.on_quit_requested(move || {
+        let step = quit_ui.model.borrow_mut().request_quit(true);
+        quit_ui.handle(step);
+    });
+
+    let close_window_ui = lifecycle_ui.clone();
+    main.window().on_close_requested(move || {
+        if close_window_ui.quit_confirmed.get() {
+            return CloseRequestResponse::HideWindow;
+        }
+        let step = close_window_ui.model.borrow_mut().request_quit(true);
+        let quit_ready = matches!(step, LifecycleStep::QuitReady);
+        close_window_ui.handle(step);
+        if quit_ready {
+            CloseRequestResponse::HideWindow
+        } else {
+            CloseRequestResponse::KeepWindowShown
+        }
+    });
+
+    let confirm_save_ui = lifecycle_ui.clone();
+    main.on_confirm_save(move || {
+        let step = confirm_save_ui
+            .model
+            .borrow_mut()
+            .answer_save_confirmation(SaveDecision::Save);
+        confirm_save_ui.handle(step);
+    });
+    let confirm_discard_ui = lifecycle_ui.clone();
+    main.on_confirm_discard(move || {
+        let step = confirm_discard_ui
+            .model
+            .borrow_mut()
+            .answer_save_confirmation(SaveDecision::Discard);
+        confirm_discard_ui.handle(step);
+    });
+    let confirm_cancel_ui = lifecycle_ui.clone();
+    main.on_confirm_cancel(move || {
+        let step = confirm_cancel_ui
+            .model
+            .borrow_mut()
+            .answer_save_confirmation(SaveDecision::Cancel);
+        confirm_cancel_ui.handle(step);
     });
 
     let select_model = model.clone();
@@ -198,26 +398,13 @@ fn install_callbacks(
         }
     });
 
-    let close_model = model.clone();
-    let close_main = main.as_weak();
-    let close_timeline = timeline.as_weak();
-    let close_launcher = launcher.as_weak();
+    let close_ui = lifecycle_ui;
     main.on_close_project(move |index| {
-        if !close_model
+        let step = close_ui
+            .model
             .borrow_mut()
-            .close_clean_project(index.max(0) as usize)
-        {
-            return;
-        }
-        sync_weak_windows(&close_main, &close_timeline, &close_model);
-        if let Some(window) = close_main.upgrade()
-            && close_model.borrow().launcher_visible()
-        {
-            let _ = window.hide();
-            if let Some(launcher) = close_launcher.upgrade() {
-                let _ = launcher.show();
-            }
-        }
+            .request_close_project(index.max(0) as usize);
+        close_ui.handle(step);
     });
 
     let timeline_window = timeline.as_weak();
@@ -566,6 +753,43 @@ fn install_callbacks(
         }
         sync_transport_weak(&playback_main, &playback_timeline, &playback_model);
     });
+}
+
+fn choose_project_to_open() -> Option<PathBuf> {
+    project_file_dialog().pick_file()
+}
+
+fn choose_project_save_path(suggested_path: &Path) -> Option<PathBuf> {
+    let mut dialog = project_file_dialog();
+    if let Some(file_name) = suggested_path.file_name() {
+        dialog = dialog.set_file_name(file_name.to_string_lossy().into_owned());
+    }
+    if let Some(parent) = suggested_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        dialog = dialog.set_directory(parent);
+    }
+    let mut path = dialog.save_file()?;
+    if path.extension().is_none() {
+        path.set_extension("aviqtl");
+    }
+    Some(path)
+}
+
+fn project_file_dialog() -> rfd::FileDialog {
+    rfd::FileDialog::new()
+        .add_filter("AviQtl Plus Project files", &["aviqtl"])
+        .add_filter("JSON files", &["json"])
+}
+
+fn show_error_dialog(message: &str) {
+    let _ = rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("AviQtl Plus")
+        .set_description(message)
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
 }
 
 fn sync_weak_windows(

@@ -19,6 +19,10 @@ The Slint frontend is intentionally thin:
 - `aviqtl-slint` owns native windows, declarative layout, input hit regions, menus, accessibility,
   and translation between Slint models/callbacks and `aviqtl-app` commands.
 
+Open and Save As use `rfd` platform dialogs. On Linux its default backend is the XDG portal rather
+than GTK, preserving the migration goal of not reintroducing a large native GUI build dependency.
+Save/Discard/Cancel sequencing remains in `aviqtl-app`; the native chooser only returns a path.
+
 The egui work is therefore not discarded. Domain and application crates are reused directly, while
 the egui implementation and its tests remain a behavior reference for interaction details that are
 specific to a retained-mode Slint UI.

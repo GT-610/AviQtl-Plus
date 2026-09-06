@@ -20,8 +20,8 @@ still require the separately scheduled Computer Use suite.
 | Main menu | Preserve File, Edit, Settings, View, and Tools ordering and command ownership | foundation |
 | Project workspace | Active project tab owns timeline, selection, history, paths, recovery, and dirty state | foundation |
 | New project | Ctrl+N raises the independent non-modal launcher before creating a tab | partial |
-| Open project | Owned chooser and Qt replace-or-new-tab lifecycle | missing |
-| Save / Save As | In-place fallback, suffix, overwrite, cancellation, and deferred close behavior | missing |
+| Open project | Owned chooser and Qt replace-or-new-tab lifecycle | foundation |
+| Save / Save As | In-place fallback, suffix, overwrite, cancellation, and deferred close behavior | foundation |
 | Export | Settings, planning, progress, cancellation, cleanup, and close interception | missing |
 | Missing media | Conditional command, type-safe replacements, and project updates | foundation |
 | Quit | Visit dirty projects in tab order and complete Save/Discard/Cancel before exit | foundation |
@@ -62,6 +62,11 @@ still require the separately scheduled Computer Use suite.
 - Real project, scene, 128-layer, clip, selection, and transport models reach Slint.
 - Primary/additive selection, right-button box selection, multi-clip move, and multi-clip resize have
   framework-neutral tests and Slint MCP interaction checks.
+- Open replaces only a clean pathless placeholder; Save, Save As, tab close, and application quit
+  share a tested framework-neutral lifecycle state machine. Dirty projects are visited in tab order,
+  and save failure or chooser cancellation stops the deferred close action.
+- The Slint frontend uses native `rfd` open/save dialogs. Its default Linux backend is the Rust
+  XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
 - Clip, timeline, and layer context menus use Slint `ContextMenuArea`; native macOS menus are not
   included in Slint window snapshots and require the deferred native interaction suite.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a

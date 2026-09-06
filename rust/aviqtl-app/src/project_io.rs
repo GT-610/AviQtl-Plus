@@ -123,6 +123,14 @@ impl ProjectSession {
         Ok(())
     }
 
+    pub fn save_as(&mut self, path: &Path) -> Result<(), String> {
+        let bytes = self.snapshot_bytes()?;
+        write_atomic(path, &bytes).map_err(|error| format!("{}: {error}", path.display()))?;
+        self.path = Some(path.to_path_buf());
+        self.dirty = false;
+        Ok(())
+    }
+
     pub fn snapshot_bytes(&self) -> Result<Vec<u8>, String> {
         let json = self
             .state
@@ -243,6 +251,27 @@ mod tests {
         assert_eq!(reopened.document.scenes[0].name, "Edited in Rust");
         assert!(!reopened.dirty);
         fs::remove_file(path).expect("test project removes");
+    }
+
+    #[test]
+    fn failed_save_as_preserves_the_previous_path_and_dirty_state() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time follows the Unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "aviqtl-save-as-directory-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir(&path).expect("fixture directory creates");
+        let mut project = ProjectSession::blank();
+        project.dirty = true;
+
+        assert!(project.save_as(&path).is_err());
+        assert_eq!(project.path, None);
+        assert!(project.dirty);
+
+        fs::remove_dir(path).expect("fixture directory removes");
     }
 
     #[test]
