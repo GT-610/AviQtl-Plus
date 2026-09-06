@@ -2,12 +2,64 @@ use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_INVALID_JSON, STATUS_OK,
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
-use crate::policy::{PERMISSION_NAMES, permission_from_name};
+use crate::policy::{PERMISSION_NAMES, permission_for_api, permission_from_name};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum PluginPermission {
+    TransportControl,
+    ClipRead,
+    ClipModify,
+    EffectModify,
+    ProjectRead,
+    ProjectSave,
+    ProjectLoad,
+    SceneManage,
+    SettingsRead,
+    SettingsWrite,
+    ClipboardAccess,
+    HistoryControl,
+    LogOutput,
+}
+
+impl PluginPermission {
+    pub const ALL: [Self; 13] = [
+        Self::TransportControl,
+        Self::ClipRead,
+        Self::ClipModify,
+        Self::EffectModify,
+        Self::ProjectRead,
+        Self::ProjectSave,
+        Self::ProjectLoad,
+        Self::SceneManage,
+        Self::SettingsRead,
+        Self::SettingsWrite,
+        Self::ClipboardAccess,
+        Self::HistoryControl,
+        Self::LogOutput,
+    ];
+
+    pub fn name(self) -> &'static str {
+        PERMISSION_NAMES[self as usize]
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL
+            .get(usize::try_from(permission_from_name(name)).ok()?)
+            .copied()
+    }
+
+    pub fn for_api(api_name: &str) -> Option<Self> {
+        Self::ALL
+            .get(usize::try_from(permission_for_api(api_name)).ok()?)
+            .copied()
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct PermissionState {
     plugins: BTreeMap<String, u64>,
 }
@@ -15,6 +67,10 @@ struct PermissionState {
 impl PermissionState {
     fn from_json(input: &[u8]) -> Option<Self> {
         let root = serde_json::from_slice::<Value>(input).ok()?;
+        Self::from_value(&root)
+    }
+
+    fn from_value(root: &Value) -> Option<Self> {
         let object = root.as_object()?;
         let mut plugins = BTreeMap::new();
         for (plugin_id, permissions) in object {
@@ -90,6 +146,56 @@ impl PermissionState {
 
     fn mask(&self, plugin_id: &str) -> u64 {
         self.plugins.get(plugin_id).copied().unwrap_or(0)
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PluginPermissionState {
+    state: PermissionState,
+}
+
+impl PluginPermissionState {
+    pub fn from_value(value: &Value) -> Option<Self> {
+        PermissionState::from_value(value).map(|state| Self { state })
+    }
+
+    pub fn snapshot(&self) -> Map<String, Value> {
+        self.state
+            .to_json()
+            .as_object()
+            .cloned()
+            .expect("plugin permission snapshot must be an object")
+    }
+
+    pub fn has(&self, plugin_id: &str, permission: PluginPermission) -> bool {
+        self.state.has(plugin_id, permission as i32)
+    }
+
+    pub fn set(&mut self, plugin_id: &str, permission: PluginPermission, granted: bool) {
+        if granted {
+            let _ = self.state.grant(plugin_id, permission as i32);
+        } else {
+            let _ = self.state.revoke(plugin_id, permission as i32);
+        }
+    }
+
+    pub fn grant_all(&mut self, plugin_id: &str) {
+        self.state.grant_all(plugin_id);
+    }
+
+    pub fn revoke_all(&mut self, plugin_id: &str) {
+        self.state.revoke_all(plugin_id);
+    }
+
+    pub fn is_authorized(&self, plugin_id: &str) -> bool {
+        self.state.mask(plugin_id) != 0
+    }
+
+    pub fn granted(&self, plugin_id: &str) -> Vec<PluginPermission> {
+        PluginPermission::ALL
+            .into_iter()
+            .filter(|permission| self.has(plugin_id, *permission))
+            .collect()
     }
 }
 

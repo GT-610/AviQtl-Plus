@@ -4,6 +4,7 @@ use crate::abi::{
     AviQtlExportVideoRequest, STATUS_INVALID_ARGUMENT, STATUS_OK, STATUS_OVERLAPPING_BUFFERS,
     ranges_overlap, slice_is_valid, utf8,
 };
+use std::path::PathBuf;
 
 const CONFIGURATION_OK: u32 = 0;
 const CONFIGURATION_MISSING_OUTPUT_PATH: u32 = 1;
@@ -33,6 +34,268 @@ const DEFAULT_VIDEO_CODEC: &str = "libx264";
 const DEFAULT_AUDIO_CODEC: &str = "aac";
 const MIN_ENCODER_QUEUE_TASKS: u128 = 2;
 const MAX_ENCODER_QUEUE_TASKS: u128 = 16;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportConfigurationError {
+    MissingOutputPath,
+    InvalidOutputSize,
+    InvalidFps,
+    InvalidRange,
+    ProjectFpsMismatch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportImageFormat {
+    Png,
+    Jpeg,
+}
+
+impl ExportImageFormat {
+    pub fn from_qt_name(value: &str) -> Self {
+        if value == "JPEG" {
+            Self::Jpeg
+        } else {
+            Self::Png
+        }
+    }
+
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Jpeg => "jpg",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportCodecBackend {
+    Software,
+    Cuda,
+    Vaapi,
+    Qsv,
+    D3d11va,
+    Dxva2,
+    VideoToolbox,
+    Amf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportFixedGopMode {
+    None,
+    X264,
+    X265,
+    Nvenc,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VideoExportDefaults {
+    pub width: i32,
+    pub height: i32,
+    pub fps_num: i32,
+    pub fps_den: i32,
+    pub bitrate: i64,
+    pub crf: i32,
+    pub gop_size: i32,
+    pub audio_bitrate: i64,
+    pub start_frame: i32,
+    pub end_frame: i32,
+    pub video_codec: &'static str,
+    pub audio_codec: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VideoExportRequest {
+    pub width: i32,
+    pub height: i32,
+    pub fps_num: i32,
+    pub fps_den: i32,
+    pub start_frame: i32,
+    pub end_frame: i32,
+    pub timeline_duration: i32,
+    pub output_path: PathBuf,
+    pub project_fps: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VideoExportPlan {
+    pub start_frame: i32,
+    pub end_frame: i32,
+    pub total_frames: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImageSequenceExportRequest {
+    pub start_frame: i32,
+    pub end_frame: i32,
+    pub timeline_duration: i32,
+    pub configured_padding: i32,
+    pub output_directory: PathBuf,
+    pub format: ExportImageFormat,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ImageSequenceExportPlan {
+    pub start_frame: i32,
+    pub end_frame: i32,
+    pub total_frames: i32,
+    pub pad_digits: i32,
+    pub format: ExportImageFormat,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExportAudioFramePlan {
+    pub cumulative_samples: i64,
+    pub samples_for_frame: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExportProgressPlan {
+    pub progress: i32,
+    pub current_frame: i32,
+    pub total_frames: i32,
+    pub eta_seconds: i32,
+    pub should_emit: bool,
+}
+
+pub fn video_export_defaults() -> VideoExportDefaults {
+    let values = video_defaults();
+    VideoExportDefaults {
+        width: values.width,
+        height: values.height,
+        fps_num: values.fps_num,
+        fps_den: values.fps_den,
+        bitrate: values.bitrate,
+        crf: values.crf,
+        gop_size: values.gop_size,
+        audio_bitrate: values.audio_bitrate,
+        start_frame: values.start_frame,
+        end_frame: values.end_frame,
+        video_codec: DEFAULT_VIDEO_CODEC,
+        audio_codec: DEFAULT_AUDIO_CODEC,
+    }
+}
+
+pub fn plan_video_export(
+    request: &VideoExportRequest,
+) -> Result<VideoExportPlan, ExportConfigurationError> {
+    let plan = plan_video(AviQtlExportVideoRequest {
+        width: request.width,
+        height: request.height,
+        fps_num: request.fps_num,
+        fps_den: request.fps_den,
+        start_frame: request.start_frame,
+        end_frame: request.end_frame,
+        timeline_duration: request.timeline_duration,
+        output_path_present: u32::from(!request.output_path.as_os_str().is_empty()),
+        project_fps: request.project_fps,
+    });
+    configuration_result(plan.error)?;
+    Ok(VideoExportPlan {
+        start_frame: plan.start_frame,
+        end_frame: plan.end_frame,
+        total_frames: plan.total_frames,
+    })
+}
+
+pub fn plan_image_sequence_export(
+    request: &ImageSequenceExportRequest,
+) -> Result<ImageSequenceExportPlan, ExportConfigurationError> {
+    let format = match request.format {
+        ExportImageFormat::Png => "PNG",
+        ExportImageFormat::Jpeg => "JPEG",
+    };
+    let plan = plan_image_sequence(
+        AviQtlExportImageSequenceRequest {
+            start_frame: request.start_frame,
+            end_frame: request.end_frame,
+            timeline_duration: request.timeline_duration,
+            configured_padding: request.configured_padding,
+            output_path_present: u32::from(!request.output_directory.as_os_str().is_empty()),
+        },
+        format,
+    );
+    configuration_result(plan.error)?;
+    Ok(ImageSequenceExportPlan {
+        start_frame: plan.start_frame,
+        end_frame: plan.end_frame,
+        total_frames: plan.total_frames,
+        pad_digits: plan.pad_digits,
+        format: if plan.image_format == IMAGE_FORMAT_JPEG {
+            ExportImageFormat::Jpeg
+        } else {
+            ExportImageFormat::Png
+        },
+    })
+}
+
+pub fn plan_export_audio_frame(
+    frame_index: i32,
+    sample_rate: i32,
+    fps_num: i32,
+    fps_den: i32,
+) -> Option<ExportAudioFramePlan> {
+    plan_audio_frame(frame_index, sample_rate, fps_num, fps_den).map(|plan| ExportAudioFramePlan {
+        cumulative_samples: plan.cumulative_samples,
+        samples_for_frame: plan.samples_for_frame,
+    })
+}
+
+pub fn plan_export_progress(
+    done: i32,
+    total_frames: i32,
+    interval: i32,
+    elapsed_ms: i64,
+) -> Option<ExportProgressPlan> {
+    plan_progress(done, total_frames, interval, elapsed_ms).map(|plan| ExportProgressPlan {
+        progress: plan.progress,
+        current_frame: plan.current_frame,
+        total_frames: plan.total_frames,
+        eta_seconds: plan.eta_seconds,
+        should_emit: plan.should_emit != 0,
+    })
+}
+
+pub fn export_codec_backend(codec_name: &str) -> ExportCodecBackend {
+    match codec_backend(codec_name) {
+        CODEC_BACKEND_CUDA => ExportCodecBackend::Cuda,
+        CODEC_BACKEND_VAAPI => ExportCodecBackend::Vaapi,
+        CODEC_BACKEND_QSV => ExportCodecBackend::Qsv,
+        CODEC_BACKEND_D3D11VA => ExportCodecBackend::D3d11va,
+        CODEC_BACKEND_DXVA2 => ExportCodecBackend::Dxva2,
+        CODEC_BACKEND_VIDEOTOOLBOX => ExportCodecBackend::VideoToolbox,
+        CODEC_BACKEND_AMF => ExportCodecBackend::Amf,
+        _ => ExportCodecBackend::Software,
+    }
+}
+
+pub fn export_codec_fallback(codec_name: &str) -> Option<&'static str> {
+    codec_fallback(codec_name)
+}
+
+pub fn export_fixed_gop_mode(codec_name: &str) -> ExportFixedGopMode {
+    match fixed_gop_mode(codec_name) {
+        FIXED_GOP_X264 => ExportFixedGopMode::X264,
+        FIXED_GOP_X265 => ExportFixedGopMode::X265,
+        FIXED_GOP_NVENC => ExportFixedGopMode::Nvenc,
+        _ => ExportFixedGopMode::None,
+    }
+}
+
+pub fn export_encoder_queue_size(width: i32, height: i32, budget_mb: i32) -> usize {
+    encoder_queue_size(width, height, budget_mb)
+}
+
+fn configuration_result(error: u32) -> Result<(), ExportConfigurationError> {
+    match error {
+        CONFIGURATION_OK => Ok(()),
+        CONFIGURATION_MISSING_OUTPUT_PATH => Err(ExportConfigurationError::MissingOutputPath),
+        CONFIGURATION_INVALID_OUTPUT_SIZE => Err(ExportConfigurationError::InvalidOutputSize),
+        CONFIGURATION_INVALID_FPS => Err(ExportConfigurationError::InvalidFps),
+        CONFIGURATION_INVALID_RANGE => Err(ExportConfigurationError::InvalidRange),
+        CONFIGURATION_PROJECT_FPS_MISMATCH => Err(ExportConfigurationError::ProjectFpsMismatch),
+        _ => Err(ExportConfigurationError::InvalidFps),
+    }
+}
 
 fn video_defaults() -> AviQtlExportVideoDefaults {
     AviQtlExportVideoDefaults {
@@ -428,6 +691,10 @@ pub extern "C" fn aviqtl_export_encoder_queue_size(
     height: i32,
     budget_mb: i32,
 ) -> usize {
+    encoder_queue_size(width, height, budget_mb)
+}
+
+fn encoder_queue_size(width: i32, height: i32, budget_mb: i32) -> usize {
     let frame_bytes = (width.max(1) as u128) * (height.max(1) as u128) * 4;
     let budget_bytes = (budget_mb.max(16) as u128) * 1024 * 1024;
     let tasks =

@@ -61,7 +61,7 @@ fn valid_version(version: &str) -> bool {
     valid && parts.next().is_none() && version.split('.').count() == 3
 }
 
-fn normalize_metadata(input: &[u8]) -> Option<Map<String, Value>> {
+pub(crate) fn normalize_metadata(input: &[u8]) -> Option<Map<String, Value>> {
     let mut metadata = serde_json::from_slice::<Value>(input)
         .ok()?
         .as_object()

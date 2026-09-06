@@ -1,0 +1,18 @@
+[package]
+name = "aviqtl-slint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[dependencies]
+aviqtl-app = { path = "../aviqtl-app" }
+aviqtl-media = { path = "../aviqtl-media" }
+aviqtl-render = { path = "../aviqtl-render" }
+pollster = "0.4"
+serde_json = "1.0"
+slint = { version = "1.17.1", default-features = false, features = ["accessibility", "backend-winit", "compat-1-2", "renderer-femtovg-wgpu", "unstable-wgpu-29"] }
+
+[build-dependencies]
+slint-build = "1.17.1"

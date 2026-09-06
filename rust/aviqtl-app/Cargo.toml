@@ -1,0 +1,16 @@
+[package]
+name = "aviqtl-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+aviqtl-media = { path = "../aviqtl-media" }
+aviqtl-rust-core = { path = "../aviqtl-core" }
+crc32fast = "1.5"
+flate2 = "1.1"
+serde_json = "1.0"
+
+[lints.rust]
+unsafe_code = "forbid"

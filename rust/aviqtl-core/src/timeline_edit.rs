@@ -48,7 +48,7 @@ fn has_internal_overlap(clips: &[AviQtlTimelineClipGeometry]) -> bool {
     })
 }
 
-fn find_vacant_frame(
+pub(crate) fn find_vacant_frame(
     clips: &[AviQtlTimelineClipGeometry],
     excluded_ids: &[i32],
     layer: i32,
@@ -143,7 +143,7 @@ fn plan_batch_move(
     Ok(planned)
 }
 
-fn plan_delta_move(
+pub(crate) fn plan_delta_move(
     clips: &[AviQtlTimelineClipGeometry],
     moving_ids: &[i32],
     locked_layers: &[i32],
@@ -201,7 +201,7 @@ fn plan_delta_move(
     plan_batch_move(clips, &moves, locked_layers)
 }
 
-fn plan_resize(
+pub(crate) fn plan_resize(
     clips: &[AviQtlTimelineClipGeometry],
     delta_start_frame: i32,
     delta_duration_frames: i32,
@@ -225,7 +225,7 @@ fn plan_resize(
     planned
 }
 
-fn plan_insert_layers(
+pub(crate) fn plan_insert_layers(
     clips: &[AviQtlTimelineClipGeometry],
     target_layer: i32,
     count: i32,
@@ -258,7 +258,7 @@ fn plan_insert_layers(
     Ok(planned)
 }
 
-fn plan_shift_layers(
+pub(crate) fn plan_shift_layers(
     clips: &[AviQtlTimelineClipGeometry],
     start_layer: i32,
     end_layer: i32,
@@ -289,7 +289,7 @@ fn plan_shift_layers(
     Ok(planned)
 }
 
-fn clipboard_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
+pub(crate) fn clipboard_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
     let Some(minimum_start) = clips.iter().map(|clip| i64::from(clip.start_frame)).min() else {
         return 0;
     };
@@ -362,7 +362,7 @@ fn find_vacant_clipboard_frame(
     }
 }
 
-fn plan_clipboard_placement(
+pub(crate) fn plan_clipboard_placement(
     existing: &[AviQtlTimelineClipGeometry],
     clipboard: &[AviQtlTimelineClipGeometry],
     requested_frame: i32,

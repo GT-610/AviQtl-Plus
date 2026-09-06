@@ -241,7 +241,7 @@ fn merge_catalog_package(
     catalog
 }
 
-fn merge_catalog_packages(
+pub(crate) fn merge_catalog_packages(
     mut catalog: Vec<Map<String, Value>>,
     packages: &[Map<String, Value>],
     repository: &Map<String, Value>,
@@ -264,7 +264,7 @@ fn merge_catalog_packages(
     catalog
 }
 
-fn has_updates(catalog: &[Map<String, Value>]) -> bool {
+pub(crate) fn has_updates(catalog: &[Map<String, Value>]) -> bool {
     catalog.iter().any(|package| {
         let installed = text(package.get("installed_version"));
         let latest = text(package.get("latest_version"));
@@ -272,7 +272,7 @@ fn has_updates(catalog: &[Map<String, Value>]) -> bool {
     })
 }
 
-fn upgrade_ids(catalog: &[Map<String, Value>]) -> Vec<Value> {
+pub(crate) fn upgrade_ids(catalog: &[Map<String, Value>]) -> Vec<Value> {
     catalog
         .iter()
         .filter(|package| {
@@ -284,7 +284,7 @@ fn upgrade_ids(catalog: &[Map<String, Value>]) -> Vec<Value> {
         .collect()
 }
 
-fn filter_catalog(catalog: &[Map<String, Value>], filter: &str) -> Vec<Value> {
+pub(crate) fn filter_catalog(catalog: &[Map<String, Value>], filter: &str) -> Vec<Value> {
     catalog
         .iter()
         .filter(|package| {
@@ -299,7 +299,7 @@ fn filter_catalog(catalog: &[Map<String, Value>], filter: &str) -> Vec<Value> {
         .collect()
 }
 
-fn find_package(
+pub(crate) fn find_package(
     catalog: &[Map<String, Value>],
     package_id: &str,
     source_repository: &str,
@@ -320,7 +320,7 @@ fn find_package(
     fallback.map(Value::Object).unwrap_or(Value::Null)
 }
 
-fn set_installed(
+pub(crate) fn set_installed(
     catalog: &mut [Map<String, Value>],
     package_id: &str,
     version: Option<&str>,
@@ -346,7 +346,7 @@ fn set_installed(
     false
 }
 
-fn mutate_repositories(
+pub(crate) fn mutate_repositories(
     mut repositories: Vec<Map<String, Value>>,
     operation: &str,
     url: &str,
@@ -406,13 +406,13 @@ fn object(value: Value) -> Option<Map<String, Value>> {
     }
 }
 
-fn enabled_repositories(mut repositories: Vec<Map<String, Value>>) -> Vec<Value> {
+pub(crate) fn enabled_repositories(mut repositories: Vec<Map<String, Value>>) -> Vec<Value> {
     repositories.retain(|repository| boolean(repository.get("enabled"), true));
     repositories.sort_by_key(|repository| integer(repository.get("priority"), 10));
     repositories.into_iter().map(Value::Object).collect()
 }
 
-fn normalize_metadata(detail: &Map<String, Value>) -> Option<Map<String, Value>> {
+pub(crate) fn normalize_metadata(detail: &Map<String, Value>) -> Option<Map<String, Value>> {
     let package_type = text(detail.get("type"));
     if !supported_package_type(&package_type) {
         return None;
@@ -426,7 +426,7 @@ fn normalize_metadata(detail: &Map<String, Value>) -> Option<Map<String, Value>>
     Some(detail.clone())
 }
 
-fn select_install(
+pub(crate) fn select_install(
     detail: &Map<String, Value>,
     requested_version: &str,
     app_version: &str,

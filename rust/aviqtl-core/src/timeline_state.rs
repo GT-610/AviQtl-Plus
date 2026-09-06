@@ -10,7 +10,7 @@ use crate::policy::{
 };
 use crate::project::{
     AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, ProjectDocument, ProjectError,
-    SceneDocument, parse_project_document,
+    ProjectSettings, SceneDocument, parse_project_document,
 };
 use crate::timeline_domain::allocate_id;
 use serde::{Deserialize, Serialize};
@@ -22,14 +22,14 @@ type OptionalTracks = Option<Map<String, Value>>;
 type SplitTracks = (OptionalTracks, OptionalTracks);
 
 #[derive(Debug, Clone)]
-struct TimelineState {
+pub(crate) struct TimelineState {
     document: ProjectDocument,
     next_clip_id: i32,
     next_scene_id: i32,
 }
 
 impl TimelineState {
-    fn new(
+    pub(crate) fn new(
         document: ProjectDocument,
         next_clip_hint: i32,
         next_scene_hint: i32,
@@ -58,7 +58,11 @@ impl TimelineState {
         })
     }
 
-    fn reserve_ids(&mut self, kind: EntityKind, count: usize) -> Result<Vec<i32>, StateError> {
+    pub(crate) fn reserve_ids(
+        &mut self,
+        kind: EntityKind,
+        count: usize,
+    ) -> Result<Vec<i32>, StateError> {
         let (mut existing, mut next_hint) = match kind {
             EntityKind::Clip => (
                 self.document
@@ -94,8 +98,22 @@ impl TimelineState {
         Ok(allocated)
     }
 
-    fn plan(&self, request: EditRequest) -> Result<Transaction, StateError> {
+    pub(crate) fn plan(&self, request: EditRequest) -> Result<Transaction, StateError> {
         match request {
+            EditRequest::UpdateProjectSettings { mut settings } => {
+                let before = self.document.settings.clone();
+                settings.extra = before.extra.clone();
+                Ok(replacement_transaction(
+                    PatchOperation::ReplaceProjectSettings {
+                        before: before.clone(),
+                        after: settings.clone(),
+                    },
+                    PatchOperation::ReplaceProjectSettings {
+                        before: settings,
+                        after: before,
+                    },
+                ))
+            }
             EditRequest::InsertScene { index, scene } => {
                 if self.document.scenes.iter().any(|item| item.id == scene.id) {
                     return Err(StateError::Conflict);
@@ -772,7 +790,7 @@ impl TimelineState {
         }
     }
 
-    fn plan_batch(&self, requests: Vec<EditRequest>) -> Result<Transaction, StateError> {
+    pub(crate) fn plan_batch(&self, requests: Vec<EditRequest>) -> Result<Transaction, StateError> {
         if requests.is_empty() {
             return Err(StateError::InvalidArgument);
         }
@@ -784,6 +802,22 @@ impl TimelineState {
             transactions.push(transaction);
         }
         combine_transactions(transactions)
+    }
+
+    pub(crate) fn plan_value(&self, request: Value) -> Result<Transaction, StateError> {
+        let request = serde_json::from_value(request).map_err(|_| StateError::InvalidJson)?;
+        self.plan(request)
+    }
+
+    pub(crate) fn plan_batch_values(
+        &self,
+        requests: Vec<Value>,
+    ) -> Result<Transaction, StateError> {
+        let requests = requests
+            .into_iter()
+            .map(|request| serde_json::from_value(request).map_err(|_| StateError::InvalidJson))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.plan_batch(requests)
     }
 
     fn plan_split(
@@ -857,6 +891,27 @@ impl TimelineState {
         self.document = candidate;
         Ok(())
     }
+
+    pub(crate) fn snapshot_document(&self) -> ProjectDocument {
+        self.document.clone()
+    }
+
+    pub(crate) fn snapshot_json(&self) -> Result<Value, StateError> {
+        serde_json::to_value(&self.document).map_err(|_| StateError::InvalidJson)
+    }
+
+    pub(crate) fn apply_transaction(
+        &mut self,
+        transaction: &Transaction,
+        forward: bool,
+    ) -> Result<(), StateError> {
+        let patch = if forward {
+            &transaction.forward
+        } else {
+            &transaction.inverse
+        };
+        self.apply_patch(patch)
+    }
 }
 
 pub struct AviQtlTimelineState {
@@ -864,13 +919,13 @@ pub struct AviQtlTimelineState {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum EntityKind {
+pub(crate) enum EntityKind {
     Clip,
     Scene,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum StateError {
+pub(crate) enum StateError {
     InvalidJson,
     UnsupportedVersion,
     InvalidArgument,
@@ -899,7 +954,10 @@ impl StateError {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case")]
-enum EditRequest {
+pub enum EditRequest {
+    UpdateProjectSettings {
+        settings: ProjectSettings,
+    },
     InsertScene {
         #[serde(default)]
         index: Option<usize>,
@@ -1048,27 +1106,27 @@ enum EditRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct ClipReplacement {
-    clip_id: i32,
-    clip: ClipDocument,
+pub struct ClipReplacement {
+    pub clip_id: i32,
+    pub clip: ClipDocument,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub struct ClipGeometryUpdate {
+    pub clip_id: i32,
+    pub layer: i32,
+    pub start: i32,
+    pub duration: i32,
 }
 
 #[derive(Debug, Deserialize)]
-struct ClipGeometryUpdate {
-    clip_id: i32,
-    layer: i32,
-    start: i32,
-    duration: i32,
-}
-
-#[derive(Debug, Deserialize)]
-struct EffectInsertion {
-    index: usize,
-    effect: EffectDocument,
+pub struct EffectInsertion {
+    pub index: usize,
+    pub effect: EffectDocument,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Transaction {
+pub(crate) struct Transaction {
     forward: Patch,
     inverse: Patch,
 }
@@ -1081,6 +1139,10 @@ struct Patch {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case")]
 enum PatchOperation {
+    ReplaceProjectSettings {
+        before: ProjectSettings,
+        after: ProjectSettings,
+    },
     InsertScene {
         index: usize,
         scene: SceneDocument,
@@ -1518,6 +1580,12 @@ fn apply_operation(
     operation: &PatchOperation,
 ) -> Result<(), StateError> {
     match operation {
+        PatchOperation::ReplaceProjectSettings { before, after } => {
+            if &document.settings != before {
+                return Err(StateError::Conflict);
+            }
+            document.settings = after.clone();
+        }
         PatchOperation::InsertScene { index, scene } => {
             if *index > document.scenes.len()
                 || document.scenes.iter().any(|item| item.id == scene.id)
@@ -1583,6 +1651,16 @@ fn apply_operation(
 }
 
 fn validate_document(document: &ProjectDocument) -> Result<(), StateError> {
+    let settings = &document.settings;
+    if !(1..=32_768).contains(&settings.width)
+        || !(1..=32_768).contains(&settings.height)
+        || !settings.fps.is_finite()
+        || !(0.0..=1_000.0).contains(&settings.fps)
+        || settings.fps == 0.0
+        || !(1..=192_000).contains(&settings.sample_rate)
+    {
+        return Err(StateError::InvalidArgument);
+    }
     let mut scene_ids = BTreeSet::new();
     if document
         .scenes
@@ -1945,12 +2023,7 @@ pub unsafe extern "C" fn aviqtl_timeline_state_apply_transaction_json(
     let Ok(mut guard) = handle.state.lock() else {
         return STATUS_INVALID_ARGUMENT;
     };
-    let patch = if forward != 0 {
-        &transaction.forward
-    } else {
-        &transaction.inverse
-    };
-    match guard.apply_patch(patch) {
+    match guard.apply_transaction(&transaction, forward != 0) {
         Ok(()) => STATUS_OK,
         Err(error) => error.status(),
     }
@@ -2261,6 +2334,46 @@ mod tests {
             }],
         };
         assert_eq!(state.apply_patch(&patch), Err(StateError::InvalidArgument));
+        assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn project_settings_updates_preserve_extensions_and_are_reversible() {
+        let mut before = document();
+        before
+            .settings
+            .extra
+            .insert("projectExtension".to_owned(), json!({"token": 1}));
+        let mut state = TimelineState::new(before.clone(), 2, 1).expect("valid state");
+        let transaction = state
+            .plan(EditRequest::UpdateProjectSettings {
+                settings: ProjectSettings {
+                    width: 1_280,
+                    height: 720,
+                    fps: 30.0,
+                    sample_rate: 44_100,
+                    extra: [("projectExtension".to_owned(), json!("caller value"))]
+                        .into_iter()
+                        .collect(),
+                },
+            })
+            .expect("project settings update plans");
+
+        state
+            .apply_patch(&transaction.forward)
+            .expect("project settings update applies");
+        assert_eq!(state.document.settings.width, 1_280);
+        assert_eq!(state.document.settings.height, 720);
+        assert_eq!(state.document.settings.fps, 30.0);
+        assert_eq!(state.document.settings.sample_rate, 44_100);
+        assert_eq!(
+            state.document.settings.extra["projectExtension"],
+            json!({"token": 1})
+        );
+
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("project settings update reverses");
         assert_eq!(state.document, before);
     }
 

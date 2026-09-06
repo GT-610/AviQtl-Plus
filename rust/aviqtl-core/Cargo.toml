@@ -1,14 +1,15 @@
 [package]
 name = "aviqtl-rust-core"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.97.1"
-publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = ["rlib", "staticlib"]
 
 [dependencies]
+luna-core = "=3.0.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 semver = "1.0"

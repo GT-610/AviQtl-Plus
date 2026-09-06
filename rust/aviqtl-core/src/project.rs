@@ -34,103 +34,103 @@ pub(crate) enum ProjectError {
     UnsupportedVersion,
 }
 
-pub(crate) type ExtraFields = BTreeMap<String, Value>;
+pub type ExtraFields = BTreeMap<String, Value>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct ProjectDocument {
-    pub(crate) version: i32,
-    pub(crate) settings: ProjectSettings,
-    pub(crate) scenes: Vec<SceneDocument>,
-    pub(crate) clips: Vec<ClipDocument>,
+pub struct ProjectDocument {
+    pub version: i32,
+    pub settings: ProjectSettings,
+    pub scenes: Vec<SceneDocument>,
+    pub clips: Vec<ClipDocument>,
     #[serde(flatten)]
-    pub(crate) extra: ExtraFields,
+    pub extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct ProjectSettings {
-    pub(crate) width: i32,
-    pub(crate) height: i32,
-    pub(crate) fps: f64,
+pub struct ProjectSettings {
+    pub width: i32,
+    pub height: i32,
+    pub fps: f64,
     #[serde(rename = "sampleRate")]
-    pub(crate) sample_rate: i32,
+    pub sample_rate: i32,
     #[serde(flatten)]
-    pub(crate) extra: ExtraFields,
+    pub extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct SceneDocument {
-    pub(crate) id: i32,
-    pub(crate) name: String,
-    pub(crate) width: i32,
-    pub(crate) height: i32,
-    pub(crate) fps: f64,
-    pub(crate) start: i32,
-    pub(crate) duration: i32,
+pub struct SceneDocument {
+    pub id: i32,
+    pub name: String,
+    pub width: i32,
+    pub height: i32,
+    pub fps: f64,
+    pub start: i32,
+    pub duration: i32,
     #[serde(rename = "nestedDuration")]
-    pub(crate) nested_duration: i32,
+    pub nested_duration: i32,
     #[serde(rename = "lockedLayers")]
-    pub(crate) locked_layers: Vec<i32>,
+    pub locked_layers: Vec<i32>,
     #[serde(rename = "hiddenLayers")]
-    pub(crate) hidden_layers: Vec<i32>,
+    pub hidden_layers: Vec<i32>,
     #[serde(rename = "gridMode")]
-    pub(crate) grid_mode: String,
+    pub grid_mode: String,
     #[serde(rename = "gridBpm")]
-    pub(crate) grid_bpm: f64,
+    pub grid_bpm: f64,
     #[serde(rename = "gridOffset")]
-    pub(crate) grid_offset: f64,
+    pub grid_offset: f64,
     #[serde(rename = "gridInterval")]
-    pub(crate) grid_interval: i32,
+    pub grid_interval: i32,
     #[serde(rename = "gridSubdivision")]
-    pub(crate) grid_subdivision: i32,
+    pub grid_subdivision: i32,
     #[serde(rename = "enableSnap")]
-    pub(crate) enable_snap: bool,
+    pub enable_snap: bool,
     #[serde(rename = "magneticSnapRange")]
-    pub(crate) magnetic_snap_range: i32,
+    pub magnetic_snap_range: i32,
     #[serde(flatten)]
-    pub(crate) extra: ExtraFields,
+    pub extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct ClipDocument {
-    pub(crate) id: i32,
+pub struct ClipDocument {
+    pub id: i32,
     #[serde(rename = "sceneId")]
-    pub(crate) scene_id: i32,
+    pub scene_id: i32,
     #[serde(rename = "type")]
-    pub(crate) clip_type: String,
-    pub(crate) start: i32,
-    pub(crate) duration: i32,
-    pub(crate) layer: i32,
+    pub clip_type: String,
+    pub start: i32,
+    pub duration: i32,
+    pub layer: i32,
     #[serde(rename = "clipByUpperObject")]
-    pub(crate) clip_by_upper_object: bool,
-    pub(crate) params: Map<String, Value>,
+    pub clip_by_upper_object: bool,
+    pub params: Map<String, Value>,
     #[serde(rename = "audioPlugins")]
-    pub(crate) audio_plugins: Vec<AudioPluginDocument>,
-    pub(crate) effects: Vec<EffectDocument>,
+    pub audio_plugins: Vec<AudioPluginDocument>,
+    pub effects: Vec<EffectDocument>,
     #[serde(flatten)]
-    pub(crate) extra: ExtraFields,
+    pub extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct AudioPluginDocument {
-    pub(crate) id: String,
-    pub(crate) enabled: bool,
-    pub(crate) params: Map<String, Value>,
+pub struct AudioPluginDocument {
+    pub id: String,
+    pub enabled: bool,
+    pub params: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) keyframes: Option<Map<String, Value>>,
+    pub keyframes: Option<Map<String, Value>>,
     #[serde(flatten)]
-    pub(crate) extra: ExtraFields,
+    pub extra: ExtraFields,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct EffectDocument {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) enabled: bool,
-    pub(crate) params: Map<String, Value>,
+pub struct EffectDocument {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub params: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) keyframes: Option<Map<String, Value>>,
+    pub keyframes: Option<Map<String, Value>>,
     #[serde(flatten)]
-    pub(crate) extra: ExtraFields,
+    pub extra: ExtraFields,
 }
 
 fn integer(value: Option<&Value>, fallback: i32) -> i32 {

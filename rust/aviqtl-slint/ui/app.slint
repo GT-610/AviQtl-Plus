@@ -1,0 +1,779 @@
+import { Button, GroupBox, LineEdit, ScrollView, Slider } from "std-widgets.slint";
+
+export struct ProjectTabData {
+    name: string,
+    dirty: bool,
+}
+
+export struct SceneTabData {
+    id: int,
+    name: string,
+    selected: bool,
+    root: bool,
+}
+
+export struct TimelineClipData {
+    id: int,
+    label: string,
+    start: int,
+    duration: int,
+    layer: int,
+    selected: bool,
+    primary: bool,
+}
+
+export struct LayerData {
+    index: int,
+    visible: bool,
+    locked: bool,
+    selected: bool,
+}
+
+component SceneTab inherits Rectangle {
+    in property <SceneTabData> scene;
+    callback activate(int);
+    callback close(int);
+    callback settings(int);
+    preferred-width: 140px;
+    min-width: 100px;
+    height: 28px;
+    background: root.scene.selected ? #4772b3 : scene-touch.has-hover ? #3a3f49 : #292d35;
+    border-width: root.scene.selected ? 1px : 0px;
+    border-color: #7aa2df;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 4px;
+        spacing: 4px;
+        Text {
+            text: root.scene.name;
+            color: #f4f5f7;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        if !root.scene.root : Button {
+            text: "×";
+            width: 24px;
+            accessible-label: "シーンを閉じる";
+            clicked => { root.close(root.scene.id); }
+        }
+    }
+    scene-touch := TouchArea {
+        width: root.scene.root ? parent.width : parent.width - 28px;
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.activate(root.scene.id);
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                root.settings(root.scene.id);
+            }
+        }
+    }
+}
+
+component LayerHeaderItem inherits Rectangle {
+    in property <LayerData> layer;
+    callback activate(int);
+    callback command(string, int);
+    height: 30px;
+    background: root.layer.selected ? #3d526f : header-touch.has-hover ? #353a44 : #2a2e36;
+    border-width: 0px;
+
+    HorizontalLayout {
+        padding-left: 5px;
+        padding-right: 5px;
+        spacing: 4px;
+        Text {
+            text: root.layer.visible ? "●" : "○";
+            color: root.layer.visible ? #8fcf94 : #8b8f98;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.layer.index + 1;
+            color: #f1f2f4;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: root.layer.locked ? "L" : "";
+            color: #e2ba68;
+            vertical-alignment: center;
+        }
+    }
+    layer-menu := ContextMenuArea {
+        Menu {
+            MenuItem { title: "上にレイヤーを挿入"; activated => { root.command("insert-above", root.layer.index); } }
+            MenuItem { title: "下にレイヤーを挿入"; activated => { root.command("insert-below", root.layer.index); } }
+            MenuSeparator { }
+            MenuItem { title: root.layer.locked ? "レイヤーのロックを解除" : "レイヤーをロック"; activated => { root.command("toggle-lock", root.layer.index); } }
+            MenuItem { title: root.layer.visible ? "レイヤーを非表示" : "レイヤーを表示"; activated => { root.command("toggle-visible", root.layer.index); } }
+            MenuSeparator { }
+            MenuItem { title: "すべてのレイヤーを表示"; activated => { root.command("show-all", root.layer.index); } }
+            MenuItem { title: "すべてのレイヤーを非表示"; activated => { root.command("hide-all", root.layer.index); } }
+        }
+        header-touch := TouchArea {
+            mouse-cursor: pointer;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.activate(root.layer.index);
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                    layer-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+            }
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        width: 100%;
+        height: 1px;
+        background: #454a55;
+    }
+}
+
+component TimelineClipItem inherits Rectangle {
+    in property <TimelineClipData> clip-data;
+    callback activate(int, bool);
+    callback prepare-drag(int, bool);
+    callback context-activate(int);
+    callback open-settings(int);
+    callback command(string, int);
+    callback drag-finished(string, int, float, float, bool);
+    private property <string> active-drag: "";
+    private property <length> drag-x: 0px;
+    private property <length> drag-y: 0px;
+    private property <bool> threshold-crossed: false;
+    private property <bool> drag-additive: false;
+    min-width: 8px;
+    height: 24px;
+    background: transparent;
+
+    clip-visual := Rectangle {
+        x: root.active-drag == "move" ? root.drag-x : root.active-drag == "trim-start" ? root.drag-x : 0px;
+        y: root.active-drag == "move" ? root.drag-y : 0px;
+        width: root.active-drag == "trim-start"
+            ? max(root.width - root.drag-x, 8px)
+            : root.active-drag == "trim-end"
+                ? max(root.width + root.drag-x, 8px)
+                : root.width;
+        height: root.height;
+        border-radius: 2px;
+        background: root.clip-data.primary ? #4f86d5 : root.clip-data.selected ? #668dca : clip-touch.has-hover ? #7197cf : #6081b1;
+        border-width: root.clip-data.primary ? 2px : root.clip-data.selected ? 1px : 0px;
+        border-color: #b9d4ff;
+        HorizontalLayout {
+            padding-left: 7px;
+            padding-right: 7px;
+            Text {
+                text: root.clip-data.label;
+                color: white;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+        }
+    }
+    clip-menu := ContextMenuArea {
+        Menu {
+            MenuItem { title: "削除"; activated => { root.command("delete", root.clip-data.id); } }
+            MenuItem { title: "分割"; activated => { root.command("split", root.clip-data.id); } }
+            MenuItem { title: "複製"; activated => { root.command("duplicate", root.clip-data.id); } }
+            MenuSeparator { }
+            MenuItem { title: "切り取り"; activated => { root.command("cut", root.clip-data.id); } }
+            MenuItem { title: "コピー"; activated => { root.command("copy", root.clip-data.id); } }
+            MenuSeparator { }
+            MenuItem { title: "上のオブジェクトでクリッピング"; activated => { root.command("clipping", root.clip-data.id); } }
+            MenuItem { title: "フィルタ効果を追加"; activated => { root.command("add-effect", root.clip-data.id); } }
+        }
+        clip-touch := TouchArea {
+            x: min(7px, parent.width / 2);
+            width: max(parent.width - 14px, 1px);
+            mouse-cursor: move;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.active-drag = "move";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = false;
+                    root.drag-additive = event.modifiers.control || event.modifiers.meta;
+                }
+                if event.kind == PointerEventKind.move && root.active-drag == "move" {
+                    root.drag-x = self.mouse-x - self.pressed-x;
+                    root.drag-y = self.mouse-y - self.pressed-y;
+                    if !root.threshold-crossed && (abs(root.drag-x) >= 3px || abs(root.drag-y) >= 3px) {
+                        root.threshold-crossed = true;
+                        root.prepare-drag(root.clip-data.id, root.drag-additive);
+                    }
+                }
+                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "move" {
+                    if root.threshold-crossed {
+                        root.drag-finished("move", root.clip-data.id, root.drag-x / 1px, root.drag-y / 1px, event.modifiers.shift);
+                    } else {
+                        root.activate(root.clip-data.id, root.drag-additive);
+                    }
+                    root.active-drag = "";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = false;
+                    root.drag-additive = false;
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                    root.context-activate(root.clip-data.id);
+                    clip-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+                if event.kind == PointerEventKind.cancel {
+                    root.active-drag = "";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = false;
+                    root.drag-additive = false;
+                }
+            }
+            double-clicked => { root.open-settings(root.clip-data.id); }
+        }
+    }
+    trim-start-touch := TouchArea {
+        x: 0px;
+        width: min(7px, parent.width / 2);
+        mouse-cursor: ew-resize;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.active-drag = "trim-start";
+                root.drag-x = 0px;
+                root.drag-y = 0px;
+                root.threshold-crossed = true;
+                root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+            }
+            if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
+                root.drag-x = self.mouse-x - self.pressed-x;
+            }
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-start" {
+                root.drag-finished("trim-start", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+            if event.kind == PointerEventKind.cancel {
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+        }
+    }
+    trim-end-touch := TouchArea {
+        x: parent.width - self.width;
+        width: min(7px, parent.width / 2);
+        mouse-cursor: ew-resize;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.active-drag = "trim-end";
+                root.drag-x = 0px;
+                root.drag-y = 0px;
+                root.threshold-crossed = true;
+                root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+            }
+            if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
+                root.drag-x = self.mouse-x - self.pressed-x;
+            }
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-end" {
+                root.drag-finished("trim-end", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+            if event.kind == PointerEventKind.cancel {
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+        }
+    }
+}
+
+component ProjectTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback activate();
+    callback close();
+    preferred-width: 150px;
+    min-width: 110px;
+    height: 28px;
+    background: root.selected ? #4772b3 : tab-touch.has-hover ? #3a3f49 : #292d35;
+    border-width: root.selected ? 1px : 0px;
+    border-color: #7aa2df;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 4px;
+        spacing: 4px;
+        Text {
+            text: root.label;
+            color: #f4f5f7;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        close-button := Button {
+            text: "×";
+            width: 24px;
+            accessible-label: "プロジェクトを閉じる";
+            clicked => { root.close(); }
+        }
+    }
+    tab-touch := TouchArea {
+        width: parent.width - close-button.width - 4px;
+        mouse-cursor: pointer;
+        clicked => { root.activate(); }
+    }
+}
+
+export component ProjectLauncherWindow inherits Window {
+    title: "AviQtl Plus - プロジェクトランチャー";
+    preferred-width: 700px;
+    preferred-height: 500px;
+    min-width: 620px;
+    min-height: 420px;
+
+    callback create-project(string, string, string, string);
+    callback open-project();
+
+    HorizontalLayout {
+        padding: 20px;
+        spacing: 20px;
+
+        VerticalLayout {
+            preferred-width: 300px;
+            spacing: 15px;
+            Text { text: "新規プロジェクト"; font-size: 1.35rem; font-weight: 700; }
+            GroupBox {
+                title: "プロジェクト設定";
+                GridLayout {
+                    padding: 10px;
+                    spacing: 10px;
+                    Row { Text { text: "幅 (横):"; } width-field := LineEdit { text: "1920"; } }
+                    Row { Text { text: "高さ (縦):"; } height-field := LineEdit { text: "1080"; } }
+                    Row { Text { text: "フレームレート (FPS):"; } fps-field := LineEdit { text: "60"; } }
+                    Row { Text { text: "サンプリングレート:"; } sample-rate-field := LineEdit { text: "48000"; } }
+                }
+            }
+            create-button := Button {
+                text: "新規プロジェクトを作成";
+                accessible-label: "新規プロジェクトを作成";
+                clicked => {
+                    root.create-project(width-field.text, height-field.text, fps-field.text, sample-rate-field.text);
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+
+        VerticalLayout {
+            spacing: 15px;
+            Text { text: "最近使ったプロジェクト"; font-size: 1.35rem; font-weight: 700; }
+            Rectangle {
+                vertical-stretch: 1;
+                border-width: 1px;
+                border-color: #696d75;
+                Text {
+                    text: "最近使ったプロジェクトはありません";
+                    opacity: 0.65;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            Button {
+                text: "既存プロジェクトを開く...";
+                clicked => { root.open-project(); }
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "AviQtl Plus - プレビュー";
+    preferred-width: 640px;
+    preferred-height: 360px;
+    min-width: 480px;
+    min-height: 300px;
+    background: #181a20;
+
+    in property <[ProjectTabData]> project-tabs;
+    in property <int> current-project: -1;
+    in property <image> preview-image;
+    in-out property <float> playhead: 0;
+    in property <float> duration: 3600;
+    in property <bool> playing: false;
+    in property <string> status-text: "Ready";
+
+    callback new-project();
+    callback open-project();
+    callback save-project();
+    callback save-project-as();
+    callback export-media();
+    callback quit-requested();
+    callback undo();
+    callback redo();
+    callback show-project-settings();
+    callback show-system-settings();
+    callback show-timeline();
+    callback show-object-settings();
+    callback show-package-manager();
+    callback show-about();
+    callback select-project(int);
+    callback close-project(int);
+    callback seek(float);
+    callback previous-frame();
+    callback toggle-playback();
+    callback next-frame();
+
+    MenuBar {
+        Menu {
+            title: "ファイル";
+            MenuItem { title: "新規プロジェクト"; shortcut: @keys(Control + N); activated => { root.new-project(); } }
+            MenuItem { title: "プロジェクトを開く"; shortcut: @keys(Control + O); activated => { root.open-project(); } }
+            MenuSeparator { }
+            MenuItem { title: "プロジェクトの上書き保存"; shortcut: @keys(Control + S); activated => { root.save-project(); } }
+            MenuItem { title: "プロジェクトを名前を付けて保存..."; shortcut: @keys(Control + Shift + S); activated => { root.save-project-as(); } }
+            MenuSeparator { }
+            MenuItem { title: "メディアの書き出し..."; shortcut: @keys(Control + E); activated => { root.export-media(); } }
+            MenuSeparator { }
+            MenuItem { title: "終了"; shortcut: @keys(Control + Q); activated => { root.quit-requested(); } }
+        }
+        Menu {
+            title: "編集";
+            MenuItem { title: "元に戻す"; shortcut: @keys(Control + Z); activated => { root.undo(); } }
+            MenuItem { title: "やり直す"; shortcut: @keys(Control + Shift + Z); activated => { root.redo(); } }
+        }
+        Menu {
+            title: "設定";
+            MenuItem { title: "プロジェクト設定"; shortcut: @keys(Alt + Return); activated => { root.show-project-settings(); } }
+            MenuSeparator { }
+            MenuItem { title: "環境設定"; shortcut: @keys(Control + P); activated => { root.show-system-settings(); } }
+        }
+        Menu {
+            title: "表示";
+            MenuItem { title: "タイムラインの表示"; shortcut: @keys(F3); activated => { root.show-timeline(); } }
+            MenuItem { title: "設定ダイアログの表示"; shortcut: @keys(F4); activated => { root.show-object-settings(); } }
+        }
+        Menu {
+            title: "ツール";
+            MenuItem { title: "パッケージマネージャー"; activated => { root.show-package-manager(); } }
+            MenuSeparator { }
+            MenuItem { title: "バージョン情報"; activated => { root.show-about(); } }
+        }
+    }
+
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 28px;
+            background: #23262d;
+            HorizontalLayout {
+                spacing: 0px;
+                for tab[index] in root.project-tabs: ProjectTab {
+                    label: tab.name + (tab.dirty ? " *" : "");
+                    selected: root.current-project == index;
+                    activate => { root.select-project(index); }
+                    close => { root.close-project(index); }
+                }
+                Button { text: "+"; width: 38px; clicked => { root.new-project(); } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            background: #050506;
+            Image {
+                source: root.preview-image;
+                image-fit: contain;
+                width: 100%;
+                height: 100%;
+            }
+        }
+        Rectangle {
+            height: 40px;
+            background: #25282f;
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                spacing: 8px;
+                seek-slider := Slider {
+                    value: root.playhead;
+                    minimum: 0;
+                    maximum: root.duration;
+                    horizontal-stretch: 1;
+                    accessible-label: "シークバー";
+                    changed => { root.seek(self.value); }
+                }
+                Text { text: round(root.playhead) + " / " + round(root.duration); font-family: "Monospace"; vertical-alignment: center; }
+                Button { text: "◀"; accessible-label: "1フレーム戻る"; clicked => { root.previous-frame(); } }
+                Button { text: root.playing ? "Ⅱ" : "▶"; accessible-label: root.playing ? "一時停止" : "再生"; clicked => { root.toggle-playback(); } }
+                Button { text: "▶|"; accessible-label: "1フレーム進む"; clicked => { root.next-frame(); } }
+                Text { text: "速度 1.0x"; vertical-alignment: center; }
+            }
+        }
+        Rectangle {
+            height: 22px;
+            background: #1d2026;
+            Text { text: root.status-text; x: 8px; vertical-alignment: center; color: #c7cad1; font-size: 0.82rem; }
+        }
+    }
+}
+
+export component TimelineWindow inherits Window {
+    title: "タイムライン";
+    preferred-width: 1280px;
+    preferred-height: 300px;
+    min-width: 720px;
+    min-height: 220px;
+    in-out property <string> action-status: "";
+    in property <[SceneTabData]> scene-tabs;
+    in property <[TimelineClipData]> clips;
+    in property <[LayerData]> layers;
+    in property <int> duration: 3600;
+    in property <int> playhead: 0;
+    in property <int> selected-layer: 0;
+    in property <float> pixels-per-frame: 1;
+    private property <length> shared-viewport-x: 0px;
+    private property <length> shared-viewport-y: 0px;
+    private property <bool> box-active: false;
+    private property <bool> box-dragging: false;
+    private property <int> box-start-frame: 0;
+    private property <int> box-start-layer: 0;
+    private property <int> box-current-frame: 0;
+    private property <int> box-current-layer: 0;
+    callback timeline-action(string);
+    callback show-object-settings();
+    callback show-scene-settings();
+    callback scene-selected(int);
+    callback scene-settings(int);
+    callback scene-closed(int);
+    callback clip-selected(int, bool);
+    callback clip-drag-started(int, bool);
+    callback clip-context-selected(int);
+    callback clip-command(string, int);
+    callback clip-drag-finished(string, int, float, float, bool);
+    callback layer-activated(int);
+    callback layer-command(string, int);
+    callback empty-clicked(int, int);
+    callback box-selection-started(int, int, bool);
+    callback box-selection-updated(int, int);
+    callback box-selection-finished();
+    callback box-selection-cancelled();
+
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 28px;
+            background: #2a2e36;
+            HorizontalLayout {
+                spacing: 0px;
+                for scene in root.scene-tabs: SceneTab {
+                    scene: scene;
+                    activate(scene-id) => { root.scene-selected(scene-id); }
+                    settings(scene-id) => { root.scene-settings(scene-id); }
+                    close(scene-id) => { root.scene-closed(scene-id); }
+                }
+                Button { text: "+"; width: 40px; clicked => { root.show-scene-settings(); } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+        Rectangle {
+            height: 32px;
+            background: #343943;
+            Rectangle { width: 60px; height: 100%; background: #2a2e36; }
+            ruler-scroll := ScrollView {
+                x: 60px;
+                width: parent.width - 60px;
+                height: parent.height;
+                viewport-width: max(root.duration * root.pixels-per-frame * 1px, self.visible-width);
+                viewport-height: self.visible-height;
+                viewport-x <=> root.shared-viewport-x;
+                for tick in 61: Rectangle {
+                    visible: tick * 60 <= root.duration;
+                    x: tick * 60 * root.pixels-per-frame * 1px;
+                    width: 1px;
+                    height: 100%;
+                    background: #626874;
+                    Text {
+                        x: 4px;
+                        text: tick * 60;
+                        color: #e2e4e8;
+                        font-family: "Monospace";
+                        font-size: 0.78rem;
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 0px;
+            layer-scroll := ScrollView {
+                width: 60px;
+                vertical-stretch: 1;
+                viewport-width: self.visible-width;
+                viewport-height: root.layers.length * 30px;
+                viewport-y <=> root.shared-viewport-y;
+                for layer in root.layers: LayerHeaderItem {
+                    y: layer.index * 30px;
+                    width: 60px;
+                    layer: layer;
+                    activate(layer-index) => { root.layer-activated(layer-index); }
+                    command(action, layer-index) => { root.layer-command(action, layer-index); }
+                }
+            }
+
+            timeline-scroll := ScrollView {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                viewport-width: max(root.duration * root.pixels-per-frame * 1px, self.visible-width);
+                viewport-height: root.layers.length * 30px;
+                viewport-x <=> root.shared-viewport-x;
+                viewport-y <=> root.shared-viewport-y;
+                mouse-drag-pan-enabled: false;
+
+                timeline-menu := ContextMenuArea {
+                    Menu {
+                        MenuItem { title: "元に戻す"; activated => { root.timeline-action("undo"); } }
+                        MenuItem { title: "やり直す"; activated => { root.timeline-action("redo"); } }
+                        MenuSeparator { }
+                        MenuItem { title: "貼り付け"; activated => { root.timeline-action("paste"); } }
+                        MenuSeparator { }
+                        MenuItem { title: "オブジェクトを追加"; activated => { root.timeline-action("add-object"); } }
+                        MenuItem { title: "プロジェクト設定"; activated => { root.timeline-action("project-settings"); } }
+                    }
+                    background-touch := TouchArea {
+                        pointer-event(event) => {
+                            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                                root.empty-clicked(
+                                    floor(self.mouse-x / (root.pixels-per-frame * 1px)),
+                                    floor(self.mouse-y / 30px)
+                                );
+                            }
+                            if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                                root.box-active = true;
+                                root.box-dragging = false;
+                                root.box-start-frame = max(0, floor(self.mouse-x / (root.pixels-per-frame * 1px)));
+                                root.box-start-layer = max(0, floor(self.mouse-y / 30px));
+                                root.box-current-frame = root.box-start-frame;
+                                root.box-current-layer = root.box-start-layer;
+                                root.box-selection-started(
+                                    root.box-start-frame,
+                                    root.box-start-layer,
+                                    event.modifiers.control || event.modifiers.meta
+                                );
+                            }
+                            if event.kind == PointerEventKind.move && root.box-active {
+                                root.box-current-frame = max(0, floor(self.mouse-x / (root.pixels-per-frame * 1px)));
+                                root.box-current-layer = max(0, floor(self.mouse-y / 30px));
+                                if abs(self.mouse-x - self.pressed-x) >= 3px || abs(self.mouse-y - self.pressed-y) >= 3px {
+                                    root.box-dragging = true;
+                                    root.box-selection-updated(root.box-current-frame, root.box-current-layer);
+                                }
+                            }
+                            if event.kind == PointerEventKind.up && event.button == PointerEventButton.right && root.box-active {
+                                if root.box-dragging {
+                                    root.box-selection-finished();
+                                } else {
+                                    root.box-selection-cancelled();
+                                    timeline-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                                }
+                                root.box-active = false;
+                                root.box-dragging = false;
+                            }
+                            if event.kind == PointerEventKind.cancel && root.box-active {
+                                root.box-selection-cancelled();
+                                root.box-active = false;
+                                root.box-dragging = false;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    background: #1b1e24;
+                }
+                for row in root.layers.length: Rectangle {
+                    y: row * 30px;
+                    width: 100%;
+                    height: 1px;
+                    background: #414650;
+                }
+                for clip in root.clips: TimelineClipItem {
+                    x: clip.start * root.pixels-per-frame * 1px;
+                    y: clip.layer * 30px + 3px;
+                    width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
+                    clip-data: clip;
+                    activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }
+                    prepare-drag(clip-id, additive) => { root.clip-drag-started(clip-id, additive); }
+                    context-activate(clip-id) => { root.clip-context-selected(clip-id); }
+                    open-settings(clip-id) => {
+                        root.clip-context-selected(clip-id);
+                        root.show-object-settings();
+                    }
+                    command(action, clip-id) => { root.clip-command(action, clip-id); }
+                    drag-finished(kind, clip-id, delta-x, delta-y, ignore-snap) => {
+                        root.clip-drag-finished(kind, clip-id, delta-x, delta-y, ignore-snap);
+                    }
+                }
+                if root.box-active && root.box-dragging : Rectangle {
+                    x: min(root.box-start-frame, root.box-current-frame) * root.pixels-per-frame * 1px;
+                    y: min(root.box-start-layer, root.box-current-layer) * 30px;
+                    width: max(abs(root.box-current-frame - root.box-start-frame) * root.pixels-per-frame * 1px, 1px);
+                    height: max((abs(root.box-current-layer - root.box-start-layer) + 1) * 30px, 1px);
+                    background: #4b82ca44;
+                    border-width: 1px;
+                    border-color: #7aafefff;
+                }
+                Rectangle {
+                    x: root.playhead * root.pixels-per-frame * 1px;
+                    width: 2px;
+                    height: 100%;
+                    background: #e74f61;
+                }
+            }
+        }
+        Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+    }
+}
+
+export component ObjectSettingsWindow inherits Window {
+    title: "設定ダイアログ";
+    preferred-width: 900px;
+    preferred-height: 650px;
+    min-width: 680px;
+    min-height: 480px;
+
+    HorizontalLayout {
+        spacing: 0px;
+        Rectangle {
+            width: 250px;
+            background: #262a32;
+            VerticalLayout {
+                padding: 8px;
+                spacing: 6px;
+                Text { text: "オブジェクト / エフェクト"; font-weight: 700; color: #f2f3f5; }
+                Button { text: "映像"; }
+                Button { text: "標準描画"; }
+                Button { text: "色調補正"; }
+                Button { text: "+ エフェクトを追加"; }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        ScrollView {
+            horizontal-stretch: 1;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                Text { text: "選択オブジェクトの設定"; font-size: 1.25rem; font-weight: 700; }
+                GroupBox { title: "位置"; GridLayout { padding: 10px; spacing: 8px; Row { Text { text: "X"; } LineEdit { text: "0"; } } Row { Text { text: "Y"; } LineEdit { text: "0"; } } Row { Text { text: "Z"; } LineEdit { text: "0"; } } } }
+                GroupBox { title: "拡大率"; GridLayout { padding: 10px; spacing: 8px; Row { Text { text: "拡大率"; } Slider { value: 100; minimum: 0; maximum: 800; } } Row { Text { text: "透明度"; } Slider { value: 100; minimum: 0; maximum: 100; } } } }
+                GroupBox { title: "回転"; GridLayout { padding: 10px; spacing: 8px; Row { Text { text: "X軸"; } LineEdit { text: "0"; } } Row { Text { text: "Y軸"; } LineEdit { text: "0"; } } Row { Text { text: "Z軸"; } LineEdit { text: "0"; } } } }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+    }
+}

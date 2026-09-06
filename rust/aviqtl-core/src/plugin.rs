@@ -3,6 +3,7 @@ use crate::abi::{
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
 use crate::package::compare_versions;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
 use std::sync::Mutex;
@@ -20,6 +21,351 @@ const MANIFEST_FIELDS: [&str; 6] = [
     "description",
     "minAppVersion",
 ];
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioPluginInfo {
+    pub id: String,
+    pub name: String,
+    pub format: String,
+    pub category: String,
+    pub path: String,
+    pub label: String,
+    pub maker: String,
+    pub unique_id: i64,
+    pub index: i32,
+    pub audio_ins: i32,
+    pub audio_outs: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptPluginManifest {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub author: String,
+    pub description: String,
+    pub min_app_version: String,
+}
+
+impl ScriptPluginManifest {
+    fn from_map(manifest: Map<String, Value>) -> Self {
+        Self {
+            id: text(manifest.get("id")),
+            name: text(manifest.get("name")),
+            version: text(manifest.get("version")),
+            author: text(manifest.get("author")),
+            description: text(manifest.get("description")),
+            min_app_version: text(manifest.get("minAppVersion")),
+        }
+    }
+
+    fn to_map(&self) -> Map<String, Value> {
+        json!({
+            "id": self.id,
+            "name": self.name,
+            "version": self.version,
+            "author": self.author,
+            "description": self.description,
+            "minAppVersion": self.min_app_version,
+        })
+        .as_object()
+        .cloned()
+        .expect("script manifest projection must be an object")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScriptPluginValidationStatus {
+    Ok,
+    InvalidManifest,
+    InvalidId,
+    RequiresNewerApp,
+    Duplicate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScriptPluginIdentity {
+    pub id: String,
+    pub path: String,
+}
+
+/// Parses the declarative subset accepted for `manifest.lua` without executing Lua code.
+pub fn parse_script_plugin_manifest(input: &str) -> Option<ScriptPluginManifest> {
+    let mut parser = ManifestParser::new(input);
+    let manifest = parser.parse()?;
+    Some(ScriptPluginManifest::from_map(normalize_manifest(manifest)))
+}
+
+/// Applies the same identity, version, and duplicate policy used by the Qt plugin adapter.
+pub fn validate_script_plugin_manifest(
+    manifest: ScriptPluginManifest,
+    single_file: bool,
+    expected_id: &str,
+    app_version: &str,
+    path_identity: &str,
+    loaded: &[ScriptPluginIdentity],
+) -> (ScriptPluginManifest, ScriptPluginValidationStatus) {
+    let loaded = loaded
+        .iter()
+        .map(|plugin| {
+            json!({"id": plugin.id, "path": plugin.path})
+                .as_object()
+                .cloned()
+                .expect("script identity projection must be an object")
+        })
+        .collect::<Vec<_>>();
+    let (manifest, status) = validate_manifest(
+        manifest.to_map(),
+        single_file,
+        expected_id,
+        app_version,
+        path_identity,
+        &loaded,
+    );
+    let status = match status {
+        "ok" => ScriptPluginValidationStatus::Ok,
+        "invalid_manifest" => ScriptPluginValidationStatus::InvalidManifest,
+        "invalid_id" => ScriptPluginValidationStatus::InvalidId,
+        "requires_newer_app" => ScriptPluginValidationStatus::RequiresNewerApp,
+        "duplicate" => ScriptPluginValidationStatus::Duplicate,
+        _ => ScriptPluginValidationStatus::InvalidManifest,
+    };
+    (ScriptPluginManifest::from_map(manifest), status)
+}
+
+struct ManifestParser<'a> {
+    input: &'a [u8],
+    index: usize,
+}
+
+impl<'a> ManifestParser<'a> {
+    fn new(input: &'a str) -> Self {
+        Self {
+            input: input.as_bytes(),
+            index: usize::from(input.as_bytes().starts_with(&[0xef, 0xbb, 0xbf])) * 3,
+        }
+    }
+
+    fn parse(&mut self) -> Option<Map<String, Value>> {
+        self.skip_layout();
+        self.consume_keyword(b"return")?;
+        self.skip_layout();
+        self.consume(b'{')?;
+        let mut manifest = Map::new();
+        loop {
+            self.skip_layout();
+            if self.consume_if(b'}') {
+                break;
+            }
+            let key = self.identifier()?;
+            self.skip_layout();
+            self.consume(b'=')?;
+            self.skip_layout();
+            let value = self.string()?;
+            let key = match key.as_str() {
+                "min_app_version" => "minAppVersion",
+                other => other,
+            };
+            manifest.insert(key.to_owned(), Value::String(value));
+            self.skip_layout();
+            if self.consume_if(b',') || self.consume_if(b';') {
+                continue;
+            }
+            if self.peek() != Some(b'}') {
+                return None;
+            }
+        }
+        self.skip_layout();
+        (self.index == self.input.len()).then_some(manifest)
+    }
+
+    fn skip_layout(&mut self) {
+        loop {
+            while self.peek().is_some_and(|byte| byte.is_ascii_whitespace()) {
+                self.index += 1;
+            }
+            if !self.remaining().starts_with(b"--") {
+                break;
+            }
+            self.index += 2;
+            if self.remaining().starts_with(b"[[") {
+                self.index += 2;
+                if let Some(end) = find_bytes(self.remaining(), b"]]") {
+                    self.index += end + 2;
+                } else {
+                    self.index = self.input.len();
+                }
+            } else {
+                while self.peek().is_some_and(|byte| byte != b'\n') {
+                    self.index += 1;
+                }
+            }
+        }
+    }
+
+    fn consume_keyword(&mut self, keyword: &[u8]) -> Option<()> {
+        if !self.remaining().starts_with(keyword) {
+            return None;
+        }
+        self.index += keyword.len();
+        if self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            return None;
+        }
+        Some(())
+    }
+
+    fn identifier(&mut self) -> Option<String> {
+        let start = self.index;
+        if !self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+        {
+            return None;
+        }
+        self.index += 1;
+        while self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            self.index += 1;
+        }
+        String::from_utf8(self.input[start..self.index].to_vec()).ok()
+    }
+
+    fn string(&mut self) -> Option<String> {
+        let quote = self.peek().filter(|quote| matches!(quote, b'\'' | b'"'))?;
+        self.index += 1;
+        let mut value = Vec::new();
+        loop {
+            let byte = self.peek()?;
+            self.index += 1;
+            if byte == quote {
+                return String::from_utf8(value).ok();
+            }
+            if matches!(byte, b'\n' | b'\r') {
+                return None;
+            }
+            if byte != b'\\' {
+                value.push(byte);
+                continue;
+            }
+            let escaped = self.peek()?;
+            self.index += 1;
+            value.push(match escaped {
+                b'n' => b'\n',
+                b'r' => b'\r',
+                b't' => b'\t',
+                b'\\' => b'\\',
+                b'\'' => b'\'',
+                b'"' => b'"',
+                other => other,
+            });
+        }
+    }
+
+    fn consume(&mut self, byte: u8) -> Option<()> {
+        self.consume_if(byte).then_some(())
+    }
+
+    fn consume_if(&mut self, byte: u8) -> bool {
+        if self.peek() == Some(byte) {
+            self.index += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn peek(&self) -> Option<u8> {
+        self.input.get(self.index).copied()
+    }
+
+    fn remaining(&self) -> &[u8] {
+        &self.input[self.index..]
+    }
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+impl AudioPluginInfo {
+    fn from_map(plugin: Map<String, Value>) -> Self {
+        Self {
+            id: text(plugin.get("id")),
+            name: text(plugin.get("name")),
+            format: text(plugin.get("format")),
+            category: normalize_category(&text(plugin.get("category"))),
+            path: text(plugin.get("path")),
+            label: text(plugin.get("label")),
+            maker: text(plugin.get("maker")),
+            unique_id: integer(plugin.get("uniqueId")),
+            index: i32::try_from(integer(plugin.get("index"))).unwrap_or_default(),
+            audio_ins: i32::try_from(integer(plugin.get("audioIns"))).unwrap_or_default(),
+            audio_outs: i32::try_from(integer(plugin.get("audioOuts"))).unwrap_or_default(),
+        }
+    }
+}
+
+/// Parses one Carla discovery transcript into normalized, typed plugin records.
+pub fn parse_audio_plugin_discovery_output(
+    output: &str,
+    format: &str,
+    file_path: &str,
+    fallback_name: &str,
+) -> Vec<AudioPluginInfo> {
+    parse_discovery_output(output, format, file_path, fallback_name)
+        .into_iter()
+        .map(AudioPluginInfo::from_map)
+        .collect()
+}
+
+/// Removes repeated plugin identities while preserving discovery order.
+pub fn deduplicate_audio_plugins(plugins: Vec<AudioPluginInfo>) -> Vec<AudioPluginInfo> {
+    let mut ids = BTreeSet::new();
+    plugins
+        .into_iter()
+        .filter(|plugin| !plugin.id.is_empty() && ids.insert(plugin.id.clone()))
+        .collect()
+}
+
+/// Lists normalized plugin categories in the same stable order as the Qt adapter.
+pub fn audio_plugin_categories(plugins: &[AudioPluginInfo]) -> Vec<String> {
+    let mut categories = plugins
+        .iter()
+        .map(|plugin| normalize_category(&plugin.category))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    categories.sort_by(|left, right| {
+        category_rank(left)
+            .cmp(&category_rank(right))
+            .then_with(|| left.to_lowercase().cmp(&right.to_lowercase()))
+    });
+    categories
+}
+
+/// Returns one category sorted by display name without exposing the legacy JSON projection.
+pub fn audio_plugins_in_category(
+    plugins: &[AudioPluginInfo],
+    category: &str,
+) -> Vec<AudioPluginInfo> {
+    let wanted = normalize_category(category);
+    let mut filtered = plugins
+        .iter()
+        .filter(|plugin| normalize_category(&plugin.category) == wanted)
+        .cloned()
+        .collect::<Vec<_>>();
+    filtered.sort_by_key(|plugin| plugin.name.to_lowercase());
+    filtered
+}
 
 #[derive(Default)]
 struct ScriptPluginCatalog {

@@ -3,6 +3,8 @@ use crate::abi::{
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid, utf8,
 };
 use serde_json::{Map, Value, json};
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::sync::Mutex;
 
 // Keep these defaults aligned with core/include/constants.hpp.
@@ -100,6 +102,7 @@ fn default_settings(platform_defaults: &Map<String, Value>) -> Map<String, Value
         "defaultClipDuration": DEFAULT_CLIP_DURATION,
         "enableSnap": true,
         "enableTimelineSkimming": true,
+        "settingDialogSidebarRight": false,
         "timelineTrackHeight": 30,
         "timelineHeaderHeight": 28,
         "timelineRulerHeight": 32,
@@ -259,6 +262,97 @@ fn value_as_bool(value: &Value) -> bool {
             !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
         }
         _ => false,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsError;
+
+impl Display for SettingsError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("invalid settings document")
+    }
+}
+
+impl Error for SettingsError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SettingsMutation {
+    pub changed: bool,
+    pub persistent: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct SettingsState {
+    settings: Map<String, Value>,
+}
+
+impl SettingsState {
+    pub fn defaults(platform_defaults: Map<String, Value>) -> Self {
+        Self {
+            settings: default_settings(&platform_defaults),
+        }
+    }
+
+    pub fn merge_json(&mut self, input: &[u8]) -> Result<bool, SettingsError> {
+        let loaded = parse_object(input).ok_or(SettingsError)?;
+        let (settings, migrated) = merge_settings(&self.settings, &loaded);
+        self.settings = settings;
+        Ok(migrated)
+    }
+
+    pub fn replace(&mut self, settings: Map<String, Value>) {
+        self.settings = settings;
+    }
+
+    pub fn snapshot(&self) -> Map<String, Value> {
+        self.settings.clone()
+    }
+
+    pub fn persistent_snapshot(&self) -> Map<String, Value> {
+        persistent_settings(&self.settings)
+    }
+
+    pub fn persistent_json(&self) -> Result<Vec<u8>, SettingsError> {
+        serde_json::to_vec_pretty(&self.persistent_snapshot()).map_err(|_| SettingsError)
+    }
+
+    pub fn value(&self, key: &str) -> Option<&Value> {
+        self.settings.get(key)
+    }
+
+    pub fn i32_value(&self, key: &str, fallback: i32) -> i32 {
+        self.settings.get(key).map(value_as_i32).unwrap_or(fallback)
+    }
+
+    pub fn f64_value(&self, key: &str, fallback: f64) -> f64 {
+        self.settings.get(key).map(value_as_f64).unwrap_or(fallback)
+    }
+
+    pub fn bool_value(&self, key: &str, fallback: bool) -> bool {
+        self.settings
+            .get(key)
+            .map(value_as_bool)
+            .unwrap_or(fallback)
+    }
+
+    pub fn set_value(&mut self, key: impl Into<String>, value: Value) -> SettingsMutation {
+        let key = key.into();
+        let changed = self.settings.get(&key) != Some(&value);
+        if changed {
+            self.settings.insert(key.clone(), value);
+        }
+        SettingsMutation {
+            changed,
+            persistent: !key.starts_with('_'),
+        }
+    }
+
+    pub fn remove_value(&mut self, key: &str) -> SettingsMutation {
+        SettingsMutation {
+            changed: self.settings.remove(key).is_some(),
+            persistent: !key.starts_with('_'),
+        }
     }
 }
 

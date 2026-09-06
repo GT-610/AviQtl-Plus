@@ -86,7 +86,7 @@ fn rounded_non_negative(value: f64) -> i32 {
     value.round().clamp(0.0, f64::from(i32::MAX)) as i32
 }
 
-fn snap_frame(
+pub(crate) fn snap_frame(
     frame: f64,
     ignore_snap: bool,
     settings: AviQtlSceneSettings,
@@ -219,7 +219,7 @@ fn inverse_permutation(permutation: &[i32]) -> Option<Vec<i32>> {
     inverse.iter().all(|index| *index >= 0).then_some(inverse)
 }
 
-fn plan_index_move(
+pub(crate) fn plan_index_move(
     length: usize,
     old_index: i32,
     new_index: i32,
@@ -240,7 +240,7 @@ fn plan_index_move(
     Some((permutation, inverse))
 }
 
-fn plan_multi_reorder(
+pub(crate) fn plan_multi_reorder(
     length: usize,
     indices: &[i32],
     target_index: i32,
