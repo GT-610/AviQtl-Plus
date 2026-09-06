@@ -59,6 +59,11 @@ still require the separately scheduled Computer Use suite.
 ## Current verified Slint foundation
 
 - Main and timeline windows share one wgpu 29 device and imported texture on Metal.
+- The Tools menu About action now raises a fixed-size independent window centered on the preview,
+  projects the Cargo package version and Qt fallback codename, preserves the AGPL notice, and opens
+  the same public project page through the platform browser. The link has an explicit accessibility
+  action in addition to pointer activation; native focus, browser launch, and first-paint checks
+  remain in the deferred suite.
 - The preview no longer uses the animated validation placeholder. A GUI-neutral `aviqtl-preview`
   crate now plans the active project frame, resolves project-relative media, decodes media and
   generated objects off the UI thread, preserves nested scenes, frame buffers, upper-object masks,

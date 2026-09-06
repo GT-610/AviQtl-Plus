@@ -433,6 +433,7 @@ struct LifecycleUi {
     scene_settings: slint::Weak<SceneSettingsWindow>,
     system_settings: slint::Weak<SystemSettingsWindow>,
     export: slint::Weak<ExportWindow>,
+    about: slint::Weak<AboutWindow>,
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
     effect_catalog: Rc<EffectCatalog>,
@@ -450,6 +451,7 @@ struct WindowRefs<'a> {
     project_settings: &'a ProjectSettingsWindow,
     scene_settings: &'a SceneSettingsWindow,
     system_settings: &'a SystemSettingsWindow,
+    about: &'a AboutWindow,
 }
 
 #[derive(Clone)]
@@ -893,6 +895,9 @@ impl LifecycleUi {
         if let Some(window) = self.export.upgrade() {
             let _ = window.hide();
         }
+        if let Some(window) = self.about.upgrade() {
+            let _ = window.hide();
+        }
         if let Some(window) = self.launcher.upgrade() {
             let _ = window.hide();
         }
@@ -959,6 +964,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let scene_settings = SceneSettingsWindow::new()?;
     let system_settings = SystemSettingsWindow::new()?;
     let export = ExportWindow::new()?;
+    let about = AboutWindow::new()?;
+    about.set_version(SharedString::from(env!("CARGO_PKG_VERSION")));
+    about.set_codename(SharedString::from("Rolling Release"));
     initialize_export_draft(&export, &settings.borrow());
     let export_manager = Rc::new(RefCell::new(ExportManager::new(
         gpu.device.clone(),
@@ -1035,6 +1043,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         scene_settings: scene_settings.as_weak(),
         system_settings: system_settings.as_weak(),
         export: export.as_weak(),
+        about: about.as_weak(),
         model: model.clone(),
         settings: settings.clone(),
         effect_catalog: effect_catalog.clone(),
@@ -1052,6 +1061,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             project_settings: &project_settings,
             scene_settings: &scene_settings,
             system_settings: &system_settings,
+            about: &about,
         },
         model.clone(),
         settings.clone(),
@@ -1425,6 +1435,7 @@ fn install_callbacks(
         project_settings,
         scene_settings,
         system_settings,
+        about,
     } = windows;
     let object_settings_ui = ObjectSettingsUi {
         main: main.as_weak(),
@@ -2196,6 +2207,19 @@ fn install_callbacks(
         if let Some(window) = system_settings_window.upgrade() {
             sync_system_settings(&window, &system_settings_store.borrow());
             let _ = window.show();
+        }
+    });
+
+    let about_window = about.as_weak();
+    let about_parent = main.as_weak();
+    main.on_show_about(move || {
+        if let (Some(window), Some(parent)) = (about_window.upgrade(), about_parent.upgrade()) {
+            let _ = show_centered_and_redraw(&window, &parent);
+        }
+    });
+    about.on_open_project_page(move || {
+        if let Err(error) = webbrowser::open("https://codeberg.org/taisho-guy/AviQtl") {
+            show_error_dialog(&format!("Failed to open the project page: {error}"));
         }
     });
 
@@ -4176,6 +4200,34 @@ fn show_and_redraw<T: ComponentHandle + 'static>(window: &T) -> Result<(), slint
         if let Some(window) = window.upgrade() {
             window.window().request_redraw();
         }
+    });
+    Ok(())
+}
+
+fn show_centered_and_redraw<T, P>(window: &T, parent: &P) -> Result<(), slint::PlatformError>
+where
+    T: ComponentHandle + 'static,
+    P: ComponentHandle + 'static,
+{
+    window.show()?;
+    let window = window.as_weak();
+    let parent = parent.as_weak();
+    Timer::single_shot(Duration::ZERO, move || {
+        let (Some(window), Some(parent)) = (window.upgrade(), parent.upgrade()) else {
+            return;
+        };
+        let parent_position = parent.window().position();
+        let parent_size = parent.window().size();
+        let window_size = window.window().size();
+        let centered_coordinate = |origin: i32, parent: u32, child: u32| {
+            (i64::from(origin) + (i64::from(parent) - i64::from(child)) / 2)
+                .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+        };
+        window.window().set_position(slint::PhysicalPosition::new(
+            centered_coordinate(parent_position.x, parent_size.width, window_size.width),
+            centered_coordinate(parent_position.y, parent_size.height, window_size.height),
+        ));
+        window.window().request_redraw();
     });
     Ok(())
 }
