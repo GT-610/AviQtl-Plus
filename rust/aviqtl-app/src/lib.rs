@@ -1,5 +1,6 @@
 //! Framework-neutral application state shared by desktop frontends.
 
+pub mod easing;
 pub mod effect_catalog;
 pub mod effect_selection;
 pub mod lifecycle;

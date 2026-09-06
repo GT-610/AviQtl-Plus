@@ -3,6 +3,7 @@
 use aviqtl_app::{
     ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
     SaveDecision, SceneSettingsInput, WorkspaceModel,
+    easing::{BezierCurve, sample_easing_curve},
     effect_catalog::EffectCatalog,
     object_settings::{
         KeyframePoint, ObjectControl, ObjectControlKind, ObjectSettings,
@@ -347,7 +348,7 @@ struct ObjectSettingsUi {
     timeline: slint::Weak<TimelineWindow>,
     window: slint::Weak<ObjectSettingsWindow>,
     easing: slint::Weak<EasingConfigWindow>,
-    easing_custom_points: Rc<RefCell<Vec<f64>>>,
+    easing_curve: Rc<RefCell<BezierCurve>>,
     model: Rc<RefCell<ApplicationModel>>,
     catalog: Rc<EffectCatalog>,
     presets: Rc<PresetStore>,
@@ -431,21 +432,17 @@ impl ObjectSettingsUi {
         };
         self.sync();
         if let Some(window) = self.easing.upgrade() {
-            let custom_points = sync_easing_window(&window, effect_index, param_name, &point);
-            *self.easing_custom_points.borrow_mut() = custom_points;
+            let curve = sync_easing_window(&window, effect_index, param_name, &point);
+            *self.easing_curve.borrow_mut() = curve;
+            sync_easing_preview(&window, &self.easing_curve.borrow());
             let _ = window.show();
         }
     }
 
     fn update_easing_custom_points(&self, controls: [f32; 4]) -> Vec<f64> {
-        let mut points = self.easing_custom_points.borrow_mut();
-        if points.len() < 6 || !points.len().is_multiple_of(6) {
-            *points = vec![0.33, 0.0, 0.66, 1.0, 1.0, 1.0];
-        }
-        for (point, control) in points[..4].iter_mut().zip(controls) {
-            *point = f64::from(control);
-        }
-        points.clone()
+        let mut curve = self.easing_curve.borrow_mut();
+        curve.set_first_controls(controls.map(f64::from));
+        curve.points().to_vec()
     }
 
     fn apply_easing(
@@ -753,6 +750,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .map(|name| SharedString::from(easing_label(name)))
             .collect::<Vec<_>>(),
     )));
+    easing.set_curve_handles(ModelRc::new(VecModel::<CurveHandleData>::default()));
 
     let stats = Rc::new(GpuValidation::new(
         gpu.device.clone(),
@@ -970,7 +968,7 @@ fn install_callbacks(
         timeline: timeline.as_weak(),
         window: object_settings.as_weak(),
         easing: easing.as_weak(),
-        easing_custom_points: Rc::new(RefCell::new(Vec::new())),
+        easing_curve: Rc::new(RefCell::new(BezierCurve::default())),
         model: model.clone(),
         catalog: effect_catalog.clone(),
         presets: preset_store.clone(),
@@ -1152,6 +1150,7 @@ fn install_callbacks(
                 period,
                 &custom_points,
             );
+            sync_easing_preview(&window, &easing_apply_ui.easing_curve.borrow());
             easing_apply_ui.apply_easing(
                 window.get_effect_index().max(0) as usize,
                 window.get_param_name().as_str(),
@@ -1176,17 +1175,68 @@ fn install_callbacks(
             3 => window.set_custom_y2(value),
             _ => return,
         }
-        let interpolation = easing_name_at(window.get_selected_easing_index());
-        window.invoke_apply_easing(
-            SharedString::from(interpolation),
-            window.get_step_frames(),
-            window.get_elastic_amplitude(),
-            window.get_elastic_period(),
-            window.get_custom_x1(),
-            window.get_custom_y1(),
-            window.get_custom_x2(),
-            window.get_custom_y2(),
-        );
+        invoke_current_easing(&window);
+    });
+    let easing_hit_ui = object_settings_ui.clone();
+    easing.on_hit_custom_point(move |x, y, tolerance_x, tolerance_y| {
+        easing_hit_ui
+            .easing_curve
+            .borrow()
+            .hit_test(
+                f64::from(x),
+                f64::from(y),
+                f64::from(tolerance_x),
+                f64::from(tolerance_y),
+            )
+            .and_then(|index| i32::try_from(index).ok())
+            .unwrap_or(-1)
+    });
+    let easing_insert_ui = object_settings_ui.clone();
+    let easing_insert_window = easing.as_weak();
+    easing.on_insert_custom_anchor(move |x, y| {
+        let Some(window) = easing_insert_window.upgrade() else {
+            return;
+        };
+        if easing_insert_ui
+            .easing_curve
+            .borrow_mut()
+            .insert_anchor(f64::from(x), f64::from(y))
+        {
+            sync_easing_curve(&window, &easing_insert_ui.easing_curve.borrow());
+            invoke_current_easing(&window);
+        }
+    });
+    let easing_move_ui = object_settings_ui.clone();
+    let easing_move_window = easing.as_weak();
+    easing.on_move_custom_point(move |index, x, y| {
+        let Some(window) = easing_move_window.upgrade() else {
+            return;
+        };
+        if usize::try_from(index).ok().is_some_and(|index| {
+            easing_move_ui
+                .easing_curve
+                .borrow_mut()
+                .move_point(index, f64::from(x), f64::from(y))
+        }) {
+            sync_easing_curve(&window, &easing_move_ui.easing_curve.borrow());
+            invoke_current_easing(&window);
+        }
+    });
+    let easing_remove_ui = object_settings_ui.clone();
+    let easing_remove_window = easing.as_weak();
+    easing.on_remove_custom_anchor(move |index| {
+        let Some(window) = easing_remove_window.upgrade() else {
+            return;
+        };
+        if usize::try_from(index).ok().is_some_and(|index| {
+            easing_remove_ui
+                .easing_curve
+                .borrow_mut()
+                .remove_anchor(index)
+        }) {
+            sync_easing_curve(&window, &easing_remove_ui.easing_curve.borrow());
+            invoke_current_easing(&window);
+        }
     });
     let easing_close = easing.as_weak();
     easing.on_close_window(move || {
@@ -3733,7 +3783,7 @@ fn sync_easing_window(
     effect_index: usize,
     param_name: &str,
     point: &KeyframePoint,
-) -> Vec<f64> {
+) -> BezierCurve {
     let interpolation = if point.interpolation == "bezier" {
         "custom"
     } else {
@@ -3772,8 +3822,9 @@ fn sync_easing_window(
                 .map(serde_json::Value::as_f64)
                 .collect::<Option<Vec<_>>>()
         })
-        .filter(|points| points.len() >= 6 && points.len().is_multiple_of(6))
-        .unwrap_or_else(|| vec![0.33, 0.0, 0.66, 1.0, 1.0, 1.0]);
+        .unwrap_or_default();
+    let curve = BezierCurve::from_points(&custom_points);
+    let controls = curve.first_controls();
 
     window.set_initializing(true);
     window.set_effect_index(effect_index as i32);
@@ -3783,12 +3834,100 @@ fn sync_easing_window(
     window.set_step_frames(step_frames);
     window.set_elastic_amplitude(amplitude);
     window.set_elastic_period(period);
-    window.set_custom_x1(finite_f32(custom_points[0], 0.33));
-    window.set_custom_y1(finite_f32(custom_points[1], 0.0));
-    window.set_custom_x2(finite_f32(custom_points[2], 0.66));
-    window.set_custom_y2(finite_f32(custom_points[3], 1.0));
+    window.set_preview_scale(1.0);
+    window.set_preview_offset_x(0.0);
+    window.set_preview_offset_y(0.0);
+    window.set_custom_x1(finite_f32(controls[0], 0.33));
+    window.set_custom_y1(finite_f32(controls[1], 0.0));
+    window.set_custom_x2(finite_f32(controls[2], 0.66));
+    window.set_custom_y2(finite_f32(controls[3], 1.0));
     window.set_initializing(false);
-    custom_points
+    curve
+}
+
+fn sync_easing_curve(window: &EasingConfigWindow, curve: &BezierCurve) {
+    let controls = curve.first_controls();
+    let initializing = window.get_initializing();
+    window.set_initializing(true);
+    window.set_custom_x1(finite_f32(controls[0], 0.33));
+    window.set_custom_y1(finite_f32(controls[1], 0.0));
+    window.set_custom_x2(finite_f32(controls[2], 0.66));
+    window.set_custom_y2(finite_f32(controls[3], 1.0));
+    window.set_initializing(initializing);
+    sync_easing_preview(window, curve);
+}
+
+fn invoke_current_easing(window: &EasingConfigWindow) {
+    let interpolation = easing_name_at(window.get_selected_easing_index());
+    window.invoke_apply_easing(
+        SharedString::from(interpolation),
+        window.get_step_frames(),
+        window.get_elastic_amplitude(),
+        window.get_elastic_period(),
+        window.get_custom_x1(),
+        window.get_custom_y1(),
+        window.get_custom_x2(),
+        window.get_custom_y2(),
+    );
+}
+
+fn sync_easing_preview(window: &EasingConfigWindow, curve: &BezierCurve) {
+    let interpolation = easing_name_at(window.get_selected_easing_index());
+    let options = easing_options(
+        interpolation,
+        window.get_step_frames(),
+        window.get_elastic_amplitude(),
+        window.get_elastic_period(),
+        curve.points(),
+    );
+    window.set_preview_path(SharedString::from(easing_preview_path(&options)));
+    window.set_tangent_path(SharedString::from(easing_tangent_path(curve)));
+    update_vec_model(
+        &window.get_curve_handles(),
+        curve
+            .handles()
+            .into_iter()
+            .map(|handle| CurveHandleData {
+                index: handle.index as i32,
+                x: finite_f32(handle.x, 0.0),
+                y: finite_f32(handle.y, 0.0),
+                anchor: handle.anchor,
+                removable: handle.removable,
+            })
+            .collect(),
+    );
+}
+
+fn easing_preview_path(options: &serde_json::Value) -> String {
+    let mut samples = sample_easing_curve(options, 128).into_iter();
+    let Some((first_x, first_y)) = samples.next() else {
+        return String::new();
+    };
+    let mut path = format!("M {first_x} {}", 1.0 - first_y);
+    for (x, y) in samples {
+        path.push_str(&format!(" L {x} {}", 1.0 - y));
+    }
+    path
+}
+
+fn easing_tangent_path(curve: &BezierCurve) -> String {
+    let mut path = String::new();
+    let mut previous = (0.0, 0.0);
+    for points in curve.points().as_chunks::<6>().0 {
+        path.push_str(&format!(
+            " M {} {} L {} {} M {} {} L {} {}",
+            previous.0,
+            1.0 - previous.1,
+            points[0],
+            1.0 - points[1],
+            points[4],
+            1.0 - points[5],
+            points[2],
+            1.0 - points[3]
+        ));
+        previous = (points[4], points[5]);
+    }
+    path
 }
 
 fn easing_options(
@@ -4219,6 +4358,23 @@ mod tests {
             easing_options("unknown", 1, 1.0, 0.3, &[0.0; 6])["interp"],
             "none"
         );
+
+        let linear = easing_preview_path(&easing_options(
+            "linear",
+            1,
+            1.0,
+            0.3,
+            BezierCurve::default().points(),
+        ));
+        assert!(linear.starts_with("M 0 1"));
+        assert!(linear.contains(" L 0.5 0.5"));
+        assert!(linear.ends_with(" L 1 0"));
+
+        let mut curve = BezierCurve::default();
+        assert!(curve.insert_anchor(0.5, 0.25));
+        let tangents = easing_tangent_path(&curve);
+        assert!(tangents.contains("M 0 1 L 0.165 0.9175"));
+        assert!(tangents.contains("M 0.5 0.75 L 0.33 0.835"));
     }
 
     #[test]

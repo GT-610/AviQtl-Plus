@@ -67,6 +67,14 @@ export struct KeyframeMarkerData {
     movable: bool,
 }
 
+export struct CurveHandleData {
+    index: int,
+    x: float,
+    y: float,
+    anchor: bool,
+    removable: bool,
+}
+
 export struct ObjectSettingRowData {
     row-kind: string,
     source-kind: string,
@@ -2784,10 +2792,10 @@ export component ObjectSettingsWindow inherits Window {
 
 export component EasingConfigWindow inherits Window {
     title: "補間設定: " + root.param-name;
-    preferred-width: 620px;
-    preferred-height: 430px;
-    min-width: 480px;
-    min-height: 360px;
+    preferred-width: 720px;
+    preferred-height: 560px;
+    min-width: 560px;
+    min-height: 460px;
     in-out property <bool> initializing: false;
     in-out property <int> effect-index: -1;
     in-out property <string> param-name: "";
@@ -2802,6 +2810,19 @@ export component EasingConfigWindow inherits Window {
     in-out property <float> custom-y1: 0;
     in-out property <float> custom-x2: 0.66;
     in-out property <float> custom-y2: 1;
+    in property <string> preview-path: "M 0 1 L 1 0";
+    in property <string> tangent-path: "M 0 1 L 0.33 1 M 1 0 L 0.66 0";
+    in property <[CurveHandleData]> curve-handles;
+    in-out property <float> preview-scale: 1;
+    in-out property <float> preview-offset-x: 0;
+    in-out property <float> preview-offset-y: 0;
+    private property <int> drag-point-index: -1;
+    private property <bool> pan-active: false;
+    private property <bool> pan-moved: false;
+    private property <length> pan-start-x: 0px;
+    private property <length> pan-start-y: 0px;
+    private property <length> pan-last-x: 0px;
+    private property <length> pan-last-y: 0px;
     private property <string> selected-easing: root.selected-easing-index >= 0
         && root.selected-easing-index < root.easing-names.length
         ? root.easing-names[root.selected-easing-index]
@@ -2815,7 +2836,35 @@ export component EasingConfigWindow inherits Window {
     private property <bool> custom-mode: root.selected-easing == "custom";
     callback apply-easing(string, int, float, float, float, float, float, float);
     callback custom-point-edited(int, string);
+    callback hit-custom-point(float, float, float, float) -> int;
+    callback insert-custom-anchor(float, float);
+    callback move-custom-point(int, float, float);
+    callback remove-custom-anchor(int);
     callback close-window();
+
+    function preview-viewbox-x() -> float {
+        return 0.5 - 0.5 / root.preview-scale + root.preview-offset-x;
+    }
+
+    function preview-viewbox-y() -> float {
+        return 0.5 - 0.5 / root.preview-scale + root.preview-offset-y;
+    }
+
+    function preview-logical-x(pixel-x: length) -> float {
+        return root.preview-viewbox-x() + pixel-x / preview-area.width / root.preview-scale;
+    }
+
+    function preview-logical-y(pixel-y: length) -> float {
+        return 1 - (root.preview-viewbox-y() + pixel-y / preview-area.height / root.preview-scale);
+    }
+
+    function preview-pixel-x(logical-x: float) -> length {
+        return (logical-x - root.preview-viewbox-x()) * root.preview-scale * preview-area.width;
+    }
+
+    function preview-pixel-y(logical-y: float) -> length {
+        return (1 - logical-y - root.preview-viewbox-y()) * root.preview-scale * preview-area.height;
+    }
 
     function apply-current() {
         if !root.initializing && root.effect-index >= 0 && root.param-name != "" {
@@ -2839,6 +2888,201 @@ export component EasingConfigWindow inherits Window {
             text: "フレーム \{root.keyframe-frame}  ·  \{root.param-name}";
             font-size: 1.15rem;
             font-weight: 700;
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Text { text: "プレビュー"; font-weight: 700; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: "ズーム:"; vertical-alignment: center; }
+            Button {
+                text: "−";
+                width: 30px;
+                clicked => { root.preview-scale = max(0.25, root.preview-scale / 1.4); }
+            }
+            Text {
+                text: "\{round(root.preview-scale * 100)}%";
+                width: 48px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            Button {
+                text: "+";
+                width: 30px;
+                clicked => { root.preview-scale = min(4, root.preview-scale * 1.4); }
+            }
+            Button {
+                text: "1:1";
+                clicked => {
+                    root.preview-scale = 1;
+                    root.preview-offset-x = 0;
+                    root.preview-offset-y = 0;
+                }
+            }
+        }
+        preview-area := Rectangle {
+            height: 230px;
+            horizontal-stretch: 1;
+            background: #20242b;
+            border-width: 1px;
+            border-color: #535965;
+            border-radius: 4px;
+            clip: true;
+
+            Path {
+                width: 100%;
+                height: 100%;
+                viewbox-x: root.preview-viewbox-x();
+                viewbox-y: root.preview-viewbox-y();
+                viewbox-width: 1 / root.preview-scale;
+                viewbox-height: 1 / root.preview-scale;
+                fit: fill;
+                commands: "M 0 0 L 0 1 M 0.25 0 L 0.25 1 M 0.5 0 L 0.5 1 M 0.75 0 L 0.75 1 M 1 0 L 1 1 M 0 0 L 1 0 M 0 0.25 L 1 0.25 M 0 0.5 L 1 0.5 M 0 0.75 L 1 0.75 M 0 1 L 1 1";
+                stroke: #3d434e;
+                stroke-width: 1px;
+                clip: true;
+            }
+            Path {
+                width: 100%;
+                height: 100%;
+                viewbox-x: root.preview-viewbox-x();
+                viewbox-y: root.preview-viewbox-y();
+                viewbox-width: 1 / root.preview-scale;
+                viewbox-height: 1 / root.preview-scale;
+                fit: fill;
+                commands: "M 0 1 L 1 0";
+                stroke: #69717f;
+                stroke-width: 1px;
+                clip: true;
+            }
+            if root.custom-mode : Path {
+                width: 100%;
+                height: 100%;
+                viewbox-x: root.preview-viewbox-x();
+                viewbox-y: root.preview-viewbox-y();
+                viewbox-width: 1 / root.preview-scale;
+                viewbox-height: 1 / root.preview-scale;
+                fit: fill;
+                commands: root.tangent-path;
+                stroke: #858d9b;
+                stroke-width: 1px;
+                clip: true;
+            }
+            Path {
+                width: 100%;
+                height: 100%;
+                viewbox-x: root.preview-viewbox-x();
+                viewbox-y: root.preview-viewbox-y();
+                viewbox-width: 1 / root.preview-scale;
+                viewbox-height: 1 / root.preview-scale;
+                fit: fill;
+                commands: root.preview-path;
+                stroke: #70a6ef;
+                stroke-width: 2px;
+                clip: true;
+            }
+            for handle in root.curve-handles : Rectangle {
+                width: handle.anchor ? 12px : 10px;
+                height: self.width;
+                x: root.preview-pixel-x(handle.x) - self.width / 2;
+                y: root.preview-pixel-y(handle.y) - self.height / 2;
+                visible: root.custom-mode && (!handle.anchor || handle.removable);
+                background: handle.anchor ? #70a6ef : #e5e8ed;
+                border-radius: self.width / 2;
+                border-width: handle.removable ? 2px : 1px;
+                border-color: handle.removable ? #e0ad5d : #171a20;
+            }
+            preview-input := TouchArea {
+                mouse-cursor: root.pan-active || root.drag-point-index >= 0 ? move : pointer;
+                double-clicked => {
+                    if root.custom-mode {
+                        root.insert-custom-anchor(
+                            root.preview-logical-x(self.mouse-x),
+                            root.preview-logical-y(self.mouse-y)
+                        );
+                    }
+                }
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                        root.drag-point-index = -1;
+                        root.pan-active = true;
+                        root.pan-moved = false;
+                        root.pan-start-x = self.mouse-x;
+                        root.pan-start-y = self.mouse-y;
+                        root.pan-last-x = self.mouse-x;
+                        root.pan-last-y = self.mouse-y;
+                    }
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && root.custom-mode {
+                        root.pan-active = false;
+                        root.drag-point-index = root.hit-custom-point(
+                            root.preview-logical-x(self.mouse-x),
+                            root.preview-logical-y(self.mouse-y),
+                            12px / preview-area.width / root.preview-scale,
+                            12px / preview-area.height / root.preview-scale
+                        );
+                    }
+                    if event.kind == PointerEventKind.move && root.pan-active {
+                        let delta-x = self.mouse-x - root.pan-last-x;
+                        let delta-y = self.mouse-y - root.pan-last-y;
+                        if abs(self.mouse-x - root.pan-start-x) >= 3px
+                            || abs(self.mouse-y - root.pan-start-y) >= 3px {
+                            root.pan-moved = true;
+                        }
+                        root.preview-offset-x -= delta-x / preview-area.width / root.preview-scale;
+                        root.preview-offset-y -= delta-y / preview-area.height / root.preview-scale;
+                        root.pan-last-x = self.mouse-x;
+                        root.pan-last-y = self.mouse-y;
+                    }
+                    if event.kind == PointerEventKind.move && root.drag-point-index >= 0 {
+                        root.move-custom-point(
+                            root.drag-point-index,
+                            root.preview-logical-x(self.mouse-x),
+                            root.preview-logical-y(self.mouse-y)
+                        );
+                    }
+                    if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                        root.drag-point-index = -1;
+                    }
+                    if event.kind == PointerEventKind.up && event.button == PointerEventButton.right && root.pan-active {
+                        if !root.pan-moved && root.custom-mode {
+                            let hit = root.hit-custom-point(
+                                root.preview-logical-x(self.mouse-x),
+                                root.preview-logical-y(self.mouse-y),
+                                12px / preview-area.width / root.preview-scale,
+                                12px / preview-area.height / root.preview-scale
+                            );
+                            if hit >= 0 {
+                                root.remove-custom-anchor(hit);
+                            }
+                        }
+                        root.pan-active = false;
+                    }
+                    if event.kind == PointerEventKind.cancel {
+                        root.drag-point-index = -1;
+                        root.pan-active = false;
+                        root.pan-moved = false;
+                    }
+                }
+                scroll-event(event) => {
+                    if event.delta-y > 0px {
+                        root.preview-scale = min(4, root.preview-scale * 1.2);
+                        accept
+                    } else if event.delta-y < 0px {
+                        root.preview-scale = max(0.25, root.preview-scale / 1.2);
+                        accept
+                    } else {
+                        reject
+                    }
+                }
+            }
+            Text {
+                x: 6px;
+                y: parent.height - self.height - 4px;
+                text: root.custom-mode
+                    ? "右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除"
+                    : "右ドラッグ:パン  ホイール:ズーム";
+                font-size: 9px;
+                color: #aeb3bc;
+            }
         }
         HorizontalLayout {
             spacing: 8px;

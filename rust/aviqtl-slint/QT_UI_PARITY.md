@@ -131,9 +131,12 @@ still require the separately scheduled Computer Use suite.
   transform. The right-side delete button remains single-effect scoped. Easing configuration now
   opens a dedicated window backed by the Rust-owned interpolation catalog and immediately
   applies type changes, random/alternate step frames, elastic amplitude/period, and the first
-  custom Bezier control pair. The Qt curve preview, multi-segment point manipulation,
-  category-tree presentation, and native file/color/font pickers remain incomplete and therefore
-  keep this area at `foundation`.
+  custom Bezier control pair. Its Slint `Path` preview uses production keyframe evaluation and the
+  framework-neutral multi-segment curve model covers Qt's 25%-400% zoom, right-drag pan,
+  double-click insertion, handle/anchor dragging, fixed `(1,1)` endpoint, and right-click removal
+  rules. Native hit-area and pointer-feel verification remains deferred. The category-tree
+  presentation and native file/color/font pickers remain incomplete and therefore keep this area
+  at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
   drag or context menu is active.
 
