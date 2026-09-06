@@ -38,6 +38,7 @@ pub struct ProjectTab {
 pub struct ApplicationModel {
     projects: Vec<ProjectEntry>,
     current_project: Option<usize>,
+    next_project_instance_id: u64,
     next_untitled_number: u32,
     pending_lifecycle: Option<PendingLifecycle>,
     recovery_store: RecoveryStore,
@@ -49,6 +50,7 @@ pub struct ApplicationModel {
 }
 
 struct ProjectEntry {
+    instance_id: u64,
     workspace: WorkspaceModel,
     untitled_name: String,
     recovery: ProjectRecoveryState,
@@ -102,6 +104,7 @@ impl Default for ApplicationModel {
         Self {
             projects: Vec::new(),
             current_project: None,
+            next_project_instance_id: 1,
             next_untitled_number: 1,
             pending_lifecycle: None,
             recovery_store,
@@ -120,6 +123,7 @@ impl ApplicationModel {
         Self {
             projects: Vec::new(),
             current_project: None,
+            next_project_instance_id: 1,
             next_untitled_number: 1,
             pending_lifecycle: None,
             recovery_store: RecoveryStore::with_root(root),
@@ -141,6 +145,12 @@ impl ApplicationModel {
 
     pub fn current_project_index(&self) -> Option<usize> {
         self.current_project
+    }
+
+    pub fn current_project_instance_id(&self) -> Option<u64> {
+        self.current_project
+            .and_then(|index| self.projects.get(index))
+            .map(|project| project.instance_id)
     }
 
     pub fn lifecycle_pending(&self) -> bool {
@@ -323,9 +333,11 @@ impl ApplicationModel {
 
     fn add_project_entry(&mut self, project: ProjectSession, untitled_name: String) -> usize {
         let index = self.projects.len();
+        let instance_id = self.allocate_project_instance_id();
         let mut workspace = WorkspaceModel::new(project);
         workspace.set_undo_limit(self.undo_limit);
         self.projects.push(ProjectEntry {
+            instance_id,
             workspace,
             untitled_name,
             recovery: ProjectRecoveryState::new(),
@@ -343,6 +355,7 @@ impl ApplicationModel {
             self.clear_project_recovery(index);
             let mut workspace = WorkspaceModel::new(project);
             workspace.set_undo_limit(self.undo_limit);
+            self.projects[index].instance_id = self.allocate_project_instance_id();
             self.projects[index].workspace = workspace;
             return Ok(index);
         }
@@ -600,6 +613,12 @@ impl ApplicationModel {
         };
     }
 
+    fn allocate_project_instance_id(&mut self) -> u64 {
+        let instance_id = self.next_project_instance_id;
+        self.next_project_instance_id = self.next_project_instance_id.wrapping_add(1).max(1);
+        instance_id
+    }
+
     fn project_name(&self, index: usize) -> String {
         let project = &self.projects[index];
         project
@@ -668,13 +687,20 @@ mod tests {
     fn project_tabs_follow_qt_selection_and_close_order() {
         let mut app = ApplicationModel::default();
         app.create_project(ProjectDefaults::default());
+        let first_id = app.current_project_instance_id().expect("project exists");
         app.create_project(ProjectDefaults::default());
+        let second_id = app.current_project_instance_id().expect("project exists");
         app.create_project(ProjectDefaults::default());
+        let third_id = app.current_project_instance_id().expect("project exists");
+        assert_ne!(first_id, second_id);
+        assert_ne!(second_id, third_id);
         assert_eq!(app.current_project_index(), Some(2));
         assert!(app.select_project(1));
+        assert_eq!(app.current_project_instance_id(), Some(second_id));
         assert!(app.close_clean_project(1));
         assert_eq!(app.project_count(), 2);
         assert_eq!(app.current_project_index(), Some(1));
+        assert_eq!(app.current_project_instance_id(), Some(third_id));
         assert_eq!(app.tabs()[1].name, "Untitled 3");
     }
 
@@ -722,6 +748,7 @@ mod tests {
     fn opening_replaces_only_the_clean_pathless_qt_placeholder() {
         let mut app = ApplicationModel::default();
         app.create_project(ProjectDefaults::default());
+        let placeholder_id = app.current_project_instance_id().expect("project exists");
         let path = temporary_project_path("replace-placeholder");
         ProjectSession::blank_with(ProjectDefaults::default())
             .save_as(&path)
@@ -729,6 +756,7 @@ mod tests {
 
         assert_eq!(app.open_project(&path), Ok(0));
         assert_eq!(app.project_count(), 1);
+        assert_ne!(app.current_project_instance_id(), Some(placeholder_id));
         assert_eq!(
             app.current_workspace()
                 .and_then(|workspace| workspace.project().path.as_deref()),

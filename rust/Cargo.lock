@@ -614,6 +614,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "aviqtl-preview"
+version = "0.6.2"
+dependencies = [
+ "aviqtl-media",
+ "aviqtl-render",
+ "aviqtl-rust-core",
+ "serde_json",
+ "wgpu",
+]
+
+[[package]]
 name = "aviqtl-render"
 version = "0.6.2"
 dependencies = [
@@ -640,8 +651,7 @@ name = "aviqtl-slint"
 version = "0.6.2"
 dependencies = [
  "aviqtl-app",
- "aviqtl-media",
- "aviqtl-render",
+ "aviqtl-preview",
  "pollster",
  "rfd",
  "serde_json",

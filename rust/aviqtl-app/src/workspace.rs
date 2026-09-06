@@ -68,6 +68,7 @@ pub struct WorkspaceModel {
     redo: Vec<TimelineTransaction>,
     clip_clipboard: Vec<ClipDocument>,
     undo_limit: usize,
+    document_revision: u64,
     status: String,
 }
 
@@ -85,6 +86,7 @@ impl WorkspaceModel {
             redo: Vec::new(),
             clip_clipboard: Vec::new(),
             undo_limit: DEFAULT_UNDO_LIMIT,
+            document_revision: 0,
             status: "Ready".to_owned(),
         }
     }
@@ -99,6 +101,10 @@ impl WorkspaceModel {
 
     pub fn document(&self) -> &ProjectDocument {
         &self.project.document
+    }
+
+    pub fn document_revision(&self) -> u64 {
+        self.document_revision
     }
 
     pub fn selected_scene(&self) -> i32 {
@@ -221,6 +227,7 @@ impl WorkspaceModel {
                 self.project.refresh();
                 self.reconcile_after_edit();
                 self.project.dirty = true;
+                self.document_revision = self.document_revision.wrapping_add(1);
                 self.status = "Project settings applied".to_owned();
                 true
             }
@@ -855,6 +862,7 @@ impl WorkspaceModel {
         self.project.refresh();
         self.reconcile_after_edit();
         self.project.dirty = true;
+        self.document_revision = self.document_revision.wrapping_add(1);
         self.status = status.to_owned();
     }
 
@@ -862,6 +870,7 @@ impl WorkspaceModel {
         self.project.refresh();
         self.reconcile_after_edit();
         self.project.dirty = true;
+        self.document_revision = self.document_revision.wrapping_add(1);
         self.status = status.to_owned();
     }
 
@@ -1033,17 +1042,21 @@ mod tests {
     #[test]
     fn selection_clipboard_and_history_match_the_qt_command_order() {
         let mut workspace = workspace();
+        assert_eq!(workspace.document_revision(), 0);
         workspace.click_clip(1, false);
         workspace.click_clip(2, true);
         assert_eq!(workspace.selected_clip_ids(), [2, 1]);
         assert!(workspace.copy_selected_clips());
         assert_eq!(workspace.paste_clips_at(80, 4), Some((130, 4)));
         assert_eq!(workspace.document().clips.len(), 5);
+        assert_eq!(workspace.document_revision(), 1);
         assert!(workspace.can_undo());
         assert!(workspace.undo());
         assert_eq!(workspace.document().clips.len(), 3);
+        assert_eq!(workspace.document_revision(), 2);
         assert!(workspace.redo());
         assert_eq!(workspace.document().clips.len(), 5);
+        assert_eq!(workspace.document_revision(), 3);
     }
 
     #[test]
@@ -1102,6 +1115,7 @@ mod tests {
         assert_eq!(workspace.document().settings.height, 1);
         assert_eq!(workspace.document().settings.fps, 60.0);
         assert_eq!(workspace.document().settings.sample_rate, 192_000);
+        assert_eq!(workspace.document_revision(), 1);
         assert!(!workspace.can_undo());
         assert!(!workspace.undo());
         assert_eq!(workspace.document().settings.width, 8_000);

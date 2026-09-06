@@ -59,6 +59,15 @@ still require the separately scheduled Computer Use suite.
 ## Current verified Slint foundation
 
 - Main and timeline windows share one wgpu 29 device and imported texture on Metal.
+- The preview no longer uses the animated validation placeholder. A GUI-neutral `aviqtl-preview`
+  crate now plans the active project frame, resolves project-relative media, decodes media and
+  generated objects off the UI thread, preserves nested scenes, frame buffers, upper-object masks,
+  cameras, blend/crop/transform data, and all renderer-backed visual effects, then composites into
+  the Slint-imported wgpu texture.
+- Preview invalidation follows a stable project-instance ID plus document revision, selected scene,
+  and playhead. Timeline edits, project settings, Undo, and Redo advance the revision; Slint redraws
+  only after a decoded frame batch is ready. Automated planning, decoding, and state invalidation
+  tests pass, while rendered-output parity remains part of the deferred native GUI suite.
 - Real project, scene, 128-layer, clip, selection, and transport models reach Slint.
 - Primary/additive selection, right-button box selection, multi-clip move, and multi-clip resize have
   framework-neutral tests and Slint MCP interaction checks.

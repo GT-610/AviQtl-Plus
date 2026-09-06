@@ -14,8 +14,10 @@ The Slint frontend is intentionally thin:
 - `aviqtl-app` owns framework-neutral application and workspace state: open projects, scene and clip
   selection, clipboard commands, undo/redo, transport, media import, missing media, presets, and
   settings persistence.
-- `aviqtl-render`, `aviqtl-media`, `aviqtl-audio`, and `aviqtl-carla` retain the renderer, media,
-  audio, and plugin work produced during the egui migration.
+- `aviqtl-preview` reuses the egui migration's production frame planner, asynchronous media
+  decoding, nested-scene handling, and wgpu compositor without depending on a GUI framework.
+- `aviqtl-render`, `aviqtl-media`, `aviqtl-audio`, and `aviqtl-carla` retain the lower-level
+  renderer, media, audio, and plugin work produced during the egui migration.
 - `aviqtl-slint` owns native windows, declarative layout, input hit regions, menus, accessibility,
   and translation between Slint models/callbacks and `aviqtl-app` commands.
 
@@ -36,8 +38,9 @@ outside the undo stack as in Qt, while scene creation retains Qt's separate add 
 undo steps.
 
 The egui work is therefore not discarded. Domain and application crates are reused directly, while
-the egui implementation and its tests remain a behavior reference for interaction details that are
-specific to a retained-mode Slint UI.
+production preview code has been extracted into a GUI-neutral crate for Slint and the future export
+path. The remaining egui implementation and its tests stay a behavior reference for interaction
+details that are specific to a retained-mode Slint UI.
 
 ## UI rules
 
@@ -60,8 +63,8 @@ From the `rust` directory:
 cargo run -p aviqtl-slint
 ```
 
-The current validation project exercises the two-window Slint/wgpu integration and real timeline
-models:
+The current validation project exercises the two-window Slint/wgpu integration, real timeline
+models, and the production preview planning/decoding/compositing bridge:
 
 ```sh
 cargo run --release -p aviqtl-slint -- --validate-gpu --frames 120

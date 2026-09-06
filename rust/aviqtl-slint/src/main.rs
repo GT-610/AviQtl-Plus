@@ -7,10 +7,7 @@ use aviqtl_app::{
     settings::SettingsStore,
     timeline_interaction::{TimelineDragKind, TimelineDragRequest},
 };
-use aviqtl_media::VideoFrame;
-use aviqtl_render::{
-    BlendMode, CompositionLayer, CompositionSource, Compositor, LayerCrop, LayerTransform,
-};
+use aviqtl_preview::{MediaPreview, PreviewPlanner, PreviewSurface};
 use slint::wgpu_29::wgpu;
 use slint::{
     CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel,
@@ -23,8 +20,6 @@ use std::time::{Duration, Instant};
 
 slint::include_modules!();
 
-const PREVIEW_WIDTH: u32 = 640;
-const PREVIEW_HEIGHT: u32 = 360;
 const VALIDATION_PROJECT: &[u8] = br#"{
     "version": 3,
     "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
@@ -38,6 +33,107 @@ const VALIDATION_PROJECT: &[u8] = br#"{
         {"id": 3, "sceneId": 1, "type": "audio", "start": 60, "duration": 240, "layer": 3}
     ]
 }"#;
+
+#[derive(Clone, PartialEq, Eq)]
+struct PreviewSourceKey {
+    project_instance_id: u64,
+    document_revision: u64,
+    project_path: Option<PathBuf>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct PreviewFrameKey {
+    source: PreviewSourceKey,
+    scene_id: i32,
+    frame: i32,
+}
+
+struct PreviewRuntime {
+    surface: PreviewSurface,
+    decoder: MediaPreview,
+    planner: Option<PreviewPlanner>,
+    source_key: Option<PreviewSourceKey>,
+    requested_frame: Option<PreviewFrameKey>,
+}
+
+impl PreviewRuntime {
+    fn new(surface: PreviewSurface) -> Self {
+        Self {
+            surface,
+            decoder: MediaPreview::new(Arc::new(|| {})),
+            planner: None,
+            source_key: None,
+            requested_frame: None,
+        }
+    }
+
+    fn update(&mut self, model: &ApplicationModel, main: &MainWindow) -> bool {
+        let Some(project_instance_id) = model.current_project_instance_id() else {
+            if self.source_key.is_some() || self.requested_frame.is_some() || self.planner.is_some()
+            {
+                self.decoder.reset();
+                self.planner = None;
+                self.source_key = None;
+                self.requested_frame = None;
+            }
+            return false;
+        };
+        let Some(workspace) = model.current_workspace() else {
+            return false;
+        };
+        let source_key = PreviewSourceKey {
+            project_instance_id,
+            document_revision: workspace.document_revision(),
+            project_path: workspace.project().path.clone(),
+        };
+        if self.source_key.as_ref() != Some(&source_key) {
+            if let Some(planner) = self.planner.as_mut() {
+                planner.rebuild(workspace.document(), workspace.project().path.as_deref());
+            } else {
+                self.planner = Some(PreviewPlanner::new(
+                    workspace.document(),
+                    workspace.project().path.as_deref(),
+                ));
+            }
+            self.source_key = Some(source_key.clone());
+            self.requested_frame = None;
+        }
+        let frame_key = PreviewFrameKey {
+            source: source_key,
+            scene_id: workspace.selected_scene(),
+            frame: workspace.playhead(),
+        };
+        if self.requested_frame.as_ref() != Some(&frame_key) {
+            if let Some(planned) = self.planner.as_mut().and_then(|planner| {
+                planner.build(
+                    workspace.document(),
+                    workspace.selected_scene(),
+                    workspace.playhead(),
+                )
+            }) {
+                for warning in planned.warnings {
+                    eprintln!("Preview planning warning: {warning}");
+                }
+                self.decoder.request(planned.scene);
+            }
+            self.requested_frame = Some(frame_key);
+        }
+        let Some(batch) = self.decoder.poll() else {
+            return false;
+        };
+        for error in &batch.errors {
+            eprintln!("Preview decode warning: {error}");
+        }
+        let target_replaced = self.surface.compose(&batch.scene, batch.generation);
+        if target_replaced {
+            match slint::Image::try_from(self.surface.texture().clone()) {
+                Ok(image) => main.set_preview_image(image),
+                Err(error) => eprintln!("Preview texture import failed: {error}"),
+            }
+        }
+        true
+    }
+}
 
 struct LifecycleUi {
     launcher: slint::Weak<ProjectLauncherWindow>,
@@ -213,15 +309,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         })
         .select()?;
 
-    let preview = Rc::new(RefCell::new(PreviewSurface::new(
-        gpu.device.clone(),
-        gpu.queue.clone(),
-    )));
-    preview.borrow_mut().render();
-    let preview_image = preview.borrow().as_slint_image()?;
+    let preview_surface = PreviewSurface::new(gpu.device.clone(), gpu.queue.clone());
+    let preview_image = slint::Image::try_from(preview_surface.texture().clone())?;
     let texture_imported = preview_image
         .to_wgpu_29_texture()
-        .is_some_and(|texture| texture == preview.borrow().texture);
+        .is_some_and(|texture| texture == *preview_surface.texture());
+    let preview = Rc::new(RefCell::new(PreviewRuntime::new(preview_surface)));
 
     let (settings_store, settings_status) = SettingsStore::load();
     eprintln!("{settings_status}");
@@ -312,10 +405,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_model = model.clone();
     let timer_ticks = rendered_ticks.clone();
     animation_timer.start(TimerMode::Repeated, Duration::from_millis(16), move || {
-        animation_preview.borrow_mut().render();
-        animation_stats
-            .preview_updates
-            .set(animation_stats.preview_updates.get() + 1);
         let ticks = timer_ticks.get() + 1;
         timer_ticks.set(ticks);
         let transport_changed = animation_model
@@ -328,11 +417,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         {
             sync_transport(&main, &timeline, &animation_model.borrow());
         }
-        if let Some(window) = animation_main.upgrade() {
-            window.window().request_redraw();
-        }
-        if let Some(window) = animation_timeline.upgrade() {
-            window.window().request_redraw();
+        if let Some(main) = animation_main.upgrade() {
+            let preview_updated = {
+                let model = animation_model.borrow();
+                animation_preview.borrow_mut().update(&model, &main)
+            };
+            if preview_updated {
+                animation_stats
+                    .preview_updates
+                    .set(animation_stats.preview_updates.get() + 1);
+                main.window().request_redraw();
+            }
         }
         if validation_frames.is_some_and(|frames| ticks >= frames) {
             if let Some(window) = animation_timeline.upgrade() {
@@ -1589,99 +1684,6 @@ impl AppGpu {
             queue,
             errors,
         })
-    }
-}
-
-struct PreviewSurface {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    texture: wgpu::Texture,
-    compositor: Compositor,
-    frame: VideoFrame,
-    tick: u64,
-}
-
-impl PreviewSurface {
-    fn new(device: wgpu::Device, queue: wgpu::Queue) -> Self {
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("aviqtl-slint-preview"),
-            size: wgpu::Extent3d {
-                width: PREVIEW_WIDTH,
-                height: PREVIEW_HEIGHT,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_SRC
-                | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let compositor = Compositor::new(&device, wgpu::TextureFormat::Rgba8Unorm);
-        Self {
-            device,
-            queue,
-            texture,
-            compositor,
-            frame: validation_frame(),
-            tick: 0,
-        }
-    }
-
-    fn as_slint_image(&self) -> Result<slint::Image, slint::wgpu_29::TextureImportError> {
-        slint::Image::try_from(self.texture.clone())
-    }
-
-    fn render(&mut self) {
-        let phase = self.tick as f32 * 0.02;
-        let layer = CompositionLayer {
-            cache_key: 1,
-            source: CompositionSource::Frame(&self.frame),
-            timeline_layer: 0,
-            transform: LayerTransform {
-                x: phase.sin() * 80.0,
-                rotation_z_degrees: phase.sin() * 3.0,
-                ..LayerTransform::default()
-            },
-            blend_mode: BlendMode::Normal,
-            crop: LayerCrop::default(),
-            mask: None,
-            effects: &[],
-        };
-        self.compositor.render(
-            &self.device,
-            &self.queue,
-            &self.texture,
-            (PREVIEW_WIDTH, PREVIEW_HEIGHT),
-            &[layer],
-            None,
-        );
-        self.tick += 1;
-    }
-}
-
-fn validation_frame() -> VideoFrame {
-    let width = 480_u32;
-    let height = 270_u32;
-    let mut rgba = vec![0_u8; width as usize * height as usize * 4];
-    for y in 0..height {
-        for x in 0..width {
-            let offset = ((y * width + x) * 4) as usize;
-            let checker = if (x / 30 + y / 30) % 2 == 0 { 28 } else { 0 };
-            rgba[offset] = (30 + x * 170 / width) as u8 + checker;
-            rgba[offset + 1] = (45 + y * 120 / height) as u8 + checker;
-            rgba[offset + 2] = 150_u8.saturating_add(checker);
-            rgba[offset + 3] = 255;
-        }
-    }
-    VideoFrame {
-        width,
-        height,
-        rgba,
-        timestamp_seconds: 0.0,
     }
 }
 
