@@ -1,8 +1,10 @@
 #![deny(unsafe_code)]
 
 use aviqtl_app::{
-    ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, SaveDecision,
+    ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
+    SaveDecision, SceneSettingsInput,
     selection::SelectionBox,
+    settings::SettingsStore,
     timeline_interaction::{TimelineDragKind, TimelineDragRequest},
 };
 use aviqtl_media::VideoFrame;
@@ -43,8 +45,23 @@ struct LifecycleUi {
     main: slint::Weak<MainWindow>,
     timeline: slint::Weak<TimelineWindow>,
     object_settings: slint::Weak<ObjectSettingsWindow>,
+    project_settings: slint::Weak<ProjectSettingsWindow>,
+    scene_settings: slint::Weak<SceneSettingsWindow>,
+    system_settings: slint::Weak<SystemSettingsWindow>,
     model: Rc<RefCell<ApplicationModel>>,
+    settings: Rc<RefCell<SettingsStore>>,
     quit_confirmed: Cell<bool>,
+}
+
+struct WindowRefs<'a> {
+    launcher: &'a ProjectLauncherWindow,
+    recovery: &'a ProjectRecoveryWindow,
+    main: &'a MainWindow,
+    timeline: &'a TimelineWindow,
+    object_settings: &'a ObjectSettingsWindow,
+    project_settings: &'a ProjectSettingsWindow,
+    scene_settings: &'a SceneSettingsWindow,
+    system_settings: &'a SystemSettingsWindow,
 }
 
 impl LifecycleUi {
@@ -82,6 +99,7 @@ impl LifecycleUi {
                             let _ = main.hide();
                         }
                         if let Some(launcher) = self.launcher.upgrade() {
+                            sync_launcher_defaults(&launcher, &self.settings.borrow());
                             let _ = launcher.show();
                         }
                         self.show_recoveries_if_available();
@@ -155,6 +173,15 @@ impl LifecycleUi {
         if let Some(window) = self.object_settings.upgrade() {
             let _ = window.hide();
         }
+        if let Some(window) = self.project_settings.upgrade() {
+            let _ = window.hide();
+        }
+        if let Some(window) = self.scene_settings.upgrade() {
+            let _ = window.hide();
+        }
+        if let Some(window) = self.system_settings.upgrade() {
+            let _ = window.hide();
+        }
         if let Some(window) = self.launcher.upgrade() {
             let _ = window.hide();
         }
@@ -196,12 +223,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .to_wgpu_29_texture()
         .is_some_and(|texture| texture == preview.borrow().texture);
 
-    let model = Rc::new(RefCell::new(ApplicationModel::default()));
+    let (settings_store, settings_status) = SettingsStore::load();
+    eprintln!("{settings_status}");
+    let settings = Rc::new(RefCell::new(settings_store));
+    let mut application_model = ApplicationModel::default();
+    apply_runtime_settings(&mut application_model, &settings.borrow());
+    let model = Rc::new(RefCell::new(application_model));
     let launcher = ProjectLauncherWindow::new()?;
     let recovery = ProjectRecoveryWindow::new()?;
     let main = MainWindow::new()?;
     let timeline = TimelineWindow::new()?;
     let object_settings = ObjectSettingsWindow::new()?;
+    let project_settings = ProjectSettingsWindow::new()?;
+    let scene_settings = SceneSettingsWindow::new()?;
+    let system_settings = SystemSettingsWindow::new()?;
+    sync_launcher_defaults(&launcher, &settings.borrow());
+    sync_system_settings(&system_settings, &settings.borrow());
     main.set_preview_image(preview_image);
     main.set_project_tabs(ModelRc::new(VecModel::<ProjectTabData>::default()));
     recovery.set_recoveries(ModelRc::new(VecModel::<RecoveryEntryData>::default()));
@@ -222,16 +259,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         main: main.as_weak(),
         timeline: timeline.as_weak(),
         object_settings: object_settings.as_weak(),
+        project_settings: project_settings.as_weak(),
+        scene_settings: scene_settings.as_weak(),
+        system_settings: system_settings.as_weak(),
         model: model.clone(),
+        settings: settings.clone(),
         quit_confirmed: Cell::new(false),
     });
     install_callbacks(
-        &launcher,
-        &recovery,
-        &main,
-        &timeline,
-        &object_settings,
+        WindowRefs {
+            launcher: &launcher,
+            recovery: &recovery,
+            main: &main,
+            timeline: &timeline,
+            object_settings: &object_settings,
+            project_settings: &project_settings,
+            scene_settings: &scene_settings,
+            system_settings: &system_settings,
+        },
         model.clone(),
+        settings,
         lifecycle_ui,
     );
 
@@ -258,6 +305,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_launcher = launcher.as_weak();
     let animation_recovery = recovery.as_weak();
     let animation_settings = object_settings.as_weak();
+    let animation_project_settings = project_settings.as_weak();
+    let animation_scene_settings = scene_settings.as_weak();
+    let animation_system_settings = system_settings.as_weak();
     let animation_stats = stats.clone();
     let animation_model = model.clone();
     let timer_ticks = rendered_ticks.clone();
@@ -289,6 +339,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 let _ = window.hide();
             }
             if let Some(window) = animation_settings.upgrade() {
+                let _ = window.hide();
+            }
+            if let Some(window) = animation_project_settings.upgrade() {
+                let _ = window.hide();
+            }
+            if let Some(window) = animation_scene_settings.upgrade() {
+                let _ = window.hide();
+            }
+            if let Some(window) = animation_system_settings.upgrade() {
                 let _ = window.hide();
             }
             if let Some(window) = animation_launcher.upgrade() {
@@ -328,30 +387,61 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn install_callbacks(
-    launcher: &ProjectLauncherWindow,
-    recovery: &ProjectRecoveryWindow,
-    main: &MainWindow,
-    timeline: &TimelineWindow,
-    object_settings: &ObjectSettingsWindow,
+    windows: WindowRefs<'_>,
     model: Rc<RefCell<ApplicationModel>>,
+    settings: Rc<RefCell<SettingsStore>>,
     lifecycle_ui: Rc<LifecycleUi>,
 ) {
+    let WindowRefs {
+        launcher,
+        recovery,
+        main,
+        timeline,
+        object_settings,
+        project_settings,
+        scene_settings,
+        system_settings,
+    } = windows;
     let create_model = model.clone();
     let create_main = main.as_weak();
     let create_timeline = timeline.as_weak();
     let create_launcher = launcher.as_weak();
     let create_recovery = recovery.as_weak();
+    let create_settings = settings.clone();
     launcher.on_create_project(move |width, height, fps, sample_rate| {
         if create_model.borrow().lifecycle_pending() {
             return;
         }
-        let defaults = ProjectDefaults {
-            width: parse_i32(&width, 1920, 1, 8000),
-            height: parse_i32(&height, 1080, 1, 8000),
-            fps: parse_f64(&fps, 60.0, 1.0, 240.0),
-            sample_rate: parse_i32(&sample_rate, 48_000, 8_000, 192_000),
-            ..ProjectDefaults::default()
+        let mut defaults = project_defaults(&create_settings.borrow());
+        defaults.width = match parse_required_i32(&width, "幅", 1, 8_000) {
+            Ok(value) => value,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
         };
+        defaults.height = match parse_required_i32(&height, "高さ", 1, 8_000) {
+            Ok(value) => value,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        defaults.fps = match parse_required_f64(&fps, "FPS", 1.0, 240.0) {
+            Ok(value) => value,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        defaults.sample_rate =
+            match parse_required_i32(&sample_rate, "サンプリングレート", 8_000, 192_000) {
+                Ok(value) => value,
+                Err(message) => {
+                    show_error_dialog(&message);
+                    return;
+                }
+            };
         create_model.borrow_mut().create_project(defaults);
         sync_weak_windows(&create_main, &create_timeline, &create_model);
         if let Some(main) = create_main.upgrade() {
@@ -401,7 +491,11 @@ fn install_callbacks(
 
     let quit_ui = lifecycle_ui.clone();
     main.on_quit_requested(move || {
-        let step = quit_ui.model.borrow_mut().request_quit(true);
+        let confirm_unsaved = quit_ui
+            .settings
+            .borrow()
+            .bool_value("showConfirmOnClose", true);
+        let step = quit_ui.model.borrow_mut().request_quit(confirm_unsaved);
         quit_ui.handle(step);
     });
 
@@ -410,7 +504,14 @@ fn install_callbacks(
         if close_window_ui.quit_confirmed.get() {
             return CloseRequestResponse::HideWindow;
         }
-        let step = close_window_ui.model.borrow_mut().request_quit(true);
+        let confirm_unsaved = close_window_ui
+            .settings
+            .borrow()
+            .bool_value("showConfirmOnClose", true);
+        let step = close_window_ui
+            .model
+            .borrow_mut()
+            .request_quit(confirm_unsaved);
         let quit_ready = matches!(step, LifecycleStep::QuitReady);
         close_window_ui.handle(step);
         if quit_ready {
@@ -536,6 +637,102 @@ fn install_callbacks(
         }
     });
 
+    let project_settings_model = model.clone();
+    let project_settings_window = project_settings.as_weak();
+    main.on_show_project_settings(move || {
+        let input = project_settings_model
+            .borrow()
+            .current_workspace()
+            .map(|workspace| workspace.project_settings());
+        if let (Some(window), Some(input)) = (project_settings_window.upgrade(), input) {
+            sync_project_settings(&window, &input);
+            let _ = window.show();
+        }
+    });
+
+    let system_settings_store = settings.clone();
+    let system_settings_window = system_settings.as_weak();
+    main.on_show_system_settings(move || {
+        if let Some(window) = system_settings_window.upgrade() {
+            sync_system_settings(&window, &system_settings_store.borrow());
+            let _ = window.show();
+        }
+    });
+
+    let project_apply_model = model.clone();
+    let project_apply_main = main.as_weak();
+    let project_apply_timeline = timeline.as_weak();
+    let project_apply_window = project_settings.as_weak();
+    project_settings.on_apply_settings(move || {
+        let Some(window) = project_apply_window.upgrade() else {
+            return false;
+        };
+        let fps = match parse_required_f64(&window.get_project_fps(), "FPS", 1.0, 240.0) {
+            Ok(fps) => fps,
+            Err(message) => {
+                show_error_dialog(&message);
+                return false;
+            }
+        };
+        let input = ProjectSettingsInput {
+            width: window.get_project_width(),
+            height: window.get_project_height(),
+            fps,
+            sample_rate: window.get_project_sample_rate(),
+        };
+        let applied = project_apply_model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.update_project_settings(input));
+        if applied {
+            sync_weak_windows(
+                &project_apply_main,
+                &project_apply_timeline,
+                &project_apply_model,
+            );
+        }
+        applied
+    });
+    let project_close_window = project_settings.as_weak();
+    project_settings.on_close_window(move || {
+        if let Some(window) = project_close_window.upgrade() {
+            let _ = window.hide();
+        }
+    });
+
+    let scene_create_model = model.clone();
+    let scene_create_settings = settings.clone();
+    let scene_create_window = scene_settings.as_weak();
+    timeline.on_show_scene_settings(move || {
+        let input = {
+            let application = scene_create_model.borrow();
+            application.current_workspace().map(|workspace| {
+                let project = workspace.project_settings();
+                SceneSettingsInput {
+                    name: format!("シーン {}", workspace.document().scenes.len() + 1),
+                    width: project.width,
+                    height: project.height,
+                    fps: project.fps,
+                    duration: scene_create_settings
+                        .borrow()
+                        .i32_value("defaultProjectFrames", 3_600)
+                        .max(1),
+                    grid_mode: "Auto".to_owned(),
+                    grid_bpm: 120.0,
+                    grid_offset: 0.0,
+                    grid_interval: 10,
+                    grid_subdivision: 4,
+                    enable_snap: true,
+                    magnetic_snap_range: 10,
+                }
+            })
+        };
+        if let (Some(window), Some(input)) = (scene_create_window.upgrade(), input) {
+            sync_scene_settings(&window, true, -1, &input);
+            let _ = window.show();
+        }
+    });
+
     let timeline_settings = object_settings.as_weak();
     timeline.on_show_object_settings(move || {
         if let Some(window) = timeline_settings.upgrade() {
@@ -590,10 +787,113 @@ fn install_callbacks(
         sync_weak_windows(&close_scene_main, &close_scene_timeline, &close_scene_model);
     });
 
-    let scene_settings_window = object_settings.as_weak();
-    timeline.on_scene_settings(move |_| {
-        if let Some(window) = scene_settings_window.upgrade() {
+    let scene_edit_model = model.clone();
+    let scene_edit_window = scene_settings.as_weak();
+    timeline.on_scene_settings(move |scene_id| {
+        let input = scene_edit_model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| workspace.scene_settings(scene_id));
+        if let (Some(window), Some(input)) = (scene_edit_window.upgrade(), input) {
+            sync_scene_settings(&window, false, scene_id, &input);
             let _ = window.show();
+        }
+    });
+
+    let scene_apply_model = model.clone();
+    let scene_apply_main = main.as_weak();
+    let scene_apply_timeline = timeline.as_weak();
+    let scene_apply_window = scene_settings.as_weak();
+    let scene_apply_settings = settings.clone();
+    scene_settings.on_apply_settings(move || {
+        let Some(window) = scene_apply_window.upgrade() else {
+            return false;
+        };
+        let fps = match parse_required_f64(&window.get_scene_fps(), "FPS", 1.0, 240.0) {
+            Ok(fps) => fps,
+            Err(message) => {
+                show_error_dialog(&message);
+                return false;
+            }
+        };
+        let grid_mode = match window.get_grid_mode_index() {
+            1 => "BPM",
+            2 => "Frame",
+            _ => "Auto",
+        };
+        let input = SceneSettingsInput {
+            name: window.get_scene_name().to_string(),
+            width: window.get_scene_width(),
+            height: window.get_scene_height(),
+            fps,
+            duration: window.get_scene_duration(),
+            grid_mode: grid_mode.to_owned(),
+            grid_bpm: parse_finite_f64(&window.get_grid_bpm(), 120.0),
+            grid_offset: parse_finite_f64(&window.get_grid_offset(), 0.0),
+            grid_interval: parse_i32_unbounded(&window.get_grid_interval(), 10),
+            grid_subdivision: parse_i32_unbounded(&window.get_grid_subdivision(), 4),
+            enable_snap: window.get_enable_snap(),
+            magnetic_snap_range: window.get_magnetic_snap_range(),
+        };
+        let applied = if window.get_creation_mode() {
+            let defaults = project_defaults(&scene_apply_settings.borrow());
+            scene_apply_model
+                .borrow_mut()
+                .current_workspace_mut()
+                .and_then(|workspace| workspace.create_scene(defaults, input))
+                .is_some()
+        } else {
+            let scene_id = window.get_target_scene_id();
+            scene_apply_model
+                .borrow_mut()
+                .current_workspace_mut()
+                .is_some_and(|workspace| workspace.update_scene_settings(scene_id, input))
+        };
+        if applied {
+            sync_weak_windows(&scene_apply_main, &scene_apply_timeline, &scene_apply_model);
+        }
+        applied
+    });
+    let scene_close_window = scene_settings.as_weak();
+    scene_settings.on_close_window(move || {
+        if let Some(window) = scene_close_window.upgrade() {
+            let _ = window.hide();
+        }
+    });
+
+    let system_reload_store = settings.clone();
+    let system_reload_window = system_settings.as_weak();
+    system_settings.on_reload_settings(move || {
+        if let Some(window) = system_reload_window.upgrade() {
+            sync_system_settings(&window, &system_reload_store.borrow());
+        }
+    });
+    let system_apply_store = settings.clone();
+    let system_apply_model = model.clone();
+    let system_apply_launcher = launcher.as_weak();
+    let system_apply_window = system_settings.as_weak();
+    system_settings.on_apply_settings(move || {
+        let Some(window) = system_apply_window.upgrade() else {
+            return false;
+        };
+        match apply_system_settings(&window, &system_apply_store, &system_apply_model) {
+            Ok(()) => {
+                sync_system_settings(&window, &system_apply_store.borrow());
+                if let Some(launcher) = system_apply_launcher.upgrade() {
+                    sync_launcher_defaults(&launcher, &system_apply_store.borrow());
+                }
+                true
+            }
+            Err(message) => {
+                show_error_dialog(&message);
+                false
+            }
+        }
+    });
+    let system_close_window = system_settings.as_weak();
+    system_settings.on_close_window(move || {
+        if let Some(window) = system_close_window.upgrade() {
+            let _ = window.hide();
         }
     });
 
@@ -908,6 +1208,146 @@ fn show_error_dialog(message: &str) {
         .show();
 }
 
+fn project_defaults(settings: &SettingsStore) -> ProjectDefaults {
+    let fps = settings.f64_value("defaultProjectFps", 60.0);
+    ProjectDefaults {
+        width: settings
+            .i32_value("defaultProjectWidth", 1_920)
+            .clamp(1, 16_000),
+        height: settings
+            .i32_value("defaultProjectHeight", 1_080)
+            .clamp(1, 16_000),
+        fps: if fps.is_finite() {
+            fps.clamp(1.0, 240.0)
+        } else {
+            60.0
+        },
+        sample_rate: settings
+            .i32_value("defaultProjectSampleRate", 48_000)
+            .clamp(8_000, 192_000),
+        duration: settings
+            .i32_value("defaultProjectFrames", 3_600)
+            .clamp(1, 1_000_000),
+        enable_snap: settings.bool_value("enableSnap", true),
+        magnetic_snap_range: settings.i32_value("magneticSnapRange", 10).clamp(1, 100),
+    }
+}
+
+fn sync_launcher_defaults(window: &ProjectLauncherWindow, settings: &SettingsStore) {
+    let defaults = project_defaults(settings);
+    window.set_default_width(SharedString::from(defaults.width.to_string()));
+    window.set_default_height(SharedString::from(defaults.height.to_string()));
+    window.set_default_fps(SharedString::from(defaults.fps.to_string()));
+    window.set_default_sample_rate(SharedString::from(defaults.sample_rate.to_string()));
+}
+
+fn sync_project_settings(window: &ProjectSettingsWindow, input: &ProjectSettingsInput) {
+    window.set_project_width(input.width);
+    window.set_project_height(input.height);
+    window.set_project_fps(SharedString::from(input.fps.to_string()));
+    window.set_project_sample_rate(input.sample_rate);
+}
+
+fn sync_scene_settings(
+    window: &SceneSettingsWindow,
+    creation_mode: bool,
+    scene_id: i32,
+    input: &SceneSettingsInput,
+) {
+    window.set_creation_mode(creation_mode);
+    window.set_target_scene_id(scene_id);
+    window.set_scene_name(SharedString::from(input.name.clone()));
+    window.set_scene_width(input.width);
+    window.set_scene_height(input.height);
+    window.set_scene_fps(SharedString::from(input.fps.to_string()));
+    window.set_scene_duration(input.duration);
+    window.set_grid_mode_index(match input.grid_mode.as_str() {
+        "BPM" => 1,
+        "Frame" => 2,
+        _ => 0,
+    });
+    window.set_grid_bpm(SharedString::from(input.grid_bpm.to_string()));
+    window.set_grid_offset(SharedString::from(input.grid_offset.to_string()));
+    window.set_grid_interval(SharedString::from(input.grid_interval.to_string()));
+    window.set_grid_subdivision(SharedString::from(input.grid_subdivision.to_string()));
+    window.set_enable_snap(input.enable_snap);
+    window.set_magnetic_snap_range(input.magnetic_snap_range);
+}
+
+fn sync_system_settings(window: &SystemSettingsWindow, settings: &SettingsStore) {
+    let defaults = project_defaults(settings);
+    window.set_confirm_unsaved(settings.bool_value("showConfirmOnClose", true));
+    window.set_auto_backup(settings.bool_value("enableAutoBackup", true));
+    window.set_backup_interval(settings.i32_value("backupInterval", 5).clamp(1, 60));
+    window.set_undo_count(settings.i32_value("undoCount", 32).clamp(1, 1_000));
+    window.set_default_project_width(defaults.width);
+    window.set_default_project_height(defaults.height);
+    window.set_default_project_fps(SharedString::from(defaults.fps.to_string()));
+    window.set_default_project_frames(defaults.duration);
+    window.set_default_project_sample_rate(defaults.sample_rate);
+}
+
+fn apply_runtime_settings(model: &mut ApplicationModel, settings: &SettingsStore) {
+    let backup_minutes = settings.i32_value("backupInterval", 5).clamp(1, 24 * 60) as u64;
+    model.set_recovery_interval(Duration::from_secs(backup_minutes * 60));
+    model.set_auto_backup_enabled(settings.bool_value("enableAutoBackup", true));
+    model.set_undo_limit(settings.i32_value("undoCount", 32).max(1) as usize);
+}
+
+fn apply_system_settings(
+    window: &SystemSettingsWindow,
+    settings: &Rc<RefCell<SettingsStore>>,
+    model: &Rc<RefCell<ApplicationModel>>,
+) -> Result<(), String> {
+    let fps = parse_required_f64(
+        &window.get_default_project_fps(),
+        "既定のフレームレート",
+        1.0,
+        240.0,
+    )?;
+    let mut replacement = settings.borrow().snapshot();
+    replacement.insert(
+        "showConfirmOnClose".to_owned(),
+        serde_json::json!(window.get_confirm_unsaved()),
+    );
+    replacement.insert(
+        "enableAutoBackup".to_owned(),
+        serde_json::json!(window.get_auto_backup()),
+    );
+    replacement.insert(
+        "backupInterval".to_owned(),
+        serde_json::json!(window.get_backup_interval().clamp(1, 60)),
+    );
+    replacement.insert(
+        "undoCount".to_owned(),
+        serde_json::json!(window.get_undo_count().clamp(1, 1_000)),
+    );
+    replacement.insert(
+        "defaultProjectWidth".to_owned(),
+        serde_json::json!(window.get_default_project_width().clamp(1, 16_000)),
+    );
+    replacement.insert(
+        "defaultProjectHeight".to_owned(),
+        serde_json::json!(window.get_default_project_height().clamp(1, 16_000)),
+    );
+    replacement.insert("defaultProjectFps".to_owned(), serde_json::json!(fps));
+    replacement.insert(
+        "defaultProjectFrames".to_owned(),
+        serde_json::json!(window.get_default_project_frames().clamp(1, 1_000_000)),
+    );
+    replacement.insert(
+        "defaultProjectSampleRate".to_owned(),
+        serde_json::json!(
+            window
+                .get_default_project_sample_rate()
+                .clamp(8_000, 192_000)
+        ),
+    );
+    settings.borrow_mut().apply(replacement)?;
+    apply_runtime_settings(&mut model.borrow_mut(), &settings.borrow());
+    Ok(())
+}
+
 fn sync_weak_windows(
     main: &slint::Weak<MainWindow>,
     timeline: &slint::Weak<TimelineWindow>,
@@ -1050,18 +1490,45 @@ fn sync_transport(main: &MainWindow, timeline: &TimelineWindow, model: &Applicat
     timeline.set_action_status(SharedString::from(workspace.status()));
 }
 
-fn parse_i32(value: &str, fallback: i32, minimum: i32, maximum: i32) -> i32 {
-    value
+fn parse_required_i32(value: &str, label: &str, minimum: i32, maximum: i32) -> Result<i32, String> {
+    let parsed = value
+        .trim()
         .parse::<i32>()
-        .unwrap_or(fallback)
-        .clamp(minimum, maximum)
+        .map_err(|_| format!("{label}には整数を入力してください"))?;
+    if (minimum..=maximum).contains(&parsed) {
+        Ok(parsed)
+    } else {
+        Err(format!(
+            "{label}は{minimum}から{maximum}の範囲で入力してください"
+        ))
+    }
 }
 
-fn parse_f64(value: &str, fallback: f64, minimum: f64, maximum: f64) -> f64 {
-    value
+fn parse_required_f64(value: &str, label: &str, minimum: f64, maximum: f64) -> Result<f64, String> {
+    let parsed = value
+        .trim()
         .parse::<f64>()
+        .map_err(|_| format!("{label}には数値を入力してください"))?;
+    if parsed.is_finite() && (minimum..=maximum).contains(&parsed) {
+        Ok(parsed)
+    } else {
+        Err(format!(
+            "{label}は{minimum}から{maximum}の範囲で入力してください"
+        ))
+    }
+}
+
+fn parse_finite_f64(value: &str, fallback: f64) -> f64 {
+    value
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|value| value.is_finite())
         .unwrap_or(fallback)
-        .clamp(minimum, maximum)
+}
+
+fn parse_i32_unbounded(value: &str, fallback: i32) -> i32 {
+    value.trim().parse::<i32>().unwrap_or(fallback)
 }
 
 fn parse_validation_frames() -> Result<Option<u64>, String> {

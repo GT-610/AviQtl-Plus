@@ -1,4 +1,4 @@
-import { Button, GroupBox, LineEdit, ScrollView, Slider } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ScrollView, Slider, SpinBox } from "std-widgets.slint";
 
 export struct ProjectTabData {
     name: string,
@@ -507,6 +507,10 @@ export component ProjectLauncherWindow inherits Window {
     min-width: 620px;
     min-height: 420px;
 
+    in-out property <string> default-width: "1920";
+    in-out property <string> default-height: "1080";
+    in-out property <string> default-fps: "60";
+    in-out property <string> default-sample-rate: "48000";
     callback create-project(string, string, string, string);
     callback open-project();
 
@@ -523,10 +527,10 @@ export component ProjectLauncherWindow inherits Window {
                 GridLayout {
                     padding: 10px;
                     spacing: 10px;
-                    Row { Text { text: "幅 (横):"; } width-field := LineEdit { text: "1920"; } }
-                    Row { Text { text: "高さ (縦):"; } height-field := LineEdit { text: "1080"; } }
-                    Row { Text { text: "フレームレート (FPS):"; } fps-field := LineEdit { text: "60"; } }
-                    Row { Text { text: "サンプリングレート:"; } sample-rate-field := LineEdit { text: "48000"; } }
+                    Row { Text { text: "幅 (横):"; } width-field := LineEdit { text <=> root.default-width; } }
+                    Row { Text { text: "高さ (縦):"; } height-field := LineEdit { text <=> root.default-height; } }
+                    Row { Text { text: "フレームレート (FPS):"; } fps-field := LineEdit { text <=> root.default-fps; } }
+                    Row { Text { text: "サンプリングレート:"; } sample-rate-field := LineEdit { text <=> root.default-sample-rate; } }
                 }
             }
             create-button := Button {
@@ -970,6 +974,285 @@ export component TimelineWindow inherits Window {
             }
         }
         Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+    }
+}
+
+export component ProjectSettingsWindow inherits Window {
+    title: "プロジェクト設定";
+    preferred-width: 450px;
+    preferred-height: 240px;
+    min-width: 390px;
+    min-height: 220px;
+
+    in-out property <int> project-width: 1920;
+    in-out property <int> project-height: 1080;
+    in-out property <string> project-fps: "60";
+    in-out property <int> project-sample-rate: 48000;
+    callback apply-settings() -> bool;
+    callback close-window();
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 14px;
+        GridLayout {
+            spacing: 10px;
+            Row {
+                Text { text: "幅:"; vertical-alignment: center; }
+                SpinBox { value <=> root.project-width; minimum: 1; maximum: 8000; }
+            }
+            Row {
+                Text { text: "高さ:"; vertical-alignment: center; }
+                SpinBox { value <=> root.project-height; minimum: 1; maximum: 8000; }
+            }
+            Row {
+                Text { text: "FPS:"; vertical-alignment: center; }
+                LineEdit { text <=> root.project-fps; }
+            }
+            Row {
+                Text { text: "サンプリングレート:"; vertical-alignment: center; }
+                SpinBox { value <=> root.project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+            }
+        }
+        Rectangle { vertical-stretch: 1; }
+        HorizontalLayout {
+            alignment: center;
+            spacing: 8px;
+            Button {
+                text: "適用";
+                clicked => {
+                    if root.apply-settings() {
+                        root.close-window();
+                    }
+                }
+            }
+            Button { text: "キャンセル"; clicked => { root.close-window(); } }
+        }
+    }
+}
+
+export component SceneSettingsWindow inherits Window {
+    title: root.creation-mode ? "新規シーン作成" : "シーン設定";
+    preferred-width: 450px;
+    preferred-height: 550px;
+    min-width: 410px;
+    min-height: 460px;
+
+    in-out property <bool> creation-mode: false;
+    in-out property <int> target-scene-id: -1;
+    in-out property <string> scene-name: "";
+    in-out property <int> scene-width: 1920;
+    in-out property <int> scene-height: 1080;
+    in-out property <string> scene-fps: "60";
+    in-out property <int> scene-duration: 3600;
+    in-out property <int> grid-mode-index: 0;
+    in-out property <string> grid-bpm: "120";
+    in-out property <string> grid-offset: "0";
+    in-out property <string> grid-interval: "10";
+    in-out property <string> grid-subdivision: "4";
+    in-out property <bool> enable-snap: true;
+    in-out property <int> magnetic-snap-range: 10;
+    callback apply-settings() -> bool;
+    callback close-window();
+
+    ScrollView {
+        VerticalLayout {
+            padding: 15px;
+            spacing: 14px;
+            GroupBox {
+                title: "基本設定";
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row {
+                        Text { text: "シーン名:"; vertical-alignment: center; }
+                        LineEdit { text <=> root.scene-name; }
+                    }
+                    Row {
+                        Text { text: "幅:"; vertical-alignment: center; }
+                        SpinBox { value <=> root.scene-width; minimum: 1; maximum: 8000; }
+                    }
+                    Row {
+                        Text { text: "高さ:"; vertical-alignment: center; }
+                        SpinBox { value <=> root.scene-height; minimum: 1; maximum: 8000; }
+                    }
+                    Row {
+                        Text { text: "FPS:"; vertical-alignment: center; }
+                        LineEdit { text <=> root.scene-fps; }
+                    }
+                }
+            }
+            GroupBox {
+                title: "編集とスナップ";
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row {
+                        Text { text: "スナップを有効にする:"; vertical-alignment: center; }
+                        CheckBox { checked <=> root.enable-snap; }
+                    }
+                    Row {
+                        Text { text: "磁力スナップ範囲:"; vertical-alignment: center; }
+                        SpinBox { value <=> root.magnetic-snap-range; minimum: 1; maximum: 100; }
+                    }
+                    Row {
+                        Text { text: "グリッドモード:"; vertical-alignment: center; }
+                        ComboBox {
+                            model: ["自動 (秒/フレーム)", "BPM (音楽)", "フレーム数固定"];
+                            current-index <=> root.grid-mode-index;
+                        }
+                    }
+                }
+            }
+            if root.grid-mode-index == 1 : GroupBox {
+                title: "BPM設定";
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row { Text { text: "BPM:"; vertical-alignment: center; } LineEdit { text <=> root.grid-bpm; } }
+                    Row { Text { text: "拍子 (分割数):"; vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; } }
+                    Row { Text { text: "オフセット (秒):"; vertical-alignment: center; } LineEdit { text <=> root.grid-offset; } }
+                }
+            }
+            if root.grid-mode-index == 2 : GroupBox {
+                title: "フレーム設定";
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row { Text { text: "間隔 (Frames):"; vertical-alignment: center; } LineEdit { text <=> root.grid-interval; } }
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                Button { text: "キャンセル"; clicked => { root.close-window(); } }
+                Button {
+                    text: "OK";
+                    clicked => {
+                        if root.apply-settings() {
+                            root.close-window();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SystemSettingsWindow inherits Window {
+    title: "環境設定";
+    preferred-width: 620px;
+    preferred-height: 590px;
+    min-width: 520px;
+    min-height: 480px;
+
+    in-out property <bool> confirm-unsaved: true;
+    in-out property <bool> auto-backup: true;
+    in-out property <int> backup-interval: 5;
+    in-out property <int> undo-count: 32;
+    in-out property <int> default-project-width: 1920;
+    in-out property <int> default-project-height: 1080;
+    in-out property <string> default-project-fps: "60";
+    in-out property <int> default-project-frames: 3600;
+    in-out property <int> default-project-sample-rate: 48000;
+    callback reload-settings();
+    callback apply-settings() -> bool;
+    callback close-window();
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+        ScrollView {
+            VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: "一般 / ファイル";
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        CheckBox {
+                            text: "終了時に未保存のプロジェクトを確認する";
+                            checked <=> root.confirm-unsaved;
+                        }
+                        CheckBox {
+                            text: "自動バックアップを有効にする";
+                            checked <=> root.auto-backup;
+                        }
+                        HorizontalLayout {
+                            opacity: root.auto-backup ? 1 : 0.5;
+                            Text { text: "バックアップ間隔"; vertical-alignment: center; }
+                            SpinBox {
+                                value <=> root.backup-interval;
+                                minimum: 1;
+                                maximum: 60;
+                                enabled: root.auto-backup;
+                            }
+                            Text { text: "分"; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        HorizontalLayout {
+                            Text { text: "元に戻す回数"; vertical-alignment: center; }
+                            SpinBox { value <=> root.undo-count; minimum: 1; maximum: 1000; }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                }
+                GroupBox {
+                    title: "新規プロジェクト";
+                    GridLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        Row {
+                            Text { text: "幅:"; vertical-alignment: center; }
+                            SpinBox { value <=> root.default-project-width; minimum: 1; maximum: 16000; }
+                        }
+                        Row {
+                            Text { text: "高さ:"; vertical-alignment: center; }
+                            SpinBox { value <=> root.default-project-height; minimum: 1; maximum: 16000; }
+                        }
+                        Row {
+                            Text { text: "FPS:"; vertical-alignment: center; }
+                            LineEdit { text <=> root.default-project-fps; }
+                        }
+                        Row {
+                            Text { text: "総フレーム数:"; vertical-alignment: center; }
+                            SpinBox { value <=> root.default-project-frames; minimum: 1; maximum: 1000000; step-size: 100; }
+                        }
+                        Row {
+                            Text { text: "サンプリングレート:"; vertical-alignment: center; }
+                            SpinBox { value <=> root.default-project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+                        }
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        Rectangle {
+            height: 52px;
+            border-width: 1px;
+            border-color: #555b68;
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 8px;
+                Text {
+                    text: "設定は「適用」または「OK」で保存されます";
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                Button { text: "再読込"; clicked => { root.reload-settings(); } }
+                Button { text: "適用"; clicked => { root.apply-settings(); } }
+                Button {
+                    text: "OK";
+                    clicked => {
+                        if root.apply-settings() {
+                            root.close-window();
+                        }
+                    }
+                }
+                Button { text: "閉じる"; clicked => { root.close-window(); } }
+            }
+        }
     }
 }
 

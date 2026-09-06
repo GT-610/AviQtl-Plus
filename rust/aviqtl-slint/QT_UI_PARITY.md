@@ -19,13 +19,13 @@ still require the separately scheduled Computer Use suite.
 | Application shell | Launcher without a project; preview as main window; timeline and object settings as distinct F3/F4 windows | foundation |
 | Main menu | Preserve File, Edit, Settings, View, and Tools ordering and command ownership | foundation |
 | Project workspace | Active project tab owns timeline, selection, history, paths, recovery, and dirty state | foundation |
-| New project | Ctrl+N raises the independent non-modal launcher before creating a tab | partial |
+| New project | Ctrl+N raises the independent non-modal launcher before creating a tab | foundation |
 | Open project | Owned chooser and Qt replace-or-new-tab lifecycle | foundation |
 | Save / Save As | In-place fallback, suffix, overwrite, cancellation, and deferred close behavior | foundation |
 | Export | Settings, planning, progress, cancellation, cleanup, and close interception | missing |
 | Missing media | Conditional command, type-safe replacements, and project updates | foundation |
 | Quit | Visit dirty projects in tab order and complete Save/Discard/Cancel before exit | foundation |
-| Scene tabs | Left switches, right opens settings, root cannot close, plus creates | partial |
+| Scene tabs | Left switches, right opens settings, root cannot close, plus creates | foundation |
 | Timeline focus | Window-scoped editor shortcuts; text inputs suppress editor shortcuts | missing |
 | Timeline skimmer | Snapped hover target, Shift bypass, command and import advancement | missing |
 | Primary selection | Left click replaces selection and makes the clip primary | parity |
@@ -72,6 +72,15 @@ still require the separately scheduled Computer Use suite.
 - A recovered snapshot opens as a dirty, pathless project. Its original project URL is displayed
   for context but is never installed as the save target, so the first Save always follows the Qt
   Save As path and cannot silently overwrite the original file.
+- Project settings now load the active project's width, height, frame rate, and sample rate, apply
+  them directly as a dirty non-undoable project-property change like Qt, and leave the model
+  untouched on Cancel. Scene creation and editing preserve every Qt field, including duration,
+  grid mode, BPM, offset, interval, subdivision, and magnetic snapping. A newly created scene keeps
+  Qt's two-step Add Scene then Update Scene Settings undo order.
+- The first system-settings slice preserves the Qt draft workflow: opening or Reload copies the
+  persisted values, Apply saves without closing, OK saves and closes, and Close discards the draft.
+  Applying settings immediately updates quit confirmation, automatic recovery enablement and
+  interval, undo limits for existing and future projects, and launcher/new-scene defaults.
 - The Slint frontend uses native `rfd` open/save dialogs. Its default Linux backend is the Rust
   XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
 - Clip, timeline, and layer context menus use Slint `ContextMenuArea`; native macOS menus are not

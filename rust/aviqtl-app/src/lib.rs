@@ -17,7 +17,7 @@ pub mod workspace;
 pub use lifecycle::{LifecycleStep, SaveDecision};
 pub use project_io::{ProjectDefaults, ProjectSession};
 pub use recovery::RecoveryEntry;
-pub use workspace::WorkspaceModel;
+pub use workspace::{ProjectSettingsInput, SceneSettingsInput, WorkspaceModel};
 
 use lifecycle::{LifecycleContinuation, PendingLifecycle};
 use recovery::{
@@ -43,6 +43,7 @@ pub struct ApplicationModel {
     recovery_store: RecoveryStore,
     recovery_interval: Duration,
     auto_backup_enabled: bool,
+    undo_limit: usize,
     suppressed_recovery_ids: HashSet<String>,
     recovery_errors: Vec<String>,
 }
@@ -106,6 +107,7 @@ impl Default for ApplicationModel {
             recovery_store,
             recovery_interval: DEFAULT_BACKUP_INTERVAL,
             auto_backup_enabled: true,
+            undo_limit: 32,
             suppressed_recovery_ids: HashSet::new(),
             recovery_errors: Vec::new(),
         }
@@ -123,6 +125,7 @@ impl ApplicationModel {
             recovery_store: RecoveryStore::with_root(root),
             recovery_interval: DEFAULT_BACKUP_INTERVAL,
             auto_backup_enabled: true,
+            undo_limit: 32,
             suppressed_recovery_ids: HashSet::new(),
             recovery_errors: Vec::new(),
         }
@@ -225,6 +228,13 @@ impl ApplicationModel {
         }
     }
 
+    pub fn set_undo_limit(&mut self, limit: usize) {
+        self.undo_limit = limit.max(1);
+        for project in &mut self.projects {
+            project.workspace.set_undo_limit(self.undo_limit);
+        }
+    }
+
     pub fn update_recovery(&mut self) -> Vec<String> {
         let mut errors = std::mem::take(&mut self.recovery_errors);
         if self.auto_backup_enabled {
@@ -313,8 +323,10 @@ impl ApplicationModel {
 
     fn add_project_entry(&mut self, project: ProjectSession, untitled_name: String) -> usize {
         let index = self.projects.len();
+        let mut workspace = WorkspaceModel::new(project);
+        workspace.set_undo_limit(self.undo_limit);
         self.projects.push(ProjectEntry {
-            workspace: WorkspaceModel::new(project),
+            workspace,
             untitled_name,
             recovery: ProjectRecoveryState::new(),
         });
@@ -329,7 +341,9 @@ impl ApplicationModel {
             && !self.projects[index].workspace.project().dirty
         {
             self.clear_project_recovery(index);
-            self.projects[index].workspace = WorkspaceModel::new(project);
+            let mut workspace = WorkspaceModel::new(project);
+            workspace.set_undo_limit(self.undo_limit);
+            self.projects[index].workspace = workspace;
             return Ok(index);
         }
         Ok(self.add_project_session(project))
@@ -670,6 +684,38 @@ mod tests {
         app.create_project(ProjectDefaults::default());
         assert!(!app.select_project(10));
         assert_eq!(app.current_project_index(), Some(0));
+    }
+
+    #[test]
+    fn runtime_undo_limit_applies_to_existing_and_future_workspaces() {
+        let mut app = ApplicationModel::default();
+        app.create_project(ProjectDefaults::default());
+        {
+            let workspace = app.current_workspace_mut().expect("project exists");
+            let scene_id = workspace.selected_scene();
+            let mut input = workspace.scene_settings(scene_id).expect("scene exists");
+            input.width = 1_000;
+            assert!(workspace.update_scene_settings(scene_id, input.clone()));
+            input.width = 1_001;
+            assert!(workspace.update_scene_settings(scene_id, input));
+        }
+        app.set_undo_limit(1);
+        let workspace = app.current_workspace_mut().expect("project exists");
+        assert!(workspace.undo());
+        assert_eq!(workspace.selected_scene_settings().unwrap().width, 1_000);
+        assert!(!workspace.undo());
+
+        app.create_project(ProjectDefaults::default());
+        let workspace = app.current_workspace_mut().expect("project exists");
+        let scene_id = workspace.selected_scene();
+        let mut input = workspace.scene_settings(scene_id).expect("scene exists");
+        input.width = 1_100;
+        assert!(workspace.update_scene_settings(scene_id, input.clone()));
+        input.width = 1_101;
+        assert!(workspace.update_scene_settings(scene_id, input));
+        assert!(workspace.undo());
+        assert_eq!(workspace.selected_scene_settings().unwrap().width, 1_100);
+        assert!(!workspace.undo());
     }
 
     #[test]

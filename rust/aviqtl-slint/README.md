@@ -28,6 +28,13 @@ periodic scheduling, a single background file worker, stale cleanup, and Save/Cl
 Slint only presents the launcher-owned recovery list and forwards Recover or Discard. Recovering
 always creates a dirty pathless project, so Save opens Save As and never overwrites the original.
 
+Settings follow the same ownership boundary. `SettingsStore` remains the persisted source of truth;
+Slint windows only hold drafts and forward Apply, Reload, OK, or Close. Runtime settings update the
+application model immediately after a successful atomic save, including quit confirmation,
+automatic recovery, recovery interval, undo limits, and new-project defaults. Project settings stay
+outside the undo stack as in Qt, while scene creation retains Qt's separate add and settings-update
+undo steps.
+
 The egui work is therefore not discarded. Domain and application crates are reused directly, while
 the egui implementation and its tests remain a behavior reference for interaction details that are
 specific to a retained-mode Slint UI.

@@ -1,13 +1,14 @@
 use crate::effect_selection::EffectSelection;
-use crate::project_io::ProjectSession;
+use crate::project_io::{ProjectDefaults, ProjectSession};
 use crate::selection::{ClipSelection, SelectionBox};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
-    ClipDocument, ProjectDocument, SceneDocument, TimelineCommand, TimelineTransaction,
-    clipboard_duration, plan_clip_delta_move, plan_clipboard_paste, plan_scene_layer_insertion,
-    plan_scene_layer_shift,
+    ClipDocument, ProjectDocument, ProjectSettings, SceneDocument, TimelineCommand,
+    TimelineTransaction, clipboard_duration, plan_clip_delta_move, plan_clipboard_paste,
+    plan_scene_layer_insertion, plan_scene_layer_shift,
 };
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 const DEFAULT_UNDO_LIMIT: usize = 32;
@@ -29,6 +30,30 @@ pub struct TimelineClip {
     pub layer: i32,
     pub selected: bool,
     pub primary: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectSettingsInput {
+    pub width: i32,
+    pub height: i32,
+    pub fps: f64,
+    pub sample_rate: i32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneSettingsInput {
+    pub name: String,
+    pub width: i32,
+    pub height: i32,
+    pub fps: f64,
+    pub duration: i32,
+    pub grid_mode: String,
+    pub grid_bpm: f64,
+    pub grid_offset: f64,
+    pub grid_interval: i32,
+    pub grid_subdivision: i32,
+    pub enable_snap: bool,
+    pub magnetic_snap_range: i32,
 }
 
 /// Framework-neutral state and commands for one open project workspace.
@@ -165,6 +190,140 @@ impl WorkspaceModel {
     pub fn set_undo_limit(&mut self, limit: usize) {
         self.undo_limit = limit.max(1);
         self.trim_undo_history();
+    }
+
+    pub fn project_settings(&self) -> ProjectSettingsInput {
+        let settings = &self.project.document.settings;
+        ProjectSettingsInput {
+            width: settings.width,
+            height: settings.height,
+            fps: settings.fps,
+            sample_rate: settings.sample_rate,
+        }
+    }
+
+    pub fn update_project_settings(&mut self, input: ProjectSettingsInput) -> bool {
+        let current = &self.project.document.settings;
+        let settings = ProjectSettings {
+            width: input.width.clamp(1, 8_000),
+            height: input.height.clamp(1, 8_000),
+            fps: bounded_f64(input.fps, 1.0, 240.0, 60.0),
+            sample_rate: input.sample_rate.clamp(8_000, 192_000),
+            extra: current.extra.clone(),
+        };
+        match self
+            .project
+            .state
+            .plan(TimelineCommand::UpdateProjectSettings { settings })
+            .and_then(|transaction| self.project.state.apply(&transaction))
+        {
+            Ok(()) => {
+                self.project.refresh();
+                self.reconcile_after_edit();
+                self.project.dirty = true;
+                self.status = "Project settings applied".to_owned();
+                true
+            }
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
+    }
+
+    pub fn selected_scene_settings(&self) -> Option<SceneSettingsInput> {
+        self.selected_scene_document().map(scene_settings_input)
+    }
+
+    pub fn scene_settings(&self, scene_id: i32) -> Option<SceneSettingsInput> {
+        self.project
+            .document
+            .scenes
+            .iter()
+            .find(|scene| scene.id == scene_id)
+            .map(scene_settings_input)
+    }
+
+    pub fn create_scene(
+        &mut self,
+        defaults: ProjectDefaults,
+        input: SceneSettingsInput,
+    ) -> Option<i32> {
+        let scene_id = match self.project.state.reserve_scene_ids(1) {
+            Ok(ids) => ids[0],
+            Err(error) => {
+                self.status = error.to_string();
+                return None;
+            }
+        };
+        let name = input.name.clone();
+        let scene = SceneDocument {
+            id: scene_id,
+            name: name.clone(),
+            width: defaults.width,
+            height: defaults.height,
+            fps: defaults.fps,
+            start: 0,
+            duration: 300,
+            nested_duration: 0,
+            locked_layers: Vec::new(),
+            hidden_layers: Vec::new(),
+            grid_mode: "Auto".to_owned(),
+            grid_bpm: 120.0,
+            grid_offset: 0.0,
+            grid_interval: 10,
+            grid_subdivision: 4,
+            enable_snap: true,
+            magnetic_snap_range: 10,
+            extra: BTreeMap::new(),
+        };
+        if !self.execute(TimelineCommand::InsertScene { index: None, scene }) {
+            return None;
+        }
+        self.selected_scene = scene_id;
+        self.selection.clear();
+        self.effect_selection.clear();
+        self.playhead = 0;
+        self.transport.pause();
+        if self.update_scene_settings(scene_id, input) {
+            self.status = format!("Created scene {name}");
+        }
+        Some(scene_id)
+    }
+
+    pub fn update_scene_settings(&mut self, scene_id: i32, input: SceneSettingsInput) -> bool {
+        let Some(mut scene) = self
+            .project
+            .document
+            .scenes
+            .iter()
+            .find(|scene| scene.id == scene_id)
+            .cloned()
+        else {
+            self.status = format!("Scene #{scene_id} does not exist");
+            return false;
+        };
+        let input = normalized_scene_settings(input);
+        scene.name = input.name;
+        scene.width = input.width;
+        scene.height = input.height;
+        scene.fps = input.fps;
+        scene.duration = input.duration;
+        scene.grid_mode = input.grid_mode;
+        scene.grid_bpm = input.grid_bpm;
+        scene.grid_offset = input.grid_offset;
+        scene.grid_interval = input.grid_interval;
+        scene.grid_subdivision = input.grid_subdivision;
+        scene.enable_snap = input.enable_snap;
+        scene.magnetic_snap_range = input.magnetic_snap_range;
+        let name = scene.name.clone();
+        if self.execute(TimelineCommand::UpdateScene { scene_id, scene }) {
+            self.selected_scene = scene_id;
+            self.status = format!("Updated scene {name}");
+            true
+        } else {
+            false
+        }
     }
 
     pub fn execute(&mut self, command: TimelineCommand) -> bool {
@@ -764,6 +923,71 @@ impl WorkspaceModel {
     }
 }
 
+fn scene_settings_input(scene: &SceneDocument) -> SceneSettingsInput {
+    SceneSettingsInput {
+        name: scene.name.clone(),
+        width: scene.width,
+        height: scene.height,
+        fps: scene.fps,
+        duration: scene.duration,
+        grid_mode: scene.grid_mode.clone(),
+        grid_bpm: scene.grid_bpm,
+        grid_offset: scene.grid_offset,
+        grid_interval: scene.grid_interval,
+        grid_subdivision: scene.grid_subdivision,
+        enable_snap: scene.enable_snap,
+        magnetic_snap_range: scene.magnetic_snap_range,
+    }
+}
+
+fn normalized_scene_settings(mut input: SceneSettingsInput) -> SceneSettingsInput {
+    input.width = bounded_positive_i32(input.width, 32_768, 1_920);
+    input.height = bounded_positive_i32(input.height, 32_768, 1_080);
+    input.fps = bounded_positive_f64(input.fps, 1_000.0, 60.0);
+    input.duration = bounded_positive_i32(input.duration, i32::MAX, 300);
+    input.grid_mode = match input.grid_mode.as_str() {
+        "BPM" => "BPM",
+        "Frame" => "Frame",
+        _ => "Auto",
+    }
+    .to_owned();
+    input.grid_bpm = bounded_positive_f64(input.grid_bpm, 1_000.0, 120.0);
+    input.grid_offset =
+        if input.grid_offset.is_finite() && (0.0..=86_400.0).contains(&input.grid_offset) {
+            input.grid_offset
+        } else {
+            0.0
+        };
+    input.grid_interval = bounded_positive_i32(input.grid_interval, 1_000_000, 10);
+    input.grid_subdivision = bounded_positive_i32(input.grid_subdivision, 128, 4);
+    input.magnetic_snap_range = bounded_positive_i32(input.magnetic_snap_range, 100, 10);
+    input
+}
+
+fn bounded_f64(value: f64, minimum: f64, maximum: f64, fallback: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(minimum, maximum)
+    } else {
+        fallback
+    }
+}
+
+fn bounded_positive_i32(value: i32, maximum: i32, fallback: i32) -> i32 {
+    if value <= 0 || value > maximum {
+        fallback
+    } else {
+        value
+    }
+}
+
+fn bounded_positive_f64(value: f64, maximum: f64, fallback: f64) -> f64 {
+    if !value.is_finite() || value <= 0.0 || value > maximum {
+        fallback
+    } else {
+        value
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -863,5 +1087,131 @@ mod tests {
             [3]
         );
         assert!(workspace.project().dirty);
+    }
+
+    #[test]
+    fn project_settings_are_clamped_and_stay_out_of_the_qt_undo_stack() {
+        let mut workspace = workspace();
+        assert!(workspace.update_project_settings(ProjectSettingsInput {
+            width: 12_000,
+            height: 0,
+            fps: f64::NAN,
+            sample_rate: 500_000,
+        }));
+        assert_eq!(workspace.document().settings.width, 8_000);
+        assert_eq!(workspace.document().settings.height, 1);
+        assert_eq!(workspace.document().settings.fps, 60.0);
+        assert_eq!(workspace.document().settings.sample_rate, 192_000);
+        assert!(!workspace.can_undo());
+        assert!(!workspace.undo());
+        assert_eq!(workspace.document().settings.width, 8_000);
+        assert_eq!(workspace.document().settings.height, 1);
+    }
+
+    #[test]
+    fn scene_creation_and_updates_preserve_the_qt_settings_contract() {
+        let mut workspace = workspace();
+        let scene_id = workspace
+            .create_scene(
+                ProjectDefaults {
+                    width: 640,
+                    height: 480,
+                    fps: 24.0,
+                    ..ProjectDefaults::default()
+                },
+                SceneSettingsInput {
+                    name: "Configured".to_owned(),
+                    width: 1_280,
+                    height: 720,
+                    fps: 30.0,
+                    duration: 900,
+                    grid_mode: "BPM".to_owned(),
+                    grid_bpm: 128.0,
+                    grid_offset: 0.25,
+                    grid_interval: 12,
+                    grid_subdivision: 8,
+                    enable_snap: false,
+                    magnetic_snap_range: 18,
+                },
+            )
+            .expect("scene creates");
+        assert_eq!(workspace.selected_scene(), scene_id);
+        let created = workspace.scene_settings(scene_id).expect("scene exists");
+        assert_eq!(created.name, "Configured");
+        assert_eq!(created.grid_mode, "BPM");
+        assert_eq!(created.grid_subdivision, 8);
+        assert!(!created.enable_snap);
+
+        assert!(workspace.update_scene_settings(
+            scene_id,
+            SceneSettingsInput {
+                name: "Updated".to_owned(),
+                width: 0,
+                height: 40_000,
+                fps: f64::INFINITY,
+                duration: 0,
+                grid_mode: "unknown".to_owned(),
+                grid_bpm: 0.0,
+                grid_offset: -4.0,
+                grid_interval: 0,
+                grid_subdivision: 0,
+                enable_snap: true,
+                magnetic_snap_range: 0,
+            }
+        ));
+        let updated = workspace.scene_settings(scene_id).expect("scene exists");
+        assert_eq!(updated.name, "Updated");
+        assert_eq!(updated.width, 1_920);
+        assert_eq!(updated.height, 1_080);
+        assert_eq!(updated.fps, 60.0);
+        assert_eq!(updated.duration, 300);
+        assert_eq!(updated.grid_mode, "Auto");
+        assert_eq!(updated.grid_bpm, 120.0);
+        assert_eq!(updated.grid_offset, 0.0);
+        assert_eq!(updated.grid_interval, 10);
+        assert_eq!(updated.grid_subdivision, 4);
+        assert_eq!(updated.magnetic_snap_range, 10);
+    }
+
+    #[test]
+    fn scene_creation_keeps_qt_add_then_settings_undo_order() {
+        let mut workspace = workspace();
+        let scene_id = workspace
+            .create_scene(
+                ProjectDefaults {
+                    width: 640,
+                    height: 480,
+                    fps: 24.0,
+                    ..ProjectDefaults::default()
+                },
+                SceneSettingsInput {
+                    name: String::new(),
+                    width: 1_280,
+                    height: 720,
+                    fps: 30.0,
+                    duration: 900,
+                    grid_mode: "BPM".to_owned(),
+                    grid_bpm: 128.0,
+                    grid_offset: 0.25,
+                    grid_interval: 12,
+                    grid_subdivision: 8,
+                    enable_snap: false,
+                    magnetic_snap_range: 18,
+                },
+            )
+            .expect("scene creates");
+        assert_eq!(workspace.scene_settings(scene_id).unwrap().name, "");
+
+        assert!(workspace.undo());
+        let initial = workspace.scene_settings(scene_id).expect("scene remains");
+        assert_eq!(initial.name, "");
+        assert_eq!(initial.width, 640);
+        assert_eq!(initial.height, 480);
+        assert_eq!(initial.fps, 24.0);
+        assert_eq!(initial.duration, 300);
+        assert_eq!(initial.grid_mode, "Auto");
+
+        assert!(workspace.undo());
+        assert!(workspace.scene_settings(scene_id).is_none());
     }
 }
