@@ -54,6 +54,7 @@ export struct ObjectEffectData {
 }
 
 export struct EffectCatalogItemData {
+    header: bool,
     id: string,
     name: string,
     categories: string,
@@ -64,7 +65,8 @@ export struct KeyframeMarkerData {
     minimum-frame: int,
     maximum-frame: int,
     virtual-end: bool,
-    movable: bool,
+    removable: bool,
+    draggable: bool,
 }
 
 export struct CurveHandleData {
@@ -86,10 +88,12 @@ export struct EasingCatalogRowData {
 export struct ObjectSettingRowData {
     row-kind: string,
     source-kind: string,
+    audio-plugin: bool,
     effect-index: int,
     param-name: string,
     label: string,
     effect-enabled: bool,
+    header-toggle-visible: bool,
     selected: bool,
     removable: bool,
     interactive: bool,
@@ -176,10 +180,10 @@ component KeyframeTrack inherits Rectangle {
             transform-rotation: 45deg;
         }
         marker-touch := TouchArea {
-            mouse-cursor: marker.movable ? move : pointer;
+            mouse-cursor: marker.draggable ? move : marker.removable ? pointer : default;
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                    parent.dragging = marker.movable;
+                    parent.dragging = marker.draggable;
                     parent.threshold-crossed = false;
                     parent.pointer-start-x = self.absolute-position.x + self.mouse-x;
                 }
@@ -212,7 +216,7 @@ component KeyframeTrack inherits Rectangle {
                 }
                 if event.kind == PointerEventKind.down
                     && event.button == PointerEventButton.right
-                    && marker.movable {
+                    && marker.removable {
                     root.remove(
                         root.row-data.effect-index,
                         root.row-data.param-name,
@@ -405,21 +409,22 @@ component EffectSidebarEntry inherits Rectangle {
 
 component ObjectSettingRow inherits Rectangle {
     in property <ObjectSettingRowData> row-data;
-    callback activate-effect(int);
-    callback set-effect-enabled(int, bool);
-    callback remove-effect(int);
-    callback set-text(int, string, int, string);
-    callback set-number(int, string, int, float);
-    callback set-bool(int, string, int, bool);
-    callback set-option(int, string, int, int);
-    callback pick-path(int, string, int, string, string, string);
-    callback pick-color(int, string, int, string);
-    callback pick-font(int, string, int, string);
+    callback activate-effect(bool, int);
+    callback set-effect-enabled(bool, int, bool);
+    callback remove-effect(bool, int);
+    callback set-text(bool, int, string, int, string);
+    callback set-number(bool, int, string, int, float);
+    callback set-bool(bool, int, string, int, bool);
+    callback set-option(bool, int, string, int, int);
+    callback pick-path(bool, int, string, int, string, string, string);
+    callback pick-color(bool, int, string, int, string);
+    callback pick-font(bool, int, string, int, string);
     callback seek-keyframe(int);
     callback snap-keyframe(float) -> int;
-    callback add-keyframe(int, string, int);
-    callback remove-keyframe(int, string, int);
-    callback move-keyframe(int, string, int, int);
+    callback seed-keyframes(bool, int, string);
+    callback add-keyframe(bool, int, string, int);
+    callback remove-keyframe(bool, int, string, int);
+    callback move-keyframe(bool, int, string, int, int);
     callback open-easing(int, string, int, int);
     height: root.row-data.row-kind == "effect" ? 42px
         : root.row-data.row-kind == "header" ? 36px
@@ -438,9 +443,16 @@ component ObjectSettingRow inherits Rectangle {
             padding-right: 6px;
             spacing: 7px;
             CheckBox {
+                visible: root.row-data.header-toggle-visible;
                 checked: root.row-data.effect-enabled;
                 accessible-label: root.row-data.label + "を有効にする";
-                toggled => { root.set-effect-enabled(root.row-data.effect-index, self.checked); }
+                toggled => {
+                    root.set-effect-enabled(
+                        root.row-data.audio-plugin,
+                        root.row-data.effect-index,
+                        self.checked
+                    );
+                }
             }
             Text {
                 text: root.row-data.label;
@@ -453,14 +465,18 @@ component ObjectSettingRow inherits Rectangle {
                 text: "削除";
                 visible: root.row-data.removable;
                 enabled: root.row-data.removable;
-                clicked => { root.remove-effect(root.row-data.effect-index); }
+                clicked => {
+                    root.remove-effect(root.row-data.audio-plugin, root.row-data.effect-index);
+                }
             }
         }
         TouchArea {
             x: 32px;
             width: max(parent.width - 90px, 1px);
             mouse-cursor: pointer;
-            clicked => { root.activate-effect(root.row-data.effect-index); }
+            clicked => {
+                root.activate-effect(root.row-data.audio-plugin, root.row-data.effect-index);
+            }
         }
     }
 
@@ -485,6 +501,7 @@ component ObjectSettingRow inherits Rectangle {
             enabled: root.row-data.interactive;
             toggled => {
                 root.set-bool(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -510,6 +527,7 @@ component ObjectSettingRow inherits Rectangle {
             enabled: root.row-data.interactive;
             changed(value) => {
                 root.set-number(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -524,6 +542,7 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-alignment: right;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -532,6 +551,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Button {
+            visible: !root.row-data.audio-plugin;
             text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
             enabled: root.row-data.interactive;
             clicked => {
@@ -540,6 +560,19 @@ component ObjectSettingRow inherits Rectangle {
                     root.row-data.param-name,
                     root.row-data.start-frame,
                     root.row-data.end-frame
+                );
+            }
+        }
+        Button {
+            visible: root.row-data.audio-plugin;
+            text: "K";
+            enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label + "の先頭と末尾にキーフレームを作成";
+            clicked => {
+                root.seed-keyframes(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name
                 );
             }
         }
@@ -553,6 +586,7 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-alignment: right;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.end-frame,
@@ -571,6 +605,7 @@ component ObjectSettingRow inherits Rectangle {
                 && root.row-data.interpolation != "constant";
             changed(value) => {
                 root.set-number(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.end-frame,
@@ -594,6 +629,7 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-alignment: right;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -602,6 +638,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Button {
+            visible: !root.row-data.audio-plugin;
             text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
             enabled: root.row-data.interactive;
             clicked => {
@@ -623,6 +660,7 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-alignment: right;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.end-frame,
@@ -647,6 +685,7 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-alignment: right;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -655,6 +694,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Button {
+            visible: !root.row-data.audio-plugin;
             text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
             enabled: root.row-data.interactive;
             clicked => {
@@ -676,6 +716,7 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-alignment: right;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.end-frame,
@@ -700,6 +741,7 @@ component ObjectSettingRow inherits Rectangle {
             enabled: root.row-data.interactive;
             selected(value) => {
                 root.set-option(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -722,6 +764,7 @@ component ObjectSettingRow inherits Rectangle {
             enabled: root.row-data.interactive;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -743,6 +786,7 @@ component ObjectSettingRow inherits Rectangle {
             enabled: root.row-data.interactive;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -756,6 +800,7 @@ component ObjectSettingRow inherits Rectangle {
             accessible-label: root.row-data.label + "を選択";
             clicked => {
                 root.pick-path(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -779,6 +824,7 @@ component ObjectSettingRow inherits Rectangle {
             accessible-label: root.row-data.label + ": " + self.text;
             clicked => {
                 root.pick-font(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -813,6 +859,7 @@ component ObjectSettingRow inherits Rectangle {
                 accessible-label: root.row-data.label + "の開始色を選択";
                 accessible-action-default => {
                     root.pick-color(
+                        root.row-data.audio-plugin,
                         root.row-data.effect-index,
                         root.row-data.param-name,
                         root.row-data.start-frame,
@@ -821,6 +868,7 @@ component ObjectSettingRow inherits Rectangle {
                 }
                 clicked => {
                     root.pick-color(
+                        root.row-data.audio-plugin,
                         root.row-data.effect-index,
                         root.row-data.param-name,
                         root.row-data.start-frame,
@@ -836,6 +884,7 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-alignment: center;
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.start-frame,
@@ -844,6 +893,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Button {
+            visible: !root.row-data.audio-plugin;
             text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
             enabled: root.row-data.interactive;
             clicked => {
@@ -864,6 +914,7 @@ component ObjectSettingRow inherits Rectangle {
                 && root.row-data.interpolation != "constant";
             commit(value) => {
                 root.set-text(
+                    root.row-data.audio-plugin,
                     root.row-data.effect-index,
                     root.row-data.param-name,
                     root.row-data.end-frame,
@@ -889,6 +940,7 @@ component ObjectSettingRow inherits Rectangle {
                 accessible-label: root.row-data.label + "の終了色を選択";
                 accessible-action-default => {
                     root.pick-color(
+                        root.row-data.audio-plugin,
                         root.row-data.effect-index,
                         root.row-data.param-name,
                         root.row-data.end-frame,
@@ -897,6 +949,7 @@ component ObjectSettingRow inherits Rectangle {
                 }
                 clicked => {
                     root.pick-color(
+                        root.row-data.audio-plugin,
                         root.row-data.effect-index,
                         root.row-data.param-name,
                         root.row-data.end-frame,
@@ -913,10 +966,14 @@ component ObjectSettingRow inherits Rectangle {
         row-data: root.row-data;
         seek(frame) => { root.seek-keyframe(frame); }
         snap(frame) => { root.snap-keyframe(frame) }
-        add(index, param, frame) => { root.add-keyframe(index, param, frame); }
-        remove(index, param, frame) => { root.remove-keyframe(index, param, frame); }
+        add(index, param, frame) => {
+            root.add-keyframe(root.row-data.audio-plugin, index, param, frame);
+        }
+        remove(index, param, frame) => {
+            root.remove-keyframe(root.row-data.audio-plugin, index, param, frame);
+        }
         move-keyframe(index, param, old-frame, new-frame) => {
-            root.move-keyframe(index, param, old-frame, new-frame);
+            root.move-keyframe(root.row-data.audio-plugin, index, param, old-frame, new-frame);
         }
     }
 
@@ -2675,6 +2732,8 @@ export component ObjectSettingsWindow inherits Window {
     min-height: 480px;
     in property <bool> has-selection: false;
     in property <string> clip-title: "";
+    in property <bool> audio-plugin-mode: false;
+    in property <string> plugin-scan-status: "Audio plugins · scanning…";
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
     in property <[EffectCatalogItemData]> effect-catalog-items;
@@ -2711,21 +2770,22 @@ export component ObjectSettingsWindow inherits Window {
     callback load-effect-preset(int, string);
     callback delete-effect-preset(int, string);
     callback preset-names(int) -> [string];
-    callback set-parameter-text(int, string, int, string);
-    callback set-parameter-number(int, string, int, float);
-    callback set-parameter-bool(int, string, int, bool);
-    callback set-parameter-option(int, string, int, int);
-    callback choose-parameter-path(int, string, int, string, string, string);
-    callback show-color-picker(int, string, int, string);
+    callback set-parameter-text(bool, int, string, int, string);
+    callback set-parameter-number(bool, int, string, int, float);
+    callback set-parameter-bool(bool, int, string, int, bool);
+    callback set-parameter-option(bool, int, string, int, int);
+    callback choose-parameter-path(bool, int, string, int, string, string, string);
+    callback show-color-picker(bool, int, string, int, string);
     callback apply-picked-color(int, string, int, int, int, int, int);
-    callback show-font-picker(int, string, int, string);
+    callback show-font-picker(bool, int, string, int, string);
     callback filter-fonts(string);
     callback apply-picked-font(int, string, int, string);
     callback seek-effect-frame(int);
     callback snap-effect-frame(float) -> int;
-    callback add-effect-keyframe(int, string, int);
-    callback remove-effect-keyframe(int, string, int);
-    callback move-effect-keyframe(int, string, int, int);
+    callback seed-audio-plugin-keyframes(int, string);
+    callback add-effect-keyframe(bool, int, string, int);
+    callback remove-effect-keyframe(bool, int, string, int);
+    callback move-effect-keyframe(bool, int, string, int, int);
     callback open-effect-easing(int, string, int, int);
 
     object-settings-shortcuts := FocusScope {
@@ -2767,7 +2827,10 @@ export component ObjectSettingsWindow inherits Window {
                 padding: 8px;
                 spacing: 6px;
                 Text { text: root.clip-title; font-weight: 700; color: #f2f3f5; overflow: elide; }
-                Text { text: "オブジェクト / エフェクト"; color: #aeb3bc; }
+                Text {
+                    text: root.audio-plugin-mode ? "オーディオプラグイン" : "オブジェクト / エフェクト";
+                    color: #aeb3bc;
+                }
                 ScrollView {
                     vertical-stretch: 1;
                     VerticalLayout {
@@ -2792,14 +2855,18 @@ export component ObjectSettingsWindow inherits Window {
                             query-presets(index) => { root.preset-names(index) }
                         }
                         if root.effects.length == 0 : Text {
-                            text: "設定項目がありません";
+                            text: root.audio-plugin-mode
+                                ? "オーディオプラグインはありません"
+                                : "設定項目がありません";
                             color: #9ea4ae;
                             wrap: word-wrap;
                         }
                     }
                 }
                 Button {
-                    text: "+ エフェクトを追加";
+                    text: root.audio-plugin-mode
+                        ? "+ オーディオプラグインを追加"
+                        : "+ エフェクトを追加";
                     clicked => {
                         root.effect-filter = "";
                         root.filter-effects("");
@@ -2814,46 +2881,65 @@ export component ObjectSettingsWindow inherits Window {
                 padding: 10px;
                 spacing: 4px;
                 Text {
-                    text: "選択オブジェクトの設定";
+                    text: root.audio-plugin-mode
+                        ? "音声オブジェクト / プラグイン設定"
+                        : "選択オブジェクトの設定";
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 for row in root.setting-rows : ObjectSettingRow {
                     row-data: row;
-                    activate-effect(index) => { root.select-effect(index, false, false); }
-                    set-effect-enabled(index, enabled) => { root.set-effect-enabled(index, enabled); }
-                    remove-effect(index) => { root.remove-effect(index); }
-                    set-text(index, param, frame, value) => {
-                        root.set-parameter-text(index, param, frame, value);
+                    activate-effect(audio-plugin, index) => {
+                        if audio-plugin {
+                            root.select-effect(index, false, false);
+                        }
                     }
-                    set-number(index, param, frame, value) => {
-                        root.set-parameter-number(index, param, frame, value);
+                    set-effect-enabled(audio-plugin, index, enabled) => {
+                        if audio-plugin || !root.audio-plugin-mode {
+                            root.set-effect-enabled(index, enabled);
+                        }
                     }
-                    set-bool(index, param, frame, value) => {
-                        root.set-parameter-bool(index, param, frame, value);
+                    remove-effect(audio-plugin, index) => {
+                        if audio-plugin || !root.audio-plugin-mode {
+                            root.remove-effect(index);
+                        }
                     }
-                    set-option(index, param, frame, option) => {
-                        root.set-parameter-option(index, param, frame, option);
+                    set-text(audio-plugin, index, param, frame, value) => {
+                        root.set-parameter-text(audio-plugin, index, param, frame, value);
                     }
-                    pick-path(index, param, frame, value, filter, label) => {
-                        root.choose-parameter-path(index, param, frame, value, filter, label);
+                    set-number(audio-plugin, index, param, frame, value) => {
+                        root.set-parameter-number(audio-plugin, index, param, frame, value);
                     }
-                    pick-color(index, param, frame, value) => {
-                        root.show-color-picker(index, param, frame, value);
+                    set-bool(audio-plugin, index, param, frame, value) => {
+                        root.set-parameter-bool(audio-plugin, index, param, frame, value);
                     }
-                    pick-font(index, param, frame, value) => {
-                        root.show-font-picker(index, param, frame, value);
+                    set-option(audio-plugin, index, param, frame, option) => {
+                        root.set-parameter-option(audio-plugin, index, param, frame, option);
+                    }
+                    pick-path(audio-plugin, index, param, frame, value, filter, label) => {
+                        root.choose-parameter-path(audio-plugin, index, param, frame, value, filter, label);
+                    }
+                    pick-color(audio-plugin, index, param, frame, value) => {
+                        root.show-color-picker(audio-plugin, index, param, frame, value);
+                    }
+                    pick-font(audio-plugin, index, param, frame, value) => {
+                        root.show-font-picker(audio-plugin, index, param, frame, value);
                     }
                     seek-keyframe(frame) => { root.seek-effect-frame(frame); }
                     snap-keyframe(frame) => { root.snap-effect-frame(frame) }
-                    add-keyframe(index, param, frame) => {
-                        root.add-effect-keyframe(index, param, frame);
+                    seed-keyframes(audio-plugin, index, param) => {
+                        if audio-plugin {
+                            root.seed-audio-plugin-keyframes(index, param);
+                        }
                     }
-                    remove-keyframe(index, param, frame) => {
-                        root.remove-effect-keyframe(index, param, frame);
+                    add-keyframe(audio-plugin, index, param, frame) => {
+                        root.add-effect-keyframe(audio-plugin, index, param, frame);
                     }
-                    move-keyframe(index, param, old-frame, new-frame) => {
-                        root.move-effect-keyframe(index, param, old-frame, new-frame);
+                    remove-keyframe(audio-plugin, index, param, frame) => {
+                        root.remove-effect-keyframe(audio-plugin, index, param, frame);
+                    }
+                    move-keyframe(audio-plugin, index, param, old-frame, new-frame) => {
+                        root.move-effect-keyframe(audio-plugin, index, param, old-frame, new-frame);
                     }
                     open-easing(index, param, start-frame, end-frame) => {
                         root.open-effect-easing(index, param, start-frame, end-frame);
@@ -2880,28 +2966,47 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 12px;
                 spacing: 8px;
-                Text { text: "フィルタ効果を追加"; font-size: 1.15rem; font-weight: 700; }
+                Text {
+                    text: root.audio-plugin-mode
+                        ? "オーディオプラグインを追加"
+                        : "フィルタ効果を追加";
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
                 LineEdit {
                     text <=> root.effect-filter;
-                    placeholder-text: "名前・ID・カテゴリを検索...";
+                    placeholder-text: root.audio-plugin-mode
+                        ? "名前・ID・カテゴリ・形式を検索..."
+                        : "名前・ID・カテゴリを検索...";
                     edited(value) => { root.filter-effects(value); }
                 }
                 ScrollView {
                     vertical-stretch: 1;
                     VerticalLayout {
                         spacing: 4px;
-                        for item in root.effect-catalog-items : Button {
-                            text: item.categories == ""
-                                ? item.name
-                                : item.name + "  [" + item.categories + "]";
-                            accessible-description: item.id;
-                            clicked => {
-                                root.add-effect(item.id);
-                                root.effect-picker-visible = false;
+                        for item in root.effect-catalog-items : Rectangle {
+                            height: item.header ? 28px : 34px;
+                            if item.header : Text {
+                                text: item.name;
+                                color: #b9c9df;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            if !item.header : Button {
+                                text: item.categories == ""
+                                    ? item.name
+                                    : item.name + "  [" + item.categories + "]";
+                                accessible-description: item.id;
+                                clicked => {
+                                    root.add-effect(item.id);
+                                    root.effect-picker-visible = false;
+                                }
                             }
                         }
                         if root.effect-catalog-items.length == 0 : Text {
-                            text: "一致するエフェクトがありません";
+                            text: root.audio-plugin-mode
+                                ? root.plugin-scan-status
+                                : "一致するエフェクトがありません";
                             color: #aeb3bc;
                         }
                     }

@@ -580,6 +580,8 @@ dependencies = [
 name = "aviqtl-app"
 version = "0.6.2"
 dependencies = [
+ "aviqtl-audio",
+ "aviqtl-carla",
  "aviqtl-media",
  "aviqtl-rust-core",
  "crc32fast",

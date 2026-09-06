@@ -1,3 +1,4 @@
+use crate::audio_plugin::{AudioPluginAddition, AudioPluginCatalog, AudioPluginHydration};
 use crate::effect_catalog::EffectCatalog;
 use crate::effect_selection::EffectSelection;
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
@@ -202,9 +203,14 @@ impl WorkspaceModel {
     pub fn selected_effect_index(&self) -> Option<usize> {
         self.effect_selection.current().or_else(|| {
             self.selected_clip_document()
-                .filter(|clip| !clip.effects.is_empty())
+                .filter(|clip| self.object_settings_item_count(clip) > 0)
                 .map(|_| 0)
         })
+    }
+
+    pub fn object_settings_uses_audio_plugins(&self) -> bool {
+        self.selected_clip_document()
+            .is_some_and(|clip| clip.clip_type == "audio")
     }
 
     pub fn object_settings(&self, catalog: &EffectCatalog) -> Option<ObjectSettings> {
@@ -228,7 +234,7 @@ impl WorkspaceModel {
         let Some(clip) = self.selected_clip_document() else {
             return false;
         };
-        if index >= clip.effects.len() {
+        if index >= self.object_settings_item_count(clip) {
             return false;
         }
         self.effect_selection.click(index, control, shift);
@@ -239,11 +245,193 @@ impl WorkspaceModel {
         let Some(clip) = self.selected_clip_document() else {
             return false;
         };
-        if index >= clip.effects.len() {
+        if index >= self.object_settings_item_count(clip) {
             return false;
         }
         self.effect_selection.context_click(index);
         true
+    }
+
+    pub fn add_audio_plugin(&mut self, addition: AudioPluginAddition) -> bool {
+        let Some((clip_id, index)) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .map(|clip| (clip.id, clip.audio_plugins.len()))
+        else {
+            self.status = "Select an audio object before adding a plugin".to_owned();
+            return false;
+        };
+        let display_name = addition.display_name;
+        if self.execute(TimelineCommand::InsertAudioPlugin {
+            clip_id,
+            index,
+            plugin: addition.plugin,
+        }) {
+            self.effect_selection.click(index, false, false);
+            self.status = format!("Added audio plugin {display_name}");
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn hydrate_audio_plugins(&mut self, catalog: &AudioPluginCatalog) -> AudioPluginHydration {
+        let pending = catalog.pending_hydration_count(&self.project.document);
+        if pending > 0 && (!self.undo.is_empty() || !self.redo.is_empty()) {
+            self.status = format!(
+                "Deferred restoring {pending} audio plugin(s) until the project is reopened"
+            );
+            return AudioPluginHydration {
+                hydrated: 0,
+                deferred: pending,
+                errors: Vec::new(),
+            };
+        }
+        let mut document = self.project.document.clone();
+        let result = catalog.hydrate_document(&mut document);
+        if result.hydrated == 0 {
+            return result;
+        }
+        let applied = self
+            .project
+            .state
+            .plan(TimelineCommand::ReplaceDocument { document })
+            .and_then(|transaction| self.project.state.apply(&transaction));
+        match applied {
+            Ok(()) => {
+                self.project.refresh();
+                self.reconcile_after_edit();
+                self.document_revision = self.document_revision.wrapping_add(1);
+                self.status = format!("Restored {} project audio plugin(s)", result.hydrated);
+                result
+            }
+            Err(error) => AudioPluginHydration {
+                hydrated: 0,
+                deferred: 0,
+                errors: vec![error.to_string()],
+            },
+        }
+    }
+
+    pub fn reorder_audio_plugins(&mut self, source: usize, target: usize) -> bool {
+        let Some((clip_id, length)) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .map(|clip| (clip.id, clip.audio_plugins.len()))
+        else {
+            return false;
+        };
+        if source >= length || target >= length {
+            return false;
+        }
+        let permutation = match plan_effect_reorder(length, &[source], target, 0) {
+            Ok(permutation) => permutation,
+            Err(error) => {
+                self.status = error.to_string();
+                return false;
+            }
+        };
+        if permutation.iter().copied().eq(0..length) {
+            return false;
+        }
+        if self.execute(TimelineCommand::ReorderAudioPlugins {
+            clip_id,
+            permutation: permutation.clone(),
+        }) {
+            self.effect_selection.apply_permutation(&permutation);
+            self.status = "Reordered audio plugin".to_owned();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn set_audio_plugin_enabled(&mut self, plugin_index: usize, enabled: bool) -> bool {
+        let Some((clip_id, length)) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .map(|clip| (clip.id, clip.audio_plugins.len()))
+        else {
+            return false;
+        };
+        if plugin_index >= length {
+            return false;
+        }
+        let targets = self.effect_selection.action_targets(plugin_index);
+        let count = targets.len();
+        for target in targets {
+            if !self.execute(TimelineCommand::SetAudioPluginEnabled {
+                clip_id,
+                plugin_index: target,
+                enabled,
+            }) {
+                return false;
+            }
+        }
+        self.status = format!("Updated {count} audio plugin(s)");
+        true
+    }
+
+    pub fn remove_audio_plugin(&mut self, plugin_index: usize) -> bool {
+        self.remove_audio_plugin_indices(vec![plugin_index])
+    }
+
+    pub fn remove_audio_plugin_group(&mut self, plugin_index: usize) -> bool {
+        let Some(length) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .map(|clip| clip.audio_plugins.len())
+        else {
+            return false;
+        };
+        if plugin_index >= length {
+            return false;
+        }
+        self.remove_audio_plugin_indices(self.effect_selection.action_targets(plugin_index))
+    }
+
+    pub fn remove_selected_audio_plugins(&mut self) -> bool {
+        let mut targets = self.effect_selection.deletion_targets();
+        if targets.is_empty()
+            && let Some(index) = self.selected_effect_index()
+        {
+            targets.push(index);
+        }
+        self.remove_audio_plugin_indices(targets)
+    }
+
+    fn remove_audio_plugin_indices(&mut self, mut plugin_indices: Vec<usize>) -> bool {
+        let Some((clip_id, length)) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .map(|clip| (clip.id, clip.audio_plugins.len()))
+        else {
+            return false;
+        };
+        plugin_indices.retain(|index| *index < length);
+        plugin_indices.sort_unstable();
+        plugin_indices.dedup();
+        if plugin_indices.is_empty() {
+            return false;
+        }
+        let mut next_selection = self.effect_selection.clone();
+        next_selection.apply_removals(&plugin_indices);
+        let count = plugin_indices.len();
+        let mut changed = false;
+        for plugin_index in plugin_indices.into_iter().rev() {
+            if !self.execute(TimelineCommand::RemoveAudioPlugin {
+                clip_id,
+                plugin_index,
+            }) {
+                return changed;
+            }
+            changed = true;
+        }
+        if changed {
+            self.effect_selection = next_selection;
+            self.status = format!("Removed {count} audio plugin(s)");
+        }
+        changed
     }
 
     pub fn add_effect(&mut self, catalog: &EffectCatalog, effect_id: &str) -> bool {
@@ -394,6 +582,108 @@ impl WorkspaceModel {
             return false;
         };
         match store.delete(&effect_id, name) {
+            Ok(()) => {
+                self.status = format!("Deleted preset {name}");
+                true
+            }
+            Err(error) => {
+                self.status = error;
+                false
+            }
+        }
+    }
+
+    pub fn save_audio_plugin_preset(
+        &mut self,
+        store: &PresetStore,
+        plugin_index: usize,
+        name: &str,
+    ) -> bool {
+        let Some(plugin) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .and_then(|clip| clip.audio_plugins.get(plugin_index))
+        else {
+            return false;
+        };
+        let plugin_id = plugin.id.clone();
+        let result = store.save(
+            &plugin_id,
+            name,
+            plugin.params.clone(),
+            plugin.keyframes.clone().unwrap_or_default(),
+            plugin.enabled,
+        );
+        match result {
+            Ok(()) => {
+                self.status = format!("Saved preset {name}");
+                true
+            }
+            Err(error) => {
+                self.status = error;
+                false
+            }
+        }
+    }
+
+    pub fn load_audio_plugin_preset(
+        &mut self,
+        store: &PresetStore,
+        plugin_index: usize,
+        name: &str,
+    ) -> bool {
+        let Some(clip) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .cloned()
+        else {
+            return false;
+        };
+        let Some(plugin_id) = clip
+            .audio_plugins
+            .get(plugin_index)
+            .map(|plugin| plugin.id.clone())
+        else {
+            return false;
+        };
+        let preset = match store.load_preset(&plugin_id, name) {
+            Ok(preset) => preset,
+            Err(error) => {
+                self.status = error;
+                return false;
+            }
+        };
+        let commands = match audio_plugin_preset_commands(&clip, plugin_index, &preset) {
+            Ok(commands) => commands,
+            Err(error) => {
+                self.status = error;
+                return false;
+            }
+        };
+        for command in commands {
+            if !self.execute(command) {
+                return false;
+            }
+        }
+        self.status = format!("Loaded preset {}", preset.name);
+        true
+    }
+
+    pub fn delete_audio_plugin_preset(
+        &mut self,
+        store: &PresetStore,
+        plugin_index: usize,
+        name: &str,
+    ) -> bool {
+        let Some(plugin_id) = self
+            .selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .and_then(|clip| clip.audio_plugins.get(plugin_index))
+            .map(|plugin| plugin.id.clone())
+        else {
+            return false;
+        };
+        match store.delete(&plugin_id, name) {
             Ok(()) => {
                 self.status = format!("Deleted preset {name}");
                 true
@@ -661,6 +951,192 @@ impl WorkspaceModel {
         })
     }
 
+    pub fn set_audio_plugin_parameter_at_frame(
+        &mut self,
+        plugin_index: usize,
+        param_name: &str,
+        frame: i32,
+        value: Value,
+    ) -> bool {
+        let Some((clip, plugin, original)) =
+            self.audio_plugin_parameter_context(plugin_index, param_name)
+        else {
+            return false;
+        };
+        let value = replace_value_payload(&original, value);
+        let frame = frame.clamp(0, clip.duration.max(0));
+        let track = plugin
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        let command = if track.is_some() {
+            TimelineCommand::SetAudioPluginKeyframe {
+                clip_id: clip.id,
+                plugin_index,
+                param_name: param_name.to_owned(),
+                frame,
+                value,
+                options: json!({"interp": "linear"}),
+            }
+        } else {
+            TimelineCommand::SetAudioPluginParameter {
+                clip_id: clip.id,
+                plugin_index,
+                param_name: param_name.to_owned(),
+                value,
+            }
+        };
+        self.execute(command)
+    }
+
+    pub fn seed_audio_plugin_keyframes(&mut self, plugin_index: usize, param_name: &str) -> bool {
+        let Some((clip, plugin, fallback)) =
+            self.audio_plugin_parameter_context(plugin_index, param_name)
+        else {
+            return false;
+        };
+        let duration = clip.duration.max(0);
+        let track = plugin
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        if !inspect_keyframe_track(track, &fallback, duration).is_empty() {
+            return false;
+        }
+        let start_value = evaluate_keyframe_track(track, &fallback, duration, 0);
+        if !self.execute(TimelineCommand::SetAudioPluginKeyframe {
+            clip_id: clip.id,
+            plugin_index,
+            param_name: param_name.to_owned(),
+            frame: 0,
+            value: start_value,
+            options: json!({"interp": "linear"}),
+        }) {
+            return false;
+        }
+        if duration > 0 {
+            let end_value = evaluate_keyframe_track(track, &fallback, duration, duration);
+            if !self.execute(TimelineCommand::SetAudioPluginKeyframe {
+                clip_id: clip.id,
+                plugin_index,
+                param_name: param_name.to_owned(),
+                frame: duration,
+                value: end_value,
+                options: json!({"interp": "linear"}),
+            }) {
+                return false;
+            }
+        }
+        self.status = format!("Enabled keyframes for audio plugin parameter {param_name}");
+        true
+    }
+
+    pub fn add_audio_plugin_keyframe(
+        &mut self,
+        plugin_index: usize,
+        param_name: &str,
+        frame: i32,
+    ) -> bool {
+        let Some((clip, plugin, fallback)) =
+            self.audio_plugin_parameter_context(plugin_index, param_name)
+        else {
+            return false;
+        };
+        let duration = clip.duration.max(0);
+        let frame = frame.clamp(0, duration);
+        let track = plugin
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        if inspect_keyframe_track(track, &fallback, duration)
+            .iter()
+            .any(|point| point.frame == frame)
+        {
+            return false;
+        }
+        let value = evaluate_keyframe_track(track, &fallback, duration, frame);
+        self.execute(TimelineCommand::SetAudioPluginKeyframe {
+            clip_id: clip.id,
+            plugin_index,
+            param_name: param_name.to_owned(),
+            frame,
+            value,
+            options: json!({"interp": "linear"}),
+        })
+    }
+
+    pub fn remove_audio_plugin_keyframe(
+        &mut self,
+        plugin_index: usize,
+        param_name: &str,
+        frame: i32,
+    ) -> bool {
+        let Some((clip, plugin, fallback)) =
+            self.audio_plugin_parameter_context(plugin_index, param_name)
+        else {
+            return false;
+        };
+        let duration = clip.duration.max(0);
+        if frame <= 0 || frame >= duration {
+            return false;
+        }
+        let track = plugin
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        if !inspect_keyframe_track(track, &fallback, duration)
+            .iter()
+            .any(|point| point.frame == frame)
+        {
+            return false;
+        }
+        self.execute(TimelineCommand::RemoveAudioPluginKeyframe {
+            clip_id: clip.id,
+            plugin_index,
+            param_name: param_name.to_owned(),
+            frame,
+        })
+    }
+
+    pub fn move_audio_plugin_keyframe(
+        &mut self,
+        plugin_index: usize,
+        param_name: &str,
+        old_frame: i32,
+        new_frame: i32,
+    ) -> bool {
+        let Some((clip, plugin, fallback)) =
+            self.audio_plugin_parameter_context(plugin_index, param_name)
+        else {
+            return false;
+        };
+        let duration = clip.duration.max(0);
+        let new_frame = new_frame.clamp(0, duration);
+        if old_frame <= 0 || old_frame >= duration || old_frame == new_frame {
+            return false;
+        }
+        let points = inspect_keyframe_track(
+            plugin
+                .keyframes
+                .as_ref()
+                .and_then(|tracks| tracks.get(param_name)),
+            &fallback,
+            duration,
+        );
+        if !points.iter().any(|point| point.frame == old_frame)
+            || points.iter().any(|point| point.frame == new_frame)
+        {
+            return false;
+        }
+        self.execute(TimelineCommand::MoveAudioPluginKeyframe {
+            clip_id: clip.id,
+            plugin_index,
+            param_name: param_name.to_owned(),
+            old_frame,
+            new_frame,
+        })
+    }
+
     pub fn prepare_effect_easing(
         &mut self,
         effect_index: usize,
@@ -800,6 +1276,35 @@ impl WorkspaceModel {
                     .map(|original| (clip.clone(), effect.clone(), original.clone()))
             })
         })
+    }
+
+    fn audio_plugin_parameter_context(
+        &self,
+        plugin_index: usize,
+        param_name: &str,
+    ) -> Option<(
+        ClipDocument,
+        aviqtl_rust_core::api::AudioPluginDocument,
+        Value,
+    )> {
+        self.selected_clip_document()
+            .filter(|clip| clip.clip_type == "audio")
+            .and_then(|clip| {
+                clip.audio_plugins.get(plugin_index).and_then(|plugin| {
+                    plugin
+                        .params
+                        .get(param_name)
+                        .map(|original| (clip.clone(), plugin.clone(), original.clone()))
+                })
+            })
+    }
+
+    fn object_settings_item_count(&self, clip: &ClipDocument) -> usize {
+        if clip.clip_type == "audio" {
+            clip.audio_plugins.len()
+        } else {
+            clip.effects.len()
+        }
     }
 
     pub fn can_undo(&self) -> bool {
@@ -1540,7 +2045,8 @@ impl WorkspaceModel {
             self.effect_selection.clear();
             return;
         };
-        self.effect_selection.reconcile(clip.id, clip.effects.len());
+        self.effect_selection
+            .reconcile(clip.id, self.object_settings_item_count(clip));
     }
 
     fn scene_timing(&self) -> (f64, i32) {
@@ -1610,6 +2116,55 @@ fn effect_preset_commands(
     commands.push(TimelineCommand::SetEffectEnabled {
         clip_id: clip.id,
         effect_index,
+        enabled: preset.enabled,
+    });
+    Ok(commands)
+}
+
+fn audio_plugin_preset_commands(
+    clip: &ClipDocument,
+    plugin_index: usize,
+    preset: &EffectPreset,
+) -> Result<Vec<TimelineCommand>, String> {
+    let Some(plugin) = clip.audio_plugins.get(plugin_index) else {
+        return Err("The preset target changed before it could be applied".to_owned());
+    };
+    if plugin.id != preset.effect_id {
+        return Err("The preset target changed before it could be applied".to_owned());
+    }
+    let mut commands = preset
+        .params
+        .iter()
+        .map(|(name, value)| TimelineCommand::SetAudioPluginParameter {
+            clip_id: clip.id,
+            plugin_index,
+            param_name: name.clone(),
+            value: value.clone(),
+        })
+        .collect::<Vec<_>>();
+    for (name, track) in &preset.keyframes {
+        let fallback = preset
+            .params
+            .get(name)
+            .or_else(|| plugin.params.get(name))
+            .cloned()
+            .unwrap_or(Value::Null);
+        commands.extend(
+            inspect_keyframe_track(Some(track), &fallback, clip.duration)
+                .into_iter()
+                .map(|point| TimelineCommand::SetAudioPluginKeyframe {
+                    clip_id: clip.id,
+                    plugin_index,
+                    param_name: name.clone(),
+                    frame: point.frame,
+                    value: point.value,
+                    options: point.options,
+                }),
+        );
+    }
+    commands.push(TimelineCommand::SetAudioPluginEnabled {
+        clip_id: clip.id,
+        plugin_index,
         enabled: preset.enabled,
     });
     Ok(commands)
@@ -1762,6 +2317,32 @@ mod tests {
             }"#,
         )
         .expect("effect workspace fixture loads");
+        let document = state.snapshot();
+        WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        })
+    }
+
+    fn workspace_with_audio_plugins() -> WorkspaceModel {
+        let state = TimelineState::from_json(
+            br#"{
+                "version":3,
+                "settings":{"width":1920,"height":1080,"fps":60,"sampleRate":48000},
+                "scenes":[{"id":1,"name":"Root","duration":300,"gridMode":"Frame","gridInterval":10}],
+                "clips":[{
+                    "id":9,"sceneId":1,"type":"audio","start":20,"duration":100,"layer":0,
+                    "effects":[{"id":"audio","name":"Audio","params":{"volume":1.0}}],
+                    "audioPlugins":[
+                        {"id":"gain","enabled":true,"params":{"0":0.25}},
+                        {"id":"delay","enabled":true,"params":{"0":0.5}}
+                    ]
+                }]
+            }"#,
+        )
+        .expect("audio workspace fixture loads");
         let document = state.snapshot();
         WorkspaceModel::new(ProjectSession {
             state,
@@ -2173,6 +2754,53 @@ mod tests {
     }
 
     #[test]
+    fn audio_plugin_stack_parameters_and_keyframes_follow_the_qt_commands() {
+        let mut workspace = workspace_with_audio_plugins();
+        workspace.click_clip(9, false);
+        assert!(workspace.object_settings_uses_audio_plugins());
+        assert_eq!(workspace.selected_effect_index(), Some(0));
+
+        assert!(workspace.select_effect(0, false, false));
+        assert!(workspace.select_effect(1, true, false));
+        assert!(workspace.set_audio_plugin_enabled(0, false));
+        assert!(
+            workspace.document().clips[0]
+                .audio_plugins
+                .iter()
+                .all(|plugin| !plugin.enabled)
+        );
+
+        assert!(workspace.reorder_audio_plugins(0, 1));
+        assert_eq!(workspace.document().clips[0].audio_plugins[0].id, "delay");
+        assert_eq!(workspace.document().clips[0].audio_plugins[1].id, "gain");
+
+        assert!(workspace.set_audio_plugin_parameter_at_frame(1, "0", 40, json!(0.75)));
+        assert_eq!(
+            workspace.document().clips[0].audio_plugins[1].params["0"],
+            json!(0.75)
+        );
+        assert!(workspace.seed_audio_plugin_keyframes(1, "0"));
+        assert!(!workspace.seed_audio_plugin_keyframes(1, "0"));
+        assert!(workspace.set_audio_plugin_parameter_at_frame(1, "0", 40, json!(0.9)));
+        assert!(workspace.add_audio_plugin_keyframe(1, "0", 60));
+        assert!(workspace.remove_audio_plugin_keyframe(1, "0", 60));
+        assert!(!workspace.remove_audio_plugin_keyframe(1, "0", 0));
+        assert!(!workspace.remove_audio_plugin_keyframe(1, "0", 100));
+
+        let plugin = &workspace.document().clips[0].audio_plugins[1];
+        let points = inspect_keyframe_track(
+            plugin.keyframes.as_ref().and_then(|tracks| tracks.get("0")),
+            &plugin.params["0"],
+            100,
+        );
+        assert_eq!(
+            points.iter().map(|point| point.frame).collect::<Vec<_>>(),
+            [0, 40, 100]
+        );
+        assert_eq!(points[1].value, json!(0.9));
+    }
+
+    #[test]
     fn effect_preset_commands_preserve_qt_parameter_keyframe_and_enabled_order() {
         let workspace = workspace_with_effects();
         let clip = &workspace.document().clips[0];
@@ -2256,6 +2884,36 @@ mod tests {
 
         assert!(workspace.delete_effect_preset(&store, 0, "Current"));
         assert!(store.names("rect").is_empty());
+        std::fs::remove_dir_all(root).expect("remove preset fixture");
+    }
+
+    #[test]
+    fn workspace_preset_actions_round_trip_the_selected_audio_plugin() {
+        let root = std::env::temp_dir().join(format!(
+            "aviqtl-audio-plugin-preset-{}-{}",
+            std::process::id(),
+            crate::recovery::generate_recovery_id()
+        ));
+        let store = PresetStore::from_root(root.clone());
+        let mut workspace = workspace_with_audio_plugins();
+        workspace.click_clip(9, false);
+        assert!(workspace.set_audio_plugin_parameter_at_frame(0, "0", 0, json!(0.8)));
+        assert!(workspace.save_audio_plugin_preset(&store, 0, "Current"));
+        assert_eq!(store.names("gain"), ["Current"]);
+
+        assert!(workspace.set_audio_plugin_parameter_at_frame(0, "0", 0, json!(0.1)));
+        assert_eq!(
+            workspace.document().clips[0].audio_plugins[0].params["0"],
+            json!(0.1)
+        );
+        assert!(workspace.load_audio_plugin_preset(&store, 0, "Current"));
+        assert_eq!(
+            workspace.document().clips[0].audio_plugins[0].params["0"],
+            json!(0.8)
+        );
+
+        assert!(workspace.delete_audio_plugin_preset(&store, 0, "Current"));
+        assert!(store.names("gain").is_empty());
         std::fs::remove_dir_all(root).expect("remove preset fixture");
     }
 }

@@ -1,5 +1,6 @@
 //! Framework-neutral application state shared by desktop frontends.
 
+pub mod audio_plugin;
 pub mod easing;
 pub mod effect_catalog;
 pub mod effect_selection;
@@ -526,6 +527,24 @@ impl ApplicationModel {
     pub fn current_workspace_mut(&mut self) -> Option<&mut WorkspaceModel> {
         let index = self.current_project?;
         self.workspace_mut(index)
+    }
+
+    pub fn hydrate_audio_plugins(
+        &mut self,
+        catalog: &audio_plugin::AudioPluginCatalog,
+    ) -> audio_plugin::AudioPluginHydration {
+        let mut combined = audio_plugin::AudioPluginHydration::default();
+        for project in &mut self.projects {
+            let result = project.workspace.hydrate_audio_plugins(catalog);
+            combined.hydrated += result.hydrated;
+            combined.deferred += result.deferred;
+            for error in result.errors {
+                if !combined.errors.contains(&error) {
+                    combined.errors.push(error);
+                }
+            }
+        }
+        combined
     }
 
     fn begin_confirmation(

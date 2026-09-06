@@ -3,6 +3,7 @@
 use aviqtl_app::{
     ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
     SaveDecision, SceneSettingsInput, WorkspaceModel,
+    audio_plugin::{AudioPluginCatalog, AudioPluginScanOutcome, AudioPluginScanner},
     easing::{BezierCurve, sample_easing_curve},
     effect_catalog::EffectCatalog,
     object_settings::{
@@ -29,7 +30,10 @@ use slint::{
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 slint::include_modules!();
@@ -260,6 +264,50 @@ struct ExportPlannerRuntime {
     source_key: Option<PreviewSourceKey>,
 }
 
+struct AudioPluginDiscoveryRuntime {
+    stop: Arc<AtomicBool>,
+    receiver: Receiver<AudioPluginScanOutcome>,
+    worker: Option<JoinHandle<()>>,
+}
+
+impl AudioPluginDiscoveryRuntime {
+    fn start(settings: &SettingsStore) -> Result<Self, String> {
+        let scanner = AudioPluginScanner::from_settings(settings);
+        let stop = Arc::new(AtomicBool::new(false));
+        let worker_stop = Arc::clone(&stop);
+        let (sender, receiver) = mpsc::channel();
+        let worker = thread::Builder::new()
+            .name("aviqtl-audio-plugin-discovery".to_owned())
+            .spawn(move || {
+                let result = scanner.scan(&worker_stop);
+                let _ = sender.send(result);
+            })
+            .map_err(|error| format!("Audio plugins · failed to start scanner: {error}"))?;
+        Ok(Self {
+            stop,
+            receiver,
+            worker: Some(worker),
+        })
+    }
+
+    fn poll(&mut self) -> Option<AudioPluginScanOutcome> {
+        let result = self.receiver.try_recv().ok()?;
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+        Some(result)
+    }
+}
+
+impl Drop for AudioPluginDiscoveryRuntime {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
 impl ExportPlannerRuntime {
     fn reset(&mut self) {
         self.planner = None;
@@ -387,6 +435,7 @@ struct LifecycleUi {
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
     effect_catalog: Rc<EffectCatalog>,
+    audio_plugin_catalog: Rc<RefCell<AudioPluginCatalog>>,
     quit_confirmed: Cell<bool>,
 }
 
@@ -411,6 +460,7 @@ struct ObjectSettingsUi {
     easing_curve: Rc<RefCell<BezierCurve>>,
     model: Rc<RefCell<ApplicationModel>>,
     catalog: Rc<EffectCatalog>,
+    audio_catalog: Rc<RefCell<aviqtl_app::audio_plugin::AudioPluginCatalog>>,
     presets: Rc<PresetStore>,
     font_families: Rc<Vec<String>>,
 }
@@ -419,18 +469,35 @@ impl ObjectSettingsUi {
     fn sync(&self) {
         sync_weak_windows(&self.main, &self.timeline, &self.model);
         if let Some(window) = self.window.upgrade() {
-            sync_object_settings(&window, &self.model.borrow(), &self.catalog);
+            let model = self.model.borrow();
+            sync_object_settings(&window, &model, &self.catalog);
+            sync_object_catalog(
+                &window,
+                &model,
+                &self.catalog,
+                &self.audio_catalog.borrow(),
+                window.get_effect_filter().as_str(),
+            );
         }
     }
 
-    fn control(&self, effect_index: usize, param_name: &str) -> Option<ObjectControl> {
-        self.model
+    fn control(
+        &self,
+        audio_plugin: bool,
+        effect_index: usize,
+        param_name: &str,
+    ) -> Option<ObjectControl> {
+        let projection = self
+            .model
             .borrow()
             .current_workspace()?
-            .object_settings(&self.catalog)?
-            .effects
-            .get(effect_index)?
-            .controls
+            .object_settings(&self.catalog)?;
+        let controls = if audio_plugin {
+            &projection.audio_plugins.get(effect_index)?.controls
+        } else {
+            &projection.effects.get(effect_index)?.controls
+        };
+        controls
             .iter()
             .find(|control| control.param.as_deref() == Some(param_name))
             .cloned()
@@ -438,6 +505,7 @@ impl ObjectSettingsUi {
 
     fn set_value(
         &self,
+        audio_plugin: bool,
         effect_index: usize,
         param_name: &str,
         frame: i32,
@@ -448,36 +516,72 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.set_effect_parameter_at_frame(effect_index, param_name, frame, value)
+                if audio_plugin {
+                    workspace.set_audio_plugin_parameter_at_frame(
+                        effect_index,
+                        param_name,
+                        frame,
+                        value,
+                    )
+                } else {
+                    workspace.set_effect_parameter_at_frame(effect_index, param_name, frame, value)
+                }
             });
         self.sync();
     }
 
-    fn set_text(&self, effect_index: usize, param_name: &str, frame: i32, text: &str) {
-        let Some(control) = self.control(effect_index, param_name) else {
+    fn set_text(
+        &self,
+        audio_plugin: bool,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        text: &str,
+    ) {
+        let Some(control) = self.control(audio_plugin, effect_index, param_name) else {
             return;
         };
         match control.parse_text(text) {
-            Ok(value) => self.set_value(effect_index, param_name, frame, value),
+            Ok(value) => self.set_value(audio_plugin, effect_index, param_name, frame, value),
             Err(message) => show_error_dialog(&message),
         }
     }
 
-    fn set_number(&self, effect_index: usize, param_name: &str, frame: i32, value: f32) {
+    fn set_number(
+        &self,
+        audio_plugin: bool,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        value: f32,
+    ) {
         if !value.is_finite() {
             return;
         }
-        self.set_text(effect_index, param_name, frame, &value.to_string());
+        self.set_text(
+            audio_plugin,
+            effect_index,
+            param_name,
+            frame,
+            &value.to_string(),
+        );
     }
 
-    fn set_option(&self, effect_index: usize, param_name: &str, frame: i32, option_index: usize) {
+    fn set_option(
+        &self,
+        audio_plugin: bool,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        option_index: usize,
+    ) {
         let Some(value) = self
-            .control(effect_index, param_name)
+            .control(audio_plugin, effect_index, param_name)
             .and_then(|control| control.option_value(option_index))
         else {
             return;
         };
-        self.set_value(effect_index, param_name, frame, value);
+        self.set_value(audio_plugin, effect_index, param_name, frame, value);
     }
 
     fn open_easing(&self, effect_index: usize, param_name: &str, start_frame: i32, end_frame: i32) {
@@ -526,11 +630,29 @@ impl ObjectSettingsUi {
     }
 
     fn add_effect(&self, effect_id: &str) {
-        let _ = self
+        let audio_plugin = self
             .model
-            .borrow_mut()
-            .current_workspace_mut()
-            .is_some_and(|workspace| workspace.add_effect(&self.catalog, effect_id));
+            .borrow()
+            .current_workspace()
+            .is_some_and(WorkspaceModel::object_settings_uses_audio_plugins);
+        if audio_plugin {
+            match self.audio_catalog.borrow().addition(effect_id) {
+                Ok(addition) => {
+                    let _ = self
+                        .model
+                        .borrow_mut()
+                        .current_workspace_mut()
+                        .is_some_and(|workspace| workspace.add_audio_plugin(addition));
+                }
+                Err(message) => show_error_dialog(&message),
+            }
+        } else {
+            let _ = self
+                .model
+                .borrow_mut()
+                .current_workspace_mut()
+                .is_some_and(|workspace| workspace.add_effect(&self.catalog, effect_id));
+        }
         self.sync();
     }
 
@@ -543,7 +665,13 @@ impl ObjectSettingsUi {
             .borrow()
             .current_workspace()
             .and_then(WorkspaceModel::selected_clip_document)
-            .map(|clip| clip.effects.len())
+            .map(|clip| {
+                if clip.clip_type == "audio" {
+                    clip.audio_plugins.len()
+                } else {
+                    clip.effects.len()
+                }
+            })
         else {
             return;
         };
@@ -556,7 +684,13 @@ impl ObjectSettingsUi {
             .model
             .borrow_mut()
             .current_workspace_mut()
-            .is_some_and(|workspace| workspace.reorder_effects(source, target));
+            .is_some_and(|workspace| {
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.reorder_audio_plugins(source, target)
+                } else {
+                    workspace.reorder_effects(source, target)
+                }
+            });
         self.sync();
     }
 
@@ -566,7 +700,11 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.save_effect_preset(&self.presets, effect_index, name)
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.save_audio_plugin_preset(&self.presets, effect_index, name)
+                } else {
+                    workspace.save_effect_preset(&self.presets, effect_index, name)
+                }
             });
         self.sync();
     }
@@ -577,7 +715,11 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.load_effect_preset(&self.presets, effect_index, name)
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.load_audio_plugin_preset(&self.presets, effect_index, name)
+                } else {
+                    workspace.load_effect_preset(&self.presets, effect_index, name)
+                }
             });
         self.sync();
     }
@@ -588,7 +730,11 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.delete_effect_preset(&self.presets, effect_index, name)
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.delete_audio_plugin_preset(&self.presets, effect_index, name)
+                } else {
+                    workspace.delete_effect_preset(&self.presets, effect_index, name)
+                }
             });
         self.sync();
     }
@@ -660,6 +806,7 @@ impl LifecycleUi {
         let result = self.model.borrow_mut().open_project(&path);
         match result {
             Ok(_) => {
+                self.hydrate_audio_plugins();
                 self.sync();
                 if let Some(main) = self.main.upgrade() {
                     let _ = main.show();
@@ -680,10 +827,34 @@ impl LifecycleUi {
             sync_windows(&main, &timeline, &self.model.borrow());
         }
         if let Some(object_settings) = self.object_settings.upgrade() {
-            sync_object_settings(&object_settings, &self.model.borrow(), &self.effect_catalog);
+            let model = self.model.borrow();
+            sync_object_settings(&object_settings, &model, &self.effect_catalog);
+            sync_object_catalog(
+                &object_settings,
+                &model,
+                &self.effect_catalog,
+                &self.audio_plugin_catalog.borrow(),
+                object_settings.get_effect_filter().as_str(),
+            );
         }
         if let Some(recovery) = self.recovery.upgrade() {
             sync_recovery_window(&recovery, &self.model.borrow());
+        }
+    }
+
+    fn hydrate_audio_plugins(&self) {
+        let result = {
+            let catalog = self.audio_plugin_catalog.borrow();
+            self.model.borrow_mut().hydrate_audio_plugins(&catalog)
+        };
+        if result.deferred > 0 {
+            eprintln!(
+                "Audio plugin restore deferred for {} plugin(s) to preserve undo history",
+                result.deferred
+            );
+        }
+        for error in result.errors {
+            eprintln!("Audio plugin restore warning: {error}");
         }
     }
 
@@ -765,6 +936,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (effect_catalog, effect_catalog_status) = EffectCatalog::load();
     eprintln!("{effect_catalog_status}");
     let effect_catalog = Rc::new(effect_catalog);
+    let audio_plugin_catalog = Rc::new(RefCell::new(AudioPluginCatalog::default()));
+    let (audio_plugin_discovery, audio_plugin_status) =
+        match AudioPluginDiscoveryRuntime::start(&settings.borrow()) {
+            Ok(runtime) => (Some(runtime), "Audio plugins · scanning…".to_owned()),
+            Err(error) => (None, error),
+        };
+    let audio_plugin_discovery = Rc::new(RefCell::new(audio_plugin_discovery));
     let preset_store = Rc::new(PresetStore::load());
     let font_families = Rc::new(system_font_families());
     let mut application_model = ApplicationModel::default();
@@ -800,6 +978,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));
     object_settings
         .set_effect_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    object_settings.set_plugin_scan_status(SharedString::from(audio_plugin_status));
     sync_effect_catalog(&object_settings, &effect_catalog, "");
     object_settings.set_font_families(ModelRc::new(VecModel::<SharedString>::default()));
     sync_font_families(&object_settings, &font_families, "");
@@ -841,6 +1020,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         model: model.clone(),
         settings: settings.clone(),
         effect_catalog: effect_catalog.clone(),
+        audio_plugin_catalog: audio_plugin_catalog.clone(),
         quit_confirmed: Cell::new(false),
     });
     install_callbacks(
@@ -898,6 +1078,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_settings = object_settings.as_weak();
     let animation_easing = easing.as_weak();
     let animation_effect_catalog = effect_catalog.clone();
+    let animation_audio_catalog = audio_plugin_catalog;
+    let animation_audio_discovery = audio_plugin_discovery;
     let animation_object_sync_key = Rc::new(RefCell::new(None::<ObjectSettingsSyncKey>));
     let object_sync_key = animation_object_sync_key.clone();
     let animation_project_settings = project_settings.as_weak();
@@ -933,6 +1115,58 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     &animation_effect_catalog,
                 );
                 *object_sync_key.borrow_mut() = key;
+            }
+        }
+        let audio_plugin_scan = animation_audio_discovery
+            .borrow_mut()
+            .as_mut()
+            .and_then(AudioPluginDiscoveryRuntime::poll);
+        if let Some(outcome) = audio_plugin_scan {
+            let mut status = outcome.status();
+            for diagnostic in &outcome.diagnostics {
+                eprintln!("Audio plugin discovery warning: {diagnostic}");
+            }
+            *animation_audio_catalog.borrow_mut() = outcome.catalog;
+            let hydration = {
+                let catalog = animation_audio_catalog.borrow();
+                animation_model.borrow_mut().hydrate_audio_plugins(&catalog)
+            };
+            if hydration.hydrated > 0 {
+                status.push_str(&format!(
+                    " · restored {} project plugin(s)",
+                    hydration.hydrated
+                ));
+            }
+            if hydration.deferred > 0 {
+                status.push_str(&format!(
+                    " · deferred {} project plugin(s) to preserve undo",
+                    hydration.deferred
+                ));
+            }
+            if !hydration.errors.is_empty() {
+                status.push_str(&format!(
+                    " · {} project plugin(s) unavailable",
+                    hydration.errors.len()
+                ));
+                for error in &hydration.errors {
+                    eprintln!("Audio plugin restore warning: {error}");
+                }
+            }
+            *animation_audio_discovery.borrow_mut() = None;
+            if let Some(window) = animation_settings.upgrade() {
+                window.set_plugin_scan_status(SharedString::from(status));
+                sync_object_settings(
+                    &window,
+                    &animation_model.borrow(),
+                    &animation_effect_catalog,
+                );
+                sync_object_catalog(
+                    &window,
+                    &animation_model.borrow(),
+                    &animation_effect_catalog,
+                    &animation_audio_catalog.borrow(),
+                    window.get_effect_filter().as_str(),
+                );
             }
         }
         if let Some(main) = animation_main.upgrade() {
@@ -1041,6 +1275,7 @@ fn install_callbacks(
         easing_curve: Rc::new(RefCell::new(BezierCurve::default())),
         model: model.clone(),
         catalog: effect_catalog.clone(),
+        audio_catalog: lifecycle_ui.audio_plugin_catalog.clone(),
         presets: preset_store.clone(),
         font_families,
     };
@@ -1070,7 +1305,13 @@ fn install_callbacks(
             .model
             .borrow_mut()
             .current_workspace_mut()
-            .is_some_and(|workspace| workspace.set_effect_enabled(index.max(0) as usize, enabled));
+            .is_some_and(|workspace| {
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.set_audio_plugin_enabled(index.max(0) as usize, enabled)
+                } else {
+                    workspace.set_effect_enabled(index.max(0) as usize, enabled)
+                }
+            });
         object_enabled_ui.sync();
     });
     let object_remove_ui = object_settings_ui.clone();
@@ -1079,7 +1320,13 @@ fn install_callbacks(
             .model
             .borrow_mut()
             .current_workspace_mut()
-            .is_some_and(|workspace| workspace.remove_effect(index.max(0) as usize));
+            .is_some_and(|workspace| {
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.remove_audio_plugin(index.max(0) as usize)
+                } else {
+                    workspace.remove_effect(index.max(0) as usize)
+                }
+            });
         object_remove_ui.sync();
     });
     let object_remove_selection_ui = object_settings_ui.clone();
@@ -1088,7 +1335,13 @@ fn install_callbacks(
             .model
             .borrow_mut()
             .current_workspace_mut()
-            .is_some_and(|workspace| workspace.remove_effect_group(index.max(0) as usize));
+            .is_some_and(|workspace| {
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.remove_audio_plugin_group(index.max(0) as usize)
+                } else {
+                    workspace.remove_effect_group(index.max(0) as usize)
+                }
+            });
         object_remove_selection_ui.sync();
     });
     let object_delete_selection_ui = object_settings_ui.clone();
@@ -1097,12 +1350,19 @@ fn install_callbacks(
             .model
             .borrow_mut()
             .current_workspace_mut()
-            .is_some_and(WorkspaceModel::remove_selected_effects);
+            .is_some_and(|workspace| {
+                if workspace.object_settings_uses_audio_plugins() {
+                    workspace.remove_selected_audio_plugins()
+                } else {
+                    workspace.remove_selected_effects()
+                }
+            });
         object_delete_selection_ui.sync();
     });
     let object_text_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_text(move |index, param, frame, value| {
+    object_settings.on_set_parameter_text(move |audio_plugin, index, param, frame, value| {
         object_text_ui.set_text(
+            audio_plugin,
             index.max(0) as usize,
             param.as_str(),
             frame.max(0),
@@ -1110,12 +1370,19 @@ fn install_callbacks(
         );
     });
     let object_number_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_number(move |index, param, frame, value| {
-        object_number_ui.set_number(index.max(0) as usize, param.as_str(), frame.max(0), value);
+    object_settings.on_set_parameter_number(move |audio_plugin, index, param, frame, value| {
+        object_number_ui.set_number(
+            audio_plugin,
+            index.max(0) as usize,
+            param.as_str(),
+            frame.max(0),
+            value,
+        );
     });
     let object_bool_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_bool(move |index, param, frame, value| {
+    object_settings.on_set_parameter_bool(move |audio_plugin, index, param, frame, value| {
         object_bool_ui.set_value(
+            audio_plugin,
             index.max(0) as usize,
             param.as_str(),
             frame.max(0),
@@ -1123,9 +1390,10 @@ fn install_callbacks(
         );
     });
     let object_option_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_option(move |index, param, frame, option| {
+    object_settings.on_set_parameter_option(move |audio_plugin, index, param, frame, option| {
         if option >= 0 {
             object_option_ui.set_option(
+                audio_plugin,
                 index.max(0) as usize,
                 param.as_str(),
                 frame.max(0),
@@ -1134,15 +1402,23 @@ fn install_callbacks(
         }
     });
     let object_path_ui = object_settings_ui.clone();
-    object_settings.on_choose_parameter_path(move |index, param, frame, current, filter, label| {
-        let Some(path) = pick_parameter_file(current.as_str(), filter.as_str(), label.as_str())
-        else {
-            return;
-        };
-        object_path_ui.set_text(index.max(0) as usize, param.as_str(), frame.max(0), &path);
-    });
+    object_settings.on_choose_parameter_path(
+        move |audio_plugin, index, param, frame, current, filter, label| {
+            let Some(path) = pick_parameter_file(current.as_str(), filter.as_str(), label.as_str())
+            else {
+                return;
+            };
+            object_path_ui.set_text(
+                audio_plugin,
+                index.max(0) as usize,
+                param.as_str(),
+                frame.max(0),
+                &path,
+            );
+        },
+    );
     let object_color_window = object_settings.as_weak();
-    object_settings.on_show_color_picker(move |index, param, frame, value| {
+    object_settings.on_show_color_picker(move |_audio_plugin, index, param, frame, value| {
         let Some(window) = object_color_window.upgrade() else {
             return;
         };
@@ -1160,6 +1436,7 @@ fn install_callbacks(
     let object_color_ui = object_settings_ui.clone();
     object_settings.on_apply_picked_color(move |index, param, frame, red, green, blue, alpha| {
         object_color_ui.set_text(
+            false,
             index.max(0) as usize,
             param.as_str(),
             frame.max(0),
@@ -1168,7 +1445,7 @@ fn install_callbacks(
     });
     let object_font_window = object_settings.as_weak();
     let object_font_catalog = object_settings_ui.font_families.clone();
-    object_settings.on_show_font_picker(move |index, param, frame, value| {
+    object_settings.on_show_font_picker(move |_audio_plugin, index, param, frame, value| {
         let Some(window) = object_font_window.upgrade() else {
             return;
         };
@@ -1191,6 +1468,7 @@ fn install_callbacks(
     let object_font_ui = object_settings_ui.clone();
     object_settings.on_apply_picked_font(move |index, param, frame, family| {
         object_font_ui.set_text(
+            false,
             index.max(0) as usize,
             param.as_str(),
             frame.max(0),
@@ -1224,43 +1502,85 @@ fn install_callbacks(
         )
     });
     let object_add_keyframe_ui = object_settings_ui.clone();
-    object_settings.on_add_effect_keyframe(move |index, param, frame| {
+    object_settings.on_add_effect_keyframe(move |audio_plugin, index, param, frame| {
         let _ = object_add_keyframe_ui
             .model
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.add_effect_keyframe(index.max(0) as usize, param.as_str(), frame.max(0))
+                if audio_plugin {
+                    workspace.add_audio_plugin_keyframe(
+                        index.max(0) as usize,
+                        param.as_str(),
+                        frame.max(0),
+                    )
+                } else {
+                    workspace.add_effect_keyframe(
+                        index.max(0) as usize,
+                        param.as_str(),
+                        frame.max(0),
+                    )
+                }
             });
         object_add_keyframe_ui.sync();
     });
+    let object_seed_keyframe_ui = object_settings_ui.clone();
+    object_settings.on_seed_audio_plugin_keyframes(move |index, param| {
+        let _ = object_seed_keyframe_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.seed_audio_plugin_keyframes(index.max(0) as usize, param.as_str())
+            });
+        object_seed_keyframe_ui.sync();
+    });
     let object_remove_keyframe_ui = object_settings_ui.clone();
-    object_settings.on_remove_effect_keyframe(move |index, param, frame| {
+    object_settings.on_remove_effect_keyframe(move |audio_plugin, index, param, frame| {
         let _ = object_remove_keyframe_ui
             .model
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.remove_effect_keyframe(index.max(0) as usize, param.as_str(), frame)
+                if audio_plugin {
+                    workspace.remove_audio_plugin_keyframe(
+                        index.max(0) as usize,
+                        param.as_str(),
+                        frame,
+                    )
+                } else {
+                    workspace.remove_effect_keyframe(index.max(0) as usize, param.as_str(), frame)
+                }
             });
         object_remove_keyframe_ui.sync();
     });
     let object_move_keyframe_ui = object_settings_ui.clone();
-    object_settings.on_move_effect_keyframe(move |index, param, old_frame, new_frame| {
-        let _ = object_move_keyframe_ui
-            .model
-            .borrow_mut()
-            .current_workspace_mut()
-            .is_some_and(|workspace| {
-                workspace.move_effect_keyframe(
-                    index.max(0) as usize,
-                    param.as_str(),
-                    old_frame,
-                    new_frame,
-                )
-            });
-        object_move_keyframe_ui.sync();
-    });
+    object_settings.on_move_effect_keyframe(
+        move |audio_plugin, index, param, old_frame, new_frame| {
+            let _ = object_move_keyframe_ui
+                .model
+                .borrow_mut()
+                .current_workspace_mut()
+                .is_some_and(|workspace| {
+                    if audio_plugin {
+                        workspace.move_audio_plugin_keyframe(
+                            index.max(0) as usize,
+                            param.as_str(),
+                            old_frame,
+                            new_frame,
+                        )
+                    } else {
+                        workspace.move_effect_keyframe(
+                            index.max(0) as usize,
+                            param.as_str(),
+                            old_frame,
+                            new_frame,
+                        )
+                    }
+                });
+            object_move_keyframe_ui.sync();
+        },
+    );
     let object_easing_ui = object_settings_ui.clone();
     object_settings.on_open_effect_easing(move |index, param, start_frame, end_frame| {
         object_easing_ui.open_easing(
@@ -1399,10 +1719,18 @@ fn install_callbacks(
         object_reorder_ui.reorder_effect(index.max(0) as usize, delta_y);
     });
     let object_filter_window = object_settings.as_weak();
+    let object_filter_model = model.clone();
     let object_filter_catalog = effect_catalog.clone();
+    let object_filter_audio_catalog = object_settings_ui.audio_catalog.clone();
     object_settings.on_filter_effects(move |query| {
         if let Some(window) = object_filter_window.upgrade() {
-            sync_effect_catalog(&window, &object_filter_catalog, query.as_str());
+            sync_object_catalog(
+                &window,
+                &object_filter_model.borrow(),
+                &object_filter_catalog,
+                &object_filter_audio_catalog.borrow(),
+                query.as_str(),
+            );
         }
     });
     let object_add_ui = object_settings_ui.clone();
@@ -1416,8 +1744,17 @@ fn install_callbacks(
             .borrow()
             .current_workspace()
             .and_then(WorkspaceModel::selected_clip_document)
-            .and_then(|clip| clip.effects.get(index.max(0) as usize))
-            .map(|effect| effect.id.clone());
+            .and_then(|clip| {
+                if clip.clip_type == "audio" {
+                    clip.audio_plugins
+                        .get(index.max(0) as usize)
+                        .map(|plugin| plugin.id.clone())
+                } else {
+                    clip.effects
+                        .get(index.max(0) as usize)
+                        .map(|effect| effect.id.clone())
+                }
+            });
         let names = effect_id.map_or_else(Vec::new, |effect_id| {
             preset_names_store
                 .names(&effect_id)
@@ -1615,6 +1952,7 @@ fn install_callbacks(
             let result = recover_ui.model.borrow_mut().recover_project(&id);
             match result {
                 Ok(_) => {
+                    recover_ui.hydrate_audio_plugins();
                     if let Some(window) = recover_ui.recovery.upgrade() {
                         let _ = window.hide();
                     }
@@ -3806,7 +4144,11 @@ fn object_settings_sync_key(model: &ApplicationModel) -> Option<ObjectSettingsSy
         document_revision: workspace.document_revision(),
         clip_id: clip.id,
         playhead: workspace.playhead(),
-        effect_selection: (0..clip.effects.len())
+        effect_selection: (0..if clip.clip_type == "audio" {
+            clip.audio_plugins.len()
+        } else {
+            clip.effects.len()
+        })
             .map(|index| workspace.effect_is_selected(index))
             .collect(),
     })
@@ -3823,6 +4165,7 @@ fn sync_object_settings(
     let Some(projection) = projection else {
         window.set_has_selection(false);
         window.set_clip_title(SharedString::new());
+        window.set_audio_plugin_mode(false);
         window.set_selected_effect_count(0);
         window.set_selected_effects_removable(false);
         update_vec_model(&window.get_effects(), Vec::new());
@@ -3830,35 +4173,64 @@ fn sync_object_settings(
         return;
     };
     window.set_has_selection(true);
+    window.set_audio_plugin_mode(projection.audio_plugin_mode);
     window.set_clip_title(SharedString::from(format!(
         "{}  (ID {})",
         projection.clip_label, projection.clip_id
     )));
-    window.set_selected_effect_count(
+    let effects = if projection.audio_plugin_mode {
+        window.set_selected_effect_count(
+            projection
+                .audio_plugins
+                .iter()
+                .filter(|plugin| plugin.selected)
+                .count() as i32,
+        );
+        window.set_selected_effects_removable(
+            projection
+                .audio_plugins
+                .iter()
+                .any(|plugin| plugin.selected),
+        );
+        projection
+            .audio_plugins
+            .iter()
+            .map(|plugin| ObjectEffectData {
+                index: plugin.index as i32,
+                id: SharedString::from(plugin.id.clone()),
+                name: SharedString::from(plugin.name.clone()),
+                enabled: plugin.enabled,
+                selected: plugin.selected,
+                removable: true,
+            })
+            .collect::<Vec<_>>()
+    } else {
+        window.set_selected_effect_count(
+            projection
+                .effects
+                .iter()
+                .filter(|effect| effect.selected)
+                .count() as i32,
+        );
+        window.set_selected_effects_removable(
+            projection
+                .effects
+                .iter()
+                .any(|effect| effect.selected && effect.removable),
+        );
         projection
             .effects
             .iter()
-            .filter(|effect| effect.selected)
-            .count() as i32,
-    );
-    window.set_selected_effects_removable(
-        projection
-            .effects
-            .iter()
-            .any(|effect| effect.selected && effect.removable),
-    );
-    let effects = projection
-        .effects
-        .iter()
-        .map(|effect| ObjectEffectData {
-            index: effect.index as i32,
-            id: SharedString::from(effect.id.clone()),
-            name: SharedString::from(effect.name.clone()),
-            enabled: effect.enabled,
-            selected: effect.selected,
-            removable: effect.removable,
-        })
-        .collect::<Vec<_>>();
+            .map(|effect| ObjectEffectData {
+                index: effect.index as i32,
+                id: SharedString::from(effect.id.clone()),
+                name: SharedString::from(effect.name.clone()),
+                enabled: effect.enabled,
+                selected: effect.selected,
+                removable: effect.removable,
+            })
+            .collect::<Vec<_>>()
+    };
     update_vec_model(&window.get_effects(), effects);
     update_vec_model(
         &window.get_setting_rows(),
@@ -3871,6 +4243,7 @@ fn sync_effect_catalog(window: &ObjectSettingsWindow, catalog: &EffectCatalog, q
         .query("effect", query, "")
         .into_iter()
         .map(|metadata| EffectCatalogItemData {
+            header: false,
             id: SharedString::from(metadata.id.clone()),
             name: SharedString::from(metadata.name.clone()),
             categories: SharedString::from(metadata.categories.join(", ")),
@@ -3879,113 +4252,217 @@ fn sync_effect_catalog(window: &ObjectSettingsWindow, catalog: &EffectCatalog, q
     update_vec_model(&window.get_effect_catalog_items(), items);
 }
 
+fn sync_audio_plugin_catalog(
+    window: &ObjectSettingsWindow,
+    catalog: &AudioPluginCatalog,
+    query: &str,
+) {
+    let mut items = Vec::new();
+    let mut previous_category = None::<String>;
+    for plugin in catalog.entries(query) {
+        if query.trim().is_empty() && previous_category.as_deref() != Some(plugin.category.as_str())
+        {
+            previous_category = Some(plugin.category.clone());
+            items.push(EffectCatalogItemData {
+                header: true,
+                id: SharedString::new(),
+                name: SharedString::from(plugin.category.clone()),
+                categories: SharedString::new(),
+            });
+        }
+        items.push(EffectCatalogItemData {
+            header: false,
+            id: SharedString::from(plugin.id),
+            name: SharedString::from(plugin.name),
+            categories: SharedString::from(plugin.category),
+        });
+    }
+    update_vec_model(&window.get_effect_catalog_items(), items);
+}
+
+fn sync_object_catalog(
+    window: &ObjectSettingsWindow,
+    model: &ApplicationModel,
+    effect_catalog: &EffectCatalog,
+    audio_catalog: &AudioPluginCatalog,
+    query: &str,
+) {
+    if model
+        .current_workspace()
+        .is_some_and(WorkspaceModel::object_settings_uses_audio_plugins)
+    {
+        sync_audio_plugin_catalog(window, audio_catalog, query);
+    } else {
+        sync_effect_catalog(window, effect_catalog, query);
+    }
+}
+
 fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> {
     let mut rows = Vec::new();
     for effect in &settings.effects {
-        rows.push(ObjectSettingRowData {
-            row_kind: SharedString::from("effect"),
-            source_kind: SharedString::new(),
-            effect_index: effect.index as i32,
-            param_name: SharedString::new(),
-            label: SharedString::from(effect.name.clone()),
-            effect_enabled: effect.enabled,
-            selected: effect.selected,
-            removable: effect.removable,
-            interactive: true,
-            checked: false,
-            keyframed: false,
-            range_mode: false,
-            start_frame: 0,
-            end_frame: 0,
-            current_frame: 0,
-            clip_duration: 0,
-            interpolation: SharedString::new(),
-            number_value: 0.0,
-            end_number_value: 0.0,
-            minimum: 0.0,
-            maximum: 0.0,
-            step: 1.0,
-            text_value: SharedString::new(),
-            end_text_value: SharedString::new(),
-            filter: SharedString::new(),
-            color_value: Color::from_rgb_u8(255, 255, 255),
-            end_color_value: Color::from_rgb_u8(255, 255, 255),
-            unit: SharedString::new(),
-            keyframe_markers: ModelRc::new(VecModel::<KeyframeMarkerData>::default()),
-            option_labels: ModelRc::new(VecModel::<SharedString>::default()),
-            selected_option: -1,
-        });
-        for control in &effect.controls {
-            let (minimum, maximum) = object_control_range(control);
-            let option_labels = control
-                .options
-                .iter()
-                .map(|option| SharedString::from(option.label.clone()))
-                .collect::<Vec<_>>();
-            let supports_track = matches!(
-                control.kind,
-                ObjectControlKind::Number | ObjectControlKind::Integer | ObjectControlKind::Color
-            ) && control.param.is_some();
-            let text_value = control.display_value_at(&control.start_value);
-            let end_text_value = control.display_value_at(&control.end_value);
-            let parameter_row = ObjectSettingRowData {
-                row_kind: SharedString::from(control.kind.as_str()),
-                source_kind: SharedString::from(control.source_kind.clone()),
-                effect_index: effect.index as i32,
-                param_name: SharedString::from(control.param.clone().unwrap_or_default()),
-                label: SharedString::from(control.label.clone()),
-                effect_enabled: effect.enabled,
-                selected: effect.selected,
-                removable: effect.removable,
-                interactive: effect.enabled && !control.disabled && control.param.is_some(),
-                checked: control.bool_value_at(&control.start_value),
-                keyframed: control.keyframed,
-                range_mode: supports_track && control.keyframed,
-                start_frame: control.interval_start,
-                end_frame: control.interval_end,
-                current_frame: control.relative_frame,
-                clip_duration: control.clip_duration,
-                interpolation: SharedString::from(control.start_interpolation.clone()),
-                number_value: finite_f32(control.number_value_at(&control.start_value), 0.0),
-                end_number_value: finite_f32(control.number_value_at(&control.end_value), 0.0),
-                minimum,
-                maximum,
-                step: control
-                    .step
-                    .filter(|step| step.is_finite() && *step > 0.0)
-                    .map_or(1.0, |step| finite_f32(step, 1.0)),
-                text_value: SharedString::from(text_value.clone()),
-                end_text_value: SharedString::from(end_text_value.clone()),
-                filter: SharedString::from(control.filter.clone()),
-                color_value: slint_color(&text_value),
-                end_color_value: slint_color(&end_text_value),
-                unit: SharedString::from(control.unit.clone()),
-                keyframe_markers: ModelRc::new(VecModel::from(keyframe_markers(control))),
-                option_labels: ModelRc::new(VecModel::from(option_labels)),
-                selected_option: control
-                    .selected_option_at(&control.start_value)
-                    .map_or(-1, |index| index as i32),
-            };
-            rows.push(parameter_row.clone());
-            if supports_track {
-                rows.push(ObjectSettingRowData {
-                    row_kind: SharedString::from("keyframes"),
-                    label: SharedString::new(),
-                    ..parameter_row
-                });
-            }
-        }
+        push_object_settings_rows(
+            &mut rows,
+            effect.index,
+            &effect.name,
+            effect.enabled,
+            effect.selected,
+            effect.removable && !settings.audio_plugin_mode,
+            !settings.audio_plugin_mode,
+            false,
+            &effect.controls,
+        );
+    }
+    for plugin in &settings.audio_plugins {
+        let label = if plugin.format.is_empty() {
+            plugin.name.clone()
+        } else {
+            format!("{} ({})", plugin.name, plugin.format)
+        };
+        push_object_settings_rows(
+            &mut rows,
+            plugin.index,
+            &label,
+            plugin.enabled,
+            plugin.selected,
+            true,
+            false,
+            true,
+            &plugin.controls,
+        );
     }
     rows
 }
 
-fn keyframe_markers(control: &ObjectControl) -> Vec<KeyframeMarkerData> {
+#[allow(clippy::too_many_arguments)]
+fn push_object_settings_rows(
+    rows: &mut Vec<ObjectSettingRowData>,
+    index: usize,
+    name: &str,
+    enabled: bool,
+    selected: bool,
+    removable: bool,
+    header_toggle_visible: bool,
+    audio_plugin: bool,
+    controls: &[ObjectControl],
+) {
+    rows.push(ObjectSettingRowData {
+        row_kind: SharedString::from("effect"),
+        source_kind: SharedString::new(),
+        audio_plugin,
+        effect_index: index as i32,
+        param_name: SharedString::new(),
+        label: SharedString::from(name),
+        effect_enabled: enabled,
+        header_toggle_visible,
+        selected,
+        removable,
+        interactive: true,
+        checked: false,
+        keyframed: false,
+        range_mode: false,
+        start_frame: 0,
+        end_frame: 0,
+        current_frame: 0,
+        clip_duration: 0,
+        interpolation: SharedString::new(),
+        number_value: 0.0,
+        end_number_value: 0.0,
+        minimum: 0.0,
+        maximum: 0.0,
+        step: 1.0,
+        text_value: SharedString::new(),
+        end_text_value: SharedString::new(),
+        filter: SharedString::new(),
+        color_value: Color::from_rgb_u8(255, 255, 255),
+        end_color_value: Color::from_rgb_u8(255, 255, 255),
+        unit: SharedString::new(),
+        keyframe_markers: ModelRc::new(VecModel::<KeyframeMarkerData>::default()),
+        option_labels: ModelRc::new(VecModel::<SharedString>::default()),
+        selected_option: -1,
+    });
+    for control in controls {
+        let (minimum, maximum) = object_control_range(control);
+        let option_labels = control
+            .options
+            .iter()
+            .map(|option| SharedString::from(option.label.clone()))
+            .collect::<Vec<_>>();
+        let supports_track = matches!(
+            control.kind,
+            ObjectControlKind::Number | ObjectControlKind::Integer | ObjectControlKind::Color
+        ) && control.param.is_some();
+        let start_value = if audio_plugin {
+            &control.value
+        } else {
+            &control.start_value
+        };
+        let text_value = control.display_value_at(start_value);
+        let end_text_value = control.display_value_at(&control.end_value);
+        let parameter_row = ObjectSettingRowData {
+            row_kind: SharedString::from(control.kind.as_str()),
+            source_kind: SharedString::from(control.source_kind.clone()),
+            audio_plugin,
+            effect_index: index as i32,
+            param_name: SharedString::from(control.param.clone().unwrap_or_default()),
+            label: SharedString::from(control.label.clone()),
+            effect_enabled: enabled,
+            header_toggle_visible,
+            selected,
+            removable,
+            interactive: (audio_plugin || enabled) && !control.disabled && control.param.is_some(),
+            checked: control.bool_value_at(start_value),
+            keyframed: control.keyframed,
+            range_mode: !audio_plugin && supports_track && control.keyframed,
+            start_frame: if audio_plugin {
+                control.relative_frame
+            } else {
+                control.interval_start
+            },
+            end_frame: control.interval_end,
+            current_frame: control.relative_frame,
+            clip_duration: control.clip_duration,
+            interpolation: SharedString::from(control.start_interpolation.clone()),
+            number_value: finite_f32(control.number_value_at(start_value), 0.0),
+            end_number_value: finite_f32(control.number_value_at(&control.end_value), 0.0),
+            minimum,
+            maximum,
+            step: control
+                .step
+                .filter(|step| step.is_finite() && *step > 0.0)
+                .map_or(if audio_plugin { 0.001 } else { 1.0 }, |step| {
+                    finite_f32(step, if audio_plugin { 0.001 } else { 1.0 })
+                }),
+            text_value: SharedString::from(text_value.clone()),
+            end_text_value: SharedString::from(end_text_value.clone()),
+            filter: SharedString::from(control.filter.clone()),
+            color_value: slint_color(&text_value),
+            end_color_value: slint_color(&end_text_value),
+            unit: SharedString::from(control.unit.clone()),
+            keyframe_markers: ModelRc::new(VecModel::from(keyframe_markers(control, audio_plugin))),
+            option_labels: ModelRc::new(VecModel::from(option_labels)),
+            selected_option: control
+                .selected_option_at(start_value)
+                .map_or(-1, |option| option as i32),
+        };
+        rows.push(parameter_row.clone());
+        if supports_track {
+            rows.push(ObjectSettingRowData {
+                row_kind: SharedString::from("keyframes"),
+                label: SharedString::new(),
+                ..parameter_row
+            });
+        }
+    }
+}
+
+fn keyframe_markers(control: &ObjectControl, audio_plugin: bool) -> Vec<KeyframeMarkerData> {
     let mut points = control
         .keyframes
         .iter()
         .map(|point| (point.frame, false))
         .collect::<Vec<_>>();
-    if control.clip_duration > 0
+    if !audio_plugin
+        && control.clip_duration > 0
         && !points
             .iter()
             .any(|(frame, _)| *frame == control.clip_duration)
@@ -4010,7 +4487,10 @@ fn keyframe_markers(control: &ObjectControl) -> Vec<KeyframeMarkerData> {
                 minimum_frame,
                 maximum_frame,
                 virtual_end: *virtual_end,
-                movable: *frame != 0 && !virtual_end,
+                removable: *frame != 0
+                    && !virtual_end
+                    && !(audio_plugin && *frame == control.clip_duration),
+                draggable: !audio_plugin && *frame != 0 && !virtual_end,
             }
         })
         .collect()
@@ -4606,7 +5086,7 @@ fn install_render_probe<T: ComponentHandle + 'static>(
 mod tests {
     use super::*;
     use aviqtl_app::object_settings::{
-        KeyframePoint, ObjectControlKind, ObjectControlOption, ObjectEffect,
+        AudioPluginSettings, KeyframePoint, ObjectControlKind, ObjectControlOption, ObjectEffect,
     };
     use serde_json::json;
 
@@ -4927,11 +5407,12 @@ mod tests {
         let settings = ObjectSettings {
             clip_id: 7,
             clip_label: "Rectangle".to_owned(),
+            audio_plugin_mode: false,
             effects: vec![ObjectEffect {
                 index: 1,
                 id: "blur".to_owned(),
                 name: "Blur".to_owned(),
-                enabled: true,
+                enabled: false,
                 selected: true,
                 removable: true,
                 controls: vec![
@@ -5031,6 +5512,7 @@ mod tests {
                     },
                 ],
             }],
+            audio_plugins: Vec::new(),
         };
 
         let rows = object_settings_rows(&settings);
@@ -5050,10 +5532,86 @@ mod tests {
         assert_eq!(rows[3].end_text_value.as_str(), "20.0");
         assert_eq!(rows[4].row_kind.as_str(), "keyframes");
         assert_eq!(rows[4].keyframe_markers.row_count(), 3);
-        assert!(!rows[4].keyframe_markers.row_data(0).unwrap().movable);
-        assert!(rows[4].keyframe_markers.row_data(1).unwrap().movable);
+        assert!(!rows[4].keyframe_markers.row_data(0).unwrap().draggable);
+        assert!(rows[4].keyframe_markers.row_data(1).unwrap().draggable);
         let virtual_end = rows[4].keyframe_markers.row_data(2).unwrap();
         assert_eq!(virtual_end.frame, 100);
         assert!(virtual_end.virtual_end);
+    }
+
+    #[test]
+    fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
+        let control = ObjectControl {
+            kind: ObjectControlKind::Number,
+            source_kind: "slider".to_owned(),
+            param: Some("0".to_owned()),
+            label: "Gain".to_owned(),
+            minimum: Some(0.0),
+            maximum: Some(1.0),
+            step: Some(0.01),
+            decimals: Some(3),
+            unit: "dB".to_owned(),
+            filter: String::new(),
+            disabled: false,
+            keyframed: true,
+            value: json!(0.5),
+            relative_frame: 50,
+            clip_duration: 100,
+            interval_start: 20,
+            interval_end: 80,
+            start_value: json!(0.2),
+            end_value: json!(0.8),
+            start_interpolation: "linear".to_owned(),
+            keyframes: vec![
+                KeyframePoint {
+                    frame: 0,
+                    value: json!(0.0),
+                    interpolation: "linear".to_owned(),
+                    options: json!({"interp":"linear"}),
+                },
+                KeyframePoint {
+                    frame: 50,
+                    value: json!(0.5),
+                    interpolation: "linear".to_owned(),
+                    options: json!({"interp":"linear"}),
+                },
+                KeyframePoint {
+                    frame: 100,
+                    value: json!(1.0),
+                    interpolation: "linear".to_owned(),
+                    options: json!({"interp":"linear"}),
+                },
+            ],
+            options: Vec::new(),
+        };
+        let rows = object_settings_rows(&ObjectSettings {
+            clip_id: 9,
+            clip_label: "Audio".to_owned(),
+            audio_plugin_mode: true,
+            effects: Vec::new(),
+            audio_plugins: vec![AudioPluginSettings {
+                index: 0,
+                id: "gain".to_owned(),
+                name: "Gain".to_owned(),
+                format: "CLAP".to_owned(),
+                enabled: true,
+                selected: true,
+                controls: vec![control],
+            }],
+        });
+
+        assert_eq!(rows.len(), 3);
+        assert!(rows[0].audio_plugin);
+        assert!(!rows[0].header_toggle_visible);
+        assert_eq!(rows[1].start_frame, 50);
+        assert_eq!(rows[1].text_value.as_str(), "0.500");
+        assert!(!rows[1].range_mode);
+        assert!(rows[1].interactive);
+        let markers = &rows[2].keyframe_markers;
+        assert_eq!(markers.row_count(), 3);
+        assert!(!markers.row_data(0).unwrap().removable);
+        assert!(markers.row_data(1).unwrap().removable);
+        assert!(!markers.row_data(1).unwrap().draggable);
+        assert!(!markers.row_data(2).unwrap().removable);
     }
 }

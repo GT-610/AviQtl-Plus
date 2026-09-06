@@ -143,6 +143,16 @@ still require the separately scheduled Computer Use suite.
   pointer-feel verification remains deferred and therefore keeps this area at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
   drag or context menu is active.
+- Audio objects now switch the left sidebar to the Qt audio-plugin stack while keeping the built-in
+  audio-object controls on the right. The framework-neutral catalog reuses the Rust CLAP/VST3 and
+  Carla LADSPA/DSSI/LV2/VST2 discovery and inspection paths, preserves Qt category order and
+  multi-field search, and restores missing host metadata in older projects without changing their
+  dirty state. Restoration is deferred instead of invalidating an existing undo/redo history.
+  Plugin insertion, single-item drag reorder, Ctrl/Shift selection, grouped enable/delete,
+  right-click presets, current-playhead parameter values, the Qt two-endpoint `K` action,
+  double-click insertion, and protected non-draggable endpoints are wired through the existing Rust
+  timeline commands. A bypassed plugin remains parameter-editable like Qt. Native plugin scanning,
+  menu behavior, pointer feel, and hosted audio output remain in the deferred GUI suite.
 
 ## Deferred native GUI suite
 
