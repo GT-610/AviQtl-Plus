@@ -3,6 +3,8 @@
 use aviqtl_app::{
     ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
     SaveDecision, SceneSettingsInput, WorkspaceModel,
+    effect_catalog::EffectCatalog,
+    object_settings::{ObjectControl, ObjectSettings},
     selection::SelectionBox,
     settings::SettingsStore,
     timeline_interaction::{TimelineDragKind, TimelineDragRequest},
@@ -164,6 +166,15 @@ struct PreviewFrameKey {
     frame: i32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ObjectSettingsSyncKey {
+    project_instance_id: u64,
+    document_revision: u64,
+    clip_id: i32,
+    playhead: i32,
+    effect_selection: Vec<bool>,
+}
+
 struct PreviewRuntime {
     surface: PreviewSurface,
     decoder: MediaPreview,
@@ -309,6 +320,7 @@ struct LifecycleUi {
     export: slint::Weak<ExportWindow>,
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
+    effect_catalog: Rc<EffectCatalog>,
     quit_confirmed: Cell<bool>,
 }
 
@@ -321,6 +333,75 @@ struct WindowRefs<'a> {
     project_settings: &'a ProjectSettingsWindow,
     scene_settings: &'a SceneSettingsWindow,
     system_settings: &'a SystemSettingsWindow,
+}
+
+#[derive(Clone)]
+struct ObjectSettingsUi {
+    main: slint::Weak<MainWindow>,
+    timeline: slint::Weak<TimelineWindow>,
+    window: slint::Weak<ObjectSettingsWindow>,
+    model: Rc<RefCell<ApplicationModel>>,
+    catalog: Rc<EffectCatalog>,
+}
+
+impl ObjectSettingsUi {
+    fn sync(&self) {
+        sync_weak_windows(&self.main, &self.timeline, &self.model);
+        if let Some(window) = self.window.upgrade() {
+            sync_object_settings(&window, &self.model.borrow(), &self.catalog);
+        }
+    }
+
+    fn control(&self, effect_index: usize, param_name: &str) -> Option<ObjectControl> {
+        self.model
+            .borrow()
+            .current_workspace()?
+            .object_settings(&self.catalog)?
+            .effects
+            .get(effect_index)?
+            .controls
+            .iter()
+            .find(|control| control.param.as_deref() == Some(param_name))
+            .cloned()
+    }
+
+    fn set_value(&self, effect_index: usize, param_name: &str, value: serde_json::Value) {
+        let _ = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.set_effect_parameter(effect_index, param_name, value)
+            });
+        self.sync();
+    }
+
+    fn set_text(&self, effect_index: usize, param_name: &str, text: &str) {
+        let Some(control) = self.control(effect_index, param_name) else {
+            return;
+        };
+        match control.parse_text(text) {
+            Ok(value) => self.set_value(effect_index, param_name, value),
+            Err(message) => show_error_dialog(&message),
+        }
+    }
+
+    fn set_number(&self, effect_index: usize, param_name: &str, value: f32) {
+        if !value.is_finite() {
+            return;
+        }
+        self.set_text(effect_index, param_name, &value.to_string());
+    }
+
+    fn set_option(&self, effect_index: usize, param_name: &str, option_index: usize) {
+        let Some(value) = self
+            .control(effect_index, param_name)
+            .and_then(|control| control.option_value(option_index))
+        else {
+            return;
+        };
+        self.set_value(effect_index, param_name, value);
+    }
 }
 
 impl LifecycleUi {
@@ -408,6 +489,9 @@ impl LifecycleUi {
         if let (Some(main), Some(timeline)) = (self.main.upgrade(), self.timeline.upgrade()) {
             sync_windows(&main, &timeline, &self.model.borrow());
         }
+        if let Some(object_settings) = self.object_settings.upgrade() {
+            sync_object_settings(&object_settings, &self.model.borrow(), &self.effect_catalog);
+        }
         if let Some(recovery) = self.recovery.upgrade() {
             sync_recovery_window(&recovery, &self.model.borrow());
         }
@@ -485,6 +569,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (settings_store, settings_status) = SettingsStore::load();
     eprintln!("{settings_status}");
     let settings = Rc::new(RefCell::new(settings_store));
+    let (effect_catalog, effect_catalog_status) = EffectCatalog::load();
+    eprintln!("{effect_catalog_status}");
+    let effect_catalog = Rc::new(effect_catalog);
     let mut application_model = ApplicationModel::default();
     apply_runtime_settings(&mut application_model, &settings.borrow());
     let model = Rc::new(RefCell::new(application_model));
@@ -513,6 +600,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     timeline.set_scene_tabs(ModelRc::new(VecModel::<SceneTabData>::default()));
     timeline.set_clips(ModelRc::new(VecModel::<TimelineClipData>::default()));
     timeline.set_layers(ModelRc::new(VecModel::<LayerData>::default()));
+    object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
+    object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));
 
     let stats = Rc::new(GpuValidation::new(
         gpu.device.clone(),
@@ -533,6 +622,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         export: export.as_weak(),
         model: model.clone(),
         settings: settings.clone(),
+        effect_catalog: effect_catalog.clone(),
         quit_confirmed: Cell::new(false),
     });
     install_callbacks(
@@ -548,6 +638,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         },
         model.clone(),
         settings.clone(),
+        effect_catalog.clone(),
         lifecycle_ui,
     );
     install_keyboard_shortcuts(&main, &timeline, model.clone(), settings.clone());
@@ -584,6 +675,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_launcher = launcher.as_weak();
     let animation_recovery = recovery.as_weak();
     let animation_settings = object_settings.as_weak();
+    let animation_effect_catalog = effect_catalog.clone();
+    let animation_object_sync_key = Rc::new(RefCell::new(None::<ObjectSettingsSyncKey>));
+    let object_sync_key = animation_object_sync_key.clone();
     let animation_project_settings = project_settings.as_weak();
     let animation_scene_settings = scene_settings.as_weak();
     let animation_system_settings = system_settings.as_weak();
@@ -605,6 +699,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 (animation_main.upgrade(), animation_timeline.upgrade())
         {
             sync_transport(&main, &timeline, &animation_model.borrow());
+        }
+        if let Some(window) = animation_settings.upgrade()
+            && window.window().is_visible()
+        {
+            let key = object_settings_sync_key(&animation_model.borrow());
+            if *object_sync_key.borrow() != key {
+                sync_object_settings(
+                    &window,
+                    &animation_model.borrow(),
+                    &animation_effect_catalog,
+                );
+                *object_sync_key.borrow_mut() = key;
+            }
         }
         if let Some(main) = animation_main.upgrade() {
             let preview_updated = {
@@ -685,6 +792,7 @@ fn install_callbacks(
     windows: WindowRefs<'_>,
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
+    effect_catalog: Rc<EffectCatalog>,
     lifecycle_ui: Rc<LifecycleUi>,
 ) {
     let WindowRefs {
@@ -697,6 +805,73 @@ fn install_callbacks(
         scene_settings,
         system_settings,
     } = windows;
+    let object_settings_ui = ObjectSettingsUi {
+        main: main.as_weak(),
+        timeline: timeline.as_weak(),
+        window: object_settings.as_weak(),
+        model: model.clone(),
+        catalog: effect_catalog.clone(),
+    };
+    let object_select_ui = object_settings_ui.clone();
+    object_settings.on_select_effect(move |index, control, shift| {
+        let _ = object_select_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.select_effect(index.max(0) as usize, control, shift)
+            });
+        object_select_ui.sync();
+    });
+    let object_context_ui = object_settings_ui.clone();
+    object_settings.on_context_select_effect(move |index| {
+        let _ = object_context_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.context_select_effect(index.max(0) as usize));
+        object_context_ui.sync();
+    });
+    let object_enabled_ui = object_settings_ui.clone();
+    object_settings.on_set_effect_enabled(move |index, enabled| {
+        let _ = object_enabled_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.set_effect_enabled(index.max(0) as usize, enabled));
+        object_enabled_ui.sync();
+    });
+    let object_remove_ui = object_settings_ui.clone();
+    object_settings.on_remove_effect(move |index| {
+        let _ = object_remove_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.remove_effect(index.max(0) as usize));
+        object_remove_ui.sync();
+    });
+    let object_text_ui = object_settings_ui.clone();
+    object_settings.on_set_parameter_text(move |index, param, value| {
+        object_text_ui.set_text(index.max(0) as usize, param.as_str(), value.as_str());
+    });
+    let object_number_ui = object_settings_ui.clone();
+    object_settings.on_set_parameter_number(move |index, param, value| {
+        object_number_ui.set_number(index.max(0) as usize, param.as_str(), value);
+    });
+    let object_bool_ui = object_settings_ui.clone();
+    object_settings.on_set_parameter_bool(move |index, param, value| {
+        object_bool_ui.set_value(
+            index.max(0) as usize,
+            param.as_str(),
+            serde_json::Value::Bool(value),
+        );
+    });
+    let object_option_ui = object_settings_ui;
+    object_settings.on_set_parameter_option(move |index, param, option| {
+        if option >= 0 {
+            object_option_ui.set_option(index.max(0) as usize, param.as_str(), option as usize);
+        }
+    });
     let create_model = model.clone();
     let create_main = main.as_weak();
     let create_timeline = timeline.as_weak();
@@ -929,8 +1104,11 @@ fn install_callbacks(
         }
     });
     let settings_window = object_settings.as_weak();
+    let settings_model = model.clone();
+    let settings_catalog = effect_catalog.clone();
     main.on_show_object_settings(move || {
         if let Some(window) = settings_window.upgrade() {
+            sync_object_settings(&window, &settings_model.borrow(), &settings_catalog);
             let _ = window.show();
         }
     });
@@ -1032,8 +1210,15 @@ fn install_callbacks(
     });
 
     let timeline_settings = object_settings.as_weak();
+    let timeline_settings_model = model.clone();
+    let timeline_settings_catalog = effect_catalog.clone();
     timeline.on_show_object_settings(move || {
         if let Some(window) = timeline_settings.upgrade() {
+            sync_object_settings(
+                &window,
+                &timeline_settings_model.borrow(),
+                &timeline_settings_catalog,
+            );
             let _ = window.show();
         }
     });
@@ -2894,6 +3079,141 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
     sync_transport(main, timeline, model);
 }
 
+fn object_settings_sync_key(model: &ApplicationModel) -> Option<ObjectSettingsSyncKey> {
+    let project_instance_id = model.current_project_instance_id()?;
+    let workspace = model.current_workspace()?;
+    let clip = workspace.selected_clip_document()?;
+    Some(ObjectSettingsSyncKey {
+        project_instance_id,
+        document_revision: workspace.document_revision(),
+        clip_id: clip.id,
+        playhead: workspace.playhead(),
+        effect_selection: (0..clip.effects.len())
+            .map(|index| workspace.effect_is_selected(index))
+            .collect(),
+    })
+}
+
+fn sync_object_settings(
+    window: &ObjectSettingsWindow,
+    model: &ApplicationModel,
+    catalog: &EffectCatalog,
+) {
+    let projection = model
+        .current_workspace()
+        .and_then(|workspace| workspace.object_settings(catalog));
+    let Some(projection) = projection else {
+        window.set_has_selection(false);
+        window.set_clip_title(SharedString::new());
+        update_vec_model(&window.get_effects(), Vec::new());
+        update_vec_model(&window.get_setting_rows(), Vec::new());
+        return;
+    };
+    window.set_has_selection(true);
+    window.set_clip_title(SharedString::from(format!(
+        "{}  (ID {})",
+        projection.clip_label, projection.clip_id
+    )));
+    let effects = projection
+        .effects
+        .iter()
+        .map(|effect| ObjectEffectData {
+            index: effect.index as i32,
+            id: SharedString::from(effect.id.clone()),
+            name: SharedString::from(effect.name.clone()),
+            enabled: effect.enabled,
+            selected: effect.selected,
+            removable: effect.removable,
+        })
+        .collect::<Vec<_>>();
+    update_vec_model(&window.get_effects(), effects);
+    update_vec_model(
+        &window.get_setting_rows(),
+        object_settings_rows(&projection),
+    );
+}
+
+fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> {
+    let mut rows = Vec::new();
+    for effect in &settings.effects {
+        rows.push(ObjectSettingRowData {
+            row_kind: SharedString::from("effect"),
+            source_kind: SharedString::new(),
+            effect_index: effect.index as i32,
+            param_name: SharedString::new(),
+            label: SharedString::from(effect.name.clone()),
+            effect_enabled: effect.enabled,
+            selected: effect.selected,
+            removable: effect.removable,
+            interactive: true,
+            checked: false,
+            keyframed: false,
+            number_value: 0.0,
+            minimum: 0.0,
+            maximum: 0.0,
+            step: 1.0,
+            text_value: SharedString::new(),
+            unit: SharedString::new(),
+            option_labels: ModelRc::new(VecModel::<SharedString>::default()),
+            selected_option: -1,
+        });
+        rows.extend(effect.controls.iter().map(|control| {
+            let (minimum, maximum) = object_control_range(control);
+            let option_labels = control
+                .options
+                .iter()
+                .map(|option| SharedString::from(option.label.clone()))
+                .collect::<Vec<_>>();
+            ObjectSettingRowData {
+                row_kind: SharedString::from(control.kind.as_str()),
+                source_kind: SharedString::from(control.source_kind.clone()),
+                effect_index: effect.index as i32,
+                param_name: SharedString::from(control.param.clone().unwrap_or_default()),
+                label: SharedString::from(control.label.clone()),
+                effect_enabled: effect.enabled,
+                selected: effect.selected,
+                removable: effect.removable,
+                interactive: effect.enabled && !control.disabled && control.param.is_some(),
+                checked: control.bool_value(),
+                keyframed: control.keyframed,
+                number_value: finite_f32(control.number_value(), 0.0),
+                minimum,
+                maximum,
+                step: control
+                    .step
+                    .filter(|step| step.is_finite() && *step > 0.0)
+                    .map_or(1.0, |step| finite_f32(step, 1.0)),
+                text_value: SharedString::from(control.display_value()),
+                unit: SharedString::from(control.unit.clone()),
+                option_labels: ModelRc::new(VecModel::from(option_labels)),
+                selected_option: control.selected_option().map_or(-1, |index| index as i32),
+            }
+        }));
+    }
+    rows
+}
+
+fn object_control_range(control: &ObjectControl) -> (f32, f32) {
+    let minimum = control.minimum.unwrap_or(-100_000.0);
+    let maximum = control.maximum.unwrap_or(100_000.0);
+    if minimum.is_finite() && maximum.is_finite() && minimum <= maximum {
+        (
+            finite_f32(minimum, -100_000.0),
+            finite_f32(maximum, 100_000.0),
+        )
+    } else {
+        (-100_000.0, 100_000.0)
+    }
+}
+
+fn finite_f32(value: f64, fallback: f32) -> f32 {
+    if value.is_finite() && value >= f64::from(f32::MIN) && value <= f64::from(f32::MAX) {
+        value as f32
+    } else {
+        fallback
+    }
+}
+
 fn sync_recovery_window(window: &ProjectRecoveryWindow, model: &ApplicationModel) {
     sync_recovery_entries(window, model.recovery_entries());
 }
@@ -3148,6 +3468,8 @@ fn install_render_probe<T: ComponentHandle + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aviqtl_app::object_settings::{ObjectControlKind, ObjectControlOption, ObjectEffect};
+    use serde_json::json;
 
     #[test]
     fn codec_selection_matches_the_qt_fallback_contract() {
@@ -3296,5 +3618,75 @@ mod tests {
         );
         assert!((ruler.pixels_per_frame - 1.1).abs() < f32::EPSILON);
         assert!((ruler.viewport_x + 350.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn object_setting_rows_keep_effect_control_and_option_order() {
+        let settings = ObjectSettings {
+            clip_id: 7,
+            clip_label: "Rectangle".to_owned(),
+            effects: vec![ObjectEffect {
+                index: 1,
+                id: "blur".to_owned(),
+                name: "Blur".to_owned(),
+                enabled: true,
+                selected: true,
+                removable: true,
+                controls: vec![
+                    ObjectControl {
+                        kind: ObjectControlKind::Header,
+                        source_kind: "header".to_owned(),
+                        param: None,
+                        label: "Quality".to_owned(),
+                        minimum: None,
+                        maximum: None,
+                        step: None,
+                        decimals: None,
+                        unit: String::new(),
+                        filter: String::new(),
+                        disabled: false,
+                        keyframed: false,
+                        value: serde_json::Value::Null,
+                        options: Vec::new(),
+                    },
+                    ObjectControl {
+                        kind: ObjectControlKind::Choice,
+                        source_kind: "enum".to_owned(),
+                        param: Some("mode".to_owned()),
+                        label: "Mode".to_owned(),
+                        minimum: None,
+                        maximum: None,
+                        step: None,
+                        decimals: None,
+                        unit: String::new(),
+                        filter: String::new(),
+                        disabled: false,
+                        keyframed: true,
+                        value: json!("high"),
+                        options: vec![
+                            ObjectControlOption {
+                                value: json!("low"),
+                                label: "Low".to_owned(),
+                            },
+                            ObjectControlOption {
+                                value: json!("high"),
+                                label: "High".to_owned(),
+                            },
+                        ],
+                    },
+                ],
+            }],
+        };
+
+        let rows = object_settings_rows(&settings);
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0].row_kind.as_str(), "effect");
+        assert_eq!(rows[1].row_kind.as_str(), "header");
+        assert_eq!(rows[2].row_kind.as_str(), "choice");
+        assert_eq!(rows[2].selected_option, 1);
+        assert!(rows[2].keyframed);
+        assert_eq!(rows[2].option_labels.row_count(), 2);
+        assert_eq!(rows[2].option_labels.row_data(0).as_deref(), Some("Low"));
+        assert_eq!(rows[2].option_labels.row_data(1).as_deref(), Some("High"));
     }
 }

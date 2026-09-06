@@ -46,7 +46,7 @@ still require the separately scheduled Computer Use suite.
 | File drop | Insert media at indicated frame/layer with Qt import rules | missing |
 | Timeline navigation | Qt wheel axes, anchored zoom, and both draggable scrollbars | foundation |
 | Playback controls | Seek, frame counter, previous/play/next, speed, and end-frame behavior | foundation |
-| Object settings | Metadata order, pickers, keyframes, easing, and sidebar placement | missing |
+| Object settings | Metadata order, pickers, keyframes, easing, and sidebar placement | foundation |
 | Effect selection | Ctrl/Shift selection, single/multi reorder, enable, and scoped Delete | foundation |
 | Effect menus and presets | Search/category insertion and preset save/apply/delete | foundation |
 | Audio plugins | Search, order, enable, parameters, keyframes, restore, and Carla formats | foundation |
@@ -114,6 +114,13 @@ still require the separately scheduled Computer Use suite.
   XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
 - Clip, timeline, and layer context menus use Slint `ContextMenuArea`; native macOS menus are not
   included in Slint window snapshots and require the deferred native interaction suite.
+- The object-settings window now projects the selected clip's real effect stack and metadata-defined
+  controls in source order. Slint forwards Ctrl/Shift selection, right-click selection and deletion,
+  enable toggles, bounded numeric edits, booleans, strings, paths, colors, fonts, static choices, and
+  live scene choices to the GUI-neutral workspace. Existing keyframe tracks display their evaluated
+  current-frame value and parameter edits create or update the current-frame keyframe while retaining
+  typed-value metadata. Effect insertion/reordering, preset menus, two-ended keyframe editing, easing,
+  and native file/color/font pickers remain incomplete and therefore keep this area at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
   drag or context menu is active.
 

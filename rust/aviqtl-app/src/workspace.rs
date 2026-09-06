@@ -1,13 +1,16 @@
+use crate::effect_catalog::EffectCatalog;
 use crate::effect_selection::EffectSelection;
+use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
 use crate::project_io::{ProjectDefaults, ProjectSession};
 use crate::selection::{ClipSelection, SelectionBox};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
     ClipDocument, ProjectDocument, ProjectSettings, SceneDocument, TimelineCommand,
-    TimelineTransaction, clipboard_duration, plan_clip_delta_move, plan_clipboard_paste,
-    plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
+    TimelineTransaction, clipboard_duration, inspect_keyframe_track, plan_clip_delta_move,
+    plan_clipboard_paste, plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
 };
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::time::Instant;
 
@@ -183,6 +186,144 @@ impl WorkspaceModel {
 
     pub fn selected_layer(&self) -> i32 {
         self.selection.selected_layer()
+    }
+
+    pub fn selected_clip_document(&self) -> Option<&ClipDocument> {
+        let clip_id = self.selection.primary()?;
+        self.project
+            .document
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id && clip.scene_id == self.selected_scene)
+    }
+
+    pub fn selected_effect_index(&self) -> Option<usize> {
+        self.effect_selection.current().or_else(|| {
+            self.selected_clip_document()
+                .filter(|clip| !clip.effects.is_empty())
+                .map(|_| 0)
+        })
+    }
+
+    pub fn object_settings(&self, catalog: &EffectCatalog) -> Option<ObjectSettings> {
+        let clip = self.selected_clip_document()?;
+        Some(project_object_settings(
+            &self.project.document,
+            clip,
+            self.selected_scene,
+            self.playhead,
+            catalog,
+            |index| self.effect_is_selected(index),
+        ))
+    }
+
+    pub fn effect_is_selected(&self, index: usize) -> bool {
+        self.effect_selection.is_selected(index)
+            || (self.effect_selection.current().is_none() && index == 0)
+    }
+
+    pub fn select_effect(&mut self, index: usize, control: bool, shift: bool) -> bool {
+        let Some(clip) = self.selected_clip_document() else {
+            return false;
+        };
+        if index >= clip.effects.len() {
+            return false;
+        }
+        self.effect_selection.click(index, control, shift);
+        true
+    }
+
+    pub fn context_select_effect(&mut self, index: usize) -> bool {
+        let Some(clip) = self.selected_clip_document() else {
+            return false;
+        };
+        if index >= clip.effects.len() {
+            return false;
+        }
+        self.effect_selection.context_click(index);
+        true
+    }
+
+    pub fn set_effect_enabled(&mut self, effect_index: usize, enabled: bool) -> bool {
+        let Some(clip_id) = self
+            .selected_clip_document()
+            .and_then(|clip| clip.effects.get(effect_index).map(|_| clip.id))
+        else {
+            return false;
+        };
+        self.execute(TimelineCommand::SetEffectEnabled {
+            clip_id,
+            effect_index,
+            enabled,
+        })
+    }
+
+    pub fn remove_effect(&mut self, effect_index: usize) -> bool {
+        let Some(clip_id) = self
+            .selected_clip_document()
+            .and_then(|clip| clip.effects.get(effect_index).map(|_| clip.id))
+        else {
+            return false;
+        };
+        if self.execute(TimelineCommand::RemoveEffects {
+            clip_id,
+            effect_indices: vec![effect_index],
+        }) {
+            self.effect_selection.apply_removals(&[effect_index]);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn set_effect_parameter(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        value: Value,
+    ) -> bool {
+        let Some((clip, effect, original)) = self.selected_clip_document().and_then(|clip| {
+            clip.effects.get(effect_index).and_then(|effect| {
+                effect
+                    .params
+                    .get(param_name)
+                    .map(|original| (clip.clone(), effect.clone(), original.clone()))
+            })
+        }) else {
+            return false;
+        };
+        let value = replace_value_payload(&original, value);
+        let relative_frame = self
+            .playhead
+            .saturating_sub(clip.start)
+            .clamp(0, clip.duration.max(0));
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        let command = if track.is_some() {
+            let options = inspect_keyframe_track(track, &original, clip.duration)
+                .into_iter()
+                .find(|point| point.frame == relative_frame)
+                .map_or_else(|| json!({"interp": "linear"}), |point| point.options);
+            TimelineCommand::SetEffectKeyframe {
+                clip_id: clip.id,
+                effect_index,
+                param_name: param_name.to_owned(),
+                frame: relative_frame,
+                value,
+                options,
+            }
+        } else {
+            TimelineCommand::SetEffectParameter {
+                clip_id: clip.id,
+                effect_index,
+                param_name: param_name.to_owned(),
+                value,
+                media_duration_seconds: None,
+            }
+        };
+        self.execute(command)
     }
 
     pub fn can_undo(&self) -> bool {
@@ -1044,6 +1185,45 @@ mod tests {
         })
     }
 
+    fn workspace_with_effects() -> WorkspaceModel {
+        let state = TimelineState::from_json(
+            br#"{
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+                "scenes": [{"id": 1, "name": "Root", "duration": 300}],
+                "clips": [{
+                    "id": 1,
+                    "sceneId": 1,
+                    "type": "rect",
+                    "start": 0,
+                    "duration": 100,
+                    "layer": 0,
+                    "effects": [
+                        {
+                            "id": "rect",
+                            "name": "Rectangle",
+                            "params": {"count": {"$aviqtlType": "int", "value": 0, "extension": 7}}
+                        },
+                        {
+                            "id": "blur",
+                            "name": "Blur",
+                            "params": {"size": 0},
+                            "keyframes": {"size": [{"frame": 0, "value": 0}, {"frame": 20, "value": 20}]}
+                        }
+                    ]
+                }]
+            }"#,
+        )
+        .expect("effect workspace fixture loads");
+        let document = state.snapshot();
+        WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        })
+    }
+
     #[test]
     fn scene_and_clip_snapshots_follow_the_active_workspace() {
         let mut workspace = workspace();
@@ -1282,5 +1462,44 @@ mod tests {
 
         assert_eq!(workspace.snap_timeline_frame(16.0, false, 1.0), 20);
         assert_eq!(workspace.snap_timeline_frame(16.0, true, 1.0), 16);
+    }
+
+    #[test]
+    fn object_settings_commands_follow_selection_and_preserve_typed_values() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        assert_eq!(workspace.selected_effect_index(), Some(0));
+        assert!(workspace.effect_is_selected(0));
+
+        assert!(workspace.select_effect(1, false, false));
+        assert_eq!(workspace.selected_effect_index(), Some(1));
+        assert!(workspace.context_select_effect(0));
+        assert_eq!(workspace.selected_effect_index(), Some(0));
+        assert!(workspace.select_effect(1, false, false));
+        assert!(workspace.set_effect_enabled(1, false));
+        assert!(!workspace.document().clips[0].effects[1].enabled);
+
+        assert!(workspace.set_effect_parameter(0, "count", json!(4.6)));
+        let count = &workspace.document().clips[0].effects[0].params["count"];
+        assert_eq!(count["$aviqtlType"], "int");
+        assert_eq!(count["value"], 5);
+        assert_eq!(count["extension"], 7);
+
+        workspace.seek(10);
+        assert!(workspace.set_effect_parameter(1, "size", json!(15.0)));
+        let track = workspace.document().clips[0].effects[1]
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get("size"));
+        let points = inspect_keyframe_track(track, &json!(0), 100);
+        assert!(
+            points
+                .iter()
+                .any(|point| point.frame == 10 && point.value == json!(15.0))
+        );
+
+        assert!(workspace.remove_effect(1));
+        assert_eq!(workspace.document().clips[0].effects.len(), 1);
+        assert_eq!(workspace.selected_effect_index(), Some(0));
     }
 }

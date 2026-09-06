@@ -1,4 +1,4 @@
-import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ProgressIndicator, RadioGroup, ScrollView, Slider, SpinBox } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ProgressIndicator, RadioGroup, ScrollView, Slider, SpinBox, TextEdit } from "std-widgets.slint";
 
 export struct ProjectTabData {
     name: string,
@@ -42,6 +42,318 @@ export struct TimelineViewportData {
     pixels-per-frame: float,
     viewport-x: float,
     viewport-y: float,
+}
+
+export struct ObjectEffectData {
+    index: int,
+    id: string,
+    name: string,
+    enabled: bool,
+    selected: bool,
+    removable: bool,
+}
+
+export struct ObjectSettingRowData {
+    row-kind: string,
+    source-kind: string,
+    effect-index: int,
+    param-name: string,
+    label: string,
+    effect-enabled: bool,
+    selected: bool,
+    removable: bool,
+    interactive: bool,
+    checked: bool,
+    keyframed: bool,
+    number-value: float,
+    minimum: float,
+    maximum: float,
+    step: float,
+    text-value: string,
+    unit: string,
+    option-labels: [string],
+    selected-option: int,
+}
+
+component CommitLineEdit inherits LineEdit {
+    in property <string> source-text;
+    callback commit(string);
+    text: root.source-text;
+    accepted(value) => {
+        if value != root.source-text {
+            root.commit(value);
+        }
+        self.text = root.source-text;
+        self.clear-focus();
+    }
+    changed has-focus => {
+        if !self.has-focus && self.text != root.source-text {
+            root.commit(self.text);
+        }
+    }
+    changed source-text => {
+        if !self.has-focus && self.text != root.source-text {
+            self.text = root.source-text;
+        }
+    }
+}
+
+component CommitTextEdit inherits TextEdit {
+    in property <string> source-text;
+    callback commit(string);
+    text: root.source-text;
+    changed has-focus => {
+        if !self.has-focus && self.text != root.source-text {
+            root.commit(self.text);
+        }
+    }
+    changed source-text => {
+        if !self.has-focus && self.text != root.source-text {
+            self.text = root.source-text;
+        }
+    }
+}
+
+component EffectSidebarEntry inherits Rectangle {
+    in property <ObjectEffectData> effect;
+    callback activate(int, bool, bool);
+    callback context-activate(int);
+    callback remove(int);
+    height: 34px;
+    background: root.effect.selected ? #405f8b : effect-touch.has-hover ? #343a45 : transparent;
+    border-width: root.effect.selected ? 1px : 0px;
+    border-color: #759bd2;
+
+    HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 5px;
+        spacing: 6px;
+        Text {
+            text: root.effect.enabled ? "●" : "○";
+            color: root.effect.enabled ? #8fcf94 : #8b8f98;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.effect.name;
+            color: #f1f2f4;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+    }
+    effect-menu := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "削除";
+                enabled: root.effect.removable;
+                activated => { root.remove(root.effect.index); }
+            }
+        }
+        effect-touch := TouchArea {
+            mouse-cursor: pointer;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.activate(
+                        root.effect.index,
+                        event.modifiers.control || event.modifiers.meta,
+                        event.modifiers.shift
+                    );
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                    root.context-activate(root.effect.index);
+                    effect-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+            }
+        }
+    }
+}
+
+component ObjectSettingRow inherits Rectangle {
+    in property <ObjectSettingRowData> row-data;
+    callback activate-effect(int);
+    callback set-effect-enabled(int, bool);
+    callback remove-effect(int);
+    callback set-text(int, string, string);
+    callback set-number(int, string, float);
+    callback set-bool(int, string, bool);
+    callback set-option(int, string, int);
+    height: root.row-data.row-kind == "effect" ? 42px
+        : root.row-data.row-kind == "header" ? 36px
+        : root.row-data.row-kind == "text" ? 90px
+        : 44px;
+    background: root.row-data.row-kind == "effect"
+        ? (root.row-data.selected ? #304a6d : #2d323b)
+        : transparent;
+    border-width: root.row-data.row-kind == "effect" ? 1px : 0px;
+    border-color: root.row-data.selected ? #7099d1 : #4b515d;
+
+    if root.row-data.row-kind == "effect" : Rectangle {
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 6px;
+            spacing: 7px;
+            CheckBox {
+                checked: root.row-data.effect-enabled;
+                accessible-label: root.row-data.label + "を有効にする";
+                toggled => { root.set-effect-enabled(root.row-data.effect-index, self.checked); }
+            }
+            Text {
+                text: root.row-data.label;
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Button {
+                text: "削除";
+                visible: root.row-data.removable;
+                enabled: root.row-data.removable;
+                clicked => { root.remove-effect(root.row-data.effect-index); }
+            }
+        }
+        TouchArea {
+            x: 32px;
+            width: max(parent.width - 90px, 1px);
+            mouse-cursor: pointer;
+            clicked => { root.activate-effect(root.row-data.effect-index); }
+        }
+    }
+
+    if root.row-data.row-kind == "header" : HorizontalLayout {
+        padding-left: 5px;
+        padding-top: 7px;
+        Text {
+            text: root.row-data.label;
+            font-weight: 700;
+            color: #b9c9df;
+            vertical-alignment: center;
+        }
+        Rectangle { horizontal-stretch: 1; height: 1px; background: #4b515d; }
+    }
+
+    if root.row-data.row-kind == "boolean" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        CheckBox {
+            text: root.row-data.label;
+            checked: root.row-data.checked;
+            enabled: root.row-data.interactive;
+            toggled => { root.set-bool(root.row-data.effect-index, root.row-data.param-name, self.checked); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "number" && root.row-data.source-kind == "slider" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Slider {
+            horizontal-stretch: 1;
+            value: root.row-data.number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            enabled: root.row-data.interactive;
+            changed(value) => { root.set-number(root.row-data.effect-index, root.row-data.param-name, value); }
+        }
+        CommitLineEdit {
+            width: 76px;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            horizontal-alignment: right;
+            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+        }
+        Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "number" && root.row-data.source-kind != "slider" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        CommitLineEdit {
+            width: 120px;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            horizontal-alignment: right;
+            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+        }
+        Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
+        Rectangle { horizontal-stretch: 1; }
+        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "integer" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        CommitLineEdit {
+            width: 120px;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            horizontal-alignment: right;
+            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+        }
+        Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
+        Rectangle { horizontal-stretch: 1; }
+        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "choice" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        ComboBox {
+            width: 220px;
+            model: root.row-data.option-labels;
+            current-index: root.row-data.selected-option;
+            enabled: root.row-data.interactive;
+            selected(value) => { root.set-option(root.row-data.effect-index, root.row-data.param-name, self.current-index); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "text" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: top; }
+        CommitTextEdit {
+            horizontal-stretch: 1;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+        }
+        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: top; }
+    }
+
+    if root.row-data.row-kind == "path" || root.row-data.row-kind == "color" || root.row-data.row-kind == "font" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        CommitLineEdit {
+            horizontal-stretch: 1;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+        }
+        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "unsupported" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        Text { text: root.row-data.text-value; color: #9ea4ae; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+    }
 }
 
 component SceneTab inherits Rectangle {
@@ -1782,13 +2094,34 @@ export component SystemSettingsWindow inherits Window {
 }
 
 export component ObjectSettingsWindow inherits Window {
-    title: "設定ダイアログ";
+    title: root.has-selection ? "設定ダイアログ - " + root.clip-title : "設定ダイアログ";
     preferred-width: 900px;
     preferred-height: 650px;
     min-width: 680px;
     min-height: 480px;
+    in property <bool> has-selection: false;
+    in property <string> clip-title: "";
+    in property <[ObjectEffectData]> effects;
+    in property <[ObjectSettingRowData]> setting-rows;
+    callback select-effect(int, bool, bool);
+    callback context-select-effect(int);
+    callback set-effect-enabled(int, bool);
+    callback remove-effect(int);
+    callback set-parameter-text(int, string, string);
+    callback set-parameter-number(int, string, float);
+    callback set-parameter-bool(int, string, bool);
+    callback set-parameter-option(int, string, int);
 
-    HorizontalLayout {
+    if !root.has-selection : VerticalLayout {
+        alignment: center;
+        Text {
+            text: "タイムラインでオブジェクトを選択してください";
+            color: #aeb3bc;
+            horizontal-alignment: center;
+        }
+    }
+
+    if root.has-selection : HorizontalLayout {
         spacing: 0px;
         Rectangle {
             width: 250px;
@@ -1796,23 +2129,52 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 8px;
                 spacing: 6px;
-                Text { text: "オブジェクト / エフェクト"; font-weight: 700; color: #f2f3f5; }
-                Button { text: "映像"; }
-                Button { text: "標準描画"; }
-                Button { text: "色調補正"; }
-                Button { text: "+ エフェクトを追加"; }
-                Rectangle { vertical-stretch: 1; }
+                Text { text: root.clip-title; font-weight: 700; color: #f2f3f5; overflow: elide; }
+                Text { text: "オブジェクト / エフェクト"; color: #aeb3bc; }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 2px;
+                        for effect in root.effects : EffectSidebarEntry {
+                            effect: effect;
+                            activate(index, control, shift) => { root.select-effect(index, control, shift); }
+                            context-activate(index) => { root.context-select-effect(index); }
+                            remove(index) => { root.remove-effect(index); }
+                        }
+                        if root.effects.length == 0 : Text {
+                            text: "設定項目がありません";
+                            color: #9ea4ae;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+                Button {
+                    text: "+ エフェクトを追加";
+                    enabled: false;
+                    accessible-description: "エフェクトカタログは後続段階で接続します";
+                }
             }
         }
         ScrollView {
             horizontal-stretch: 1;
             VerticalLayout {
-                padding: 14px;
-                spacing: 10px;
-                Text { text: "選択オブジェクトの設定"; font-size: 1.25rem; font-weight: 700; }
-                GroupBox { title: "位置"; GridLayout { padding: 10px; spacing: 8px; Row { Text { text: "X"; } LineEdit { text: "0"; } } Row { Text { text: "Y"; } LineEdit { text: "0"; } } Row { Text { text: "Z"; } LineEdit { text: "0"; } } } }
-                GroupBox { title: "拡大率"; GridLayout { padding: 10px; spacing: 8px; Row { Text { text: "拡大率"; } Slider { value: 100; minimum: 0; maximum: 800; } } Row { Text { text: "透明度"; } Slider { value: 100; minimum: 0; maximum: 100; } } } }
-                GroupBox { title: "回転"; GridLayout { padding: 10px; spacing: 8px; Row { Text { text: "X軸"; } LineEdit { text: "0"; } } Row { Text { text: "Y軸"; } LineEdit { text: "0"; } } Row { Text { text: "Z軸"; } LineEdit { text: "0"; } } } }
+                padding: 10px;
+                spacing: 4px;
+                Text {
+                    text: "選択オブジェクトの設定";
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                for row in root.setting-rows : ObjectSettingRow {
+                    row-data: row;
+                    activate-effect(index) => { root.select-effect(index, false, false); }
+                    set-effect-enabled(index, enabled) => { root.set-effect-enabled(index, enabled); }
+                    remove-effect(index) => { root.remove-effect(index); }
+                    set-text(index, param, value) => { root.set-parameter-text(index, param, value); }
+                    set-number(index, param, value) => { root.set-parameter-number(index, param, value); }
+                    set-bool(index, param, value) => { root.set-parameter-bool(index, param, value); }
+                    set-option(index, param, option) => { root.set-parameter-option(index, param, option); }
+                }
                 Rectangle { vertical-stretch: 1; }
             }
         }
