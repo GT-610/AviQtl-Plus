@@ -79,6 +79,36 @@ export struct CatalogMenuGroupData {
     subgroups: [CatalogMenuSubgroupData],
 }
 
+export struct PackageData {
+    id: string,
+    package-type: string,
+    display-name: string,
+    description: string,
+    author: string,
+    version: string,
+    installed-version: string,
+    latest-version: string,
+    source-repository: string,
+    local-file-plugin: bool,
+    has-update: bool,
+    can-manage-permissions: bool,
+    can-remove: bool,
+}
+
+export struct PackageRepositoryData {
+    name: string,
+    url: string,
+    enabled: bool,
+    priority: int,
+}
+
+export struct PluginPermissionData {
+    name: string,
+    title: string,
+    description: string,
+    granted: bool,
+}
+
 export struct KeyframeMarkerData {
     frame: int,
     minimum-frame: int,
@@ -4140,6 +4170,422 @@ export component EasingConfigWindow inherits Window {
                     }
                 }
             }
+        }
+    }
+}
+
+component PackageListRow inherits Rectangle {
+    in property <PackageData> package-data;
+    in property <bool> busy;
+    in property <bool> show-install-button;
+    callback install(string, string);
+    callback remove(string);
+    callback permissions(string, string);
+
+    height: max(content.preferred-height + 20px, 86px);
+    background: #252a32;
+    border-width: 1px;
+    border-color: #454b56;
+    border-radius: 5px;
+    content := VerticalLayout {
+        padding: 10px;
+        spacing: 5px;
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.package-data.display-name == ""
+                    ? root.package-data.id
+                    : root.package-data.display-name;
+                color: #f2f3f5;
+                font-size: 14px;
+                font-weight: 700;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            Text {
+                text: root.package-data.version == ""
+                    ? root.package-data.latest-version
+                    : root.package-data.version;
+                color: #9da4af;
+                font-size: 10px;
+                vertical-alignment: center;
+            }
+        }
+        if root.package-data.description != "" : Text {
+            text: root.package-data.description;
+            color: #d1d5dc;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.package-data.author == "" ? "" : "Author: " + root.package-data.author;
+                color: #9da4af;
+                font-size: 11px;
+                visible: root.package-data.author != "";
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.package-data.has-update
+                    ? "アップデートあり: " + root.package-data.latest-version
+                    : "インストール済み: " + root.package-data.installed-version;
+                color: root.package-data.has-update ? #70a6ef : #aeb3bc;
+                font-size: 11px;
+                visible: root.package-data.installed-version != "";
+                vertical-alignment: center;
+            }
+            Button {
+                text: "権限";
+                visible: root.package-data.can-manage-permissions;
+                enabled: !root.busy;
+                clicked => { root.permissions(root.package-data.id, root.package-data.display-name); }
+            }
+            Button {
+                text: "削除";
+                visible: root.package-data.can-remove;
+                enabled: !root.busy;
+                clicked => { root.remove(root.package-data.id); }
+            }
+            Button {
+                text: root.package-data.has-update ? "アップデート" : "インストール";
+                primary: true;
+                visible: root.show-install-button
+                    && (!root.package-data.can-remove || root.package-data.has-update)
+                    && root.package-data.latest-version != "";
+                enabled: !root.busy;
+                clicked => {
+                    root.install(root.package-data.id, root.package-data.source-repository);
+                }
+            }
+        }
+    }
+}
+
+export component PackageManagerWindow inherits Window {
+    title: "パッケージマネージャー";
+    preferred-width: 650px;
+    preferred-height: 450px;
+    min-width: 500px;
+    min-height: 350px;
+    background: #181a20;
+
+    in-out property <int> tab-index: 0;
+    in-out property <string> search-query;
+    in-out property <string> repository-url;
+    in property <[PackageData]> packages;
+    in property <[PackageRepositoryData]> repositories;
+    in property <bool> busy;
+    in property <bool> has-updates;
+    in property <float> progress;
+    in property <string> status-text: "Idle";
+    in property <string> error-message;
+    in property <string> update-message;
+
+    callback select-tab(int);
+    callback filter-packages(string);
+    callback sync-repositories();
+    callback add-repository(string);
+    callback set-repository-enabled(string, bool);
+    callback remove-repository(string);
+    callback upgrade-all();
+    callback install-package(string, string);
+    callback remove-package(string);
+    callback show-permissions(string, string);
+    callback dismiss-error();
+    callback dismiss-update();
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 4px;
+            for tab[index] in ["エフェクト", "オブジェクト", "MOD", "インストール済み", "アプリケーション", "リポジトリ"] : Button {
+                text: tab;
+                primary: root.tab-index == index;
+                clicked => {
+                    root.tab-index = index;
+                    root.search-query = "";
+                    root.select-tab(index);
+                }
+            }
+        }
+        if root.tab-index < 5 : HorizontalLayout {
+            spacing: 8px;
+            LineEdit {
+                text <=> root.search-query;
+                placeholder-text: "検索...";
+                horizontal-stretch: 1;
+                edited(value) => { root.filter-packages(value); }
+            }
+            Button {
+                text: "リポジトリを同期";
+                visible: root.tab-index < 3;
+                enabled: !root.busy;
+                clicked => { root.sync-repositories(); }
+            }
+        }
+        if root.tab-index < 5 : ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                spacing: 8px;
+                for package in root.packages : PackageListRow {
+                    package-data: package;
+                    busy: root.busy;
+                    show-install-button: root.tab-index < 3;
+                    install(id, repository) => { root.install-package(id, repository); }
+                    remove(id) => { root.remove-package(id); }
+                    permissions(id, name) => { root.show-permissions(id, name); }
+                }
+                if root.packages.length == 0 && !root.busy : Text {
+                    text: "このカテゴリにパッケージがありません。";
+                    color: #9da4af;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+        if root.tab-index == 5 : VerticalLayout {
+            spacing: 12px;
+            GroupBox {
+                title: "リポジトリを追加";
+                HorizontalLayout {
+                    spacing: 8px;
+                    LineEdit {
+                        text <=> root.repository-url;
+                        placeholder-text: "https://example.com/repo.json";
+                        horizontal-stretch: 1;
+                        accepted(value) => {
+                            if value != "" { root.add-repository(value); }
+                        }
+                    }
+                    Button {
+                        text: "追加";
+                        enabled: root.repository-url != "" && !root.busy;
+                        clicked => { root.add-repository(root.repository-url); }
+                    }
+                }
+            }
+            GroupBox {
+                title: "設定済みリポジトリ";
+                vertical-stretch: 1;
+                ScrollView {
+                    VerticalLayout {
+                        spacing: 5px;
+                        for repository in root.repositories : Rectangle {
+                            height: 48px;
+                            background: #252a32;
+                            border-width: 1px;
+                            border-color: #454b56;
+                            border-radius: 4px;
+                            HorizontalLayout {
+                                padding: 6px;
+                                spacing: 8px;
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: repository.name == "" ? repository.url : repository.name;
+                                        color: #f2f3f5;
+                                        font-size: 13px;
+                                        font-weight: 700;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: repository.url;
+                                        color: #9da4af;
+                                        font-size: 11px;
+                                        overflow: elide;
+                                    }
+                                }
+                                CheckBox {
+                                    text: "有効";
+                                    checked: repository.enabled;
+                                    enabled: !root.busy;
+                                    toggled => {
+                                        root.set-repository-enabled(repository.url, self.checked);
+                                    }
+                                }
+                                Button {
+                                    text: "削除";
+                                    enabled: !root.busy;
+                                    clicked => { root.remove-repository(repository.url); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    text: "リポジトリを同期";
+                    enabled: !root.busy;
+                    clicked => { root.sync-repositories(); }
+                }
+                Button {
+                    text: "すべてアップグレード";
+                    primary: true;
+                    enabled: !root.busy && root.has-updates;
+                    clicked => { root.upgrade-all(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+        if root.busy : ProgressIndicator {
+            progress: root.progress;
+            indeterminate: root.progress <= 0;
+        }
+        Text {
+            text: root.status-text;
+            color: #aeb3bc;
+            font-size: 11px;
+            overflow: elide;
+        }
+    }
+
+    if root.error-message != "" : Rectangle {
+        background: #c0181a20;
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: min(460px, root.width - 40px);
+                    height: error-content.preferred-height + 28px;
+                    background: #2a2e36;
+                    border-width: 1px;
+                    border-color: #c55b5b;
+                    border-radius: 6px;
+                    error-content := VerticalLayout {
+                        padding: 14px;
+                        spacing: 12px;
+                        Text { text: "パッケージマネージャーエラー"; color: #f2f3f5; font-weight: 700; }
+                        Text { text: root.error-message; color: #e3e5e8; wrap: word-wrap; }
+                        HorizontalLayout {
+                            alignment: end;
+                            Button { text: "OK"; primary: true; clicked => { root.dismiss-error(); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.update-message != "" : Rectangle {
+        background: #c0181a20;
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: min(480px, root.width - 40px);
+                    height: update-content.preferred-height + 28px;
+                    background: #2a2e36;
+                    border-width: 1px;
+                    border-color: #70a6ef;
+                    border-radius: 6px;
+                    update-content := VerticalLayout {
+                        padding: 14px;
+                        spacing: 12px;
+                        Text { text: "AviQtl Plus アップデート"; color: #f2f3f5; font-weight: 700; }
+                        Text { text: root.update-message; color: #e3e5e8; wrap: word-wrap; }
+                        HorizontalLayout {
+                            alignment: end;
+                            Button { text: "OK"; primary: true; clicked => { root.dismiss-update(); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PluginPermissionWindow inherits Window {
+    title: "権限管理: " + root.plugin-name;
+    preferred-width: 500px;
+    preferred-height: 600px;
+    min-width: 420px;
+    min-height: 420px;
+    background: #181a20;
+
+    in property <string> plugin-id;
+    in property <string> plugin-name;
+    in property <[PluginPermissionData]> permissions;
+
+    callback toggle-permission(int, bool);
+    callback set-all(bool);
+    callback accept();
+    callback close-window();
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+        Text {
+            text: "このプラグインに許可する権限を選択してください:";
+            color: #f2f3f5;
+            wrap: word-wrap;
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                spacing: 4px;
+                for permission[index] in root.permissions : Rectangle {
+                    height: 60px;
+                    background: permission-touch.has-hover ? #303640 : #252a32;
+                    border-width: 1px;
+                    border-color: #454b56;
+                    border-radius: 4px;
+                    permission-touch := TouchArea {
+                        enabled: true;
+                        mouse-cursor: pointer;
+                        accessible-role: checkbox;
+                        accessible-label: permission.title;
+                        accessible-description: permission.description;
+                        accessible-checked: permission.granted;
+                        accessible-action-default => {
+                            root.toggle-permission(index, !permission.granted);
+                        }
+                        clicked => {
+                            root.toggle-permission(index, !permission.granted);
+                        }
+                    }
+                    HorizontalLayout {
+                        padding: 8px;
+                        spacing: 12px;
+                        CheckBox {
+                            checked: permission.granted;
+                            toggled => {
+                                root.toggle-permission(index, self.checked);
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: permission.title == "" ? permission.name : permission.title;
+                                color: #f2f3f5;
+                                font-weight: 700;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: permission.description == "" ? permission.name : permission.description;
+                                color: #9da4af;
+                                font-size: 11px;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "すべて許可"; clicked => { root.set-all(true); } }
+            Button { text: "すべて拒否"; clicked => { root.set-all(false); } }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "キャンセル"; clicked => { root.close-window(); } }
+            Button { text: "OK"; primary: true; clicked => { root.accept(); } }
         }
     }
 }

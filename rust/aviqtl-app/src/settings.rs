@@ -14,7 +14,10 @@ impl SettingsStore {
         Self::load_from(default_settings_path(), platform_default_settings())
     }
 
-    fn load_from(path: PathBuf, platform_defaults: Map<String, Value>) -> (Self, String) {
+    pub(crate) fn load_from(
+        path: PathBuf,
+        platform_defaults: Map<String, Value>,
+    ) -> (Self, String) {
         let mut store = Self {
             state: SettingsState::defaults(platform_defaults),
             path,

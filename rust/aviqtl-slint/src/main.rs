@@ -10,6 +10,10 @@ use aviqtl_app::{
         KeyframePoint, ObjectControl, ObjectControlKind, ObjectSettings,
         keyframe_interpolation_names,
     },
+    package_manager::{
+        PackageManagerModel, PackageOperation, PackageOperationOutcome, PackageSection,
+        UreqPackageHttpClient, plugin_permission_grants, save_plugin_permission_grants,
+    },
     preset_store::PresetStore,
     selection::SelectionBox,
     settings::SettingsStore,
@@ -271,6 +275,82 @@ struct AudioPluginDiscoveryRuntime {
     worker: Option<JoinHandle<()>>,
 }
 
+enum PackageOperationEvent {
+    Progress {
+        status: String,
+        progress: f32,
+    },
+    Finished {
+        model: Box<PackageManagerModel>,
+        outcome: PackageOperationOutcome,
+    },
+}
+
+struct PackageOperationRuntime {
+    receiver: Receiver<PackageOperationEvent>,
+    worker: Option<JoinHandle<()>>,
+}
+
+impl PackageOperationRuntime {
+    fn start(model: PackageManagerModel, operation: PackageOperation) -> Result<Self, String> {
+        let (sender, receiver) = mpsc::channel();
+        let worker = thread::Builder::new()
+            .name("aviqtl-package-operation".to_owned())
+            .spawn(move || {
+                let mut model = model;
+                let client = UreqPackageHttpClient::default();
+                let progress_sender = sender.clone();
+                let outcome =
+                    model.execute_operation(operation, &client, move |status, progress| {
+                        let _ = progress_sender.send(PackageOperationEvent::Progress {
+                            status: status.to_owned(),
+                            progress,
+                        });
+                    });
+                let _ = sender.send(PackageOperationEvent::Finished {
+                    model: Box::new(model),
+                    outcome,
+                });
+            })
+            .map_err(|error| format!("Failed to start package operation: {error}"))?;
+        Ok(Self {
+            receiver,
+            worker: Some(worker),
+        })
+    }
+
+    fn poll(&mut self) -> Option<PackageOperationEvent> {
+        let event = self.receiver.try_recv().ok()?;
+        if matches!(event, PackageOperationEvent::Finished { .. })
+            && let Some(worker) = self.worker.take()
+        {
+            let _ = worker.join();
+        }
+        Some(event)
+    }
+}
+
+fn start_package_operation(
+    window: &PackageManagerWindow,
+    runtime: &Rc<RefCell<Option<PackageOperationRuntime>>>,
+    model: &Rc<RefCell<PackageManagerModel>>,
+    operation: PackageOperation,
+) {
+    if runtime.borrow().is_some() {
+        return;
+    }
+    window.set_error_message(SharedString::new());
+    window.set_busy(true);
+    window.set_progress(0.0);
+    match PackageOperationRuntime::start(model.borrow().clone(), operation) {
+        Ok(operation) => *runtime.borrow_mut() = Some(operation),
+        Err(error) => {
+            window.set_busy(false);
+            window.set_error_message(SharedString::from(error));
+        }
+    }
+}
+
 impl AudioPluginDiscoveryRuntime {
     fn start(settings: &SettingsStore) -> Result<Self, String> {
         let scanner = AudioPluginScanner::from_settings(settings);
@@ -433,10 +513,12 @@ struct LifecycleUi {
     scene_settings: slint::Weak<SceneSettingsWindow>,
     system_settings: slint::Weak<SystemSettingsWindow>,
     export: slint::Weak<ExportWindow>,
+    package_manager: slint::Weak<PackageManagerWindow>,
+    plugin_permissions: slint::Weak<PluginPermissionWindow>,
     about: slint::Weak<AboutWindow>,
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
-    effect_catalog: Rc<EffectCatalog>,
+    effect_catalog: Rc<RefCell<EffectCatalog>>,
     audio_plugin_catalog: Rc<RefCell<AudioPluginCatalog>>,
     quit_confirmed: Cell<bool>,
 }
@@ -451,6 +533,8 @@ struct WindowRefs<'a> {
     project_settings: &'a ProjectSettingsWindow,
     scene_settings: &'a SceneSettingsWindow,
     system_settings: &'a SystemSettingsWindow,
+    package_manager: &'a PackageManagerWindow,
+    plugin_permissions: &'a PluginPermissionWindow,
     about: &'a AboutWindow,
 }
 
@@ -462,7 +546,7 @@ struct ObjectSettingsUi {
     easing: slint::Weak<EasingConfigWindow>,
     easing_curve: Rc<RefCell<BezierCurve>>,
     model: Rc<RefCell<ApplicationModel>>,
-    catalog: Rc<EffectCatalog>,
+    catalog: Rc<RefCell<EffectCatalog>>,
     audio_catalog: Rc<RefCell<aviqtl_app::audio_plugin::AudioPluginCatalog>>,
     presets: Rc<PresetStore>,
     font_families: Rc<Vec<String>>,
@@ -473,11 +557,12 @@ impl ObjectSettingsUi {
         sync_weak_windows(&self.main, &self.timeline, &self.model);
         if let Some(window) = self.window.upgrade() {
             let model = self.model.borrow();
-            sync_object_settings(&window, &model, &self.catalog);
+            let catalog = self.catalog.borrow();
+            sync_object_settings(&window, &model, &catalog);
             sync_object_catalog(
                 &window,
                 &model,
-                &self.catalog,
+                &catalog,
                 &self.audio_catalog.borrow(),
                 window.get_effect_filter().as_str(),
             );
@@ -490,11 +575,11 @@ impl ObjectSettingsUi {
         effect_index: usize,
         param_name: &str,
     ) -> Option<ObjectControl> {
-        let projection = self
-            .model
-            .borrow()
-            .current_workspace()?
-            .object_settings(&self.catalog)?;
+        let projection = {
+            let model = self.model.borrow();
+            let catalog = self.catalog.borrow();
+            model.current_workspace()?.object_settings(&catalog)?
+        };
         let controls = if audio_plugin {
             &projection.audio_plugins.get(effect_index)?.controls
         } else {
@@ -650,11 +735,12 @@ impl ObjectSettingsUi {
                 Err(message) => show_error_dialog(&message),
             }
         } else {
+            let catalog = self.catalog.borrow();
             let _ = self
                 .model
                 .borrow_mut()
                 .current_workspace_mut()
-                .is_some_and(|workspace| workspace.add_effect(&self.catalog, effect_id));
+                .is_some_and(|workspace| workspace.add_effect(&catalog, effect_id));
         }
         self.sync();
     }
@@ -831,11 +917,12 @@ impl LifecycleUi {
         }
         if let Some(object_settings) = self.object_settings.upgrade() {
             let model = self.model.borrow();
-            sync_object_settings(&object_settings, &model, &self.effect_catalog);
+            let effect_catalog = self.effect_catalog.borrow();
+            sync_object_settings(&object_settings, &model, &effect_catalog);
             sync_object_catalog(
                 &object_settings,
                 &model,
-                &self.effect_catalog,
+                &effect_catalog,
                 &self.audio_plugin_catalog.borrow(),
                 object_settings.get_effect_filter().as_str(),
             );
@@ -895,6 +982,12 @@ impl LifecycleUi {
         if let Some(window) = self.export.upgrade() {
             let _ = window.hide();
         }
+        if let Some(window) = self.package_manager.upgrade() {
+            let _ = window.hide();
+        }
+        if let Some(window) = self.plugin_permissions.upgrade() {
+            let _ = window.hide();
+        }
         if let Some(window) = self.about.upgrade() {
             let _ = window.hide();
         }
@@ -939,9 +1032,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (settings_store, settings_status) = SettingsStore::load();
     eprintln!("{settings_status}");
     let settings = Rc::new(RefCell::new(settings_store));
+    let package_manager_model =
+        Rc::new(RefCell::new(PackageManagerModel::load(&settings.borrow())));
+    let package_operation = Rc::new(RefCell::new(None::<PackageOperationRuntime>));
     let (effect_catalog, effect_catalog_status) = EffectCatalog::load();
     eprintln!("{effect_catalog_status}");
-    let effect_catalog = Rc::new(effect_catalog);
+    let effect_catalog = Rc::new(RefCell::new(effect_catalog));
     let audio_plugin_catalog = Rc::new(RefCell::new(AudioPluginCatalog::default()));
     let (audio_plugin_discovery, audio_plugin_status) =
         match AudioPluginDiscoveryRuntime::start(&settings.borrow()) {
@@ -964,10 +1060,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let scene_settings = SceneSettingsWindow::new()?;
     let system_settings = SystemSettingsWindow::new()?;
     let export = ExportWindow::new()?;
+    let package_manager = PackageManagerWindow::new()?;
+    let plugin_permissions = PluginPermissionWindow::new()?;
     let about = AboutWindow::new()?;
     about.set_version(SharedString::from(env!("CARGO_PKG_VERSION")));
     about.set_codename(SharedString::from("Rolling Release"));
     initialize_export_draft(&export, &settings.borrow());
+    package_manager.set_packages(ModelRc::new(VecModel::<PackageData>::default()));
+    package_manager.set_repositories(ModelRc::new(VecModel::<PackageRepositoryData>::default()));
+    plugin_permissions.set_permissions(ModelRc::new(VecModel::<PluginPermissionData>::default()));
+    sync_package_manager(&package_manager, &package_manager_model.borrow());
     let export_manager = Rc::new(RefCell::new(ExportManager::new(
         gpu.device.clone(),
         gpu.queue.clone(),
@@ -997,15 +1099,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     ));
     timeline
         .set_audio_plugin_menu_groups(ModelRc::new(VecModel::<CatalogMenuGroupData>::default()));
-    initialize_timeline_object_catalog(&timeline, &effect_catalog);
-    sync_timeline_effect_menu(&timeline, &effect_catalog);
+    initialize_timeline_object_catalog(&timeline, &effect_catalog.borrow());
+    sync_timeline_effect_menu(&timeline, &effect_catalog.borrow());
     sync_timeline_audio_plugin_menu(&timeline, &audio_plugin_catalog.borrow());
     object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
     object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));
     object_settings
         .set_effect_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     object_settings.set_plugin_scan_status(SharedString::from(audio_plugin_status));
-    sync_effect_catalog(&object_settings, &effect_catalog, "");
+    sync_effect_catalog(&object_settings, &effect_catalog.borrow(), "");
     object_settings.set_font_families(ModelRc::new(VecModel::<SharedString>::default()));
     sync_font_families(&object_settings, &font_families, "");
     let easing_names = keyframe_interpolation_names();
@@ -1043,6 +1145,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         scene_settings: scene_settings.as_weak(),
         system_settings: system_settings.as_weak(),
         export: export.as_weak(),
+        package_manager: package_manager.as_weak(),
+        plugin_permissions: plugin_permissions.as_weak(),
         about: about.as_weak(),
         model: model.clone(),
         settings: settings.clone(),
@@ -1061,11 +1165,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             project_settings: &project_settings,
             scene_settings: &scene_settings,
             system_settings: &system_settings,
+            package_manager: &package_manager,
+            plugin_permissions: &plugin_permissions,
             about: &about,
         },
-        model.clone(),
-        settings.clone(),
-        effect_catalog.clone(),
+        package_manager_model.clone(),
+        package_operation.clone(),
         preset_store,
         font_families,
         lifecycle_ui,
@@ -1121,6 +1226,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_scene_settings = scene_settings.as_weak();
     let animation_system_settings = system_settings.as_weak();
     let animation_export = export.as_weak();
+    let animation_package_manager = package_manager.as_weak();
+    let animation_package_model = package_manager_model;
+    let animation_package_operation = package_operation;
     let animation_export_manager = export_manager;
     let animation_export_planner = export_planner;
     let animation_stats = stats.clone();
@@ -1144,12 +1252,61 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         {
             let key = object_settings_sync_key(&animation_model.borrow());
             if *object_sync_key.borrow() != key {
-                sync_object_settings(
-                    &window,
-                    &animation_model.borrow(),
-                    &animation_effect_catalog,
-                );
+                let effect_catalog = animation_effect_catalog.borrow();
+                sync_object_settings(&window, &animation_model.borrow(), &effect_catalog);
                 *object_sync_key.borrow_mut() = key;
+            }
+        }
+        let package_event = animation_package_operation
+            .borrow_mut()
+            .as_mut()
+            .and_then(PackageOperationRuntime::poll);
+        if let Some(event) = package_event {
+            match event {
+                PackageOperationEvent::Progress { status, progress } => {
+                    if let Some(window) = animation_package_manager.upgrade() {
+                        window.set_status_text(SharedString::from(status));
+                        window.set_progress(progress);
+                    }
+                }
+                PackageOperationEvent::Finished { model, outcome } => {
+                    *animation_package_model.borrow_mut() = *model;
+                    *animation_package_operation.borrow_mut() = None;
+                    if outcome.reload_effect_catalog {
+                        let (catalog, status) = EffectCatalog::load();
+                        eprintln!("{status}");
+                        *animation_effect_catalog.borrow_mut() = catalog;
+                        if let Some(window) = animation_timeline.upgrade() {
+                            let catalog = animation_effect_catalog.borrow();
+                            initialize_timeline_object_catalog(&window, &catalog);
+                            sync_timeline_effect_menu(&window, &catalog);
+                        }
+                        if let Some(window) = animation_settings.upgrade() {
+                            let catalog = animation_effect_catalog.borrow();
+                            sync_object_settings(&window, &animation_model.borrow(), &catalog);
+                            sync_object_catalog(
+                                &window,
+                                &animation_model.borrow(),
+                                &catalog,
+                                &animation_audio_catalog.borrow(),
+                                window.get_effect_filter().as_str(),
+                            );
+                        }
+                    }
+                    if let Some(window) = animation_package_manager.upgrade() {
+                        window.set_busy(false);
+                        window.set_progress(1.0);
+                        if !outcome.errors.is_empty() {
+                            window.set_error_message(SharedString::from(outcome.errors.join("\n")));
+                        }
+                        if let Some(version) = outcome.self_update_version {
+                            window.set_update_message(SharedString::from(format!(
+                                "AviQtl Plus {version} is available. Restart to apply the update."
+                            )));
+                        }
+                        sync_package_manager(&window, &animation_package_model.borrow());
+                    }
+                }
             }
         }
         let audio_plugin_scan = animation_audio_discovery
@@ -1192,16 +1349,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             *animation_audio_discovery.borrow_mut() = None;
             if let Some(window) = animation_settings.upgrade() {
+                let effect_catalog = animation_effect_catalog.borrow();
                 window.set_plugin_scan_status(SharedString::from(status));
-                sync_object_settings(
-                    &window,
-                    &animation_model.borrow(),
-                    &animation_effect_catalog,
-                );
+                sync_object_settings(&window, &animation_model.borrow(), &effect_catalog);
                 sync_object_catalog(
                     &window,
                     &animation_model.borrow(),
-                    &animation_effect_catalog,
+                    &effect_catalog,
                     &animation_audio_catalog.borrow(),
                     window.get_effect_filter().as_str(),
                 );
@@ -1290,7 +1444,7 @@ fn install_timeline_file_drop(
     timeline: &TimelineWindow,
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
-    catalog: Rc<EffectCatalog>,
+    catalog: Rc<RefCell<EffectCatalog>>,
 ) {
     let dropped_model = model.clone();
     let dropped_settings = settings;
@@ -1311,6 +1465,7 @@ fn install_timeline_file_drop(
             .max(1);
         let path = PathBuf::from(path.as_str());
         let result = {
+            let catalog = dropped_catalog.borrow();
             let mut application = dropped_model.borrow_mut();
             application.current_workspace_mut().and_then(|workspace| {
                 let frame = workspace.snap_timeline_frame(
@@ -1323,7 +1478,7 @@ fn install_timeline_file_drop(
                     frame,
                     layer,
                     default_duration,
-                    &dropped_catalog,
+                    &catalog,
                 )
             })
         };
@@ -1418,13 +1573,15 @@ fn install_timeline_file_drop(
 
 fn install_callbacks(
     windows: WindowRefs<'_>,
-    model: Rc<RefCell<ApplicationModel>>,
-    settings: Rc<RefCell<SettingsStore>>,
-    effect_catalog: Rc<EffectCatalog>,
+    package_manager_model: Rc<RefCell<PackageManagerModel>>,
+    package_operation: Rc<RefCell<Option<PackageOperationRuntime>>>,
     preset_store: Rc<PresetStore>,
     font_families: Rc<Vec<String>>,
     lifecycle_ui: Rc<LifecycleUi>,
 ) {
+    let model = lifecycle_ui.model.clone();
+    let settings = lifecycle_ui.settings.clone();
+    let effect_catalog = lifecycle_ui.effect_catalog.clone();
     let WindowRefs {
         launcher,
         recovery,
@@ -1435,6 +1592,8 @@ fn install_callbacks(
         project_settings,
         scene_settings,
         system_settings,
+        package_manager,
+        plugin_permissions,
         about,
     } = windows;
     let object_settings_ui = ObjectSettingsUi {
@@ -1894,10 +2053,11 @@ fn install_callbacks(
     let object_filter_audio_catalog = object_settings_ui.audio_catalog.clone();
     object_settings.on_filter_effects(move |query| {
         if let Some(window) = object_filter_window.upgrade() {
+            let effect_catalog = object_filter_catalog.borrow();
             sync_object_catalog(
                 &window,
                 &object_filter_model.borrow(),
-                &object_filter_catalog,
+                &effect_catalog,
                 &object_filter_audio_catalog.borrow(),
                 query.as_str(),
             );
@@ -2183,7 +2343,11 @@ fn install_callbacks(
     let settings_catalog = effect_catalog.clone();
     main.on_show_object_settings(move || {
         if let Some(window) = settings_window.upgrade() {
-            sync_object_settings(&window, &settings_model.borrow(), &settings_catalog);
+            sync_object_settings(
+                &window,
+                &settings_model.borrow(),
+                &settings_catalog.borrow(),
+            );
             let _ = show_and_redraw(&window);
         }
     });
@@ -2207,6 +2371,219 @@ fn install_callbacks(
         if let Some(window) = system_settings_window.upgrade() {
             sync_system_settings(&window, &system_settings_store.borrow());
             let _ = window.show();
+        }
+    });
+
+    let package_window = package_manager.as_weak();
+    let package_parent = main.as_weak();
+    let package_open_model = package_manager_model.clone();
+    main.on_show_package_manager(move || {
+        if let (Some(window), Some(parent)) = (package_window.upgrade(), package_parent.upgrade()) {
+            sync_package_manager(&window, &package_open_model.borrow());
+            let _ = show_centered_and_redraw(&window, &parent);
+        }
+    });
+    let package_tab_window = package_manager.as_weak();
+    let package_tab_model = package_manager_model.clone();
+    package_manager.on_select_tab(move |_| {
+        if let Some(window) = package_tab_window.upgrade() {
+            sync_package_manager(&window, &package_tab_model.borrow());
+        }
+    });
+    let package_filter_window = package_manager.as_weak();
+    let package_filter_model = package_manager_model.clone();
+    package_manager.on_filter_packages(move |_| {
+        if let Some(window) = package_filter_window.upgrade() {
+            sync_package_manager(&window, &package_filter_model.borrow());
+        }
+    });
+    let package_sync_window = package_manager.as_weak();
+    let package_sync_model = package_manager_model.clone();
+    let package_sync_runtime = package_operation.clone();
+    package_manager.on_sync_repositories(move || {
+        if let Some(window) = package_sync_window.upgrade() {
+            start_package_operation(
+                &window,
+                &package_sync_runtime,
+                &package_sync_model,
+                PackageOperation::Sync,
+            );
+        }
+    });
+    let package_install_window = package_manager.as_weak();
+    let package_install_model = package_manager_model.clone();
+    let package_install_runtime = package_operation.clone();
+    package_manager.on_install_package(move |package_id, source_repository| {
+        if let Some(window) = package_install_window.upgrade() {
+            start_package_operation(
+                &window,
+                &package_install_runtime,
+                &package_install_model,
+                PackageOperation::Install {
+                    package_id: package_id.to_string(),
+                    source_repository: source_repository.to_string(),
+                    version: String::new(),
+                },
+            );
+        }
+    });
+    let package_remove_window = package_manager.as_weak();
+    let package_remove_model = package_manager_model.clone();
+    let package_remove_runtime = package_operation.clone();
+    package_manager.on_remove_package(move |package_id| {
+        if let Some(window) = package_remove_window.upgrade() {
+            start_package_operation(
+                &window,
+                &package_remove_runtime,
+                &package_remove_model,
+                PackageOperation::Remove {
+                    package_id: package_id.to_string(),
+                },
+            );
+        }
+    });
+    let package_upgrade_window = package_manager.as_weak();
+    let package_upgrade_model = package_manager_model.clone();
+    let package_upgrade_runtime = package_operation.clone();
+    package_manager.on_upgrade_all(move || {
+        if let Some(window) = package_upgrade_window.upgrade() {
+            start_package_operation(
+                &window,
+                &package_upgrade_runtime,
+                &package_upgrade_model,
+                PackageOperation::UpgradeAll,
+            );
+        }
+    });
+    let permission_window = plugin_permissions.as_weak();
+    let permission_parent = package_manager.as_weak();
+    let permission_settings = settings.clone();
+    package_manager.on_show_permissions(move |plugin_id, plugin_name| {
+        if let (Some(window), Some(parent)) =
+            (permission_window.upgrade(), permission_parent.upgrade())
+        {
+            window.set_plugin_id(plugin_id.clone());
+            window.set_plugin_name(if plugin_name.is_empty() {
+                plugin_id
+            } else {
+                plugin_name
+            });
+            sync_plugin_permissions(&window, &permission_settings.borrow());
+            let _ = show_centered_and_redraw(&window, &parent);
+        }
+    });
+    let permission_toggle_window = plugin_permissions.as_weak();
+    plugin_permissions.on_toggle_permission(move |index, granted| {
+        if let Some(window) = permission_toggle_window.upgrade() {
+            let mut rows = window.get_permissions().iter().collect::<Vec<_>>();
+            if let Some(row) = rows.get_mut(index.max(0) as usize) {
+                row.granted = granted;
+                update_vec_model(&window.get_permissions(), rows);
+            }
+        }
+    });
+    let permission_all_window = plugin_permissions.as_weak();
+    plugin_permissions.on_set_all(move |granted| {
+        if let Some(window) = permission_all_window.upgrade() {
+            let rows = window
+                .get_permissions()
+                .iter()
+                .map(|mut row| {
+                    row.granted = granted;
+                    row
+                })
+                .collect();
+            update_vec_model(&window.get_permissions(), rows);
+        }
+    });
+    let permission_accept_window = plugin_permissions.as_weak();
+    let permission_accept_settings = settings.clone();
+    plugin_permissions.on_accept(move || {
+        let Some(window) = permission_accept_window.upgrade() else {
+            return;
+        };
+        let granted = window
+            .get_permissions()
+            .iter()
+            .filter(|row| row.granted)
+            .map(|row| row.name.to_string())
+            .collect::<Vec<_>>();
+        match save_plugin_permission_grants(
+            &mut permission_accept_settings.borrow_mut(),
+            window.get_plugin_id().as_str(),
+            &granted,
+        ) {
+            Ok(()) => {
+                let _ = window.hide();
+            }
+            Err(error) => show_error_dialog(&error),
+        }
+    });
+    let permission_close_window = plugin_permissions.as_weak();
+    plugin_permissions.on_close_window(move || {
+        if let Some(window) = permission_close_window.upgrade() {
+            let _ = window.hide();
+        }
+    });
+    let package_add_window = package_manager.as_weak();
+    let package_add_model = package_manager_model.clone();
+    let package_add_settings = settings.clone();
+    package_manager.on_add_repository(move |url| {
+        let result = package_add_model
+            .borrow_mut()
+            .add_repository(&mut package_add_settings.borrow_mut(), url.as_str());
+        if let Some(window) = package_add_window.upgrade() {
+            match result {
+                Ok(true) => window.set_repository_url(SharedString::new()),
+                Ok(false) => {}
+                Err(message) => window.set_error_message(SharedString::from(message)),
+            }
+            sync_package_manager(&window, &package_add_model.borrow());
+        }
+    });
+    let package_enabled_window = package_manager.as_weak();
+    let package_enabled_model = package_manager_model.clone();
+    let package_enabled_settings = settings.clone();
+    package_manager.on_set_repository_enabled(move |url, enabled| {
+        let result = package_enabled_model.borrow_mut().set_repository_enabled(
+            &mut package_enabled_settings.borrow_mut(),
+            url.as_str(),
+            enabled,
+        );
+        if let Some(window) = package_enabled_window.upgrade() {
+            if let Err(message) = result {
+                window.set_error_message(SharedString::from(message));
+            }
+            sync_package_manager(&window, &package_enabled_model.borrow());
+        }
+    });
+    let package_repository_remove_window = package_manager.as_weak();
+    let package_repository_remove_model = package_manager_model.clone();
+    let package_repository_remove_settings = settings.clone();
+    package_manager.on_remove_repository(move |url| {
+        let result = package_repository_remove_model
+            .borrow_mut()
+            .remove_repository(
+                &mut package_repository_remove_settings.borrow_mut(),
+                url.as_str(),
+            );
+        if let Some(window) = package_repository_remove_window.upgrade() {
+            if let Err(message) = result {
+                window.set_error_message(SharedString::from(message));
+            }
+            sync_package_manager(&window, &package_repository_remove_model.borrow());
+        }
+    });
+    let package_error_window = package_manager.as_weak();
+    package_manager.on_dismiss_error(move || {
+        if let Some(window) = package_error_window.upgrade() {
+            window.set_error_message(SharedString::new());
+        }
+    });
+    let package_update_window = package_manager.as_weak();
+    package_manager.on_dismiss_update(move || {
+        if let Some(window) = package_update_window.upgrade() {
+            window.set_update_message(SharedString::new());
         }
     });
 
@@ -2305,7 +2682,7 @@ fn install_callbacks(
             sync_object_settings(
                 &window,
                 &timeline_settings_model.borrow(),
-                &timeline_settings_catalog,
+                &timeline_settings_catalog.borrow(),
             );
             let _ = show_and_redraw(&window);
         }
@@ -2396,7 +2773,7 @@ fn install_callbacks(
         if let Some(window) = object_filter_window.upgrade() {
             sync_timeline_object_catalog(
                 &window,
-                &object_filter_catalog,
+                &object_filter_catalog.borrow(),
                 query.as_str(),
                 category_index,
             );
@@ -2416,6 +2793,7 @@ fn install_callbacks(
             .borrow()
             .i32_value("defaultClipDuration", 100)
             .max(1);
+        let catalog = object_add_catalog.borrow();
         let added = object_add_model
             .borrow_mut()
             .current_workspace_mut()
@@ -2430,7 +2808,7 @@ fn install_callbacks(
                     frame,
                     layer.clamp(0, 127),
                     default_duration,
-                    &object_add_catalog,
+                    &catalog,
                 )
             });
         sync_weak_windows(&object_add_main, &object_add_timeline, &object_add_model);
@@ -4318,6 +4696,88 @@ fn sync_system_settings(window: &SystemSettingsWindow, settings: &SettingsStore)
     window.set_default_project_fps(SharedString::from(defaults.fps.to_string()));
     window.set_default_project_frames(defaults.duration);
     window.set_default_project_sample_rate(defaults.sample_rate);
+}
+
+fn sync_package_manager(window: &PackageManagerWindow, model: &PackageManagerModel) {
+    let section = match window.get_tab_index() {
+        0 => Some(PackageSection::Effect),
+        1 => Some(PackageSection::Object),
+        2 => Some(PackageSection::Mod),
+        3 => Some(PackageSection::Installed),
+        4 => Some(PackageSection::Application),
+        _ => None,
+    };
+    let packages = section
+        .map(|section| model.packages(section, window.get_search_query().as_str()))
+        .unwrap_or_default()
+        .into_iter()
+        .map(|package| PackageData {
+            can_manage_permissions: package.can_manage_permissions(),
+            can_remove: package.can_remove(),
+            id: SharedString::from(package.id),
+            package_type: SharedString::from(package.package_type),
+            display_name: SharedString::from(package.display_name),
+            description: SharedString::from(package.description),
+            author: SharedString::from(package.author),
+            version: SharedString::from(package.version),
+            installed_version: SharedString::from(package.installed_version),
+            latest_version: SharedString::from(package.latest_version),
+            source_repository: SharedString::from(package.source_repository),
+            local_file_plugin: package.local_file_plugin,
+            has_update: package.has_update,
+        })
+        .collect::<Vec<_>>();
+    update_vec_model(&window.get_packages(), packages);
+    update_vec_model(
+        &window.get_repositories(),
+        model
+            .repositories()
+            .into_iter()
+            .map(|repository| PackageRepositoryData {
+                name: SharedString::from(repository.name),
+                url: SharedString::from(repository.url),
+                enabled: repository.enabled,
+                priority: repository.priority,
+            })
+            .collect(),
+    );
+    window.set_has_updates(model.has_updates());
+    window.set_status_text(SharedString::from(model.status()));
+}
+
+fn sync_plugin_permissions(window: &PluginPermissionWindow, settings: &SettingsStore) {
+    let rows = plugin_permission_grants(settings, window.get_plugin_id().as_str())
+        .into_iter()
+        .map(|permission| {
+            let (title, description) = plugin_permission_metadata(&permission.name);
+            PluginPermissionData {
+                name: SharedString::from(permission.name),
+                title: SharedString::from(title),
+                description: SharedString::from(description),
+                granted: permission.granted,
+            }
+        })
+        .collect();
+    update_vec_model(&window.get_permissions(), rows);
+}
+
+fn plugin_permission_metadata(name: &str) -> (&'static str, &'static str) {
+    match name {
+        "transport.control" => ("再生制御", "再生、一時停止、シーク"),
+        "clip.read" => ("クリップ読み取り", "クリップ情報の一覧表示"),
+        "clip.modify" => ("クリップ変更", "クリップの作成、削除、移動"),
+        "effect.modify" => ("エフェクト変更", "エフェクトの追加、削除、変更"),
+        "project.read" => ("プロジェクト読み取り", "解像度、FPS等の情報取得"),
+        "project.save" => ("プロジェクト保存", "プロジェクトファイルの保存"),
+        "project.load" => ("プロジェクト読み込み", "プロジェクトファイルの読み込み"),
+        "scene.manage" => ("シーン管理", "シーンの作成、削除、切り替え"),
+        "settings.read" => ("設定読み取り", "プラグイン設定の読み取り"),
+        "settings.write" => ("設定書き込み", "プラグイン設定の保存"),
+        "clipboard.access" => ("クリップボード", "コピー、切り取り、貼り付け"),
+        "history.control" => ("履歴操作", "元に戻す、やり直し、コマンドのグループ化"),
+        "log.output" => ("ログ出力", "コンソールへのログ出力"),
+        _ => ("", ""),
+    }
 }
 
 fn apply_runtime_settings(model: &mut ApplicationModel, settings: &SettingsStore) {

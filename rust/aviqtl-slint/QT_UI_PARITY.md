@@ -64,6 +64,21 @@ still require the separately scheduled Computer Use suite.
   the same public project page through the platform browser. The link has an explicit accessibility
   action in addition to pointer activation; native focus, browser launch, and first-paint checks
   remain in the deferred suite.
+- The Package Manager now projects the same Effect, Object, MOD, Installed, Application, and
+  Repository tabs from a Rust-owned model. Repository synchronization runs off the Slint event loop,
+  requires credential-free HTTPS across every redirect, limits metadata responses to 16 MiB, keeps
+  successful repositories when another fails, resolves relative catalog references, and persists
+  provenance-preserving SHA-256 cache files. Installation verifies catalog-supplied metadata and
+  archive hashes, limits downloads to 256 MiB, rejects encrypted, ZIP64, traversal, duplicate, and
+  symbolic-link archive entries, caps extraction at 10,000 entries and 1 GiB, and uses same-volume
+  staging, backup, atomic `installed.json` replacement, and rollback. Removal uses the inverse
+  transaction, Upgrade All continues after individual failures, application updates retain Qt's
+  restart notification, and effect/object completion reloads the shared catalog and menus without a
+  restart. The MOD permission window preserves Qt's 13 permission rows, All Allow/All Deny,
+  Cancel/OK behavior, and shared-settings persistence. Automated tests cover partial repository
+  synchronization, install/remove, unsafe archives, rollback, and preservation of other plugins'
+  grants; native progress, focus, live-network, and window-interaction checks remain in the deferred
+  suite.
 - The preview no longer uses the animated validation placeholder. A GUI-neutral `aviqtl-preview`
   crate now plans the active project frame, resolves project-relative media, decodes media and
   generated objects off the UI thread, preserves nested scenes, frame buffers, upper-object masks,

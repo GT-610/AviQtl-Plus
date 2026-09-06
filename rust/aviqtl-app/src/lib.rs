@@ -8,6 +8,7 @@ pub mod lifecycle;
 pub mod media_import;
 pub mod missing_media;
 pub mod object_settings;
+pub mod package_manager;
 pub mod preset_store;
 pub mod project_io;
 pub mod recovery;
