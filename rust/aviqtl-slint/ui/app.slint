@@ -1,4 +1,4 @@
-import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ScrollView, Slider, SpinBox } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ProgressIndicator, RadioGroup, ScrollView, Slider, SpinBox } from "std-widgets.slint";
 
 export struct ProjectTabData {
     name: string,
@@ -974,6 +974,302 @@ export component TimelineWindow inherits Window {
             }
         }
         Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+    }
+}
+
+export component ExportWindow inherits Window {
+    title: "メディアの書き出し";
+    preferred-width: 620px;
+    preferred-height: 580px;
+    min-width: 520px;
+    min-height: 460px;
+
+    in property <int> project-width: 1920;
+    in property <int> project-height: 1080;
+    in property <float> project-fps: 60;
+    in property <int> timeline-duration: 300;
+    in-out property <int> format-index: 0;
+    in-out property <int> image-format-index: 0;
+    in-out property <string> output-path: "";
+    in property <[string]> video-codec-labels;
+    in-out property <int> video-codec-index: 0;
+    in-out property <bool> software-codec: true;
+    in-out property <bool> crf-mode: true;
+    in-out property <bool> bitrate-mode: false;
+    in-out property <float> crf: 20;
+    in-out property <int> bitrate-mbps: 15;
+    in-out property <int> preset-index: 2;
+    in-out property <int> profile-index: 0;
+    in property <[string]> audio-codec-labels;
+    in-out property <int> audio-codec-index: 0;
+    in-out property <bool> audio-bitrate-enabled: true;
+    in-out property <int> audio-bitrate-index: 2;
+    in-out property <bool> full-range: true;
+    in-out property <int> start-frame: 0;
+    in-out property <int> end-frame: 300;
+    in property <bool> exporting: false;
+    in property <float> export-progress: 0;
+    in property <string> progress-label: "0 / 0 フレーム";
+    in-out property <bool> cancel-confirmation-visible: false;
+    in-out property <bool> result-visible: false;
+    in property <bool> result-success: true;
+    in property <string> result-message: "";
+
+    pure callback validate-output-path(string) -> bool;
+    callback browse-output(bool);
+    callback video-codec-selected(int);
+    callback audio-codec-selected(int);
+    callback start-export();
+    callback close-window();
+    callback request-cancel();
+    callback confirm-cancel();
+    callback dismiss-cancel();
+    callback dismiss-result();
+
+    ScrollView {
+        VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "形式:"; vertical-alignment: center; }
+                ComboBox {
+                    model: ["動画ファイル", "画像シーケンス"];
+                    current-index <=> root.format-index;
+                }
+                if root.format-index == 1 : ComboBox {
+                    model: ["PNG", "JPEG"];
+                    current-index <=> root.image-format-index;
+                }
+                LineEdit {
+                    text <=> root.output-path;
+                    placeholder-text: root.format-index == 1 ? "保存先フォルダ..." : "保存先ファイルパス...";
+                    horizontal-stretch: 1;
+                }
+                Button {
+                    text: "参照...";
+                    clicked => { root.browse-output(root.format-index == 1); }
+                }
+            }
+
+            if root.format-index == 0 : GroupBox {
+                title: "映像";
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row {
+                        Text { text: "解像度:"; vertical-alignment: center; }
+                        Text { text: root.project-width + " × " + root.project-height; font-weight: 700; vertical-alignment: center; }
+                    }
+                    Row {
+                        Text { text: "FPS:"; vertical-alignment: center; }
+                        Text { text: root.project-fps.to-fixed(3); font-weight: 700; vertical-alignment: center; }
+                    }
+                    Row {
+                        Text { text: "コーデック:"; vertical-alignment: center; }
+                        ComboBox {
+                            model: root.video-codec-labels;
+                            current-index <=> root.video-codec-index;
+                            selected(value) => { root.video-codec-selected(self.current-index); }
+                        }
+                    }
+                    Row {
+                        Text { text: "品質モード:"; vertical-alignment: center; }
+                        RadioGroup {
+                            orientation: Orientation.horizontal;
+                            RadioButton { text: "CRF"; checked <=> root.crf-mode; }
+                            RadioButton { text: "ビットレート"; checked <=> root.bitrate-mode; }
+                        }
+                    }
+                    if root.crf-mode : Row {
+                        Text { text: "CRF:"; vertical-alignment: center; }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Slider { value <=> root.crf; minimum: 0; maximum: 51; horizontal-stretch: 1; }
+                            Text { text: root.crf.round(); preferred-width: 28px; vertical-alignment: center; }
+                            Text {
+                                text: root.crf <= 17 ? "高品質" : root.crf <= 28 ? "標準" : "低品質";
+                                color: root.crf <= 17 ? #76dba4 : root.crf <= 28 ? #d6d9df : #ff9ca8;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    if root.bitrate-mode : Row {
+                        Text { text: "ビットレート:"; vertical-alignment: center; }
+                        HorizontalLayout {
+                            SpinBox { value <=> root.bitrate-mbps; minimum: 1; maximum: 500; }
+                            Text { text: "Mbps"; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                    if root.software-codec : Row {
+                        Text { text: "プリセット:"; vertical-alignment: center; }
+                        ComboBox {
+                            model: ["最速 (ultrafast)", "高速 (fast)", "標準 (medium)", "高品質 (slow)", "最高品質 (veryslow)"];
+                            current-index <=> root.preset-index;
+                        }
+                    }
+                    if root.software-codec : Row {
+                        Text { text: "プロファイル:"; vertical-alignment: center; }
+                        ComboBox {
+                            model: ["自動", "Baseline", "Main", "High"];
+                            current-index <=> root.profile-index;
+                        }
+                    }
+                }
+            }
+
+            if root.format-index == 0 : GroupBox {
+                title: "音声";
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row {
+                        Text { text: "コーデック:"; vertical-alignment: center; }
+                        ComboBox {
+                            model: root.audio-codec-labels;
+                            current-index <=> root.audio-codec-index;
+                            selected(value) => { root.audio-codec-selected(self.current-index); }
+                        }
+                    }
+                    Row {
+                        Text { text: "ビットレート:"; vertical-alignment: center; }
+                        ComboBox {
+                            model: ["96 kbps", "128 kbps", "192 kbps", "256 kbps", "320 kbps"];
+                            current-index <=> root.audio-bitrate-index;
+                            enabled: root.audio-bitrate-enabled;
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "範囲";
+                HorizontalLayout {
+                    padding: 10px;
+                    spacing: 8px;
+                    CheckBox { text: "タイムライン全体"; checked <=> root.full-range; }
+                    Text { text: "開始:"; vertical-alignment: center; }
+                    SpinBox {
+                        value <=> root.start-frame;
+                        minimum: 0;
+                        maximum: max(root.end-frame - 1, 0);
+                        enabled: !root.full-range;
+                    }
+                    Text { text: "終了:"; vertical-alignment: center; }
+                    SpinBox {
+                        value <=> root.end-frame;
+                        minimum: root.start-frame + 1;
+                        maximum: 999999;
+                        enabled: !root.full-range;
+                    }
+                    Text {
+                        text: "(" + (root.full-range ? root.timeline-duration : root.end-frame - root.start-frame)
+                            + " フレーム / "
+                            + ((root.full-range ? root.timeline-duration : root.end-frame - root.start-frame) / max(root.project-fps, 1)).to-fixed(2)
+                            + " 秒)";
+                        opacity: 0.65;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                Button { text: "キャンセル"; clicked => { root.close-window(); } }
+                Button {
+                    text: "書き出し開始";
+                    enabled: root.validate-output-path(root.output-path);
+                    clicked => { root.start-export(); }
+                }
+            }
+        }
+    }
+
+    if root.exporting : Rectangle {
+        z: 1000;
+        width: 100%;
+        height: 100%;
+        background: #000000bf;
+        TouchArea { }
+        Rectangle {
+            width: min(parent.width * 0.7, 430px);
+            height: 180px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: transparent;
+            VerticalLayout {
+                spacing: 16px;
+                Text { text: "書き出し中..."; color: white; font-size: 1.05rem; font-weight: 700; horizontal-alignment: center; }
+                ProgressIndicator { progress: root.export-progress / 100; }
+                Text { text: root.progress-label; color: #ffffffcc; horizontal-alignment: center; }
+                HorizontalLayout {
+                    alignment: center;
+                    Button { text: "キャンセル"; clicked => { root.request-cancel(); } }
+                }
+            }
+        }
+    }
+
+    if root.cancel-confirmation-visible : Rectangle {
+        z: 1100;
+        width: 100%;
+        height: 100%;
+        background: #00000088;
+        TouchArea { }
+        Rectangle {
+            width: 330px;
+            height: 170px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b2f38;
+            border-width: 1px;
+            border-color: #555b68;
+            border-radius: 6px;
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+                Text { text: "書き出しキャンセル"; color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
+                Text { text: "書き出しをキャンセルしますか？\n進捗は失われます。"; color: #d6d9df; wrap: word-wrap; vertical-stretch: 1; }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button { text: "はい"; clicked => { root.confirm-cancel(); } }
+                    Button { text: "いいえ"; clicked => { root.dismiss-cancel(); } }
+                }
+            }
+        }
+    }
+
+    if root.result-visible : Rectangle {
+        z: 1200;
+        width: 100%;
+        height: 100%;
+        background: #00000088;
+        TouchArea { }
+        Rectangle {
+            width: min(parent.width - 32px, 450px);
+            height: 170px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b2f38;
+            border-width: 1px;
+            border-color: #555b68;
+            border-radius: 6px;
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+                Text { text: root.result-success ? "完了" : "エラー"; color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
+                Text { text: root.result-message; color: #d6d9df; wrap: word-wrap; vertical-stretch: 1; }
+                HorizontalLayout {
+                    alignment: end;
+                    Button { text: "OK"; clicked => { root.dismiss-result(); } }
+                }
+            }
+        }
     }
 }
 

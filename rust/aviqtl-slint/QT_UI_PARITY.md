@@ -22,7 +22,7 @@ still require the separately scheduled Computer Use suite.
 | New project | Ctrl+N raises the independent non-modal launcher before creating a tab | foundation |
 | Open project | Owned chooser and Qt replace-or-new-tab lifecycle | foundation |
 | Save / Save As | In-place fallback, suffix, overwrite, cancellation, and deferred close behavior | foundation |
-| Export | Settings, planning, progress, cancellation, cleanup, and close interception | missing |
+| Export | Settings, planning, progress, cancellation, cleanup, and close interception | foundation |
 | Missing media | Conditional command, type-safe replacements, and project updates | foundation |
 | Quit | Visit dirty projects in tab order and complete Save/Discard/Cancel before exit | foundation |
 | Scene tabs | Left switches, right opens settings, root cannot close, plus creates | foundation |
@@ -68,6 +68,12 @@ still require the separately scheduled Computer Use suite.
   and playhead. Timeline edits, project settings, Undo, and Redo advance the revision; Slint redraws
   only after a decoded frame batch is ready. Automated planning, decoding, and state invalidation
   tests pass, while rendered-output parity remains part of the deferred native GUI suite.
+- The Qt-shaped export window refreshes runtime codec availability, maps video, image-sequence,
+  quality, audio, and range settings into a GUI-neutral `aviqtl-export` request, pauses transport,
+  rejects project-tab changes, renders through the production preview/wgpu path, and reports
+  progress and ETA. Worker tests cover request units, completion events, video and image-sequence
+  cancellation, and removal of partial outputs. Native modality, chooser behavior, close interception,
+  and a user-observed output comparison remain in the deferred GUI suite.
 - Real project, scene, 128-layer, clip, selection, and transport models reach Slint.
 - Primary/additive selection, right-button box selection, multi-clip move, and multi-clip resize have
   framework-neutral tests and Slint MCP interaction checks.

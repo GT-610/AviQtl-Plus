@@ -606,6 +606,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "aviqtl-export"
+version = "0.6.2"
+dependencies = [
+ "aviqtl-audio",
+ "aviqtl-media",
+ "aviqtl-preview",
+ "aviqtl-rust-core",
+ "wgpu",
+]
+
+[[package]]
 name = "aviqtl-media"
 version = "0.6.2"
 dependencies = [
@@ -651,6 +662,7 @@ name = "aviqtl-slint"
 version = "0.6.2"
 dependencies = [
  "aviqtl-app",
+ "aviqtl-export",
  "aviqtl-preview",
  "pollster",
  "rfd",

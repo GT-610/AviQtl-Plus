@@ -8,6 +8,7 @@ build = "build.rs"
 
 [dependencies]
 aviqtl-app = { path = "../aviqtl-app" }
+aviqtl-export = { path = "../aviqtl-export" }
 aviqtl-preview = { path = "../aviqtl-preview" }
 pollster = "0.4"
 rfd = "0.15.4"

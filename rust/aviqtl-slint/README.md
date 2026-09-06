@@ -16,6 +16,8 @@ The Slint frontend is intentionally thin:
   settings persistence.
 - `aviqtl-preview` reuses the egui migration's production frame planner, asynchronous media
   decoding, nested-scene handling, and wgpu compositor without depending on a GUI framework.
+- `aviqtl-export` owns GUI-neutral export jobs, decoded-frame handoff, wgpu composition/readback,
+  image-sequence output, video/audio encoding, progress, cancellation, and partial-output cleanup.
 - `aviqtl-render`, `aviqtl-media`, `aviqtl-audio`, and `aviqtl-carla` retain the lower-level
   renderer, media, audio, and plugin work produced during the egui migration.
 - `aviqtl-slint` owns native windows, declarative layout, input hit regions, menus, accessibility,
@@ -38,9 +40,16 @@ outside the undo stack as in Qt, while scene creation retains Qt's separate add 
 undo steps.
 
 The egui work is therefore not discarded. Domain and application crates are reused directly, while
-production preview code has been extracted into a GUI-neutral crate for Slint and the future export
-path. The remaining egui implementation and its tests stay a behavior reference for interaction
-details that are specific to a retained-mode Slint UI.
+production preview and export code have been extracted into GUI-neutral crates for Slint. The
+remaining egui implementation and its tests stay a behavior reference for interaction details that
+are specific to a retained-mode Slint UI.
+
+The export window keeps the Qt draft and close workflow: it refreshes available codecs when opened,
+uses project settings and the active scene range, pauses playback before rendering, rejects project
+tab changes during a job, reports frame progress and ETA, confirms cancellation, and removes partial
+video or image-sequence output after cancellation. Slint imports the same shared wgpu device used by
+the preview path, so exported frames are composed by the production renderer before CPU readback and
+encoding.
 
 ## UI rules
 

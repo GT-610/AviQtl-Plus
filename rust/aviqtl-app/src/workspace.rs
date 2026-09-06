@@ -805,6 +805,10 @@ impl WorkspaceModel {
         self.transport.set_playback_speed(speed);
     }
 
+    pub fn pause_playback(&mut self) {
+        self.transport.pause();
+    }
+
     pub fn toggle_playback(&mut self) {
         let end_frame = self.scene_timing().1;
         self.transport
@@ -1227,5 +1231,18 @@ mod tests {
 
         assert!(workspace.undo());
         assert!(workspace.scene_settings(scene_id).is_none());
+    }
+
+    #[test]
+    fn export_pause_stops_transport_without_moving_the_playhead() {
+        let mut workspace = workspace();
+        workspace.seek(42);
+        workspace.toggle_playback();
+        assert!(workspace.is_playing());
+
+        workspace.pause_playback();
+
+        assert!(!workspace.is_playing());
+        assert_eq!(workspace.playhead(), 42);
     }
 }
