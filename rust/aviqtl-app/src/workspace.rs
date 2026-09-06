@@ -8,9 +8,9 @@ use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
     ClipDocument, EffectInsertion, EffectPreset, ProjectDocument, ProjectSettings, SceneDocument,
-    TimelineCommand, TimelineTransaction, clipboard_duration, inspect_keyframe_track,
-    plan_clip_delta_move, plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion,
-    plan_scene_layer_shift, snap_scene_frame,
+    TimelineCommand, TimelineTransaction, clipboard_duration, evaluate_keyframe_track,
+    inspect_keyframe_track, plan_clip_delta_move, plan_clipboard_paste, plan_effect_reorder,
+    plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -493,35 +493,42 @@ impl WorkspaceModel {
         param_name: &str,
         value: Value,
     ) -> bool {
-        let Some((clip, effect, original)) = self.selected_clip_document().and_then(|clip| {
-            clip.effects.get(effect_index).and_then(|effect| {
-                effect
-                    .params
-                    .get(param_name)
-                    .map(|original| (clip.clone(), effect.clone(), original.clone()))
-            })
+        let Some(relative_frame) = self.selected_clip_document().map(|clip| {
+            self.playhead
+                .saturating_sub(clip.start)
+                .clamp(0, clip.duration.max(0))
         }) else {
             return false;
         };
+        self.set_effect_parameter_at_frame(effect_index, param_name, relative_frame, value)
+    }
+
+    pub fn set_effect_parameter_at_frame(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        value: Value,
+    ) -> bool {
+        let Some((clip, effect, original)) =
+            self.effect_parameter_context(effect_index, param_name)
+        else {
+            return false;
+        };
         let value = replace_value_payload(&original, value);
-        let relative_frame = self
-            .playhead
-            .saturating_sub(clip.start)
-            .clamp(0, clip.duration.max(0));
+        let frame = frame.clamp(0, clip.duration.max(0));
         let track = effect
             .keyframes
             .as_ref()
             .and_then(|tracks| tracks.get(param_name));
         let command = if track.is_some() {
-            let options = inspect_keyframe_track(track, &original, clip.duration)
-                .into_iter()
-                .find(|point| point.frame == relative_frame)
-                .map_or_else(|| json!({"interp": "linear"}), |point| point.options);
+            let points = inspect_keyframe_track(track, &original, clip.duration);
+            let options = keyframe_options_at(&points, frame, "linear");
             TimelineCommand::SetEffectKeyframe {
                 clip_id: clip.id,
                 effect_index,
                 param_name: param_name.to_owned(),
-                frame: relative_frame,
+                frame,
                 value,
                 options,
             }
@@ -535,6 +542,160 @@ impl WorkspaceModel {
             }
         };
         self.execute(command)
+    }
+
+    pub fn add_effect_keyframe(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+    ) -> bool {
+        let Some((clip, effect, fallback)) =
+            self.effect_parameter_context(effect_index, param_name)
+        else {
+            return false;
+        };
+        let frame = frame.clamp(0, clip.duration.max(0));
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        let points = inspect_keyframe_track(track, &fallback, clip.duration);
+        if points.iter().any(|point| point.frame == frame) {
+            return false;
+        }
+        let value = evaluate_keyframe_track(track, &fallback, clip.duration, frame);
+        let options = keyframe_options_at(&points, frame, "none");
+        self.execute(TimelineCommand::SetEffectKeyframe {
+            clip_id: clip.id,
+            effect_index,
+            param_name: param_name.to_owned(),
+            frame,
+            value,
+            options,
+        })
+    }
+
+    pub fn remove_effect_keyframe(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+    ) -> bool {
+        let Some((clip, effect, fallback)) =
+            self.effect_parameter_context(effect_index, param_name)
+        else {
+            return false;
+        };
+        if frame <= 0 || frame > clip.duration.max(0) {
+            return false;
+        }
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        if !inspect_keyframe_track(track, &fallback, clip.duration)
+            .iter()
+            .any(|point| point.frame == frame)
+        {
+            return false;
+        }
+        self.execute(TimelineCommand::RemoveEffectKeyframe {
+            clip_id: clip.id,
+            effect_index,
+            param_name: param_name.to_owned(),
+            frame,
+        })
+    }
+
+    pub fn move_effect_keyframe(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        old_frame: i32,
+        new_frame: i32,
+    ) -> bool {
+        let Some((clip, effect, fallback)) =
+            self.effect_parameter_context(effect_index, param_name)
+        else {
+            return false;
+        };
+        let duration = clip.duration.max(0);
+        let new_frame = new_frame.clamp(0, duration);
+        if old_frame <= 0 || old_frame > duration || old_frame == new_frame {
+            return false;
+        }
+        let points = inspect_keyframe_track(
+            effect
+                .keyframes
+                .as_ref()
+                .and_then(|tracks| tracks.get(param_name)),
+            &fallback,
+            duration,
+        );
+        if !points.iter().any(|point| point.frame == old_frame)
+            || points.iter().any(|point| point.frame == new_frame)
+        {
+            return false;
+        }
+        self.execute(TimelineCommand::MoveEffectKeyframe {
+            clip_id: clip.id,
+            effect_index,
+            param_name: param_name.to_owned(),
+            old_frame,
+            new_frame,
+        })
+    }
+
+    pub fn snap_effect_keyframe_frame(
+        &self,
+        relative_frame: f64,
+        timeline_scale: f64,
+        enable_snap: bool,
+    ) -> i32 {
+        let Some(clip) = self.selected_clip_document() else {
+            return relative_frame.round().clamp(0.0, f64::from(i32::MAX)) as i32;
+        };
+        let absolute_frame = f64::from(clip.start) + relative_frame;
+        let snapped = if enable_snap {
+            self.selected_scene_document().map_or_else(
+                || absolute_frame.round().clamp(0.0, f64::from(i32::MAX)) as i32,
+                |scene| {
+                    let mut scene = scene.clone();
+                    scene.enable_snap = true;
+                    snap_scene_frame(absolute_frame, false, &scene, timeline_scale)
+                },
+            )
+        } else {
+            absolute_frame.round().clamp(0.0, f64::from(i32::MAX)) as i32
+        };
+        snapped
+            .saturating_sub(clip.start)
+            .clamp(0, clip.duration.max(0))
+    }
+
+    pub fn seek_effect_frame(&mut self, relative_frame: i32) {
+        if let Some((start, duration)) = self
+            .selected_clip_document()
+            .map(|clip| (clip.start, clip.duration.max(0)))
+        {
+            self.seek(start.saturating_add(relative_frame.clamp(0, duration)));
+        }
+    }
+
+    fn effect_parameter_context(
+        &self,
+        effect_index: usize,
+        param_name: &str,
+    ) -> Option<(ClipDocument, aviqtl_rust_core::api::EffectDocument, Value)> {
+        self.selected_clip_document().and_then(|clip| {
+            clip.effects.get(effect_index).and_then(|effect| {
+                effect
+                    .params
+                    .get(param_name)
+                    .map(|original| (clip.clone(), effect.clone(), original.clone()))
+            })
+        })
     }
 
     pub fn can_undo(&self) -> bool {
@@ -1350,6 +1511,22 @@ fn effect_preset_commands(
     Ok(commands)
 }
 
+fn keyframe_options_at(
+    points: &[aviqtl_rust_core::api::KeyframePoint],
+    frame: i32,
+    default_interpolation: &str,
+) -> Value {
+    points
+        .iter()
+        .rev()
+        .find(|point| point.frame <= frame)
+        .or_else(|| points.first())
+        .map_or_else(
+            || json!({"interp": default_interpolation}),
+            |point| point.options.clone(),
+        )
+}
+
 fn scene_settings_input(scene: &SceneDocument) -> SceneSettingsInput {
     SceneSettingsInput {
         name: scene.name.clone(),
@@ -1847,6 +2024,35 @@ mod tests {
         assert!(workspace.remove_selected_effects());
         assert_eq!(workspace.document().clips[0].effects.len(), 1);
         assert_eq!(workspace.document().clips[0].effects[0].id, "transform");
+    }
+
+    #[test]
+    fn effect_keyframe_actions_reuse_the_normalized_track_contract() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+
+        assert_eq!(workspace.snap_effect_keyframe_frame(56.0, 1.0, true), 60);
+        assert_eq!(workspace.snap_effect_keyframe_frame(56.0, 1.0, false), 56);
+        workspace.seek_effect_frame(40);
+        assert_eq!(workspace.playhead(), 40);
+        assert!(workspace.add_effect_keyframe(1, "size", 50));
+        assert!(workspace.set_effect_parameter_at_frame(1, "size", 50, json!(25.0)));
+        assert!(workspace.move_effect_keyframe(1, "size", 50, 60));
+        assert!(!workspace.move_effect_keyframe(1, "size", 0, 10));
+        assert!(workspace.remove_effect_keyframe(1, "size", 20));
+        assert!(!workspace.remove_effect_keyframe(1, "size", 0));
+
+        let effect = &workspace.document().clips[0].effects[1];
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get("size"));
+        let points = inspect_keyframe_track(track, &effect.params["size"], 100);
+        assert_eq!(
+            points.iter().map(|point| point.frame).collect::<Vec<_>>(),
+            [0, 60]
+        );
+        assert_eq!(points[1].value, json!(25.0));
     }
 
     #[test]

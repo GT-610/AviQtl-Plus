@@ -59,6 +59,14 @@ export struct EffectCatalogItemData {
     categories: string,
 }
 
+export struct KeyframeMarkerData {
+    frame: int,
+    minimum-frame: int,
+    maximum-frame: int,
+    virtual-end: bool,
+    movable: bool,
+}
+
 export struct ObjectSettingRowData {
     row-kind: string,
     source-kind: string,
@@ -71,14 +79,143 @@ export struct ObjectSettingRowData {
     interactive: bool,
     checked: bool,
     keyframed: bool,
+    range-mode: bool,
+    start-frame: int,
+    end-frame: int,
+    current-frame: int,
+    clip-duration: int,
+    interpolation: string,
     number-value: float,
+    end-number-value: float,
     minimum: float,
     maximum: float,
     step: float,
     text-value: string,
+    end-text-value: string,
     unit: string,
+    keyframe-markers: [KeyframeMarkerData],
     option-labels: [string],
     selected-option: int,
+}
+
+component KeyframeTrack inherits Rectangle {
+    in property <ObjectSettingRowData> row-data;
+    callback seek(int);
+    callback snap(float) -> int;
+    callback add(int, string, int);
+    callback remove(int, string, int);
+    callback move-keyframe(int, string, int, int);
+    height: 24px;
+    background: transparent;
+    private property <length> inset: 12px;
+
+    track-line := Rectangle {
+        x: root.inset;
+        y: 11px;
+        width: max(parent.width - root.inset * 2, 1px);
+        height: 2px;
+        background: #59606c;
+    }
+    track-touch := TouchArea {
+        x: track-line.x;
+        width: track-line.width;
+        mouse-cursor: pointer;
+        clicked => {
+            if root.row-data.clip-duration > 0 {
+                root.seek(round(self.mouse-x / self.width * root.row-data.clip-duration));
+            }
+        }
+        double-clicked => {
+            if root.row-data.clip-duration > 0 {
+                root.add(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.snap(self.mouse-x / self.width * root.row-data.clip-duration)
+                );
+            }
+        }
+    }
+    for marker in root.row-data.keyframe-markers : Rectangle {
+        private property <int> current-frame: marker.frame;
+        private property <bool> dragging: false;
+        private property <bool> threshold-crossed: false;
+        private property <length> pointer-start-x: 0px;
+        width: 16px;
+        height: 16px;
+        x: track-line.x
+            + (root.row-data.clip-duration > 0
+                ? self.current-frame / root.row-data.clip-duration * track-line.width
+                : 0px)
+            - self.width / 2;
+        y: 4px;
+        Rectangle {
+            width: 8px;
+            height: 8px;
+            x: 4px;
+            y: 4px;
+            background: marker.virtual-end ? #8b8f98 : #e5e8ee;
+            transform-rotation: 45deg;
+        }
+        marker-touch := TouchArea {
+            mouse-cursor: marker.movable ? move : pointer;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    parent.dragging = marker.movable;
+                    parent.threshold-crossed = false;
+                    parent.pointer-start-x = self.absolute-position.x + self.mouse-x;
+                }
+                if event.kind == PointerEventKind.move && parent.dragging {
+                    let delta = self.absolute-position.x + self.mouse-x - parent.pointer-start-x;
+                    if abs(delta) >= 3px {
+                        parent.threshold-crossed = true;
+                    }
+                    let raw-frame = marker.frame
+                        + delta / max(track-line.width, 1px) * root.row-data.clip-duration;
+                    parent.current-frame = root.snap(raw-frame).clamp(
+                        marker.minimum-frame,
+                        marker.maximum-frame
+                    );
+                }
+                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                    if parent.dragging && parent.threshold-crossed
+                        && parent.current-frame != marker.frame {
+                        root.move-keyframe(
+                            root.row-data.effect-index,
+                            root.row-data.param-name,
+                            marker.frame,
+                            parent.current-frame
+                        );
+                    } else {
+                        root.seek(parent.current-frame);
+                    }
+                    parent.dragging = false;
+                    parent.threshold-crossed = false;
+                }
+                if event.kind == PointerEventKind.down
+                    && event.button == PointerEventButton.right
+                    && marker.movable {
+                    root.remove(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        marker.frame
+                    );
+                }
+                if event.kind == PointerEventKind.cancel {
+                    parent.current-frame = marker.frame;
+                    parent.dragging = false;
+                    parent.threshold-crossed = false;
+                }
+            }
+        }
+    }
+    if root.row-data.clip-duration > 0 : Rectangle {
+        x: track-line.x
+            + root.row-data.current-frame / root.row-data.clip-duration * track-line.width;
+        y: 2px;
+        width: 1px;
+        height: 20px;
+        background: #6da8f0;
+    }
 }
 
 component CommitLineEdit inherits LineEdit {
@@ -252,13 +389,19 @@ component ObjectSettingRow inherits Rectangle {
     callback activate-effect(int);
     callback set-effect-enabled(int, bool);
     callback remove-effect(int);
-    callback set-text(int, string, string);
-    callback set-number(int, string, float);
-    callback set-bool(int, string, bool);
-    callback set-option(int, string, int);
+    callback set-text(int, string, int, string);
+    callback set-number(int, string, int, float);
+    callback set-bool(int, string, int, bool);
+    callback set-option(int, string, int, int);
+    callback seek-keyframe(int);
+    callback snap-keyframe(float) -> int;
+    callback add-keyframe(int, string, int);
+    callback remove-keyframe(int, string, int);
+    callback move-keyframe(int, string, int, int);
     height: root.row-data.row-kind == "effect" ? 42px
         : root.row-data.row-kind == "header" ? 36px
         : root.row-data.row-kind == "text" ? 90px
+        : root.row-data.row-kind == "keyframes" ? 24px
         : 44px;
     background: root.row-data.row-kind == "effect"
         ? (root.row-data.selected ? #304a6d : #2d323b)
@@ -317,7 +460,14 @@ component ObjectSettingRow inherits Rectangle {
             text: root.row-data.label;
             checked: root.row-data.checked;
             enabled: root.row-data.interactive;
-            toggled => { root.set-bool(root.row-data.effect-index, root.row-data.param-name, self.checked); }
+            toggled => {
+                root.set-bool(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    self.checked
+                );
+            }
         }
         Rectangle { horizontal-stretch: 1; }
         if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
@@ -335,14 +485,63 @@ component ObjectSettingRow inherits Rectangle {
             maximum: root.row-data.maximum;
             step: root.row-data.step;
             enabled: root.row-data.interactive;
-            changed(value) => { root.set-number(root.row-data.effect-index, root.row-data.param-name, value); }
+            changed(value) => {
+                root.set-number(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
         }
         CommitLineEdit {
             width: 76px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: right;
-            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
+        if root.row-data.range-mode : CommitLineEdit {
+            width: 76px;
+            source-text: root.row-data.end-text-value;
+            enabled: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant";
+            horizontal-alignment: right;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
+        }
+        if root.row-data.range-mode : Slider {
+            horizontal-stretch: 1;
+            value: root.row-data.end-number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            enabled: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant";
+            changed(value) => {
+                root.set-number(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
         if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
@@ -358,7 +557,31 @@ component ObjectSettingRow inherits Rectangle {
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: right;
-            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
+        if root.row-data.range-mode : CommitLineEdit {
+            width: 120px;
+            source-text: root.row-data.end-text-value;
+            enabled: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant";
+            horizontal-alignment: right;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
@@ -375,7 +598,31 @@ component ObjectSettingRow inherits Rectangle {
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: right;
-            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
+        if root.row-data.range-mode : CommitLineEdit {
+            width: 120px;
+            source-text: root.row-data.end-text-value;
+            enabled: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant";
+            horizontal-alignment: right;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
@@ -392,7 +639,14 @@ component ObjectSettingRow inherits Rectangle {
             model: root.row-data.option-labels;
             current-index: root.row-data.selected-option;
             enabled: root.row-data.interactive;
-            selected(value) => { root.set-option(root.row-data.effect-index, root.row-data.param-name, self.current-index); }
+            selected(value) => {
+                root.set-option(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    self.current-index
+                );
+            }
         }
         Rectangle { horizontal-stretch: 1; }
         if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
@@ -407,7 +661,14 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
-            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
         }
         if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: top; }
     }
@@ -421,9 +682,43 @@ component ObjectSettingRow inherits Rectangle {
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
-            commit(value) => { root.set-text(root.row-data.effect-index, root.row-data.param-name, value); }
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
+        if root.row-data.range-mode : CommitLineEdit {
+            horizontal-stretch: 1;
+            source-text: root.row-data.end-text-value;
+            enabled: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant";
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
         }
         if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "keyframes" : KeyframeTrack {
+        row-data: root.row-data;
+        seek(frame) => { root.seek-keyframe(frame); }
+        snap(frame) => { root.snap-keyframe(frame) }
+        add(index, param, frame) => { root.add-keyframe(index, param, frame); }
+        remove(index, param, frame) => { root.remove-keyframe(index, param, frame); }
+        move-keyframe(index, param, old-frame, new-frame) => {
+            root.move-keyframe(index, param, old-frame, new-frame);
+        }
     }
 
     if root.row-data.row-kind == "unsupported" : HorizontalLayout {
@@ -2205,10 +2500,15 @@ export component ObjectSettingsWindow inherits Window {
     callback load-effect-preset(int, string);
     callback delete-effect-preset(int, string);
     callback preset-names(int) -> [string];
-    callback set-parameter-text(int, string, string);
-    callback set-parameter-number(int, string, float);
-    callback set-parameter-bool(int, string, bool);
-    callback set-parameter-option(int, string, int);
+    callback set-parameter-text(int, string, int, string);
+    callback set-parameter-number(int, string, int, float);
+    callback set-parameter-bool(int, string, int, bool);
+    callback set-parameter-option(int, string, int, int);
+    callback seek-effect-frame(int);
+    callback snap-effect-frame(float) -> int;
+    callback add-effect-keyframe(int, string, int);
+    callback remove-effect-keyframe(int, string, int);
+    callback move-effect-keyframe(int, string, int, int);
 
     object-settings-shortcuts := FocusScope {
         width: 100%;
@@ -2303,10 +2603,29 @@ export component ObjectSettingsWindow inherits Window {
                     activate-effect(index) => { root.select-effect(index, false, false); }
                     set-effect-enabled(index, enabled) => { root.set-effect-enabled(index, enabled); }
                     remove-effect(index) => { root.remove-effect(index); }
-                    set-text(index, param, value) => { root.set-parameter-text(index, param, value); }
-                    set-number(index, param, value) => { root.set-parameter-number(index, param, value); }
-                    set-bool(index, param, value) => { root.set-parameter-bool(index, param, value); }
-                    set-option(index, param, option) => { root.set-parameter-option(index, param, option); }
+                    set-text(index, param, frame, value) => {
+                        root.set-parameter-text(index, param, frame, value);
+                    }
+                    set-number(index, param, frame, value) => {
+                        root.set-parameter-number(index, param, frame, value);
+                    }
+                    set-bool(index, param, frame, value) => {
+                        root.set-parameter-bool(index, param, frame, value);
+                    }
+                    set-option(index, param, frame, option) => {
+                        root.set-parameter-option(index, param, frame, option);
+                    }
+                    seek-keyframe(frame) => { root.seek-effect-frame(frame); }
+                    snap-keyframe(frame) => { root.snap-effect-frame(frame) }
+                    add-keyframe(index, param, frame) => {
+                        root.add-effect-keyframe(index, param, frame);
+                    }
+                    remove-keyframe(index, param, frame) => {
+                        root.remove-effect-keyframe(index, param, frame);
+                    }
+                    move-keyframe(index, param, old-frame, new-frame) => {
+                        root.move-effect-keyframe(index, param, old-frame, new-frame);
+                    }
                 }
                 Rectangle { vertical-stretch: 1; }
             }

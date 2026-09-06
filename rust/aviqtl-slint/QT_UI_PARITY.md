@@ -117,18 +117,21 @@ still require the separately scheduled Computer Use suite.
 - The object-settings window now projects the selected clip's real effect stack and metadata-defined
   controls in source order. Slint forwards Ctrl/Shift selection, right-click selection and deletion,
   enable toggles, bounded numeric edits, booleans, strings, paths, colors, fonts, static choices, and
-  live scene choices to the GUI-neutral workspace. Existing keyframe tracks display their evaluated
-  current-frame value and parameter edits create or update the current-frame keyframe while retaining
-  typed-value metadata. The clip context command and settings button open a searchable live effect
-  catalog, additions append the catalog-defined effect, and the sidebar drag handle reorders either
-  one effect or the current Ctrl/Shift selection while preserving a leading transform. The same
+  live scene choices to the GUI-neutral workspace. Existing keyframe tracks project the Qt current
+  interval with independent start/end values while retaining typed-value metadata. Numeric, integer,
+  and color controls expose the mini track: click seeks, double-click adds with scene-grid snapping,
+  non-zero real points drag between their neighbors, and right-click removes them; frame zero and a
+  virtual duration endpoint remain fixed. The clip context command and settings button open a
+  searchable live effect catalog, additions append the catalog-defined effect, and the sidebar drag
+  handle reorders either one effect or the current Ctrl/Shift selection while preserving a leading
+  transform. The same
   right-click surface now saves, lists, loads, and deletes effect presets through the shared
   `PresetStore`, including parameters, keyframe tracks, and enabled state. Sidebar enable toggles
   apply to the current multi-selection like Qt, right-click deletion removes the selected group,
   and the object-settings-window Delete shortcut uses that same selection while retaining a leading
-  transform. The right-side delete button remains single-effect scoped. Two-ended keyframe editing,
-  easing, category-tree presentation, and native file/color/font pickers remain incomplete and
-  therefore keep this area at `foundation`.
+  transform. The right-side delete button remains single-effect scoped. Easing configuration,
+  category-tree presentation, and native file/color/font pickers remain incomplete and therefore
+  keep this area at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
   drag or context menu is active.
 

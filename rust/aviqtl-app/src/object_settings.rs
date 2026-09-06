@@ -1,6 +1,8 @@
 use crate::effect_catalog::EffectCatalog;
+pub use aviqtl_rust_core::api::KeyframePoint;
 use aviqtl_rust_core::api::{
     ClipDocument, EffectDocument, EffectMetadata, ProjectDocument, evaluate_keyframe_track,
+    inspect_keyframe_track,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -57,12 +59,24 @@ pub struct ObjectControl {
     pub disabled: bool,
     pub keyframed: bool,
     pub value: Value,
+    pub relative_frame: i32,
+    pub clip_duration: i32,
+    pub interval_start: i32,
+    pub interval_end: i32,
+    pub start_value: Value,
+    pub end_value: Value,
+    pub start_interpolation: String,
+    pub keyframes: Vec<KeyframePoint>,
     pub options: Vec<ObjectControlOption>,
 }
 
 impl ObjectControl {
     pub fn display_value(&self) -> String {
-        let value = value_payload(&self.value);
+        self.display_value_at(&self.value)
+    }
+
+    pub fn display_value_at(&self, value: &Value) -> String {
+        let value = value_payload(value);
         match value {
             Value::String(value) => value.clone(),
             Value::Number(number) => {
@@ -82,18 +96,30 @@ impl ObjectControl {
     }
 
     pub fn number_value(&self) -> f64 {
-        value_payload(&self.value)
+        self.number_value_at(&self.value)
+    }
+
+    pub fn number_value_at(&self, value: &Value) -> f64 {
+        value_payload(value)
             .as_f64()
             .filter(|value| value.is_finite())
             .unwrap_or_default()
     }
 
     pub fn bool_value(&self) -> bool {
-        value_payload(&self.value).as_bool().unwrap_or(false)
+        self.bool_value_at(&self.value)
+    }
+
+    pub fn bool_value_at(&self, value: &Value) -> bool {
+        value_payload(value).as_bool().unwrap_or(false)
     }
 
     pub fn selected_option(&self) -> Option<usize> {
-        let current = value_payload(&self.value);
+        self.selected_option_at(&self.value)
+    }
+
+    pub fn selected_option_at(&self, value: &Value) -> Option<usize> {
+        let current = value_payload(value);
         self.options
             .iter()
             .position(|option| value_payload(&option.value) == current)
@@ -280,6 +306,21 @@ fn effect_controls(
                 .and_then(|name| effect.keyframes.as_ref()?.get(name));
             let value =
                 evaluate_keyframe_track(track, &fallback, clip_duration.max(0), relative_frame);
+            let keyframes = inspect_keyframe_track(track, &fallback, clip_duration.max(0));
+            let (interval_start, interval_end) =
+                keyframe_interval(&keyframes, relative_frame, clip_duration.max(0));
+            let start_value =
+                evaluate_keyframe_track(track, &fallback, clip_duration.max(0), interval_start);
+            let end_value =
+                evaluate_keyframe_track(track, &fallback, clip_duration.max(0), interval_end);
+            let start_interpolation = if track.is_some() {
+                keyframes
+                    .iter()
+                    .find(|point| point.frame == interval_start)
+                    .map_or_else(|| "linear".to_owned(), |point| point.interpolation.clone())
+            } else {
+                "constant".to_owned()
+            };
             let source_property = definition
                 .get("sourceProperty")
                 .and_then(Value::as_str)
@@ -337,10 +378,45 @@ fn effect_controls(
                     && effect.params.get("linkedVideo").and_then(Value::as_bool) == Some(true),
                 keyframed: track.is_some(),
                 value,
+                relative_frame,
+                clip_duration: clip_duration.max(0),
+                interval_start,
+                interval_end,
+                start_value,
+                end_value,
+                start_interpolation,
+                keyframes,
                 options,
             })
         })
         .collect()
+}
+
+fn keyframe_interval(points: &[KeyframePoint], current_frame: i32, duration: i32) -> (i32, i32) {
+    let duration = duration.max(0);
+    if points.is_empty() {
+        return (0, duration);
+    }
+    if current_frame >= duration {
+        let start = points
+            .iter()
+            .rev()
+            .find(|point| point.frame < duration)
+            .map_or(0, |point| point.frame);
+        return (start, duration);
+    }
+    let Some((index, start)) = points
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, point)| point.frame <= current_frame)
+    else {
+        return (0, points[0].frame.min(duration));
+    };
+    let end = points
+        .get(index + 1)
+        .map_or(duration, |point| point.frame.min(duration));
+    (start.frame, end)
 }
 
 fn control_kind(kind: &str) -> ObjectControlKind {
@@ -519,6 +595,14 @@ mod tests {
             disabled: false,
             keyframed: false,
             value: json!(0),
+            relative_frame: 0,
+            clip_duration: 100,
+            interval_start: 0,
+            interval_end: 100,
+            start_value: json!(0),
+            end_value: json!(0),
+            start_interpolation: "constant".to_owned(),
+            keyframes: Vec::new(),
             options: Vec::new(),
         };
         assert_eq!(integer.parse_text("12").expect("integer"), json!(10));
@@ -569,5 +653,9 @@ mod tests {
             .expect("size");
         assert!(size.keyframed);
         assert_eq!(size.number_value(), 10.0);
+        assert_eq!((size.interval_start, size.interval_end), (0, 20));
+        assert_eq!(size.start_value, json!(0));
+        assert_eq!(size.end_value, json!(20));
+        assert_eq!(size.keyframes.len(), 2);
     }
 }

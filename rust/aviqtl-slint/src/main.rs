@@ -4,7 +4,7 @@ use aviqtl_app::{
     ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
     SaveDecision, SceneSettingsInput, WorkspaceModel,
     effect_catalog::EffectCatalog,
-    object_settings::{ObjectControl, ObjectSettings},
+    object_settings::{ObjectControl, ObjectControlKind, ObjectSettings},
     preset_store::PresetStore,
     selection::SelectionBox,
     settings::SettingsStore,
@@ -367,42 +367,48 @@ impl ObjectSettingsUi {
             .cloned()
     }
 
-    fn set_value(&self, effect_index: usize, param_name: &str, value: serde_json::Value) {
+    fn set_value(
+        &self,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        value: serde_json::Value,
+    ) {
         let _ = self
             .model
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.set_effect_parameter(effect_index, param_name, value)
+                workspace.set_effect_parameter_at_frame(effect_index, param_name, frame, value)
             });
         self.sync();
     }
 
-    fn set_text(&self, effect_index: usize, param_name: &str, text: &str) {
+    fn set_text(&self, effect_index: usize, param_name: &str, frame: i32, text: &str) {
         let Some(control) = self.control(effect_index, param_name) else {
             return;
         };
         match control.parse_text(text) {
-            Ok(value) => self.set_value(effect_index, param_name, value),
+            Ok(value) => self.set_value(effect_index, param_name, frame, value),
             Err(message) => show_error_dialog(&message),
         }
     }
 
-    fn set_number(&self, effect_index: usize, param_name: &str, value: f32) {
+    fn set_number(&self, effect_index: usize, param_name: &str, frame: i32, value: f32) {
         if !value.is_finite() {
             return;
         }
-        self.set_text(effect_index, param_name, &value.to_string());
+        self.set_text(effect_index, param_name, frame, &value.to_string());
     }
 
-    fn set_option(&self, effect_index: usize, param_name: &str, option_index: usize) {
+    fn set_option(&self, effect_index: usize, param_name: &str, frame: i32, option_index: usize) {
         let Some(value) = self
             .control(effect_index, param_name)
             .and_then(|control| control.option_value(option_index))
         else {
             return;
         };
-        self.set_value(effect_index, param_name, value);
+        self.set_value(effect_index, param_name, frame, value);
     }
 
     fn add_effect(&self, effect_id: &str) {
@@ -946,26 +952,101 @@ fn install_callbacks(
         object_delete_selection_ui.sync();
     });
     let object_text_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_text(move |index, param, value| {
-        object_text_ui.set_text(index.max(0) as usize, param.as_str(), value.as_str());
+    object_settings.on_set_parameter_text(move |index, param, frame, value| {
+        object_text_ui.set_text(
+            index.max(0) as usize,
+            param.as_str(),
+            frame.max(0),
+            value.as_str(),
+        );
     });
     let object_number_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_number(move |index, param, value| {
-        object_number_ui.set_number(index.max(0) as usize, param.as_str(), value);
+    object_settings.on_set_parameter_number(move |index, param, frame, value| {
+        object_number_ui.set_number(index.max(0) as usize, param.as_str(), frame.max(0), value);
     });
     let object_bool_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_bool(move |index, param, value| {
+    object_settings.on_set_parameter_bool(move |index, param, frame, value| {
         object_bool_ui.set_value(
             index.max(0) as usize,
             param.as_str(),
+            frame.max(0),
             serde_json::Value::Bool(value),
         );
     });
     let object_option_ui = object_settings_ui.clone();
-    object_settings.on_set_parameter_option(move |index, param, option| {
+    object_settings.on_set_parameter_option(move |index, param, frame, option| {
         if option >= 0 {
-            object_option_ui.set_option(index.max(0) as usize, param.as_str(), option as usize);
+            object_option_ui.set_option(
+                index.max(0) as usize,
+                param.as_str(),
+                frame.max(0),
+                option as usize,
+            );
         }
+    });
+    let object_seek_keyframe_ui = object_settings_ui.clone();
+    object_settings.on_seek_effect_frame(move |frame| {
+        if let Some(workspace) = object_seek_keyframe_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+        {
+            workspace.seek_effect_frame(frame.max(0));
+        }
+        object_seek_keyframe_ui.sync();
+    });
+    let object_snap_model = model.clone();
+    let object_snap_timeline = timeline.as_weak();
+    let object_snap_settings = settings.clone();
+    object_settings.on_snap_effect_frame(move |frame| {
+        let timeline_scale = object_snap_timeline
+            .upgrade()
+            .map_or(1.0, |window| f64::from(window.get_pixels_per_frame()));
+        let enable_snap = object_snap_settings.borrow().bool_value("enableSnap", true);
+        object_snap_model.borrow().current_workspace().map_or_else(
+            || frame.round().max(0.0) as i32,
+            |workspace| {
+                workspace.snap_effect_keyframe_frame(f64::from(frame), timeline_scale, enable_snap)
+            },
+        )
+    });
+    let object_add_keyframe_ui = object_settings_ui.clone();
+    object_settings.on_add_effect_keyframe(move |index, param, frame| {
+        let _ = object_add_keyframe_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.add_effect_keyframe(index.max(0) as usize, param.as_str(), frame.max(0))
+            });
+        object_add_keyframe_ui.sync();
+    });
+    let object_remove_keyframe_ui = object_settings_ui.clone();
+    object_settings.on_remove_effect_keyframe(move |index, param, frame| {
+        let _ = object_remove_keyframe_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.remove_effect_keyframe(index.max(0) as usize, param.as_str(), frame)
+            });
+        object_remove_keyframe_ui.sync();
+    });
+    let object_move_keyframe_ui = object_settings_ui.clone();
+    object_settings.on_move_effect_keyframe(move |index, param, old_frame, new_frame| {
+        let _ = object_move_keyframe_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.move_effect_keyframe(
+                    index.max(0) as usize,
+                    param.as_str(),
+                    old_frame,
+                    new_frame,
+                )
+            });
+        object_move_keyframe_ui.sync();
     });
     let object_reorder_ui = object_settings_ui.clone();
     object_settings.on_reorder_effect(move |index, delta_y| {
@@ -3321,23 +3402,36 @@ fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> 
             interactive: true,
             checked: false,
             keyframed: false,
+            range_mode: false,
+            start_frame: 0,
+            end_frame: 0,
+            current_frame: 0,
+            clip_duration: 0,
+            interpolation: SharedString::new(),
             number_value: 0.0,
+            end_number_value: 0.0,
             minimum: 0.0,
             maximum: 0.0,
             step: 1.0,
             text_value: SharedString::new(),
+            end_text_value: SharedString::new(),
             unit: SharedString::new(),
+            keyframe_markers: ModelRc::new(VecModel::<KeyframeMarkerData>::default()),
             option_labels: ModelRc::new(VecModel::<SharedString>::default()),
             selected_option: -1,
         });
-        rows.extend(effect.controls.iter().map(|control| {
+        for control in &effect.controls {
             let (minimum, maximum) = object_control_range(control);
             let option_labels = control
                 .options
                 .iter()
                 .map(|option| SharedString::from(option.label.clone()))
                 .collect::<Vec<_>>();
-            ObjectSettingRowData {
+            let supports_track = matches!(
+                control.kind,
+                ObjectControlKind::Number | ObjectControlKind::Integer | ObjectControlKind::Color
+            ) && control.param.is_some();
+            let parameter_row = ObjectSettingRowData {
                 row_kind: SharedString::from(control.kind.as_str()),
                 source_kind: SharedString::from(control.source_kind.clone()),
                 effect_index: effect.index as i32,
@@ -3347,23 +3441,79 @@ fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> 
                 selected: effect.selected,
                 removable: effect.removable,
                 interactive: effect.enabled && !control.disabled && control.param.is_some(),
-                checked: control.bool_value(),
+                checked: control.bool_value_at(&control.start_value),
                 keyframed: control.keyframed,
-                number_value: finite_f32(control.number_value(), 0.0),
+                range_mode: supports_track && control.keyframed,
+                start_frame: control.interval_start,
+                end_frame: control.interval_end,
+                current_frame: control.relative_frame,
+                clip_duration: control.clip_duration,
+                interpolation: SharedString::from(control.start_interpolation.clone()),
+                number_value: finite_f32(control.number_value_at(&control.start_value), 0.0),
+                end_number_value: finite_f32(control.number_value_at(&control.end_value), 0.0),
                 minimum,
                 maximum,
                 step: control
                     .step
                     .filter(|step| step.is_finite() && *step > 0.0)
                     .map_or(1.0, |step| finite_f32(step, 1.0)),
-                text_value: SharedString::from(control.display_value()),
+                text_value: SharedString::from(control.display_value_at(&control.start_value)),
+                end_text_value: SharedString::from(control.display_value_at(&control.end_value)),
                 unit: SharedString::from(control.unit.clone()),
+                keyframe_markers: ModelRc::new(VecModel::from(keyframe_markers(control))),
                 option_labels: ModelRc::new(VecModel::from(option_labels)),
-                selected_option: control.selected_option().map_or(-1, |index| index as i32),
+                selected_option: control
+                    .selected_option_at(&control.start_value)
+                    .map_or(-1, |index| index as i32),
+            };
+            rows.push(parameter_row.clone());
+            if supports_track {
+                rows.push(ObjectSettingRowData {
+                    row_kind: SharedString::from("keyframes"),
+                    label: SharedString::new(),
+                    ..parameter_row
+                });
             }
-        }));
+        }
     }
     rows
+}
+
+fn keyframe_markers(control: &ObjectControl) -> Vec<KeyframeMarkerData> {
+    let mut points = control
+        .keyframes
+        .iter()
+        .map(|point| (point.frame, false))
+        .collect::<Vec<_>>();
+    if control.clip_duration > 0
+        && !points
+            .iter()
+            .any(|(frame, _)| *frame == control.clip_duration)
+    {
+        points.push((control.clip_duration, true));
+    }
+    points.sort_unstable_by_key(|(frame, _)| *frame);
+    points.dedup_by_key(|(frame, _)| *frame);
+    points
+        .iter()
+        .enumerate()
+        .map(|(index, (frame, virtual_end))| {
+            let minimum_frame = index
+                .checked_sub(1)
+                .and_then(|previous| points.get(previous))
+                .map_or(0, |(frame, _)| frame.saturating_add(1));
+            let maximum_frame = points
+                .get(index + 1)
+                .map_or(control.clip_duration, |(frame, _)| frame.saturating_sub(1));
+            KeyframeMarkerData {
+                frame: *frame,
+                minimum_frame,
+                maximum_frame,
+                virtual_end: *virtual_end,
+                movable: *frame != 0 && !virtual_end,
+            }
+        })
+        .collect()
 }
 
 fn object_control_range(control: &ObjectControl) -> (f32, f32) {
@@ -3641,7 +3791,9 @@ fn install_render_probe<T: ComponentHandle + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aviqtl_app::object_settings::{ObjectControlKind, ObjectControlOption, ObjectEffect};
+    use aviqtl_app::object_settings::{
+        KeyframePoint, ObjectControlKind, ObjectControlOption, ObjectEffect,
+    };
     use serde_json::json;
 
     #[test]
@@ -3820,6 +3972,14 @@ mod tests {
                         disabled: false,
                         keyframed: false,
                         value: serde_json::Value::Null,
+                        relative_frame: 0,
+                        clip_duration: 100,
+                        interval_start: 0,
+                        interval_end: 100,
+                        start_value: serde_json::Value::Null,
+                        end_value: serde_json::Value::Null,
+                        start_interpolation: "constant".to_owned(),
+                        keyframes: Vec::new(),
                         options: Vec::new(),
                     },
                     ObjectControl {
@@ -3836,6 +3996,14 @@ mod tests {
                         disabled: false,
                         keyframed: true,
                         value: json!("high"),
+                        relative_frame: 10,
+                        clip_duration: 100,
+                        interval_start: 0,
+                        interval_end: 100,
+                        start_value: json!("high"),
+                        end_value: json!("high"),
+                        start_interpolation: "linear".to_owned(),
+                        keyframes: Vec::new(),
                         options: vec![
                             ObjectControlOption {
                                 value: json!("low"),
@@ -3847,12 +4015,49 @@ mod tests {
                             },
                         ],
                     },
+                    ObjectControl {
+                        kind: ObjectControlKind::Number,
+                        source_kind: "slider".to_owned(),
+                        param: Some("size".to_owned()),
+                        label: "Size".to_owned(),
+                        minimum: Some(0.0),
+                        maximum: Some(100.0),
+                        step: Some(1.0),
+                        decimals: Some(1),
+                        unit: "px".to_owned(),
+                        filter: String::new(),
+                        disabled: false,
+                        keyframed: true,
+                        value: json!(10.0),
+                        relative_frame: 10,
+                        clip_duration: 100,
+                        interval_start: 0,
+                        interval_end: 20,
+                        start_value: json!(0.0),
+                        end_value: json!(20.0),
+                        start_interpolation: "linear".to_owned(),
+                        keyframes: vec![
+                            KeyframePoint {
+                                frame: 0,
+                                value: json!(0.0),
+                                interpolation: "linear".to_owned(),
+                                options: json!({"interp":"linear"}),
+                            },
+                            KeyframePoint {
+                                frame: 20,
+                                value: json!(20.0),
+                                interpolation: "ease_in".to_owned(),
+                                options: json!({"interp":"ease_in"}),
+                            },
+                        ],
+                        options: Vec::new(),
+                    },
                 ],
             }],
         };
 
         let rows = object_settings_rows(&settings);
-        assert_eq!(rows.len(), 3);
+        assert_eq!(rows.len(), 5);
         assert_eq!(rows[0].row_kind.as_str(), "effect");
         assert_eq!(rows[1].row_kind.as_str(), "header");
         assert_eq!(rows[2].row_kind.as_str(), "choice");
@@ -3861,5 +4066,17 @@ mod tests {
         assert_eq!(rows[2].option_labels.row_count(), 2);
         assert_eq!(rows[2].option_labels.row_data(0).as_deref(), Some("Low"));
         assert_eq!(rows[2].option_labels.row_data(1).as_deref(), Some("High"));
+        assert_eq!(rows[3].row_kind.as_str(), "number");
+        assert!(rows[3].range_mode);
+        assert_eq!((rows[3].start_frame, rows[3].end_frame), (0, 20));
+        assert_eq!(rows[3].text_value.as_str(), "0.0");
+        assert_eq!(rows[3].end_text_value.as_str(), "20.0");
+        assert_eq!(rows[4].row_kind.as_str(), "keyframes");
+        assert_eq!(rows[4].keyframe_markers.row_count(), 3);
+        assert!(!rows[4].keyframe_markers.row_data(0).unwrap().movable);
+        assert!(rows[4].keyframe_markers.row_data(1).unwrap().movable);
+        let virtual_end = rows[4].keyframe_markers.row_data(2).unwrap();
+        assert_eq!(virtual_end.frame, 100);
+        assert!(virtual_end.virtual_end);
     }
 }
