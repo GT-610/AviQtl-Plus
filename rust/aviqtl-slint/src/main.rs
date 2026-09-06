@@ -4,7 +4,10 @@ use aviqtl_app::{
     ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
     SaveDecision, SceneSettingsInput, WorkspaceModel,
     effect_catalog::EffectCatalog,
-    object_settings::{ObjectControl, ObjectControlKind, ObjectSettings},
+    object_settings::{
+        KeyframePoint, ObjectControl, ObjectControlKind, ObjectSettings,
+        keyframe_interpolation_names,
+    },
     preset_store::PresetStore,
     selection::SelectionBox,
     settings::SettingsStore,
@@ -315,6 +318,7 @@ struct LifecycleUi {
     main: slint::Weak<MainWindow>,
     timeline: slint::Weak<TimelineWindow>,
     object_settings: slint::Weak<ObjectSettingsWindow>,
+    easing: slint::Weak<EasingConfigWindow>,
     project_settings: slint::Weak<ProjectSettingsWindow>,
     scene_settings: slint::Weak<SceneSettingsWindow>,
     system_settings: slint::Weak<SystemSettingsWindow>,
@@ -331,6 +335,7 @@ struct WindowRefs<'a> {
     main: &'a MainWindow,
     timeline: &'a TimelineWindow,
     object_settings: &'a ObjectSettingsWindow,
+    easing: &'a EasingConfigWindow,
     project_settings: &'a ProjectSettingsWindow,
     scene_settings: &'a SceneSettingsWindow,
     system_settings: &'a SystemSettingsWindow,
@@ -341,6 +346,8 @@ struct ObjectSettingsUi {
     main: slint::Weak<MainWindow>,
     timeline: slint::Weak<TimelineWindow>,
     window: slint::Weak<ObjectSettingsWindow>,
+    easing: slint::Weak<EasingConfigWindow>,
+    easing_custom_points: Rc<RefCell<Vec<f64>>>,
     model: Rc<RefCell<ApplicationModel>>,
     catalog: Rc<EffectCatalog>,
     presets: Rc<PresetStore>,
@@ -409,6 +416,53 @@ impl ObjectSettingsUi {
             return;
         };
         self.set_value(effect_index, param_name, frame, value);
+    }
+
+    fn open_easing(&self, effect_index: usize, param_name: &str, start_frame: i32, end_frame: i32) {
+        let point = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .and_then(|workspace| {
+                workspace.prepare_effect_easing(effect_index, param_name, start_frame, end_frame)
+            });
+        let Some(point) = point else {
+            return;
+        };
+        self.sync();
+        if let Some(window) = self.easing.upgrade() {
+            let custom_points = sync_easing_window(&window, effect_index, param_name, &point);
+            *self.easing_custom_points.borrow_mut() = custom_points;
+            let _ = window.show();
+        }
+    }
+
+    fn update_easing_custom_points(&self, controls: [f32; 4]) -> Vec<f64> {
+        let mut points = self.easing_custom_points.borrow_mut();
+        if points.len() < 6 || !points.len().is_multiple_of(6) {
+            *points = vec![0.33, 0.0, 0.66, 1.0, 1.0, 1.0];
+        }
+        for (point, control) in points[..4].iter_mut().zip(controls) {
+            *point = f64::from(control);
+        }
+        points.clone()
+    }
+
+    fn apply_easing(
+        &self,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        options: serde_json::Value,
+    ) {
+        let _ = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.set_effect_keyframe_options(effect_index, param_name, frame, options)
+            });
+        self.sync();
     }
 
     fn add_effect(&self, effect_id: &str) {
@@ -592,6 +646,9 @@ impl LifecycleUi {
         if let Some(window) = self.object_settings.upgrade() {
             let _ = window.hide();
         }
+        if let Some(window) = self.easing.upgrade() {
+            let _ = window.hide();
+        }
         if let Some(window) = self.project_settings.upgrade() {
             let _ = window.hide();
         }
@@ -657,6 +714,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let main = MainWindow::new()?;
     let timeline = TimelineWindow::new()?;
     let object_settings = ObjectSettingsWindow::new()?;
+    let easing = EasingConfigWindow::new()?;
     let project_settings = ProjectSettingsWindow::new()?;
     let scene_settings = SceneSettingsWindow::new()?;
     let system_settings = SystemSettingsWindow::new()?;
@@ -682,6 +740,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     object_settings
         .set_effect_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     sync_effect_catalog(&object_settings, &effect_catalog, "");
+    let easing_names = keyframe_interpolation_names();
+    easing.set_easing_names(ModelRc::new(VecModel::from(
+        easing_names
+            .iter()
+            .map(|name| SharedString::from(*name))
+            .collect::<Vec<_>>(),
+    )));
+    easing.set_easing_labels(ModelRc::new(VecModel::from(
+        easing_names
+            .iter()
+            .map(|name| SharedString::from(easing_label(name)))
+            .collect::<Vec<_>>(),
+    )));
 
     let stats = Rc::new(GpuValidation::new(
         gpu.device.clone(),
@@ -696,6 +767,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         main: main.as_weak(),
         timeline: timeline.as_weak(),
         object_settings: object_settings.as_weak(),
+        easing: easing.as_weak(),
         project_settings: project_settings.as_weak(),
         scene_settings: scene_settings.as_weak(),
         system_settings: system_settings.as_weak(),
@@ -712,6 +784,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             main: &main,
             timeline: &timeline,
             object_settings: &object_settings,
+            easing: &easing,
             project_settings: &project_settings,
             scene_settings: &scene_settings,
             system_settings: &system_settings,
@@ -756,6 +829,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_launcher = launcher.as_weak();
     let animation_recovery = recovery.as_weak();
     let animation_settings = object_settings.as_weak();
+    let animation_easing = easing.as_weak();
     let animation_effect_catalog = effect_catalog.clone();
     let animation_object_sync_key = Rc::new(RefCell::new(None::<ObjectSettingsSyncKey>));
     let object_sync_key = animation_object_sync_key.clone();
@@ -821,6 +895,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(window) = animation_settings.upgrade() {
                 let _ = window.hide();
             }
+            if let Some(window) = animation_easing.upgrade() {
+                let _ = window.hide();
+            }
             if let Some(window) = animation_project_settings.upgrade() {
                 let _ = window.hide();
             }
@@ -883,6 +960,7 @@ fn install_callbacks(
         main,
         timeline,
         object_settings,
+        easing,
         project_settings,
         scene_settings,
         system_settings,
@@ -891,6 +969,8 @@ fn install_callbacks(
         main: main.as_weak(),
         timeline: timeline.as_weak(),
         window: object_settings.as_weak(),
+        easing: easing.as_weak(),
+        easing_custom_points: Rc::new(RefCell::new(Vec::new())),
         model: model.clone(),
         catalog: effect_catalog.clone(),
         presets: preset_store.clone(),
@@ -1047,6 +1127,72 @@ fn install_callbacks(
                 )
             });
         object_move_keyframe_ui.sync();
+    });
+    let object_easing_ui = object_settings_ui.clone();
+    object_settings.on_open_effect_easing(move |index, param, start_frame, end_frame| {
+        object_easing_ui.open_easing(
+            index.max(0) as usize,
+            param.as_str(),
+            start_frame.max(0),
+            end_frame.max(0),
+        );
+    });
+    let easing_apply_ui = object_settings_ui.clone();
+    let easing_apply_window = easing.as_weak();
+    easing.on_apply_easing(
+        move |interpolation, step_frames, amplitude, period, x1, y1, x2, y2| {
+            let Some(window) = easing_apply_window.upgrade() else {
+                return;
+            };
+            let custom_points = easing_apply_ui.update_easing_custom_points([x1, y1, x2, y2]);
+            let options = easing_options(
+                interpolation.as_str(),
+                step_frames,
+                amplitude,
+                period,
+                &custom_points,
+            );
+            easing_apply_ui.apply_easing(
+                window.get_effect_index().max(0) as usize,
+                window.get_param_name().as_str(),
+                window.get_keyframe_frame().max(0),
+                options,
+            );
+        },
+    );
+    let easing_custom_window = easing.as_weak();
+    easing.on_custom_point_edited(move |index, text| {
+        let Some(window) = easing_custom_window.upgrade() else {
+            return;
+        };
+        let mut value = text.as_str().trim().parse::<f32>().unwrap_or(0.0);
+        if index == 0 || index == 2 {
+            value = value.clamp(0.0, 1.0);
+        }
+        match index {
+            0 => window.set_custom_x1(value),
+            1 => window.set_custom_y1(value),
+            2 => window.set_custom_x2(value),
+            3 => window.set_custom_y2(value),
+            _ => return,
+        }
+        let interpolation = easing_name_at(window.get_selected_easing_index());
+        window.invoke_apply_easing(
+            SharedString::from(interpolation),
+            window.get_step_frames(),
+            window.get_elastic_amplitude(),
+            window.get_elastic_period(),
+            window.get_custom_x1(),
+            window.get_custom_y1(),
+            window.get_custom_x2(),
+            window.get_custom_y2(),
+        );
+    });
+    let easing_close = easing.as_weak();
+    easing.on_close_window(move || {
+        if let Some(window) = easing_close.upgrade() {
+            let _ = window.hide();
+        }
     });
     let object_reorder_ui = object_settings_ui.clone();
     object_settings.on_reorder_effect(move |index, delta_y| {
@@ -3537,6 +3683,163 @@ fn finite_f32(value: f64, fallback: f32) -> f32 {
     }
 }
 
+fn easing_name_at(index: i32) -> &'static str {
+    usize::try_from(index)
+        .ok()
+        .and_then(|index| keyframe_interpolation_names().get(index).copied())
+        .unwrap_or("none")
+}
+
+fn easing_label(name: &str) -> String {
+    match name {
+        "none" => return "瞬間移動".to_owned(),
+        "linear" => return "直線".to_owned(),
+        "custom" => return "カスタム".to_owned(),
+        "random" => return "ランダム移動".to_owned(),
+        "alternate" => return "反復移動".to_owned(),
+        _ => {}
+    }
+    let (direction, family) = [
+        ("ease_in_out_", "加減速"),
+        ("ease_out_in_", "減加速"),
+        ("ease_in_", "加速"),
+        ("ease_out_", "減速"),
+    ]
+    .into_iter()
+    .find_map(|(prefix, direction)| name.strip_prefix(prefix).map(|family| (direction, family)))
+    .unwrap_or(("", name));
+    let family = match family {
+        "sine" => "サイン",
+        "quad" => "2次",
+        "cubic" => "3次",
+        "quart" => "4次",
+        "quint" => "5次",
+        "expo" => "指数",
+        "circ" => "円",
+        "back" => "戻る",
+        "elastic" => "弾性",
+        "bounce" => "跳ね返り",
+        other => other,
+    };
+    if direction.is_empty() {
+        family.to_owned()
+    } else {
+        format!("{family} {direction}")
+    }
+}
+
+fn sync_easing_window(
+    window: &EasingConfigWindow,
+    effect_index: usize,
+    param_name: &str,
+    point: &KeyframePoint,
+) -> Vec<f64> {
+    let interpolation = if point.interpolation == "bezier" {
+        "custom"
+    } else {
+        point.interpolation.as_str()
+    };
+    let names = keyframe_interpolation_names();
+    let selected_index = names
+        .iter()
+        .position(|name| *name == interpolation)
+        .map_or(0, |index| index as i32);
+    let mode_params = point
+        .options
+        .get("modeParams")
+        .and_then(serde_json::Value::as_object);
+    let step_frames = mode_params
+        .and_then(|params| params.get("stepFrames"))
+        .and_then(serde_json::Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok())
+        .unwrap_or(1)
+        .max(1);
+    let amplitude = mode_params
+        .and_then(|params| params.get("amplitude"))
+        .and_then(serde_json::Value::as_f64)
+        .map_or(1.0, |value| finite_f32(value, 1.0));
+    let period = mode_params
+        .and_then(|params| params.get("period"))
+        .and_then(serde_json::Value::as_f64)
+        .map_or(0.3, |value| finite_f32(value, 0.3));
+    let custom_points = point
+        .options
+        .get("points")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|points| {
+            points
+                .iter()
+                .map(serde_json::Value::as_f64)
+                .collect::<Option<Vec<_>>>()
+        })
+        .filter(|points| points.len() >= 6 && points.len().is_multiple_of(6))
+        .unwrap_or_else(|| vec![0.33, 0.0, 0.66, 1.0, 1.0, 1.0]);
+
+    window.set_initializing(true);
+    window.set_effect_index(effect_index as i32);
+    window.set_param_name(SharedString::from(param_name));
+    window.set_keyframe_frame(point.frame);
+    window.set_selected_easing_index(selected_index);
+    window.set_step_frames(step_frames);
+    window.set_elastic_amplitude(amplitude);
+    window.set_elastic_period(period);
+    window.set_custom_x1(finite_f32(custom_points[0], 0.33));
+    window.set_custom_y1(finite_f32(custom_points[1], 0.0));
+    window.set_custom_x2(finite_f32(custom_points[2], 0.66));
+    window.set_custom_y2(finite_f32(custom_points[3], 1.0));
+    window.set_initializing(false);
+    custom_points
+}
+
+fn easing_options(
+    interpolation: &str,
+    step_frames: i32,
+    amplitude: f32,
+    period: f32,
+    points: &[f64],
+) -> serde_json::Value {
+    let interpolation = keyframe_interpolation_names()
+        .into_iter()
+        .find(|name| *name == interpolation)
+        .unwrap_or("none");
+    let mut options = serde_json::Map::new();
+    options.insert(
+        "interp".to_owned(),
+        serde_json::Value::String(interpolation.to_owned()),
+    );
+    if interpolation == "custom" {
+        let mut points = if points.len() >= 6 && points.len().is_multiple_of(6) {
+            points.to_vec()
+        } else {
+            vec![0.33, 0.0, 0.66, 1.0, 1.0, 1.0]
+        };
+        points[0] = points[0].clamp(0.0, 1.0);
+        points[2] = points[2].clamp(0.0, 1.0);
+        options.insert("points".to_owned(), serde_json::json!(points));
+    } else if interpolation == "random" || interpolation == "alternate" {
+        options.insert(
+            "modeParams".to_owned(),
+            serde_json::json!({"stepFrames": step_frames.max(1)}),
+        );
+    } else if interpolation.contains("elastic") {
+        let amplitude = if amplitude.is_finite() {
+            amplitude.clamp(0.1, 5.0)
+        } else {
+            1.0
+        };
+        let period = if period.is_finite() {
+            period.clamp(0.05, 1.0)
+        } else {
+            0.3
+        };
+        options.insert(
+            "modeParams".to_owned(),
+            serde_json::json!({"amplitude": amplitude, "period": period}),
+        );
+    }
+    serde_json::Value::Object(options)
+}
+
 fn sync_recovery_window(window: &ProjectRecoveryWindow, model: &ApplicationModel) {
     sync_recovery_entries(window, model.recovery_entries());
 }
@@ -3872,6 +4175,50 @@ mod tests {
             assert!(!shortcut_matches("Command+S", &command_save));
             assert!(shortcut_matches("Command+S", &physical_control_save));
         }
+    }
+
+    #[test]
+    fn easing_options_match_the_qt_parameter_contracts() {
+        assert_eq!(easing_label("ease_in_out_elastic"), "弾性 加減速");
+        assert_eq!(easing_label("ease_out_sine"), "サイン 減速");
+        assert_eq!(easing_label("ease_in_quad"), "2次 加速");
+        assert_eq!(easing_label("ease_out_in_circ"), "円 減加速");
+        assert_eq!(easing_label("ease_in_bounce"), "跳ね返り 加速");
+        assert_eq!(easing_name_at(0), "none");
+        assert_eq!(easing_name_at(-1), "none");
+
+        let random = easing_options("random", 0, 1.0, 0.3, &[0.33, 0.0, 0.66, 1.0, 1.0, 1.0]);
+        assert_eq!(random["interp"], "random");
+        assert_eq!(random["modeParams"]["stepFrames"], 1);
+
+        let elastic = easing_options(
+            "ease_out_elastic",
+            1,
+            f32::INFINITY,
+            0.0,
+            &[0.33, 0.0, 0.66, 1.0, 1.0, 1.0],
+        );
+        assert_eq!(elastic["modeParams"]["amplitude"], 1.0);
+        let period = elastic["modeParams"]["period"]
+            .as_f64()
+            .expect("elastic period is numeric");
+        assert!((period - 0.05).abs() < f64::from(f32::EPSILON));
+
+        let custom = easing_options(
+            "custom",
+            1,
+            1.0,
+            0.3,
+            &[-2.0, -1.0, 3.0, 2.0, 0.5, 0.5, 0.6, 0.6, 0.8, 0.8, 1.0, 1.0],
+        );
+        assert_eq!(
+            custom["points"],
+            json!([0.0, -1.0, 1.0, 2.0, 0.5, 0.5, 0.6, 0.6, 0.8, 0.8, 1.0, 1.0])
+        );
+        assert_eq!(
+            easing_options("unknown", 1, 1.0, 0.3, &[0.0; 6])["interp"],
+            "none"
+        );
     }
 
     #[test]

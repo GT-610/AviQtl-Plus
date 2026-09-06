@@ -601,6 +601,14 @@ fn apply(request: Request) -> Response {
                     .or_else(|| start.get("interp").cloned())
                     .unwrap_or_else(|| Value::String("none".to_owned()));
                 start.insert("interp".to_owned(), interpolation);
+                if !options.is_empty() {
+                    for name in ["points", "modeParams"] {
+                        start.remove(name);
+                        if let Some(value) = options.get(name) {
+                            start.insert(name.to_owned(), value.clone());
+                        }
+                    }
+                }
                 let mut result = response(normalized, true, true);
                 result.base_value = Some(value);
                 return result;
@@ -1084,6 +1092,62 @@ mod tests {
         assert_eq!(
             moved.flat.iter().map(point_frame).collect::<Vec<_>>(),
             [0, 8, 10, 20]
+        );
+    }
+
+    #[test]
+    fn setting_the_start_keyframe_replaces_interpolation_options() {
+        let random = apply(Request::Set {
+            track: json!({
+                "start": {
+                    "frame": 0,
+                    "value": 0.0,
+                    "interp": "custom",
+                    "points": [0.33, 0.0, 0.66, 1.0, 1.0, 1.0]
+                },
+                "points": [{"frame": 10, "value": 10.0, "interp": "none"}]
+            }),
+            fallback: json!(0.0),
+            duration: 10,
+            frame: 0,
+            value: json!(1.0),
+            options: json!({"interp": "random", "modeParams": {"stepFrames": 3}}),
+        });
+        assert_eq!(random.track["start"]["interp"], "random");
+        assert_eq!(random.track["start"]["modeParams"]["stepFrames"], 3);
+        assert!(random.track["start"].get("points").is_none());
+
+        let custom = apply(Request::Set {
+            track: random.track,
+            fallback: json!(0.0),
+            duration: 10,
+            frame: 0,
+            value: json!(2.0),
+            options: json!({
+                "interp": "custom",
+                "points": [0.2, -0.1, 0.8, 1.1, 1.0, 1.0]
+            }),
+        });
+        assert_eq!(custom.track["start"]["interp"], "custom");
+        assert_eq!(
+            custom.track["start"]["points"],
+            json!([0.2, -0.1, 0.8, 1.1, 1.0, 1.0])
+        );
+        assert!(custom.track["start"].get("modeParams").is_none());
+
+        let value_only = apply(Request::Set {
+            track: custom.track,
+            fallback: json!(0.0),
+            duration: 10,
+            frame: 0,
+            value: json!(3.0),
+            options: json!({}),
+        });
+        assert_eq!(value_only.track["start"]["value"], 3.0);
+        assert_eq!(value_only.track["start"]["interp"], "custom");
+        assert_eq!(
+            value_only.track["start"]["points"],
+            json!([0.2, -0.1, 0.8, 1.1, 1.0, 1.0])
         );
     }
 

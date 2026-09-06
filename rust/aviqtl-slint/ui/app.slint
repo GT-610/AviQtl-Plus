@@ -398,6 +398,7 @@ component ObjectSettingRow inherits Rectangle {
     callback add-keyframe(int, string, int);
     callback remove-keyframe(int, string, int);
     callback move-keyframe(int, string, int, int);
+    callback open-easing(int, string, int, int);
     height: root.row-data.row-kind == "effect" ? 42px
         : root.row-data.row-kind == "header" ? 36px
         : root.row-data.row-kind == "text" ? 90px
@@ -508,6 +509,18 @@ component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
+        Button {
+            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            enabled: root.row-data.interactive;
+            clicked => {
+                root.open-easing(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.end-frame
+                );
+            }
+        }
         if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
         if root.row-data.range-mode : CommitLineEdit {
             width: 76px;
@@ -566,6 +579,18 @@ component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
+        Button {
+            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            enabled: root.row-data.interactive;
+            clicked => {
+                root.open-easing(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.end-frame
+                );
+            }
+        }
         if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
         if root.row-data.range-mode : CommitLineEdit {
             width: 120px;
@@ -604,6 +629,18 @@ component ObjectSettingRow inherits Rectangle {
                     root.row-data.param-name,
                     root.row-data.start-frame,
                     value
+                );
+            }
+        }
+        Button {
+            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            enabled: root.row-data.interactive;
+            clicked => {
+                root.open-easing(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.end-frame
                 );
             }
         }
@@ -688,6 +725,18 @@ component ObjectSettingRow inherits Rectangle {
                     root.row-data.param-name,
                     root.row-data.start-frame,
                     value
+                );
+            }
+        }
+        if root.row-data.row-kind == "color" : Button {
+            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            enabled: root.row-data.interactive;
+            clicked => {
+                root.open-easing(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.end-frame
                 );
             }
         }
@@ -2509,6 +2558,7 @@ export component ObjectSettingsWindow inherits Window {
     callback add-effect-keyframe(int, string, int);
     callback remove-effect-keyframe(int, string, int);
     callback move-effect-keyframe(int, string, int, int);
+    callback open-effect-easing(int, string, int, int);
 
     object-settings-shortcuts := FocusScope {
         width: 100%;
@@ -2626,6 +2676,9 @@ export component ObjectSettingsWindow inherits Window {
                     move-keyframe(index, param, old-frame, new-frame) => {
                         root.move-effect-keyframe(index, param, old-frame, new-frame);
                     }
+                    open-easing(index, param, start-frame, end-frame) => {
+                        root.open-effect-easing(index, param, start-frame, end-frame);
+                    }
                 }
                 Rectangle { vertical-stretch: 1; }
             }
@@ -2726,5 +2779,167 @@ export component ObjectSettingsWindow inherits Window {
             }
         }
     }
+    }
+}
+
+export component EasingConfigWindow inherits Window {
+    title: "補間設定: " + root.param-name;
+    preferred-width: 620px;
+    preferred-height: 430px;
+    min-width: 480px;
+    min-height: 360px;
+    in-out property <bool> initializing: false;
+    in-out property <int> effect-index: -1;
+    in-out property <string> param-name: "";
+    in-out property <int> keyframe-frame: 0;
+    in property <[string]> easing-names;
+    in property <[string]> easing-labels;
+    in-out property <int> selected-easing-index: 0;
+    in-out property <int> step-frames: 1;
+    in-out property <float> elastic-amplitude: 1;
+    in-out property <float> elastic-period: 0.3;
+    in-out property <float> custom-x1: 0.33;
+    in-out property <float> custom-y1: 0;
+    in-out property <float> custom-x2: 0.66;
+    in-out property <float> custom-y2: 1;
+    private property <string> selected-easing: root.selected-easing-index >= 0
+        && root.selected-easing-index < root.easing-names.length
+        ? root.easing-names[root.selected-easing-index]
+        : "none";
+    private property <bool> step-mode: root.selected-easing == "random"
+        || root.selected-easing == "alternate";
+    private property <bool> elastic-mode: root.selected-easing == "ease_in_elastic"
+        || root.selected-easing == "ease_out_elastic"
+        || root.selected-easing == "ease_in_out_elastic"
+        || root.selected-easing == "ease_out_in_elastic";
+    private property <bool> custom-mode: root.selected-easing == "custom";
+    callback apply-easing(string, int, float, float, float, float, float, float);
+    callback custom-point-edited(int, string);
+    callback close-window();
+
+    function apply-current() {
+        if !root.initializing && root.effect-index >= 0 && root.param-name != "" {
+            root.apply-easing(
+                root.selected-easing,
+                max(root.step-frames, 1),
+                root.elastic-amplitude,
+                root.elastic-period,
+                root.custom-x1,
+                root.custom-y1,
+                root.custom-x2,
+                root.custom-y2
+            );
+        }
+    }
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 10px;
+        Text {
+            text: "フレーム \{root.keyframe-frame}  ·  \{root.param-name}";
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: "補間方法"; width: 90px; vertical-alignment: center; }
+            ComboBox {
+                horizontal-stretch: 1;
+                model: root.easing-labels;
+                current-index: root.selected-easing-index;
+                selected(value) => {
+                    root.selected-easing-index = self.current-index;
+                    root.apply-current();
+                }
+            }
+        }
+        if root.step-mode : GroupBox {
+            title: "更新間隔";
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 8px;
+                SpinBox {
+                    value <=> root.step-frames;
+                    minimum: 1;
+                    maximum: 9999;
+                    changed value => { root.apply-current(); }
+                }
+                Text { text: "フレーム"; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+        if root.elastic-mode : GroupBox {
+            title: "詳細設定";
+            VerticalLayout {
+                padding: 8px;
+                spacing: 8px;
+                HorizontalLayout {
+                    Text { text: "振幅"; width: 60px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0.1;
+                        maximum: 5;
+                        value <=> root.elastic-amplitude;
+                        changed(value) => { root.apply-current(); }
+                    }
+                    Text { text: "\{round(root.elastic-amplitude * 100) / 100}"; width: 52px; }
+                }
+                HorizontalLayout {
+                    Text { text: "周期"; width: 60px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0.05;
+                        maximum: 1;
+                        value <=> root.elastic-period;
+                        changed(value) => { root.apply-current(); }
+                    }
+                    Text { text: "\{round(root.elastic-period * 100) / 100}"; width: 52px; }
+                }
+            }
+        }
+        if root.custom-mode : GroupBox {
+            title: "制御点";
+            GridLayout {
+                padding: 8px;
+                spacing: 8px;
+                Row {
+                    Text { text: "CP1 X"; vertical-alignment: center; }
+                    CommitLineEdit {
+                        width: 100px;
+                        source-text: "\{root.custom-x1}";
+                        commit(value) => { root.custom-point-edited(0, value); }
+                    }
+                    Text { text: "CP1 Y"; vertical-alignment: center; }
+                    CommitLineEdit {
+                        width: 100px;
+                        source-text: "\{root.custom-y1}";
+                        commit(value) => { root.custom-point-edited(1, value); }
+                    }
+                }
+                Row {
+                    Text { text: "CP2 X"; vertical-alignment: center; }
+                    CommitLineEdit {
+                        width: 100px;
+                        source-text: "\{root.custom-x2}";
+                        commit(value) => { root.custom-point-edited(2, value); }
+                    }
+                    Text { text: "CP2 Y"; vertical-alignment: center; }
+                    CommitLineEdit {
+                        width: 100px;
+                        source-text: "\{root.custom-y2}";
+                        commit(value) => { root.custom-point-edited(3, value); }
+                    }
+                }
+            }
+        }
+        Rectangle { vertical-stretch: 1; }
+        Text {
+            text: "選択内容は対象キーフレームへ即時反映されます";
+            color: #aeb3bc;
+        }
+        HorizontalLayout {
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "閉じる"; clicked => { root.close-window(); } }
+        }
     }
 }

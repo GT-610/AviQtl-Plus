@@ -550,6 +550,16 @@ impl WorkspaceModel {
         param_name: &str,
         frame: i32,
     ) -> bool {
+        self.add_effect_keyframe_with_options(effect_index, param_name, frame, true)
+    }
+
+    fn add_effect_keyframe_with_options(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        inherit_options: bool,
+    ) -> bool {
         let Some((clip, effect, fallback)) =
             self.effect_parameter_context(effect_index, param_name)
         else {
@@ -565,7 +575,11 @@ impl WorkspaceModel {
             return false;
         }
         let value = evaluate_keyframe_track(track, &fallback, clip.duration, frame);
-        let options = keyframe_options_at(&points, frame, "none");
+        let options = if inherit_options {
+            keyframe_options_at(&points, frame, "none")
+        } else {
+            json!({"interp": "none"})
+        };
         self.execute(TimelineCommand::SetEffectKeyframe {
             clip_id: clip.id,
             effect_index,
@@ -644,6 +658,96 @@ impl WorkspaceModel {
             param_name: param_name.to_owned(),
             old_frame,
             new_frame,
+        })
+    }
+
+    pub fn prepare_effect_easing(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        start_frame: i32,
+        end_frame: i32,
+    ) -> Option<aviqtl_rust_core::api::KeyframePoint> {
+        let duration = self.selected_clip_document()?.duration.max(0);
+        let mut required = vec![start_frame.clamp(0, duration)];
+        if end_frame != duration {
+            required.push(end_frame.clamp(0, duration));
+        }
+        required.push(duration);
+        required.sort_unstable();
+        required.dedup();
+        for frame in required {
+            let exists = self
+                .effect_parameter_context(effect_index, param_name)
+                .is_some_and(|(clip, effect, fallback)| {
+                    inspect_keyframe_track(
+                        effect
+                            .keyframes
+                            .as_ref()
+                            .and_then(|tracks| tracks.get(param_name)),
+                        &fallback,
+                        clip.duration,
+                    )
+                    .iter()
+                    .any(|point| point.frame == frame)
+                });
+            if !exists {
+                let inherit_options = frame != duration;
+                if !self.add_effect_keyframe_with_options(
+                    effect_index,
+                    param_name,
+                    frame,
+                    inherit_options,
+                ) {
+                    return None;
+                }
+            }
+        }
+        let (clip, effect, fallback) = self.effect_parameter_context(effect_index, param_name)?;
+        inspect_keyframe_track(
+            effect
+                .keyframes
+                .as_ref()
+                .and_then(|tracks| tracks.get(param_name)),
+            &fallback,
+            clip.duration,
+        )
+        .into_iter()
+        .find(|point| point.frame == start_frame.clamp(0, duration))
+    }
+
+    pub fn set_effect_keyframe_options(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        options: Value,
+    ) -> bool {
+        let Some((clip, effect, fallback)) =
+            self.effect_parameter_context(effect_index, param_name)
+        else {
+            return false;
+        };
+        let frame = frame.clamp(0, clip.duration.max(0));
+        let Some(point) = inspect_keyframe_track(
+            effect
+                .keyframes
+                .as_ref()
+                .and_then(|tracks| tracks.get(param_name)),
+            &fallback,
+            clip.duration,
+        )
+        .into_iter()
+        .find(|point| point.frame == frame) else {
+            return false;
+        };
+        self.execute(TimelineCommand::SetEffectKeyframe {
+            clip_id: clip.id,
+            effect_index,
+            param_name: param_name.to_owned(),
+            frame,
+            value: point.value,
+            options,
         })
     }
 
@@ -2041,6 +2145,16 @@ mod tests {
         assert!(!workspace.move_effect_keyframe(1, "size", 0, 10));
         assert!(workspace.remove_effect_keyframe(1, "size", 20));
         assert!(!workspace.remove_effect_keyframe(1, "size", 0));
+        let easing_point = workspace
+            .prepare_effect_easing(1, "size", 0, 60)
+            .expect("easing endpoints are materialized");
+        assert_eq!(easing_point.frame, 0);
+        assert!(workspace.set_effect_keyframe_options(
+            1,
+            "size",
+            0,
+            json!({"interp":"random","modeParams":{"stepFrames":3}}),
+        ));
 
         let effect = &workspace.document().clips[0].effects[1];
         let track = effect
@@ -2050,9 +2164,12 @@ mod tests {
         let points = inspect_keyframe_track(track, &effect.params["size"], 100);
         assert_eq!(
             points.iter().map(|point| point.frame).collect::<Vec<_>>(),
-            [0, 60]
+            [0, 60, 100]
         );
         assert_eq!(points[1].value, json!(25.0));
+        assert_eq!(points[0].interpolation, "random");
+        assert_eq!(points[0].options["modeParams"]["stepFrames"], 3);
+        assert_eq!(points[2].interpolation, "none");
     }
 
     #[test]

@@ -1,9 +1,9 @@
 use crate::effect_catalog::EffectCatalog;
-pub use aviqtl_rust_core::api::KeyframePoint;
 use aviqtl_rust_core::api::{
     ClipDocument, EffectDocument, EffectMetadata, ProjectDocument, evaluate_keyframe_track,
     inspect_keyframe_track,
 };
+pub use aviqtl_rust_core::api::{KeyframePoint, keyframe_interpolation_names};
 use serde_json::Value;
 use std::path::Path;
 

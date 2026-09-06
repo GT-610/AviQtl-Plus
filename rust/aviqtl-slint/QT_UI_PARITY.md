@@ -124,12 +124,14 @@ still require the separately scheduled Computer Use suite.
   virtual duration endpoint remain fixed. The clip context command and settings button open a
   searchable live effect catalog, additions append the catalog-defined effect, and the sidebar drag
   handle reorders either one effect or the current Ctrl/Shift selection while preserving a leading
-  transform. The same
-  right-click surface now saves, lists, loads, and deletes effect presets through the shared
-  `PresetStore`, including parameters, keyframe tracks, and enabled state. Sidebar enable toggles
+  transform. The same right-click surface now saves, lists, loads, and deletes effect presets through
+  the shared `PresetStore`, including parameters, keyframe tracks, and enabled state. Sidebar enable toggles
   apply to the current multi-selection like Qt, right-click deletion removes the selected group,
   and the object-settings-window Delete shortcut uses that same selection while retaining a leading
-  transform. The right-side delete button remains single-effect scoped. Easing configuration,
+  transform. The right-side delete button remains single-effect scoped. Easing configuration now
+  opens a dedicated window backed by the Rust-owned interpolation catalog and immediately
+  applies type changes, random/alternate step frames, elastic amplitude/period, and the first
+  custom Bezier control pair. The Qt curve preview, multi-segment point manipulation,
   category-tree presentation, and native file/color/font pickers remain incomplete and therefore
   keep this area at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
