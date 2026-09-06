@@ -23,6 +23,11 @@ Open and Save As use `rfd` platform dialogs. On Linux its default backend is the
 than GTK, preserving the migration goal of not reintroducing a large native GUI build dependency.
 Save/Discard/Cancel sequencing remains in `aviqtl-app`; the native chooser only returns a path.
 
+Project recovery follows the same split. `aviqtl-app` owns recovery IDs, metadata validation,
+periodic scheduling, a single background file worker, stale cleanup, and Save/Close/Quit cleanup.
+Slint only presents the launcher-owned recovery list and forwards Recover or Discard. Recovering
+always creates a dirty pathless project, so Save opens Save As and never overwrites the original.
+
 The egui work is therefore not discarded. Domain and application crates are reused directly, while
 the egui implementation and its tests remain a behavior reference for interaction details that are
 specific to a retained-mode Slint UI.

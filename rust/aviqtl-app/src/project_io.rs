@@ -94,7 +94,10 @@ impl ProjectSession {
         })
     }
 
-    pub fn load_recovery(snapshot_path: &Path, original_project_url: &str) -> Result<Self, String> {
+    pub fn load_recovery(
+        snapshot_path: &Path,
+        _original_project_url: &str,
+    ) -> Result<Self, String> {
         let bytes = fs::read(snapshot_path)
             .map_err(|error| format!("{}: {error}", snapshot_path.display()))?;
         let state = TimelineState::from_json(&bytes)
@@ -103,7 +106,10 @@ impl ProjectSession {
         Ok(Self {
             state,
             document,
-            path: project_path_from_url(original_project_url),
+            // Match the Qt recovery flow: the source path is informative only. A recovered
+            // project is intentionally unsaved so that a normal Save opens Save As instead of
+            // overwriting the original project.
+            path: None,
             dirty: true,
         })
     }
@@ -153,41 +159,6 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
             let _ = fs::remove_file(&temporary);
             Err(error)
         }
-    }
-}
-
-fn project_path_from_url(value: &str) -> Option<PathBuf> {
-    if value.is_empty() {
-        return None;
-    }
-    let path = value.strip_prefix("file://").unwrap_or(value);
-    let decoded = percent_decode(path.as_bytes())?;
-    Some(PathBuf::from(String::from_utf8(decoded).ok()?))
-}
-
-fn percent_decode(value: &[u8]) -> Option<Vec<u8>> {
-    let mut output = Vec::with_capacity(value.len());
-    let mut index = 0;
-    while index < value.len() {
-        if value[index] == b'%' {
-            let high = hex_digit(*value.get(index + 1)?)?;
-            let low = hex_digit(*value.get(index + 2)?)?;
-            output.push(high * 16 + low);
-            index += 3;
-        } else {
-            output.push(value[index]);
-            index += 1;
-        }
-    }
-    Some(output)
-}
-
-fn hex_digit(value: u8) -> Option<u8> {
-    match value {
-        b'0'..=b'9' => Some(value - b'0'),
-        b'a'..=b'f' => Some(value - b'a' + 10),
-        b'A'..=b'F' => Some(value - b'A' + 10),
-        _ => None,
     }
 }
 
@@ -275,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn recovery_restores_the_original_path_and_stays_dirty() {
+    fn recovery_stays_unsaved_and_dirty_even_when_the_original_path_is_known() {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time follows the Unix epoch")
@@ -294,10 +265,7 @@ mod tests {
         let recovered =
             ProjectSession::load_recovery(&snapshot_path, "file:///tmp/AviQtl%20recovery.aviqtl")
                 .expect("recovery snapshot loads");
-        assert_eq!(
-            recovered.path.as_deref(),
-            Some(Path::new("/tmp/AviQtl recovery.aviqtl"))
-        );
+        assert_eq!(recovered.path, None);
         assert!(recovered.dirty);
 
         let unsaved = ProjectSession::load_recovery(&snapshot_path, "")
@@ -305,15 +273,5 @@ mod tests {
         assert_eq!(unsaved.path, None);
         assert!(unsaved.dirty);
         fs::remove_file(snapshot_path).expect("recovery snapshot removes");
-    }
-
-    #[test]
-    fn recovery_accepts_plain_paths_and_rejects_malformed_percent_encoding() {
-        assert_eq!(
-            project_path_from_url("/tmp/plain.aviqtl").as_deref(),
-            Some(Path::new("/tmp/plain.aviqtl"))
-        );
-        assert_eq!(project_path_from_url("file:///tmp/broken%2.aviqtl"), None);
-        assert_eq!(project_path_from_url("file:///tmp/broken%zz.aviqtl"), None);
     }
 }

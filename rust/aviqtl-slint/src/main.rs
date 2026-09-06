@@ -39,6 +39,7 @@ const VALIDATION_PROJECT: &[u8] = br#"{
 
 struct LifecycleUi {
     launcher: slint::Weak<ProjectLauncherWindow>,
+    recovery: slint::Weak<ProjectRecoveryWindow>,
     main: slint::Weak<MainWindow>,
     timeline: slint::Weak<TimelineWindow>,
     object_settings: slint::Weak<ObjectSettingsWindow>,
@@ -83,6 +84,7 @@ impl LifecycleUi {
                         if let Some(launcher) = self.launcher.upgrade() {
                             let _ = launcher.show();
                         }
+                        self.show_recoveries_if_available();
                     }
                     return;
                 }
@@ -117,6 +119,9 @@ impl LifecycleUi {
                 if from_launcher && let Some(launcher) = self.launcher.upgrade() {
                     let _ = launcher.hide();
                 }
+                if from_launcher && let Some(recovery) = self.recovery.upgrade() {
+                    let _ = recovery.hide();
+                }
             }
             Err(message) => show_error_dialog(&message),
         }
@@ -125,6 +130,21 @@ impl LifecycleUi {
     fn sync(&self) {
         if let (Some(main), Some(timeline)) = (self.main.upgrade(), self.timeline.upgrade()) {
             sync_windows(&main, &timeline, &self.model.borrow());
+        }
+        if let Some(recovery) = self.recovery.upgrade() {
+            sync_recovery_window(&recovery, &self.model.borrow());
+        }
+    }
+
+    fn show_recoveries_if_available(&self) {
+        let entries = self.model.borrow().recovery_entries();
+        if entries.is_empty() {
+            return;
+        }
+        if let Some(recovery) = self.recovery.upgrade() {
+            sync_recovery_entries(&recovery, entries);
+            recovery.set_error_message(SharedString::new());
+            let _ = recovery.show();
         }
     }
 
@@ -136,6 +156,9 @@ impl LifecycleUi {
             let _ = window.hide();
         }
         if let Some(window) = self.launcher.upgrade() {
+            let _ = window.hide();
+        }
+        if let Some(window) = self.recovery.upgrade() {
             let _ = window.hide();
         }
         if let Some(window) = self.main.upgrade() {
@@ -175,11 +198,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let model = Rc::new(RefCell::new(ApplicationModel::default()));
     let launcher = ProjectLauncherWindow::new()?;
+    let recovery = ProjectRecoveryWindow::new()?;
     let main = MainWindow::new()?;
     let timeline = TimelineWindow::new()?;
     let object_settings = ObjectSettingsWindow::new()?;
     main.set_preview_image(preview_image);
     main.set_project_tabs(ModelRc::new(VecModel::<ProjectTabData>::default()));
+    recovery.set_recoveries(ModelRc::new(VecModel::<RecoveryEntryData>::default()));
     timeline.set_scene_tabs(ModelRc::new(VecModel::<SceneTabData>::default()));
     timeline.set_clips(ModelRc::new(VecModel::<TimelineClipData>::default()));
     timeline.set_layers(ModelRc::new(VecModel::<LayerData>::default()));
@@ -193,6 +218,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     install_render_probe(&timeline, stats.clone(), WindowKind::Timeline)?;
     let lifecycle_ui = Rc::new(LifecycleUi {
         launcher: launcher.as_weak(),
+        recovery: recovery.as_weak(),
         main: main.as_weak(),
         timeline: timeline.as_weak(),
         object_settings: object_settings.as_weak(),
@@ -201,6 +227,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     });
     install_callbacks(
         &launcher,
+        &recovery,
         &main,
         &timeline,
         &object_settings,
@@ -216,7 +243,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         main.show()?;
         timeline.show()?;
     } else {
+        sync_recovery_window(&recovery, &model.borrow());
         launcher.show()?;
+        if !model.borrow().recovery_entries().is_empty() {
+            recovery.show()?;
+        }
     }
 
     let rendered_ticks = Rc::new(Cell::new(0_u64));
@@ -225,6 +256,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_main = main.as_weak();
     let animation_timeline = timeline.as_weak();
     let animation_launcher = launcher.as_weak();
+    let animation_recovery = recovery.as_weak();
     let animation_settings = object_settings.as_weak();
     let animation_stats = stats.clone();
     let animation_model = model.clone();
@@ -262,9 +294,29 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(window) = animation_launcher.upgrade() {
                 let _ = window.hide();
             }
+            if let Some(window) = animation_recovery.upgrade() {
+                let _ = window.hide();
+            }
             if let Some(window) = animation_main.upgrade() {
                 let _ = window.hide();
             }
+        }
+    });
+
+    let recovery_timer = Timer::default();
+    let recovery_model = model.clone();
+    let recovery_window = recovery.as_weak();
+    recovery_timer.start(TimerMode::Repeated, Duration::from_secs(1), move || {
+        let errors = recovery_model.borrow_mut().update_recovery();
+        if errors.is_empty() {
+            return;
+        }
+        for error in &errors {
+            eprintln!("Project recovery failed: {error}");
+        }
+        if let Some(window) = recovery_window.upgrade() {
+            sync_recovery_window(&window, &recovery_model.borrow());
+            window.set_error_message(SharedString::from(errors.join("\n")));
         }
     });
 
@@ -277,6 +329,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
 fn install_callbacks(
     launcher: &ProjectLauncherWindow,
+    recovery: &ProjectRecoveryWindow,
     main: &MainWindow,
     timeline: &TimelineWindow,
     object_settings: &ObjectSettingsWindow,
@@ -287,6 +340,7 @@ fn install_callbacks(
     let create_main = main.as_weak();
     let create_timeline = timeline.as_weak();
     let create_launcher = launcher.as_weak();
+    let create_recovery = recovery.as_weak();
     launcher.on_create_project(move |width, height, fps, sample_rate| {
         if create_model.borrow().lifecycle_pending() {
             return;
@@ -306,12 +360,16 @@ fn install_callbacks(
         if let Some(window) = create_launcher.upgrade() {
             let _ = window.hide();
         }
+        if let Some(window) = create_recovery.upgrade() {
+            let _ = window.hide();
+        }
     });
 
     let launcher_open_ui = lifecycle_ui.clone();
     launcher.on_open_project(move || launcher_open_ui.open_project_dialog(true));
 
     let new_launcher = launcher.as_weak();
+    let new_ui = lifecycle_ui.clone();
     let new_model = model.clone();
     main.on_new_project(move || {
         if new_model.borrow().lifecycle_pending() {
@@ -320,6 +378,7 @@ fn install_callbacks(
         if let Some(window) = new_launcher.upgrade() {
             let _ = window.show();
         }
+        new_ui.show_recoveries_if_available();
     });
 
     let main_open_ui = lifecycle_ui.clone();
@@ -398,13 +457,70 @@ fn install_callbacks(
         }
     });
 
-    let close_ui = lifecycle_ui;
+    let close_ui = lifecycle_ui.clone();
     main.on_close_project(move |index| {
         let step = close_ui
             .model
             .borrow_mut()
             .request_close_project(index.max(0) as usize);
         close_ui.handle(step);
+    });
+
+    let recover_ui = lifecycle_ui.clone();
+    recovery.on_recover_project(move |id| {
+        let recover_ui = recover_ui.clone();
+        let id = id.to_string();
+        Timer::single_shot(Duration::ZERO, move || {
+            let result = recover_ui.model.borrow_mut().recover_project(&id);
+            match result {
+                Ok(_) => {
+                    if let Some(window) = recover_ui.recovery.upgrade() {
+                        let _ = window.hide();
+                    }
+                    recover_ui.sync();
+                    if let Some(window) = recover_ui.main.upgrade() {
+                        let _ = window.show();
+                    }
+                    if let Some(window) = recover_ui.launcher.upgrade() {
+                        let _ = window.hide();
+                    }
+                }
+                Err(message) => {
+                    if let Some(window) = recover_ui.recovery.upgrade() {
+                        window.set_error_message(SharedString::from(message));
+                    }
+                }
+            }
+        });
+    });
+
+    let discard_ui = lifecycle_ui;
+    recovery.on_discard_recovery(move |id| {
+        let discard_ui = discard_ui.clone();
+        let id = id.to_string();
+        Timer::single_shot(Duration::ZERO, move || {
+            let result = discard_ui.model.borrow_mut().discard_recovery(&id);
+            if let Some(window) = discard_ui.recovery.upgrade() {
+                match result {
+                    Ok(()) => {
+                        sync_recovery_window(&window, &discard_ui.model.borrow());
+                        if discard_ui.model.borrow().recovery_entries().is_empty() {
+                            let _ = window.hide();
+                        }
+                    }
+                    Err(message) => window.set_error_message(SharedString::from(message)),
+                }
+            }
+        });
+    });
+
+    let recovery_window = recovery.as_weak();
+    recovery.on_close_window(move || {
+        if let Some(window) = recovery_window.upgrade() {
+            window.set_error_message(SharedString::new());
+            window.set_discard_confirmation_visible(false);
+            let _ = window.hide();
+        }
     });
 
     let timeline_window = timeline.as_weak();
@@ -871,6 +987,32 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
         .collect::<Vec<_>>();
     update_vec_model(&timeline.get_layers(), layers);
     sync_transport(main, timeline, model);
+}
+
+fn sync_recovery_window(window: &ProjectRecoveryWindow, model: &ApplicationModel) {
+    sync_recovery_entries(window, model.recovery_entries());
+}
+
+fn sync_recovery_entries(window: &ProjectRecoveryWindow, entries: Vec<aviqtl_app::RecoveryEntry>) {
+    let entries = entries
+        .into_iter()
+        .map(|entry| {
+            let valid = entry.is_valid();
+            RecoveryEntryData {
+                id: SharedString::from(entry.id),
+                name: SharedString::from(if entry.display_name.is_empty() {
+                    "Recovered project".to_owned()
+                } else {
+                    entry.display_name
+                }),
+                saved_at: SharedString::from(entry.saved_at),
+                original_project_url: SharedString::from(entry.original_project_url),
+                valid,
+                error: SharedString::from(entry.error.unwrap_or_default()),
+            }
+        })
+        .collect::<Vec<_>>();
+    update_vec_model(&window.get_recoveries(), entries);
 }
 
 fn update_vec_model<T: Clone + 'static>(model: &ModelRc<T>, rows: Vec<T>) {

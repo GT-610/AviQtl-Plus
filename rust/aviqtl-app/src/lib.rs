@@ -7,6 +7,7 @@ pub mod media_import;
 pub mod missing_media;
 pub mod preset_store;
 pub mod project_io;
+pub mod recovery;
 pub mod selection;
 pub mod settings;
 pub mod timeline_interaction;
@@ -15,10 +16,16 @@ pub mod workspace;
 
 pub use lifecycle::{LifecycleStep, SaveDecision};
 pub use project_io::{ProjectDefaults, ProjectSession};
+pub use recovery::RecoveryEntry;
 pub use workspace::WorkspaceModel;
 
 use lifecycle::{LifecycleContinuation, PendingLifecycle};
+use recovery::{
+    DEFAULT_BACKUP_INTERVAL, RecoveryOperation, RecoveryStore, RecoveryWrite, generate_recovery_id,
+};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 /// Snapshot used by a UI tab strip without exposing the mutable project model.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,25 +40,94 @@ pub struct ApplicationModel {
     current_project: Option<usize>,
     next_untitled_number: u32,
     pending_lifecycle: Option<PendingLifecycle>,
+    recovery_store: RecoveryStore,
+    recovery_interval: Duration,
+    auto_backup_enabled: bool,
+    suppressed_recovery_ids: HashSet<String>,
+    recovery_errors: Vec<String>,
 }
 
 struct ProjectEntry {
     workspace: WorkspaceModel,
     untitled_name: String,
+    recovery: ProjectRecoveryState,
+}
+
+struct ProjectRecoveryState {
+    id: String,
+    original_project_url: Option<String>,
+    display_name: Option<String>,
+    claimed: bool,
+    last_backup: Instant,
+}
+
+impl ProjectRecoveryState {
+    fn new() -> Self {
+        Self {
+            id: generate_recovery_id(),
+            original_project_url: None,
+            display_name: None,
+            claimed: false,
+            last_backup: Instant::now(),
+        }
+    }
+
+    fn recovered(entry: &RecoveryEntry, display_name: String) -> Self {
+        Self {
+            id: entry.id.clone(),
+            original_project_url: Some(entry.original_project_url.clone()),
+            display_name: Some(display_name),
+            claimed: true,
+            last_backup: Instant::now(),
+        }
+    }
 }
 
 impl Default for ApplicationModel {
     fn default() -> Self {
+        let recovery_store = {
+            #[cfg(test)]
+            {
+                RecoveryStore::with_root(
+                    std::env::temp_dir()
+                        .join(format!("aviqtl-app-model-test-{}", generate_recovery_id())),
+                )
+            }
+            #[cfg(not(test))]
+            {
+                RecoveryStore::new()
+            }
+        };
         Self {
             projects: Vec::new(),
             current_project: None,
             next_untitled_number: 1,
             pending_lifecycle: None,
+            recovery_store,
+            recovery_interval: DEFAULT_BACKUP_INTERVAL,
+            auto_backup_enabled: true,
+            suppressed_recovery_ids: HashSet::new(),
+            recovery_errors: Vec::new(),
         }
     }
 }
 
 impl ApplicationModel {
+    #[cfg(test)]
+    fn with_recovery_root(root: PathBuf) -> Self {
+        Self {
+            projects: Vec::new(),
+            current_project: None,
+            next_untitled_number: 1,
+            pending_lifecycle: None,
+            recovery_store: RecoveryStore::with_root(root),
+            recovery_interval: DEFAULT_BACKUP_INTERVAL,
+            auto_backup_enabled: true,
+            suppressed_recovery_ids: HashSet::new(),
+            recovery_errors: Vec::new(),
+        }
+    }
+
     pub fn launcher_visible(&self) -> bool {
         self.projects.is_empty()
     }
@@ -68,19 +144,181 @@ impl ApplicationModel {
         self.pending_lifecycle.is_some()
     }
 
+    pub fn recovery_entries(&self) -> Vec<RecoveryEntry> {
+        let claimed = self
+            .projects
+            .iter()
+            .filter(|project| project.recovery.claimed)
+            .map(|project| project.recovery.id.as_str())
+            .collect::<HashSet<_>>();
+        self.recovery_store
+            .entries()
+            .into_iter()
+            .filter(|entry| {
+                !claimed.contains(entry.id.as_str())
+                    && !self.suppressed_recovery_ids.contains(&entry.id)
+            })
+            .collect()
+    }
+
+    pub fn recover_project(&mut self, id: &str) -> Result<usize, String> {
+        if self.suppressed_recovery_ids.contains(id)
+            || self
+                .projects
+                .iter()
+                .any(|project| project.recovery.claimed && project.recovery.id == id)
+        {
+            return Err("the recovery snapshot is already in use".to_owned());
+        }
+        let entry = self
+            .recovery_store
+            .entries()
+            .into_iter()
+            .find(|entry| entry.id == id)
+            .ok_or_else(|| "the recovery snapshot is unavailable".to_owned())?;
+        let snapshot_path = entry
+            .snapshot_path
+            .as_deref()
+            .filter(|_| entry.is_valid())
+            .ok_or_else(|| {
+                entry
+                    .error
+                    .clone()
+                    .unwrap_or_else(|| "the recovery snapshot is unavailable".to_owned())
+            })?;
+        let project = ProjectSession::load_recovery(snapshot_path, &entry.original_project_url)?;
+        let recovered_name = if entry.display_name.is_empty() {
+            "Recovered project".to_owned()
+        } else {
+            format!("Recovered - {}", entry.display_name)
+        };
+        let index = self.add_project_session(project);
+        self.projects[index].untitled_name = recovered_name.clone();
+        self.projects[index].recovery = ProjectRecoveryState::recovered(&entry, recovered_name);
+        Ok(index)
+    }
+
+    pub fn discard_recovery(&mut self, id: &str) -> Result<(), String> {
+        self.recovery_store.request_remove(id)?;
+        self.suppressed_recovery_ids.insert(id.to_owned());
+        Ok(())
+    }
+
+    pub fn set_recovery_interval(&mut self, interval: Duration) {
+        self.recovery_interval = interval.max(Duration::from_secs(1));
+        for project in &mut self.projects {
+            project.recovery.last_backup = Instant::now();
+        }
+    }
+
+    pub fn set_auto_backup_enabled(&mut self, enabled: bool) {
+        if self.auto_backup_enabled == enabled {
+            return;
+        }
+        self.auto_backup_enabled = enabled;
+        if enabled {
+            for project in &mut self.projects {
+                project.recovery.last_backup = Instant::now();
+            }
+        } else {
+            self.clear_all_recoveries();
+        }
+    }
+
+    pub fn update_recovery(&mut self) -> Vec<String> {
+        let mut errors = std::mem::take(&mut self.recovery_errors);
+        if self.auto_backup_enabled {
+            let now = Instant::now();
+            let due = self
+                .projects
+                .iter()
+                .enumerate()
+                .filter_map(|(index, project)| {
+                    (project.workspace.project().dirty
+                        && now.duration_since(project.recovery.last_backup)
+                            >= self.recovery_interval)
+                        .then_some(index)
+                })
+                .collect::<Vec<_>>();
+            for index in due {
+                if let Err(error) = self.request_recovery_backup(index) {
+                    errors.push(format!(
+                        "Could not queue project recovery snapshot: {error}"
+                    ));
+                }
+            }
+        }
+
+        for event in self.recovery_store.poll() {
+            if event.operation == RecoveryOperation::Remove {
+                self.suppressed_recovery_ids.remove(&event.id);
+            }
+            if let Err(error) = event.result {
+                errors.push(error);
+            }
+        }
+        errors
+    }
+
+    pub fn request_recovery_backup(&mut self, index: usize) -> Result<bool, String> {
+        let Some(project) = self.projects.get_mut(index) else {
+            return Err("project index is out of range".to_owned());
+        };
+        if !project.workspace.project().dirty {
+            return Ok(false);
+        }
+        project.recovery.last_backup = Instant::now();
+        let snapshot = project.workspace.project().snapshot_bytes()?;
+        let original_project_url = project
+            .recovery
+            .original_project_url
+            .clone()
+            .unwrap_or_else(|| {
+                project
+                    .workspace
+                    .project()
+                    .path
+                    .as_deref()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            });
+        let display_name = project.recovery.display_name.clone().unwrap_or_else(|| {
+            project
+                .workspace
+                .project()
+                .path
+                .as_deref()
+                .and_then(Path::file_name)
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| project.untitled_name.clone())
+        });
+        self.recovery_store.request_write(RecoveryWrite {
+            id: project.recovery.id.clone(),
+            original_project_url,
+            display_name,
+            snapshot,
+        })?;
+        Ok(true)
+    }
+
     pub fn create_project(&mut self, defaults: ProjectDefaults) -> usize {
         self.add_project_session(ProjectSession::blank_with(defaults))
     }
 
     pub fn add_project_session(&mut self, project: ProjectSession) -> usize {
-        let index = self.projects.len();
         let untitled_name = format!("Untitled {}", self.next_untitled_number);
+        self.next_untitled_number += 1;
+        self.add_project_entry(project, untitled_name)
+    }
+
+    fn add_project_entry(&mut self, project: ProjectSession, untitled_name: String) -> usize {
+        let index = self.projects.len();
         self.projects.push(ProjectEntry {
             workspace: WorkspaceModel::new(project),
             untitled_name,
+            recovery: ProjectRecoveryState::new(),
         });
         self.current_project = Some(index);
-        self.next_untitled_number += 1;
         index
     }
 
@@ -90,6 +328,7 @@ impl ApplicationModel {
             && self.projects[index].workspace.project().path.is_none()
             && !self.projects[index].workspace.project().dirty
         {
+            self.clear_project_recovery(index);
             self.projects[index].workspace = WorkspaceModel::new(project);
             return Ok(index);
         }
@@ -162,7 +401,7 @@ impl ApplicationModel {
         if confirm_unsaved {
             self.continue_quit(0)
         } else {
-            LifecycleStep::QuitReady
+            self.finish_quit()
         }
     }
 
@@ -210,10 +449,13 @@ impl ApplicationModel {
             .project_mut()
             .save_as(path)
         {
-            Ok(()) => continuation.map_or(
-                LifecycleStep::ProjectSaved { project_index },
-                |continuation| self.complete_continuation(continuation),
-            ),
+            Ok(()) => {
+                self.clear_project_recovery(project_index);
+                continuation.map_or(
+                    LifecycleStep::ProjectSaved { project_index },
+                    |continuation| self.complete_continuation(continuation),
+                )
+            }
             Err(message) => LifecycleStep::SaveFailed {
                 project_index,
                 message,
@@ -293,10 +535,13 @@ impl ApplicationModel {
         continuation: Option<LifecycleContinuation>,
     ) -> LifecycleStep {
         match self.projects[project_index].workspace.project_mut().save() {
-            Ok(()) => continuation.map_or(
-                LifecycleStep::ProjectSaved { project_index },
-                |continuation| self.complete_continuation(continuation),
-            ),
+            Ok(()) => {
+                self.clear_project_recovery(project_index);
+                continuation.map_or(
+                    LifecycleStep::ProjectSaved { project_index },
+                    |continuation| self.complete_continuation(continuation),
+                )
+            }
             Err(message) => LifecycleStep::SaveFailed {
                 project_index,
                 message,
@@ -322,7 +567,7 @@ impl ApplicationModel {
             .skip(start_index)
             .find_map(|(index, project)| project.workspace.project().dirty.then_some(index));
         let Some(project_index) = next_dirty else {
-            return LifecycleStep::QuitReady;
+            return self.finish_quit();
         };
         self.current_project = Some(project_index);
         self.begin_confirmation(
@@ -332,6 +577,7 @@ impl ApplicationModel {
     }
 
     fn remove_project(&mut self, index: usize) {
+        self.clear_project_recovery(index);
         self.projects.remove(index);
         self.current_project = if self.projects.is_empty() {
             None
@@ -360,6 +606,35 @@ impl ApplicationModel {
             .path
             .clone()
             .unwrap_or_else(|| PathBuf::from(format!("{}.aviqtl", project.untitled_name)))
+    }
+
+    fn clear_project_recovery(&mut self, index: usize) {
+        let Some(project) = self.projects.get_mut(index) else {
+            return;
+        };
+        let previous = std::mem::replace(&mut project.recovery, ProjectRecoveryState::new());
+        self.suppressed_recovery_ids.insert(previous.id.clone());
+        if let Err(error) = self.recovery_store.request_remove(&previous.id) {
+            self.suppressed_recovery_ids.remove(&previous.id);
+            self.recovery_errors
+                .push(format!("Could not queue project recovery cleanup: {error}"));
+        }
+    }
+
+    fn clear_all_recoveries(&mut self) {
+        for index in 0..self.projects.len() {
+            self.clear_project_recovery(index);
+        }
+    }
+
+    fn finish_quit(&mut self) -> LifecycleStep {
+        self.clear_all_recoveries();
+        LifecycleStep::QuitReady
+    }
+
+    #[cfg(test)]
+    fn flush_recovery(&self) {
+        self.recovery_store.flush();
     }
 }
 
@@ -635,6 +910,121 @@ mod tests {
         );
     }
 
+    #[test]
+    fn timed_backup_is_recovered_once_and_save_cleans_the_snapshot() {
+        let root = temporary_recovery_root("recover-save");
+        let mut interrupted = ApplicationModel::with_recovery_root(root.clone());
+        let index = interrupted.create_project(ProjectDefaults::default());
+        interrupted
+            .workspace_mut(index)
+            .expect("project exists")
+            .project_mut()
+            .dirty = true;
+        interrupted.set_recovery_interval(Duration::from_secs(1));
+        interrupted.projects[index].recovery.last_backup = Instant::now() - Duration::from_secs(2);
+        assert!(interrupted.update_recovery().is_empty());
+        interrupted.flush_recovery();
+        assert_eq!(interrupted.recovery_entries().len(), 1);
+        drop(interrupted);
+
+        let mut restarted = ApplicationModel::with_recovery_root(root.clone());
+        let recovery = restarted
+            .recovery_entries()
+            .into_iter()
+            .next()
+            .expect("recovery is discovered");
+        let recovery_id = recovery.id.clone();
+        let recovered_index = restarted
+            .recover_project(&recovery_id)
+            .expect("recovery opens");
+        assert!(restarted.recovery_entries().is_empty());
+        assert!(
+            restarted
+                .workspace(recovered_index)
+                .expect("recovered project exists")
+                .project()
+                .dirty
+        );
+        assert_eq!(
+            restarted
+                .workspace(recovered_index)
+                .expect("recovered project exists")
+                .project()
+                .path,
+            None
+        );
+        assert!(
+            restarted.tabs()[recovered_index]
+                .name
+                .starts_with("Recovered - ")
+        );
+        assert_eq!(restarted.next_untitled_number, 2);
+        assert!(restarted.recover_project(&recovery_id).is_err());
+        assert_eq!(restarted.request_recovery_backup(recovered_index), Ok(true));
+        restarted.flush_recovery();
+        assert_eq!(restarted.recovery_store.entries().len(), 1);
+        assert!(
+            restarted.recovery_store.entries()[0]
+                .display_name
+                .starts_with("Recovered - ")
+        );
+
+        let save_path = temporary_project_path("recovered-save");
+        assert!(matches!(
+            restarted.request_save_current_project(),
+            LifecycleStep::ChooseSavePath { .. }
+        ));
+        assert_eq!(
+            restarted.complete_save_path(Some(&save_path)),
+            LifecycleStep::ProjectSaved {
+                project_index: recovered_index
+            }
+        );
+        restarted.flush_recovery();
+        drop(restarted);
+
+        let clean_restart = ApplicationModel::with_recovery_root(root.clone());
+        assert!(clean_restart.recovery_entries().is_empty());
+        drop(clean_restart);
+        std::fs::remove_file(save_path).expect("saved project removes");
+        std::fs::remove_dir_all(root).expect("recovery root removes");
+    }
+
+    #[test]
+    fn close_and_successful_quit_remove_their_recovery_snapshots() {
+        let root = temporary_recovery_root("close-quit");
+        let mut app = ApplicationModel::with_recovery_root(root.clone());
+        for _ in 0..2 {
+            let index = app.create_project(ProjectDefaults::default());
+            app.workspace_mut(index)
+                .expect("project exists")
+                .project_mut()
+                .dirty = true;
+            assert_eq!(app.request_recovery_backup(index), Ok(true));
+        }
+        app.flush_recovery();
+        assert_eq!(app.recovery_entries().len(), 2);
+
+        assert!(matches!(
+            app.request_close_project(0),
+            LifecycleStep::ConfirmSave { .. }
+        ));
+        assert_eq!(
+            app.answer_save_confirmation(SaveDecision::Discard),
+            LifecycleStep::ProjectClosed { project_index: 0 }
+        );
+        app.flush_recovery();
+        assert_eq!(app.recovery_entries().len(), 1);
+
+        assert_eq!(app.request_quit(false), LifecycleStep::QuitReady);
+        app.flush_recovery();
+        drop(app);
+        let restarted = ApplicationModel::with_recovery_root(root.clone());
+        assert!(restarted.recovery_entries().is_empty());
+        drop(restarted);
+        std::fs::remove_dir_all(root).expect("recovery root removes");
+    }
+
     fn temporary_project_path(label: &str) -> PathBuf {
         use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -646,5 +1036,9 @@ mod tests {
             "aviqtl-slint-{label}-{}-{nonce}.aviqtl",
             std::process::id()
         ))
+    }
+
+    fn temporary_recovery_root(label: &str) -> PathBuf {
+        temporary_project_path(label).with_extension("recovery")
     }
 }

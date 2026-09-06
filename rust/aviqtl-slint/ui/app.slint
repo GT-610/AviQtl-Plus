@@ -5,6 +5,15 @@ export struct ProjectTabData {
     dirty: bool,
 }
 
+export struct RecoveryEntryData {
+    id: string,
+    name: string,
+    saved-at: string,
+    original-project-url: string,
+    valid: bool,
+    error: string,
+}
+
 export struct SceneTabData {
     id: int,
     name: string,
@@ -326,6 +335,168 @@ component ProjectTab inherits Rectangle {
         width: parent.width - close-button.width - 4px;
         mouse-cursor: pointer;
         clicked => { root.activate(); }
+    }
+}
+
+export component ProjectRecoveryWindow inherits Window {
+    title: "Recover unsaved projects";
+    preferred-width: 660px;
+    preferred-height: 440px;
+    min-width: 520px;
+    min-height: 320px;
+    background: #20232a;
+
+    in property <[RecoveryEntryData]> recoveries;
+    in-out property <string> error-message: "";
+    in-out property <bool> discard-confirmation-visible: false;
+    private property <string> pending-discard-id: "";
+    private property <string> pending-discard-name: "";
+    callback recover-project(string);
+    callback discard-recovery(string);
+    callback close-window();
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        Text {
+            text: "AviQtl found recovery snapshots left by an interrupted session. Recovering opens a new unsaved project and never overwrites the original file.";
+            color: #e5e7eb;
+            wrap: word-wrap;
+        }
+        if root.error-message != "" : Text {
+            text: root.error-message;
+            color: #f2c078;
+            font-weight: 700;
+            wrap: word-wrap;
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            viewport-width: self.visible-width;
+            viewport-height: recovery-list.preferred-height;
+
+            recovery-list := VerticalLayout {
+                width: parent.width;
+                spacing: 8px;
+
+                for recovery in root.recoveries : Rectangle {
+                    height: 92px;
+                    background: #2b2f38;
+                    border-width: 1px;
+                    border-color: #555b68;
+                    border-radius: 4px;
+
+                    HorizontalLayout {
+                        padding: 12px;
+                        spacing: 10px;
+
+                        VerticalLayout {
+                            spacing: 3px;
+                            horizontal-stretch: 1;
+                            Text {
+                                text: recovery.name;
+                                color: #f2f3f5;
+                                font-weight: 700;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: recovery.valid ? "Saved " + recovery.saved-at : "Invalid recovery: " + recovery.error;
+                                color: recovery.valid ? #b8bdc7 : #f2c078;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: recovery.original-project-url;
+                                visible: recovery.original-project-url != "";
+                                color: #9298a3;
+                                font-size: 0.72rem;
+                                overflow: elide;
+                            }
+                        }
+                        Button {
+                            text: "Recover";
+                            enabled: recovery.valid;
+                            clicked => {
+                                root.error-message = "";
+                                root.recover-project(recovery.id);
+                            }
+                        }
+                        Button {
+                            text: "Discard";
+                            clicked => {
+                                root.pending-discard-id = recovery.id;
+                                root.pending-discard-name = recovery.name;
+                                root.discard-confirmation-visible = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            alignment: end;
+            Button {
+                text: "Close";
+                clicked => { root.close-window(); }
+            }
+        }
+    }
+
+    if root.discard-confirmation-visible : Rectangle {
+        z: 1000;
+        width: 100%;
+        height: 100%;
+        background: #00000088;
+
+        TouchArea { }
+
+        Rectangle {
+            width: min(parent.width - 32px, 470px);
+            height: 160px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b2f38;
+            border-width: 1px;
+            border-color: #555b68;
+            border-radius: 6px;
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+                Text {
+                    text: "Discard recovery snapshot";
+                    color: #f2f3f5;
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                Text {
+                    text: "Discard the recovery snapshot for “" + root.pending-discard-name + "”? This cannot be undone.";
+                    color: #d6d9df;
+                    wrap: word-wrap;
+                    vertical-stretch: 1;
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button {
+                        text: "Yes";
+                        clicked => {
+                            root.discard-recovery(root.pending-discard-id);
+                            root.pending-discard-id = "";
+                            root.pending-discard-name = "";
+                            root.discard-confirmation-visible = false;
+                        }
+                    }
+                    Button {
+                        text: "No";
+                        clicked => {
+                            root.pending-discard-id = "";
+                            root.pending-discard-name = "";
+                            root.discard-confirmation-visible = false;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

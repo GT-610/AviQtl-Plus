@@ -65,6 +65,13 @@ still require the separately scheduled Computer Use suite.
 - Open replaces only a clean pathless placeholder; Save, Save As, tab close, and application quit
   share a tested framework-neutral lifecycle state machine. Dirty projects are visited in tab order,
   and save failure or chooser cancellation stops the deferred close action.
+- Recovery snapshots use the same Rust metadata contract as Qt and are written by a GUI-neutral
+  background worker. Every project owns an independent recovery ID; newer generations replace old
+  snapshots, claimed entries disappear from the launcher-owned recovery window, and successful
+  Save, tab close, or application quit removes the corresponding snapshots.
+- A recovered snapshot opens as a dirty, pathless project. Its original project URL is displayed
+  for context but is never installed as the save target, so the first Save always follows the Qt
+  Save As path and cannot silently overwrite the original file.
 - The Slint frontend uses native `rfd` open/save dialogs. Its default Linux backend is the Rust
   XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
 - Clip, timeline, and layer context menus use Slint `ContextMenuArea`; native macOS menus are not
@@ -76,6 +83,6 @@ still require the separately scheduled Computer Use suite.
 
 Run this only in the later user-requested task on an unlocked desktop. Cover project/scene close
 ordering, F3/F4 focus and raise behavior, all native menu items, file chooser cancellation, export
-and its close interception, recovery, settings persistence, drag-and-drop, zoom/wheel behavior,
+and its close interception, recovery-window interaction, settings persistence, drag-and-drop, zoom/wheel behavior,
 IME and shortcut scope, application close confirmation, object/effect/audio-plugin workflows,
 keyframes and easing, Package Manager, About links, and VoiceOver output.
