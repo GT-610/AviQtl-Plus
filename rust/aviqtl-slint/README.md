@@ -79,3 +79,8 @@ git diff --check
 Performance samples must record the active display and refresh rate. Samples taken on different
 display configurations are not directly comparable. Functional MCP checks may still be compared
 when logical window sizes and scale factors are recorded.
+
+The isolated wgpu 30 renderer and Metal probe is recorded in
+[`WGPU_30_COMPATIBILITY.md`](WGPU_30_COMPATIBILITY.md). The renderer already passes on wgpu 30;
+the production frontend remains on 29 until Slint exposes the same wgpu version for device and
+texture sharing.
