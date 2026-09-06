@@ -365,11 +365,7 @@ fn effect_controls(
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .to_owned(),
-                filter: definition
-                    .get("filter")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_owned(),
+                filter: control_filter(definition.get("filter")),
                 disabled: definition
                     .get("disabledByVideoLink")
                     .and_then(Value::as_bool)
@@ -432,6 +428,22 @@ fn control_kind(kind: &str) -> ObjectControlKind {
         "header" => ObjectControlKind::Header,
         _ => ObjectControlKind::Unsupported,
     }
+}
+
+fn control_filter(value: Option<&Value>) -> String {
+    let Some(value) = value else {
+        return String::new();
+    };
+    if let Some(filter) = value.as_str() {
+        return filter.to_owned();
+    }
+    value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>()
+        .join(";;")
 }
 
 fn control_option(value: &Value) -> Option<ObjectControlOption> {
@@ -548,6 +560,23 @@ mod tests {
         assert_eq!(blend.kind, ObjectControlKind::Choice);
         assert_eq!(blend.options[0].label, "通常");
         assert_eq!(blend.options[0].value, json!("通常"));
+    }
+
+    #[test]
+    fn path_filters_preserve_qt_string_and_array_metadata() {
+        assert_eq!(control_filter(None), "");
+        assert_eq!(
+            control_filter(Some(&json!("Images (*.png *.jpg)"))),
+            "Images (*.png *.jpg)"
+        );
+        assert_eq!(
+            control_filter(Some(&json!([
+                "Images (*.png *.jpg)",
+                "Video (*.mp4 *.mov)",
+                42
+            ]))),
+            "Images (*.png *.jpg);;Video (*.mp4 *.mov)"
+        );
     }
 
     #[test]

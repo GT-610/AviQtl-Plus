@@ -108,6 +108,9 @@ export struct ObjectSettingRowData {
     step: float,
     text-value: string,
     end-text-value: string,
+    filter: string,
+    color-value: color,
+    end-color-value: color,
     unit: string,
     keyframe-markers: [KeyframeMarkerData],
     option-labels: [string],
@@ -409,6 +412,9 @@ component ObjectSettingRow inherits Rectangle {
     callback set-number(int, string, int, float);
     callback set-bool(int, string, int, bool);
     callback set-option(int, string, int, int);
+    callback pick-path(int, string, int, string, string, string);
+    callback pick-color(int, string, int, string);
+    callback pick-font(int, string, int, string);
     callback seek-keyframe(int);
     callback snap-keyframe(float) -> int;
     callback add-keyframe(int, string, int);
@@ -726,7 +732,7 @@ component ObjectSettingRow inherits Rectangle {
         if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: top; }
     }
 
-    if root.row-data.row-kind == "path" || root.row-data.row-kind == "color" || root.row-data.row-kind == "font" : HorizontalLayout {
+    if root.row-data.row-kind == "path" : HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
@@ -744,7 +750,100 @@ component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        if root.row-data.row-kind == "color" : Button {
+        Button {
+            text: "...";
+            enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label + "を選択";
+            clicked => {
+                root.pick-path(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.text-value,
+                    root.row-data.filter,
+                    root.row-data.label
+                );
+            }
+        }
+    }
+
+    if root.row-data.row-kind == "font" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Button {
+            horizontal-stretch: 1;
+            text: root.row-data.text-value == "" ? "デフォルト" : root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label + ": " + self.text;
+            clicked => {
+                root.pick-font(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.text-value
+                );
+            }
+        }
+        Text {
+            text: "Aa";
+            width: 36px;
+            font-family: root.row-data.text-value;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    if root.row-data.row-kind == "color" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Rectangle {
+            width: 52px;
+            background: root.row-data.color-value;
+            border-width: 1px;
+            border-color: start-color-touch.has-hover ? #70a6ef : #626976;
+            border-radius: 3px;
+            start-color-touch := TouchArea {
+                enabled: root.row-data.interactive;
+                mouse-cursor: pointer;
+                accessible-role: button;
+                accessible-label: root.row-data.label + "の開始色を選択";
+                accessible-action-default => {
+                    root.pick-color(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        root.row-data.text-value
+                    );
+                }
+                clicked => {
+                    root.pick-color(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        root.row-data.text-value
+                    );
+                }
+            }
+        }
+        CommitLineEdit {
+            width: 82px;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            horizontal-alignment: center;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        Button {
             text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
             enabled: root.row-data.interactive;
             clicked => {
@@ -758,7 +857,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
         if root.row-data.range-mode : CommitLineEdit {
-            horizontal-stretch: 1;
+            width: 82px;
             source-text: root.row-data.end-text-value;
             enabled: root.row-data.interactive
                 && root.row-data.interpolation != ""
@@ -772,6 +871,41 @@ component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
+        if root.row-data.range-mode : Rectangle {
+            width: 52px;
+            background: root.row-data.end-color-value;
+            opacity: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant" ? 1 : 0.45;
+            border-width: 1px;
+            border-color: end-color-touch.has-hover ? #70a6ef : #626976;
+            border-radius: 3px;
+            end-color-touch := TouchArea {
+                enabled: root.row-data.interactive
+                    && root.row-data.interpolation != ""
+                    && root.row-data.interpolation != "constant";
+                mouse-cursor: pointer;
+                accessible-role: button;
+                accessible-label: root.row-data.label + "の終了色を選択";
+                accessible-action-default => {
+                    root.pick-color(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.end-frame,
+                        root.row-data.end-text-value
+                    );
+                }
+                clicked => {
+                    root.pick-color(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.end-frame,
+                        root.row-data.end-text-value
+                    );
+                }
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
         if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
     }
 
@@ -2544,6 +2678,7 @@ export component ObjectSettingsWindow inherits Window {
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
     in property <[EffectCatalogItemData]> effect-catalog-items;
+    in property <[string]> font-families;
     in property <int> selected-effect-count: 0;
     in property <bool> selected-effects-removable: false;
     in-out property <bool> effect-picker-visible: false;
@@ -2552,6 +2687,17 @@ export component ObjectSettingsWindow inherits Window {
     in-out property <int> preset-effect-index: -1;
     in-out property <string> preset-effect-name: "";
     in-out property <string> preset-name: "";
+    in-out property <bool> color-picker-visible: false;
+    in-out property <bool> font-picker-visible: false;
+    in-out property <int> picker-effect-index: -1;
+    in-out property <string> picker-param-name: "";
+    in-out property <int> picker-frame: 0;
+    in-out property <int> picker-red: 255;
+    in-out property <int> picker-green: 255;
+    in-out property <int> picker-blue: 255;
+    in-out property <int> picker-alpha: 255;
+    in-out property <string> font-filter: "";
+    in-out property <string> current-font-family: "";
     callback select-effect(int, bool, bool);
     callback context-select-effect(int);
     callback reorder-effect(int, float);
@@ -2569,6 +2715,12 @@ export component ObjectSettingsWindow inherits Window {
     callback set-parameter-number(int, string, int, float);
     callback set-parameter-bool(int, string, int, bool);
     callback set-parameter-option(int, string, int, int);
+    callback choose-parameter-path(int, string, int, string, string, string);
+    callback show-color-picker(int, string, int, string);
+    callback apply-picked-color(int, string, int, int, int, int, int);
+    callback show-font-picker(int, string, int, string);
+    callback filter-fonts(string);
+    callback apply-picked-font(int, string, int, string);
     callback seek-effect-frame(int);
     callback snap-effect-frame(float) -> int;
     callback add-effect-keyframe(int, string, int);
@@ -2583,6 +2735,8 @@ export component ObjectSettingsWindow inherits Window {
             if root.has-selection
                 && !root.effect-picker-visible
                 && !root.preset-save-visible
+                && !root.color-picker-visible
+                && !root.font-picker-visible
                 && event.text == Key.Delete
                 && !event.modifiers.alt
                 && !event.modifiers.control
@@ -2680,6 +2834,15 @@ export component ObjectSettingsWindow inherits Window {
                     }
                     set-option(index, param, frame, option) => {
                         root.set-parameter-option(index, param, frame, option);
+                    }
+                    pick-path(index, param, frame, value, filter, label) => {
+                        root.choose-parameter-path(index, param, frame, value, filter, label);
+                    }
+                    pick-color(index, param, frame, value) => {
+                        root.show-color-picker(index, param, frame, value);
+                    }
+                    pick-font(index, param, frame, value) => {
+                        root.show-font-picker(index, param, frame, value);
                     }
                     seek-keyframe(frame) => { root.seek-effect-frame(frame); }
                     snap-keyframe(frame) => { root.snap-effect-frame(frame) }
@@ -2791,6 +2954,194 @@ export component ObjectSettingsWindow inherits Window {
                             root.preset-save-visible = false;
                         }
                     }
+                }
+            }
+        }
+    }
+    if root.color-picker-visible : Rectangle {
+        z: 120;
+        background: #99000000;
+        TouchArea { clicked => { root.color-picker-visible = false; } }
+        Rectangle {
+            width: min(parent.width - 48px, 460px);
+            height: min(parent.height - 48px, 430px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b3038;
+            border-width: 1px;
+            border-color: #646b78;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                Text { text: "色を選択"; font-size: 1.15rem; font-weight: 700; }
+                Rectangle {
+                    height: 72px;
+                    background: rgba(
+                        root.picker-red,
+                        root.picker-green,
+                        root.picker-blue,
+                        root.picker-alpha / 255
+                    );
+                    border-width: 1px;
+                    border-color: #737b89;
+                    border-radius: 4px;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "R"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-red;
+                        changed(value) => { root.picker-red = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-red; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "G"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-green;
+                        changed(value) => { root.picker-green = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-green; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "B"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-blue;
+                        changed(value) => { root.picker-blue = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-blue; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "A"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-alpha;
+                        changed(value) => { root.picker-alpha = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-alpha; }
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: "キャンセル"; clicked => { root.color-picker-visible = false; } }
+                    Button {
+                        text: "OK";
+                        primary: true;
+                        clicked => {
+                            root.apply-picked-color(
+                                root.picker-effect-index,
+                                root.picker-param-name,
+                                root.picker-frame,
+                                root.picker-red,
+                                root.picker-green,
+                                root.picker-blue,
+                                root.picker-alpha
+                            );
+                            root.color-picker-visible = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if root.font-picker-visible : Rectangle {
+        z: 130;
+        background: #99000000;
+        TouchArea { clicked => { root.font-picker-visible = false; } }
+        Rectangle {
+            width: min(parent.width - 48px, 540px);
+            height: min(parent.height - 48px, 540px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b3038;
+            border-width: 1px;
+            border-color: #646b78;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 8px;
+                Text { text: "フォントを選択"; font-size: 1.15rem; font-weight: 700; }
+                Text {
+                    text: root.current-font-family == ""
+                        ? "現在: デフォルト"
+                        : "現在: " + root.current-font-family;
+                    font-family: root.current-font-family;
+                    color: #aeb3bc;
+                    overflow: elide;
+                }
+                LineEdit {
+                    text <=> root.font-filter;
+                    placeholder-text: "フォント名を検索...";
+                    edited(value) => { root.filter-fonts(value); }
+                }
+                Button {
+                    text: "デフォルト";
+                    checkable: true;
+                    checked: root.current-font-family == "";
+                    clicked => {
+                        root.apply-picked-font(
+                            root.picker-effect-index,
+                            root.picker-param-name,
+                            root.picker-frame,
+                            ""
+                        );
+                        root.font-picker-visible = false;
+                    }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 4px;
+                        for family in root.font-families : HorizontalLayout {
+                            spacing: 6px;
+                            Button {
+                                width: 190px;
+                                text: family;
+                                checkable: true;
+                                checked: family == root.current-font-family;
+                                accessible-label: family;
+                                clicked => {
+                                    root.apply-picked-font(
+                                        root.picker-effect-index,
+                                        root.picker-param-name,
+                                        root.picker-frame,
+                                        family
+                                    );
+                                    root.font-picker-visible = false;
+                                }
+                            }
+                            Text {
+                                text: "サンプル Sample 123";
+                                font-family: family;
+                                overflow: elide;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                        }
+                        if root.font-families.length == 0 : Text {
+                            text: "一致するフォントがありません";
+                            color: #aeb3bc;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: "閉じる"; clicked => { root.font-picker-visible = false; } }
                 }
             }
         }

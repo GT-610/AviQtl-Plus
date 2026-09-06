@@ -23,7 +23,8 @@ use aviqtl_preview::{MediaPreview, PlannedPreview, PreviewPlanner, PreviewSurfac
 use slint::platform::Key;
 use slint::wgpu_29::wgpu;
 use slint::{
-    CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel,
+    CloseRequestResponse, Color, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode,
+    VecModel,
 };
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
@@ -411,6 +412,7 @@ struct ObjectSettingsUi {
     model: Rc<RefCell<ApplicationModel>>,
     catalog: Rc<EffectCatalog>,
     presets: Rc<PresetStore>,
+    font_families: Rc<Vec<String>>,
 }
 
 impl ObjectSettingsUi {
@@ -764,6 +766,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("{effect_catalog_status}");
     let effect_catalog = Rc::new(effect_catalog);
     let preset_store = Rc::new(PresetStore::load());
+    let font_families = Rc::new(system_font_families());
     let mut application_model = ApplicationModel::default();
     apply_runtime_settings(&mut application_model, &settings.borrow());
     let model = Rc::new(RefCell::new(application_model));
@@ -798,6 +801,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     object_settings
         .set_effect_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     sync_effect_catalog(&object_settings, &effect_catalog, "");
+    object_settings.set_font_families(ModelRc::new(VecModel::<SharedString>::default()));
+    sync_font_families(&object_settings, &font_families, "");
     let easing_names = keyframe_interpolation_names();
     easing.set_easing_names(ModelRc::new(VecModel::from(
         easing_names
@@ -854,6 +859,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         settings.clone(),
         effect_catalog.clone(),
         preset_store,
+        font_families,
         lifecycle_ui,
     );
     install_keyboard_shortcuts(&main, &timeline, model.clone(), settings.clone());
@@ -1013,6 +1019,7 @@ fn install_callbacks(
     settings: Rc<RefCell<SettingsStore>>,
     effect_catalog: Rc<EffectCatalog>,
     preset_store: Rc<PresetStore>,
+    font_families: Rc<Vec<String>>,
     lifecycle_ui: Rc<LifecycleUi>,
 ) {
     let WindowRefs {
@@ -1035,6 +1042,7 @@ fn install_callbacks(
         model: model.clone(),
         catalog: effect_catalog.clone(),
         presets: preset_store.clone(),
+        font_families,
     };
     let object_select_ui = object_settings_ui.clone();
     object_settings.on_select_effect(move |index, control, shift| {
@@ -1124,6 +1132,70 @@ fn install_callbacks(
                 option as usize,
             );
         }
+    });
+    let object_path_ui = object_settings_ui.clone();
+    object_settings.on_choose_parameter_path(move |index, param, frame, current, filter, label| {
+        let Some(path) = pick_parameter_file(current.as_str(), filter.as_str(), label.as_str())
+        else {
+            return;
+        };
+        object_path_ui.set_text(index.max(0) as usize, param.as_str(), frame.max(0), &path);
+    });
+    let object_color_window = object_settings.as_weak();
+    object_settings.on_show_color_picker(move |index, param, frame, value| {
+        let Some(window) = object_color_window.upgrade() else {
+            return;
+        };
+        let [alpha, red, green, blue] = parse_qt_color(value.as_str());
+        window.set_picker_effect_index(index);
+        window.set_picker_param_name(param);
+        window.set_picker_frame(frame.max(0));
+        window.set_picker_red(i32::from(red));
+        window.set_picker_green(i32::from(green));
+        window.set_picker_blue(i32::from(blue));
+        window.set_picker_alpha(i32::from(alpha));
+        window.set_font_picker_visible(false);
+        window.set_color_picker_visible(true);
+    });
+    let object_color_ui = object_settings_ui.clone();
+    object_settings.on_apply_picked_color(move |index, param, frame, red, green, blue, alpha| {
+        object_color_ui.set_text(
+            index.max(0) as usize,
+            param.as_str(),
+            frame.max(0),
+            &format_qt_color(red, green, blue, alpha),
+        );
+    });
+    let object_font_window = object_settings.as_weak();
+    let object_font_catalog = object_settings_ui.font_families.clone();
+    object_settings.on_show_font_picker(move |index, param, frame, value| {
+        let Some(window) = object_font_window.upgrade() else {
+            return;
+        };
+        window.set_picker_effect_index(index);
+        window.set_picker_param_name(param);
+        window.set_picker_frame(frame.max(0));
+        window.set_current_font_family(value);
+        window.set_font_filter(SharedString::new());
+        sync_font_families(&window, &object_font_catalog, "");
+        window.set_color_picker_visible(false);
+        window.set_font_picker_visible(true);
+    });
+    let object_font_filter_window = object_settings.as_weak();
+    let object_font_filter_catalog = object_settings_ui.font_families.clone();
+    object_settings.on_filter_fonts(move |query| {
+        if let Some(window) = object_font_filter_window.upgrade() {
+            sync_font_families(&window, &object_font_filter_catalog, query.as_str());
+        }
+    });
+    let object_font_ui = object_settings_ui.clone();
+    object_settings.on_apply_picked_font(move |index, param, frame, family| {
+        object_font_ui.set_text(
+            index.max(0) as usize,
+            param.as_str(),
+            frame.max(0),
+            family.as_str(),
+        );
     });
     let object_seek_keyframe_ui = object_settings_ui.clone();
     object_settings.on_seek_effect_frame(move |frame| {
@@ -3321,6 +3393,152 @@ fn choose_export_output(choose_folder: bool, current_path: &str) -> Option<PathB
     }
 }
 
+fn pick_parameter_file(current_path: &str, filter: &str, label: &str) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new().set_title(if label.is_empty() {
+        "ファイルを選択"
+    } else {
+        label
+    });
+    for (name, extensions) in qt_file_filters(filter) {
+        dialog = dialog.add_filter(name, &extensions);
+    }
+    dialog = dialog.add_filter("All Files", &["*"]);
+
+    let current_path = PathBuf::from(current_path.trim());
+    if let Some(parent) = current_path.parent().filter(|path| path.is_dir()) {
+        dialog = dialog.set_directory(parent);
+    }
+    if let Some(name) = current_path.file_name().filter(|name| !name.is_empty()) {
+        dialog = dialog.set_file_name(name.to_string_lossy().into_owned());
+    }
+    dialog
+        .pick_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+fn qt_file_filters(value: &str) -> Vec<(String, Vec<String>)> {
+    value
+        .split(";;")
+        .filter_map(|filter| {
+            let filter = filter.trim();
+            let (name, patterns) = filter.split_once('(')?;
+            let patterns = patterns.strip_suffix(')')?;
+            let extensions = patterns
+                .split_whitespace()
+                .filter_map(|pattern| {
+                    let extension = pattern
+                        .trim()
+                        .strip_prefix("*.")
+                        .or_else(|| (pattern.trim() == "*").then_some("*"))?;
+                    (!extension.is_empty()).then(|| extension.to_owned())
+                })
+                .collect::<Vec<_>>();
+            (!extensions.is_empty()).then(|| (name.trim().to_owned(), extensions))
+        })
+        .collect()
+}
+
+fn parse_qt_color(value: &str) -> [u8; 4] {
+    let hex = value.trim().strip_prefix('#').unwrap_or_default();
+    let nibble = |value: u8| value.saturating_mul(17);
+    match hex.len() {
+        3 => {
+            let bytes = hex.as_bytes();
+            let Some(red) = hex_nibble(bytes[0]) else {
+                return [255; 4];
+            };
+            let Some(green) = hex_nibble(bytes[1]) else {
+                return [255; 4];
+            };
+            let Some(blue) = hex_nibble(bytes[2]) else {
+                return [255; 4];
+            };
+            [255, nibble(red), nibble(green), nibble(blue)]
+        }
+        4 => {
+            let bytes = hex.as_bytes();
+            let Some(alpha) = hex_nibble(bytes[0]) else {
+                return [255; 4];
+            };
+            let Some(red) = hex_nibble(bytes[1]) else {
+                return [255; 4];
+            };
+            let Some(green) = hex_nibble(bytes[2]) else {
+                return [255; 4];
+            };
+            let Some(blue) = hex_nibble(bytes[3]) else {
+                return [255; 4];
+            };
+            [nibble(alpha), nibble(red), nibble(green), nibble(blue)]
+        }
+        6 => parse_hex_bytes(hex).map_or([255; 4], |bytes| [255, bytes[0], bytes[1], bytes[2]]),
+        8 => {
+            parse_hex_bytes(hex).map_or([255; 4], |bytes| [bytes[0], bytes[1], bytes[2], bytes[3]])
+        }
+        _ => [255; 4],
+    }
+}
+
+fn hex_nibble(value: u8) -> Option<u8> {
+    (value as char).to_digit(16).map(|value| value as u8)
+}
+
+fn parse_hex_bytes(value: &str) -> Option<Vec<u8>> {
+    value
+        .as_bytes()
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|digits| {
+            let digits = std::str::from_utf8(digits).ok()?;
+            u8::from_str_radix(digits, 16).ok()
+        })
+        .collect()
+}
+
+fn format_qt_color(red: i32, green: i32, blue: i32, alpha: i32) -> String {
+    let [red, green, blue, alpha] = [red, green, blue, alpha].map(|value| value.clamp(0, 255));
+    if alpha == 255 {
+        format!("#{red:02x}{green:02x}{blue:02x}")
+    } else {
+        format!("#{alpha:02x}{red:02x}{green:02x}{blue:02x}")
+    }
+}
+
+fn slint_color(value: &str) -> Color {
+    let [alpha, red, green, blue] = parse_qt_color(value);
+    Color::from_argb_u8(alpha, red, green, blue)
+}
+
+fn system_font_families() -> Vec<String> {
+    let mut database = fontdb::Database::new();
+    database.load_system_fonts();
+    database
+        .faces()
+        .flat_map(|face| face.families.iter().map(|(family, _)| family.trim()))
+        .filter(|family| !family.is_empty())
+        .map(str::to_owned)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn filtered_font_families(families: &[String], query: &str) -> Vec<SharedString> {
+    let query = query.trim().to_lowercase();
+    families
+        .iter()
+        .filter(|family| query.is_empty() || family.to_lowercase().contains(&query))
+        .map(|family| SharedString::from(family.clone()))
+        .collect()
+}
+
+fn sync_font_families(window: &ObjectSettingsWindow, families: &[String], query: &str) {
+    update_vec_model(
+        &window.get_font_families(),
+        filtered_font_families(families, query),
+    );
+}
+
 fn choose_project_to_open() -> Option<PathBuf> {
     project_file_dialog().pick_file()
 }
@@ -3689,6 +3907,9 @@ fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> 
             step: 1.0,
             text_value: SharedString::new(),
             end_text_value: SharedString::new(),
+            filter: SharedString::new(),
+            color_value: Color::from_rgb_u8(255, 255, 255),
+            end_color_value: Color::from_rgb_u8(255, 255, 255),
             unit: SharedString::new(),
             keyframe_markers: ModelRc::new(VecModel::<KeyframeMarkerData>::default()),
             option_labels: ModelRc::new(VecModel::<SharedString>::default()),
@@ -3705,6 +3926,8 @@ fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> 
                 control.kind,
                 ObjectControlKind::Number | ObjectControlKind::Integer | ObjectControlKind::Color
             ) && control.param.is_some();
+            let text_value = control.display_value_at(&control.start_value);
+            let end_text_value = control.display_value_at(&control.end_value);
             let parameter_row = ObjectSettingRowData {
                 row_kind: SharedString::from(control.kind.as_str()),
                 source_kind: SharedString::from(control.source_kind.clone()),
@@ -3731,8 +3954,11 @@ fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> 
                     .step
                     .filter(|step| step.is_finite() && *step > 0.0)
                     .map_or(1.0, |step| finite_f32(step, 1.0)),
-                text_value: SharedString::from(control.display_value_at(&control.start_value)),
-                end_text_value: SharedString::from(control.display_value_at(&control.end_value)),
+                text_value: SharedString::from(text_value.clone()),
+                end_text_value: SharedString::from(end_text_value.clone()),
+                filter: SharedString::from(control.filter.clone()),
+                color_value: slint_color(&text_value),
+                end_color_value: slint_color(&end_text_value),
                 unit: SharedString::from(control.unit.clone()),
                 keyframe_markers: ModelRc::new(VecModel::from(keyframe_markers(control))),
                 option_labels: ModelRc::new(VecModel::from(option_labels)),
@@ -4583,6 +4809,46 @@ mod tests {
             .preview_path
             .to_string();
         assert_ne!(custom_default, custom_edited);
+    }
+
+    #[test]
+    fn parameter_picker_helpers_preserve_qt_value_contracts() {
+        assert_eq!(
+            qt_file_filters("Video Files (*.mp4 *.mov);;Images (*.png *.jpg)"),
+            vec![
+                (
+                    "Video Files".to_owned(),
+                    vec!["mp4".to_owned(), "mov".to_owned()]
+                ),
+                (
+                    "Images".to_owned(),
+                    vec!["png".to_owned(), "jpg".to_owned()]
+                )
+            ]
+        );
+        assert!(qt_file_filters("").is_empty());
+        assert_eq!(parse_qt_color("#abc"), [255, 0xaa, 0xbb, 0xcc]);
+        assert_eq!(parse_qt_color("#80ff0000"), [0x80, 0xff, 0, 0]);
+        assert_eq!(parse_qt_color("invalid"), [255; 4]);
+        assert_eq!(format_qt_color(255, 0, 16, 255), "#ff0010");
+        assert_eq!(format_qt_color(300, -1, 16, 128), "#80ff0010");
+    }
+
+    #[test]
+    fn font_picker_filter_is_case_insensitive_and_stable() {
+        let families = vec![
+            "Arial".to_owned(),
+            "Noto Sans CJK JP".to_owned(),
+            "Noto Serif".to_owned(),
+        ];
+        assert_eq!(
+            filtered_font_families(&families, "  NOTO ")
+                .into_iter()
+                .map(|family| family.to_string())
+                .collect::<Vec<_>>(),
+            vec!["Noto Sans CJK JP", "Noto Serif"]
+        );
+        assert_eq!(filtered_font_families(&families, "").len(), 3);
     }
 
     #[test]
