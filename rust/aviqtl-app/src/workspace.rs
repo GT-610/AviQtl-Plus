@@ -6,9 +6,10 @@ use crate::selection::{ClipSelection, SelectionBox};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
-    ClipDocument, ProjectDocument, ProjectSettings, SceneDocument, TimelineCommand,
-    TimelineTransaction, clipboard_duration, inspect_keyframe_track, plan_clip_delta_move,
-    plan_clipboard_paste, plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
+    ClipDocument, EffectInsertion, ProjectDocument, ProjectSettings, SceneDocument,
+    TimelineCommand, TimelineTransaction, clipboard_duration, inspect_keyframe_track,
+    plan_clip_delta_move, plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion,
+    plan_scene_layer_shift, snap_scene_frame,
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -244,6 +245,69 @@ impl WorkspaceModel {
         true
     }
 
+    pub fn add_effect(&mut self, catalog: &EffectCatalog, effect_id: &str) -> bool {
+        let Some(effect) = catalog.effect_document(effect_id) else {
+            self.status = format!("Effect {effect_id} is not available");
+            return false;
+        };
+        let Some((clip_id, index)) = self
+            .selected_clip_document()
+            .map(|clip| (clip.id, clip.effects.len()))
+        else {
+            return false;
+        };
+        let name = effect.name.clone();
+        if self.execute(TimelineCommand::InsertEffects {
+            clip_id,
+            insertions: vec![EffectInsertion { index, effect }],
+        }) {
+            self.effect_selection.click(index, false, false);
+            self.status = format!("Added effect {name}");
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn reorder_effects(&mut self, source: usize, target: usize) -> bool {
+        let Some((clip_id, length, transform_first)) = self.selected_clip_document().map(|clip| {
+            (
+                clip.id,
+                clip.effects.len(),
+                clip.effects
+                    .first()
+                    .is_some_and(|effect| effect.id == "transform"),
+            )
+        }) else {
+            return false;
+        };
+        if source >= length || target >= length {
+            return false;
+        }
+        let indices = self.effect_selection.action_targets(source);
+        let permutation =
+            match plan_effect_reorder(length, &indices, target, usize::from(transform_first)) {
+                Ok(permutation) => permutation,
+                Err(error) => {
+                    self.status = error.to_string();
+                    return false;
+                }
+            };
+        if permutation.iter().copied().eq(0..length) {
+            return false;
+        }
+        if self.execute(TimelineCommand::ReorderEffects {
+            clip_id,
+            permutation: permutation.clone(),
+        }) {
+            self.effect_selection.apply_permutation(&permutation);
+            self.status = format!("Reordered {} effect(s)", indices.len());
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn set_effect_enabled(&mut self, effect_index: usize, enabled: bool) -> bool {
         let Some(clip_id) = self
             .selected_clip_document()
@@ -265,11 +329,13 @@ impl WorkspaceModel {
         else {
             return false;
         };
+        let mut next_selection = self.effect_selection.clone();
+        next_selection.apply_removals(&[effect_index]);
         if self.execute(TimelineCommand::RemoveEffects {
             clip_id,
             effect_indices: vec![effect_index],
         }) {
-            self.effect_selection.apply_removals(&[effect_index]);
+            self.effect_selection = next_selection;
             true
         } else {
             false
@@ -1209,6 +1275,11 @@ mod tests {
                             "name": "Blur",
                             "params": {"size": 0},
                             "keyframes": {"size": [{"frame": 0, "value": 0}, {"frame": 20, "value": 20}]}
+                        },
+                        {
+                            "id": "mosaic",
+                            "name": "Mosaic",
+                            "params": {"size": 10}
                         }
                     ]
                 }]
@@ -1498,8 +1569,17 @@ mod tests {
                 .any(|point| point.frame == 10 && point.value == json!(15.0))
         );
 
-        assert!(workspace.remove_effect(1));
-        assert_eq!(workspace.document().clips[0].effects.len(), 1);
-        assert_eq!(workspace.selected_effect_index(), Some(0));
+        assert!(workspace.reorder_effects(1, 2));
+        assert_eq!(workspace.document().clips[0].effects[2].id, "blur");
+        assert_eq!(workspace.selected_effect_index(), Some(2));
+
+        let (catalog, _) = EffectCatalog::load();
+        assert!(workspace.add_effect(&catalog, "fade"));
+        assert_eq!(workspace.document().clips[0].effects[3].id, "fade");
+        assert_eq!(workspace.selected_effect_index(), Some(3));
+
+        assert!(workspace.remove_effect(2));
+        assert_eq!(workspace.document().clips[0].effects.len(), 3);
+        assert_eq!(workspace.selected_effect_index(), Some(2));
     }
 }

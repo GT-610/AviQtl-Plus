@@ -53,6 +53,12 @@ export struct ObjectEffectData {
     removable: bool,
 }
 
+export struct EffectCatalogItemData {
+    id: string,
+    name: string,
+    categories: string,
+}
+
 export struct ObjectSettingRowData {
     row-kind: string,
     source-kind: string,
@@ -119,6 +125,10 @@ component EffectSidebarEntry inherits Rectangle {
     callback activate(int, bool, bool);
     callback context-activate(int);
     callback remove(int);
+    callback reorder(int, float);
+    private property <bool> drag-active: false;
+    private property <bool> drag-threshold-crossed: false;
+    private property <length> drag-y: 0px;
     height: 34px;
     background: root.effect.selected ? #405f8b : effect-touch.has-hover ? #343a45 : transparent;
     border-width: root.effect.selected ? 1px : 0px;
@@ -128,6 +138,11 @@ component EffectSidebarEntry inherits Rectangle {
         padding-left: 7px;
         padding-right: 5px;
         spacing: 6px;
+        Text {
+            text: "☷";
+            color: #9ea4ae;
+            vertical-alignment: center;
+        }
         Text {
             text: root.effect.enabled ? "●" : "○";
             color: root.effect.enabled ? #8fcf94 : #8b8f98;
@@ -163,6 +178,36 @@ component EffectSidebarEntry inherits Rectangle {
                     root.context-activate(root.effect.index);
                     effect-menu.show({ x: self.mouse-x, y: self.mouse-y });
                 }
+            }
+        }
+    }
+    drag-touch := TouchArea {
+        width: 27px;
+        mouse-cursor: move;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.drag-active = true;
+                root.drag-threshold-crossed = false;
+                root.drag-y = 0px;
+            }
+            if event.kind == PointerEventKind.move && root.drag-active {
+                root.drag-y = self.mouse-y - self.pressed-y;
+                if abs(root.drag-y) >= 3px {
+                    root.drag-threshold-crossed = true;
+                }
+            }
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.drag-active {
+                if root.drag-threshold-crossed {
+                    root.reorder(root.effect.index, root.drag-y / 1px);
+                }
+                root.drag-active = false;
+                root.drag-threshold-crossed = false;
+                root.drag-y = 0px;
+            }
+            if event.kind == PointerEventKind.cancel {
+                root.drag-active = false;
+                root.drag-threshold-crossed = false;
+                root.drag-y = 0px;
             }
         }
     }
@@ -2103,10 +2148,16 @@ export component ObjectSettingsWindow inherits Window {
     in property <string> clip-title: "";
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
+    in property <[EffectCatalogItemData]> effect-catalog-items;
+    in-out property <bool> effect-picker-visible: false;
+    in-out property <string> effect-filter: "";
     callback select-effect(int, bool, bool);
     callback context-select-effect(int);
+    callback reorder-effect(int, float);
     callback set-effect-enabled(int, bool);
     callback remove-effect(int);
+    callback filter-effects(string);
+    callback add-effect(string);
     callback set-parameter-text(int, string, string);
     callback set-parameter-number(int, string, float);
     callback set-parameter-bool(int, string, bool);
@@ -2140,6 +2191,7 @@ export component ObjectSettingsWindow inherits Window {
                             activate(index, control, shift) => { root.select-effect(index, control, shift); }
                             context-activate(index) => { root.context-select-effect(index); }
                             remove(index) => { root.remove-effect(index); }
+                            reorder(index, delta-y) => { root.reorder-effect(index, delta-y); }
                         }
                         if root.effects.length == 0 : Text {
                             text: "設定項目がありません";
@@ -2150,8 +2202,11 @@ export component ObjectSettingsWindow inherits Window {
                 }
                 Button {
                     text: "+ エフェクトを追加";
-                    enabled: false;
-                    accessible-description: "エフェクトカタログは後続段階で接続します";
+                    clicked => {
+                        root.effect-filter = "";
+                        root.filter-effects("");
+                        root.effect-picker-visible = true;
+                    }
                 }
             }
         }
@@ -2176,6 +2231,56 @@ export component ObjectSettingsWindow inherits Window {
                     set-option(index, param, option) => { root.set-parameter-option(index, param, option); }
                 }
                 Rectangle { vertical-stretch: 1; }
+            }
+        }
+    }
+
+    if root.effect-picker-visible : Rectangle {
+        z: 100;
+        background: #99000000;
+        TouchArea { clicked => { root.effect-picker-visible = false; } }
+        picker-panel := Rectangle {
+            width: min(parent.width - 48px, 560px);
+            height: min(parent.height - 48px, 520px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2b3038;
+            border-width: 1px;
+            border-color: #646b78;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+                Text { text: "フィルタ効果を追加"; font-size: 1.15rem; font-weight: 700; }
+                LineEdit {
+                    text <=> root.effect-filter;
+                    placeholder-text: "名前・ID・カテゴリを検索...";
+                    edited(value) => { root.filter-effects(value); }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 4px;
+                        for item in root.effect-catalog-items : Button {
+                            text: item.categories == ""
+                                ? item.name
+                                : item.name + "  [" + item.categories + "]";
+                            accessible-description: item.id;
+                            clicked => {
+                                root.add-effect(item.id);
+                                root.effect-picker-visible = false;
+                            }
+                        }
+                        if root.effect-catalog-items.length == 0 : Text {
+                            text: "一致するエフェクトがありません";
+                            color: #aeb3bc;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: "閉じる"; clicked => { root.effect-picker-visible = false; } }
+                }
             }
         }
     }

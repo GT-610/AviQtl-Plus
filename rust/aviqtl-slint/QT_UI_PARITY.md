@@ -119,8 +119,11 @@ still require the separately scheduled Computer Use suite.
   enable toggles, bounded numeric edits, booleans, strings, paths, colors, fonts, static choices, and
   live scene choices to the GUI-neutral workspace. Existing keyframe tracks display their evaluated
   current-frame value and parameter edits create or update the current-frame keyframe while retaining
-  typed-value metadata. Effect insertion/reordering, preset menus, two-ended keyframe editing, easing,
-  and native file/color/font pickers remain incomplete and therefore keep this area at `foundation`.
+  typed-value metadata. The clip context command and settings button open a searchable live effect
+  catalog, additions append the catalog-defined effect, and the sidebar drag handle reorders either
+  one effect or the current Ctrl/Shift selection while preserving a leading transform. Preset menus,
+  multi-selection enable/delete, two-ended keyframe editing, easing, category-tree presentation, and
+  native file/color/font pickers remain incomplete and therefore keep this area at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
   drag or context menu is active.
 

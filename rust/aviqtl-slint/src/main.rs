@@ -402,6 +402,41 @@ impl ObjectSettingsUi {
         };
         self.set_value(effect_index, param_name, value);
     }
+
+    fn add_effect(&self, effect_id: &str) {
+        let _ = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.add_effect(&self.catalog, effect_id));
+        self.sync();
+    }
+
+    fn reorder_effect(&self, source: usize, delta_y: f32) {
+        if !delta_y.is_finite() {
+            return;
+        }
+        let Some(length) = self
+            .model
+            .borrow()
+            .current_workspace()
+            .and_then(WorkspaceModel::selected_clip_document)
+            .map(|clip| clip.effects.len())
+        else {
+            return;
+        };
+        if length == 0 || source >= length {
+            return;
+        }
+        let target = (source as i64 + i64::from((delta_y / 34.0).round() as i32))
+            .clamp(0, length.saturating_sub(1) as i64) as usize;
+        let _ = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.reorder_effects(source, target));
+        self.sync();
+    }
 }
 
 impl LifecycleUi {
@@ -602,6 +637,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     timeline.set_layers(ModelRc::new(VecModel::<LayerData>::default()));
     object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
     object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));
+    object_settings
+        .set_effect_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
+    sync_effect_catalog(&object_settings, &effect_catalog, "");
 
     let stats = Rc::new(GpuValidation::new(
         gpu.device.clone(),
@@ -871,6 +909,33 @@ fn install_callbacks(
         if option >= 0 {
             object_option_ui.set_option(index.max(0) as usize, param.as_str(), option as usize);
         }
+    });
+    let object_reorder_ui = ObjectSettingsUi {
+        main: main.as_weak(),
+        timeline: timeline.as_weak(),
+        window: object_settings.as_weak(),
+        model: model.clone(),
+        catalog: effect_catalog.clone(),
+    };
+    object_settings.on_reorder_effect(move |index, delta_y| {
+        object_reorder_ui.reorder_effect(index.max(0) as usize, delta_y);
+    });
+    let object_filter_window = object_settings.as_weak();
+    let object_filter_catalog = effect_catalog.clone();
+    object_settings.on_filter_effects(move |query| {
+        if let Some(window) = object_filter_window.upgrade() {
+            sync_effect_catalog(&window, &object_filter_catalog, query.as_str());
+        }
+    });
+    let object_add_ui = ObjectSettingsUi {
+        main: main.as_weak(),
+        timeline: timeline.as_weak(),
+        window: object_settings.as_weak(),
+        model: model.clone(),
+        catalog: effect_catalog.clone(),
+    };
+    object_settings.on_add_effect(move |effect_id| {
+        object_add_ui.add_effect(effect_id.as_str());
     });
     let create_model = model.clone();
     let create_main = main.as_weak();
@@ -1428,7 +1493,9 @@ fn install_callbacks(
     let clip_command_main = main.as_weak();
     let clip_command_timeline = timeline.as_weak();
     let clip_command_settings = object_settings.as_weak();
+    let clip_command_catalog = effect_catalog.clone();
     timeline.on_clip_command(move |action, clip_id| {
+        let open_effect_picker = action.as_str() == "add-effect";
         if let Some(workspace) = clip_command_model.borrow_mut().current_workspace_mut() {
             workspace.context_click_clip(clip_id);
             match action.as_str() {
@@ -1453,11 +1520,7 @@ fn install_callbacks(
                 "clipping" => {
                     workspace.toggle_clip_by_upper_object(clip_id);
                 }
-                "add-effect" => {
-                    if let Some(window) = clip_command_settings.upgrade() {
-                        let _ = window.show();
-                    }
-                }
+                "add-effect" => {}
                 _ => {}
             }
         }
@@ -1466,6 +1529,13 @@ fn install_callbacks(
             &clip_command_timeline,
             &clip_command_model,
         );
+        if open_effect_picker && let Some(window) = clip_command_settings.upgrade() {
+            sync_object_settings(&window, &clip_command_model.borrow(), &clip_command_catalog);
+            sync_effect_catalog(&window, &clip_command_catalog, "");
+            window.set_effect_filter(SharedString::new());
+            window.set_effect_picker_visible(true);
+            let _ = window.show();
+        }
     });
 
     let clip_drag_model = model.clone();
@@ -3131,6 +3201,19 @@ fn sync_object_settings(
         &window.get_setting_rows(),
         object_settings_rows(&projection),
     );
+}
+
+fn sync_effect_catalog(window: &ObjectSettingsWindow, catalog: &EffectCatalog, query: &str) {
+    let items = catalog
+        .query("effect", query, "")
+        .into_iter()
+        .map(|metadata| EffectCatalogItemData {
+            id: SharedString::from(metadata.id.clone()),
+            name: SharedString::from(metadata.name.clone()),
+            categories: SharedString::from(metadata.categories.join(", ")),
+        })
+        .collect::<Vec<_>>();
+    update_vec_model(&window.get_effect_catalog_items(), items);
 }
 
 fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> {
