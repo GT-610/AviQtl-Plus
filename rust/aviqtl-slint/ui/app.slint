@@ -75,6 +75,14 @@ export struct CurveHandleData {
     removable: bool,
 }
 
+export struct EasingCatalogRowData {
+    header: bool,
+    easing-index: int,
+    name: string,
+    label: string,
+    preview-path: string,
+}
+
 export struct ObjectSettingRowData {
     row-kind: string,
     source-kind: string,
@@ -2792,9 +2800,9 @@ export component ObjectSettingsWindow inherits Window {
 
 export component EasingConfigWindow inherits Window {
     title: "補間設定: " + root.param-name;
-    preferred-width: 720px;
+    preferred-width: 880px;
     preferred-height: 560px;
-    min-width: 560px;
+    min-width: 760px;
     min-height: 460px;
     in-out property <bool> initializing: false;
     in-out property <int> effect-index: -1;
@@ -2802,6 +2810,8 @@ export component EasingConfigWindow inherits Window {
     in-out property <int> keyframe-frame: 0;
     in property <[string]> easing-names;
     in property <[string]> easing-labels;
+    in property <[EasingCatalogRowData]> easing-catalog-rows;
+    in-out property <string> easing-filter: "";
     in-out property <int> selected-easing-index: 0;
     in-out property <int> step-frames: 1;
     in-out property <float> elastic-amplitude: 1;
@@ -2840,6 +2850,7 @@ export component EasingConfigWindow inherits Window {
     callback insert-custom-anchor(float, float);
     callback move-custom-point(int, float, float);
     callback remove-custom-anchor(int);
+    callback filter-easings(string);
     callback close-window();
 
     function preview-viewbox-x() -> float {
@@ -2881,8 +2892,10 @@ export component EasingConfigWindow inherits Window {
         }
     }
 
-    VerticalLayout {
+    HorizontalLayout {
         padding: 14px;
+        spacing: 12px;
+        VerticalLayout {
         spacing: 10px;
         Text {
             text: "フレーム \{root.keyframe-frame}  ·  \{root.param-name}";
@@ -3084,19 +3097,6 @@ export component EasingConfigWindow inherits Window {
                 color: #aeb3bc;
             }
         }
-        HorizontalLayout {
-            spacing: 8px;
-            Text { text: "補間方法"; width: 90px; vertical-alignment: center; }
-            ComboBox {
-                horizontal-stretch: 1;
-                model: root.easing-labels;
-                current-index: root.selected-easing-index;
-                selected(value) => {
-                    root.selected-easing-index = self.current-index;
-                    root.apply-current();
-                }
-            }
-        }
         if root.step-mode : GroupBox {
             title: "更新間隔";
             HorizontalLayout {
@@ -3184,6 +3184,126 @@ export component EasingConfigWindow inherits Window {
         HorizontalLayout {
             Rectangle { horizontal-stretch: 1; }
             Button { text: "閉じる"; clicked => { root.close-window(); } }
+        }
+        }
+        Rectangle {
+            width: 280px;
+            background: #262a32;
+            border-width: 1px;
+            border-color: #4b515d;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 8px;
+                spacing: 6px;
+                HorizontalLayout {
+                    Text {
+                        text: "種類";
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text {
+                        text: root.selected-easing-index >= 0
+                            && root.selected-easing-index < root.easing-labels.length
+                            ? root.easing-labels[root.selected-easing-index]
+                            : "";
+                        color: #aeb3bc;
+                        overflow: elide;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                    }
+                }
+                LineEdit {
+                    text <=> root.easing-filter;
+                    placeholder-text: "検索...";
+                    edited(value) => { root.filter-easings(value); }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 3px;
+                        for item in root.easing-catalog-rows : Rectangle {
+                            height: item.header ? 28px : 52px;
+                            background: item.header
+                                ? transparent
+                                : item.easing-index == root.selected-easing-index
+                                    ? #385d8c
+                                    : catalog-touch.has-hover ? #353b45 : #2b3038;
+                            border-width: item.header ? 0px : item.easing-index == root.selected-easing-index ? 2px : 1px;
+                            border-color: item.easing-index == root.selected-easing-index ? #70a6ef : #4b515d;
+                            border-radius: item.header ? 0px : 4px;
+                            if item.header : Text {
+                                text: item.label;
+                                color: #aeb3bc;
+                                font-size: 0.9rem;
+                                font-weight: 700;
+                                vertical-alignment: bottom;
+                            }
+                            if !item.header : HorizontalLayout {
+                                padding: 5px;
+                                spacing: 8px;
+                                Rectangle {
+                                    width: 72px;
+                                    background: item.easing-index == root.selected-easing-index ? #223b5a : #20242b;
+                                    border-width: 1px;
+                                    border-color: #535965;
+                                    Path {
+                                        x: 4px;
+                                        y: 4px;
+                                        width: parent.width - 8px;
+                                        height: parent.height - 8px;
+                                        viewbox-x: 0;
+                                        viewbox-y: -0.3;
+                                        viewbox-width: 1;
+                                        viewbox-height: 1.6;
+                                        fit: fill;
+                                        commands: item.preview-path;
+                                        stroke: item.easing-index == root.selected-easing-index ? #e8f1ff : #70a6ef;
+                                        stroke-width: 1.5px;
+                                        clip: true;
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Text {
+                                        text: item.label;
+                                        color: #f2f3f5;
+                                        overflow: elide;
+                                        vertical-alignment: center;
+                                    }
+                                    Text {
+                                        text: item.name;
+                                        color: #9299a5;
+                                        font-size: 0.8rem;
+                                        overflow: elide;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                            catalog-touch := TouchArea {
+                                enabled: !item.header;
+                                mouse-cursor: pointer;
+                                accessible-role: button;
+                                accessible-label: item.label;
+                                accessible-description: item.name;
+                                accessible-action-default => {
+                                    root.selected-easing-index = item.easing-index;
+                                    root.apply-current();
+                                }
+                                clicked => {
+                                    root.selected-easing-index = item.easing-index;
+                                    root.apply-current();
+                                }
+                            }
+                        }
+                        if root.easing-catalog-rows.length == 0 : Text {
+                            text: "一致する補間方法がありません";
+                            color: #aeb3bc;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
         }
     }
 }

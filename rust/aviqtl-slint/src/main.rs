@@ -59,6 +59,65 @@ const AUDIO_CODECS: [(&str, &str); 5] = [
 const PRESET_VALUES: [&str; 5] = ["ultrafast", "fast", "medium", "slow", "veryslow"];
 const PROFILE_VALUES: [&str; 4] = ["", "baseline", "main", "high"];
 const AUDIO_BITRATES: [i32; 5] = [96, 128, 192, 256, 320];
+const EASING_CATEGORIES: [(&str, &[&str]); 5] = [
+    ("基本", &["none", "linear"]),
+    (
+        "標準カーブ",
+        &[
+            "ease_in_sine",
+            "ease_out_sine",
+            "ease_in_out_sine",
+            "ease_out_in_sine",
+            "ease_in_quad",
+            "ease_out_quad",
+            "ease_in_out_quad",
+            "ease_out_in_quad",
+            "ease_in_cubic",
+            "ease_out_cubic",
+            "ease_in_out_cubic",
+            "ease_out_in_cubic",
+        ],
+    ),
+    (
+        "強いカーブ",
+        &[
+            "ease_in_quart",
+            "ease_out_quart",
+            "ease_in_out_quart",
+            "ease_out_in_quart",
+            "ease_in_quint",
+            "ease_out_quint",
+            "ease_in_out_quint",
+            "ease_out_in_quint",
+            "ease_in_expo",
+            "ease_out_expo",
+            "ease_in_out_expo",
+            "ease_out_in_expo",
+            "ease_in_circ",
+            "ease_out_circ",
+            "ease_in_out_circ",
+            "ease_out_in_circ",
+        ],
+    ),
+    (
+        "反動と弾性",
+        &[
+            "ease_in_back",
+            "ease_out_back",
+            "ease_in_out_back",
+            "ease_out_in_back",
+            "ease_in_elastic",
+            "ease_out_elastic",
+            "ease_in_out_elastic",
+            "ease_out_in_elastic",
+            "ease_in_bounce",
+            "ease_out_bounce",
+            "ease_in_out_bounce",
+            "ease_out_in_bounce",
+        ],
+    ),
+    ("特殊", &["random", "alternate", "custom"]),
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShortcutAction {
@@ -434,7 +493,9 @@ impl ObjectSettingsUi {
         if let Some(window) = self.easing.upgrade() {
             let curve = sync_easing_window(&window, effect_index, param_name, &point);
             *self.easing_curve.borrow_mut() = curve;
-            sync_easing_preview(&window, &self.easing_curve.borrow());
+            let curve = self.easing_curve.borrow();
+            sync_easing_preview(&window, &curve);
+            sync_easing_catalog(&window, window.get_easing_filter().as_str(), &curve);
             let _ = window.show();
         }
     }
@@ -751,6 +812,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>(),
     )));
     easing.set_curve_handles(ModelRc::new(VecModel::<CurveHandleData>::default()));
+    easing.set_easing_catalog_rows(ModelRc::new(VecModel::<EasingCatalogRowData>::default()));
+    sync_easing_catalog(&easing, "", &BezierCurve::default());
 
     let stats = Rc::new(GpuValidation::new(
         gpu.device.clone(),
@@ -1150,7 +1213,11 @@ fn install_callbacks(
                 period,
                 &custom_points,
             );
-            sync_easing_preview(&window, &easing_apply_ui.easing_curve.borrow());
+            {
+                let curve = easing_apply_ui.easing_curve.borrow();
+                sync_easing_preview(&window, &curve);
+                sync_easing_catalog(&window, window.get_easing_filter().as_str(), &curve);
+            }
             easing_apply_ui.apply_easing(
                 window.get_effect_index().max(0) as usize,
                 window.get_param_name().as_str(),
@@ -1236,6 +1303,17 @@ fn install_callbacks(
         }) {
             sync_easing_curve(&window, &easing_remove_ui.easing_curve.borrow());
             invoke_current_easing(&window);
+        }
+    });
+    let easing_filter_window = easing.as_weak();
+    let easing_filter_ui = object_settings_ui.clone();
+    easing.on_filter_easings(move |query| {
+        if let Some(window) = easing_filter_window.upgrade() {
+            sync_easing_catalog(
+                &window,
+                query.as_str(),
+                &easing_filter_ui.easing_curve.borrow(),
+            );
         }
     });
     let easing_close = easing.as_weak();
@@ -3778,6 +3856,70 @@ fn easing_label(name: &str) -> String {
     }
 }
 
+fn normalized_easing_filter(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| *character != '_')
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn easing_catalog_rows(
+    query: &str,
+    step_frames: i32,
+    amplitude: f32,
+    period: f32,
+    points: &[f64],
+) -> Vec<EasingCatalogRowData> {
+    let names = keyframe_interpolation_names();
+    let query = normalized_easing_filter(query);
+    let mut rows = Vec::with_capacity(names.len() + EASING_CATEGORIES.len());
+    for (category, category_names) in EASING_CATEGORIES {
+        let matching = category_names
+            .iter()
+            .filter_map(|name| {
+                let index = names.iter().position(|candidate| candidate == name)?;
+                (query.is_empty() || normalized_easing_filter(name).contains(&query))
+                    .then_some((index, *name))
+            })
+            .collect::<Vec<_>>();
+        if matching.is_empty() {
+            continue;
+        }
+        rows.push(EasingCatalogRowData {
+            header: true,
+            easing_index: -1,
+            name: SharedString::new(),
+            label: SharedString::from(category),
+            preview_path: SharedString::new(),
+        });
+        rows.extend(matching.into_iter().map(|(index, name)| {
+            let options = easing_options(name, step_frames, amplitude, period, points);
+            EasingCatalogRowData {
+                header: false,
+                easing_index: index as i32,
+                name: SharedString::from(name),
+                label: SharedString::from(easing_label(name)),
+                preview_path: SharedString::from(easing_preview_path_with_steps(&options, 48)),
+            }
+        }));
+    }
+    rows
+}
+
+fn sync_easing_catalog(window: &EasingConfigWindow, query: &str, curve: &BezierCurve) {
+    update_vec_model(
+        &window.get_easing_catalog_rows(),
+        easing_catalog_rows(
+            query,
+            window.get_step_frames(),
+            window.get_elastic_amplitude(),
+            window.get_elastic_period(),
+            curve.points(),
+        ),
+    );
+}
+
 fn sync_easing_window(
     window: &EasingConfigWindow,
     effect_index: usize,
@@ -3899,7 +4041,11 @@ fn sync_easing_preview(window: &EasingConfigWindow, curve: &BezierCurve) {
 }
 
 fn easing_preview_path(options: &serde_json::Value) -> String {
-    let mut samples = sample_easing_curve(options, 128).into_iter();
+    easing_preview_path_with_steps(options, 128)
+}
+
+fn easing_preview_path_with_steps(options: &serde_json::Value, steps: i32) -> String {
+    let mut samples = sample_easing_curve(options, steps).into_iter();
     let Some((first_x, first_y)) = samples.next() else {
         return String::new();
     };
@@ -4375,6 +4521,68 @@ mod tests {
         let tangents = easing_tangent_path(&curve);
         assert!(tangents.contains("M 0 1 L 0.165 0.9175"));
         assert!(tangents.contains("M 0.5 0.75 L 0.33 0.835"));
+    }
+
+    #[test]
+    fn easing_catalog_matches_the_qt_categories_and_filtering() {
+        let curve = BezierCurve::default();
+        let rows = easing_catalog_rows("", 1, 1.0, 0.3, curve.points());
+        assert_eq!(
+            rows.iter()
+                .filter(|row| row.header)
+                .map(|row| row.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["基本", "標準カーブ", "強いカーブ", "反動と弾性", "特殊"]
+        );
+
+        let mut actual_names = rows
+            .iter()
+            .filter(|row| !row.header)
+            .map(|row| row.name.as_str().to_owned())
+            .collect::<Vec<_>>();
+        let mut expected_names = keyframe_interpolation_names()
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        actual_names.sort();
+        expected_names.sort();
+        assert_eq!(actual_names, expected_names);
+        assert!(rows.iter().filter(|row| !row.header).all(|row| {
+            easing_name_at(row.easing_index) == row.name.as_str()
+                && row.preview_path.as_str().starts_with("M 0 1")
+        }));
+
+        let bounce = easing_catalog_rows("Bo_Un_Ce", 1, 1.0, 0.3, curve.points());
+        assert_eq!(bounce.len(), 5);
+        assert!(bounce[0].header);
+        assert_eq!(bounce[0].label.as_str(), "反動と弾性");
+        assert!(
+            bounce[1..]
+                .iter()
+                .all(|row| row.name.as_str().contains("bounce"))
+        );
+        assert!(easing_catalog_rows("跳ね返り", 1, 1.0, 0.3, curve.points()).is_empty());
+    }
+
+    #[test]
+    fn easing_catalog_previews_follow_live_mode_parameters() {
+        let curve = BezierCurve::default();
+        let random_preview = |step_frames| {
+            easing_catalog_rows("random", step_frames, 1.0, 0.3, curve.points())[1]
+                .preview_path
+                .to_string()
+        };
+        assert_ne!(random_preview(1), random_preview(4));
+
+        let custom_default = easing_catalog_rows("custom", 1, 1.0, 0.3, curve.points())[1]
+            .preview_path
+            .to_string();
+        let mut edited = curve.clone();
+        assert!(edited.set_first_controls([0.1, 0.8, 0.9, 0.2]));
+        let custom_edited = easing_catalog_rows("custom", 1, 1.0, 0.3, edited.points())[1]
+            .preview_path
+            .to_string();
+        assert_ne!(custom_default, custom_edited);
     }
 
     #[test]
