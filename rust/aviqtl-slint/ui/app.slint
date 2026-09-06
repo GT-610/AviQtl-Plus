@@ -44,6 +44,12 @@ export struct TimelineViewportData {
     viewport-y: float,
 }
 
+export struct TimelineMediaDropResult {
+    imported: bool,
+    next-frame: int,
+    layer: int,
+}
+
 export struct ObjectEffectData {
     index: int,
     id: string,
@@ -1805,6 +1811,7 @@ export component TimelineWindow inherits Window {
     in-out property <bool> skimmer-visible: false;
     in-out property <int> skimmer-frame: 0;
     in-out property <int> skimmer-layer: 0;
+    in-out property <bool> file-drop-active: false;
     private property <length> shared-viewport-x: 0px;
     private property <length> shared-viewport-y: 0px;
     private property <bool> box-active: false;
@@ -1833,6 +1840,10 @@ export component TimelineWindow inherits Window {
     callback box-selection-cancelled();
     callback skimmer-hovered(float, int, bool);
     callback skimmer-left();
+    callback file-dropped(string, float, int, bool) -> TimelineMediaDropResult;
+    callback native-file-hovered(float, float, bool);
+    callback native-file-left();
+    callback native-file-dropped(string, float, float, bool) -> TimelineMediaDropResult;
     callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
     callback timeline-scrolled(float, float, float, float, float, float, float, float, float, float, bool, bool, bool, bool) -> TimelineViewportData;
 
@@ -1844,6 +1855,58 @@ export component TimelineWindow inherits Window {
     function schedule-skimmer-left() {
         skimmer-leave-timer.running = false;
         skimmer-leave-timer.running = true;
+    }
+
+    function file-drop-position-valid(window-x: float, window-y: float) -> bool {
+        let x = window-x * 1px;
+        let y = window-y * 1px;
+        return x >= timeline-scroll.absolute-position.x
+            && x < timeline-scroll.absolute-position.x + timeline-scroll.visible-width
+            && y >= timeline-scroll.absolute-position.y
+            && y < timeline-scroll.absolute-position.y + timeline-scroll.visible-height;
+    }
+
+    function file-drop-frame(window-x: float) -> float {
+        let content-x = window-x * 1px - timeline-scroll.absolute-position.x - root.shared-viewport-x;
+        return max(0, content-x / (root.pixels-per-frame * 1px));
+    }
+
+    function file-drop-layer(window-y: float) -> int {
+        let content-y = window-y * 1px - timeline-scroll.absolute-position.y - root.shared-viewport-y;
+        return min(127, max(0, floor(content-y / 30px)));
+    }
+
+    native-file-hovered(window-x, window-y, ignore-snap) => {
+        if root.file-drop-position-valid(window-x, window-y) {
+            root.file-drop-active = true;
+            root.update-skimmer(
+                root.file-drop-frame(window-x),
+                root.file-drop-layer(window-y),
+                ignore-snap
+            );
+        } else {
+            root.file-drop-active = false;
+            root.skimmer-left();
+        }
+    }
+
+    native-file-left() => {
+        root.file-drop-active = false;
+        root.skimmer-left();
+    }
+
+    native-file-dropped(path, window-x, window-y, ignore-snap) => {
+        root.file-drop-active = false;
+        if root.file-drop-position-valid(window-x, window-y) {
+            return root.file-dropped(
+                path,
+                root.file-drop-frame(window-x),
+                root.file-drop-layer(window-y),
+                ignore-snap
+            );
+        }
+        root.skimmer-left();
+        return { imported: false, next-frame: 0, layer: 0 };
     }
 
     function apply-timeline-scroll(
@@ -2134,6 +2197,23 @@ export component TimelineWindow inherits Window {
                     width: 1px;
                     height: 100%;
                     background: #ff5a3dd9;
+                }
+                if root.file-drop-active : Rectangle {
+                    x: -root.shared-viewport-x;
+                    y: -root.shared-viewport-y;
+                    width: timeline-scroll.visible-width;
+                    height: timeline-scroll.visible-height;
+                    background: #4b82ca26;
+                    border-width: 1px;
+                    border-color: #7aafefff;
+                    Text {
+                        text: "ここにドロップ";
+                        color: #dceaff;
+                        font-size: 1.1rem;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
                 }
                 Rectangle {
                     x: root.playhead * root.pixels-per-frame * 1px;

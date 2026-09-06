@@ -23,6 +23,7 @@ use aviqtl_export::{
 use aviqtl_preview::{MediaPreview, PlannedPreview, PreviewPlanner, PreviewSurface};
 use slint::platform::Key;
 use slint::wgpu_29::wgpu;
+use slint::winit_030::{EventResult, WinitWindowAccessor, winit};
 use slint::{
     CloseRequestResponse, Color, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode,
     VecModel,
@@ -1042,6 +1043,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         font_families,
         lifecycle_ui,
     );
+    install_timeline_file_drop(
+        &main,
+        &timeline,
+        model.clone(),
+        settings.clone(),
+        effect_catalog.clone(),
+    );
     install_keyboard_shortcuts(&main, &timeline, model.clone(), settings.clone());
     install_export_callbacks(
         &main,
@@ -1245,6 +1253,137 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         stats.print_and_validate()?;
     }
     Ok(())
+}
+
+fn install_timeline_file_drop(
+    main: &MainWindow,
+    timeline: &TimelineWindow,
+    model: Rc<RefCell<ApplicationModel>>,
+    settings: Rc<RefCell<SettingsStore>>,
+    catalog: Rc<EffectCatalog>,
+) {
+    let dropped_model = model.clone();
+    let dropped_settings = settings;
+    let dropped_catalog = catalog;
+    let dropped_main = main.as_weak();
+    let dropped_timeline = timeline.as_weak();
+    timeline.on_file_dropped(move |path, frame, layer, ignore_snap| {
+        let Some(window) = dropped_timeline.upgrade() else {
+            return TimelineMediaDropResult {
+                imported: false,
+                next_frame: 0,
+                layer: 0,
+            };
+        };
+        let default_duration = dropped_settings
+            .borrow()
+            .i32_value("defaultClipDuration", 100)
+            .max(1);
+        let path = PathBuf::from(path.as_str());
+        let result = {
+            let mut application = dropped_model.borrow_mut();
+            application.current_workspace_mut().and_then(|workspace| {
+                let frame = workspace.snap_timeline_frame(
+                    f64::from(frame),
+                    ignore_snap,
+                    f64::from(window.get_pixels_per_frame()),
+                );
+                workspace.import_media_files(
+                    std::slice::from_ref(&path),
+                    frame,
+                    layer,
+                    default_duration,
+                    &dropped_catalog,
+                )
+            })
+        };
+        let drop_result = result.map_or(
+            TimelineMediaDropResult {
+                imported: false,
+                next_frame: 0,
+                layer: layer.clamp(0, 127),
+            },
+            |(next_frame, next_layer)| {
+                window.set_skimmer_frame(next_frame.max(0));
+                window.set_skimmer_layer(next_layer.clamp(0, 127));
+                window.set_skimmer_visible(true);
+                TimelineMediaDropResult {
+                    imported: true,
+                    next_frame,
+                    layer: next_layer,
+                }
+            },
+        );
+        sync_weak_windows(&dropped_main, &dropped_timeline, &dropped_model);
+        drop_result
+    });
+
+    let timeline_weak = timeline.as_weak();
+    let mut cursor_position = None::<(f32, f32)>;
+    let mut shift_pressed = false;
+    let mut hovered_file_count = 0usize;
+    let mut next_target = None::<(i32, i32)>;
+    timeline
+        .window()
+        .on_winit_window_event(move |window, event| {
+            let Some(timeline) = timeline_weak.upgrade() else {
+                return EventResult::Propagate;
+            };
+            match event {
+                winit::event::WindowEvent::CursorMoved { position, .. } => {
+                    let logical = position.to_logical::<f32>(f64::from(window.scale_factor()));
+                    cursor_position = Some((logical.x, logical.y));
+                    if hovered_file_count > 0 {
+                        timeline.invoke_native_file_hovered(logical.x, logical.y, shift_pressed);
+                    }
+                }
+                winit::event::WindowEvent::ModifiersChanged(modifiers) => {
+                    shift_pressed = modifiers.state().shift_key();
+                    if hovered_file_count > 0
+                        && let Some((x, y)) = cursor_position
+                    {
+                        timeline.invoke_native_file_hovered(x, y, shift_pressed);
+                    }
+                }
+                winit::event::WindowEvent::HoveredFile(_) => {
+                    if hovered_file_count == 0 {
+                        next_target = None;
+                    }
+                    hovered_file_count = hovered_file_count.saturating_add(1);
+                    if let Some((x, y)) = cursor_position {
+                        timeline.invoke_native_file_hovered(x, y, shift_pressed);
+                    }
+                }
+                winit::event::WindowEvent::HoveredFileCancelled => {
+                    hovered_file_count = 0;
+                    next_target = None;
+                    timeline.invoke_native_file_left();
+                }
+                winit::event::WindowEvent::DroppedFile(path) => {
+                    hovered_file_count = hovered_file_count.saturating_sub(1);
+                    let path = SharedString::from(path.to_string_lossy().as_ref());
+                    let result = if let Some((frame, layer)) = next_target {
+                        timeline.invoke_file_dropped(path, frame as f32, layer, true)
+                    } else if let Some((x, y)) = cursor_position {
+                        timeline.invoke_native_file_dropped(path, x, y, shift_pressed)
+                    } else {
+                        TimelineMediaDropResult {
+                            imported: false,
+                            next_frame: 0,
+                            layer: 0,
+                        }
+                    };
+                    if result.imported {
+                        next_target = Some((result.next_frame, result.layer));
+                    }
+                    if hovered_file_count == 0 {
+                        timeline.set_file_drop_active(false);
+                    }
+                }
+                _ => {}
+            }
+            EventResult::Propagate
+        });
 }
 
 fn install_callbacks(

@@ -43,7 +43,7 @@ still require the separately scheduled Computer Use suite.
 | Layer left click | Toggle visibility and select that layer | parity |
 | Layer context menu | Insert/shift ranges, lock, visibility, show/hide all, owned dialogs | foundation |
 | Layer shortcuts | Ctrl+L/Ctrl+H and Alt+arrows | foundation |
-| File drop | Insert media at indicated frame/layer with Qt import rules | missing |
+| File drop | Insert media at indicated frame/layer with Qt import rules | foundation |
 | Timeline navigation | Qt wheel axes, anchored zoom, and both draggable scrollbars | foundation |
 | Playback controls | Seek, frame counter, previous/play/next, speed, and end-frame behavior | foundation |
 | Object settings | Metadata order, pickers, keyframes, easing, and sidebar placement | foundation |
@@ -89,6 +89,14 @@ still require the separately scheduled Computer Use suite.
   anchored zoom, and the layer header scrolls the shared vertical viewport. Pure Rust tests cover
   modifier routing, clamping, scale conversion, and pointer-anchor preservation; native touchpad
   direction and scrollbar interaction remain in the deferred GUI suite.
+- Timeline file drop uses Slint's public winit 0.30 event hook rather than platform-specific window
+  code. Hover coordinates are converted through the live Slint scroll viewport, Shift bypasses the
+  scene snap service, and a drop advances subsequent files from the previous import result. The
+  framework-neutral workspace reuses the egui migration's proven Qt rules for extension and duration
+  probing, collision-free placement, image/audio object construction, linked video/audio pairs, and
+  per-file undo groups. Automated tests cover mixed sequential imports and complete undo; native
+  Finder/Explorer/file-manager hover, cancellation, multi-file ordering, and drop feedback remain in
+  the deferred GUI suite.
 - Primary/additive selection, right-button box selection, multi-clip move, and multi-clip resize have
   framework-neutral tests and Slint MCP interaction checks.
 - Open replaces only a clean pathless placeholder; Save, Save As, tab close, and application quit

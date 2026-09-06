@@ -1,6 +1,7 @@
 use crate::audio_plugin::{AudioPluginAddition, AudioPluginCatalog, AudioPluginHydration};
 use crate::effect_catalog::EffectCatalog;
 use crate::effect_selection::EffectSelection;
+use crate::media_import::{MediaImportKind, plan_media_import};
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
 use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
@@ -8,13 +9,15 @@ use crate::selection::{ClipSelection, SelectionBox};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
-    ClipDocument, EffectInsertion, EffectPreset, ProjectDocument, ProjectSettings, SceneDocument,
-    TimelineCommand, TimelineTransaction, clipboard_duration, evaluate_keyframe_track,
-    inspect_keyframe_track, plan_clip_delta_move, plan_clipboard_paste, plan_effect_reorder,
-    plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
+    ClipDocument, EffectDocument, EffectInsertion, EffectMetadata, EffectPreset, ProjectDocument,
+    ProjectSettings, SceneDocument, TimelineCommand, TimelineTransaction, clipboard_duration,
+    evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move,
+    plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift,
+    snap_scene_frame,
 };
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 const DEFAULT_UNDO_LIMIT: usize = 32;
@@ -1795,6 +1798,169 @@ impl WorkspaceModel {
         self.paste_clips_at(frame, layer)
     }
 
+    pub fn import_media_files(
+        &mut self,
+        paths: &[PathBuf],
+        mut frame: i32,
+        mut layer: i32,
+        default_duration_frames: i32,
+        catalog: &EffectCatalog,
+    ) -> Option<(i32, i32)> {
+        let mut imported = 0usize;
+        let mut errors = Vec::new();
+        for path in paths {
+            match self.import_media_file(path, frame, layer, default_duration_frames, catalog) {
+                Ok((next_frame, target_layer)) => {
+                    frame = next_frame;
+                    layer = target_layer;
+                    imported += 1;
+                }
+                Err(error) => errors.push(error),
+            }
+        }
+        self.status = match (imported, errors.is_empty()) {
+            (0, true) => "No media files were dropped".to_owned(),
+            (0, false) => errors.join("; "),
+            (count, true) => format!("Imported {count} media file(s)"),
+            (count, false) => format!("Imported {count} media file(s); {}", errors.join("; ")),
+        };
+        (imported > 0).then_some((frame, layer))
+    }
+
+    fn import_media_file(
+        &mut self,
+        path: &Path,
+        requested_start: i32,
+        target_layer: i32,
+        default_duration_frames: i32,
+        catalog: &EffectCatalog,
+    ) -> Result<(i32, i32), String> {
+        let scene_fps = self
+            .selected_scene_document()
+            .map_or(60.0, |scene| scene.fps);
+        let plan = plan_media_import(path, scene_fps, default_duration_frames.max(1))?;
+        let transform = catalog.find("transform");
+        let path = plan.path.to_string_lossy().into_owned();
+        let duration = plan.duration_frames;
+        let scene_id = self.selected_scene;
+        let layer = target_layer.clamp(0, 127);
+        let start = match plan.kind {
+            MediaImportKind::Video => find_vacant_linked_media_frame(
+                &self.project.document,
+                scene_id,
+                layer,
+                requested_start,
+                duration,
+            )?,
+            MediaImportKind::Audio | MediaImportKind::Image => find_vacant_scene_frame(
+                &self.project.document,
+                scene_id,
+                &[],
+                layer,
+                requested_start.max(0),
+                duration,
+            )
+            .map_err(|error| error.to_string())?,
+        };
+
+        let commands = match plan.kind {
+            MediaImportKind::Video => {
+                let transform = transform
+                    .ok_or_else(|| "Standard drawing effect is not available".to_owned())?;
+                let video = catalog
+                    .find("video")
+                    .ok_or_else(|| "Video object is not available".to_owned())?;
+                let audio = catalog
+                    .find("audio")
+                    .ok_or_else(|| "Audio object is not available".to_owned())?;
+                let ids = self
+                    .project
+                    .state
+                    .reserve_clip_ids(2)
+                    .map_err(|error| error.to_string())?;
+                vec![
+                    TimelineCommand::InsertClip {
+                        index: None,
+                        clip: media_clip_from_metadata(
+                            ids[0],
+                            scene_id,
+                            start,
+                            layer,
+                            duration,
+                            video,
+                            Some(transform),
+                            "path",
+                            &path,
+                            false,
+                        ),
+                    },
+                    TimelineCommand::InsertClip {
+                        index: None,
+                        clip: media_clip_from_metadata(
+                            ids[1],
+                            scene_id,
+                            start,
+                            layer.saturating_add(1),
+                            duration,
+                            audio,
+                            None,
+                            "source",
+                            &path,
+                            true,
+                        ),
+                    },
+                ]
+            }
+            MediaImportKind::Audio | MediaImportKind::Image => {
+                let object_id = if plan.kind == MediaImportKind::Audio {
+                    "audio"
+                } else {
+                    "image"
+                };
+                let path_parameter = if plan.kind == MediaImportKind::Audio {
+                    "source"
+                } else {
+                    "path"
+                };
+                let object = catalog
+                    .find(object_id)
+                    .ok_or_else(|| format!("{object_id} object is not available"))?;
+                let transform = if plan.kind == MediaImportKind::Image {
+                    Some(
+                        transform
+                            .ok_or_else(|| "Standard drawing effect is not available".to_owned())?,
+                    )
+                } else {
+                    None
+                };
+                let ids = self
+                    .project
+                    .state
+                    .reserve_clip_ids(1)
+                    .map_err(|error| error.to_string())?;
+                vec![TimelineCommand::InsertClip {
+                    index: None,
+                    clip: media_clip_from_metadata(
+                        ids[0],
+                        scene_id,
+                        start,
+                        layer,
+                        duration,
+                        object,
+                        transform,
+                        path_parameter,
+                        &path,
+                        false,
+                    ),
+                }]
+            }
+        };
+        if !self.execute_batch(commands) {
+            return Err(self.status.clone());
+        }
+        Ok((start.saturating_add(duration), layer))
+    }
+
     pub fn move_selected_clips(&mut self, delta_layer: i32, delta_frame: i32) -> bool {
         let ids = self.selection.ids().to_vec();
         if ids.is_empty() {
@@ -2170,6 +2336,96 @@ fn audio_plugin_preset_commands(
     Ok(commands)
 }
 
+fn effect_from_metadata(metadata: &EffectMetadata) -> EffectDocument {
+    EffectDocument {
+        id: metadata.id.clone(),
+        name: metadata.name.clone(),
+        enabled: true,
+        params: metadata.params.clone(),
+        keyframes: None,
+        extra: BTreeMap::new(),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn media_clip_from_metadata(
+    clip_id: i32,
+    scene_id: i32,
+    start: i32,
+    layer: i32,
+    duration: i32,
+    object: &EffectMetadata,
+    transform: Option<&EffectMetadata>,
+    path_parameter: &str,
+    path: &str,
+    linked_video: bool,
+) -> ClipDocument {
+    let mut effects = transform
+        .into_iter()
+        .map(effect_from_metadata)
+        .collect::<Vec<_>>();
+    let mut object_effect = effect_from_metadata(object);
+    object_effect
+        .params
+        .insert(path_parameter.to_owned(), Value::from(path));
+    if linked_video {
+        object_effect
+            .params
+            .insert("linkedVideo".to_owned(), Value::Bool(true));
+    }
+    effects.push(object_effect);
+    ClipDocument {
+        id: clip_id,
+        scene_id,
+        clip_type: object.id.clone(),
+        start,
+        duration,
+        layer,
+        clip_by_upper_object: false,
+        params: Map::new(),
+        audio_plugins: Vec::new(),
+        effects,
+        extra: BTreeMap::new(),
+    }
+}
+
+fn find_vacant_linked_media_frame(
+    document: &ProjectDocument,
+    scene_id: i32,
+    video_layer: i32,
+    requested_start: i32,
+    duration: i32,
+) -> Result<i32, String> {
+    let audio_layer = video_layer
+        .checked_add(1)
+        .filter(|layer| *layer <= 127)
+        .ok_or_else(|| "A linked video requires an audio layer below it".to_owned())?;
+    let mut candidate = requested_start.max(0);
+    for _ in 0..100 {
+        let video_start =
+            find_vacant_scene_frame(document, scene_id, &[], video_layer, candidate, duration)
+                .map_err(|error| error.to_string())?;
+        let audio_start =
+            find_vacant_scene_frame(document, scene_id, &[], audio_layer, video_start, duration)
+                .map_err(|error| error.to_string())?;
+        if audio_start == video_start {
+            return Ok(video_start);
+        }
+        candidate = audio_start;
+    }
+    let video_start =
+        find_vacant_scene_frame(document, scene_id, &[], video_layer, candidate, duration)
+            .map_err(|error| error.to_string())?;
+    let audio_start =
+        find_vacant_scene_frame(document, scene_id, &[], audio_layer, video_start, duration)
+            .map_err(|error| error.to_string())?;
+    Ok(if audio_start == video_start {
+        video_start
+    } else {
+        candidate
+    })
+}
+
 fn keyframe_options_at(
     points: &[aviqtl_rust_core::api::KeyframePoint],
     frame: i32,
@@ -2255,6 +2511,17 @@ fn bounded_positive_f64(value: f64, maximum: f64, fallback: f64) -> f64 {
 mod tests {
     use super::*;
     use aviqtl_rust_core::api::TimelineState;
+
+    fn temporary_media_file(extension: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "aviqtl-workspace-media-{}-{}.{}",
+            std::process::id(),
+            crate::recovery::generate_recovery_id(),
+            extension
+        ));
+        std::fs::write(&path, []).expect("temporary media placeholder is writable");
+        path
+    }
 
     fn workspace() -> WorkspaceModel {
         let state = TimelineState::from_json(
@@ -2381,6 +2648,83 @@ mod tests {
         assert!(workspace.redo());
         assert_eq!(workspace.document().clips.len(), 5);
         assert_eq!(workspace.document_revision(), 3);
+    }
+
+    #[test]
+    fn dropped_media_uses_qt_object_shapes_sequential_targets_and_undo_groups() {
+        let (catalog, _) = EffectCatalog::load();
+        let paths = [
+            temporary_media_file("png"),
+            temporary_media_file("wav"),
+            temporary_media_file("mp4"),
+        ];
+        let mut workspace = workspace();
+
+        assert_eq!(
+            workspace.import_media_files(&paths, 60, 4, 15, &catalog),
+            Some((105, 4))
+        );
+        assert_eq!(workspace.status(), "Imported 3 media file(s)");
+        assert_eq!(workspace.document_revision(), 3);
+        assert_eq!(workspace.document().clips.len(), 7);
+
+        let image = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "image")
+            .expect("image clip was imported");
+        assert_eq!((image.start, image.duration, image.layer), (60, 15, 4));
+        assert_eq!(image.effects[0].id, "transform");
+        assert_eq!(image.effects[1].id, "image");
+        assert_eq!(
+            image.effects[1].params["path"],
+            paths[0].to_string_lossy().as_ref()
+        );
+
+        let standalone_audio = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "audio" && clip.start == 75)
+            .expect("standalone audio clip was imported");
+        assert_eq!((standalone_audio.duration, standalone_audio.layer), (15, 4));
+        assert_eq!(
+            standalone_audio.effects[0].params["source"],
+            paths[1].to_string_lossy().as_ref()
+        );
+
+        let video = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "video")
+            .expect("video clip was imported");
+        assert_eq!((video.start, video.duration, video.layer), (90, 15, 4));
+        assert_eq!(video.effects[0].id, "transform");
+        assert_eq!(video.effects[1].id, "video");
+        let linked_audio = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| {
+                clip.clip_type == "audio"
+                    && clip.start == 90
+                    && clip.effects[0].params["linkedVideo"] == true
+            })
+            .expect("linked audio clip was imported");
+        assert_eq!((linked_audio.duration, linked_audio.layer), (15, 5));
+
+        assert!(workspace.undo());
+        assert_eq!(workspace.document().clips.len(), 5);
+        assert!(workspace.undo());
+        assert_eq!(workspace.document().clips.len(), 4);
+        assert!(workspace.undo());
+        assert_eq!(workspace.document().clips.len(), 3);
+
+        for path in paths {
+            std::fs::remove_file(path).expect("temporary media placeholder is removable");
+        }
     }
 
     #[test]
