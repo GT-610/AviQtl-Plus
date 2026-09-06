@@ -122,9 +122,12 @@ component CommitTextEdit inherits TextEdit {
 
 component EffectSidebarEntry inherits Rectangle {
     in property <ObjectEffectData> effect;
+    in property <int> selected-count: 0;
+    in property <bool> selected-removable: false;
     callback activate(int, bool, bool);
     callback context-activate(int);
-    callback remove(int);
+    callback set-enabled(int, bool);
+    callback remove-selection(int);
     callback reorder(int, float);
     callback save-preset(int, string);
     callback load-preset(int, string);
@@ -139,34 +142,14 @@ component EffectSidebarEntry inherits Rectangle {
     border-width: root.effect.selected ? 1px : 0px;
     border-color: #759bd2;
 
-    HorizontalLayout {
-        padding-left: 7px;
-        padding-right: 5px;
-        spacing: 6px;
-        Text {
-            text: "☷";
-            color: #9ea4ae;
-            vertical-alignment: center;
-        }
-        Text {
-            text: root.effect.enabled ? "●" : "○";
-            color: root.effect.enabled ? #8fcf94 : #8b8f98;
-            vertical-alignment: center;
-        }
-        Text {
-            text: root.effect.name;
-            color: #f1f2f4;
-            vertical-alignment: center;
-            horizontal-stretch: 1;
-            overflow: elide;
-        }
-    }
     effect-menu := ContextMenuArea {
         Menu {
             MenuItem {
-                title: "削除";
-                enabled: root.effect.removable;
-                activated => { root.remove(root.effect.index); }
+                title: root.selected-count > 1
+                    ? "選択した \{root.selected-count} 件を削除"
+                    : "削除";
+                enabled: root.selected-removable;
+                activated => { root.remove-selection(root.effect.index); }
             }
             MenuSeparator { }
             MenuItem {
@@ -190,7 +173,31 @@ component EffectSidebarEntry inherits Rectangle {
                 }
             }
         }
+        HorizontalLayout {
+            padding-left: 7px;
+            padding-right: 5px;
+            spacing: 6px;
+            Text {
+                text: "☷";
+                color: #9ea4ae;
+                vertical-alignment: center;
+            }
+            CheckBox {
+                checked: root.effect.enabled;
+                accessible-label: root.effect.name + "を有効にする";
+                toggled => { root.set-enabled(root.effect.index, self.checked); }
+            }
+            Text {
+                text: root.effect.name;
+                color: #f1f2f4;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+        }
         effect-touch := TouchArea {
+            x: 53px;
+            width: max(parent.width - self.x, 1px);
             mouse-cursor: pointer;
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
@@ -2167,6 +2174,7 @@ export component SystemSettingsWindow inherits Window {
 
 export component ObjectSettingsWindow inherits Window {
     title: root.has-selection ? "設定ダイアログ - " + root.clip-title : "設定ダイアログ";
+    forward-focus: object-settings-shortcuts;
     preferred-width: 900px;
     preferred-height: 650px;
     min-width: 680px;
@@ -2176,6 +2184,8 @@ export component ObjectSettingsWindow inherits Window {
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
     in property <[EffectCatalogItemData]> effect-catalog-items;
+    in property <int> selected-effect-count: 0;
+    in property <bool> selected-effects-removable: false;
     in-out property <bool> effect-picker-visible: false;
     in-out property <string> effect-filter: "";
     in-out property <bool> preset-save-visible: false;
@@ -2187,6 +2197,8 @@ export component ObjectSettingsWindow inherits Window {
     callback reorder-effect(int, float);
     callback set-effect-enabled(int, bool);
     callback remove-effect(int);
+    callback remove-effect-selection(int);
+    callback delete-selected-effects();
     callback filter-effects(string);
     callback add-effect(string);
     callback save-effect-preset(int, string);
@@ -2197,6 +2209,25 @@ export component ObjectSettingsWindow inherits Window {
     callback set-parameter-number(int, string, float);
     callback set-parameter-bool(int, string, bool);
     callback set-parameter-option(int, string, int);
+
+    object-settings-shortcuts := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(event) => {
+            if root.has-selection
+                && !root.effect-picker-visible
+                && !root.preset-save-visible
+                && event.text == Key.Delete
+                && !event.modifiers.alt
+                && !event.modifiers.control
+                && !event.modifiers.shift
+                && !event.modifiers.meta {
+                root.delete-selected-effects();
+                accept
+            } else {
+                reject
+            }
+        }
 
     if !root.has-selection : VerticalLayout {
         alignment: center;
@@ -2223,9 +2254,12 @@ export component ObjectSettingsWindow inherits Window {
                         spacing: 2px;
                         for effect in root.effects : EffectSidebarEntry {
                             effect: effect;
+                            selected-count: root.selected-effect-count;
+                            selected-removable: root.selected-effects-removable;
                             activate(index, control, shift) => { root.select-effect(index, control, shift); }
                             context-activate(index) => { root.context-select-effect(index); }
-                            remove(index) => { root.remove-effect(index); }
+                            set-enabled(index, enabled) => { root.set-effect-enabled(index, enabled); }
+                            remove-selection(index) => { root.remove-effect-selection(index); }
                             reorder(index, delta-y) => { root.reorder-effect(index, delta-y); }
                             save-preset(index, effect-name) => {
                                 root.preset-effect-index = index;
@@ -2372,5 +2406,6 @@ export component ObjectSettingsWindow inherits Window {
                 }
             }
         }
+    }
     }
 }

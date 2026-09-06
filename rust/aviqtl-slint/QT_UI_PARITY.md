@@ -123,9 +123,12 @@ still require the separately scheduled Computer Use suite.
   catalog, additions append the catalog-defined effect, and the sidebar drag handle reorders either
   one effect or the current Ctrl/Shift selection while preserving a leading transform. The same
   right-click surface now saves, lists, loads, and deletes effect presets through the shared
-  `PresetStore`, including parameters, keyframe tracks, and enabled state. Multi-selection
-  enable/delete, two-ended keyframe editing, easing, category-tree presentation, and native
-  file/color/font pickers remain incomplete and therefore keep this area at `foundation`.
+  `PresetStore`, including parameters, keyframe tracks, and enabled state. Sidebar enable toggles
+  apply to the current multi-selection like Qt, right-click deletion removes the selected group,
+  and the object-settings-window Delete shortcut uses that same selection while retaining a leading
+  transform. The right-side delete button remains single-effect scoped. Two-ended keyframe editing,
+  easing, category-tree presentation, and native file/color/font pickers remain incomplete and
+  therefore keep this area at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
   drag or context menu is active.
 

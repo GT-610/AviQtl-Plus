@@ -406,33 +406,81 @@ impl WorkspaceModel {
     }
 
     pub fn set_effect_enabled(&mut self, effect_index: usize, enabled: bool) -> bool {
-        let Some(clip_id) = self
+        let Some((clip_id, length)) = self
             .selected_clip_document()
-            .and_then(|clip| clip.effects.get(effect_index).map(|_| clip.id))
+            .map(|clip| (clip.id, clip.effects.len()))
         else {
             return false;
         };
-        self.execute(TimelineCommand::SetEffectEnabled {
-            clip_id,
-            effect_index,
-            enabled,
-        })
+        if effect_index >= length {
+            return false;
+        }
+        let targets = self.effect_selection.action_targets(effect_index);
+        let count = targets.len();
+        for target in targets {
+            if !self.execute(TimelineCommand::SetEffectEnabled {
+                clip_id,
+                effect_index: target,
+                enabled,
+            }) {
+                return false;
+            }
+        }
+        self.status = format!("Updated {count} effect(s)");
+        true
     }
 
     pub fn remove_effect(&mut self, effect_index: usize) -> bool {
-        let Some(clip_id) = self
-            .selected_clip_document()
-            .and_then(|clip| clip.effects.get(effect_index).map(|_| clip.id))
-        else {
+        self.remove_effect_indices(vec![effect_index])
+    }
+
+    pub fn remove_effect_group(&mut self, effect_index: usize) -> bool {
+        let Some(length) = self.selected_clip_document().map(|clip| clip.effects.len()) else {
             return false;
         };
+        if effect_index >= length {
+            return false;
+        }
+        self.remove_effect_indices(self.effect_selection.action_targets(effect_index))
+    }
+
+    pub fn remove_selected_effects(&mut self) -> bool {
+        let mut targets = self.effect_selection.deletion_targets();
+        if targets.is_empty()
+            && let Some(index) = self.selected_effect_index()
+        {
+            targets.push(index);
+        }
+        self.remove_effect_indices(targets)
+    }
+
+    fn remove_effect_indices(&mut self, mut effect_indices: Vec<usize>) -> bool {
+        let Some((clip_id, length, transform_first)) = self.selected_clip_document().map(|clip| {
+            (
+                clip.id,
+                clip.effects.len(),
+                clip.effects
+                    .first()
+                    .is_some_and(|effect| effect.id == "transform"),
+            )
+        }) else {
+            return false;
+        };
+        effect_indices.retain(|index| *index < length && !(transform_first && *index == 0));
+        effect_indices.sort_unstable();
+        effect_indices.dedup();
+        if effect_indices.is_empty() {
+            return false;
+        }
         let mut next_selection = self.effect_selection.clone();
-        next_selection.apply_removals(&[effect_index]);
+        next_selection.apply_removals(&effect_indices);
+        let count = effect_indices.len();
         if self.execute(TimelineCommand::RemoveEffects {
             clip_id,
-            effect_indices: vec![effect_index],
+            effect_indices,
         }) {
             self.effect_selection = next_selection;
+            self.status = format!("Removed {count} effect(s)");
             true
         } else {
             false
@@ -1728,6 +1776,77 @@ mod tests {
         assert!(workspace.remove_effect(2));
         assert_eq!(workspace.document().clips[0].effects.len(), 3);
         assert_eq!(workspace.selected_effect_index(), Some(2));
+    }
+
+    #[test]
+    fn effect_group_actions_match_the_qt_sidebar_scopes() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        assert!(workspace.select_effect(1, false, false));
+        assert!(workspace.select_effect(2, true, false));
+
+        assert!(workspace.set_effect_enabled(1, false));
+        assert!(workspace.document().clips[0].effects[0].enabled);
+        assert!(!workspace.document().clips[0].effects[1].enabled);
+        assert!(!workspace.document().clips[0].effects[2].enabled);
+        assert!(workspace.undo());
+        assert!(!workspace.document().clips[0].effects[1].enabled);
+        assert!(workspace.document().clips[0].effects[2].enabled);
+        assert!(workspace.undo());
+        assert!(workspace.document().clips[0].effects[1].enabled);
+
+        assert!(workspace.remove_effect_group(1));
+        assert_eq!(workspace.document().clips[0].effects.len(), 1);
+        assert_eq!(workspace.document().clips[0].effects[0].id, "rect");
+        assert!(workspace.undo());
+        assert_eq!(workspace.document().clips[0].effects.len(), 3);
+
+        assert!(workspace.select_effect(0, false, false));
+        assert!(workspace.select_effect(2, true, false));
+        assert!(workspace.remove_effect(2));
+        assert_eq!(workspace.document().clips[0].effects.len(), 2);
+        assert_eq!(workspace.document().clips[0].effects[0].id, "rect");
+        assert_eq!(workspace.document().clips[0].effects[1].id, "blur");
+    }
+
+    #[test]
+    fn selected_effect_delete_keeps_the_leading_transform() {
+        let state = TimelineState::from_json(
+            br#"{
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+                "scenes": [{"id": 1, "name": "Root", "duration": 300}],
+                "clips": [{
+                    "id": 1,
+                    "sceneId": 1,
+                    "type": "video",
+                    "start": 0,
+                    "duration": 100,
+                    "layer": 0,
+                    "effects": [
+                        {"id": "transform", "name": "Transform"},
+                        {"id": "blur", "name": "Blur"},
+                        {"id": "mosaic", "name": "Mosaic"}
+                    ]
+                }]
+            }"#,
+        )
+        .expect("transform fixture loads");
+        let document = state.snapshot();
+        let mut workspace = WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        });
+        workspace.click_clip(1, false);
+        assert!(workspace.select_effect(0, false, false));
+        assert!(workspace.select_effect(1, true, false));
+        assert!(workspace.select_effect(2, true, false));
+
+        assert!(workspace.remove_selected_effects());
+        assert_eq!(workspace.document().clips[0].effects.len(), 1);
+        assert_eq!(workspace.document().clips[0].effects[0].id, "transform");
     }
 
     #[test]

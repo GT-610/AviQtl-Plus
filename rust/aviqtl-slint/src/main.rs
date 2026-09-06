@@ -927,6 +927,24 @@ fn install_callbacks(
             .is_some_and(|workspace| workspace.remove_effect(index.max(0) as usize));
         object_remove_ui.sync();
     });
+    let object_remove_selection_ui = object_settings_ui.clone();
+    object_settings.on_remove_effect_selection(move |index| {
+        let _ = object_remove_selection_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.remove_effect_group(index.max(0) as usize));
+        object_remove_selection_ui.sync();
+    });
+    let object_delete_selection_ui = object_settings_ui.clone();
+    object_settings.on_delete_selected_effects(move || {
+        let _ = object_delete_selection_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(WorkspaceModel::remove_selected_effects);
+        object_delete_selection_ui.sync();
+    });
     let object_text_ui = object_settings_ui.clone();
     object_settings.on_set_parameter_text(move |index, param, value| {
         object_text_ui.set_text(index.max(0) as usize, param.as_str(), value.as_str());
@@ -3232,6 +3250,8 @@ fn sync_object_settings(
     let Some(projection) = projection else {
         window.set_has_selection(false);
         window.set_clip_title(SharedString::new());
+        window.set_selected_effect_count(0);
+        window.set_selected_effects_removable(false);
         update_vec_model(&window.get_effects(), Vec::new());
         update_vec_model(&window.get_setting_rows(), Vec::new());
         return;
@@ -3241,6 +3261,19 @@ fn sync_object_settings(
         "{}  (ID {})",
         projection.clip_label, projection.clip_id
     )));
+    window.set_selected_effect_count(
+        projection
+            .effects
+            .iter()
+            .filter(|effect| effect.selected)
+            .count() as i32,
+    );
+    window.set_selected_effects_removable(
+        projection
+            .effects
+            .iter()
+            .any(|effect| effect.selected && effect.removable),
+    );
     let effects = projection
         .effects
         .iter()
