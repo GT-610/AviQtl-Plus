@@ -1541,9 +1541,17 @@ fn default_package_root() -> PathBuf {
     if let Ok(executable) = std::env::current_exe()
         && let Some(directory) = executable.parent()
     {
-        return directory.join("repos");
+        return package_root_for_executable_directory(directory);
     }
     application_data_root().join("repos")
+}
+
+fn package_root_for_executable_directory(directory: &Path) -> PathBuf {
+    directory
+        .join("../Resources")
+        .canonicalize()
+        .map(|resources| resources.join("repos"))
+        .unwrap_or_else(|_| directory.join("repos"))
 }
 
 fn system_language() -> String {
@@ -1592,6 +1600,26 @@ mod tests {
                 PATH_SEQUENCE.fetch_add(1, Ordering::Relaxed)
             ))
             .join("repos")
+    }
+
+    #[test]
+    fn packaged_macos_application_uses_the_resources_package_root() {
+        let root = temporary_root();
+        let bundle = root.parent().expect("root has parent");
+        let executable_directory = bundle.join("AviQtl.app/Contents/MacOS");
+        let resources = bundle.join("AviQtl.app/Contents/Resources");
+        fs::create_dir_all(&executable_directory).expect("executable directory creates");
+        fs::create_dir_all(&resources).expect("resources directory creates");
+
+        assert_eq!(
+            package_root_for_executable_directory(&executable_directory),
+            resources
+                .canonicalize()
+                .expect("resources canonicalize")
+                .join("repos")
+        );
+
+        fs::remove_dir_all(bundle).expect("temporary bundle removes");
     }
 
     struct FakeHttpClient {
