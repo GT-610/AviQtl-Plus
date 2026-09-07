@@ -1643,6 +1643,7 @@ export component MainWindow inherits Window {
     in-out property <float> playhead: 0;
     in property <float> duration: 3600;
     in property <bool> playing: false;
+    in-out property <int> playback-speed-percent: 100;
     in property <string> status-text: "Ready";
     in property <bool> save-confirmation-visible: false;
     in property <string> save-confirmation-project: "";
@@ -1670,6 +1671,7 @@ export component MainWindow inherits Window {
     callback previous-frame();
     callback toggle-playback();
     callback next-frame();
+    callback playback-speed-changed(int);
     callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
 
     MenuBar {
@@ -1772,7 +1774,17 @@ export component MainWindow inherits Window {
                 Button { text: "◀"; accessible-label: "1フレーム戻る"; clicked => { root.previous-frame(); } }
                 Button { text: root.playing ? "Ⅱ" : "▶"; accessible-label: root.playing ? "一時停止" : "再生"; clicked => { root.toggle-playback(); } }
                 Button { text: "▶|"; accessible-label: "1フレーム進む"; clicked => { root.next-frame(); } }
-                Text { text: "速度 1.0x"; vertical-alignment: center; }
+                Text { text: "速度"; vertical-alignment: center; }
+                SpinBox {
+                    value <=> root.playback-speed-percent;
+                    minimum: 10;
+                    maximum: 400;
+                    step-size: 10;
+                    enabled: !root.playing;
+                    accessible-label: "再生速度（パーセント）";
+                    edited(value) => { root.playback-speed-changed(value); }
+                }
+                Text { text: "%"; vertical-alignment: center; }
             }
         }
             Rectangle {
@@ -1859,6 +1871,8 @@ export component TimelineWindow inherits Window {
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
     in-out property <float> pixels-per-frame: 1;
+    in property <int> zoom-min: 10;
+    in property <int> zoom-max: 400;
     in-out property <bool> skimmer-visible: false;
     in-out property <int> skimmer-frame: 0;
     in-out property <int> skimmer-layer: 0;
@@ -1871,6 +1885,10 @@ export component TimelineWindow inherits Window {
     private property <int> box-start-layer: 0;
     private property <int> box-current-frame: 0;
     private property <int> box-current-layer: 0;
+    private property <length> box-press-x: 0px;
+    private property <length> box-press-y: 0px;
+    private property <bool> ruler-scrubbing: false;
+    private property <string> zoom-percent-text: "100";
     in-out property <bool> object-picker-visible: false;
     private property <string> object-filter: "";
     private property <int> object-category-index: 0;
@@ -1914,6 +1932,36 @@ export component TimelineWindow inherits Window {
     callback native-file-dropped(string, float, float, bool) -> TimelineMediaDropResult;
     callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
     callback timeline-scrolled(float, float, float, float, float, float, float, float, float, float, bool, bool, bool, bool) -> TimelineViewportData;
+    callback begin-scrub();
+    callback scrub-to(float);
+    callback end-scrub();
+
+    function zoom-percent-to-scale(percent: float) -> float {
+        return percent <= 100 ? percent / 100 : 1 + (percent - 100) * 9 / 300;
+    }
+
+    function scale-to-zoom-percent(scale: float) -> float {
+        return scale <= 1 ? scale * 100 : 100 + (scale - 1) * 300 / 9;
+    }
+
+    function apply-zoom-percent(percent: float) {
+        let bounded = round(percent).clamp(root.zoom-min, root.zoom-max);
+        let old-scale = max(root.pixels-per-frame, 0.0001);
+        let anchor-x = timeline-scroll.visible-width / 2;
+        let anchor-frame = (-root.shared-viewport-x + anchor-x) / (old-scale * 1px);
+        let new-scale = root.zoom-percent-to-scale(bounded);
+        let new-viewport-width = max(root.duration * new-scale * 1px, timeline-scroll.visible-width);
+        root.pixels-per-frame = new-scale;
+        root.shared-viewport-x = max(
+            timeline-scroll.visible-width - new-viewport-width,
+            min(0px, anchor-x - anchor-frame * new-scale * 1px)
+        );
+        root.zoom-percent-text = bounded;
+    }
+
+    changed pixels-per-frame => {
+        root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+    }
 
     function update-skimmer(frame: float, layer: int, ignore-snap: bool) {
         skimmer-leave-timer.running = false;
@@ -2121,7 +2169,52 @@ export component TimelineWindow inherits Window {
             Rectangle {
             height: 32px;
             background: #343943;
-            Rectangle { width: 60px; height: 100%; background: #2a2e36; }
+            zoom-menu := ContextMenuArea {
+                x: 0px;
+                y: 0px;
+                width: 60px;
+                height: 100%;
+                Menu {
+                    MenuItem { title: "10"; activated => { root.apply-zoom-percent(10); } }
+                    MenuItem { title: "25"; activated => { root.apply-zoom-percent(25); } }
+                    MenuItem { title: "50"; activated => { root.apply-zoom-percent(50); } }
+                    MenuItem { title: "75"; activated => { root.apply-zoom-percent(75); } }
+                    MenuItem { title: "100"; activated => { root.apply-zoom-percent(100); } }
+                    MenuItem { title: "150"; activated => { root.apply-zoom-percent(150); } }
+                    MenuItem { title: "200"; activated => { root.apply-zoom-percent(200); } }
+                    MenuItem { title: "300"; activated => { root.apply-zoom-percent(300); } }
+                    MenuItem { title: "400"; activated => { root.apply-zoom-percent(400); } }
+                }
+                Rectangle {
+                    background: #2a2e36;
+                    zoom-field := LineEdit {
+                        x: 0px;
+                        width: 43px;
+                        height: 100%;
+                        text <=> root.zoom-percent-text;
+                        accessible-label: "タイムラインのズーム率";
+                        accepted(value) => {
+                            if value.is-float() {
+                                root.apply-zoom-percent(value.to-float());
+                            } else {
+                                root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+                            }
+                        }
+                    }
+                    Rectangle {
+                        x: 43px;
+                        width: 17px;
+                        height: 100%;
+                        background: zoom-button.has-hover ? #464b55 : #343943;
+                        Text { text: "▾"; horizontal-alignment: center; vertical-alignment: center; }
+                        zoom-button := TouchArea {
+                            accessible-role: button;
+                            accessible-label: "ズーム率の一覧";
+                            clicked => { zoom-menu.show({ x: 0px, y: self.height }); }
+                        }
+                    }
+                }
+            }
             ruler-scroll := ScrollView {
                 x: 60px;
                 width: parent.width - 60px;
@@ -2146,6 +2239,26 @@ export component TimelineWindow inherits Window {
                 ruler-wheel := TouchArea {
                     width: 100%;
                     height: 100%;
+                    mouse-cursor: root.ruler-scrubbing ? move : pointer;
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                            root.ruler-scrubbing = true;
+                            root.begin-scrub();
+                            root.scrub-to(self.mouse-x / (root.pixels-per-frame * 1px));
+                        }
+                        if event.kind == PointerEventKind.move && root.ruler-scrubbing {
+                            root.scrub-to(self.mouse-x / (root.pixels-per-frame * 1px));
+                        }
+                        if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.ruler-scrubbing {
+                            root.scrub-to(self.mouse-x / (root.pixels-per-frame * 1px));
+                            root.ruler-scrubbing = false;
+                            root.end-scrub();
+                        }
+                        if event.kind == PointerEventKind.cancel && root.ruler-scrubbing {
+                            root.ruler-scrubbing = false;
+                            root.end-scrub();
+                        }
+                    }
                     scroll-event(event) => {
                         root.apply-timeline-scroll(
                             event.delta-x,
@@ -2219,6 +2332,8 @@ export component TimelineWindow inherits Window {
                                 root.box-start-layer = root.context-layer;
                                 root.box-current-frame = root.box-start-frame;
                                 root.box-current-layer = root.box-start-layer;
+                                root.box-press-x = self.mouse-x;
+                                root.box-press-y = self.mouse-y;
                                 root.box-selection-started(
                                     root.box-start-frame,
                                     root.box-start-layer,
@@ -2228,7 +2343,7 @@ export component TimelineWindow inherits Window {
                             if event.kind == PointerEventKind.move && root.box-active {
                                 root.box-current-frame = max(0, floor((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px)));
                                 root.box-current-layer = min(127, max(0, floor((self.mouse-y - root.shared-viewport-y) / 30px)));
-                                if abs(self.mouse-x - self.pressed-x) >= 3px || abs(self.mouse-y - self.pressed-y) >= 3px {
+                                if abs(self.mouse-x - root.box-press-x) >= 3px || abs(self.mouse-y - root.box-press-y) >= 3px {
                                     root.box-dragging = true;
                                     root.box-selection-updated(root.box-current-frame, root.box-current-layer);
                                 }

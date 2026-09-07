@@ -13,7 +13,7 @@ use aviqtl_rust_core::api::{
     ProjectSettings, SceneDocument, TimelineCommand, TimelineTransaction, clipboard_duration,
     evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move,
     plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift,
-    snap_scene_frame,
+    snap_scene_frame, timeline_duration as core_timeline_duration,
 };
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -21,6 +21,8 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 const DEFAULT_UNDO_LIMIT: usize = 32;
+const MIN_TIMELINE_VIEW_FRAMES: i32 = 100;
+const TIMELINE_TAIL_PADDING_FRAMES: i32 = 120;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SceneTab {
@@ -168,6 +170,26 @@ impl WorkspaceModel {
                 primary: self.selection.primary() == Some(clip.id),
             })
             .collect()
+    }
+
+    pub fn timeline_duration(&self) -> i32 {
+        core_timeline_duration(
+            self.project
+                .document
+                .clips
+                .iter()
+                .filter(|clip| clip.scene_id == self.selected_scene),
+        )
+    }
+
+    pub fn timeline_view_duration(&self) -> i32 {
+        self.scene_timing()
+            .1
+            .max(
+                self.timeline_duration()
+                    .saturating_add(TIMELINE_TAIL_PADDING_FRAMES),
+            )
+            .max(MIN_TIMELINE_VIEW_FRAMES)
     }
 
     pub fn status(&self) -> &str {
@@ -2168,7 +2190,7 @@ impl WorkspaceModel {
     }
 
     pub fn seek(&mut self, frame: i32) {
-        self.playhead = frame.clamp(0, self.scene_timing().1.max(0));
+        self.playhead = frame.clamp(0, self.timeline_duration());
         self.transport.seek(Instant::now(), self.playhead);
     }
 
@@ -2193,13 +2215,13 @@ impl WorkspaceModel {
     }
 
     pub fn toggle_playback(&mut self) {
-        let end_frame = self.scene_timing().1;
+        let end_frame = self.timeline_duration();
         self.transport
             .toggle(Instant::now(), &mut self.playhead, end_frame);
     }
 
     pub fn step_playhead(&mut self, delta: i32) {
-        let end_frame = self.scene_timing().1;
+        let end_frame = self.timeline_duration();
         self.transport.step(delta, &mut self.playhead, end_frame);
     }
 
@@ -2208,10 +2230,10 @@ impl WorkspaceModel {
     }
 
     pub fn scrub_to(&mut self, frame: i32) -> bool {
-        let end_frame = self.scene_timing().1;
+        let end_frame = self.timeline_duration();
         self.transport.scrub_to(
             Instant::now(),
-            frame.clamp(0, end_frame.max(0)),
+            frame.clamp(0, end_frame),
             &mut self.playhead,
         )
     }
@@ -2221,7 +2243,8 @@ impl WorkspaceModel {
     }
 
     pub fn update_transport(&mut self, now: Instant) -> bool {
-        let (fps, end_frame) = self.scene_timing();
+        let fps = self.scene_timing().0;
+        let end_frame = self.timeline_duration();
         self.transport
             .update(now, fps, end_frame, &mut self.playhead)
     }
@@ -2279,7 +2302,7 @@ impl WorkspaceModel {
         self.selection
             .reconcile(&self.project.document, self.selected_scene);
         self.reconcile_effect_selection();
-        let end_frame = self.scene_timing().1.max(0);
+        let end_frame = self.timeline_duration();
         self.playhead = self.playhead.clamp(0, end_frame);
     }
 
@@ -2735,6 +2758,7 @@ mod tests {
         let mut workspace = workspace();
         assert_eq!(workspace.scene_tabs().len(), 2);
         assert_eq!(workspace.timeline_clips().len(), 2);
+        assert_eq!(workspace.timeline_duration(), 50);
         assert!(!workspace.timeline_clips()[0].audio);
         assert!(!workspace.timeline_clips()[0].clip_by_upper_object);
         assert!(workspace.toggle_clip_by_upper_object(1));
@@ -2742,10 +2766,33 @@ mod tests {
         assert!(workspace.switch_scene(2));
         assert_eq!(workspace.timeline_clips().len(), 1);
         assert_eq!(workspace.timeline_clips()[0].id, 3);
+        assert_eq!(workspace.timeline_duration(), 20);
         assert_eq!(workspace.playhead(), 0);
 
         let audio_workspace = workspace_with_audio_plugins();
         assert!(audio_workspace.timeline_clips()[0].audio);
+    }
+
+    #[test]
+    fn empty_scene_timeline_duration_matches_qt() {
+        let mut workspace = workspace();
+        workspace.project_mut().document.clips.clear();
+        assert_eq!(workspace.timeline_duration(), 1);
+        assert_eq!(workspace.timeline_view_duration(), 300);
+
+        workspace.seek(250);
+        assert_eq!(workspace.playhead(), 1);
+
+        workspace.begin_scrub();
+        assert!(workspace.scrub_to(250));
+        workspace.end_scrub();
+        assert_eq!(workspace.playhead(), 1);
+
+        workspace.seek(0);
+        workspace.step_playhead(1);
+        assert_eq!(workspace.playhead(), 1);
+        workspace.step_playhead(1);
+        assert_eq!(workspace.playhead(), 1);
     }
 
     #[test]

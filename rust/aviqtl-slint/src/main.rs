@@ -690,7 +690,7 @@ impl ObjectSettingsUi {
             let curve = self.easing_curve.borrow();
             sync_easing_preview(&window, &curve);
             sync_easing_catalog(&window, window.get_easing_filter().as_str(), &curve);
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     }
 
@@ -845,7 +845,7 @@ impl LifecycleUi {
                     if let Some(main) = self.main.upgrade() {
                         main.set_save_confirmation_project(project_name.into());
                         main.set_save_confirmation_visible(true);
-                        let _ = main.show();
+                        let _ = show_and_redraw(&main);
                     }
                     return;
                 }
@@ -865,7 +865,7 @@ impl LifecycleUi {
                         }
                         if let Some(launcher) = self.launcher.upgrade() {
                             sync_launcher_defaults(&launcher, &self.settings.borrow());
-                            let _ = launcher.show();
+                            let _ = show_and_redraw(&launcher);
                         }
                         self.show_recoveries_if_available();
                     }
@@ -898,7 +898,10 @@ impl LifecycleUi {
                 self.hydrate_audio_plugins();
                 self.sync();
                 if let Some(main) = self.main.upgrade() {
-                    let _ = main.show();
+                    let _ = show_and_redraw(&main);
+                }
+                if let Some(timeline) = self.timeline.upgrade() {
+                    let _ = show_and_redraw(&timeline);
                 }
                 if from_launcher && let Some(launcher) = self.launcher.upgrade() {
                     let _ = launcher.hide();
@@ -956,7 +959,7 @@ impl LifecycleUi {
         if let Some(recovery) = self.recovery.upgrade() {
             sync_recovery_entries(&recovery, entries);
             recovery.set_error_message(SharedString::new());
-            let _ = recovery.show();
+            let _ = show_and_redraw(&recovery);
         }
     }
 
@@ -1054,6 +1057,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let recovery = ProjectRecoveryWindow::new()?;
     let main = MainWindow::new()?;
     let timeline = TimelineWindow::new()?;
+    launcher
+        .window()
+        .set_size(slint::LogicalSize::new(700.0, 500.0));
+    main.window()
+        .set_size(slint::LogicalSize::new(640.0, 480.0));
+    timeline
+        .window()
+        .set_size(slint::LogicalSize::new(1280.0, 300.0));
+    let (zoom_minimum, zoom_maximum, _) = timeline_zoom_settings(&settings.borrow());
+    timeline.set_zoom_min(zoom_minimum.round() as i32);
+    timeline.set_zoom_max(zoom_maximum.round() as i32);
     let object_settings = ObjectSettingsWindow::new()?;
     let easing = EasingConfigWindow::new()?;
     let project_settings = ProjectSettingsWindow::new()?;
@@ -1185,13 +1199,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ProjectSession::from_json(VALIDATION_PROJECT).map_err(std::io::Error::other)?;
         model.borrow_mut().add_project_session(project);
         sync_windows(&main, &timeline, &model.borrow());
-        main.show()?;
-        timeline.show()?;
+        show_and_redraw(&main)?;
+        show_and_redraw(&timeline)?;
     } else {
         sync_recovery_window(&recovery, &model.borrow());
-        launcher.show()?;
+        show_and_redraw(&launcher)?;
         if !model.borrow().recovery_entries().is_empty() {
-            recovery.show()?;
+            show_and_redraw(&recovery)?;
         }
     }
 
@@ -2132,7 +2146,10 @@ fn install_callbacks(
         create_model.borrow_mut().create_project(defaults);
         sync_weak_windows(&create_main, &create_timeline, &create_model);
         if let Some(main) = create_main.upgrade() {
-            let _ = main.show();
+            let _ = show_and_redraw(&main);
+        }
+        if let Some(timeline) = create_timeline.upgrade() {
+            let _ = show_and_redraw(&timeline);
         }
         if let Some(window) = create_launcher.upgrade() {
             let _ = window.hide();
@@ -2153,7 +2170,7 @@ fn install_callbacks(
             return;
         }
         if let Some(window) = new_launcher.upgrade() {
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
         new_ui.show_recoveries_if_available();
     });
@@ -2271,7 +2288,10 @@ fn install_callbacks(
                     }
                     recover_ui.sync();
                     if let Some(window) = recover_ui.main.upgrade() {
-                        let _ = window.show();
+                        let _ = show_and_redraw(&window);
+                    }
+                    if let Some(window) = recover_ui.timeline.upgrade() {
+                        let _ = show_and_redraw(&window);
                     }
                     if let Some(window) = recover_ui.launcher.upgrade() {
                         let _ = window.hide();
@@ -2318,7 +2338,7 @@ fn install_callbacks(
     let timeline_window = timeline.as_weak();
     main.on_show_timeline(move || {
         if let Some(window) = timeline_window.upgrade() {
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
     let settings_window = object_settings.as_weak();
@@ -2344,7 +2364,7 @@ fn install_callbacks(
             .map(|workspace| workspace.project_settings());
         if let (Some(window), Some(input)) = (project_settings_window.upgrade(), input) {
             sync_project_settings(&window, &input);
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
 
@@ -2353,7 +2373,7 @@ fn install_callbacks(
     main.on_show_system_settings(move || {
         if let Some(window) = system_settings_window.upgrade() {
             sync_system_settings(&window, &system_settings_store.borrow());
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
 
@@ -2653,7 +2673,7 @@ fn install_callbacks(
         };
         if let (Some(window), Some(input)) = (scene_create_window.upgrade(), input) {
             sync_scene_settings(&window, true, -1, &input);
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
 
@@ -2720,7 +2740,7 @@ fn install_callbacks(
                     (timeline_action_scene_settings.upgrade(), input)
                 {
                     sync_scene_settings(&window, false, scene_id, &input);
-                    let _ = window.show();
+                    let _ = show_and_redraw(&window);
                 }
             }
             "project-settings" => {
@@ -2732,13 +2752,13 @@ fn install_callbacks(
                     (timeline_action_project_settings.upgrade(), input)
                 {
                     sync_project_settings(&window, &input);
-                    let _ = window.show();
+                    let _ = show_and_redraw(&window);
                 }
             }
             "system-settings" => {
                 if let Some(window) = timeline_action_system_settings.upgrade() {
                     sync_system_settings(&window, &timeline_action_settings.borrow());
-                    let _ = window.show();
+                    let _ = show_and_redraw(&window);
                 }
             }
             _ => {}
@@ -2848,7 +2868,7 @@ fn install_callbacks(
             .and_then(|workspace| workspace.scene_settings(scene_id));
         if let (Some(window), Some(input)) = (scene_edit_window.upgrade(), input) {
             sync_scene_settings(&window, false, scene_id, &input);
-            let _ = window.show();
+            let _ = show_and_redraw(&window);
         }
     });
 
@@ -3232,6 +3252,15 @@ fn install_callbacks(
         }
         sync_transport_weak(&seek_main, &seek_timeline, &seek_model);
     });
+    let speed_model = model.clone();
+    let speed_main = main.as_weak();
+    let speed_timeline = timeline.as_weak();
+    main.on_playback_speed_changed(move |percent| {
+        if let Some(workspace) = speed_model.borrow_mut().current_workspace_mut() {
+            workspace.set_playback_speed(f64::from(percent.clamp(10, 400)) / 100.0);
+        }
+        sync_transport_weak(&speed_main, &speed_timeline, &speed_model);
+    });
     let previous_model = model.clone();
     let previous_main = main.as_weak();
     let previous_timeline = timeline.as_weak();
@@ -3258,6 +3287,31 @@ fn install_callbacks(
             workspace.toggle_playback();
         }
         sync_transport_weak(&playback_main, &playback_timeline, &playback_model);
+    });
+
+    let scrub_begin_model = model.clone();
+    timeline.on_begin_scrub(move || {
+        if let Some(workspace) = scrub_begin_model.borrow_mut().current_workspace_mut() {
+            workspace.begin_scrub();
+        }
+    });
+    let scrub_model = model.clone();
+    let scrub_main = main.as_weak();
+    let scrub_timeline = timeline.as_weak();
+    timeline.on_scrub_to(move |frame| {
+        if let Some(workspace) = scrub_model.borrow_mut().current_workspace_mut() {
+            workspace.scrub_to(frame.round() as i32);
+        }
+        sync_transport_weak(&scrub_main, &scrub_timeline, &scrub_model);
+    });
+    let scrub_end_model = model;
+    let scrub_end_main = main.as_weak();
+    let scrub_end_timeline = timeline.as_weak();
+    timeline.on_end_scrub(move || {
+        if let Some(workspace) = scrub_end_model.borrow_mut().current_workspace_mut() {
+            workspace.end_scrub();
+        }
+        sync_transport_weak(&scrub_end_main, &scrub_end_timeline, &scrub_end_model);
     });
 }
 
@@ -3738,9 +3792,7 @@ fn dispatch_shortcut(
                     }
                     ShortcutAction::JumpStart => workspace.seek(0),
                     ShortcutAction::JumpEnd => {
-                        let end_frame = workspace
-                            .selected_scene_document()
-                            .map_or(0, |scene| scene.duration.max(0));
+                        let end_frame = workspace.timeline_duration();
                         workspace.seek(end_frame);
                     }
                     ShortcutAction::Split => {
@@ -3959,7 +4011,7 @@ fn install_export_callbacks(
                 &mut open_codecs.borrow_mut(),
             );
         }
-        let _ = window.show();
+        let _ = show_and_redraw(&window);
     });
 
     export.on_validate_output_path(|path| valid_export_path(&path));
@@ -4105,9 +4157,7 @@ fn sync_export_window(
     codecs: &mut ExportCodecState,
 ) {
     let project = workspace.project_settings();
-    let duration = workspace
-        .selected_scene_document()
-        .map_or(1, |scene| scene.duration.max(1));
+    let duration = workspace.timeline_duration();
     window.set_project_width(project.width);
     window.set_project_height(project.height);
     window.set_project_fps(project.fps as f32);
@@ -4142,9 +4192,7 @@ fn current_export_project(model: &ApplicationModel) -> Option<(u64, ExportProjec
     let project_instance_id = model.current_project_instance_id()?;
     let workspace = model.current_workspace()?;
     let settings = workspace.project_settings();
-    let duration = workspace
-        .selected_scene_document()
-        .map_or(1, |scene| scene.duration.max(1));
+    let duration = workspace.timeline_duration();
     Some((
         project_instance_id,
         ExportProject {
@@ -4575,6 +4623,9 @@ fn show_and_redraw<T: ComponentHandle + 'static>(window: &T) -> Result<(), slint
     Timer::single_shot(Duration::ZERO, move || {
         if let Some(window) = window.upgrade() {
             window.window().request_redraw();
+            let _ = window
+                .window()
+                .with_winit_window(|winit_window| winit_window.focus_window());
         }
     });
     Ok(())
@@ -5749,15 +5800,18 @@ fn sync_transport(main: &MainWindow, timeline: &TimelineWindow, model: &Applicat
     let Some(workspace) = model.current_workspace() else {
         return;
     };
-    let duration = workspace
-        .selected_scene_document()
-        .map_or(1, |scene| scene.duration.max(1));
+    let duration = workspace.timeline_duration();
     main.set_playhead(workspace.playhead() as f32);
     main.set_duration(duration as f32);
     main.set_playing(workspace.is_playing());
+    main.set_playback_speed_percent(
+        (workspace.playback_speed() * 100.0)
+            .round()
+            .clamp(10.0, 400.0) as i32,
+    );
     main.set_status_text(SharedString::from(workspace.status()));
     timeline.set_playhead(workspace.playhead());
-    timeline.set_duration(duration);
+    timeline.set_duration(workspace.timeline_view_duration());
     timeline.set_selected_layer(workspace.selected_layer());
     timeline.set_action_status(SharedString::from(workspace.status()));
 }

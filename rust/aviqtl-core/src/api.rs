@@ -64,6 +64,23 @@ pub use crate::timeline_state::{
     ClipGeometryUpdate, ClipReplacement, EditRequest as TimelineCommand, EffectInsertion,
 };
 
+/// Returns the visible timeline duration for the supplied clips.
+///
+/// Non-positive clip durations are ignored and an empty timeline is one frame long, matching the
+/// Qt timeline controller and the C ABI entry point.
+pub fn timeline_duration<'a>(clips: impl IntoIterator<Item = &'a ClipDocument>) -> i32 {
+    let geometry = clips
+        .into_iter()
+        .map(|clip| AviQtlTimelineClipGeometry {
+            clip_id: clip.id,
+            layer: clip.layer,
+            start_frame: clip.start,
+            duration_frames: clip.duration,
+        })
+        .collect::<Vec<_>>();
+    crate::timeline_domain::timeline_duration(&geometry)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeyframePoint {
     pub frame: i32,

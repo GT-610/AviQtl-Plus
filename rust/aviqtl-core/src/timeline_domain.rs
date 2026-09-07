@@ -138,7 +138,7 @@ pub(crate) fn snap_frame(
     rounded_non_negative(((frame - offset) / step).round() * step + offset)
 }
 
-fn timeline_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
+pub(crate) fn timeline_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
     clips
         .iter()
         .filter(|clip| clip.duration_frames > 0)
