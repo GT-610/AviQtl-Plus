@@ -2796,6 +2796,44 @@ mod tests {
     }
 
     #[test]
+    fn timeline_view_duration_takes_scene_clip_tail_and_minimum() {
+        let mut workspace = workspace();
+        // Fixture scene 1: duration 300, clip end 50 -> max(300, 50+120, 100).
+        assert_eq!(workspace.timeline_duration(), 50);
+        assert_eq!(workspace.timeline_view_duration(), 300);
+
+        // Transport clamps at the clip end, not the scene length.
+        workspace.seek(250);
+        assert_eq!(workspace.playhead(), 50);
+        workspace.seek(0);
+        workspace.step_playhead(1000);
+        assert_eq!(workspace.playhead(), 50);
+        workspace.begin_scrub();
+        assert!(workspace.scrub_to(1000));
+        workspace.end_scrub();
+        assert_eq!(workspace.playhead(), 50);
+        workspace.toggle_playback();
+        assert!(workspace.is_playing());
+        workspace.pause_playback();
+
+        // Tail padding wins when clips extend past the scene length.
+        workspace.project_mut().document.clips[1].start = 250;
+        assert_eq!(workspace.timeline_duration(), 270);
+        assert_eq!(workspace.timeline_view_duration(), 390);
+    }
+
+    #[test]
+    fn playback_speed_clamps_to_the_qt_spinbox_range() {
+        let mut workspace = workspace();
+        workspace.set_playback_speed(0.05);
+        assert_eq!(workspace.playback_speed(), 0.1);
+        workspace.set_playback_speed(10.0);
+        assert_eq!(workspace.playback_speed(), 4.0);
+        workspace.set_playback_speed(2.5);
+        assert_eq!(workspace.playback_speed(), 2.5);
+    }
+
+    #[test]
     fn selection_clipboard_and_history_match_the_qt_command_order() {
         let mut workspace = workspace();
         assert_eq!(workspace.document_revision(), 0);
@@ -3118,9 +3156,18 @@ mod tests {
         let mut workspace = workspace();
         workspace.click_clip(1, false);
 
+        workspace.set_edit_target(40, 7);
+
+        assert_eq!(workspace.playhead(), 40);
+        assert_eq!(workspace.selected_layer(), 7);
+        assert_eq!(workspace.selected_clip_ids(), [1]);
+
+        // HEAD clamps seek-family calls to the clip end (50 here) so the
+        // edit target can no longer run past the timeline like Qt's
+        // unclamped setCurrentFrame_seek does.
         workspace.set_edit_target(80, 7);
 
-        assert_eq!(workspace.playhead(), 80);
+        assert_eq!(workspace.playhead(), 50);
         assert_eq!(workspace.selected_layer(), 7);
         assert_eq!(workspace.selected_clip_ids(), [1]);
     }
