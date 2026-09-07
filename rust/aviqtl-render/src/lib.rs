@@ -14,6 +14,7 @@ use aviqtl_media::VideoFrame;
 use aviqtl_rust_core::api::CameraRenderPlan;
 use effects::{encode_effect_chain, encode_effect_pass};
 use std::borrow::Cow;
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use wgpu::util::DeviceExt;
 
@@ -1448,6 +1449,39 @@ struct GpuContext<'a> {
     target_format: wgpu::TextureFormat,
 }
 
+fn ordered_composition_layers<'layers, 'source>(
+    layers: &'layers [CompositionLayer<'source>],
+    projection: ProjectionContext<'_>,
+) -> Vec<&'layers CompositionLayer<'source>> {
+    let camera = projection
+        .camera
+        .copied()
+        .unwrap_or_else(|| default_camera(projection.target_size.1.max(1) as f32));
+    let mut ordered = layers.iter().collect::<Vec<_>>();
+    ordered.sort_by(|left, right| {
+        let left_depth = qt_transparent_camera_depth(left.transform, camera);
+        let right_depth = qt_transparent_camera_depth(right.transform, camera);
+        right_depth
+            .partial_cmp(&left_depth)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| right.timeline_layer.cmp(&left.timeline_layer))
+    });
+    ordered
+}
+
+/// Qt Quick3D sorts transparent renderables from far to near with
+/// `dot(worldCenter - cameraPosition, cameraDirection)`. The compositor uses
+/// the same object-center key; equal-depth layers retain AviQtl's timeline
+/// stacking order as a deterministic tie-breaker.
+fn qt_transparent_camera_depth(transform: LayerTransform, camera: CameraRenderPlan) -> f32 {
+    let (scale_x, scale_y, scale_z) = layer_transform_scales(transform);
+    let center = transform_point([0.0, 0.0, 0.0], transform, scale_x, scale_y, scale_z);
+    let position = [camera.position_x, camera.position_y, camera.position_z];
+    let target = [camera.target_x, camera.target_y, camera.target_z];
+    let direction = normalize(subtract(target, position)).unwrap_or([0.0, 0.0, -1.0]);
+    dot(subtract(center, position), direction)
+}
+
 impl Compositor {
     pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -1767,8 +1801,7 @@ impl Compositor {
         clear_color: wgpu::Color,
         projection: ProjectionContext<'_>,
     ) {
-        let mut ordered = layers.iter().collect::<Vec<_>>();
-        ordered.sort_by_key(|layer| std::cmp::Reverse(layer.timeline_layer));
+        let ordered = ordered_composition_layers(layers, projection);
         let active_keys = ordered
             .iter()
             .map(|layer| layer.cache_key)
@@ -2454,19 +2487,7 @@ fn layer_uniform(
     let target_height = target_size.1.max(1) as f32;
     let source_width = source_size.0.max(1) as f32;
     let source_height = source_size.1.max(1) as f32;
-    let scale = transform.scale_percent.max(0.0) / 100.0;
-    let scale_x = scale
-        * if transform.aspect >= 0.0 {
-            1.0 + transform.aspect
-        } else {
-            1.0
-        };
-    let scale_y = scale
-        * if transform.aspect < 0.0 {
-            1.0 - transform.aspect
-        } else {
-            1.0
-        };
+    let (scale_x, scale_y, scale) = layer_transform_scales(transform);
     let (offset_x, offset_y) = if crop.recenter {
         (
             (crop.right.max(0.0) - crop.left.max(0.0)) * 0.5,
@@ -2540,6 +2561,23 @@ fn layer_uniform(
         if visible { 1.0 } else { 0.0 },
         if has_mask { 1.0 } else { 0.0 },
     ]
+}
+
+fn layer_transform_scales(transform: LayerTransform) -> (f32, f32, f32) {
+    let scale = transform.scale_percent.max(0.0) / 100.0;
+    let scale_x = scale
+        * if transform.aspect >= 0.0 {
+            1.0 + transform.aspect
+        } else {
+            1.0
+        };
+    let scale_y = scale
+        * if transform.aspect < 0.0 {
+            1.0 - transform.aspect
+        } else {
+            1.0
+        };
+    (scale_x, scale_y, scale)
 }
 
 fn default_camera(target_height: f32) -> CameraRenderPlan {
@@ -2691,6 +2729,40 @@ mod tests {
         }
     }
 
+    fn composition_layer(
+        frame: &VideoFrame,
+        cache_key: u64,
+        timeline_layer: i32,
+        transform: LayerTransform,
+    ) -> CompositionLayer<'_> {
+        CompositionLayer {
+            cache_key,
+            source: CompositionSource::Frame(frame),
+            timeline_layer,
+            transform,
+            blend_mode: BlendMode::Normal,
+            crop: LayerCrop::default(),
+            mask: None,
+            effects: &[],
+        }
+    }
+
+    fn ordered_cache_keys(
+        layers: &[CompositionLayer<'_>],
+        camera: Option<&CameraRenderPlan>,
+    ) -> Vec<u64> {
+        ordered_composition_layers(
+            layers,
+            ProjectionContext {
+                target_size: (1920, 1080),
+                camera,
+            },
+        )
+        .into_iter()
+        .map(|layer| layer.cache_key)
+        .collect()
+    }
+
     #[test]
     fn compositor_shader_parses_and_validates() {
         let module = wgpu::naga::front::wgsl::parse_str(SHADER).expect("valid compositor WGSL");
@@ -2700,6 +2772,83 @@ mod tests {
         )
         .validate(&module)
         .expect("validated compositor WGSL");
+    }
+
+    #[test]
+    fn transparent_layers_render_far_to_near_before_timeline_order() {
+        let pixels = frame(1, 1);
+        let layers = [
+            composition_layer(
+                &pixels,
+                1,
+                99,
+                LayerTransform {
+                    z: 100.0,
+                    ..Default::default()
+                },
+            ),
+            composition_layer(
+                &pixels,
+                2,
+                1,
+                LayerTransform {
+                    z: -100.0,
+                    ..Default::default()
+                },
+            ),
+        ];
+        assert_eq!(ordered_cache_keys(&layers, None), vec![2, 1]);
+    }
+
+    #[test]
+    fn equal_depth_layers_keep_aviqtl_timeline_stacking_order() {
+        let pixels = frame(1, 1);
+        let layers = [
+            composition_layer(&pixels, 1, 1, LayerTransform::default()),
+            composition_layer(&pixels, 2, 12, LayerTransform::default()),
+            composition_layer(&pixels, 3, 4, LayerTransform::default()),
+        ];
+        assert_eq!(ordered_cache_keys(&layers, None), vec![2, 3, 1]);
+    }
+
+    #[test]
+    fn custom_camera_direction_changes_transparent_layer_order() {
+        let pixels = frame(1, 1);
+        let layers = [
+            composition_layer(
+                &pixels,
+                1,
+                1,
+                LayerTransform {
+                    x: -100.0,
+                    z: 100.0,
+                    ..Default::default()
+                },
+            ),
+            composition_layer(
+                &pixels,
+                2,
+                2,
+                LayerTransform {
+                    x: 100.0,
+                    z: -100.0,
+                    ..Default::default()
+                },
+            ),
+        ];
+        assert_eq!(ordered_cache_keys(&layers, None), vec![2, 1]);
+
+        let side_camera = CameraRenderPlan {
+            position_x: 1_000.0,
+            position_y: 0.0,
+            position_z: 0.0,
+            target_x: 0.0,
+            target_y: 0.0,
+            target_z: 0.0,
+            roll_degrees: 0.0,
+            field_of_view_degrees: 30.0,
+        };
+        assert_eq!(ordered_cache_keys(&layers, Some(&side_camera)), vec![1, 2]);
     }
 
     #[test]
