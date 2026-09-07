@@ -1,0 +1,461 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: aviqtl-slint\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid "0 / 0 フレーム"
+msgstr "0 / 0 frames"
+
+msgid "1フレーム戻る"
+msgstr "Back 1 Frame"
+
+msgid "1フレーム進む"
+msgstr "Forward 1 Frame"
+
+msgid "AviQtl Plus - プレビュー"
+msgstr "AviQtl Plus - Preview"
+
+msgid "AviQtl Plus - プロジェクトランチャー"
+msgstr "AviQtl Plus - Project Launcher"
+
+msgid "AviQtl Plus アップデート"
+msgstr "AviQtl Plus Update"
+
+msgid "AviQtl Plusについて"
+msgstr "About AviQtl Plus"
+
+msgid "BPM (音楽)"
+msgstr "BPM (Music)"
+
+msgid "BPM設定"
+msgstr "BPM Settings"
+
+msgid "ここにドロップ"
+msgstr "Drop here"
+
+msgid "このカテゴリにパッケージがありません。"
+msgstr "No packages in this category."
+
+msgid "このプラグインに許可する権限を選択してください:"
+msgstr "Select the permissions to grant to this plugin:"
+
+msgid "すべてのレイヤーを表示"
+msgstr "Show all layers"
+
+msgid "すべてのレイヤーを非表示"
+msgstr "Hide all layers"
+
+msgid "すべてアップグレード"
+msgstr "Upgrade All"
+
+msgid "すべて拒否"
+msgstr "Deny All"
+
+msgid "すべて許可"
+msgstr "Allow All"
+
+msgid "やり直す"
+msgstr "Redo"
+
+msgid "アップデート"
+msgstr "Update"
+
+msgid "アプリケーション"
+msgstr "Application"
+
+msgid "インストール"
+msgstr "Install"
+
+msgid "インストール済み"
+msgstr "Installed"
+
+msgid "エフェクト"
+msgstr "Effects"
+
+msgid "エフェクト/オブジェクトを検索..."
+msgstr "Search effects/objects..."
+
+msgid "エラー"
+msgstr "Error"
+
+msgid "オフセット (秒):"
+msgstr "Offset (Seconds):"
+
+msgid "オブジェクト"
+msgstr "Objects"
+
+msgid "キャンセル"
+msgstr "Cancel"
+
+msgid "グリッドモード:"
+msgstr "Grid Mode:"
+
+msgid "コピー"
+msgstr "Copy"
+
+msgid "コーデック:"
+msgstr "Codec:"
+
+msgid "サンプリングレート:"
+msgstr "Sample Rate:"
+
+msgid "シークバー"
+msgstr "Seek Bar"
+
+msgid "シーン名:"
+msgstr "Scene Name:"
+
+msgid "シーン設定"
+msgstr "Scene Settings"
+
+msgid "シーン設定..."
+msgstr "Scene Settings..."
+
+msgid "スナップを有効にする:"
+msgstr "Enable Snap:"
+
+msgid "ズーム:"
+msgstr "Zoom:"
+
+msgid "タイムライン"
+msgstr "Timeline"
+
+msgid "タイムラインの表示"
+msgstr "Show Timeline"
+
+msgid "タイムライン全体"
+msgstr "Entire timeline"
+
+msgid "ツール"
+msgstr "Tools"
+
+msgid "デフォルト"
+msgstr "Default"
+
+msgid "バックアップ間隔"
+msgstr "Backup interval"
+
+msgid "バージョン情報"
+msgstr "About"
+
+msgid "パッケージマネージャー"
+msgstr "Package Manager"
+
+msgid "パッケージマネージャーエラー"
+msgstr "Package Manager Error"
+
+msgid "ビットレート"
+msgstr "Bitrate"
+
+msgid "ビットレート:"
+msgstr "Bitrate:"
+
+msgid "ファイル"
+msgstr "File"
+
+msgid "フォントを選択"
+msgstr "Select Font"
+
+msgid "フレーム"
+msgstr "Frame"
+
+msgid "フレームレート (FPS):"
+msgstr "Frame Rate (FPS):"
+
+msgid "フレーム数固定"
+msgstr "Fixed Frame Count"
+
+msgid "フレーム設定"
+msgstr "Frame Settings"
+
+msgid "プリセット:"
+msgstr "Preset:"
+
+msgid "プリセットを保存"
+msgstr "Save Preset"
+
+msgid "プリセットを保存..."
+msgstr "Save Preset..."
+
+msgid "プリセットを削除"
+msgstr "Delete Preset"
+
+msgid "プリセットを読み込み"
+msgstr "Load Preset"
+
+msgid "プリセット名を入力..."
+msgstr "Enter preset name..."
+
+msgid "プレビュー"
+msgstr "Preview"
+
+msgid "プロジェクトの上書き保存"
+msgstr "Save Project"
+
+msgid "プロジェクトを名前を付けて保存..."
+msgstr "Save Project As..."
+
+msgid "プロジェクトを開く"
+msgstr "Open Project"
+
+msgid "プロジェクト設定"
+msgstr "Project Settings"
+
+msgid "プロジェクト設定..."
+msgstr "Project Settings..."
+
+msgid "プロファイル:"
+msgstr "Profile:"
+
+msgid "メディアの書き出し"
+msgstr "Export Media"
+
+msgid "メディアの書き出し..."
+msgstr "Export Media..."
+
+msgid "リポジトリ"
+msgstr "Repositories"
+
+msgid "リポジトリを同期"
+msgstr "Sync Repository"
+
+msgid "リポジトリを追加"
+msgstr "Add Repository"
+
+msgid "一時停止"
+msgstr "Pause"
+
+msgid "上のオブジェクトでクリッピング"
+msgstr "Clip by Upper Object"
+
+msgid "低品質"
+msgstr "Low quality"
+
+msgid "保存の確認"
+msgstr "Confirm Save"
+
+msgid "保存先ファイルパス..."
+msgstr "Destination file path..."
+
+msgid "保存先フォルダ..."
+msgstr "Destination folder..."
+
+msgid "元に戻す"
+msgstr "Undo"
+
+msgid "元に戻す回数"
+msgstr "Undo count"
+
+msgid "再生"
+msgstr "Play"
+
+msgid "再読込"
+msgstr "Reload"
+
+msgid "分"
+msgstr "minutes"
+
+msgid "分割"
+msgstr "Split"
+
+msgid "切り取り"
+msgstr "Cut"
+
+msgid "制御点"
+msgstr "Control Point"
+
+msgid "削除"
+msgstr "Delete"
+
+msgid "動画ファイル"
+msgstr "Video File"
+
+msgid "参照..."
+msgstr "Browse..."
+
+msgid "右ドラッグ:パン  ホイール:ズーム"
+msgstr "Right drag: Pan  Wheel: Zoom"
+
+msgid "品質モード:"
+msgstr "Quality mode:"
+
+msgid "基本設定"
+msgstr "Basic Settings"
+
+msgid "完了"
+msgstr "Complete"
+
+msgid "幅 (横):"
+msgstr "Width:"
+
+msgid "幅:"
+msgstr "Width:"
+
+msgid "形式:"
+msgstr "Format:"
+
+msgid "拍子 (分割数):"
+msgstr "Time Signature (Subdivisions):"
+
+msgid "振幅"
+msgstr "Amplitude"
+
+msgid "新規シーン作成"
+msgstr "Create New Scene"
+
+msgid "新規プロジェクト"
+msgstr "New Project"
+
+msgid "新規プロジェクトを作成"
+msgstr "Create New Project"
+
+msgid "既存プロジェクトを開く..."
+msgstr "Open Existing Project..."
+
+msgid "映像"
+msgstr "Video"
+
+msgid "書き出しキャンセル"
+msgstr "Cancel Export"
+
+msgid "書き出し中..."
+msgstr "Exporting..."
+
+msgid "書き出し開始"
+msgstr "Start Export"
+
+msgid "最近使ったプロジェクト"
+msgstr "Recent Projects"
+
+msgid "最近使ったプロジェクトはありません"
+msgstr "No recent projects"
+
+msgid "最速 (ultrafast)"
+msgstr "Fastest (ultrafast)"
+
+msgid "最高品質 (veryslow)"
+msgstr "Highest quality (veryslow)"
+
+msgid "検索..."
+msgstr "Search..."
+
+msgid "標準"
+msgstr "Standard"
+
+msgid "標準 (medium)"
+msgstr "Standard (medium)"
+
+msgid "権限"
+msgstr "Permissions"
+
+msgid "環境設定"
+msgstr "Preferences"
+
+msgid "環境設定..."
+msgstr "Preferences..."
+
+msgid "画像シーケンス"
+msgstr "Image Sequence"
+
+msgid "磁力スナップ範囲:"
+msgstr "Magnetic Snap Range:"
+
+msgid "種類"
+msgstr "Type"
+
+msgid "範囲"
+msgstr "Range"
+
+msgid "終了"
+msgstr "Exit"
+
+msgid "終了:"
+msgstr "End:"
+
+msgid "終了時に未保存のプロジェクトを確認する"
+msgstr "Check for unsaved projects when exiting"
+
+msgid "編集"
+msgstr "Edit"
+
+msgid "編集とスナップ"
+msgstr "Editing and Snap"
+
+msgid "自動"
+msgstr "Auto"
+
+msgid "自動 (秒/フレーム)"
+msgstr "Auto (Seconds/Frames)"
+
+msgid "自動バックアップを有効にする"
+msgstr "Enable automatic backups"
+
+msgid "色を選択"
+msgstr "Select Color"
+
+msgid "表示"
+msgstr "View"
+
+msgid "複製"
+msgstr "Duplicate"
+
+msgid "解像度:"
+msgstr "Resolution:"
+
+msgid "設定"
+msgstr "Settings"
+
+msgid "設定は「適用」または「OK」で保存されます"
+msgstr "Settings are saved with “Apply” or “OK”"
+
+msgid "設定ダイアログ"
+msgstr "Settings Dialog"
+
+msgid "設定ダイアログの表示"
+msgstr "Show Settings Dialog"
+
+msgid "設定済みリポジトリ"
+msgstr "Configured Repositories"
+
+msgid "詳細設定"
+msgstr "Advanced Settings"
+
+msgid "貼り付け"
+msgstr "Paste"
+
+msgid "追加"
+msgstr "Add"
+
+msgid "速度"
+msgstr "Speed"
+
+msgid "適用"
+msgstr "Apply"
+
+msgid "閉じる"
+msgstr "Close"
+
+msgid "開始:"
+msgstr "Start:"
+
+msgid "間隔 (Frames):"
+msgstr "Interval (Frames):"
+
+msgid "音声"
+msgstr "Audio"
+
+msgid "高さ (縦):"
+msgstr "Height:"
+
+msgid "高さ:"
+msgstr "Height:"
+
+msgid "高品質"
+msgstr "High quality"
+
+msgid "高品質 (slow)"
+msgstr "High quality (slow)"
+
+msgid "高速 (fast)"
+msgstr "Fast (fast)"

@@ -344,18 +344,18 @@ component EffectSidebarEntry inherits Rectangle {
         Menu {
             MenuItem {
                 title: root.selected-count > 1
-                    ? "選択した \{root.selected-count} 件を削除"
-                    : "削除";
+                    ? @tr("選択した {} 件を削除", root.selected-count)
+                    : @tr("削除");
                 enabled: root.selected-removable;
                 activated => { root.remove-selection(root.effect.index); }
             }
             MenuSeparator { }
             MenuItem {
-                title: "プリセットを保存...";
+                title: @tr("プリセットを保存...");
                 activated => { root.save-preset(root.effect.index, root.effect.name); }
             }
             Menu {
-                title: "プリセットを読み込み";
+                title: @tr("プリセットを読み込み");
                 enabled: root.preset-names.length > 0;
                 for preset in root.preset-names : MenuItem {
                     title: preset;
@@ -363,7 +363,7 @@ component EffectSidebarEntry inherits Rectangle {
                 }
             }
             Menu {
-                title: "プリセットを削除";
+                title: @tr("プリセットを削除");
                 enabled: root.preset-names.length > 0;
                 for preset in root.preset-names : MenuItem {
                     title: preset;
@@ -382,7 +382,7 @@ component EffectSidebarEntry inherits Rectangle {
             }
             CheckBox {
                 checked: root.effect.enabled;
-                accessible-label: root.effect.name + "を有効にする";
+                accessible-label: root.effect.name + @tr("を有効にする");
                 toggled => { root.set-enabled(root.effect.index, self.checked); }
             }
             Text {
@@ -483,7 +483,7 @@ component ObjectSettingRow inherits Rectangle {
             CheckBox {
                 visible: root.row-data.header-toggle-visible;
                 checked: root.row-data.effect-enabled;
-                accessible-label: root.row-data.label + "を有効にする";
+                accessible-label: root.row-data.label + @tr("を有効にする");
                 toggled => {
                     root.set-effect-enabled(
                         root.row-data.audio-plugin,
@@ -500,7 +500,7 @@ component ObjectSettingRow inherits Rectangle {
                 overflow: elide;
             }
             Button {
-                text: "削除";
+                text: @tr("削除");
                 visible: root.row-data.removable;
                 enabled: root.row-data.removable;
                 clicked => {
@@ -590,7 +590,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -605,7 +605,7 @@ component ObjectSettingRow inherits Rectangle {
             visible: root.row-data.audio-plugin;
             text: "K";
             enabled: root.row-data.interactive;
-            accessible-label: root.row-data.label + "の先頭と末尾にキーフレームを作成";
+            accessible-label: root.row-data.label + @tr("の先頭と末尾にキーフレームを作成");
             clicked => {
                 root.seed-keyframes(
                     root.row-data.audio-plugin,
@@ -677,7 +677,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -733,7 +733,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -835,7 +835,7 @@ component ObjectSettingRow inherits Rectangle {
         Button {
             text: "...";
             enabled: root.row-data.interactive;
-            accessible-label: root.row-data.label + "を選択";
+            accessible-label: root.row-data.label + @tr("を選択");
             clicked => {
                 root.pick-path(
                     root.row-data.audio-plugin,
@@ -857,7 +857,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         Button {
             horizontal-stretch: 1;
-            text: root.row-data.text-value == "" ? "デフォルト" : root.row-data.text-value;
+            text: root.row-data.text-value == "" ? @tr("デフォルト") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + ": " + self.text;
             clicked => {
@@ -894,7 +894,7 @@ component ObjectSettingRow inherits Rectangle {
                 enabled: root.row-data.interactive;
                 mouse-cursor: pointer;
                 accessible-role: button;
-                accessible-label: root.row-data.label + "の開始色を選択";
+                accessible-label: root.row-data.label + @tr("の開始色を選択");
                 accessible-action-default => {
                     root.pick-color(
                         root.row-data.audio-plugin,
@@ -932,7 +932,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : "補間";
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -975,7 +975,7 @@ component ObjectSettingRow inherits Rectangle {
                     && root.row-data.interpolation != "constant";
                 mouse-cursor: pointer;
                 accessible-role: button;
-                accessible-label: root.row-data.label + "の終了色を選択";
+                accessible-label: root.row-data.label + @tr("の終了色を選択");
                 accessible-action-default => {
                     root.pick-color(
                         root.row-data.audio-plugin,
@@ -1050,7 +1050,7 @@ component SceneTab inherits Rectangle {
         if !root.scene.root : Button {
             text: "×";
             width: 24px;
-            accessible-label: "シーンを閉じる";
+            accessible-label: @tr("シーンを閉じる");
             clicked => { root.close(root.scene.id); }
         }
     }
@@ -1101,14 +1101,14 @@ component LayerHeaderItem inherits Rectangle {
     }
     layer-menu := ContextMenuArea {
         Menu {
-            MenuItem { title: "上にレイヤーを挿入"; activated => { root.command("insert-above", root.layer.index); } }
-            MenuItem { title: "下にレイヤーを挿入"; activated => { root.command("insert-below", root.layer.index); } }
+            MenuItem { title: @tr("上にレイヤーを挿入"); activated => { root.command("insert-above", root.layer.index); } }
+            MenuItem { title: @tr("下にレイヤーを挿入"); activated => { root.command("insert-below", root.layer.index); } }
             MenuSeparator { }
-            MenuItem { title: root.layer.locked ? "レイヤーのロックを解除" : "レイヤーをロック"; activated => { root.command("toggle-lock", root.layer.index); } }
-            MenuItem { title: root.layer.visible ? "レイヤーを非表示" : "レイヤーを表示"; activated => { root.command("toggle-visible", root.layer.index); } }
+            MenuItem { title: root.layer.locked ? @tr("レイヤーのロックを解除") : @tr("レイヤーをロック"); activated => { root.command("toggle-lock", root.layer.index); } }
+            MenuItem { title: root.layer.visible ? @tr("レイヤーを非表示") : @tr("レイヤーを表示"); activated => { root.command("toggle-visible", root.layer.index); } }
             MenuSeparator { }
-            MenuItem { title: "すべてのレイヤーを表示"; activated => { root.command("show-all", root.layer.index); } }
-            MenuItem { title: "すべてのレイヤーを非表示"; activated => { root.command("hide-all", root.layer.index); } }
+            MenuItem { title: @tr("すべてのレイヤーを表示"); activated => { root.command("show-all", root.layer.index); } }
+            MenuItem { title: @tr("すべてのレイヤーを非表示"); activated => { root.command("hide-all", root.layer.index); } }
         }
         header-touch := TouchArea {
             mouse-cursor: pointer;
@@ -1395,7 +1395,7 @@ component ProjectTab inherits Rectangle {
         close-button := Button {
             text: "×";
             width: 24px;
-            accessible-label: "プロジェクトを閉じる";
+            accessible-label: @tr("プロジェクトを閉じる");
             clicked => { root.close(); }
         }
     }
@@ -1569,7 +1569,7 @@ export component ProjectRecoveryWindow inherits Window {
 }
 
 export component ProjectLauncherWindow inherits Window {
-    title: "AviQtl Plus - プロジェクトランチャー";
+    title: @tr("AviQtl Plus - プロジェクトランチャー");
     preferred-width: 700px;
     preferred-height: 500px;
     min-width: 620px;
@@ -1589,21 +1589,21 @@ export component ProjectLauncherWindow inherits Window {
         VerticalLayout {
             preferred-width: 300px;
             spacing: 15px;
-            Text { text: "新規プロジェクト"; font-size: 1.35rem; font-weight: 700; }
+            Text { text: @tr("新規プロジェクト"); font-size: 1.35rem; font-weight: 700; }
             GroupBox {
-                title: "プロジェクト設定";
+                title: @tr("プロジェクト設定");
                 GridLayout {
                     padding: 10px;
                     spacing: 10px;
-                    Row { Text { text: "幅 (横):"; } width-field := LineEdit { text <=> root.default-width; } }
-                    Row { Text { text: "高さ (縦):"; } height-field := LineEdit { text <=> root.default-height; } }
-                    Row { Text { text: "フレームレート (FPS):"; } fps-field := LineEdit { text <=> root.default-fps; } }
-                    Row { Text { text: "サンプリングレート:"; } sample-rate-field := LineEdit { text <=> root.default-sample-rate; } }
+                    Row { Text { text: @tr("幅 (横):"); } width-field := LineEdit { text <=> root.default-width; } }
+                    Row { Text { text: @tr("高さ (縦):"); } height-field := LineEdit { text <=> root.default-height; } }
+                    Row { Text { text: @tr("フレームレート (FPS):"); } fps-field := LineEdit { text <=> root.default-fps; } }
+                    Row { Text { text: @tr("サンプリングレート:"); } sample-rate-field := LineEdit { text <=> root.default-sample-rate; } }
                 }
             }
             create-button := Button {
-                text: "新規プロジェクトを作成";
-                accessible-label: "新規プロジェクトを作成";
+                text: @tr("新規プロジェクトを作成");
+                accessible-label: @tr("新規プロジェクトを作成");
                 clicked => {
                     root.create-project(width-field.text, height-field.text, fps-field.text, sample-rate-field.text);
                 }
@@ -1613,20 +1613,20 @@ export component ProjectLauncherWindow inherits Window {
 
         VerticalLayout {
             spacing: 15px;
-            Text { text: "最近使ったプロジェクト"; font-size: 1.35rem; font-weight: 700; }
+            Text { text: @tr("最近使ったプロジェクト"); font-size: 1.35rem; font-weight: 700; }
             Rectangle {
                 vertical-stretch: 1;
                 border-width: 1px;
                 border-color: #696d75;
                 Text {
-                    text: "最近使ったプロジェクトはありません";
+                    text: @tr("最近使ったプロジェクトはありません");
                     opacity: 0.65;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
             }
             Button {
-                text: "既存プロジェクトを開く...";
+                text: @tr("既存プロジェクトを開く...");
                 clicked => { root.open-project(); }
             }
         }
@@ -1634,7 +1634,7 @@ export component ProjectLauncherWindow inherits Window {
 }
 
 export component MainWindow inherits Window {
-    title: "AviQtl Plus - プレビュー";
+    title: @tr("AviQtl Plus - プレビュー");
     preferred-width: 640px;
     preferred-height: 360px;
     min-width: 480px;
@@ -1681,38 +1681,38 @@ export component MainWindow inherits Window {
 
     MenuBar {
         Menu {
-            title: "ファイル";
-            MenuItem { title: "新規プロジェクト"; enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
-            MenuItem { title: "プロジェクトを開く"; enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
+            title: @tr("ファイル");
+            MenuItem { title: @tr("新規プロジェクト"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
+            MenuItem { title: @tr("プロジェクトを開く"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
             MenuSeparator { }
-            MenuItem { title: "プロジェクトの上書き保存"; enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
-            MenuItem { title: "プロジェクトを名前を付けて保存..."; enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
+            MenuItem { title: @tr("プロジェクトの上書き保存"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
+            MenuItem { title: @tr("プロジェクトを名前を付けて保存..."); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
             MenuSeparator { }
-            MenuItem { title: "メディアの書き出し..."; enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
+            MenuItem { title: @tr("メディアの書き出し..."); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
             MenuSeparator { }
-            MenuItem { title: "終了"; enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
+            MenuItem { title: @tr("終了"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
         }
         Menu {
-            title: "編集";
-            MenuItem { title: "元に戻す"; enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
-            MenuItem { title: "やり直す"; enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+            title: @tr("編集");
+            MenuItem { title: @tr("元に戻す"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
+            MenuItem { title: @tr("やり直す"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
         }
         Menu {
-            title: "設定";
-            MenuItem { title: "プロジェクト設定"; enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
+            title: @tr("設定");
+            MenuItem { title: @tr("プロジェクト設定"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
             MenuSeparator { }
-            MenuItem { title: "環境設定"; enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
+            MenuItem { title: @tr("環境設定"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
         }
         Menu {
-            title: "表示";
-            MenuItem { title: "タイムラインの表示"; enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
-            MenuItem { title: "設定ダイアログの表示"; enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
+            title: @tr("表示");
+            MenuItem { title: @tr("タイムラインの表示"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
+            MenuItem { title: @tr("設定ダイアログの表示"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
         }
         Menu {
-            title: "ツール";
-            MenuItem { title: "パッケージマネージャー"; enabled: !root.save-confirmation-visible; activated => { root.show-package-manager(); } }
+            title: @tr("ツール");
+            MenuItem { title: @tr("パッケージマネージャー"); enabled: !root.save-confirmation-visible; activated => { root.show-package-manager(); } }
             MenuSeparator { }
-            MenuItem { title: "バージョン情報"; enabled: !root.save-confirmation-visible; activated => { root.show-about(); } }
+            MenuItem { title: @tr("バージョン情報"); enabled: !root.save-confirmation-visible; activated => { root.show-about(); } }
         }
     }
 
@@ -1772,21 +1772,21 @@ export component MainWindow inherits Window {
                     minimum: 0;
                     maximum: root.duration;
                     horizontal-stretch: 1;
-                    accessible-label: "シークバー";
+                    accessible-label: @tr("シークバー");
                     changed => { root.seek(self.value); }
                 }
                 Text { text: round(root.playhead) + " / " + round(root.duration); font-family: "Monospace"; vertical-alignment: center; }
-                Button { text: "◀"; accessible-label: "1フレーム戻る"; clicked => { root.previous-frame(); } }
-                Button { text: root.playing ? "Ⅱ" : "▶"; accessible-label: root.playing ? "一時停止" : "再生"; clicked => { root.toggle-playback(); } }
-                Button { text: "▶|"; accessible-label: "1フレーム進む"; clicked => { root.next-frame(); } }
-                Text { text: "速度"; vertical-alignment: center; }
+                Button { text: "◀"; accessible-label: @tr("1フレーム戻る"); clicked => { root.previous-frame(); } }
+                Button { text: root.playing ? "Ⅱ" : "▶"; accessible-label: root.playing ? @tr("一時停止") : @tr("再生"); clicked => { root.toggle-playback(); } }
+                Button { text: "▶|"; accessible-label: @tr("1フレーム進む"); clicked => { root.next-frame(); } }
+                Text { text: @tr("速度"); vertical-alignment: center; }
                 SpinBox {
                     value <=> root.playback-speed-percent;
                     minimum: 10;
                     maximum: 400;
                     step-size: 10;
                     enabled: !root.playing;
-                    accessible-label: "再生速度（パーセント）";
+                    accessible-label: @tr("再生速度（パーセント）");
                     edited(value) => { root.playback-speed-changed(value); }
                 }
                 Text { text: "%"; vertical-alignment: center; }
@@ -1823,13 +1823,13 @@ export component MainWindow inherits Window {
                 spacing: 12px;
 
                 Text {
-                    text: "保存の確認";
+                    text: @tr("保存の確認");
                     color: #f2f3f5;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 Text {
-                    text: root.save-confirmation-project + " に保存されていない変更があります。\n続行する前に保存しますか？";
+                    text: root.save-confirmation-project + @tr(" に保存されていない変更があります。\n続行する前に保存しますか？");
                     color: #d6d9df;
                     wrap: word-wrap;
                     vertical-stretch: 1;
@@ -1838,18 +1838,18 @@ export component MainWindow inherits Window {
                     alignment: end;
                     spacing: 8px;
                     Button {
-                        text: "保存";
-                        accessible-label: "保存";
+                        text: @tr("保存");
+                        accessible-label: @tr("保存");
                         clicked => { root.confirm-save(); }
                     }
                     Button {
-                        text: "破棄";
-                        accessible-label: "破棄";
+                        text: @tr("破棄");
+                        accessible-label: @tr("破棄");
                         clicked => { root.confirm-discard(); }
                     }
                     Button {
-                        text: "キャンセル";
-                        accessible-label: "キャンセル";
+                        text: @tr("キャンセル");
+                        accessible-label: @tr("キャンセル");
                         clicked => { root.confirm-cancel(); }
                     }
                 }
@@ -1859,7 +1859,7 @@ export component MainWindow inherits Window {
 }
 
 export component TimelineWindow inherits Window {
-    title: "タイムライン";
+    title: @tr("タイムライン");
     preferred-width: 1280px;
     preferred-height: 300px;
     min-width: 720px;
@@ -2198,7 +2198,7 @@ export component TimelineWindow inherits Window {
                         width: 43px;
                         height: 100%;
                         text <=> root.zoom-percent-text;
-                        accessible-label: "タイムラインのズーム率";
+                        accessible-label: @tr("タイムラインのズーム率");
                         accepted(value) => {
                             if value.is-float() {
                                 root.apply-zoom-percent(value.to-float());
@@ -2215,7 +2215,7 @@ export component TimelineWindow inherits Window {
                         Text { text: "▾"; horizontal-alignment: center; vertical-alignment: center; }
                         zoom-button := TouchArea {
                             accessible-role: button;
-                            accessible-label: "ズーム率の一覧";
+                            accessible-label: @tr("ズーム率の一覧");
                             clicked => { zoom-menu.show({ x: 0px, y: self.height }); }
                         }
                     }
@@ -2314,7 +2314,7 @@ export component TimelineWindow inherits Window {
                         height: timeline-scroll.visible-height;
                         accessible-role: main;
                         accessible-id: "timeline-viewport";
-                        accessible-label: "タイムライン編集領域";
+                        accessible-label: @tr("タイムライン編集領域");
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.move {
                                 root.update-skimmer(
@@ -2474,7 +2474,7 @@ export component TimelineWindow inherits Window {
                     border-width: 1px;
                     border-color: #7aafefff;
                     Text {
-                        text: "ここにドロップ";
+                        text: @tr("ここにドロップ");
                         color: #dceaff;
                         font-size: 1.1rem;
                         font-weight: 700;
@@ -2522,7 +2522,7 @@ export component TimelineWindow inherits Window {
                     spacing: 4px;
                     context-search := LineEdit {
                         text <=> root.context-search-query;
-                        placeholder-text: "エフェクト/オブジェクトを検索...";
+                        placeholder-text: @tr("エフェクト/オブジェクトを検索...");
                         edited(value) => {
                             root.context-catalog-page = false;
                             root.filter-context-catalog(value, root.context-target-kind);
@@ -2546,7 +2546,7 @@ export component TimelineWindow inherits Window {
                                 }
                             }
                             if root.context-search-query != "" && root.context-catalog-items.length == 0 : Text {
-                                text: "一致する項目がありません";
+                                text: @tr("一致する項目がありません");
                                 height: 32px;
                                 color: #aeb3bc;
                                 horizontal-alignment: center;
@@ -2554,7 +2554,7 @@ export component TimelineWindow inherits Window {
                             }
 
                             if root.context-search-query == "" && root.context-catalog-page : TimelineContextRow {
-                                title: "‹ 戻る";
+                                title: @tr("‹ 戻る");
                                 activated => { root.context-catalog-page = false; }
                             }
                             if root.context-search-query == "" && root.context-catalog-page : Rectangle {
@@ -2578,7 +2578,7 @@ export component TimelineWindow inherits Window {
                                 background: #4b515d;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "オブジェクトを追加  ›";
+                                title: @tr("オブジェクトを追加  ›");
                                 activated => { root.context-catalog-page = true; }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
@@ -2586,15 +2586,15 @@ export component TimelineWindow inherits Window {
                                 background: #4b515d;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "元に戻す";
+                                title: @tr("元に戻す");
                                 activated => { root.activate-context-command("undo"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "やり直す";
+                                title: @tr("やり直す");
                                 activated => { root.activate-context-command("redo"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "貼り付け";
+                                title: @tr("貼り付け");
                                 activated => { root.activate-context-command("paste"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
@@ -2602,28 +2602,28 @@ export component TimelineWindow inherits Window {
                                 background: #4b515d;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "シーン設定...";
+                                title: @tr("シーン設定...");
                                 activated => { root.activate-context-command("scene-settings"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "プロジェクト設定...";
+                                title: @tr("プロジェクト設定...");
                                 activated => { root.activate-context-command("project-settings"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "環境設定...";
+                                title: @tr("環境設定...");
                                 activated => { root.activate-context-command("system-settings"); }
                             }
 
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: "削除";
+                                title: @tr("削除");
                                 activated => { root.activate-context-command("delete"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: "分割";
+                                title: @tr("分割");
                                 activated => { root.activate-context-command("split"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: "複製";
+                                title: @tr("複製");
                                 activated => { root.activate-context-command("duplicate"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
@@ -2631,11 +2631,11 @@ export component TimelineWindow inherits Window {
                                 background: #4b515d;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: "切り取り";
+                                title: @tr("切り取り");
                                 activated => { root.activate-context-command("cut"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: "コピー";
+                                title: @tr("コピー");
                                 activated => { root.activate-context-command("copy"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : Rectangle {
@@ -2643,7 +2643,7 @@ export component TimelineWindow inherits Window {
                                 background: #4b515d;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
-                                title: (root.context-clip-by-upper-object ? "✓  " : "    ") + "上のオブジェクトでクリッピング";
+                                title: (root.context-clip-by-upper-object ? "✓  " : "    ") + @tr("上のオブジェクトでクリッピング");
                                 activated => { root.activate-context-command("clipping"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
@@ -2655,7 +2655,7 @@ export component TimelineWindow inherits Window {
                                 background: #4b515d;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: "エフェクトを追加  ›";
+                                title: @tr("エフェクトを追加  ›");
                                 activated => { root.context-catalog-page = true; }
                             }
                         }
@@ -2694,7 +2694,7 @@ export component TimelineWindow inherits Window {
                 padding: 12px;
                 spacing: 8px;
                 Text {
-                    text: "オブジェクト一覧";
+                    text: @tr("オブジェクト一覧");
                     color: #f2f3f5;
                     font-size: 1.15rem;
                     font-weight: 700;
@@ -2704,7 +2704,7 @@ export component TimelineWindow inherits Window {
                     object-search := LineEdit {
                         horizontal-stretch: 1;
                         text <=> root.object-filter;
-                        placeholder-text: "名前・カテゴリ・ID・パッケージを検索...";
+                        placeholder-text: @tr("名前・カテゴリ・ID・パッケージを検索...");
                         edited(value) => {
                             root.object-catalog-selected-index = -1;
                             root.object-catalog-selected-id = "";
@@ -2724,7 +2724,7 @@ export component TimelineWindow inherits Window {
                     }
                 }
                 Text {
-                    text: root.object-catalog-items.length + " 件";
+                    text: root.object-catalog-items.length + @tr(" 件");
                     color: #aeb3bc;
                 }
                 ScrollView {
@@ -2786,7 +2786,7 @@ export component TimelineWindow inherits Window {
                             }
                         }
                         if root.object-catalog-items.length == 0 : Text {
-                            text: "一致するオブジェクトがありません";
+                            text: @tr("一致するオブジェクトがありません");
                             color: #aeb3bc;
                             horizontal-alignment: center;
                         }
@@ -2795,11 +2795,11 @@ export component TimelineWindow inherits Window {
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
                     Button {
-                        text: "キャンセル";
+                        text: @tr("キャンセル");
                         clicked => { root.object-picker-visible = false; }
                     }
                     Button {
-                        text: "追加";
+                        text: @tr("追加");
                         enabled: root.object-catalog-selected-id != "";
                         clicked => { root.accept-object-selection(); }
                     }
@@ -2810,7 +2810,7 @@ export component TimelineWindow inherits Window {
 }
 
 export component ExportWindow inherits Window {
-    title: "メディアの書き出し";
+    title: @tr("メディアの書き出し");
     preferred-width: 620px;
     preferred-height: 580px;
     min-width: 520px;
@@ -2841,7 +2841,7 @@ export component ExportWindow inherits Window {
     in-out property <int> end-frame: 300;
     in property <bool> exporting: false;
     in property <float> export-progress: 0;
-    in property <string> progress-label: "0 / 0 フレーム";
+    in property <string> progress-label: @tr("0 / 0 フレーム");
     in-out property <bool> cancel-confirmation-visible: false;
     in-out property <bool> result-visible: false;
     in property <bool> result-success: true;
@@ -2865,9 +2865,9 @@ export component ExportWindow inherits Window {
 
             HorizontalLayout {
                 spacing: 8px;
-                Text { text: "形式:"; vertical-alignment: center; }
+                Text { text: @tr("形式:"); vertical-alignment: center; }
                 ComboBox {
-                    model: ["動画ファイル", "画像シーケンス"];
+                    model: [@tr("動画ファイル"), @tr("画像シーケンス")];
                     current-index <=> root.format-index;
                 }
                 if root.format-index == 1 : ComboBox {
@@ -2876,22 +2876,22 @@ export component ExportWindow inherits Window {
                 }
                 LineEdit {
                     text <=> root.output-path;
-                    placeholder-text: root.format-index == 1 ? "保存先フォルダ..." : "保存先ファイルパス...";
+                    placeholder-text: root.format-index == 1 ? @tr("保存先フォルダ...") : @tr("保存先ファイルパス...");
                     horizontal-stretch: 1;
                 }
                 Button {
-                    text: "参照...";
+                    text: @tr("参照...");
                     clicked => { root.browse-output(root.format-index == 1); }
                 }
             }
 
             if root.format-index == 0 : GroupBox {
-                title: "映像";
+                title: @tr("映像");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: "解像度:"; vertical-alignment: center; }
+                        Text { text: @tr("解像度:"); vertical-alignment: center; }
                         Text { text: root.project-width + " × " + root.project-height; font-weight: 700; vertical-alignment: center; }
                     }
                     Row {
@@ -2899,7 +2899,7 @@ export component ExportWindow inherits Window {
                         Text { text: root.project-fps.to-fixed(3); font-weight: 700; vertical-alignment: center; }
                     }
                     Row {
-                        Text { text: "コーデック:"; vertical-alignment: center; }
+                        Text { text: @tr("コーデック:"); vertical-alignment: center; }
                         ComboBox {
                             model: root.video-codec-labels;
                             current-index <=> root.video-codec-index;
@@ -2907,11 +2907,11 @@ export component ExportWindow inherits Window {
                         }
                     }
                     Row {
-                        Text { text: "品質モード:"; vertical-alignment: center; }
+                        Text { text: @tr("品質モード:"); vertical-alignment: center; }
                         RadioGroup {
                             orientation: Orientation.horizontal;
                             RadioButton { text: "CRF"; checked <=> root.crf-mode; }
-                            RadioButton { text: "ビットレート"; checked <=> root.bitrate-mode; }
+                            RadioButton { text: @tr("ビットレート"); checked <=> root.bitrate-mode; }
                         }
                     }
                     if root.crf-mode : Row {
@@ -2921,14 +2921,14 @@ export component ExportWindow inherits Window {
                             Slider { value <=> root.crf; minimum: 0; maximum: 51; horizontal-stretch: 1; }
                             Text { text: root.crf.round(); preferred-width: 28px; vertical-alignment: center; }
                             Text {
-                                text: root.crf <= 17 ? "高品質" : root.crf <= 28 ? "標準" : "低品質";
+                                text: root.crf <= 17 ? @tr("高品質") : root.crf <= 28 ? @tr("標準") : @tr("低品質");
                                 color: root.crf <= 17 ? #76dba4 : root.crf <= 28 ? #d6d9df : #ff9ca8;
                                 vertical-alignment: center;
                             }
                         }
                     }
                     if root.bitrate-mode : Row {
-                        Text { text: "ビットレート:"; vertical-alignment: center; }
+                        Text { text: @tr("ビットレート:"); vertical-alignment: center; }
                         HorizontalLayout {
                             SpinBox { value <=> root.bitrate-mbps; minimum: 1; maximum: 500; }
                             Text { text: "Mbps"; vertical-alignment: center; }
@@ -2936,16 +2936,16 @@ export component ExportWindow inherits Window {
                         }
                     }
                     if root.software-codec : Row {
-                        Text { text: "プリセット:"; vertical-alignment: center; }
+                        Text { text: @tr("プリセット:"); vertical-alignment: center; }
                         ComboBox {
-                            model: ["最速 (ultrafast)", "高速 (fast)", "標準 (medium)", "高品質 (slow)", "最高品質 (veryslow)"];
+                            model: [@tr("最速 (ultrafast)"), @tr("高速 (fast)"), @tr("標準 (medium)"), @tr("高品質 (slow)"), @tr("最高品質 (veryslow)")];
                             current-index <=> root.preset-index;
                         }
                     }
                     if root.software-codec : Row {
-                        Text { text: "プロファイル:"; vertical-alignment: center; }
+                        Text { text: @tr("プロファイル:"); vertical-alignment: center; }
                         ComboBox {
-                            model: ["自動", "Baseline", "Main", "High"];
+                            model: [@tr("自動"), "Baseline", "Main", "High"];
                             current-index <=> root.profile-index;
                         }
                     }
@@ -2953,12 +2953,12 @@ export component ExportWindow inherits Window {
             }
 
             if root.format-index == 0 : GroupBox {
-                title: "音声";
+                title: @tr("音声");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: "コーデック:"; vertical-alignment: center; }
+                        Text { text: @tr("コーデック:"); vertical-alignment: center; }
                         ComboBox {
                             model: root.audio-codec-labels;
                             current-index <=> root.audio-codec-index;
@@ -2966,7 +2966,7 @@ export component ExportWindow inherits Window {
                         }
                     }
                     Row {
-                        Text { text: "ビットレート:"; vertical-alignment: center; }
+                        Text { text: @tr("ビットレート:"); vertical-alignment: center; }
                         ComboBox {
                             model: ["96 kbps", "128 kbps", "192 kbps", "256 kbps", "320 kbps"];
                             current-index <=> root.audio-bitrate-index;
@@ -2977,19 +2977,19 @@ export component ExportWindow inherits Window {
             }
 
             GroupBox {
-                title: "範囲";
+                title: @tr("範囲");
                 HorizontalLayout {
                     padding: 10px;
                     spacing: 8px;
-                    CheckBox { text: "タイムライン全体"; checked <=> root.full-range; }
-                    Text { text: "開始:"; vertical-alignment: center; }
+                    CheckBox { text: @tr("タイムライン全体"); checked <=> root.full-range; }
+                    Text { text: @tr("開始:"); vertical-alignment: center; }
                     SpinBox {
                         value <=> root.start-frame;
                         minimum: 0;
                         maximum: max(root.end-frame - 1, 0);
                         enabled: !root.full-range;
                     }
-                    Text { text: "終了:"; vertical-alignment: center; }
+                    Text { text: @tr("終了:"); vertical-alignment: center; }
                     SpinBox {
                         value <=> root.end-frame;
                         minimum: root.start-frame + 1;
@@ -2998,9 +2998,9 @@ export component ExportWindow inherits Window {
                     }
                     Text {
                         text: "(" + (root.full-range ? root.timeline-duration : root.end-frame - root.start-frame)
-                            + " フレーム / "
+                            + @tr(" フレーム / ")
                             + ((root.full-range ? root.timeline-duration : root.end-frame - root.start-frame) / max(root.project-fps, 1)).to-fixed(2)
-                            + " 秒)";
+                            + @tr(" 秒)");
                         opacity: 0.65;
                         vertical-alignment: center;
                     }
@@ -3011,9 +3011,9 @@ export component ExportWindow inherits Window {
             HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
-                Button { text: "キャンセル"; clicked => { root.close-window(); } }
+                Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
                 Button {
-                    text: "書き出し開始";
+                    text: @tr("書き出し開始");
                     enabled: root.validate-output-path(root.output-path);
                     clicked => { root.start-export(); }
                 }
@@ -3035,12 +3035,12 @@ export component ExportWindow inherits Window {
             background: transparent;
             VerticalLayout {
                 spacing: 16px;
-                Text { text: "書き出し中..."; color: white; font-size: 1.05rem; font-weight: 700; horizontal-alignment: center; }
+                Text { text: @tr("書き出し中..."); color: white; font-size: 1.05rem; font-weight: 700; horizontal-alignment: center; }
                 ProgressIndicator { progress: root.export-progress / 100; }
                 Text { text: root.progress-label; color: #ffffffcc; horizontal-alignment: center; }
                 HorizontalLayout {
                     alignment: center;
-                    Button { text: "キャンセル"; clicked => { root.request-cancel(); } }
+                    Button { text: @tr("キャンセル"); clicked => { root.request-cancel(); } }
                 }
             }
         }
@@ -3064,13 +3064,13 @@ export component ExportWindow inherits Window {
             VerticalLayout {
                 padding: 16px;
                 spacing: 12px;
-                Text { text: "書き出しキャンセル"; color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
-                Text { text: "書き出しをキャンセルしますか？\n進捗は失われます。"; color: #d6d9df; wrap: word-wrap; vertical-stretch: 1; }
+                Text { text: @tr("書き出しキャンセル"); color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
+                Text { text: @tr("書き出しをキャンセルしますか？\n進捗は失われます。"); color: #d6d9df; wrap: word-wrap; vertical-stretch: 1; }
                 HorizontalLayout {
                     alignment: end;
                     spacing: 8px;
-                    Button { text: "はい"; clicked => { root.confirm-cancel(); } }
-                    Button { text: "いいえ"; clicked => { root.dismiss-cancel(); } }
+                    Button { text: @tr("はい"); clicked => { root.confirm-cancel(); } }
+                    Button { text: @tr("いいえ"); clicked => { root.dismiss-cancel(); } }
                 }
             }
         }
@@ -3094,7 +3094,7 @@ export component ExportWindow inherits Window {
             VerticalLayout {
                 padding: 16px;
                 spacing: 12px;
-                Text { text: root.result-success ? "完了" : "エラー"; color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
+                Text { text: root.result-success ? @tr("完了") : @tr("エラー"); color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
                 Text { text: root.result-message; color: #d6d9df; wrap: word-wrap; vertical-stretch: 1; }
                 HorizontalLayout {
                     alignment: end;
@@ -3106,7 +3106,7 @@ export component ExportWindow inherits Window {
 }
 
 export component ProjectSettingsWindow inherits Window {
-    title: "プロジェクト設定";
+    title: @tr("プロジェクト設定");
     preferred-width: 450px;
     preferred-height: 240px;
     min-width: 390px;
@@ -3125,11 +3125,11 @@ export component ProjectSettingsWindow inherits Window {
         GridLayout {
             spacing: 10px;
             Row {
-                Text { text: "幅:"; vertical-alignment: center; }
+                Text { text: @tr("幅:"); vertical-alignment: center; }
                 SpinBox { value <=> root.project-width; minimum: 1; maximum: 8000; }
             }
             Row {
-                Text { text: "高さ:"; vertical-alignment: center; }
+                Text { text: @tr("高さ:"); vertical-alignment: center; }
                 SpinBox { value <=> root.project-height; minimum: 1; maximum: 8000; }
             }
             Row {
@@ -3137,7 +3137,7 @@ export component ProjectSettingsWindow inherits Window {
                 LineEdit { text <=> root.project-fps; }
             }
             Row {
-                Text { text: "サンプリングレート:"; vertical-alignment: center; }
+                Text { text: @tr("サンプリングレート:"); vertical-alignment: center; }
                 SpinBox { value <=> root.project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
             }
         }
@@ -3146,20 +3146,20 @@ export component ProjectSettingsWindow inherits Window {
             alignment: center;
             spacing: 8px;
             Button {
-                text: "適用";
+                text: @tr("適用");
                 clicked => {
                     if root.apply-settings() {
                         root.close-window();
                     }
                 }
             }
-            Button { text: "キャンセル"; clicked => { root.close-window(); } }
+            Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
         }
     }
 }
 
 export component SceneSettingsWindow inherits Window {
-    title: root.creation-mode ? "新規シーン作成" : "シーン設定";
+    title: root.creation-mode ? @tr("新規シーン作成") : @tr("シーン設定");
     preferred-width: 450px;
     preferred-height: 550px;
     min-width: 410px;
@@ -3187,20 +3187,20 @@ export component SceneSettingsWindow inherits Window {
             padding: 15px;
             spacing: 14px;
             GroupBox {
-                title: "基本設定";
+                title: @tr("基本設定");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: "シーン名:"; vertical-alignment: center; }
+                        Text { text: @tr("シーン名:"); vertical-alignment: center; }
                         LineEdit { text <=> root.scene-name; }
                     }
                     Row {
-                        Text { text: "幅:"; vertical-alignment: center; }
+                        Text { text: @tr("幅:"); vertical-alignment: center; }
                         SpinBox { value <=> root.scene-width; minimum: 1; maximum: 8000; }
                     }
                     Row {
-                        Text { text: "高さ:"; vertical-alignment: center; }
+                        Text { text: @tr("高さ:"); vertical-alignment: center; }
                         SpinBox { value <=> root.scene-height; minimum: 1; maximum: 8000; }
                     }
                     Row {
@@ -3210,50 +3210,50 @@ export component SceneSettingsWindow inherits Window {
                 }
             }
             GroupBox {
-                title: "編集とスナップ";
+                title: @tr("編集とスナップ");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: "スナップを有効にする:"; vertical-alignment: center; }
+                        Text { text: @tr("スナップを有効にする:"); vertical-alignment: center; }
                         CheckBox { checked <=> root.enable-snap; }
                     }
                     Row {
-                        Text { text: "磁力スナップ範囲:"; vertical-alignment: center; }
+                        Text { text: @tr("磁力スナップ範囲:"); vertical-alignment: center; }
                         SpinBox { value <=> root.magnetic-snap-range; minimum: 1; maximum: 100; }
                     }
                     Row {
-                        Text { text: "グリッドモード:"; vertical-alignment: center; }
+                        Text { text: @tr("グリッドモード:"); vertical-alignment: center; }
                         ComboBox {
-                            model: ["自動 (秒/フレーム)", "BPM (音楽)", "フレーム数固定"];
+                            model: [@tr("自動 (秒/フレーム)"), @tr("BPM (音楽)"), @tr("フレーム数固定")];
                             current-index <=> root.grid-mode-index;
                         }
                     }
                 }
             }
             if root.grid-mode-index == 1 : GroupBox {
-                title: "BPM設定";
+                title: @tr("BPM設定");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row { Text { text: "BPM:"; vertical-alignment: center; } LineEdit { text <=> root.grid-bpm; } }
-                    Row { Text { text: "拍子 (分割数):"; vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; } }
-                    Row { Text { text: "オフセット (秒):"; vertical-alignment: center; } LineEdit { text <=> root.grid-offset; } }
+                    Row { Text { text: @tr("拍子 (分割数):"); vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; } }
+                    Row { Text { text: @tr("オフセット (秒):"); vertical-alignment: center; } LineEdit { text <=> root.grid-offset; } }
                 }
             }
             if root.grid-mode-index == 2 : GroupBox {
-                title: "フレーム設定";
+                title: @tr("フレーム設定");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
-                    Row { Text { text: "間隔 (Frames):"; vertical-alignment: center; } LineEdit { text <=> root.grid-interval; } }
+                    Row { Text { text: @tr("間隔 (Frames):"); vertical-alignment: center; } LineEdit { text <=> root.grid-interval; } }
                 }
             }
             Rectangle { vertical-stretch: 1; }
             HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
-                Button { text: "キャンセル"; clicked => { root.close-window(); } }
+                Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
                 Button {
                     text: "OK";
                     clicked => {
@@ -3268,7 +3268,7 @@ export component SceneSettingsWindow inherits Window {
 }
 
 export component SystemSettingsWindow inherits Window {
-    title: "環境設定";
+    title: @tr("環境設定");
     preferred-width: 620px;
     preferred-height: 590px;
     min-width: 520px;
@@ -3294,48 +3294,48 @@ export component SystemSettingsWindow inherits Window {
             VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: "一般 / ファイル";
+                    title: @tr("一般 / ファイル");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
                         CheckBox {
-                            text: "終了時に未保存のプロジェクトを確認する";
+                            text: @tr("終了時に未保存のプロジェクトを確認する");
                             checked <=> root.confirm-unsaved;
                         }
                         CheckBox {
-                            text: "自動バックアップを有効にする";
+                            text: @tr("自動バックアップを有効にする");
                             checked <=> root.auto-backup;
                         }
                         HorizontalLayout {
                             opacity: root.auto-backup ? 1 : 0.5;
-                            Text { text: "バックアップ間隔"; vertical-alignment: center; }
+                            Text { text: @tr("バックアップ間隔"); vertical-alignment: center; }
                             SpinBox {
                                 value <=> root.backup-interval;
                                 minimum: 1;
                                 maximum: 60;
                                 enabled: root.auto-backup;
                             }
-                            Text { text: "分"; vertical-alignment: center; }
+                            Text { text: @tr("分"); vertical-alignment: center; }
                             Rectangle { horizontal-stretch: 1; }
                         }
                         HorizontalLayout {
-                            Text { text: "元に戻す回数"; vertical-alignment: center; }
+                            Text { text: @tr("元に戻す回数"); vertical-alignment: center; }
                             SpinBox { value <=> root.undo-count; minimum: 1; maximum: 1000; }
                             Rectangle { horizontal-stretch: 1; }
                         }
                     }
                 }
                 GroupBox {
-                    title: "新規プロジェクト";
+                    title: @tr("新規プロジェクト");
                     GridLayout {
                         padding: 10px;
                         spacing: 9px;
                         Row {
-                            Text { text: "幅:"; vertical-alignment: center; }
+                            Text { text: @tr("幅:"); vertical-alignment: center; }
                             SpinBox { value <=> root.default-project-width; minimum: 1; maximum: 16000; }
                         }
                         Row {
-                            Text { text: "高さ:"; vertical-alignment: center; }
+                            Text { text: @tr("高さ:"); vertical-alignment: center; }
                             SpinBox { value <=> root.default-project-height; minimum: 1; maximum: 16000; }
                         }
                         Row {
@@ -3343,11 +3343,11 @@ export component SystemSettingsWindow inherits Window {
                             LineEdit { text <=> root.default-project-fps; }
                         }
                         Row {
-                            Text { text: "総フレーム数:"; vertical-alignment: center; }
+                            Text { text: @tr("総フレーム数:"); vertical-alignment: center; }
                             SpinBox { value <=> root.default-project-frames; minimum: 1; maximum: 1000000; step-size: 100; }
                         }
                         Row {
-                            Text { text: "サンプリングレート:"; vertical-alignment: center; }
+                            Text { text: @tr("サンプリングレート:"); vertical-alignment: center; }
                             SpinBox { value <=> root.default-project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
                         }
                     }
@@ -3363,13 +3363,13 @@ export component SystemSettingsWindow inherits Window {
                 padding: 8px;
                 spacing: 8px;
                 Text {
-                    text: "設定は「適用」または「OK」で保存されます";
+                    text: @tr("設定は「適用」または「OK」で保存されます");
                     vertical-alignment: center;
                     horizontal-stretch: 1;
                     overflow: elide;
                 }
-                Button { text: "再読込"; clicked => { root.reload-settings(); } }
-                Button { text: "適用"; clicked => { root.apply-settings(); } }
+                Button { text: @tr("再読込"); clicked => { root.reload-settings(); } }
+                Button { text: @tr("適用"); clicked => { root.apply-settings(); } }
                 Button {
                     text: "OK";
                     clicked => {
@@ -3378,14 +3378,14 @@ export component SystemSettingsWindow inherits Window {
                         }
                     }
                 }
-                Button { text: "閉じる"; clicked => { root.close-window(); } }
+                Button { text: @tr("閉じる"); clicked => { root.close-window(); } }
             }
         }
     }
 }
 
 export component ObjectSettingsWindow inherits Window {
-    title: root.has-selection ? "設定ダイアログ - " + root.clip-title : "設定ダイアログ";
+    title: root.has-selection ? @tr("設定ダイアログ - ") + root.clip-title : @tr("設定ダイアログ");
     forward-focus: object-settings-shortcuts;
     preferred-width: 900px;
     preferred-height: 650px;
@@ -3473,7 +3473,7 @@ export component ObjectSettingsWindow inherits Window {
     if !root.has-selection : VerticalLayout {
         alignment: center;
         Text {
-            text: "タイムラインでオブジェクトを選択してください";
+            text: @tr("タイムラインでオブジェクトを選択してください");
             color: #aeb3bc;
             horizontal-alignment: center;
         }
@@ -3489,7 +3489,7 @@ export component ObjectSettingsWindow inherits Window {
                 spacing: 6px;
                 Text { text: root.clip-title; font-weight: 700; color: #f2f3f5; overflow: elide; }
                 Text {
-                    text: root.audio-plugin-mode ? "オーディオプラグイン" : "オブジェクト / エフェクト";
+                    text: root.audio-plugin-mode ? @tr("オーディオプラグイン") : @tr("オブジェクト / エフェクト");
                     color: #aeb3bc;
                 }
                 ScrollView {
@@ -3517,8 +3517,8 @@ export component ObjectSettingsWindow inherits Window {
                         }
                         if root.effects.length == 0 : Text {
                             text: root.audio-plugin-mode
-                                ? "オーディオプラグインはありません"
-                                : "設定項目がありません";
+                                ? @tr("オーディオプラグインはありません")
+                                : @tr("設定項目がありません");
                             color: #9ea4ae;
                             wrap: word-wrap;
                         }
@@ -3526,8 +3526,8 @@ export component ObjectSettingsWindow inherits Window {
                 }
                 Button {
                     text: root.audio-plugin-mode
-                        ? "+ オーディオプラグインを追加"
-                        : "+ エフェクトを追加";
+                        ? @tr("+ オーディオプラグインを追加")
+                        : @tr("+ エフェクトを追加");
                     clicked => {
                         root.effect-filter = "";
                         root.filter-effects("");
@@ -3543,8 +3543,8 @@ export component ObjectSettingsWindow inherits Window {
                 spacing: 4px;
                 Text {
                     text: root.audio-plugin-mode
-                        ? "音声オブジェクト / プラグイン設定"
-                        : "選択オブジェクトの設定";
+                        ? @tr("音声オブジェクト / プラグイン設定")
+                        : @tr("選択オブジェクトの設定");
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
@@ -3629,16 +3629,16 @@ export component ObjectSettingsWindow inherits Window {
                 spacing: 8px;
                 Text {
                     text: root.audio-plugin-mode
-                        ? "オーディオプラグインを追加"
-                        : "フィルタ効果を追加";
+                        ? @tr("オーディオプラグインを追加")
+                        : @tr("フィルタ効果を追加");
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 LineEdit {
                     text <=> root.effect-filter;
                     placeholder-text: root.audio-plugin-mode
-                        ? "名前・ID・カテゴリ・形式を検索..."
-                        : "名前・ID・カテゴリを検索...";
+                        ? @tr("名前・ID・カテゴリ・形式を検索...")
+                        : @tr("名前・ID・カテゴリを検索...");
                     edited(value) => { root.filter-effects(value); }
                 }
                 ScrollView {
@@ -3667,14 +3667,14 @@ export component ObjectSettingsWindow inherits Window {
                         if root.effect-catalog-items.length == 0 : Text {
                             text: root.audio-plugin-mode
                                 ? root.plugin-scan-status
-                                : "一致するエフェクトがありません";
+                                : @tr("一致するエフェクトがありません");
                             color: #aeb3bc;
                         }
                     }
                 }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: "閉じる"; clicked => { root.effect-picker-visible = false; } }
+                    Button { text: @tr("閉じる"); clicked => { root.effect-picker-visible = false; } }
                 }
             }
         }
@@ -3696,11 +3696,11 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 14px;
                 spacing: 10px;
-                Text { text: "プリセットを保存"; font-size: 1.15rem; font-weight: 700; }
+                Text { text: @tr("プリセットを保存"); font-size: 1.15rem; font-weight: 700; }
                 Text { text: root.preset-effect-name; color: #aeb3bc; overflow: elide; }
                 LineEdit {
                     text <=> root.preset-name;
-                    placeholder-text: "プリセット名を入力...";
+                    placeholder-text: @tr("プリセット名を入力...");
                     accepted(value) => {
                         if value != "" {
                             root.save-effect-preset(root.preset-effect-index, value);
@@ -3711,9 +3711,9 @@ export component ObjectSettingsWindow inherits Window {
                 Rectangle { vertical-stretch: 1; }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: "キャンセル"; clicked => { root.preset-save-visible = false; } }
+                    Button { text: @tr("キャンセル"); clicked => { root.preset-save-visible = false; } }
                     Button {
-                        text: "保存";
+                        text: @tr("保存");
                         enabled: root.preset-name != "";
                         clicked => {
                             root.save-effect-preset(root.preset-effect-index, root.preset-name);
@@ -3740,7 +3740,7 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 14px;
                 spacing: 10px;
-                Text { text: "色を選択"; font-size: 1.15rem; font-weight: 700; }
+                Text { text: @tr("色を選択"); font-size: 1.15rem; font-weight: 700; }
                 Rectangle {
                     height: 72px;
                     background: rgba(
@@ -3804,7 +3804,7 @@ export component ObjectSettingsWindow inherits Window {
                 Rectangle { vertical-stretch: 1; }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: "キャンセル"; clicked => { root.color-picker-visible = false; } }
+                    Button { text: @tr("キャンセル"); clicked => { root.color-picker-visible = false; } }
                     Button {
                         text: "OK";
                         primary: true;
@@ -3841,22 +3841,22 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 14px;
                 spacing: 8px;
-                Text { text: "フォントを選択"; font-size: 1.15rem; font-weight: 700; }
+                Text { text: @tr("フォントを選択"); font-size: 1.15rem; font-weight: 700; }
                 Text {
                     text: root.current-font-family == ""
-                        ? "現在: デフォルト"
-                        : "現在: " + root.current-font-family;
+                        ? @tr("現在: デフォルト")
+                        : @tr("現在: ") + root.current-font-family;
                     font-family: root.current-font-family;
                     color: #aeb3bc;
                     overflow: elide;
                 }
                 LineEdit {
                     text <=> root.font-filter;
-                    placeholder-text: "フォント名を検索...";
+                    placeholder-text: @tr("フォント名を検索...");
                     edited(value) => { root.filter-fonts(value); }
                 }
                 Button {
-                    text: "デフォルト";
+                    text: @tr("デフォルト");
                     checkable: true;
                     checked: root.current-font-family == "";
                     clicked => {
@@ -3892,7 +3892,7 @@ export component ObjectSettingsWindow inherits Window {
                                 }
                             }
                             Text {
-                                text: "サンプル Sample 123";
+                                text: @tr("サンプル Sample 123");
                                 font-family: family;
                                 overflow: elide;
                                 horizontal-stretch: 1;
@@ -3900,14 +3900,14 @@ export component ObjectSettingsWindow inherits Window {
                             }
                         }
                         if root.font-families.length == 0 : Text {
-                            text: "一致するフォントがありません";
+                            text: @tr("一致するフォントがありません");
                             color: #aeb3bc;
                         }
                     }
                 }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: "閉じる"; clicked => { root.font-picker-visible = false; } }
+                    Button { text: @tr("閉じる"); clicked => { root.font-picker-visible = false; } }
                 }
             }
         }
@@ -3916,7 +3916,7 @@ export component ObjectSettingsWindow inherits Window {
 }
 
 export component EasingConfigWindow inherits Window {
-    title: "補間設定: " + root.param-name;
+    title: @tr("補間設定: ") + root.param-name;
     preferred-width: 880px;
     preferred-height: 560px;
     min-width: 760px;
@@ -4015,15 +4015,15 @@ export component EasingConfigWindow inherits Window {
         VerticalLayout {
         spacing: 10px;
         Text {
-            text: "フレーム \{root.keyframe-frame}  ·  \{root.param-name}";
+            text: @tr("フレーム {}  ·  {}", root.keyframe-frame, root.param-name);
             font-size: 1.15rem;
             font-weight: 700;
         }
         HorizontalLayout {
             spacing: 6px;
-            Text { text: "プレビュー"; font-weight: 700; vertical-alignment: center; }
+            Text { text: @tr("プレビュー"); font-weight: 700; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
-            Text { text: "ズーム:"; vertical-alignment: center; }
+            Text { text: @tr("ズーム:"); vertical-alignment: center; }
             Button {
                 text: "−";
                 width: 30px;
@@ -4208,14 +4208,14 @@ export component EasingConfigWindow inherits Window {
                 x: 6px;
                 y: parent.height - self.height - 4px;
                 text: root.custom-mode
-                    ? "右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除"
-                    : "右ドラッグ:パン  ホイール:ズーム";
+                    ? @tr("右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除")
+                    : @tr("右ドラッグ:パン  ホイール:ズーム");
                 font-size: 9px;
                 color: #aeb3bc;
             }
         }
         if root.step-mode : GroupBox {
-            title: "更新間隔";
+            title: @tr("更新間隔");
             HorizontalLayout {
                 padding: 8px;
                 spacing: 8px;
@@ -4225,17 +4225,17 @@ export component EasingConfigWindow inherits Window {
                     maximum: 9999;
                     changed value => { root.apply-current(); }
                 }
-                Text { text: "フレーム"; vertical-alignment: center; }
+                Text { text: @tr("フレーム"); vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
         if root.elastic-mode : GroupBox {
-            title: "詳細設定";
+            title: @tr("詳細設定");
             VerticalLayout {
                 padding: 8px;
                 spacing: 8px;
                 HorizontalLayout {
-                    Text { text: "振幅"; width: 60px; vertical-alignment: center; }
+                    Text { text: @tr("振幅"); width: 60px; vertical-alignment: center; }
                     Slider {
                         horizontal-stretch: 1;
                         minimum: 0.1;
@@ -4246,7 +4246,7 @@ export component EasingConfigWindow inherits Window {
                     Text { text: "\{round(root.elastic-amplitude * 100) / 100}"; width: 52px; }
                 }
                 HorizontalLayout {
-                    Text { text: "周期"; width: 60px; vertical-alignment: center; }
+                    Text { text: @tr("周期"); width: 60px; vertical-alignment: center; }
                     Slider {
                         horizontal-stretch: 1;
                         minimum: 0.05;
@@ -4259,7 +4259,7 @@ export component EasingConfigWindow inherits Window {
             }
         }
         if root.custom-mode : GroupBox {
-            title: "制御点";
+            title: @tr("制御点");
             GridLayout {
                 padding: 8px;
                 spacing: 8px;
@@ -4295,12 +4295,12 @@ export component EasingConfigWindow inherits Window {
         }
         Rectangle { vertical-stretch: 1; }
         Text {
-            text: "選択内容は対象キーフレームへ即時反映されます";
+            text: @tr("選択内容は対象キーフレームへ即時反映されます");
             color: #aeb3bc;
         }
         HorizontalLayout {
             Rectangle { horizontal-stretch: 1; }
-            Button { text: "閉じる"; clicked => { root.close-window(); } }
+            Button { text: @tr("閉じる"); clicked => { root.close-window(); } }
         }
         }
         Rectangle {
@@ -4314,7 +4314,7 @@ export component EasingConfigWindow inherits Window {
                 spacing: 6px;
                 HorizontalLayout {
                     Text {
-                        text: "種類";
+                        text: @tr("種類");
                         font-weight: 700;
                         vertical-alignment: center;
                     }
@@ -4332,7 +4332,7 @@ export component EasingConfigWindow inherits Window {
                 }
                 LineEdit {
                     text <=> root.easing-filter;
-                    placeholder-text: "検索...";
+                    placeholder-text: @tr("検索...");
                     edited(value) => { root.filter-easings(value); }
                 }
                 ScrollView {
@@ -4414,7 +4414,7 @@ export component EasingConfigWindow inherits Window {
                             }
                         }
                         if root.easing-catalog-rows.length == 0 : Text {
-                            text: "一致する補間方法がありません";
+                            text: @tr("一致する補間方法がありません");
                             color: #aeb3bc;
                             wrap: word-wrap;
                         }
@@ -4480,27 +4480,27 @@ component PackageListRow inherits Rectangle {
             }
             Text {
                 text: root.package-data.has-update
-                    ? "アップデートあり: " + root.package-data.latest-version
-                    : "インストール済み: " + root.package-data.installed-version;
+                    ? @tr("アップデートあり: ") + root.package-data.latest-version
+                    : @tr("インストール済み: ") + root.package-data.installed-version;
                 color: root.package-data.has-update ? #70a6ef : #aeb3bc;
                 font-size: 11px;
                 visible: root.package-data.installed-version != "";
                 vertical-alignment: center;
             }
             Button {
-                text: "権限";
+                text: @tr("権限");
                 visible: root.package-data.can-manage-permissions;
                 enabled: !root.busy;
                 clicked => { root.permissions(root.package-data.id, root.package-data.display-name); }
             }
             Button {
-                text: "削除";
+                text: @tr("削除");
                 visible: root.package-data.can-remove;
                 enabled: !root.busy;
                 clicked => { root.remove(root.package-data.id); }
             }
             Button {
-                text: root.package-data.has-update ? "アップデート" : "インストール";
+                text: root.package-data.has-update ? @tr("アップデート") : @tr("インストール");
                 primary: true;
                 visible: root.show-install-button
                     && (!root.package-data.can-remove || root.package-data.has-update)
@@ -4515,7 +4515,7 @@ component PackageListRow inherits Rectangle {
 }
 
 export component PackageManagerWindow inherits Window {
-    title: "パッケージマネージャー";
+    title: @tr("パッケージマネージャー");
     preferred-width: 650px;
     preferred-height: 450px;
     min-width: 650px;
@@ -4552,7 +4552,7 @@ export component PackageManagerWindow inherits Window {
         spacing: 8px;
         HorizontalLayout {
             spacing: 4px;
-            for tab[index] in ["エフェクト", "オブジェクト", "MOD", "インストール済み", "アプリケーション", "リポジトリ"] : Button {
+            for tab[index] in [@tr("エフェクト"), @tr("オブジェクト"), "MOD", @tr("インストール済み"), @tr("アプリケーション"), @tr("リポジトリ")] : Button {
                 text: tab;
                 min-width: 0px;
                 horizontal-stretch: 1;
@@ -4568,12 +4568,12 @@ export component PackageManagerWindow inherits Window {
             spacing: 8px;
             LineEdit {
                 text <=> root.search-query;
-                placeholder-text: "検索...";
+                placeholder-text: @tr("検索...");
                 horizontal-stretch: 1;
                 edited(value) => { root.filter-packages(value); }
             }
             Button {
-                text: "リポジトリを同期";
+                text: @tr("リポジトリを同期");
                 visible: root.tab-index < 3;
                 enabled: !root.busy;
                 clicked => { root.sync-repositories(); }
@@ -4592,7 +4592,7 @@ export component PackageManagerWindow inherits Window {
                     permissions(id, name) => { root.show-permissions(id, name); }
                 }
                 if root.packages.length == 0 && !root.busy : Text {
-                    text: "このカテゴリにパッケージがありません。";
+                    text: @tr("このカテゴリにパッケージがありません。");
                     color: #9da4af;
                     horizontal-alignment: center;
                 }
@@ -4601,7 +4601,7 @@ export component PackageManagerWindow inherits Window {
         if root.tab-index == 5 : VerticalLayout {
             spacing: 12px;
             GroupBox {
-                title: "リポジトリを追加";
+                title: @tr("リポジトリを追加");
                 height: 72px;
                 HorizontalLayout {
                     spacing: 8px;
@@ -4614,14 +4614,14 @@ export component PackageManagerWindow inherits Window {
                         }
                     }
                     Button {
-                        text: "追加";
+                        text: @tr("追加");
                         enabled: root.repository-url != "" && !root.busy;
                         clicked => { root.add-repository(root.repository-url); }
                     }
                 }
             }
             GroupBox {
-                title: "設定済みリポジトリ";
+                title: @tr("設定済みリポジトリ");
                 vertical-stretch: 1;
                 ScrollView {
                     VerticalLayout {
@@ -4653,7 +4653,7 @@ export component PackageManagerWindow inherits Window {
                                     }
                                 }
                                 CheckBox {
-                                    text: "有効";
+                                    text: @tr("有効");
                                     checked: repository.enabled;
                                     enabled: !root.busy;
                                     toggled => {
@@ -4661,7 +4661,7 @@ export component PackageManagerWindow inherits Window {
                                     }
                                 }
                                 Button {
-                                    text: "削除";
+                                    text: @tr("削除");
                                     enabled: !root.busy;
                                     clicked => { root.remove-repository(repository.url); }
                                 }
@@ -4673,12 +4673,12 @@ export component PackageManagerWindow inherits Window {
             HorizontalLayout {
                 spacing: 8px;
                 Button {
-                    text: "リポジトリを同期";
+                    text: @tr("リポジトリを同期");
                     enabled: !root.busy;
                     clicked => { root.sync-repositories(); }
                 }
                 Button {
-                    text: "すべてアップグレード";
+                    text: @tr("すべてアップグレード");
                     primary: true;
                     enabled: !root.busy && root.has-updates;
                     clicked => { root.upgrade-all(); }
@@ -4714,7 +4714,7 @@ export component PackageManagerWindow inherits Window {
                     error-content := VerticalLayout {
                         padding: 14px;
                         spacing: 12px;
-                        Text { text: "パッケージマネージャーエラー"; color: #f2f3f5; font-weight: 700; }
+                        Text { text: @tr("パッケージマネージャーエラー"); color: #f2f3f5; font-weight: 700; }
                         Text { text: root.error-message; color: #e3e5e8; wrap: word-wrap; }
                         HorizontalLayout {
                             alignment: end;
@@ -4742,7 +4742,7 @@ export component PackageManagerWindow inherits Window {
                     update-content := VerticalLayout {
                         padding: 14px;
                         spacing: 12px;
-                        Text { text: "AviQtl Plus アップデート"; color: #f2f3f5; font-weight: 700; }
+                        Text { text: @tr("AviQtl Plus アップデート"); color: #f2f3f5; font-weight: 700; }
                         Text { text: root.update-message; color: #e3e5e8; wrap: word-wrap; }
                         HorizontalLayout {
                             alignment: end;
@@ -4756,7 +4756,7 @@ export component PackageManagerWindow inherits Window {
 }
 
 export component PluginPermissionWindow inherits Window {
-    title: "権限管理: " + root.plugin-name;
+    title: @tr("権限管理: ") + root.plugin-name;
     preferred-width: 500px;
     preferred-height: 600px;
     min-width: 420px;
@@ -4776,7 +4776,7 @@ export component PluginPermissionWindow inherits Window {
         padding: 16px;
         spacing: 12px;
         Text {
-            text: "このプラグインに許可する権限を選択してください:";
+            text: @tr("このプラグインに許可する権限を選択してください:");
             color: #f2f3f5;
             wrap: word-wrap;
         }
@@ -4835,17 +4835,17 @@ export component PluginPermissionWindow inherits Window {
         }
         HorizontalLayout {
             spacing: 8px;
-            Button { text: "すべて許可"; clicked => { root.set-all(true); } }
-            Button { text: "すべて拒否"; clicked => { root.set-all(false); } }
+            Button { text: @tr("すべて許可"); clicked => { root.set-all(true); } }
+            Button { text: @tr("すべて拒否"); clicked => { root.set-all(false); } }
             Rectangle { horizontal-stretch: 1; }
-            Button { text: "キャンセル"; clicked => { root.close-window(); } }
+            Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
             Button { text: "OK"; primary: true; clicked => { root.accept(); } }
         }
     }
 }
 
 export component AboutWindow inherits Window {
-    title: "AviQtl Plusについて";
+    title: @tr("AviQtl Plusについて");
     preferred-width: 420px;
     preferred-height: 260px;
     min-width: 420px;
@@ -4889,7 +4889,7 @@ export component AboutWindow inherits Window {
         }
         Rectangle { height: 1px; background: #565b66; }
         Text {
-            text: "AviQtl Plus は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。";
+            text: @tr("AviQtl Plus は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。");
             color: #d8dbe1;
             font-size: 13px;
             wrap: word-wrap;

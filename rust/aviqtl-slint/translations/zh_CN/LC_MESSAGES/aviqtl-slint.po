@@ -1,0 +1,461 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: aviqtl-slint\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_CN\n"
+
+msgid "0 / 0 フレーム"
+msgstr "0 / 0 帧"
+
+msgid "1フレーム戻る"
+msgstr "后退 1 帧"
+
+msgid "1フレーム進む"
+msgstr "前进 1 帧"
+
+msgid "AviQtl Plus - プレビュー"
+msgstr "AviQtl Plus - 预览"
+
+msgid "AviQtl Plus - プロジェクトランチャー"
+msgstr "AviQtl Plus - 项目启动器"
+
+msgid "AviQtl Plus アップデート"
+msgstr "AviQtl Plus 更新"
+
+msgid "AviQtl Plusについて"
+msgstr "关于 AviQtl Plus"
+
+msgid "BPM (音楽)"
+msgstr "BPM（音乐）"
+
+msgid "BPM設定"
+msgstr "BPM 设置"
+
+msgid "ここにドロップ"
+msgstr "拖放到此处"
+
+msgid "このカテゴリにパッケージがありません。"
+msgstr "此分类下没有软件包。"
+
+msgid "このプラグインに許可する権限を選択してください:"
+msgstr "请选择要授予此插件的权限："
+
+msgid "すべてのレイヤーを表示"
+msgstr "显示所有图层"
+
+msgid "すべてのレイヤーを非表示"
+msgstr "隐藏所有图层"
+
+msgid "すべてアップグレード"
+msgstr "全部升级"
+
+msgid "すべて拒否"
+msgstr "全部拒绝"
+
+msgid "すべて許可"
+msgstr "全部允许"
+
+msgid "やり直す"
+msgstr "重做"
+
+msgid "アップデート"
+msgstr "更新"
+
+msgid "アプリケーション"
+msgstr "应用程序"
+
+msgid "インストール"
+msgstr "安装"
+
+msgid "インストール済み"
+msgstr "已安装"
+
+msgid "エフェクト"
+msgstr "特效"
+
+msgid "エフェクト/オブジェクトを検索..."
+msgstr "搜索效果/对象..."
+
+msgid "エラー"
+msgstr "错误"
+
+msgid "オフセット (秒):"
+msgstr "偏移（秒）："
+
+msgid "オブジェクト"
+msgstr "对象"
+
+msgid "キャンセル"
+msgstr "取消"
+
+msgid "グリッドモード:"
+msgstr "网格模式："
+
+msgid "コピー"
+msgstr "复制"
+
+msgid "コーデック:"
+msgstr "编解码器："
+
+msgid "サンプリングレート:"
+msgstr "采样率："
+
+msgid "シークバー"
+msgstr "进度条"
+
+msgid "シーン名:"
+msgstr "场景名："
+
+msgid "シーン設定"
+msgstr "场景设置"
+
+msgid "シーン設定..."
+msgstr "场景设置..."
+
+msgid "スナップを有効にする:"
+msgstr "启用吸附："
+
+msgid "ズーム:"
+msgstr "缩放："
+
+msgid "タイムライン"
+msgstr "时间线"
+
+msgid "タイムラインの表示"
+msgstr "显示时间线"
+
+msgid "タイムライン全体"
+msgstr "整个时间线"
+
+msgid "ツール"
+msgstr "工具"
+
+msgid "デフォルト"
+msgstr "默认"
+
+msgid "バックアップ間隔"
+msgstr "备份间隔"
+
+msgid "バージョン情報"
+msgstr "版本信息"
+
+msgid "パッケージマネージャー"
+msgstr "软件包管理器"
+
+msgid "パッケージマネージャーエラー"
+msgstr "软件包管理器错误"
+
+msgid "ビットレート"
+msgstr "比特率"
+
+msgid "ビットレート:"
+msgstr "比特率："
+
+msgid "ファイル"
+msgstr "文件"
+
+msgid "フォントを選択"
+msgstr "选择字体"
+
+msgid "フレーム"
+msgstr "帧"
+
+msgid "フレームレート (FPS):"
+msgstr "帧率 (FPS)："
+
+msgid "フレーム数固定"
+msgstr "固定帧数"
+
+msgid "フレーム設定"
+msgstr "帧设置"
+
+msgid "プリセット:"
+msgstr "预设："
+
+msgid "プリセットを保存"
+msgstr "保存预设"
+
+msgid "プリセットを保存..."
+msgstr "保存预设…"
+
+msgid "プリセットを削除"
+msgstr "删除预设"
+
+msgid "プリセットを読み込み"
+msgstr "加载预设"
+
+msgid "プリセット名を入力..."
+msgstr "请输入预设名称…"
+
+msgid "プレビュー"
+msgstr "预览"
+
+msgid "プロジェクトの上書き保存"
+msgstr "覆盖保存项目"
+
+msgid "プロジェクトを名前を付けて保存..."
+msgstr "项目另存为..."
+
+msgid "プロジェクトを開く"
+msgstr "打开项目"
+
+msgid "プロジェクト設定"
+msgstr "项目设置"
+
+msgid "プロジェクト設定..."
+msgstr "项目设置..."
+
+msgid "プロファイル:"
+msgstr "配置文件："
+
+msgid "メディアの書き出し"
+msgstr "导出媒体"
+
+msgid "メディアの書き出し..."
+msgstr "导出媒体..."
+
+msgid "リポジトリ"
+msgstr "仓库"
+
+msgid "リポジトリを同期"
+msgstr "同步仓库"
+
+msgid "リポジトリを追加"
+msgstr "添加仓库"
+
+msgid "一時停止"
+msgstr "暂停"
+
+msgid "上のオブジェクトでクリッピング"
+msgstr "用上方对象裁剪"
+
+msgid "低品質"
+msgstr "低质量"
+
+msgid "保存の確認"
+msgstr "保存确认"
+
+msgid "保存先ファイルパス..."
+msgstr "保存目标文件路径..."
+
+msgid "保存先フォルダ..."
+msgstr "保存目标文件夹..."
+
+msgid "元に戻す"
+msgstr "撤销"
+
+msgid "元に戻す回数"
+msgstr "撤销次数"
+
+msgid "再生"
+msgstr "播放"
+
+msgid "再読込"
+msgstr "重新加载"
+
+msgid "分"
+msgstr "分钟"
+
+msgid "分割"
+msgstr "分割"
+
+msgid "切り取り"
+msgstr "剪切"
+
+msgid "制御点"
+msgstr "控制点"
+
+msgid "削除"
+msgstr "删除"
+
+msgid "動画ファイル"
+msgstr "视频文件"
+
+msgid "参照..."
+msgstr "浏览..."
+
+msgid "右ドラッグ:パン  ホイール:ズーム"
+msgstr "右键拖动：平移  滚轮：缩放"
+
+msgid "品質モード:"
+msgstr "质量模式："
+
+msgid "基本設定"
+msgstr "基本设置"
+
+msgid "完了"
+msgstr "完成"
+
+msgid "幅 (横):"
+msgstr "宽度（横向）："
+
+msgid "幅:"
+msgstr "宽度："
+
+msgid "形式:"
+msgstr "格式："
+
+msgid "拍子 (分割数):"
+msgstr "拍号（分割数）："
+
+msgid "振幅"
+msgstr "振幅"
+
+msgid "新規シーン作成"
+msgstr "新建场景"
+
+msgid "新規プロジェクト"
+msgstr "新建项目"
+
+msgid "新規プロジェクトを作成"
+msgstr "创建新项目"
+
+msgid "既存プロジェクトを開く..."
+msgstr "打开现有项目..."
+
+msgid "映像"
+msgstr "视频"
+
+msgid "書き出しキャンセル"
+msgstr "取消导出"
+
+msgid "書き出し中..."
+msgstr "正在导出..."
+
+msgid "書き出し開始"
+msgstr "开始导出"
+
+msgid "最近使ったプロジェクト"
+msgstr "最近使用的项目"
+
+msgid "最近使ったプロジェクトはありません"
+msgstr "没有最近使用的项目"
+
+msgid "最速 (ultrafast)"
+msgstr "最快 (ultrafast)"
+
+msgid "最高品質 (veryslow)"
+msgstr "最高质量 (veryslow)"
+
+msgid "検索..."
+msgstr "搜索..."
+
+msgid "標準"
+msgstr "标准"
+
+msgid "標準 (medium)"
+msgstr "标准 (medium)"
+
+msgid "権限"
+msgstr "权限"
+
+msgid "環境設定"
+msgstr "首选项"
+
+msgid "環境設定..."
+msgstr "首选项..."
+
+msgid "画像シーケンス"
+msgstr "图片序列"
+
+msgid "磁力スナップ範囲:"
+msgstr "磁力吸附范围："
+
+msgid "種類"
+msgstr "类型"
+
+msgid "範囲"
+msgstr "范围"
+
+msgid "終了"
+msgstr "退出"
+
+msgid "終了:"
+msgstr "结束："
+
+msgid "終了時に未保存のプロジェクトを確認する"
+msgstr "退出时检查未保存的项目"
+
+msgid "編集"
+msgstr "编辑"
+
+msgid "編集とスナップ"
+msgstr "编辑与吸附"
+
+msgid "自動"
+msgstr "自动"
+
+msgid "自動 (秒/フレーム)"
+msgstr "自动（秒/帧）"
+
+msgid "自動バックアップを有効にする"
+msgstr "启用自动备份"
+
+msgid "色を選択"
+msgstr "选择颜色"
+
+msgid "表示"
+msgstr "显示"
+
+msgid "複製"
+msgstr "复制副本"
+
+msgid "解像度:"
+msgstr "分辨率："
+
+msgid "設定"
+msgstr "设置"
+
+msgid "設定は「適用」または「OK」で保存されます"
+msgstr "设置会在点击“应用”或“OK”后保存"
+
+msgid "設定ダイアログ"
+msgstr "设置对话框"
+
+msgid "設定ダイアログの表示"
+msgstr "显示设置对话框"
+
+msgid "設定済みリポジトリ"
+msgstr "已配置的仓库"
+
+msgid "詳細設定"
+msgstr "详细设置"
+
+msgid "貼り付け"
+msgstr "粘贴"
+
+msgid "追加"
+msgstr "添加"
+
+msgid "速度"
+msgstr "速度"
+
+msgid "適用"
+msgstr "应用"
+
+msgid "閉じる"
+msgstr "关闭"
+
+msgid "開始:"
+msgstr "开始："
+
+msgid "間隔 (Frames):"
+msgstr "间隔（帧）："
+
+msgid "音声"
+msgstr "音频"
+
+msgid "高さ (縦):"
+msgstr "高度（纵向）："
+
+msgid "高さ:"
+msgstr "高度："
+
+msgid "高品質"
+msgstr "高质量"
+
+msgid "高品質 (slow)"
+msgstr "高质量 (slow)"
+
+msgid "高速 (fast)"
+msgstr "快速 (fast)"

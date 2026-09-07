@@ -1054,6 +1054,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     apply_runtime_settings(&mut application_model, &settings.borrow());
     let model = Rc::new(RefCell::new(application_model));
     let launcher = ProjectLauncherWindow::new()?;
+    select_bundled_ui_translation();
     let recovery = ProjectRecoveryWindow::new()?;
     let main = MainWindow::new()?;
     let timeline = TimelineWindow::new()?;
@@ -1061,7 +1062,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .window()
         .set_size(slint::LogicalSize::new(700.0, 500.0));
     main.window()
-        .set_size(slint::LogicalSize::new(640.0, 480.0));
+        .set_size(slint::LogicalSize::new(640.0, 360.0));
     timeline
         .window()
         .set_size(slint::LogicalSize::new(1280.0, 300.0));
@@ -5873,6 +5874,34 @@ fn parse_finite_f64(value: &str, fallback: f64) -> f64 {
 
 fn parse_i32_unbounded(value: &str, fallback: i32) -> i32 {
     value.trim().parse::<i32>().unwrap_or(fallback)
+}
+
+/// Selects the bundled Slint UI translation from the POSIX locale environment.
+///
+/// The `.slint` sources stay in Japanese; English and Simplified Chinese come
+/// from gettext catalogs converted from `i18n/AviQtl_{en_US,zh_CN}.ts`.
+/// When no POSIX locale variable names a supported language, the Slint
+/// runtime keeps its own system-locale selection (Japanese by default).
+fn select_bundled_ui_translation() {
+    let language = std::env::var("LC_ALL")
+        .or_else(|_| std::env::var("LC_MESSAGES"))
+        .or_else(|_| std::env::var("LANG"))
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let selected = if language.starts_with("zh") {
+        Some("zh_CN")
+    } else if language.starts_with("en") {
+        Some("en_US")
+    } else if language.starts_with("ja") {
+        Some("en")
+    } else {
+        None
+    };
+    if let Some(selected) = selected
+        && let Err(error) = slint::select_bundled_translation(selected)
+    {
+        eprintln!("UI translation unavailable: {error}");
+    }
 }
 
 fn parse_validation_frames() -> Result<Option<u64>, String> {
