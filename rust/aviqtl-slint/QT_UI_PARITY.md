@@ -77,8 +77,9 @@ still require the separately scheduled Computer Use suite.
   restart. The MOD permission window preserves Qt's 13 permission rows, All Allow/All Deny,
   Cancel/OK behavior, and shared-settings persistence. Automated tests cover partial repository
   synchronization, install/remove, unsafe archives, rollback, and preservation of other plugins'
-  grants; native progress, focus, live-network, and window-interaction checks remain in the deferred
-  suite.
+  grants. Native macOS CUA now covers the 650x450 six-tab layout, search editing and clearing,
+  live repository synchronization, the non-destructive repository controls, all 13 permission rows,
+  All Allow/All Deny, and Cancel without persistence.
 - The preview no longer uses the animated validation placeholder. A GUI-neutral `aviqtl-preview`
   crate now plans the active project frame, resolves project-relative media, decodes media and
   generated objects off the UI thread, preserves nested scenes, frame buffers, upper-object masks,
@@ -151,17 +152,21 @@ still require the separately scheduled Computer Use suite.
   interval, undo limits for existing and future projects, and launcher/new-scene defaults.
 - The Slint frontend uses native `rfd` open/save dialogs. Its default Linux backend is the Rust
   XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
-- Clip, timeline, and layer context menus use Slint `ContextMenuArea`; native macOS menus are not
-  included in Slint window snapshots and require the deferred native interaction suite.
+- Timeline and clip mouse context menus use an accessible Slint `PopupWindow`, because Slint 1.17's
+  native `ContextMenuArea` accepts only menu entries and cannot contain Qt's inline search field.
+  The popup focuses the same search field immediately, swaps the command list for Rust-filtered
+  object/effect/audio-plugin results while typing, closes on Escape or an outside click, and keeps
+  the Qt command order. Layer and effect-stack context menus continue to use `ContextMenuArea`.
 - The clip context menu now keeps Qt's selection rule and command order for Delete, Split,
   Duplicate, Cut, and Copy. Visual clips expose the checked upper-object clipping action, the
-  effect-catalog browser, and the registry's ordered category tree, including nested paths such as
+  effect-catalog browser, and the registry's ordered category paths, including nested paths such as
   `変形/クロップ`. Audio clips omit those visual-only actions and instead expose hostable plugins
   in the same normalized category order as Qt, including the `Other` fallback. Direct menu
   insertion reuses the object-settings commands, selection projection, status updates, and one-step
   Undo. The three object-settings entry points schedule a redraw after showing the previously hidden
-  window to cover the macOS first-surface paint gap; native first-open and audio-menu interaction
-  checks remain in the deferred suite.
+  window to cover the macOS first-surface paint gap. Native macOS CUA now covers audio and visual
+  clip right-click, focused inline search, live effect result projection, Escape dismissal, and the
+  first object-settings paint.
 - The object-settings window now projects the selected clip's real effect stack and metadata-defined
   controls in source order. Slint forwards Ctrl/Shift selection, right-click selection and deletion,
   enable toggles, bounded numeric edits, booleans, strings, paths, colors, fonts, static choices, and

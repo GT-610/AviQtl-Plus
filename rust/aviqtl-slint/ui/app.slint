@@ -68,17 +68,6 @@ export struct EffectCatalogItemData {
     categories: string,
 }
 
-export struct CatalogMenuSubgroupData {
-    title: string,
-    items: [EffectCatalogItemData],
-}
-
-export struct CatalogMenuGroupData {
-    title: string,
-    items: [EffectCatalogItemData],
-    subgroups: [CatalogMenuSubgroupData],
-}
-
 export struct PackageData {
     id: string,
     package-type: string,
@@ -1144,21 +1133,37 @@ component LayerHeaderItem inherits Rectangle {
     }
 }
 
+component TimelineContextRow inherits Rectangle {
+    in property <string> title;
+    in property <bool> enabled: true;
+    callback activated();
+    height: 30px;
+    border-radius: 3px;
+    background: !root.enabled ? transparent : row-touch.has-hover ? #3b4657 : transparent;
+
+    Text {
+        x: 9px;
+        width: parent.width - 18px;
+        text: root.title;
+        color: root.enabled ? #f2f3f5 : #777e89;
+        overflow: elide;
+        vertical-alignment: center;
+    }
+    row-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.title;
+        accessible-action-default => { root.activated(); }
+        clicked => { root.activated(); }
+    }
+}
+
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
-    in property <[EffectCatalogItemData]> effect-root-items;
-    in property <[CatalogMenuGroupData]> effect-menu-groups;
-    in property <[EffectCatalogItemData]> audio-plugin-root-items;
-    in property <[CatalogMenuGroupData]> audio-plugin-menu-groups;
-    private property <[EffectCatalogItemData]> extension-root-items: root.clip-data.audio
-        ? root.audio-plugin-root-items
-        : root.effect-root-items;
-    private property <[CatalogMenuGroupData]> extension-menu-groups: root.clip-data.audio
-        ? root.audio-plugin-menu-groups
-        : root.effect-menu-groups;
     callback activate(int, bool);
     callback prepare-drag(int, bool);
-    callback context-activate(int);
+    callback context-activate(int, float, float);
     callback open-settings(int);
     callback command(string, int);
     callback drag-finished(string, int, float, float, bool);
@@ -1198,50 +1203,7 @@ component TimelineClipItem inherits Rectangle {
             }
         }
     }
-    clip-menu := ContextMenuArea {
-        Menu {
-            MenuItem { title: "削除"; activated => { root.command("delete", root.clip-data.id); } }
-            MenuItem { title: "分割"; activated => { root.command("split", root.clip-data.id); } }
-            MenuItem { title: "複製"; activated => { root.command("duplicate", root.clip-data.id); } }
-            MenuSeparator { }
-            MenuItem { title: "切り取り"; activated => { root.command("cut", root.clip-data.id); } }
-            MenuItem { title: "コピー"; activated => { root.command("copy", root.clip-data.id); } }
-            MenuSeparator { }
-            if !root.clip-data.audio : MenuItem {
-                title: "上のオブジェクトでクリッピング";
-                checkable: true;
-                checked: root.clip-data.clip-by-upper-object;
-                activated => { root.command("clipping", root.clip-data.id); }
-            }
-            if !root.clip-data.audio : MenuSeparator { }
-            if !root.clip-data.audio : MenuItem {
-                title: "Browse effect catalog...";
-                activated => { root.command("browse-effect", root.clip-data.id); }
-            }
-            if !root.clip-data.audio : MenuSeparator { }
-            Menu {
-                title: "エフェクトを追加";
-                for item in root.extension-root-items : MenuItem {
-                    title: item.name;
-                    activated => { root.command("add-extension:" + item.id, root.clip-data.id); }
-                }
-                for group in root.extension-menu-groups : Menu {
-                    title: group.title;
-                    for item in group.items : MenuItem {
-                        title: item.name;
-                        activated => { root.command("add-extension:" + item.id, root.clip-data.id); }
-                    }
-                    for subgroup in group.subgroups : Menu {
-                        title: subgroup.title;
-                        for item in subgroup.items : MenuItem {
-                            title: item.name;
-                            activated => { root.command("add-extension:" + item.id, root.clip-data.id); }
-                        }
-                    }
-                }
-            }
-        }
-        clip-touch := TouchArea {
+    clip-touch := TouchArea {
             x: min(7px, parent.width / 2);
             width: max(parent.width - 14px, 1px);
             mouse-cursor: move;
@@ -1291,8 +1253,11 @@ component TimelineClipItem inherits Rectangle {
                     root.drag-additive = false;
                 }
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
-                    root.context-activate(root.clip-data.id);
-                    clip-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                    root.context-activate(
+                        root.clip-data.id,
+                        (root.absolute-position.x + self.mouse-x) / 1px,
+                        (root.absolute-position.y + self.mouse-y) / 1px
+                    );
                 }
                 if event.kind == PointerEventKind.cancel {
                     root.active-drag = "";
@@ -1304,7 +1269,6 @@ component TimelineClipItem inherits Rectangle {
             }
             changed has-hover => { if !self.has-hover { root.pointer-left(); } }
             double-clicked => { root.open-settings(root.clip-data.id); }
-        }
     }
     trim-start-touch := TouchArea {
         x: 0px;
@@ -1888,17 +1852,9 @@ export component TimelineWindow inherits Window {
     in property <[SceneTabData]> scene-tabs;
     in property <[TimelineClipData]> clips;
     in property <[LayerData]> layers;
-    in property <[EffectCatalogItemData]> object-media-items;
-    in property <[EffectCatalogItemData]> object-primary-items;
-    in property <[EffectCatalogItemData]> object-control-items;
-    in property <[EffectCatalogItemData]> object-custom-items;
-    in property <[EffectCatalogItemData]> object-extra-items;
     in property <[EffectCatalogItemData]> object-catalog-items;
     in property <[string]> object-catalog-categories;
-    in property <[EffectCatalogItemData]> effect-menu-root-items;
-    in property <[CatalogMenuGroupData]> effect-menu-groups;
-    in property <[EffectCatalogItemData]> audio-plugin-menu-root-items;
-    in property <[CatalogMenuGroupData]> audio-plugin-menu-groups;
+    in property <[EffectCatalogItemData]> context-catalog-items;
     in property <int> duration: 3600;
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
@@ -1922,8 +1878,16 @@ export component TimelineWindow inherits Window {
     private property <string> object-catalog-selected-id: "";
     private property <int> context-frame: 0;
     private property <int> context-layer: 0;
+    private property <int> context-target-kind: -1;
+    private property <int> context-clip-id: -1;
+    private property <bool> context-clip-by-upper-object: false;
+    private property <string> context-search-query: "";
+    private property <bool> context-catalog-page: false;
+    private property <length> context-popup-x: 0px;
+    private property <length> context-popup-y: 0px;
     callback timeline-action(string, int, int);
     callback filter-objects(string, int);
+    callback filter-context-catalog(string, int);
     callback add-catalog-object(string, int, int) -> bool;
     callback show-object-settings();
     callback show-scene-settings();
@@ -1968,6 +1932,47 @@ export component TimelineWindow inherits Window {
         root.object-catalog-selected-id = "";
         root.filter-objects("", 0);
         root.object-picker-visible = true;
+    }
+
+    function open-context-popup(kind: int, clip-id: int, x: length, y: length, clip-by-upper-object: bool) {
+        root.context-target-kind = kind;
+        root.context-clip-id = clip-id;
+        root.context-clip-by-upper-object = clip-by-upper-object;
+        root.context-search-query = "";
+        root.context-catalog-page = false;
+        root.context-popup-x = min(max(x, 4px), max(4px, root.width - 344px));
+        root.context-popup-y = min(max(y, 4px), max(4px, root.height - 292px));
+        root.filter-context-catalog("", kind);
+        timeline-context-popup.show();
+    }
+
+    function activate-context-catalog-item(id: string) {
+        if root.context-target-kind == 0 {
+            if root.add-catalog-object(id, root.context-frame, root.context-layer) {
+                timeline-context-popup.close();
+            }
+        } else {
+            root.clip-command("add-extension:" + id, root.context-clip-id);
+            timeline-context-popup.close();
+        }
+    }
+
+    function activate-context-command(action: string) {
+        if root.context-target-kind == 0 {
+            root.timeline-action(action, root.context-frame, root.context-layer);
+        } else {
+            root.clip-command(action, root.context-clip-id);
+        }
+        timeline-context-popup.close();
+    }
+
+    function browse-context-catalog() {
+        if root.context-target-kind == 0 {
+            root.open-object-picker();
+        } else {
+            root.clip-command("browse-effect", root.context-clip-id);
+        }
+        timeline-context-popup.close();
     }
 
     function accept-object-selection() {
@@ -2183,64 +2188,7 @@ export component TimelineWindow inherits Window {
                 viewport-y <=> root.shared-viewport-y;
                 mouse-drag-pan-enabled: false;
 
-                timeline-menu := ContextMenuArea {
-                    Menu {
-                        MenuItem { title: "Browse object catalog..."; activated => { root.open-object-picker(); } }
-                        MenuSeparator { }
-                        Menu {
-                            title: "オブジェクトを追加";
-                            Menu {
-                                title: "メディア";
-                                for item in root.object-media-items : MenuItem {
-                                    title: item.name;
-                                    activated => {
-                                        root.add-catalog-object(item.id, root.context-frame, root.context-layer);
-                                    }
-                                }
-                            }
-                            for item in root.object-primary-items : MenuItem {
-                                title: item.name;
-                                activated => {
-                                    root.add-catalog-object(item.id, root.context-frame, root.context-layer);
-                                }
-                            }
-                            Menu {
-                                title: "制御";
-                                for item in root.object-control-items : MenuItem {
-                                    title: item.name;
-                                    activated => {
-                                        root.add-catalog-object(item.id, root.context-frame, root.context-layer);
-                                    }
-                                }
-                            }
-                            Menu {
-                                title: "カスタムオブジェクト";
-                                for item in root.object-custom-items : MenuItem {
-                                    title: item.name;
-                                    activated => {
-                                        root.add-catalog-object(item.id, root.context-frame, root.context-layer);
-                                    }
-                                }
-                            }
-                            for item in root.object-extra-items : MenuItem {
-                                title: item.categories == ""
-                                    ? item.name
-                                    : item.categories + " / " + item.name;
-                                activated => {
-                                    root.add-catalog-object(item.id, root.context-frame, root.context-layer);
-                                }
-                            }
-                        }
-                        MenuSeparator { }
-                        MenuItem { title: "元に戻す"; activated => { root.timeline-action("undo", root.context-frame, root.context-layer); } }
-                        MenuItem { title: "やり直す"; activated => { root.timeline-action("redo", root.context-frame, root.context-layer); } }
-                        MenuItem { title: "貼り付け"; activated => { root.timeline-action("paste", root.context-frame, root.context-layer); } }
-                        MenuSeparator { }
-                        MenuItem { title: "シーン設定..."; activated => { root.timeline-action("scene-settings", root.context-frame, root.context-layer); } }
-                        MenuItem { title: "プロジェクト設定..."; activated => { root.timeline-action("project-settings", root.context-frame, root.context-layer); } }
-                        MenuItem { title: "環境設定..."; activated => { root.timeline-action("system-settings", root.context-frame, root.context-layer); } }
-                    }
-                    background-touch := TouchArea {
+                background-touch := TouchArea {
                         x: -root.shared-viewport-x;
                         y: -root.shared-viewport-y;
                         width: timeline-scroll.visible-width;
@@ -2290,10 +2238,13 @@ export component TimelineWindow inherits Window {
                                     root.box-selection-finished();
                                 } else {
                                     root.box-selection-cancelled();
-                                    timeline-menu.show({
-                                        x: self.mouse-x - root.shared-viewport-x,
-                                        y: self.mouse-y - root.shared-viewport-y
-                                    });
+                                    root.open-context-popup(
+                                        0,
+                                        -1,
+                                        timeline-scroll.absolute-position.x + self.mouse-x - root.shared-viewport-x,
+                                        timeline-scroll.absolute-position.y + self.mouse-y - root.shared-viewport-y,
+                                        false
+                                    );
                                 }
                                 root.box-active = false;
                                 root.box-dragging = false;
@@ -2316,7 +2267,6 @@ export component TimelineWindow inherits Window {
                             ) ? accept : reject
                         }
                         changed has-hover => { if !self.has-hover { root.schedule-skimmer-left(); } }
-                    }
                 }
 
                 Rectangle {
@@ -2335,13 +2285,18 @@ export component TimelineWindow inherits Window {
                     y: clip.layer * 30px + 3px;
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
                     clip-data: clip;
-                    effect-root-items: root.effect-menu-root-items;
-                    effect-menu-groups: root.effect-menu-groups;
-                    audio-plugin-root-items: root.audio-plugin-menu-root-items;
-                    audio-plugin-menu-groups: root.audio-plugin-menu-groups;
                     activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }
                     prepare-drag(clip-id, additive) => { root.clip-drag-started(clip-id, additive); }
-                    context-activate(clip-id) => { root.clip-context-selected(clip-id); }
+                    context-activate(clip-id, window-x, window-y) => {
+                        root.clip-context-selected(clip-id);
+                        root.open-context-popup(
+                            clip.audio ? 2 : 1,
+                            clip-id,
+                            window-x * 1px,
+                            window-y * 1px,
+                            clip.clip-by-upper-object
+                        );
+                    }
                     open-settings(clip-id) => {
                         root.clip-context-selected(clip-id);
                         root.show-object-settings();
@@ -2411,6 +2366,177 @@ export component TimelineWindow inherits Window {
             }
         }
             Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+        }
+    }
+
+    timeline-context-popup := PopupWindow {
+        x: root.context-popup-x;
+        y: root.context-popup-y;
+        width: min(340px, root.width - 8px);
+        height: min(420px, max(212px, root.height - 8px));
+        close-policy: PopupClosePolicy.close-on-click-outside;
+        forward-focus: context-search;
+
+        context-popup-focus := FocusScope {
+            forward-focus: context-search;
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape {
+                    timeline-context-popup.close();
+                    accept
+                } else {
+                    reject
+                }
+            }
+            Rectangle {
+                background: #252a32;
+                border-width: 1px;
+                border-color: #646b78;
+                border-radius: 5px;
+                VerticalLayout {
+                    padding: 5px;
+                    spacing: 4px;
+                    context-search := LineEdit {
+                        text <=> root.context-search-query;
+                        placeholder-text: "エフェクト/オブジェクトを検索...";
+                        edited(value) => {
+                            root.context-catalog-page = false;
+                            root.filter-context-catalog(value, root.context-target-kind);
+                        }
+                        accepted(value) => {
+                            if root.context-catalog-items.length == 1 {
+                                root.activate-context-catalog-item(root.context-catalog-items[0].id);
+                            }
+                        }
+                    }
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            spacing: 2px;
+
+                            if root.context-search-query != "" : VerticalLayout {
+                                spacing: 2px;
+                                for item in root.context-catalog-items : TimelineContextRow {
+                                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
+                                    activated => { root.activate-context-catalog-item(item.id); }
+                                }
+                            }
+                            if root.context-search-query != "" && root.context-catalog-items.length == 0 : Text {
+                                text: "一致する項目がありません";
+                                height: 32px;
+                                color: #aeb3bc;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            if root.context-search-query == "" && root.context-catalog-page : TimelineContextRow {
+                                title: "‹ 戻る";
+                                activated => { root.context-catalog-page = false; }
+                            }
+                            if root.context-search-query == "" && root.context-catalog-page : Rectangle {
+                                height: 1px;
+                                background: #4b515d;
+                            }
+                            if root.context-search-query == "" && root.context-catalog-page : VerticalLayout {
+                                spacing: 2px;
+                                for item in root.context-catalog-items : TimelineContextRow {
+                                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
+                                    activated => { root.activate-context-catalog-item(item.id); }
+                                }
+                            }
+
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "Browse object catalog...";
+                                activated => { root.browse-context-catalog(); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
+                                height: 1px;
+                                background: #4b515d;
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "オブジェクトを追加  ›";
+                                activated => { root.context-catalog-page = true; }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
+                                height: 1px;
+                                background: #4b515d;
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "元に戻す";
+                                activated => { root.activate-context-command("undo"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "やり直す";
+                                activated => { root.activate-context-command("redo"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "貼り付け";
+                                activated => { root.activate-context-command("paste"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
+                                height: 1px;
+                                background: #4b515d;
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "シーン設定...";
+                                activated => { root.activate-context-command("scene-settings"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "プロジェクト設定...";
+                                activated => { root.activate-context-command("project-settings"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
+                                title: "環境設定...";
+                                activated => { root.activate-context-command("system-settings"); }
+                            }
+
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
+                                title: "削除";
+                                activated => { root.activate-context-command("delete"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
+                                title: "分割";
+                                activated => { root.activate-context-command("split"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
+                                title: "複製";
+                                activated => { root.activate-context-command("duplicate"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
+                                height: 1px;
+                                background: #4b515d;
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
+                                title: "切り取り";
+                                activated => { root.activate-context-command("cut"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
+                                title: "コピー";
+                                activated => { root.activate-context-command("copy"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : Rectangle {
+                                height: 1px;
+                                background: #4b515d;
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
+                                title: (root.context-clip-by-upper-object ? "✓  " : "    ") + "上のオブジェクトでクリッピング";
+                                activated => { root.activate-context-command("clipping"); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
+                                title: "Browse effect catalog...";
+                                activated => { root.browse-context-catalog(); }
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
+                                height: 1px;
+                                background: #4b515d;
+                            }
+                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
+                                title: "エフェクトを追加  ›";
+                                activated => { root.context-catalog-page = true; }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -4267,8 +4393,8 @@ export component PackageManagerWindow inherits Window {
     title: "パッケージマネージャー";
     preferred-width: 650px;
     preferred-height: 450px;
-    min-width: 500px;
-    min-height: 350px;
+    min-width: 650px;
+    min-height: 450px;
     background: #181a20;
 
     in-out property <int> tab-index: 0;
@@ -4303,6 +4429,8 @@ export component PackageManagerWindow inherits Window {
             spacing: 4px;
             for tab[index] in ["エフェクト", "オブジェクト", "MOD", "インストール済み", "アプリケーション", "リポジトリ"] : Button {
                 text: tab;
+                min-width: 0px;
+                horizontal-stretch: 1;
                 primary: root.tab-index == index;
                 clicked => {
                     root.tab-index = index;
@@ -4349,6 +4477,7 @@ export component PackageManagerWindow inherits Window {
             spacing: 12px;
             GroupBox {
                 title: "リポジトリを追加";
+                height: 72px;
                 HorizontalLayout {
                     spacing: 8px;
                     LineEdit {
