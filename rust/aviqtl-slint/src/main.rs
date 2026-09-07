@@ -2770,6 +2770,27 @@ fn install_callbacks(
         );
     });
 
+    let seek_audio_model = model.clone();
+    let seek_audio_main = main.as_weak();
+    let seek_audio_timeline = timeline.as_weak();
+    timeline.on_seek_audio_frame(move |clip_id, frame| {
+        if let Some(workspace) = seek_audio_model.borrow_mut().current_workspace_mut()
+            && let Some(clip) = workspace
+                .document()
+                .clips
+                .iter()
+                .find(|clip| clip.id == clip_id && clip.scene_id == workspace.selected_scene())
+        {
+            let start = clip.start;
+            let duration = clip.duration;
+            if clip.clip_type == "audio" && duration > 0 {
+                workspace
+                    .seek(start.saturating_add(frame.saturating_sub(start).clamp(0, duration)));
+            }
+        }
+        sync_weak_windows(&seek_audio_main, &seek_audio_timeline, &seek_audio_model);
+    });
+
     let object_filter_window = timeline.as_weak();
     let object_filter_catalog = effect_catalog.clone();
     timeline.on_filter_objects(move |query, category_index| {
@@ -3012,7 +3033,7 @@ fn install_callbacks(
     let clip_command_timeline = timeline.as_weak();
     let clip_command_settings = object_settings.as_weak();
     let clip_command_ui = object_settings_ui.clone();
-    timeline.on_clip_command(move |action, clip_id| {
+    timeline.on_clip_command(move |action, clip_id, frame, layer| {
         let open_effect_picker = action.as_str() == "browse-effect";
         let extension_id = action
             .as_str()
@@ -3025,13 +3046,10 @@ fn install_callbacks(
                     workspace.remove_selected_clips();
                 }
                 "split" => {
-                    workspace.split_selected_clips_at(workspace.playhead());
+                    workspace.split_selected_clips_at(frame);
                 }
                 "duplicate" => {
-                    workspace.duplicate_selected_clips_at(
-                        workspace.playhead(),
-                        workspace.selected_layer(),
-                    );
+                    workspace.duplicate_selected_clips_at(frame, layer);
                 }
                 "cut" => {
                     workspace.cut_selected_clips();

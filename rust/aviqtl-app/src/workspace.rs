@@ -2996,6 +2996,41 @@ mod tests {
     }
 
     #[test]
+    fn clip_context_commands_use_the_right_click_frame_and_layer() {
+        let mut workspace = workspace();
+        // Right-click frame inside clip 1 (0..20), away from the playhead.
+        workspace.seek(0);
+        workspace.click_clip(2, false);
+        workspace.context_click_clip(1);
+        assert_eq!(workspace.selected_clip_ids(), [1]);
+        assert!(workspace.split_selected_clips_at(10));
+        let clip_one: Vec<_> = workspace
+            .document()
+            .clips
+            .iter()
+            .filter(|clip| {
+                clip.scene_id == workspace.selected_scene() && clip.start < 20 && clip.layer == 0
+            })
+            .collect();
+        assert_eq!(clip_one.len(), 2);
+        assert!(workspace.undo());
+
+        // Duplicate pastes at the right-clicked frame/layer like Qt.
+        workspace.context_click_clip(1);
+        let (next_frame, layer) = workspace
+            .duplicate_selected_clips_at(80, 4)
+            .expect("duplicate succeeds");
+        assert_eq!((next_frame, layer), (100, 4));
+        assert!(
+            workspace
+                .document()
+                .clips
+                .iter()
+                .any(|clip| { clip.start == 80 && clip.layer == 4 && clip.duration == 20 })
+        );
+    }
+
+    #[test]
     fn layer_visibility_and_lock_are_authoritative_project_edits() {
         let mut workspace = workspace();
         assert!(workspace.toggle_layer_visibility(3));
