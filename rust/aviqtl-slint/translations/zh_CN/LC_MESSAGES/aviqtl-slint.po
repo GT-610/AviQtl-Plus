@@ -459,3 +459,648 @@ msgstr "高质量 (slow)"
 
 msgid "高速 (fast)"
 msgstr "快速 (fast)"
+
+msgid "上にレイヤーを挿入 (1行)"
+msgstr "向上插入图层（1 层）"
+
+msgid "下にレイヤーを挿入 (1行)"
+msgstr "向下插入图层（1 层）"
+
+msgid "複数レイヤーを挿入..."
+msgstr "插入多个图层..."
+
+msgid "このレイヤーの内容を1行下へ"
+msgstr "将此图层内容下移一行"
+
+msgid "このレイヤーの内容を1行上へ"
+msgstr "将此图层内容上移一行"
+
+msgid "範囲を指定してレイヤー移動..."
+msgstr "指定范围移动图层..."
+
+msgid "このレイヤーを非表示にする"
+msgstr "隐藏此图层"
+
+msgid "このレイヤーを表示する"
+msgstr "显示此图层"
+
+msgid "このレイヤーのロックを解除"
+msgstr "解锁此图层"
+
+msgid "このレイヤーをロックする"
+msgstr "锁定此图层"
+
+msgid "複数レイヤーを挿入"
+msgstr "插入多个图层"
+
+msgid "挿入するレイヤー数:"
+msgstr "要插入的图层数："
+
+msgid "挿入方向:"
+msgstr "插入方向："
+
+msgid "選択レイヤーの上"
+msgstr "所选图层之上"
+
+msgid "選択レイヤーの下"
+msgstr "所选图层之下"
+
+msgid "このレイヤー以降をまとめて移動"
+msgstr "批量移动此图层及以下"
+
+msgid "対象レイヤーの範囲:"
+msgstr "目标图层范围："
+
+msgid "移動量 (行数):"
+msgstr "移动行数："
+
+msgid "方向:"
+msgstr "方向："
+
+msgid "上へ"
+msgstr "向上"
+
+msgid "下へ"
+msgstr "向下"
+
+msgid "不足しているメディアを管理"
+msgstr "管理缺失媒体"
+
+msgid "不足しているメディア"
+msgstr "缺失媒体"
+
+msgid "不足しているメディアを置換"
+msgstr "替换缺失媒体"
+
+msgid "置換"
+msgstr "替换"
+
+msgid "管理"
+msgstr "管理"
+
+msgid "{} 個のメディアファイルが見つかりません"
+msgstr "缺失 {} 个媒体文件"
+
+msgid "上書き保存"
+msgstr "覆盖保存"
+
+msgid "名前を付けて保存"
+msgstr "另存为"
+
+msgid "カット"
+msgstr "剪切"
+
+msgid "再生 / 一時停止"
+msgstr "播放 / 暂停"
+
+msgid "先頭へ移動"
+msgstr "移动到开头"
+
+msgid "末尾へ移動"
+msgstr "移动到末尾"
+
+msgid "ズームイン"
+msgstr "放大"
+
+msgid "ズームアウト"
+msgstr "缩小"
+
+msgid "クリップを分割"
+msgstr "分割片段"
+
+msgid "レイヤーを上へ移動"
+msgstr "上移图层"
+
+msgid "レイヤーを下へ移動"
+msgstr "下移图层"
+
+msgid "1フレーム左へ移動"
+msgstr "向左移动 1 帧"
+
+msgid "1フレーム右へ移動"
+msgstr "向右移动 1 帧"
+
+msgid "現在のシーン設定"
+msgstr "当前场景设置"
+
+msgid "現在のシーンを削除"
+msgstr "删除当前场景"
+
+msgid "現在のレイヤーをロック/解除"
+msgstr "锁定/解锁当前图层"
+
+msgid "現在のレイヤーを表示/非表示"
+msgstr "显示/隐藏当前图层"
+
+msgid "一般"
+msgstr "常规"
+
+msgid "性能"
+msgstr "性能"
+
+msgid "外観"
+msgstr "外观"
+
+msgid "書き出し"
+msgstr "导出"
+
+msgid "デコードと音声"
+msgstr "解码与音频"
+
+msgid "プラグイン"
+msgstr "插件"
+
+msgid "ショートカット"
+msgstr "快捷键"
+
+msgid "最近使ったプロジェクトの保持数"
+msgstr "最近使用项目的保留数量"
+
+msgid "回数を増やすとメモリ使用量が増えます"
+msgstr "增加次数会提高内存使用量"
+
+msgid "起動"
+msgstr "启动"
+
+msgid "スプラッシュ画像サイズ"
+msgstr "启动画面图像大小"
+
+msgid "メモリとキャッシュ"
+msgstr "内存与缓存"
+
+msgid "最大画像サイズ"
+msgstr "最大图像尺寸"
+
+msgid "キャッシュ容量"
+msgstr "缓存容量"
+
+msgid "Preview rendering"
+msgstr "预览渲染"
+
+msgid "Render scale"
+msgstr "渲染缩放"
+
+msgid "Preview antialiasing"
+msgstr "预览抗锯齿"
+
+msgid "Disabled"
+msgstr "禁用"
+
+msgid "Timeline baking"
+msgstr "时间线烘焙"
+
+msgid "Strategy"
+msgstr "策略"
+
+msgid "On demand"
+msgstr "按需"
+
+msgid "Bake all clips"
+msgstr "烘焙所有剪辑"
+
+msgid "Prefetch frames"
+msgstr "预取帧数"
+
+msgid "操作"
+msgstr "操作"
+
+msgid "タイムラインスキミングを有効にする"
+msgstr "启用时间线掠过预览"
+
+msgid "見た目と寸法"
+msgstr "外观与尺寸"
+
+msgid "トラックの高さ"
+msgstr "轨道高度"
+
+msgid "ヘッダーの高さ"
+msgstr "标题栏高度"
+
+msgid "設定サイドバーを右に配置"
+msgstr "将设置侧边栏放在右侧"
+
+msgid "ルーラーの高さ"
+msgstr "标尺高度"
+
+msgid "最大レイヤー数"
+msgstr "最大图层数"
+
+msgid "レイヤーヘッダー幅"
+msgstr "图层标题宽度"
+
+msgid "クリップ端のつかみ幅"
+msgstr "片段边缘拖拽宽度"
+
+msgid "編集制約とズーム"
+msgstr "编辑限制与缩放"
+
+msgid "最小クリップ長"
+msgstr "最小片段长度"
+
+msgid "ズーム最小値"
+msgstr "最小缩放值"
+
+msgid "ズーム最大値"
+msgstr "最大缩放值"
+
+msgid "ズーム刻み"
+msgstr "缩放步进"
+
+msgid "テーマ"
+msgstr "主题"
+
+msgid "カラーテーマ"
+msgstr "配色主题"
+
+msgid "ダーク"
+msgstr "深色"
+
+msgid "ライト"
+msgstr "灯光"
+
+msgid "システムに従う"
+msgstr "跟随系统"
+
+msgid "テーマの変更は「適用」または「OK」を押すとすぐに反映されます"
+msgstr "单击“应用”或“确定”后，主题更改会立即生效"
+
+msgid "既定値"
+msgstr "默认值"
+
+msgid "幅"
+msgstr "宽度"
+
+msgid "高さ"
+msgstr "高度"
+
+msgid "フレームレート"
+msgstr "帧率"
+
+msgid "総フレーム数"
+msgstr "总帧数"
+
+msgid "サンプリング周波数"
+msgstr "采样频率"
+
+msgid "既定クリップ長"
+msgstr "默认片段长度"
+
+msgid "既定の映像コーデック"
+msgstr "默认视频编解码器"
+
+msgid "H.264 (VAAPI)"
+msgstr "H.264 (VAAPI)"
+
+msgid "HEVC (VAAPI)"
+msgstr "HEVC (VAAPI)"
+
+msgid "H.264 (CPU)"
+msgstr "H.264 (CPU)"
+
+msgid "既定ビットレート"
+msgstr "默认比特率"
+
+msgid "既定CRF"
+msgstr "默认 CRF"
+
+msgid "静止画品質"
+msgstr "静态图像质量"
+
+msgid "連番桁数"
+msgstr "序列编号位数"
+
+msgid "音声と進行表示"
+msgstr "音频与进度显示"
+
+msgid "既定の音声コーデック"
+msgstr "默认音频编解码器"
+
+msgid "音声ビットレート"
+msgstr "音频比特率"
+
+msgid "フレーム取得待ち時間"
+msgstr "帧获取等待时间"
+
+msgid "進捗更新間隔"
+msgstr "进度更新间隔"
+
+msgid "Encoder queue memory (MB)"
+msgstr "编码器队列内存（MB）"
+
+msgid "映像デコード"
+msgstr "视频解码"
+
+msgid "インデックス予約数"
+msgstr "索引预留数量"
+
+msgid "最小キャッシュ量"
+msgstr "最小缓存量"
+
+msgid "ハードウェアフレームプール数"
+msgstr "硬件帧池数量"
+
+msgid "プラグイン最大ブロックサイズ"
+msgstr "插件最大块大小"
+
+msgid "Lua フック間隔"
+msgstr "Lua 钩子间隔"
+
+msgid "デコードと音声関連の設定は再起動後に反映されます"
+msgstr "解码和音频相关设置将在重启后生效"
+
+msgid "各形式ごとに有効化と検索パスを設定できます"
+msgstr "可为每种格式设置是否启用及搜索路径"
+
+msgid "Lua プラグイン"
+msgstr "Lua 插件"
+
+msgid "ホットリロードを有効にする"
+msgstr "启用热重载"
+
+msgid "有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします"
+msgstr "启用后，检测到 plugins 文件夹变更时将自动重新加载插件"
+
+msgid "{} を読み込む"
+msgstr "加载 {}"
+
+msgid "検索パス"
+msgstr "搜索路径"
+
+msgid "1行に1パスを入力します"
+msgstr "每行输入一个路径"
+
+msgid "キーボードショートカット"
+msgstr "键盘快捷键"
+
+msgid "「Ctrl+S」や「Alt+Shift+N」の形式で入力してください"
+msgstr "请以“Ctrl+S”或“Alt+Shift+N”的格式输入"
+
+msgid "未設定"
+msgstr "未设置"
+
+msgid " キーフレーム"
+msgstr " 关键帧"
+
+msgid "キーフレーム {}"
+msgstr "关键帧 {}"
+
+msgid "ドラッグしてキーフレームを移動"
+msgstr "拖动以移动关键帧"
+
+msgid "キーフレーム"
+msgstr "关键帧"
+
+msgid "固定キーフレーム"
+msgstr "固定关键帧"
+
+msgid "選択した {} 件を削除"
+msgstr "删除选中的 {} 项"
+
+msgid "を有効にする"
+msgstr "：已启用"
+
+msgid "補間"
+msgstr "插值"
+
+msgid "の先頭と末尾にキーフレームを作成"
+msgstr "：在开头和末尾创建关键帧"
+
+msgid "を選択"
+msgstr "：选择"
+
+msgid "の開始色を選択"
+msgstr "：选择起始颜色"
+
+msgid "の終了色を選択"
+msgstr "：选择结束颜色"
+
+msgid "シーンを閉じる"
+msgstr "关闭场景"
+
+msgid "レイヤー {}"
+msgstr "图层 {}"
+
+msgid "表示、ロック中"
+msgstr "显示，已锁定"
+
+msgid "表示、ロックなし"
+msgstr "显示，未锁定"
+
+msgid "非表示、ロック中"
+msgstr "隐藏，已锁定"
+
+msgid "非表示、ロックなし"
+msgstr "隐藏，未锁定"
+
+msgid "プロジェクトを閉じる"
+msgstr "关闭项目"
+
+msgid "プロジェクト"
+msgstr "项目"
+
+msgid "タイムライン上の現在位置をドラッグして再生位置を変更します"
+msgstr "拖动以更改时间线上的播放位置"
+
+msgid "再生位置を1フレーム前に移動します"
+msgstr "将播放位置移动到前一帧"
+
+msgid "再生を開始または一時停止します"
+msgstr "开始或暂停播放"
+
+msgid "再生位置を1フレーム後に移動します"
+msgstr "将播放位置移动到后一帧"
+
+msgid "再生速度（パーセント）"
+msgstr "播放速度（百分比）"
+
+msgid " に保存されていない変更があります。\n続行する前に保存しますか？"
+msgstr " 有未保存的更改。\n继续之前要保存吗？"
+
+msgid "保存"
+msgstr "保存"
+
+msgid "破棄"
+msgstr "放弃"
+
+msgid "シーン"
+msgstr "场景"
+
+msgid "タイムラインのズーム率"
+msgstr "时间线缩放率"
+
+msgid "ズーム率の一覧"
+msgstr "缩放率列表"
+
+msgid "レイヤー"
+msgstr "图层"
+
+msgid "タイムライン編集領域"
+msgstr "时间线编辑区域"
+
+msgid "一致する項目がありません"
+msgstr "没有匹配项"
+
+msgid "‹ 戻る"
+msgstr "‹ 返回"
+
+msgid "オブジェクトを追加  ›"
+msgstr "添加对象  ›"
+
+msgid "エフェクトを追加  ›"
+msgstr "添加效果  ›"
+
+msgid "オブジェクト一覧"
+msgstr "对象列表"
+
+msgid "名前・カテゴリ・ID・パッケージを検索..."
+msgstr "搜索名称、类别、ID 或包..."
+
+msgid " 件"
+msgstr " 项"
+
+msgid "一致するオブジェクトがありません"
+msgstr "没有匹配的对象"
+
+msgid " フレーム / "
+msgstr " 帧 / "
+
+msgid " 秒)"
+msgstr " 秒)"
+
+msgid "書き出しをキャンセルしますか？\n進捗は失われます。"
+msgstr "确定要取消导出吗？\n进度将丢失。"
+
+msgid "はい"
+msgstr "是"
+
+msgid "いいえ"
+msgstr "否"
+
+msgid "設定ダイアログ - "
+msgstr "设置对话框 - "
+
+msgid "タイムラインでオブジェクトを選択してください"
+msgstr "请在时间线上选择对象"
+
+msgid "オーディオプラグイン"
+msgstr "音频插件"
+
+msgid "オブジェクト / エフェクト"
+msgstr "对象 / 效果"
+
+msgid "オーディオプラグインはありません"
+msgstr "没有音频插件"
+
+msgid "設定項目がありません"
+msgstr "没有可用设置项"
+
+msgid "+ オーディオプラグインを追加"
+msgstr "+ 添加音频插件"
+
+msgid "+ エフェクトを追加"
+msgstr "+ 添加效果"
+
+msgid "音声オブジェクト / プラグイン設定"
+msgstr "音频对象 / 插件设置"
+
+msgid "選択オブジェクトの設定"
+msgstr "所选对象设置"
+
+msgid "オーディオプラグインを追加"
+msgstr "添加音频插件"
+
+msgid "フィルタ効果を追加"
+msgstr "添加滤镜效果"
+
+msgid "名前・ID・カテゴリ・形式を検索..."
+msgstr "搜索名称、ID、类别或格式..."
+
+msgid "名前・ID・カテゴリを検索..."
+msgstr "搜索名称、ID 或类别..."
+
+msgid "一致するエフェクトがありません"
+msgstr "没有匹配的效果"
+
+msgid "現在: デフォルト"
+msgstr "当前：默认"
+
+msgid "現在: "
+msgstr "当前："
+
+msgid "フォント名を検索..."
+msgstr "搜索字体名称..."
+
+msgid "サンプル Sample 123"
+msgstr "示例 Sample 123"
+
+msgid "一致するフォントがありません"
+msgstr "没有匹配的字体"
+
+msgid "補間設定: "
+msgstr "插值设置："
+
+msgid "フレーム {}  ·  {}"
+msgstr "帧 {}  ·  {}"
+
+msgid "右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除"
+msgstr "右键拖动：平移  滚轮：缩放  左键拖动：控制柄  双击：添加  右键单击：删除"
+
+msgid "更新間隔"
+msgstr "更新间隔"
+
+msgid "周期"
+msgstr "周期"
+
+msgid "選択内容は対象キーフレームへ即時反映されます"
+msgstr "所选内容会立即应用到目标关键帧"
+
+msgid "一致する補間方法がありません"
+msgstr "没有匹配的插值方法"
+
+msgid "アップデートあり: "
+msgstr "有可用更新："
+
+msgid "インストール済み: "
+msgstr "已安装："
+
+msgid "有効"
+msgstr "启用"
+
+msgid "権限管理: "
+msgstr "权限管理："
+
+msgid "AviQtl Plus は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。"
+msgstr "AviQtl Plus 不是 AviUtl。\n\n本软件基于 GNU Affero General Public License Version 3 发布。"
+
+msgid "未保存のプロジェクトを復元"
+msgstr "恢复未保存的项目"
+
+msgid "AviQtl は中断されたセッションの復元スナップショットを検出しました。復元すると新しい未保存プロジェクトとして開き、元のファイルを上書きすることはありません。"
+msgstr "AviQtl 发现了上次异常中断后留下的恢复快照。恢复时会作为新的未保存项目打开，不会覆盖原始文件。"
+
+msgid "保存日時: {}"
+msgstr "保存于 {}"
+
+msgid "無効な復元データ: {}"
+msgstr "无效的恢复数据：{}"
+
+msgid "復元"
+msgstr "恢复"
+
+msgid "復元スナップショットを破棄"
+msgstr "丢弃恢复快照"
+
+msgid "「{}」の復元スナップショットを破棄しますか？この操作は元に戻せません。"
+msgstr "要丢弃“{}”的恢复快照吗？此操作无法撤销。"
+
+msgid "オブジェクトカタログを開く..."
+msgstr "浏览对象目录..."
+
+msgid "エフェクトカタログを開く..."
+msgstr "浏览效果目录..."
+
+msgid "AviQtl Plus プロジェクトページ"
+msgstr "AviQtl Plus 项目页面"
+
+msgid "クリップ: {}、レイヤー{}、フレーム{}から{}フレーム"
+msgstr "剪辑：{}，图层 {}，从第 {} 帧开始，持续 {} 帧"

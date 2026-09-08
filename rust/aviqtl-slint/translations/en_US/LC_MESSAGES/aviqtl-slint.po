@@ -459,3 +459,648 @@ msgstr "High quality (slow)"
 
 msgid "高速 (fast)"
 msgstr "Fast (fast)"
+
+msgid "上にレイヤーを挿入 (1行)"
+msgstr "Insert Layer Above (1 row)"
+
+msgid "下にレイヤーを挿入 (1行)"
+msgstr "Insert Layer Below (1 row)"
+
+msgid "複数レイヤーを挿入..."
+msgstr "Insert multiple layers..."
+
+msgid "このレイヤーの内容を1行下へ"
+msgstr "Move layer contents down by 1"
+
+msgid "このレイヤーの内容を1行上へ"
+msgstr "Move layer contents up by 1"
+
+msgid "範囲を指定してレイヤー移動..."
+msgstr "Move layers by range..."
+
+msgid "このレイヤーを非表示にする"
+msgstr "Hide this layer"
+
+msgid "このレイヤーを表示する"
+msgstr "Show this layer"
+
+msgid "このレイヤーのロックを解除"
+msgstr "Unlock this layer"
+
+msgid "このレイヤーをロックする"
+msgstr "Lock this layer"
+
+msgid "複数レイヤーを挿入"
+msgstr "Insert multiple layers"
+
+msgid "挿入するレイヤー数:"
+msgstr "Number of layers to insert:"
+
+msgid "挿入方向:"
+msgstr "Insertion direction:"
+
+msgid "選択レイヤーの上"
+msgstr "Above selected layer"
+
+msgid "選択レイヤーの下"
+msgstr "Below selected layer"
+
+msgid "このレイヤー以降をまとめて移動"
+msgstr "Move this layer and below together"
+
+msgid "対象レイヤーの範囲:"
+msgstr "Target layer range:"
+
+msgid "移動量 (行数):"
+msgstr "Move amount (rows):"
+
+msgid "方向:"
+msgstr "Direction:"
+
+msgid "上へ"
+msgstr "Up"
+
+msgid "下へ"
+msgstr "Down"
+
+msgid "不足しているメディアを管理"
+msgstr "Manage Missing Media"
+
+msgid "不足しているメディア"
+msgstr "Missing Media"
+
+msgid "不足しているメディアを置換"
+msgstr "Replace Missing Media"
+
+msgid "置換"
+msgstr "Replace"
+
+msgid "管理"
+msgstr "Manage"
+
+msgid "{} 個のメディアファイルが見つかりません"
+msgstr "{} missing media files"
+
+msgid "上書き保存"
+msgstr "Save"
+
+msgid "名前を付けて保存"
+msgstr "Save As"
+
+msgid "カット"
+msgstr "Cut"
+
+msgid "再生 / 一時停止"
+msgstr "Play / Pause"
+
+msgid "先頭へ移動"
+msgstr "Go to Start"
+
+msgid "末尾へ移動"
+msgstr "Go to End"
+
+msgid "ズームイン"
+msgstr "Zoom In"
+
+msgid "ズームアウト"
+msgstr "Zoom Out"
+
+msgid "クリップを分割"
+msgstr "Split Clip"
+
+msgid "レイヤーを上へ移動"
+msgstr "Move Layer Up"
+
+msgid "レイヤーを下へ移動"
+msgstr "Move Layer Down"
+
+msgid "1フレーム左へ移動"
+msgstr "Move Left 1 Frame"
+
+msgid "1フレーム右へ移動"
+msgstr "Move Right 1 Frame"
+
+msgid "現在のシーン設定"
+msgstr "Current Scene Settings"
+
+msgid "現在のシーンを削除"
+msgstr "Delete Current Scene"
+
+msgid "現在のレイヤーをロック/解除"
+msgstr "Lock/Unlock Current Layer"
+
+msgid "現在のレイヤーを表示/非表示"
+msgstr "Show/Hide Current Layer"
+
+msgid "一般"
+msgstr "General"
+
+msgid "性能"
+msgstr "Performance"
+
+msgid "外観"
+msgstr "Appearance"
+
+msgid "書き出し"
+msgstr "Export"
+
+msgid "デコードと音声"
+msgstr "Decode and Audio"
+
+msgid "プラグイン"
+msgstr "Plugins"
+
+msgid "ショートカット"
+msgstr "Shortcuts"
+
+msgid "最近使ったプロジェクトの保持数"
+msgstr "Number of recent projects to keep"
+
+msgid "回数を増やすとメモリ使用量が増えます"
+msgstr "Increasing this count increases memory usage"
+
+msgid "起動"
+msgstr "Startup"
+
+msgid "スプラッシュ画像サイズ"
+msgstr "Splash image size"
+
+msgid "メモリとキャッシュ"
+msgstr "Memory and Cache"
+
+msgid "最大画像サイズ"
+msgstr "Maximum image size"
+
+msgid "キャッシュ容量"
+msgstr "Cache capacity"
+
+msgid "Preview rendering"
+msgstr "Preview rendering"
+
+msgid "Render scale"
+msgstr "Render scale"
+
+msgid "Preview antialiasing"
+msgstr "Preview antialiasing"
+
+msgid "Disabled"
+msgstr "Disabled"
+
+msgid "Timeline baking"
+msgstr "Timeline baking"
+
+msgid "Strategy"
+msgstr "Strategy"
+
+msgid "On demand"
+msgstr "On demand"
+
+msgid "Bake all clips"
+msgstr "Bake all clips"
+
+msgid "Prefetch frames"
+msgstr "Prefetch frames"
+
+msgid "操作"
+msgstr "Controls"
+
+msgid "タイムラインスキミングを有効にする"
+msgstr "Enable timeline skimming"
+
+msgid "見た目と寸法"
+msgstr "Appearance and Dimensions"
+
+msgid "トラックの高さ"
+msgstr "Track height"
+
+msgid "ヘッダーの高さ"
+msgstr "Header height"
+
+msgid "設定サイドバーを右に配置"
+msgstr "Place settings sidebar on the right"
+
+msgid "ルーラーの高さ"
+msgstr "Ruler height"
+
+msgid "最大レイヤー数"
+msgstr "Maximum layer count"
+
+msgid "レイヤーヘッダー幅"
+msgstr "Layer header width"
+
+msgid "クリップ端のつかみ幅"
+msgstr "Clip edge handle width"
+
+msgid "編集制約とズーム"
+msgstr "Editing Constraints and Zoom"
+
+msgid "最小クリップ長"
+msgstr "Minimum clip length"
+
+msgid "ズーム最小値"
+msgstr "Minimum zoom value"
+
+msgid "ズーム最大値"
+msgstr "Maximum zoom value"
+
+msgid "ズーム刻み"
+msgstr "Zoom step"
+
+msgid "テーマ"
+msgstr "Theme"
+
+msgid "カラーテーマ"
+msgstr "Color theme"
+
+msgid "ダーク"
+msgstr "Dark"
+
+msgid "ライト"
+msgstr "Light"
+
+msgid "システムに従う"
+msgstr "Follow system"
+
+msgid "テーマの変更は「適用」または「OK」を押すとすぐに反映されます"
+msgstr "Theme changes take effect immediately after you click Apply or OK."
+
+msgid "既定値"
+msgstr "Defaults"
+
+msgid "幅"
+msgstr "Width"
+
+msgid "高さ"
+msgstr "Height"
+
+msgid "フレームレート"
+msgstr "Frame rate"
+
+msgid "総フレーム数"
+msgstr "Total frames"
+
+msgid "サンプリング周波数"
+msgstr "Sample rate"
+
+msgid "既定クリップ長"
+msgstr "Default clip length"
+
+msgid "既定の映像コーデック"
+msgstr "Default video codec"
+
+msgid "H.264 (VAAPI)"
+msgstr "H.264 (VAAPI)"
+
+msgid "HEVC (VAAPI)"
+msgstr "HEVC (VAAPI)"
+
+msgid "H.264 (CPU)"
+msgstr "H.264 (CPU)"
+
+msgid "既定ビットレート"
+msgstr "Default bitrate"
+
+msgid "既定CRF"
+msgstr "Default CRF"
+
+msgid "静止画品質"
+msgstr "Still image quality"
+
+msgid "連番桁数"
+msgstr "Sequence number digits"
+
+msgid "音声と進行表示"
+msgstr "Audio and Progress Display"
+
+msgid "既定の音声コーデック"
+msgstr "Default audio codec"
+
+msgid "音声ビットレート"
+msgstr "Audio bitrate"
+
+msgid "フレーム取得待ち時間"
+msgstr "Frame fetch wait time"
+
+msgid "進捗更新間隔"
+msgstr "Progress update interval"
+
+msgid "Encoder queue memory (MB)"
+msgstr "Encoder queue memory (MB)"
+
+msgid "映像デコード"
+msgstr "Video Decoding"
+
+msgid "インデックス予約数"
+msgstr "Reserved index count"
+
+msgid "最小キャッシュ量"
+msgstr "Minimum cache amount"
+
+msgid "ハードウェアフレームプール数"
+msgstr "Hardware frame pool count"
+
+msgid "プラグイン最大ブロックサイズ"
+msgstr "Maximum plugin block size"
+
+msgid "Lua フック間隔"
+msgstr "Lua hook interval"
+
+msgid "デコードと音声関連の設定は再起動後に反映されます"
+msgstr "Decode and audio settings take effect after restart"
+
+msgid "各形式ごとに有効化と検索パスを設定できます"
+msgstr "You can configure enablement and search paths for each format"
+
+msgid "Lua プラグイン"
+msgstr "Lua Plugins"
+
+msgid "ホットリロードを有効にする"
+msgstr "Enable Hot Reload"
+
+msgid "有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします"
+msgstr "When enabled, automatically reloads plugins when changes to the plugins folder are detected"
+
+msgid "{} を読み込む"
+msgstr "Load {}"
+
+msgid "検索パス"
+msgstr "Search Paths"
+
+msgid "1行に1パスを入力します"
+msgstr "Enter one path per line"
+
+msgid "キーボードショートカット"
+msgstr "Keyboard Shortcuts"
+
+msgid "「Ctrl+S」や「Alt+Shift+N」の形式で入力してください"
+msgstr "Enter shortcuts in a format such as “Ctrl+S” or “Alt+Shift+N”"
+
+msgid "未設定"
+msgstr "Not set"
+
+msgid " キーフレーム"
+msgstr " Keyframes"
+
+msgid "キーフレーム {}"
+msgstr "Keyframe {}"
+
+msgid "ドラッグしてキーフレームを移動"
+msgstr "Drag to move the keyframe"
+
+msgid "キーフレーム"
+msgstr "Keyframe"
+
+msgid "固定キーフレーム"
+msgstr "Fixed keyframe"
+
+msgid "選択した {} 件を削除"
+msgstr "Delete {} selected items"
+
+msgid "を有効にする"
+msgstr ": enabled"
+
+msgid "補間"
+msgstr "Interpolation"
+
+msgid "の先頭と末尾にキーフレームを作成"
+msgstr ": create keyframes at the start and end"
+
+msgid "を選択"
+msgstr ": select"
+
+msgid "の開始色を選択"
+msgstr ": select start color"
+
+msgid "の終了色を選択"
+msgstr ": select end color"
+
+msgid "シーンを閉じる"
+msgstr "Close scene"
+
+msgid "レイヤー {}"
+msgstr "Layer {}"
+
+msgid "表示、ロック中"
+msgstr "Visible, locked"
+
+msgid "表示、ロックなし"
+msgstr "Visible, unlocked"
+
+msgid "非表示、ロック中"
+msgstr "Hidden, locked"
+
+msgid "非表示、ロックなし"
+msgstr "Hidden, unlocked"
+
+msgid "プロジェクトを閉じる"
+msgstr "Close project"
+
+msgid "プロジェクト"
+msgstr "Project"
+
+msgid "タイムライン上の現在位置をドラッグして再生位置を変更します"
+msgstr "Drag to change playback position on the timeline"
+
+msgid "再生位置を1フレーム前に移動します"
+msgstr "Move playback position 1 frame back"
+
+msgid "再生を開始または一時停止します"
+msgstr "Start or pause playback"
+
+msgid "再生位置を1フレーム後に移動します"
+msgstr "Move playback position 1 frame forward"
+
+msgid "再生速度（パーセント）"
+msgstr "Playback speed (percent)"
+
+msgid " に保存されていない変更があります。\n続行する前に保存しますか？"
+msgstr " has unsaved changes.\nSave before continuing?"
+
+msgid "保存"
+msgstr "Save"
+
+msgid "破棄"
+msgstr "Discard"
+
+msgid "シーン"
+msgstr "Scene"
+
+msgid "タイムラインのズーム率"
+msgstr "Timeline zoom"
+
+msgid "ズーム率の一覧"
+msgstr "Zoom presets"
+
+msgid "レイヤー"
+msgstr "Layers"
+
+msgid "タイムライン編集領域"
+msgstr "Timeline editing area"
+
+msgid "一致する項目がありません"
+msgstr "No matching items"
+
+msgid "‹ 戻る"
+msgstr "‹ Back"
+
+msgid "オブジェクトを追加  ›"
+msgstr "Add Object  ›"
+
+msgid "エフェクトを追加  ›"
+msgstr "Add Effect  ›"
+
+msgid "オブジェクト一覧"
+msgstr "Object List"
+
+msgid "名前・カテゴリ・ID・パッケージを検索..."
+msgstr "Search name, category, ID, or package..."
+
+msgid " 件"
+msgstr " items"
+
+msgid "一致するオブジェクトがありません"
+msgstr "No matching objects"
+
+msgid " フレーム / "
+msgstr " frames / "
+
+msgid " 秒)"
+msgstr " sec)"
+
+msgid "書き出しをキャンセルしますか？\n進捗は失われます。"
+msgstr "Cancel the export?\nProgress will be lost."
+
+msgid "はい"
+msgstr "Yes"
+
+msgid "いいえ"
+msgstr "No"
+
+msgid "設定ダイアログ - "
+msgstr "Settings Dialog - "
+
+msgid "タイムラインでオブジェクトを選択してください"
+msgstr "Select an object on the timeline"
+
+msgid "オーディオプラグイン"
+msgstr "Audio Plugins"
+
+msgid "オブジェクト / エフェクト"
+msgstr "Object / Effect"
+
+msgid "オーディオプラグインはありません"
+msgstr "No audio plugins"
+
+msgid "設定項目がありません"
+msgstr "No settings available"
+
+msgid "+ オーディオプラグインを追加"
+msgstr "+ Add Audio Plugin"
+
+msgid "+ エフェクトを追加"
+msgstr "+ Add Effect"
+
+msgid "音声オブジェクト / プラグイン設定"
+msgstr "Audio Object / Plugin Settings"
+
+msgid "選択オブジェクトの設定"
+msgstr "Selected Object Settings"
+
+msgid "オーディオプラグインを追加"
+msgstr "Add Audio Plugin"
+
+msgid "フィルタ効果を追加"
+msgstr "Add Filter Effect"
+
+msgid "名前・ID・カテゴリ・形式を検索..."
+msgstr "Search name, ID, category, or format..."
+
+msgid "名前・ID・カテゴリを検索..."
+msgstr "Search name, ID, or category..."
+
+msgid "一致するエフェクトがありません"
+msgstr "No matching effects"
+
+msgid "現在: デフォルト"
+msgstr "Current: Default"
+
+msgid "現在: "
+msgstr "Current: "
+
+msgid "フォント名を検索..."
+msgstr "Search font names..."
+
+msgid "サンプル Sample 123"
+msgstr "Sample 123"
+
+msgid "一致するフォントがありません"
+msgstr "No matching fonts"
+
+msgid "補間設定: "
+msgstr "Interpolation Settings: "
+
+msgid "フレーム {}  ·  {}"
+msgstr "Frame {}  ·  {}"
+
+msgid "右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除"
+msgstr "Right drag: pan  Wheel: zoom  Left drag: handle  Double-click: add  Right-click: delete"
+
+msgid "更新間隔"
+msgstr "Update interval"
+
+msgid "周期"
+msgstr "Period"
+
+msgid "選択内容は対象キーフレームへ即時反映されます"
+msgstr "The selection is applied to the target keyframe immediately"
+
+msgid "一致する補間方法がありません"
+msgstr "No matching interpolation methods"
+
+msgid "アップデートあり: "
+msgstr "Update available: "
+
+msgid "インストール済み: "
+msgstr "Installed: "
+
+msgid "有効"
+msgstr "Enabled"
+
+msgid "権限管理: "
+msgstr "Permissions: "
+
+msgid "AviQtl Plus は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。"
+msgstr "AviQtl Plus is not AviUtl.\n\nThis software is released under the GNU Affero General Public License Version 3."
+
+msgid "未保存のプロジェクトを復元"
+msgstr "Recover unsaved projects"
+
+msgid "AviQtl は中断されたセッションの復元スナップショットを検出しました。復元すると新しい未保存プロジェクトとして開き、元のファイルを上書きすることはありません。"
+msgstr "AviQtl found recovery snapshots left by an interrupted session. Recovering opens a new unsaved project and never overwrites the original file."
+
+msgid "保存日時: {}"
+msgstr "Saved {}"
+
+msgid "無効な復元データ: {}"
+msgstr "Invalid recovery: {}"
+
+msgid "復元"
+msgstr "Recover"
+
+msgid "復元スナップショットを破棄"
+msgstr "Discard recovery snapshot"
+
+msgid "「{}」の復元スナップショットを破棄しますか？この操作は元に戻せません。"
+msgstr "Discard the recovery snapshot for “{}”? This cannot be undone."
+
+msgid "オブジェクトカタログを開く..."
+msgstr "Browse object catalog..."
+
+msgid "エフェクトカタログを開く..."
+msgstr "Browse effect catalog..."
+
+msgid "AviQtl Plus プロジェクトページ"
+msgstr "AviQtl Plus project page"
+
+msgid "クリップ: {}、レイヤー{}、フレーム{}から{}フレーム"
+msgstr "Clip: {}, layer {}, starts at frame {} for {} frames"
