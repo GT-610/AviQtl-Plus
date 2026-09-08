@@ -107,7 +107,6 @@ class VideoDecoder : public AviQtl::Core::MediaDecoder {
     std::atomic<quint64> m_requestGeneration{0};
     QVideoFrame m_lastGoodFrame; ///< MLT-style last valid frame for error concealment
     std::atomic<bool> m_closing{false};
-    std::atomic<bool> m_isPlaying{false};
 
     std::vector<GopCacheBlock> m_gopCache;
     qsizetype m_gopCacheCost = 0;
