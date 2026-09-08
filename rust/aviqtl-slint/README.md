@@ -5,6 +5,14 @@ existing operation model, not an AviUtl2-inspired redesign. An experienced AviQt
 to keep the same window, menu, mouse-button, modifier-key, selection, dialog, and close-confirmation
 workflow. Theme styling may change independently.
 
+The completed behavior migration is followed by a native-presentation pass. Qt remains the source
+of truth for commands, ownership, selection, editing, and confirmation semantics, but it is no
+longer a pixel-layout template. Custom Slint surfaces derive their colors and spacing from the
+active standard-widget style, use platform selection and focus colors, keep tabs content-sized,
+and give toolbars, status bars, cards, and modal surfaces enough room for the host platform. This
+avoids forcing Qt-specific density and visual hierarchy onto Slint while preserving the workflows
+that existing users rely on.
+
 ## Architecture
 
 The Slint frontend is intentionally thin:
@@ -93,6 +101,11 @@ encoding.
 - Do not move business rules into `.slint` files. Slint forwards intent; `aviqtl-app` commits state.
 - Keep long-lived `VecModel` instances and update rows in place. Replacing a model during a pointer
   callback can destroy the delegate that owns an active drag or native context menu.
+- Prefer the active Slint `Palette` and `StyleMetrics` for custom surfaces. Add a semantic token to
+  `AppTheme` when an editor-specific color is needed instead of scattering platform-independent
+  literals through the UI.
+- Let tabs size to their content, use standard widgets for ordinary form controls, and reserve
+  custom pointer surfaces for editor interactions that standard widgets cannot express.
 - Assign explicit geometry to small overlay hit regions such as resize handles; implicit placement
   is not accepted for timeline input surfaces.
 - Treat `QT_UI_PARITY.md` as the acceptance gate. Compile success and a visually plausible mockup do

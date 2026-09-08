@@ -1,4 +1,4 @@
-import { Button, CheckBox, ComboBox, GroupBox, LineEdit, Palette, ProgressIndicator, RadioGroup, ScrollView, Slider, SpinBox, TextEdit } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, Palette, ProgressIndicator, RadioGroup, ScrollView, Slider, SpinBox, StyleMetrics, TextEdit } from "std-widgets.slint";
 
 export global AppTheme {
     // 0 = dark, 1 = light, 2 = follow the operating system.
@@ -8,16 +8,39 @@ export global AppTheme {
         : preference-index == 1
             ? false
             : Palette.color-scheme == ColorScheme.dark;
-    out property <brush> window-background: dark ? #181a20 : #f4f5f7;
-    out property <brush> panel-background: dark ? #252a32 : #ffffff;
-    out property <brush> raised-background: dark ? #2b3038 : #eef0f3;
-    out property <brush> control-background: dark ? #343943 : #e3e6eb;
-    out property <brush> hover-background: dark ? #3a3f49 : #d9dee6;
-    out property <brush> selection-background: dark ? #385d8c : #c8ddfa;
-    out property <brush> foreground: dark ? #f2f3f5 : #20242b;
-    out property <brush> muted-foreground: dark ? #aeb3bc : #646b78;
-    out property <brush> border: dark ? #4b515d : #bcc2cc;
-    out property <brush> accent: dark ? #70a6ef : #2468b4;
+    // Follow Slint's platform style instead of maintaining a second, Qt-shaped
+    // palette. Custom editor surfaces use the same colors as native widgets.
+    out property <brush> window-background: Palette.background;
+    out property <brush> panel-background: Palette.alternate-background;
+    out property <brush> raised-background: Palette.control-background;
+    out property <brush> control-background: Palette.control-background;
+    out property <brush> hover-background: Palette.accent-background.transparentize(dark ? 0.82 : 0.9);
+    out property <brush> selection-background: Palette.selection-background;
+    out property <brush> foreground: Palette.foreground;
+    out property <brush> muted-foreground: Palette.foreground.transparentize(0.42);
+    out property <brush> border: Palette.border;
+    out property <brush> subtle-border: Palette.border.transparentize(0.38);
+    out property <brush> accent: Palette.accent-background;
+    out property <brush> accent-foreground: Palette.accent-foreground;
+    out property <brush> canvas-background: dark ? #08090c : #111317;
+    out property <brush> scrim: #00000073;
+    out property <brush> warning: dark ? #f3c56f : #9b5b00;
+    out property <brush> danger: dark ? #ff8a92 : #c42b35;
+    out property <brush> success: dark ? #7fd49a : #218739;
+    out property <brush> clip: dark ? #477fbd : #3d78b6;
+    out property <brush> clip-hover: dark ? #548dca : #4b86c3;
+    out property <brush> clip-selected: Palette.accent-background;
+
+    out property <length> spacing-xs: max(4px, StyleMetrics.layout-spacing / 2);
+    out property <length> spacing-sm: StyleMetrics.layout-spacing;
+    out property <length> spacing-md: StyleMetrics.layout-padding;
+    out property <length> spacing-lg: StyleMetrics.layout-padding + StyleMetrics.layout-spacing / 2;
+    out property <length> spacing-xl: StyleMetrics.layout-padding * 2;
+    out property <length> control-radius: 6px;
+    out property <length> surface-radius: 10px;
+    out property <length> compact-control-height: 30px;
+    out property <length> toolbar-height: 46px;
+    out property <length> status-height: 24px;
 
     changed preference-index => {
         Palette.color-scheme = preference-index == 0
@@ -406,6 +429,8 @@ component EffectSidebarEntry inherits Rectangle {
     background: root.effect.selected ? AppTheme.selection-background : effect-touch.has-hover ? AppTheme.hover-background : transparent;
     border-width: root.effect.selected ? 1px : 0px;
     border-color: AppTheme.accent;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 120ms; }
 
     effect-menu := ContextMenuArea {
         Menu {
@@ -627,7 +652,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Rectangle { horizontal-stretch: 1; }
-        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
     if root.row-data.row-kind == "number" && root.row-data.source-kind == "slider" : HorizontalLayout {
@@ -731,7 +756,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
-        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
     if root.row-data.row-kind == "number" && root.row-data.source-kind != "slider" : HorizontalLayout {
@@ -787,7 +812,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
-        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
     if root.row-data.row-kind == "integer" : HorizontalLayout {
@@ -843,7 +868,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
-        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
     if root.row-data.row-kind == "choice" : HorizontalLayout {
@@ -867,7 +892,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Rectangle { horizontal-stretch: 1; }
-        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
     if root.row-data.row-kind == "text" : HorizontalLayout {
@@ -889,7 +914,7 @@ component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: top; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: top; }
     }
 
     if root.row-data.row-kind == "path" : HorizontalLayout {
@@ -1076,7 +1101,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Rectangle { horizontal-stretch: 1; }
-        if root.row-data.keyframed : Text { text: "KF"; color: #d9af5f; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
     if root.row-data.row-kind == "keyframes" : KeyframeTrack {
@@ -1103,22 +1128,52 @@ component ObjectSettingRow inherits Rectangle {
     }
 }
 
+component TabCloseButton inherits Rectangle {
+    in property <string> accessible-name;
+    callback clicked();
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background: close-touch.has-hover ? AppTheme.hover-background : transparent;
+    animate background { duration: 150ms; }
+
+    Text {
+        text: "×";
+        color: close-touch.has-hover ? AppTheme.foreground : AppTheme.muted-foreground;
+        font-size: 1rem;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    close-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.accessible-name;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+    }
+}
+
 component SceneTab inherits Rectangle {
     in property <SceneTabData> scene;
     callback activate(int);
     callback close(int);
     callback settings(int);
-    preferred-width: 140px;
-    min-width: 100px;
-    height: 28px;
-    background: root.scene.selected ? AppTheme.selection-background : scene-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
+    preferred-width: 148px;
+    min-width: 108px;
+    max-width: 220px;
+    horizontal-stretch: 0;
+    height: 32px;
+    background: root.scene.selected ? AppTheme.panel-background : scene-touch.has-hover ? AppTheme.hover-background : transparent;
     border-width: root.scene.selected ? 1px : 0px;
-    border-color: AppTheme.accent;
+    border-color: AppTheme.subtle-border;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 150ms; }
 
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 4px;
-        spacing: 4px;
+        padding-left: AppTheme.spacing-md;
+        padding-right: AppTheme.spacing-xs;
+        spacing: AppTheme.spacing-xs;
         Text {
             text: root.scene.name;
             color: AppTheme.foreground;
@@ -1126,10 +1181,8 @@ component SceneTab inherits Rectangle {
             horizontal-stretch: 1;
             overflow: elide;
         }
-        if !root.scene.root : Button {
-            text: "×";
-            width: 24px;
-            accessible-label: @tr("シーンを閉じる");
+        if !root.scene.root : TabCloseButton {
+            accessible-name: @tr("シーンを閉じる");
             clicked => { root.close(root.scene.id); }
         }
     }
@@ -1160,6 +1213,7 @@ component LayerHeaderItem inherits Rectangle {
     height: 30px;
     background: root.layer.selected ? AppTheme.selection-background : header-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
     border-width: 0px;
+    animate background { duration: 120ms; }
 
     HorizontalLayout {
         padding-left: 5px;
@@ -1167,7 +1221,7 @@ component LayerHeaderItem inherits Rectangle {
         spacing: 4px;
         Text {
             text: root.layer.visible ? "●" : "○";
-            color: root.layer.visible ? #8fcf94 : AppTheme.muted-foreground;
+            color: root.layer.visible ? AppTheme.success : AppTheme.muted-foreground;
             vertical-alignment: center;
         }
         Text {
@@ -1179,7 +1233,7 @@ component LayerHeaderItem inherits Rectangle {
         }
         Text {
             text: root.layer.locked ? "L" : "";
-            color: #e2ba68;
+            color: AppTheme.warning;
             vertical-alignment: center;
         }
     }
@@ -1226,7 +1280,7 @@ component LayerHeaderItem inherits Rectangle {
         y: parent.height - 1px;
         width: 100%;
         height: 1px;
-        background: AppTheme.control-background;
+        background: AppTheme.subtle-border;
     }
 }
 
@@ -1235,8 +1289,9 @@ component TimelineContextRow inherits Rectangle {
     in property <bool> enabled: true;
     callback activated();
     height: 30px;
-    border-radius: 3px;
+    border-radius: AppTheme.control-radius;
     background: !root.enabled ? transparent : row-touch.has-hover ? AppTheme.hover-background : transparent;
+    animate background { duration: 120ms; }
 
     Text {
         x: 9px;
@@ -1288,10 +1343,11 @@ component TimelineClipItem inherits Rectangle {
                 ? max(root.width + root.drag-x, 8px)
                 : root.width;
         height: root.height;
-        border-radius: 2px;
-        background: root.clip-data.primary ? #4f86d5 : root.clip-data.selected ? #668dca : clip-touch.has-hover ? #7197cf : #6081b1;
+        border-radius: AppTheme.control-radius;
+        background: root.clip-data.primary ? AppTheme.clip-selected : root.clip-data.selected ? AppTheme.clip-selected : clip-touch.has-hover ? AppTheme.clip-hover : AppTheme.clip;
         border-width: root.clip-data.primary ? 2px : root.clip-data.selected ? 1px : 0px;
-        border-color: #b9d4ff;
+        border-color: AppTheme.accent-foreground;
+        animate background { duration: 120ms; }
         HorizontalLayout {
             padding-left: 7px;
             padding-right: 7px;
@@ -1485,17 +1541,21 @@ component ProjectTab inherits Rectangle {
     in property <length> tab-height: 28px;
     callback activate();
     callback close();
-    preferred-width: 150px;
-    min-width: 110px;
+    preferred-width: 158px;
+    min-width: 112px;
+    max-width: 240px;
+    horizontal-stretch: 0;
     height: root.tab-height;
-    background: root.selected ? AppTheme.selection-background : tab-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
+    background: root.selected ? AppTheme.panel-background : tab-touch.has-hover ? AppTheme.hover-background : transparent;
     border-width: root.selected ? 1px : 0px;
-    border-color: AppTheme.accent;
+    border-color: AppTheme.subtle-border;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 150ms; }
 
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 4px;
-        spacing: 4px;
+        padding-left: AppTheme.spacing-md;
+        padding-right: AppTheme.spacing-xs;
+        spacing: AppTheme.spacing-xs;
         Text {
             text: root.label;
             color: AppTheme.foreground;
@@ -1503,10 +1563,8 @@ component ProjectTab inherits Rectangle {
             horizontal-stretch: 1;
             overflow: elide;
         }
-        close-button := Button {
-            text: "×";
-            width: 24px;
-            accessible-label: @tr("プロジェクトを閉じる");
+        close-button := TabCloseButton {
+            accessible-name: @tr("プロジェクトを閉じる");
             clicked => { root.close(); }
         }
     }
@@ -1550,7 +1608,7 @@ export component ProjectRecoveryWindow inherits Window {
         }
         if root.error-message != "" : Text {
             text: root.error-message;
-            color: #f2c078;
+            color: AppTheme.warning;
             font-weight: 700;
             wrap: word-wrap;
         }
@@ -1587,7 +1645,7 @@ export component ProjectRecoveryWindow inherits Window {
                                 text: recovery.valid
                                     ? @tr("保存日時: {}", recovery.saved-at)
                                     : @tr("無効な復元データ: {}", recovery.error);
-                                color: recovery.valid ? AppTheme.muted-foreground : #f2c078;
+                                color: recovery.valid ? AppTheme.muted-foreground : AppTheme.warning;
                                 overflow: elide;
                             }
                             Text {
@@ -1631,7 +1689,7 @@ export component ProjectRecoveryWindow inherits Window {
         z: 1000;
         width: 100%;
         height: 100%;
-        background: #00000088;
+        background: AppTheme.scrim;
 
         TouchArea { }
 
@@ -1692,6 +1750,7 @@ export component ProjectLauncherWindow inherits Window {
     preferred-height: 500px;
     min-width: 620px;
     min-height: 420px;
+    background: AppTheme.window-background;
 
     in-out property <string> default-width: "1920";
     in-out property <string> default-height: "1080";
@@ -1701,26 +1760,35 @@ export component ProjectLauncherWindow inherits Window {
     callback open-project();
 
     HorizontalLayout {
-        padding: 20px;
-        spacing: 20px;
+        padding: AppTheme.spacing-xl;
+        spacing: AppTheme.spacing-xl;
 
         VerticalLayout {
-            preferred-width: 300px;
-            spacing: 15px;
-            Text { text: @tr("新規プロジェクト"); font-size: 1.35rem; font-weight: 700; }
+            min-width: 280px;
+            horizontal-stretch: 1;
+            spacing: AppTheme.spacing-md;
+            Text {
+                text: @tr("新規プロジェクト");
+                color: AppTheme.foreground;
+                font-size: 1.2rem;
+                font-weight: 600;
+            }
             GroupBox {
                 title: @tr("プロジェクト設定");
+                height: 220px;
+                vertical-stretch: 0;
                 GridLayout {
-                    padding: 10px;
-                    spacing: 10px;
-                    Row { Text { text: @tr("幅 (横):"); } width-field := LineEdit { text <=> root.default-width; accessible-label: @tr("幅 (横):"); } }
-                    Row { Text { text: @tr("高さ (縦):"); } height-field := LineEdit { text <=> root.default-height; accessible-label: @tr("高さ (縦):"); } }
-                    Row { Text { text: @tr("フレームレート (FPS):"); } fps-field := LineEdit { text <=> root.default-fps; accessible-label: @tr("フレームレート (FPS):"); } }
-                    Row { Text { text: @tr("サンプリングレート:"); } sample-rate-field := LineEdit { text <=> root.default-sample-rate; accessible-label: @tr("サンプリングレート:"); } }
+                    padding: AppTheme.spacing-md;
+                    spacing: AppTheme.spacing-sm;
+                    Row { Text { text: @tr("幅 (横):"); color: AppTheme.muted-foreground; vertical-alignment: center; } width-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-width; accessible-label: @tr("幅 (横):"); } }
+                    Row { Text { text: @tr("高さ (縦):"); color: AppTheme.muted-foreground; vertical-alignment: center; } height-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-height; accessible-label: @tr("高さ (縦):"); } }
+                    Row { Text { text: @tr("フレームレート (FPS):"); color: AppTheme.muted-foreground; vertical-alignment: center; } fps-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-fps; accessible-label: @tr("フレームレート (FPS):"); } }
+                    Row { Text { text: @tr("サンプリングレート:"); color: AppTheme.muted-foreground; vertical-alignment: center; } sample-rate-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-sample-rate; accessible-label: @tr("サンプリングレート:"); } }
                 }
             }
             create-button := Button {
                 text: @tr("新規プロジェクトを作成");
+                primary: true;
                 accessible-label: @tr("新規プロジェクトを作成");
                 clicked => {
                     root.create-project(width-field.text, height-field.text, fps-field.text, sample-rate-field.text);
@@ -1730,15 +1798,24 @@ export component ProjectLauncherWindow inherits Window {
         }
 
         VerticalLayout {
-            spacing: 15px;
-            Text { text: @tr("最近使ったプロジェクト"); font-size: 1.35rem; font-weight: 700; }
+            min-width: 240px;
+            horizontal-stretch: 1;
+            spacing: AppTheme.spacing-md;
+            Text {
+                text: @tr("最近使ったプロジェクト");
+                color: AppTheme.foreground;
+                font-size: 1.2rem;
+                font-weight: 600;
+            }
             Rectangle {
                 vertical-stretch: 1;
+                background: AppTheme.panel-background;
                 border-width: 1px;
-                border-color: AppTheme.border;
+                border-color: AppTheme.subtle-border;
+                border-radius: AppTheme.surface-radius;
                 Text {
                     text: @tr("最近使ったプロジェクトはありません");
-                    opacity: 0.65;
+                    color: AppTheme.muted-foreground;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -1863,26 +1940,29 @@ export component MainWindow inherits Window {
         VerticalLayout {
             spacing: 0px;
             Rectangle {
-            height: root.project-tab-height * 1px;
-            background: AppTheme.panel-background;
+            height: max(root.project-tab-height * 1px, 32px) + AppTheme.spacing-xs;
+            background: AppTheme.raised-background;
             HorizontalLayout {
-                spacing: 0px;
+                padding-left: AppTheme.spacing-xs;
+                padding-right: AppTheme.spacing-xs;
+                padding-top: AppTheme.spacing-xs;
+                spacing: AppTheme.spacing-xs;
                 accessible-role: tab-list;
                 accessible-label: @tr("プロジェクト");
                 for tab[index] in root.project-tabs: ProjectTab {
                     label: tab.name + (tab.dirty ? " *" : "");
                     selected: root.current-project == index;
-                    tab-height: root.project-tab-height * 1px;
+                    tab-height: max(root.project-tab-height * 1px, 32px);
                     activate => { root.select-project(index); }
                     close => { root.close-project(index); }
                 }
-                Button { text: "+"; width: 38px; accessible-label: @tr("新規プロジェクト"); clicked => { root.new-project(); } }
+                Button { text: "+"; width: 34px; accessible-label: @tr("新規プロジェクト"); clicked => { root.new-project(); } }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
             Rectangle {
             vertical-stretch: 1;
-            background: #050506;
+            background: AppTheme.canvas-background;
             Image {
                 source: root.preview-image;
                 image-fit: contain;
@@ -1891,12 +1971,14 @@ export component MainWindow inherits Window {
             }
         }
             Rectangle {
-            height: 40px;
+            height: AppTheme.toolbar-height;
             background: AppTheme.panel-background;
             HorizontalLayout {
-                padding-left: 10px;
-                padding-right: 10px;
-                spacing: 8px;
+                padding-left: AppTheme.spacing-md;
+                padding-right: AppTheme.spacing-md;
+                padding-top: AppTheme.spacing-sm;
+                padding-bottom: AppTheme.spacing-sm;
+                spacing: AppTheme.spacing-sm;
                 seek-slider := Slider {
                     value: root.playhead;
                     minimum: 0;
@@ -1907,11 +1989,12 @@ export component MainWindow inherits Window {
                     changed => { root.seek(self.value); }
                 }
                 Text { text: round(root.playhead) + " / " + round(root.duration); font-family: "Monospace"; vertical-alignment: center; }
-                Button { text: "◀"; accessible-label: @tr("1フレーム戻る"); accessible-description: @tr("再生位置を1フレーム前に移動します"); clicked => { root.previous-frame(); } }
-                Button { text: root.playing ? "Ⅱ" : "▶"; accessible-label: root.playing ? @tr("一時停止") : @tr("再生"); accessible-description: @tr("再生を開始または一時停止します"); clicked => { root.toggle-playback(); } }
-                Button { text: "▶|"; accessible-label: @tr("1フレーム進む"); accessible-description: @tr("再生位置を1フレーム後に移動します"); clicked => { root.next-frame(); } }
+                Button { text: "◀"; width: 34px; accessible-label: @tr("1フレーム戻る"); accessible-description: @tr("再生位置を1フレーム前に移動します"); clicked => { root.previous-frame(); } }
+                Button { text: root.playing ? "Ⅱ" : "▶"; width: 38px; primary: root.playing; accessible-label: root.playing ? @tr("一時停止") : @tr("再生"); accessible-description: @tr("再生を開始または一時停止します"); clicked => { root.toggle-playback(); } }
+                Button { text: "▶|"; width: 34px; accessible-label: @tr("1フレーム進む"); accessible-description: @tr("再生位置を1フレーム後に移動します"); clicked => { root.next-frame(); } }
                 Text { text: @tr("速度"); vertical-alignment: center; }
                 SpinBox {
+                    width: 88px;
                     value <=> root.playback-speed-percent;
                     minimum: 10;
                     maximum: 400;
@@ -1924,9 +2007,10 @@ export component MainWindow inherits Window {
             }
         }
             Rectangle {
-            height: 22px;
-            background: AppTheme.raised-background;
-            Text { text: root.status-text; x: 8px; vertical-alignment: center; color: AppTheme.muted-foreground; font-size: 0.82rem; }
+            height: AppTheme.status-height;
+            background: AppTheme.window-background;
+            Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: AppTheme.subtle-border; }
+            Text { text: root.status-text; x: AppTheme.spacing-sm; vertical-alignment: center; color: AppTheme.muted-foreground; font-size: 0.78rem; }
             }
         }
     }
@@ -2047,7 +2131,7 @@ export component MainWindow inherits Window {
         z: 1000;
         width: 100%;
         height: 100%;
-        background: #00000088;
+        background: AppTheme.scrim;
 
         TouchArea { }
 
@@ -2424,26 +2508,35 @@ export component TimelineWindow inherits Window {
         VerticalLayout {
             spacing: 0px;
             Rectangle {
-            height: root.timeline-header-height * 1px;
+            height: max(root.timeline-header-height * 1px, 32px) + AppTheme.spacing-xs;
             background: AppTheme.raised-background;
             HorizontalLayout {
-                spacing: 0px;
+                padding-left: AppTheme.spacing-xs;
+                padding-right: AppTheme.spacing-xs;
+                padding-top: AppTheme.spacing-xs;
+                spacing: AppTheme.spacing-xs;
                 accessible-role: tab-list;
                 accessible-label: @tr("シーン");
                 for scene in root.scene-tabs: SceneTab {
                     scene: scene;
-                    height: root.timeline-header-height * 1px;
+                    height: max(root.timeline-header-height * 1px, 32px);
                     activate(scene-id) => { root.scene-selected(scene-id); }
                     settings(scene-id) => { root.scene-settings(scene-id); }
                     close(scene-id) => { root.scene-closed(scene-id); }
                 }
-                Button { text: "+"; width: 40px; accessible-label: @tr("新規シーン作成"); clicked => { root.show-scene-settings(); } }
+                Button { text: "+"; width: 34px; accessible-label: @tr("新規シーン作成"); clicked => { root.show-scene-settings(); } }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
             Rectangle {
             height: root.timeline-ruler-height * 1px;
-            background: AppTheme.control-background;
+            background: AppTheme.panel-background;
+            Rectangle {
+                y: parent.height - 1px;
+                width: 100%;
+                height: 1px;
+                background: AppTheme.subtle-border;
+            }
             zoom-menu := ContextMenuArea {
                 x: 0px;
                 y: 0px;
@@ -2462,6 +2555,9 @@ export component TimelineWindow inherits Window {
                 }
                 Rectangle {
                     background: AppTheme.raised-background;
+                    border-width: 1px;
+                    border-color: AppTheme.subtle-border;
+                    border-radius: AppTheme.control-radius;
                     zoom-field := LineEdit {
                         x: 0px;
                         width: 43px;
@@ -2480,7 +2576,7 @@ export component TimelineWindow inherits Window {
                         x: 43px;
                         width: 17px;
                         height: 100%;
-                        background: zoom-button.has-hover ? AppTheme.hover-background : AppTheme.control-background;
+                        background: zoom-button.has-hover ? AppTheme.hover-background : transparent;
                         Text { text: "▾"; horizontal-alignment: center; vertical-alignment: center; }
                         zoom-button := TouchArea {
                             accessible-role: button;
@@ -2502,7 +2598,7 @@ export component TimelineWindow inherits Window {
                     x: tick * 60 * root.pixels-per-frame * 1px;
                     width: 1px;
                     height: 100%;
-                    background: AppTheme.border;
+                    background: AppTheme.subtle-border;
                     Text {
                         x: 4px;
                         text: tick * 60;
@@ -2710,7 +2806,7 @@ export component TimelineWindow inherits Window {
                     y: row * root.timeline-track-height * 1px;
                     width: 100%;
                     height: 1px;
-                    background: AppTheme.border;
+                    background: AppTheme.subtle-border;
                 }
                 for clip in root.clips: TimelineClipItem {
                     x: clip.start * root.pixels-per-frame * 1px;
@@ -2768,27 +2864,27 @@ export component TimelineWindow inherits Window {
                     y: min(root.box-start-layer, root.box-current-layer) * root.timeline-track-height * 1px;
                     width: max(abs(root.box-current-frame - root.box-start-frame) * root.pixels-per-frame * 1px, 1px);
                     height: max((abs(root.box-current-layer - root.box-start-layer) + 1) * root.timeline-track-height * 1px, 1px);
-                    background: #4b82ca44;
+                    background: AppTheme.selection-background;
                     border-width: 1px;
-                    border-color: #7aafefff;
+                    border-color: AppTheme.accent;
                 }
                 if root.skimmer-visible : Rectangle {
                     x: root.skimmer-frame * root.pixels-per-frame * 1px;
                     width: 1px;
                     height: 100%;
-                    background: #ff5a3dd9;
+                    background: AppTheme.danger;
                 }
                 if root.file-drop-active : Rectangle {
                     x: -root.shared-viewport-x;
                     y: -root.shared-viewport-y;
                     width: timeline-scroll.visible-width;
                     height: timeline-scroll.visible-height;
-                    background: #4b82ca26;
+                    background: AppTheme.hover-background;
                     border-width: 1px;
-                    border-color: #7aafefff;
+                    border-color: AppTheme.accent;
                     Text {
                         text: @tr("ここにドロップ");
-                        color: #dceaff;
+                        color: AppTheme.foreground;
                         font-size: 1.1rem;
                         font-weight: 700;
                         horizontal-alignment: center;
@@ -2799,11 +2895,16 @@ export component TimelineWindow inherits Window {
                     x: root.playhead * root.pixels-per-frame * 1px;
                     width: 2px;
                     height: 100%;
-                    background: #e74f61;
+                    background: AppTheme.danger;
                 }
             }
         }
-            Rectangle { height: 22px; background: AppTheme.panel-background; Text { text: root.action-status; x: 8px; color: AppTheme.foreground; vertical-alignment: center; font-size: 0.82rem; } }
+            Rectangle {
+                height: AppTheme.status-height;
+                background: AppTheme.window-background;
+                Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: AppTheme.subtle-border; }
+                Text { text: root.action-status; x: AppTheme.spacing-sm; color: AppTheme.muted-foreground; vertical-alignment: center; font-size: 0.78rem; }
+            }
         }
     }
 
@@ -2820,7 +2921,7 @@ export component TimelineWindow inherits Window {
                 reject
             }
         }
-        Rectangle { background: #00000088; TouchArea { } }
+        Rectangle { background: AppTheme.scrim; TouchArea { } }
         Rectangle {
             width: min(parent.width - 32px, 430px);
             height: 240px;
@@ -2894,7 +2995,7 @@ export component TimelineWindow inherits Window {
                 reject
             }
         }
-        Rectangle { background: #00000088; TouchArea { } }
+        Rectangle { background: AppTheme.scrim; TouchArea { } }
         Rectangle {
             width: min(parent.width - 32px, 470px);
             height: 330px;
@@ -3208,8 +3309,9 @@ export component TimelineWindow inherits Window {
                             border-width: 1px;
                             border-color: index == root.object-catalog-selected-index
                                 ? AppTheme.accent
-                                : AppTheme.border;
-                            border-radius: 4px;
+                                : AppTheme.subtle-border;
+                            border-radius: AppTheme.control-radius;
+                            animate background { duration: 120ms; }
                             VerticalLayout {
                                 padding: 8px;
                                 spacing: 2px;
@@ -3391,7 +3493,7 @@ export component ExportWindow inherits Window {
                             Text { text: root.crf.round(); preferred-width: 28px; vertical-alignment: center; }
                             Text {
                                 text: root.crf <= 17 ? @tr("高品質") : root.crf <= 28 ? @tr("標準") : @tr("低品質");
-                                color: root.crf <= 17 ? #76dba4 : root.crf <= 28 ? AppTheme.muted-foreground : #ff9ca8;
+                                color: root.crf <= 17 ? AppTheme.success : root.crf <= 28 ? AppTheme.muted-foreground : AppTheme.danger;
                                 vertical-alignment: center;
                             }
                         }
@@ -3494,7 +3596,7 @@ export component ExportWindow inherits Window {
         z: 1000;
         width: 100%;
         height: 100%;
-        background: #000000bf;
+        background: AppTheme.scrim;
         TouchArea { }
         Rectangle {
             width: min(parent.width * 0.7, 430px);
@@ -3519,7 +3621,7 @@ export component ExportWindow inherits Window {
         z: 1100;
         width: 100%;
         height: 100%;
-        background: #00000088;
+        background: AppTheme.scrim;
         TouchArea { }
         Rectangle {
             width: 330px;
@@ -3549,7 +3651,7 @@ export component ExportWindow inherits Window {
         z: 1200;
         width: 100%;
         height: 100%;
-        background: #00000088;
+        background: AppTheme.scrim;
         TouchArea { }
         Rectangle {
             width: min(parent.width - 32px, 450px);
@@ -3743,11 +3845,12 @@ component SystemSettingSpinRow inherits HorizontalLayout {
     in property <int> maximum: 100;
     in property <int> step-size: 1;
     in property <bool> interactive: true;
-    spacing: 10px;
+    spacing: AppTheme.spacing-md;
     opacity: root.interactive ? 1 : 0.5;
     Text {
         text: root.label;
-        width: 260px;
+        width: 240px;
+        color: AppTheme.muted-foreground;
         vertical-alignment: center;
         overflow: elide;
     }
@@ -3766,10 +3869,11 @@ component SystemSettingComboRow inherits HorizontalLayout {
     in property <string> label;
     in property <[string]> choices;
     in-out property <int> current-index;
-    spacing: 10px;
+    spacing: AppTheme.spacing-md;
     Text {
         text: root.label;
-        width: 260px;
+        width: 240px;
+        color: AppTheme.muted-foreground;
         vertical-alignment: center;
         overflow: elide;
     }
@@ -3786,10 +3890,11 @@ component SystemSettingLineRow inherits HorizontalLayout {
     in property <string> value;
     in property <string> placeholder;
     callback commit(string);
-    spacing: 10px;
+    spacing: AppTheme.spacing-md;
     Text {
         text: root.label;
-        width: 260px;
+        width: 240px;
+        color: AppTheme.muted-foreground;
         vertical-alignment: center;
         overflow: elide;
     }
@@ -3802,11 +3907,49 @@ component SystemSettingLineRow inherits HorizontalLayout {
     }
 }
 
+component SystemSettingsNavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback activated();
+    height: 38px;
+    background: root.selected ? AppTheme.selection-background : nav-touch.has-hover ? AppTheme.hover-background : transparent;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 150ms; }
+
+    if root.selected : Rectangle {
+        x: 3px;
+        y: (parent.height - self.height) / 2;
+        width: 3px;
+        height: 20px;
+        background: AppTheme.accent;
+        border-radius: 2px;
+    }
+    Text {
+        x: AppTheme.spacing-lg;
+        width: parent.width - self.x - AppTheme.spacing-sm;
+        text: root.label;
+        color: AppTheme.foreground;
+        font-weight: root.selected ? 600 : 400;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    nav-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: tab;
+        accessible-label: root.label;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.selected;
+        accessible-action-default => { root.activated(); }
+        clicked => { root.activated(); }
+    }
+}
+
 export component SystemSettingsWindow inherits Window {
     title: @tr("環境設定");
-    preferred-width: 760px;
+    preferred-width: 960px;
     preferred-height: 680px;
-    min-width: 620px;
+    min-width: 760px;
     min-height: 520px;
 
     in-out property <int> tab-index: 0;
@@ -3905,26 +4048,38 @@ export component SystemSettingsWindow inherits Window {
     }
 
     VerticalLayout {
-        padding: 12px;
-        spacing: 10px;
+        padding: AppTheme.spacing-md;
+        spacing: AppTheme.spacing-md;
         HorizontalLayout {
-            spacing: 4px;
-            accessible-role: tab-list;
-            accessible-label: @tr("環境設定");
-            for tab-label[index] in [
-                @tr("一般"), @tr("性能"), @tr("タイムライン"), @tr("外観"),
-                @tr("新規プロジェクト"), @tr("書き出し"), @tr("デコードと音声"),
-                @tr("プラグイン"), @tr("ショートカット")
-            ] : Button {
-                text: tab-label;
-                primary: root.tab-index == index;
-                accessible-role: tab;
-                accessible-item-selected: root.tab-index == index;
-                accessible-label: tab-label;
-                horizontal-stretch: 1;
-                clicked => { root.tab-index = index; }
+            vertical-stretch: 1;
+            spacing: AppTheme.spacing-md;
+
+            Rectangle {
+                width: 180px;
+                background: AppTheme.panel-background;
+                border-width: 1px;
+                border-color: AppTheme.subtle-border;
+                border-radius: AppTheme.surface-radius;
+                VerticalLayout {
+                    padding: AppTheme.spacing-sm;
+                    spacing: AppTheme.spacing-xs;
+                    accessible-role: tab-list;
+                    accessible-label: @tr("環境設定");
+                    for tab-label[index] in [
+                        @tr("一般"), @tr("性能"), @tr("タイムライン"), @tr("外観"),
+                        @tr("新規プロジェクト"), @tr("書き出し"), @tr("デコードと音声"),
+                        @tr("プラグイン"), @tr("ショートカット")
+                    ] : SystemSettingsNavItem {
+                        label: tab-label;
+                        selected: root.tab-index == index;
+                        activated => { root.tab-index = index; }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                }
             }
-        }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
 
         if root.tab-index == 0 : ScrollView {
             vertical-stretch: 1;
@@ -4235,16 +4390,19 @@ export component SystemSettingsWindow inherits Window {
                 }
             }
         }
+            }
+        }
 
         Rectangle {
-            height: 52px;
-            border-width: 1px;
-            border-color: AppTheme.border;
+            height: 54px;
+            background: AppTheme.panel-background;
+            Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: AppTheme.subtle-border; }
             HorizontalLayout {
-                padding: 8px;
-                spacing: 8px;
+                padding: AppTheme.spacing-sm;
+                spacing: AppTheme.spacing-sm;
                 Text {
                     text: @tr("設定は「適用」または「OK」で保存されます");
+                    color: AppTheme.muted-foreground;
                     vertical-alignment: center;
                     horizontal-stretch: 1;
                     overflow: elide;
@@ -4253,6 +4411,7 @@ export component SystemSettingsWindow inherits Window {
                 Button { text: @tr("適用"); clicked => { root.apply-settings(); } }
                 Button {
                     text: "OK";
+                    primary: true;
                     clicked => {
                         if root.apply-settings() {
                             root.close-window();
@@ -4500,7 +4659,7 @@ export component ObjectSettingsWindow inherits Window {
 
     if root.effect-picker-visible : Rectangle {
         z: 100;
-        background: #99000000;
+        background: AppTheme.scrim;
         TouchArea { clicked => { root.effect-picker-visible = false; } }
         picker-panel := Rectangle {
             width: min(parent.width - 48px, 560px);
@@ -4571,7 +4730,7 @@ export component ObjectSettingsWindow inherits Window {
 
     if root.preset-save-visible : Rectangle {
         z: 110;
-        background: #99000000;
+        background: AppTheme.scrim;
         TouchArea { clicked => { root.preset-save-visible = false; } }
         Rectangle {
             width: min(parent.width - 48px, 420px);
@@ -4615,7 +4774,7 @@ export component ObjectSettingsWindow inherits Window {
     }
     if root.color-picker-visible : Rectangle {
         z: 120;
-        background: #99000000;
+        background: AppTheme.scrim;
         TouchArea { clicked => { root.color-picker-visible = false; } }
         Rectangle {
             width: min(parent.width - 48px, 460px);
@@ -4716,7 +4875,7 @@ export component ObjectSettingsWindow inherits Window {
     }
     if root.font-picker-visible : Rectangle {
         z: 130;
-        background: #99000000;
+        background: AppTheme.scrim;
         TouchArea { clicked => { root.font-picker-visible = false; } }
         Rectangle {
             width: min(parent.width - 48px, 540px);
@@ -5010,7 +5169,7 @@ export component EasingConfigWindow inherits Window {
                 background: handle.anchor ? AppTheme.accent : AppTheme.foreground;
                 border-radius: self.width / 2;
                 border-width: handle.removable ? 2px : 1px;
-                border-color: handle.removable ? #e0ad5d : AppTheme.border;
+                border-color: handle.removable ? AppTheme.warning : AppTheme.border;
             }
             preview-input := TouchArea {
                 mouse-cursor: root.pan-active || root.drag-point-index >= 0 ? move : pointer;
@@ -5239,9 +5398,10 @@ export component EasingConfigWindow inherits Window {
                                 : item.easing-index == root.selected-easing-index
                                     ? AppTheme.selection-background
                                     : catalog-touch.has-hover ? AppTheme.hover-background : AppTheme.raised-background;
-                            border-width: item.header ? 0px : item.easing-index == root.selected-easing-index ? 2px : 1px;
-                            border-color: item.easing-index == root.selected-easing-index ? AppTheme.accent : AppTheme.border;
-                            border-radius: item.header ? 0px : 4px;
+                            border-width: item.header ? 0px : 1px;
+                            border-color: item.easing-index == root.selected-easing-index ? AppTheme.accent : AppTheme.subtle-border;
+                            border-radius: item.header ? 0px : AppTheme.control-radius;
+                            animate background { duration: 120ms; }
                             if item.header : Text {
                                 text: item.label;
                                 color: AppTheme.muted-foreground;
@@ -5329,11 +5489,11 @@ component PackageListRow inherits Rectangle {
     height: max(content.preferred-height + 20px, 86px);
     background: AppTheme.panel-background;
     border-width: 1px;
-    border-color: AppTheme.border;
-    border-radius: 5px;
+    border-color: AppTheme.subtle-border;
+    border-radius: AppTheme.surface-radius;
     content := VerticalLayout {
-        padding: 10px;
-        spacing: 5px;
+        padding: AppTheme.spacing-md;
+        spacing: AppTheme.spacing-xs;
         HorizontalLayout {
             spacing: 8px;
             Text {
@@ -5341,8 +5501,8 @@ component PackageListRow inherits Rectangle {
                     ? root.package-data.id
                     : root.package-data.display-name;
                 color: AppTheme.foreground;
-                font-size: 14px;
-                font-weight: 700;
+                font-size: 1rem;
+                font-weight: 600;
                 overflow: elide;
                 horizontal-stretch: 1;
             }
@@ -5351,14 +5511,14 @@ component PackageListRow inherits Rectangle {
                     ? root.package-data.latest-version
                     : root.package-data.version;
                 color: AppTheme.muted-foreground;
-                font-size: 10px;
+                font-size: 0.75rem;
                 vertical-alignment: center;
             }
         }
         if root.package-data.description != "" : Text {
             text: root.package-data.description;
             color: AppTheme.muted-foreground;
-            font-size: 12px;
+            font-size: 0.85rem;
             wrap: word-wrap;
         }
         HorizontalLayout {
@@ -5366,7 +5526,7 @@ component PackageListRow inherits Rectangle {
             Text {
                 text: root.package-data.author == "" ? "" : "Author: " + root.package-data.author;
                 color: AppTheme.muted-foreground;
-                font-size: 11px;
+                font-size: 0.78rem;
                 visible: root.package-data.author != "";
                 horizontal-stretch: 1;
                 vertical-alignment: center;
@@ -5376,7 +5536,7 @@ component PackageListRow inherits Rectangle {
                     ? @tr("アップデートあり: ") + root.package-data.latest-version
                     : @tr("インストール済み: ") + root.package-data.installed-version;
                 color: root.package-data.has-update ? AppTheme.accent : AppTheme.muted-foreground;
-                font-size: 11px;
+                font-size: 0.78rem;
                 visible: root.package-data.installed-version != "";
                 vertical-alignment: center;
             }
@@ -5409,9 +5569,9 @@ component PackageListRow inherits Rectangle {
 
 export component PackageManagerWindow inherits Window {
     title: @tr("パッケージマネージャー");
-    preferred-width: 650px;
-    preferred-height: 450px;
-    min-width: 650px;
+    preferred-width: 760px;
+    preferred-height: 520px;
+    min-width: 660px;
     min-height: 450px;
     background: AppTheme.window-background;
 
@@ -5441,10 +5601,10 @@ export component PackageManagerWindow inherits Window {
     callback dismiss-update();
 
     VerticalLayout {
-        padding: 12px;
-        spacing: 8px;
+        padding: AppTheme.spacing-lg;
+        spacing: AppTheme.spacing-md;
         HorizontalLayout {
-            spacing: 4px;
+            spacing: AppTheme.spacing-xs;
             for tab[index] in [@tr("エフェクト"), @tr("オブジェクト"), "MOD", @tr("インストール済み"), @tr("アプリケーション"), @tr("リポジトリ")] : Button {
                 text: tab;
                 min-width: 0px;
@@ -5458,7 +5618,7 @@ export component PackageManagerWindow inherits Window {
             }
         }
         if root.tab-index < 5 : HorizontalLayout {
-            spacing: 8px;
+            spacing: AppTheme.spacing-sm;
             LineEdit {
                 text <=> root.search-query;
                 placeholder-text: @tr("検索...");
@@ -5475,7 +5635,7 @@ export component PackageManagerWindow inherits Window {
         if root.tab-index < 5 : ScrollView {
             vertical-stretch: 1;
             VerticalLayout {
-                spacing: 8px;
+                spacing: AppTheme.spacing-sm;
                 for package in root.packages : PackageListRow {
                     package-data: package;
                     busy: root.busy;
@@ -5523,8 +5683,8 @@ export component PackageManagerWindow inherits Window {
                             height: 48px;
                             background: AppTheme.panel-background;
                             border-width: 1px;
-                            border-color: AppTheme.border;
-                            border-radius: 4px;
+                            border-color: AppTheme.subtle-border;
+                            border-radius: AppTheme.control-radius;
                             HorizontalLayout {
                                 padding: 6px;
                                 spacing: 8px;
@@ -5592,7 +5752,7 @@ export component PackageManagerWindow inherits Window {
     }
 
     if root.error-message != "" : Rectangle {
-        background: #c0181a20;
+        background: AppTheme.scrim;
         VerticalLayout {
             alignment: center;
             HorizontalLayout {
@@ -5602,7 +5762,7 @@ export component PackageManagerWindow inherits Window {
                     height: error-content.preferred-height + 28px;
                     background: AppTheme.panel-background;
                     border-width: 1px;
-                    border-color: #c55b5b;
+                    border-color: AppTheme.danger;
                     border-radius: 6px;
                     error-content := VerticalLayout {
                         padding: 14px;
@@ -5620,7 +5780,7 @@ export component PackageManagerWindow inherits Window {
     }
 
     if root.update-message != "" : Rectangle {
-        background: #c0181a20;
+        background: AppTheme.scrim;
         VerticalLayout {
             alignment: center;
             HorizontalLayout {
@@ -5681,8 +5841,9 @@ export component PluginPermissionWindow inherits Window {
                     height: 60px;
                     background: permission-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
                     border-width: 1px;
-                    border-color: AppTheme.border;
-                    border-radius: 4px;
+                    border-color: AppTheme.subtle-border;
+                    border-radius: AppTheme.control-radius;
+                    animate background { duration: 120ms; }
                     permission-touch := TouchArea {
                         enabled: true;
                         mouse-cursor: pointer;

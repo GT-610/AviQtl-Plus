@@ -4,6 +4,11 @@ The Slint GUI is accepted only when an existing Qt user can operate it without r
 editor. Colors, typography, and widget decoration may differ. Commands, mouse buttons, modifier
 keys, selection rules, window ownership, dialog order, and confirmation behavior may not.
 
+This is a behavior gate, not a pixel-parity specification. After behavior parity was established,
+the Slint presentation deliberately moved to the active platform palette and spacing metrics.
+Content-sized tabs, roomier toolbars and forms, softer card hierarchy, and responsive window sizes
+are expected differences when they do not change command meaning or interaction ownership.
+
 This checklist is adapted from the egui migration's completed behavior research. Qt/QML remains the
 behavioral source of truth. The status column was reset for the Slint frontend; an egui result is
 evidence and reusable test coverage, not automatic Slint parity.
@@ -77,7 +82,7 @@ still require the separately scheduled Computer Use suite.
   restart. The MOD permission window preserves Qt's 13 permission rows, All Allow/All Deny,
   Cancel/OK behavior, and shared-settings persistence. Automated tests cover partial repository
   synchronization, install/remove, unsafe archives, rollback, and preservation of other plugins'
-  grants. Native macOS CUA now covers the 650x450 six-tab layout, search editing and clearing,
+  grants. Native macOS CUA covers the responsive six-tab layout, search editing and clearing,
   live repository synchronization, the non-destructive repository controls, all 13 permission rows,
   All Allow/All Deny, and Cancel without persistence.
 - The preview no longer uses the animated validation placeholder. A GUI-neutral `aviqtl-preview`
