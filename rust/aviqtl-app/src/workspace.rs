@@ -83,6 +83,7 @@ pub struct WorkspaceModel {
     redo: Vec<TimelineTransaction>,
     clip_clipboard: Vec<ClipDocument>,
     undo_limit: usize,
+    undo_group_start: Option<usize>,
     document_revision: u64,
     status: String,
 }
@@ -101,6 +102,7 @@ impl WorkspaceModel {
             redo: Vec::new(),
             clip_clipboard: Vec::new(),
             undo_limit: DEFAULT_UNDO_LIMIT,
+            undo_group_start: None,
             document_revision: 0,
             status: "Ready".to_owned(),
         }
@@ -1552,6 +1554,34 @@ impl WorkspaceModel {
         }
     }
 
+    pub fn begin_undo_group(&mut self) -> bool {
+        if self.undo_group_start.is_some() {
+            return false;
+        }
+        self.undo_group_start = Some(self.undo.len());
+        true
+    }
+
+    pub fn end_undo_group(&mut self) -> bool {
+        let Some(start) = self.undo_group_start.take() else {
+            return false;
+        };
+        if self.undo.len() <= start + 1 {
+            return self.undo.len() > start;
+        }
+        let transactions = self.undo.drain(start..).collect();
+        match TimelineTransaction::combine(transactions) {
+            Ok(transaction) => {
+                self.undo.push(transaction);
+                true
+            }
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
+    }
+
     pub fn undo(&mut self) -> bool {
         let Some(transaction) = self.undo.pop() else {
             return false;
@@ -1788,6 +1818,185 @@ impl WorkspaceModel {
         } else {
             false
         }
+    }
+
+    fn find_clip_in_selected_scene(&self, clip_id: i32) -> Option<ClipDocument> {
+        self.project
+            .document
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id && clip.scene_id == self.selected_scene)
+            .cloned()
+    }
+
+    pub fn remove_clip(&mut self, clip_id: i32) -> bool {
+        if self.find_clip_in_selected_scene(clip_id).is_none() {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        }
+        self.execute(TimelineCommand::RemoveClip { clip_id })
+    }
+
+    pub fn update_clip_geometry(
+        &mut self,
+        clip_id: i32,
+        layer: i32,
+        start: i32,
+        duration: i32,
+    ) -> bool {
+        if self.find_clip_in_selected_scene(clip_id).is_none() {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        }
+        self.execute(TimelineCommand::UpdateClipGeometry {
+            clip_id,
+            layer,
+            start,
+            duration,
+        })
+    }
+
+    pub fn split_clip(&mut self, clip_id: i32, frame: i32) -> bool {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        };
+        if frame <= clip.start || frame >= clip.start.saturating_add(clip.duration) {
+            self.status = "Split frame is outside the clip".to_owned();
+            return false;
+        }
+        let new_clip_id = match self.project.state.reserve_clip_ids(1) {
+            Ok(ids) => ids[0],
+            Err(error) => {
+                self.status = error.to_string();
+                return false;
+            }
+        };
+        self.execute(TimelineCommand::SplitClip {
+            clip_id,
+            frame,
+            new_clip_id,
+        })
+    }
+
+    pub fn copy_clip(&mut self, clip_id: i32) -> bool {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            return false;
+        };
+        self.clip_clipboard = vec![clip];
+        self.status = "Copied 1 clip(s)".to_owned();
+        true
+    }
+
+    pub fn cut_clip(&mut self, clip_id: i32) -> bool {
+        if !self.copy_clip(clip_id) {
+            return false;
+        }
+        if self.execute(TimelineCommand::RemoveClip { clip_id }) {
+            self.status = "Cut 1 clip(s)".to_owned();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn add_effect_to_clip(
+        &mut self,
+        clip_id: i32,
+        catalog: &EffectCatalog,
+        effect_id: &str,
+    ) -> bool {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        };
+        let Some(effect) = catalog.effect_document(effect_id) else {
+            self.status = format!("Effect {effect_id} is not available");
+            return false;
+        };
+        let name = effect.name.clone();
+        if self.execute(TimelineCommand::InsertEffects {
+            clip_id,
+            insertions: vec![EffectInsertion {
+                index: clip.effects.len(),
+                effect,
+            }],
+        }) {
+            self.status = format!("Added effect {name}");
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn remove_effect_from_clip(&mut self, clip_id: i32, effect_index: usize) -> bool {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        };
+        let transform_first = clip
+            .effects
+            .first()
+            .is_some_and(|effect| effect.id == "transform");
+        if effect_index >= clip.effects.len() || (transform_first && effect_index == 0) {
+            self.status = format!("Effect {effect_index} does not exist");
+            return false;
+        }
+        self.execute(TimelineCommand::RemoveEffects {
+            clip_id,
+            effect_indices: vec![effect_index],
+        })
+    }
+
+    pub fn set_effect_param_for_clip(
+        &mut self,
+        clip_id: i32,
+        effect_index: usize,
+        param_name: &str,
+        value: Value,
+    ) -> bool {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        };
+        let Some(effect) = clip.effects.get(effect_index) else {
+            self.status = format!("Effect {effect_index} does not exist");
+            return false;
+        };
+        let Some(original) = effect.params.get(param_name) else {
+            self.status = format!("Parameter {param_name} does not exist");
+            return false;
+        };
+        let value = replace_value_payload(original, value);
+        let frame = self
+            .playhead
+            .saturating_sub(clip.start)
+            .clamp(0, clip.duration.max(0));
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        let command = if track.is_some() {
+            let points = inspect_keyframe_track(track, original, clip.duration);
+            let options = keyframe_options_at(&points, frame, "linear");
+            TimelineCommand::SetEffectKeyframe {
+                clip_id,
+                effect_index,
+                param_name: param_name.to_owned(),
+                frame,
+                value,
+                options,
+            }
+        } else {
+            TimelineCommand::SetEffectParameter {
+                clip_id,
+                effect_index,
+                param_name: param_name.to_owned(),
+                value,
+                media_duration_seconds: None,
+            }
+        };
+        self.execute(command)
     }
 
     pub fn paste_clips_at(

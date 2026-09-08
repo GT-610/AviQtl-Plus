@@ -1182,7 +1182,9 @@ fn transaction(forward: Vec<PatchOperation>, inverse: Vec<PatchOperation>) -> Tr
     }
 }
 
-fn combine_transactions(transactions: Vec<Transaction>) -> Result<Transaction, StateError> {
+pub(crate) fn combine_transactions(
+    transactions: Vec<Transaction>,
+) -> Result<Transaction, StateError> {
     if transactions.is_empty()
         || transactions.iter().any(|transaction| {
             transaction.forward.operations.is_empty() || transaction.inverse.operations.is_empty()

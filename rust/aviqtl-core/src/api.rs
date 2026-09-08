@@ -701,6 +701,21 @@ pub struct TimelineTransaction {
     inner: Transaction,
 }
 
+impl TimelineTransaction {
+    /// Combines already-applied transactions into one undo entry.
+    pub fn combine(
+        transactions: Vec<TimelineTransaction>,
+    ) -> Result<TimelineTransaction, TimelineError> {
+        let inner = crate::timeline_state::combine_transactions(
+            transactions
+                .into_iter()
+                .map(|transaction| transaction.inner)
+                .collect(),
+        )?;
+        Ok(Self { inner })
+    }
+}
+
 /// Rust-owned authoritative project and timeline state.
 #[derive(Debug, Clone)]
 pub struct TimelineState {
