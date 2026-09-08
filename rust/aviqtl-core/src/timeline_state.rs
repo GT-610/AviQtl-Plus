@@ -804,22 +804,6 @@ impl TimelineState {
         combine_transactions(transactions)
     }
 
-    pub(crate) fn plan_value(&self, request: Value) -> Result<Transaction, StateError> {
-        let request = serde_json::from_value(request).map_err(|_| StateError::InvalidJson)?;
-        self.plan(request)
-    }
-
-    pub(crate) fn plan_batch_values(
-        &self,
-        requests: Vec<Value>,
-    ) -> Result<Transaction, StateError> {
-        let requests = requests
-            .into_iter()
-            .map(|request| serde_json::from_value(request).map_err(|_| StateError::InvalidJson))
-            .collect::<Result<Vec<_>, _>>()?;
-        self.plan_batch(requests)
-    }
-
     fn plan_split(
         &self,
         clip_id: i32,

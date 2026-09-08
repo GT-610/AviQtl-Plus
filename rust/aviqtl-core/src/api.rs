@@ -146,11 +146,6 @@ impl PackageCatalog {
         );
     }
 
-    /// Returns the normalized package list in catalog order.
-    pub fn packages(&self) -> Vec<Value> {
-        self.catalog.iter().cloned().map(Value::Object).collect()
-    }
-
     /// Returns one Qt-compatible package category or the installed projection.
     pub fn packages_by_type(&self, package_type: &str) -> Vec<Value> {
         crate::package::filter_catalog(&self.catalog, package_type)
@@ -340,13 +335,6 @@ pub fn inspect_keyframe_track(
             options: point.options,
         })
         .collect()
-}
-
-/// Returns normalized keyframe frames for lightweight timeline marker rendering.
-pub fn keyframe_track_frames(track: Option<&Value>, duration: i32) -> Vec<i32> {
-    track.map_or_else(Vec::new, |track| {
-        crate::keyframe_document::track_frames(track, duration)
-    })
 }
 
 /// Evaluates a persisted keyframe track at a clip-relative frame.
@@ -685,15 +673,6 @@ impl From<StateError> for TimelineError {
     }
 }
 
-/// Selects which half of a reversible transaction is applied.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ApplyDirection {
-    /// Apply the planned edit.
-    Forward,
-    /// Apply the inverse patch and restore the preceding state.
-    Undo,
-}
-
 /// An opaque reversible edit produced by [`TimelineState::plan`] or
 /// [`TimelineState::plan_batch`].
 #[derive(Debug, Clone, PartialEq)]
@@ -765,40 +744,18 @@ impl TimelineState {
         Ok(TimelineTransaction { inner })
     }
 
-    /// Plans a JSON edit request used by compatibility adapters.
-    pub fn plan_json(&self, request: Value) -> Result<TimelineTransaction, TimelineError> {
-        let inner = self.inner.plan_value(request)?;
-        Ok(TimelineTransaction { inner })
-    }
-
-    /// Plans a batch of JSON edit requests used by compatibility adapters.
-    pub fn plan_batch_json(
-        &self,
-        requests: Vec<Value>,
-    ) -> Result<TimelineTransaction, TimelineError> {
-        let inner = self.inner.plan_batch_values(requests)?;
-        Ok(TimelineTransaction { inner })
-    }
-
-    /// Applies either the forward or inverse half of a transaction atomically.
-    pub fn apply_transaction(
-        &mut self,
-        transaction: &TimelineTransaction,
-        direction: ApplyDirection,
-    ) -> Result<(), TimelineError> {
-        self.inner
-            .apply_transaction(&transaction.inner, direction == ApplyDirection::Forward)
-            .map_err(Into::into)
-    }
-
     /// Applies a planned edit.
     pub fn apply(&mut self, transaction: &TimelineTransaction) -> Result<(), TimelineError> {
-        self.apply_transaction(transaction, ApplyDirection::Forward)
+        self.inner
+            .apply_transaction(&transaction.inner, true)
+            .map_err(Into::into)
     }
 
     /// Applies a transaction's inverse patch.
     pub fn undo(&mut self, transaction: &TimelineTransaction) -> Result<(), TimelineError> {
-        self.apply_transaction(transaction, ApplyDirection::Undo)
+        self.inner
+            .apply_transaction(&transaction.inner, false)
+            .map_err(Into::into)
     }
 
     /// Reserves clip IDs that do not collide with the current document.

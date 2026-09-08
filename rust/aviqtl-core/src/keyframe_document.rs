@@ -417,29 +417,6 @@ pub(crate) fn inspect_track(
         .collect()
 }
 
-pub(crate) fn track_frames(track: &Value, duration: i32) -> Vec<i32> {
-    let duration = duration.max(1);
-    let points = if is_structured(track) {
-        track
-            .as_object()
-            .and_then(|track| track.get("points"))
-            .and_then(Value::as_array)
-    } else {
-        track.as_array()
-    };
-    let mut frames = vec![0];
-    frames.extend(
-        points
-            .into_iter()
-            .flatten()
-            .map(point_frame)
-            .filter(|frame| *frame > 0 && *frame <= duration),
-    );
-    frames.sort_unstable();
-    frames.dedup();
-    frames
-}
-
 pub(crate) fn evaluate_document_track(
     track: &Value,
     fallback: &Value,

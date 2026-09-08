@@ -1,10 +1,10 @@
 use aviqtl_rust_core::api::{
-    ApplyDirection, ExportImageFormat, ImageSequenceExportRequest, PluginPermission,
+    ExportImageFormat, ImageSequenceExportRequest, PluginPermission,
     PluginPermissionState, ScriptPluginIdentity, ScriptPluginValidationStatus, SettingsState,
     TimelineCommand, TimelineError, TimelineState, VideoExportRequest, audio_plugin_categories,
     audio_plugins_in_category, build_effect_preset, deduplicate_audio_plugins,
     evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track,
-    inspect_script_metadata, keyframe_interpolation_names, keyframe_track_frames,
+    inspect_script_metadata, keyframe_interpolation_names,
     parse_audio_plugin_discovery_output, parse_effect_metadata, parse_effect_preset,
     parse_script_plugin_manifest, plan_clip_delta_move, plan_clip_resize, plan_effect_reorder,
     plan_export_audio_frame, plan_export_progress, plan_image_sequence_export, plan_video_export,
@@ -73,17 +73,13 @@ fn public_api_batches_edits_and_keeps_transactions_opaque() {
         ])
         .expect("batch plans");
 
-    state
-        .apply_transaction(&transaction, ApplyDirection::Forward)
-        .expect("batch applies");
+    state.apply(&transaction).expect("batch applies");
     let edited = state.snapshot();
     assert_eq!(edited.clips[0].layer, 2);
     assert_eq!(edited.clips[0].start, 8);
     assert!(edited.clips[0].clip_by_upper_object);
 
-    state
-        .apply_transaction(&transaction, ApplyDirection::Undo)
-        .expect("batch undoes");
+    state.undo(&transaction).expect("batch undoes");
     assert_eq!(state.snapshot().clips[0].start, 0);
 }
 
@@ -132,8 +128,16 @@ fn public_api_allocates_ids_and_reports_schema_errors() {
         [2, 3]
     );
     assert_eq!(
-        state.plan_json(json!({"operation": "unknown"})),
-        Err(TimelineError::InvalidJson)
+        state
+            .plan(TimelineCommand::UpdateClipGeometry {
+                clip_id: 999,
+                layer: 0,
+                start: 0,
+                duration: 10,
+            })
+            .map(|_| ())
+            .map_err(|error| error),
+        Err(TimelineError::InvalidArgument)
     );
 }
 
@@ -202,8 +206,6 @@ fn public_api_inspects_and_evaluates_keyframe_tracks() {
         points[2].options["points"].as_array().map(Vec::len),
         Some(6)
     );
-    assert_eq!(keyframe_track_frames(Some(&track), 20), [0, 10, 20]);
-    assert!(keyframe_track_frames(None, 20).is_empty());
     assert_eq!(
         evaluate_keyframe_track(Some(&track), &fallback, 20, 5),
         json!(5.0)
