@@ -17,25 +17,13 @@ use std::time::{Instant, SystemTime};
 const MAX_PLUGIN_SCRIPT_BYTES: u64 = 8 * 1024 * 1024;
 const HOT_RELOAD_POLL_MS: u64 = 500;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ModTickOutcome {
     pub applied_commands: usize,
     pub diagnostics: Vec<String>,
     pub model_changed: bool,
     pub settings_changed: bool,
     pub reloaded: bool,
-}
-
-impl Default for ModTickOutcome {
-    fn default() -> Self {
-        Self {
-            applied_commands: 0,
-            diagnostics: Vec::new(),
-            model_changed: false,
-            settings_changed: false,
-            reloaded: false,
-        }
-    }
 }
 
 struct LoadedPlugin {
@@ -180,10 +168,10 @@ impl ModHost {
                         watched.insert((candidate.path.clone(), mtime));
                     }
                     // Manifest files also participate in hot reload.
-                    if let Some(manifest_path) = candidate.manifest_path {
-                        if let Some(mtime) = file_mtime(&manifest_path) {
-                            watched.insert((manifest_path, mtime));
-                        }
+                    if let Some(manifest_path) = candidate.manifest_path
+                        && let Some(mtime) = file_mtime(&manifest_path)
+                    {
+                        watched.insert((manifest_path, mtime));
                     }
                     self.plugins.push(LoadedPlugin {
                         id: manifest.id.clone(),
@@ -343,14 +331,14 @@ impl ModHost {
             self.last_project_key = Some(current_key.clone());
             self.last_clips_signature = current_signature;
             self.last_dirty = dirty;
-            if current_key.0.is_some() {
-                if let Some(path) = current_key.1.clone() {
-                    self.dispatch_hook_for_all(
-                        ScriptHook::ProjectOpen(path.display().to_string()),
-                        model,
-                        settings,
-                    );
-                }
+            if current_key.0.is_some()
+                && let Some(path) = current_key.1.clone()
+            {
+                self.dispatch_hook_for_all(
+                    ScriptHook::ProjectOpen(path.display().to_string()),
+                    model,
+                    settings,
+                );
             }
         } else {
             let previous = self.last_project_key.clone().unwrap_or_default();
@@ -779,19 +767,19 @@ fn apply_command(
             eprintln!("[{plugin_id}] {message}");
         }
         ScriptHostCommand::TransportPlay => {
-            if let Some(workspace) = model.current_workspace_mut() {
-                if !workspace.is_playing() {
-                    workspace.toggle_playback();
-                    effects.model_changed = true;
-                }
+            if let Some(workspace) = model.current_workspace_mut()
+                && !workspace.is_playing()
+            {
+                workspace.toggle_playback();
+                effects.model_changed = true;
             }
         }
         ScriptHostCommand::TransportPause => {
-            if let Some(workspace) = model.current_workspace_mut() {
-                if workspace.is_playing() {
-                    workspace.pause_playback();
-                    effects.model_changed = true;
-                }
+            if let Some(workspace) = model.current_workspace_mut()
+                && workspace.is_playing()
+            {
+                workspace.pause_playback();
+                effects.model_changed = true;
             }
         }
         ScriptHostCommand::TransportToggle => {
@@ -938,18 +926,14 @@ fn apply_command(
             if path.trim().is_empty() {
                 return Err("project save path is empty".to_owned());
             }
-            if let Err(error) = workspace.project_mut().save_as(Path::new(&path)) {
-                return Err(error);
-            }
+            workspace.project_mut().save_as(Path::new(&path))?;
             effects.model_changed = true;
         }
         ScriptHostCommand::ProjectLoad(path) => {
             if path.trim().is_empty() {
                 return Err("project load path is empty".to_owned());
             }
-            if let Err(error) = model.open_project(Path::new(&path)) {
-                return Err(error);
-            }
+            model.open_project(Path::new(&path))?;
             effects.model_changed = true;
         }
         ScriptHostCommand::Undo => {
