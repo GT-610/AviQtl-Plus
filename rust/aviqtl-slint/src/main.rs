@@ -33,6 +33,7 @@ use slint::{
     CloseRequestResponse, Color, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode,
     VecModel,
 };
+use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -43,6 +44,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 slint::include_modules!();
+include!(concat!(env!("OUT_DIR"), "/effect_metadata_translations.rs"));
 
 const VIDEO_CODECS: [(&str, &str); 14] = [
     ("H.264 – libx264 (SW)", "libx264"),
@@ -64,13 +66,14 @@ const AUDIO_CODECS: [(&str, &str); 5] = [
     ("AAC", "aac"),
     ("Opus", "libopus"),
     ("MP3", "libmp3lame"),
-    ("FLAC (可逆)", "flac"),
+    ("FLAC (Lossless)", "flac"),
     ("PCM 16-bit", "pcm_s16le"),
 ];
 const PRESET_VALUES: [&str; 5] = ["ultrafast", "fast", "medium", "slow", "veryslow"];
 const PROFILE_VALUES: [&str; 4] = ["", "baseline", "main", "high"];
 const AUDIO_BITRATES: [i32; 5] = [96, 128, 192, 256, 320];
 const SYSTEM_THEME_VALUES: [&str; 3] = ["Dark", "Light", "System"];
+const SYSTEM_UI_LANGUAGE_VALUES: [&str; 4] = ["System", "English", "SimplifiedChinese", "Japanese"];
 const SYSTEM_PREVIEW_RENDER_SCALES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];
 const SYSTEM_PREVIEW_MSAA_SAMPLES: [i32; 4] = [0, 2, 4, 8];
 const SYSTEM_BAKE_STRATEGIES: [&str; 2] = ["OnDemand", "FullBake"];
@@ -117,9 +120,9 @@ const SYSTEM_SHORTCUT_ROWS: [(&str, &str); 34] = [
     ("timeline.layerHide", "Ctrl+H"),
 ];
 const EASING_CATEGORIES: [(&str, &[&str]); 5] = [
-    ("基本", &["none", "linear"]),
+    ("Basic", &["none", "linear"]),
     (
-        "標準カーブ",
+        "Standard curves",
         &[
             "ease_in_sine",
             "ease_out_sine",
@@ -136,7 +139,7 @@ const EASING_CATEGORIES: [(&str, &[&str]); 5] = [
         ],
     ),
     (
-        "強いカーブ",
+        "Strong curves",
         &[
             "ease_in_quart",
             "ease_out_quart",
@@ -157,7 +160,7 @@ const EASING_CATEGORIES: [(&str, &[&str]); 5] = [
         ],
     ),
     (
-        "反動と弾性",
+        "Bounce and elasticity",
         &[
             "ease_in_back",
             "ease_out_back",
@@ -173,8 +176,69 @@ const EASING_CATEGORIES: [(&str, &[&str]); 5] = [
             "ease_out_in_bounce",
         ],
     ),
-    ("特殊", &["random", "alternate", "custom"]),
+    ("Special", &["random", "alternate", "custom"]),
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UiLanguage {
+    English,
+    SimplifiedChinese,
+    Japanese,
+}
+
+impl UiLanguage {
+    fn slint_locale(self) -> &'static str {
+        match self {
+            Self::English => "en",
+            Self::SimplifiedChinese => "zh_CN",
+            Self::Japanese => "ja_JP",
+        }
+    }
+}
+
+thread_local! {
+    static CURRENT_UI_LANGUAGE: Cell<UiLanguage> = const { Cell::new(UiLanguage::English) };
+}
+
+fn localized(
+    english: &'static str,
+    simplified_chinese: &'static str,
+    japanese: &'static str,
+) -> &'static str {
+    match current_ui_language() {
+        UiLanguage::English => english,
+        UiLanguage::SimplifiedChinese => simplified_chinese,
+        UiLanguage::Japanese => japanese,
+    }
+}
+
+fn current_ui_language() -> UiLanguage {
+    CURRENT_UI_LANGUAGE.with(|language| language.get())
+}
+
+fn localized_effect_metadata(value: &str) -> Cow<'_, str> {
+    let catalog = CURRENT_UI_LANGUAGE.with(|language| match language.get() {
+        UiLanguage::English => Some(EFFECT_METADATA_ENGLISH),
+        UiLanguage::SimplifiedChinese => Some(EFFECT_METADATA_SIMPLIFIED_CHINESE),
+        UiLanguage::Japanese => None,
+    });
+    let Some(catalog) = catalog else {
+        return Cow::Borrowed(value);
+    };
+    catalog
+        .binary_search_by_key(&value, |(source, _)| *source)
+        .ok()
+        .map(|index| Cow::Borrowed(catalog[index].1))
+        .unwrap_or_else(|| Cow::Borrowed(value))
+}
+
+fn localized_effect_categories(categories: &[String]) -> String {
+    categories
+        .iter()
+        .map(|category| localized_effect_metadata(category).into_owned())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShortcutAction {
@@ -1059,6 +1123,14 @@ impl LifecycleUi {
 
     fn sync_live_settings(&self) {
         let settings = self.settings.borrow();
+        let previous_language = current_ui_language();
+        let language_changed = match select_bundled_ui_translation(&settings) {
+            Ok(language) => language != previous_language,
+            Err(error) => {
+                eprintln!("UI translation unavailable: {error}");
+                false
+            }
+        };
         self.preview.borrow_mut().set_render_settings(
             settings
                 .f64_value("previewRenderScale", 1.0)
@@ -1092,16 +1164,34 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            if language_changed {
+                initialize_timeline_object_catalog(&window, &self.effect_catalog.borrow());
+            }
         }
         if let Some(window) = self.object_settings.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            if language_changed {
+                let model = self.model.borrow();
+                let catalog = self.effect_catalog.borrow();
+                sync_object_settings(&window, &model, &catalog);
+                sync_object_catalog(
+                    &window,
+                    &model,
+                    &catalog,
+                    &self.audio_plugin_catalog.borrow(),
+                    window.get_effect_filter().as_str(),
+                );
+            }
         }
         if let Some(window) = self.easing.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            if language_changed {
+                refresh_easing_translations(&window);
+            }
         }
         if let Some(window) = self.project_settings.upgrade() {
             window
@@ -1122,6 +1212,11 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            if language_changed && !window.get_exporting() {
+                window.set_progress_label(
+                    format!("0 / 0 {}", localized("frames", "帧", "フレーム")).into(),
+                );
+            }
         }
         if let Some(window) = self.package_manager.upgrade() {
             window
@@ -1132,6 +1227,9 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            if language_changed {
+                sync_plugin_permissions(&window, &settings);
+            }
         }
         if let Some(window) = self.about.upgrade() {
             window
@@ -1299,7 +1397,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         mod_host.borrow().plugin_count()
     );
     let launcher = ProjectLauncherWindow::new()?;
-    select_bundled_ui_translation();
+    select_bundled_ui_translation(&settings.borrow())?;
     let recovery = ProjectRecoveryWindow::new()?;
     let main = MainWindow::new()?;
     let timeline = TimelineWindow::new()?;
@@ -2527,20 +2625,22 @@ fn install_callbacks(
             return;
         }
         let mut defaults = project_defaults(&create_settings.borrow());
-        defaults.width = match parse_required_i32(&width, "幅", 1, 8_000) {
-            Ok(value) => value,
-            Err(message) => {
-                show_error_dialog(&message);
-                return;
-            }
-        };
-        defaults.height = match parse_required_i32(&height, "高さ", 1, 8_000) {
-            Ok(value) => value,
-            Err(message) => {
-                show_error_dialog(&message);
-                return;
-            }
-        };
+        defaults.width =
+            match parse_required_i32(&width, localized("Width", "宽度", "幅"), 1, 8_000) {
+                Ok(value) => value,
+                Err(message) => {
+                    show_error_dialog(&message);
+                    return;
+                }
+            };
+        defaults.height =
+            match parse_required_i32(&height, localized("Height", "高度", "高さ"), 1, 8_000) {
+                Ok(value) => value,
+                Err(message) => {
+                    show_error_dialog(&message);
+                    return;
+                }
+            };
         defaults.fps = match parse_required_f64(&fps, "FPS", 1.0, 240.0) {
             Ok(value) => value,
             Err(message) => {
@@ -2548,14 +2648,18 @@ fn install_callbacks(
                 return;
             }
         };
-        defaults.sample_rate =
-            match parse_required_i32(&sample_rate, "サンプリングレート", 8_000, 192_000) {
-                Ok(value) => value,
-                Err(message) => {
-                    show_error_dialog(&message);
-                    return;
-                }
-            };
+        defaults.sample_rate = match parse_required_i32(
+            &sample_rate,
+            localized("Sample rate", "采样率", "サンプリングレート"),
+            8_000,
+            192_000,
+        ) {
+            Ok(value) => value,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
         create_model.borrow_mut().create_project(defaults);
         sync_weak_windows(&create_main, &create_timeline, &create_model);
         if let Some(main) = create_main.upgrade() {
@@ -3111,7 +3215,11 @@ fn install_callbacks(
             application.current_workspace().map(|workspace| {
                 let project = workspace.project_settings();
                 SceneSettingsInput {
-                    name: format!("シーン {}", workspace.document().scenes.len() + 1),
+                    name: format!(
+                        "{} {}",
+                        localized("Scene", "场景", "シーン"),
+                        workspace.document().scenes.len() + 1
+                    ),
                     width: project.width,
                     height: project.height,
                     fps: project.fps,
@@ -4714,7 +4822,15 @@ fn install_export_callbacks(
         };
         let Some((project_instance_id, project)) = current_export_project(&start_model.borrow())
         else {
-            show_export_result(&window, false, "書き出すプロジェクトがありません");
+            show_export_result(
+                &window,
+                false,
+                localized(
+                    "There is no project to export.",
+                    "没有可导出的项目。",
+                    "書き出すプロジェクトがありません",
+                ),
+            );
             return;
         };
         let request = match export_request(&window, &start_codecs.borrow()) {
@@ -4738,7 +4854,13 @@ fn install_export_callbacks(
                 }
                 window.set_exporting(true);
                 window.set_export_progress(0.0);
-                window.set_progress_label(format!("0 / {total_frames} フレーム").into());
+                window.set_progress_label(
+                    format!(
+                        "0 / {total_frames} {}",
+                        localized("frames", "帧", "フレーム")
+                    )
+                    .into(),
+                );
                 window.set_cancel_confirmation_visible(false);
                 window.set_result_visible(false);
             }
@@ -4818,7 +4940,7 @@ fn sync_export_window(
     window.set_timeline_duration(duration);
     window.set_end_frame(duration);
     window.set_export_progress(0.0);
-    window.set_progress_label("0 / 0 フレーム".into());
+    window.set_progress_label(format!("0 / 0 {}", localized("frames", "帧", "フレーム")).into());
     window.set_cancel_confirmation_visible(false);
 
     let available_video = available_video_encoders();
@@ -4880,7 +5002,12 @@ fn export_request(
 ) -> Result<ExportRequest, String> {
     let output_path = window.get_output_path().to_string();
     if !valid_export_path(&output_path) {
-        return Err("有効な書き出し先を指定してください".to_owned());
+        return Err(localized(
+            "Choose a valid export destination.",
+            "请选择有效的导出位置。",
+            "有効な書き出し先を指定してください",
+        )
+        .to_owned());
     }
     let video_codec = selected_codec(
         &codecs.video_values,
@@ -5047,26 +5174,41 @@ fn setting_string(settings: &SettingsStore, key: &str, fallback: &str) -> String
 }
 
 fn export_progress_label(progress: aviqtl_export::ExportProgressPlan) -> String {
-    let eta = if progress.eta_seconds <= 0 {
-        String::new()
-    } else if progress.eta_seconds >= 3_600 {
-        format!(
-            " (残り {}時間{}分)",
-            progress.eta_seconds / 3_600,
-            progress.eta_seconds % 3_600 / 60
-        )
-    } else if progress.eta_seconds >= 60 {
-        format!(
-            " (残り {}分{}秒)",
-            progress.eta_seconds / 60,
-            progress.eta_seconds % 60
-        )
-    } else {
-        format!(" (残り {}秒)", progress.eta_seconds)
+    let language = CURRENT_UI_LANGUAGE.with(|language| language.get());
+    let eta = match (language, progress.eta_seconds) {
+        (_, seconds) if seconds <= 0 => String::new(),
+        (UiLanguage::English, seconds) if seconds >= 3_600 => format!(
+            " ({}h {}m remaining)",
+            seconds / 3_600,
+            seconds % 3_600 / 60
+        ),
+        (UiLanguage::SimplifiedChinese, seconds) if seconds >= 3_600 => format!(
+            "（剩余 {} 小时 {} 分钟）",
+            seconds / 3_600,
+            seconds % 3_600 / 60
+        ),
+        (UiLanguage::Japanese, seconds) if seconds >= 3_600 => {
+            format!(" (残り {}時間{}分)", seconds / 3_600, seconds % 3_600 / 60)
+        }
+        (UiLanguage::English, seconds) if seconds >= 60 => {
+            format!(" ({}m {}s remaining)", seconds / 60, seconds % 60)
+        }
+        (UiLanguage::SimplifiedChinese, seconds) if seconds >= 60 => {
+            format!("（剩余 {} 分 {} 秒）", seconds / 60, seconds % 60)
+        }
+        (UiLanguage::Japanese, seconds) if seconds >= 60 => {
+            format!(" (残り {}分{}秒)", seconds / 60, seconds % 60)
+        }
+        (UiLanguage::English, seconds) => format!(" ({}s remaining)", seconds),
+        (UiLanguage::SimplifiedChinese, seconds) => format!("（剩余 {} 秒）", seconds),
+        (UiLanguage::Japanese, seconds) => format!(" (残り {}秒)", seconds),
     };
     format!(
-        "{} / {} フレーム{}",
-        progress.current_frame, progress.total_frames, eta
+        "{} / {} {}{}",
+        progress.current_frame,
+        progress.total_frames,
+        localized("frames", "帧", "フレーム"),
+        eta
     )
 }
 
@@ -5079,14 +5221,22 @@ fn show_export_result(window: &ExportWindow, success: bool, message: &str) {
 fn choose_export_output(choose_folder: bool, current_path: &str) -> Option<PathBuf> {
     let current_path = PathBuf::from(current_path.trim());
     if choose_folder {
-        let mut dialog = rfd::FileDialog::new().set_title("保存先フォルダを指定");
+        let mut dialog = rfd::FileDialog::new().set_title(localized(
+            "Choose the destination folder",
+            "选择目标文件夹",
+            "保存先フォルダを指定",
+        ));
         if current_path.is_dir() {
             dialog = dialog.set_directory(current_path);
         }
         dialog.pick_folder()
     } else {
         let mut dialog = rfd::FileDialog::new()
-            .set_title("保存先を指定")
+            .set_title(localized(
+                "Choose the export destination",
+                "选择导出位置",
+                "保存先を指定",
+            ))
             .add_filter("MP4 Video", &["mp4"])
             .add_filter("MKV Video", &["mkv"])
             .add_filter("All Files", &["*"]);
@@ -5102,7 +5252,7 @@ fn choose_export_output(choose_folder: bool, current_path: &str) -> Option<PathB
 
 fn pick_parameter_file(current_path: &str, filter: &str, label: &str) -> Option<String> {
     let mut dialog = rfd::FileDialog::new().set_title(if label.is_empty() {
-        "ファイルを選択"
+        localized("Choose a file", "选择文件", "ファイルを選択")
     } else {
         label
     });
@@ -5355,7 +5505,11 @@ fn install_window_geometry_close_handler<T: ComponentHandle + 'static>(
 }
 
 fn choose_missing_media_replacement(clip_type: &str, suggested_path: &Path) -> Option<PathBuf> {
-    let mut dialog = rfd::FileDialog::new().set_title("不足しているメディアを置換");
+    let mut dialog = rfd::FileDialog::new().set_title(localized(
+        "Replace missing media",
+        "替换缺失媒体",
+        "不足しているメディアを置換",
+    ));
     dialog = match clip_type {
         "audio" => dialog.add_filter("Audio files", &["wav", "mp3", "aac", "m4a", "flac", "ogg"]),
         "image" => dialog.add_filter(
@@ -5558,6 +5712,11 @@ fn sync_system_settings(window: &SystemSettingsWindow, settings: &SettingsStore)
         &SYSTEM_THEME_VALUES,
         0,
     ));
+    window.set_language_index(choice_index_str(
+        &setting_string(settings, "uiLanguage", "System"),
+        &SYSTEM_UI_LANGUAGE_VALUES,
+        0,
+    ));
     window.set_default_project_width(defaults.width);
     window.set_default_project_height(defaults.height);
     window.set_default_project_fps(SharedString::from(defaults.fps.to_string()));
@@ -5743,19 +5902,110 @@ fn sync_plugin_permissions(window: &PluginPermissionWindow, settings: &SettingsS
 
 fn plugin_permission_metadata(name: &str) -> (&'static str, &'static str) {
     match name {
-        "transport.control" => ("再生制御", "再生、一時停止、シーク"),
-        "clip.read" => ("クリップ読み取り", "クリップ情報の一覧表示"),
-        "clip.modify" => ("クリップ変更", "クリップの作成、削除、移動"),
-        "effect.modify" => ("エフェクト変更", "エフェクトの追加、削除、変更"),
-        "project.read" => ("プロジェクト読み取り", "解像度、FPS等の情報取得"),
-        "project.save" => ("プロジェクト保存", "プロジェクトファイルの保存"),
-        "project.load" => ("プロジェクト読み込み", "プロジェクトファイルの読み込み"),
-        "scene.manage" => ("シーン管理", "シーンの作成、削除、切り替え"),
-        "settings.read" => ("設定読み取り", "プラグイン設定の読み取り"),
-        "settings.write" => ("設定書き込み", "プラグイン設定の保存"),
-        "clipboard.access" => ("クリップボード", "コピー、切り取り、貼り付け"),
-        "history.control" => ("履歴操作", "元に戻す、やり直し、コマンドのグループ化"),
-        "log.output" => ("ログ出力", "コンソールへのログ出力"),
+        "transport.control" => (
+            localized("Playback control", "播放控制", "再生制御"),
+            localized(
+                "Play, pause, and seek",
+                "播放、暂停和定位",
+                "再生、一時停止、シーク",
+            ),
+        ),
+        "clip.read" => (
+            localized("Read clips", "读取剪辑", "クリップ読み取り"),
+            localized(
+                "List clip information",
+                "列出剪辑信息",
+                "クリップ情報の一覧表示",
+            ),
+        ),
+        "clip.modify" => (
+            localized("Modify clips", "修改剪辑", "クリップ変更"),
+            localized(
+                "Create, delete, and move clips",
+                "创建、删除和移动剪辑",
+                "クリップの作成、削除、移動",
+            ),
+        ),
+        "effect.modify" => (
+            localized("Modify effects", "修改特效", "エフェクト変更"),
+            localized(
+                "Add, delete, and change effects",
+                "添加、删除和修改特效",
+                "エフェクトの追加、削除、変更",
+            ),
+        ),
+        "project.read" => (
+            localized("Read project", "读取项目", "プロジェクト読み取り"),
+            localized(
+                "Read resolution, FPS, and other project information",
+                "读取分辨率、FPS 等项目信息",
+                "解像度、FPS等の情報取得",
+            ),
+        ),
+        "project.save" => (
+            localized("Save project", "保存项目", "プロジェクト保存"),
+            localized(
+                "Save project files",
+                "保存项目文件",
+                "プロジェクトファイルの保存",
+            ),
+        ),
+        "project.load" => (
+            localized("Load project", "加载项目", "プロジェクト読み込み"),
+            localized(
+                "Load project files",
+                "加载项目文件",
+                "プロジェクトファイルの読み込み",
+            ),
+        ),
+        "scene.manage" => (
+            localized("Manage scenes", "管理场景", "シーン管理"),
+            localized(
+                "Create, delete, and switch scenes",
+                "创建、删除和切换场景",
+                "シーンの作成、削除、切り替え",
+            ),
+        ),
+        "settings.read" => (
+            localized("Read settings", "读取设置", "設定読み取り"),
+            localized(
+                "Read plugin settings",
+                "读取插件设置",
+                "プラグイン設定の読み取り",
+            ),
+        ),
+        "settings.write" => (
+            localized("Write settings", "写入设置", "設定書き込み"),
+            localized(
+                "Save plugin settings",
+                "保存插件设置",
+                "プラグイン設定の保存",
+            ),
+        ),
+        "clipboard.access" => (
+            localized("Clipboard access", "剪贴板访问", "クリップボード"),
+            localized(
+                "Copy, cut, and paste",
+                "复制、剪切和粘贴",
+                "コピー、切り取り、貼り付け",
+            ),
+        ),
+        "history.control" => (
+            localized("History control", "历史记录控制", "履歴操作"),
+            localized(
+                "Undo, redo, and group commands",
+                "撤销、重做和命令分组",
+                "元に戻す、やり直し、コマンドのグループ化",
+            ),
+        ),
+        "log.output" => (
+            localized("Log output", "日志输出", "ログ出力"),
+            localized(
+                "Write messages to the console",
+                "向控制台输出消息",
+                "コンソールへのログ出力",
+            ),
+        ),
         _ => ("", ""),
     }
 }
@@ -5784,7 +6034,7 @@ fn system_settings_replacement(
 ) -> Result<serde_json::Map<String, serde_json::Value>, String> {
     let fps = parse_required_f64(
         &window.get_default_project_fps(),
-        "既定のフレームレート",
+        localized("Default frame rate", "默认帧率", "既定のフレームレート"),
         1.0,
         240.0,
     )?;
@@ -5898,6 +6148,14 @@ fn system_settings_replacement(
             serde_json::json!(choice_str(
                 &SYSTEM_THEME_VALUES,
                 window.get_theme_index(),
+                0,
+            )),
+        ),
+        (
+            "uiLanguage",
+            serde_json::json!(choice_str(
+                &SYSTEM_UI_LANGUAGE_VALUES,
+                window.get_language_index(),
                 0,
             )),
         ),
@@ -6270,7 +6528,7 @@ fn sync_object_settings(
             .map(|effect| ObjectEffectData {
                 index: effect.index as i32,
                 id: SharedString::from(effect.id.clone()),
-                name: SharedString::from(effect.name.clone()),
+                name: SharedString::from(localized_effect_metadata(&effect.name).into_owned()),
                 enabled: effect.enabled,
                 selected: effect.selected,
                 removable: effect.removable,
@@ -6285,28 +6543,47 @@ fn sync_object_settings(
 }
 
 fn sync_effect_catalog(window: &ObjectSettingsWindow, catalog: &EffectCatalog, query: &str) {
+    let query = query.trim().to_lowercase();
     let items = catalog
-        .query("effect", query, "")
+        .query("effect", "", "")
         .into_iter()
+        .filter(|metadata| {
+            query.is_empty()
+                || metadata.id.to_lowercase().contains(&query)
+                || metadata.name.to_lowercase().contains(&query)
+                || localized_effect_metadata(&metadata.name)
+                    .to_lowercase()
+                    .contains(&query)
+                || metadata.categories.iter().any(|category| {
+                    category.to_lowercase().contains(&query)
+                        || localized_effect_metadata(category)
+                            .to_lowercase()
+                            .contains(&query)
+                })
+        })
         .map(|metadata| EffectCatalogItemData {
             header: false,
             id: SharedString::from(metadata.id.clone()),
-            name: SharedString::from(metadata.name.clone()),
-            categories: SharedString::from(metadata.categories.join(", ")),
+            name: SharedString::from(localized_effect_metadata(&metadata.name).into_owned()),
+            categories: SharedString::from(localized_effect_categories(&metadata.categories)),
         })
         .collect::<Vec<_>>();
     update_vec_model(&window.get_effect_catalog_items(), items);
 }
 
 fn initialize_timeline_object_catalog(window: &TimelineWindow, catalog: &EffectCatalog) {
-    let categories = std::iter::once(SharedString::from("すべてのカテゴリ"))
-        .chain(
-            catalog
-                .categories("object")
-                .into_iter()
-                .map(SharedString::from),
-        )
-        .collect::<Vec<_>>();
+    let categories = std::iter::once(SharedString::from(localized(
+        "All categories",
+        "所有分类",
+        "すべてのカテゴリ",
+    )))
+    .chain(
+        catalog
+            .categories("object")
+            .into_iter()
+            .map(|category| SharedString::from(localized_effect_metadata(&category).into_owned())),
+    )
+    .collect::<Vec<_>>();
     update_vec_model(&window.get_object_catalog_categories(), categories);
     sync_timeline_object_catalog(window, catalog, "", 0);
 }
@@ -6323,14 +6600,29 @@ fn sync_timeline_object_catalog(
         .and_then(|index| index.checked_sub(1))
         .and_then(|index| categories.get(index))
         .map_or("", String::as_str);
+    let query = query.trim().to_lowercase();
     let items = catalog
-        .query("object", query, category)
+        .query("object", "", category)
         .into_iter()
+        .filter(|metadata| {
+            query.is_empty()
+                || metadata.id.to_lowercase().contains(&query)
+                || metadata.name.to_lowercase().contains(&query)
+                || localized_effect_metadata(&metadata.name)
+                    .to_lowercase()
+                    .contains(&query)
+                || metadata.categories.iter().any(|category| {
+                    category.to_lowercase().contains(&query)
+                        || localized_effect_metadata(category)
+                            .to_lowercase()
+                            .contains(&query)
+                })
+        })
         .map(|metadata| EffectCatalogItemData {
             header: false,
             id: SharedString::from(metadata.id.clone()),
-            name: SharedString::from(metadata.name.clone()),
-            categories: SharedString::from(metadata.categories.join(", ")),
+            name: SharedString::from(localized_effect_metadata(&metadata.name).into_owned()),
+            categories: SharedString::from(localized_effect_categories(&metadata.categories)),
         })
         .collect::<Vec<_>>();
     update_vec_model(&window.get_object_catalog_items(), items);
@@ -6368,14 +6660,29 @@ fn timeline_context_catalog_items(
             .collect::<Vec<_>>()
     } else {
         let kind = if target_kind == 0 { "object" } else { "effect" };
+        let query = query.trim().to_lowercase();
         effect_catalog
-            .query(kind, query, "")
+            .query(kind, "", "")
             .into_iter()
+            .filter(|metadata| {
+                query.is_empty()
+                    || metadata.id.to_lowercase().contains(&query)
+                    || metadata.name.to_lowercase().contains(&query)
+                    || localized_effect_metadata(&metadata.name)
+                        .to_lowercase()
+                        .contains(&query)
+                    || metadata.categories.iter().any(|category| {
+                        category.to_lowercase().contains(&query)
+                            || localized_effect_metadata(category)
+                                .to_lowercase()
+                                .contains(&query)
+                    })
+            })
             .map(|metadata| EffectCatalogItemData {
                 header: false,
                 id: SharedString::from(metadata.id.clone()),
-                name: SharedString::from(metadata.name.clone()),
-                categories: SharedString::from(metadata.categories.join(", ")),
+                name: SharedString::from(localized_effect_metadata(&metadata.name).into_owned()),
+                categories: SharedString::from(localized_effect_categories(&metadata.categories)),
             })
             .collect::<Vec<_>>()
     }
@@ -6480,7 +6787,7 @@ fn push_object_settings_rows(
         audio_plugin,
         effect_index: index as i32,
         param_name: SharedString::new(),
-        label: SharedString::from(name),
+        label: SharedString::from(localized_effect_metadata(name).into_owned()),
         effect_enabled: enabled,
         header_toggle_visible,
         selected,
@@ -6514,7 +6821,7 @@ fn push_object_settings_rows(
         let option_labels = control
             .options
             .iter()
-            .map(|option| SharedString::from(option.label.clone()))
+            .map(|option| SharedString::from(localized_effect_metadata(&option.label).into_owned()))
             .collect::<Vec<_>>();
         let supports_track = matches!(
             control.kind,
@@ -6533,7 +6840,7 @@ fn push_object_settings_rows(
             audio_plugin,
             effect_index: index as i32,
             param_name: SharedString::from(control.param.clone().unwrap_or_default()),
-            label: SharedString::from(control.label.clone()),
+            label: SharedString::from(localized_effect_metadata(&control.label).into_owned()),
             effect_enabled: enabled,
             header_toggle_visible,
             selected,
@@ -6655,33 +6962,39 @@ fn easing_name_at(index: i32) -> &'static str {
 
 fn easing_label(name: &str) -> String {
     match name {
-        "none" => return "瞬間移動".to_owned(),
-        "linear" => return "直線".to_owned(),
-        "custom" => return "カスタム".to_owned(),
-        "random" => return "ランダム移動".to_owned(),
-        "alternate" => return "反復移動".to_owned(),
+        "none" => return localized("Instant", "瞬间", "瞬間移動").to_owned(),
+        "linear" => return localized("Linear", "线性", "直線").to_owned(),
+        "custom" => return localized("Custom", "自定义", "カスタム").to_owned(),
+        "random" => return localized("Random", "随机", "ランダム移動").to_owned(),
+        "alternate" => return localized("Alternate", "往复", "反復移動").to_owned(),
         _ => {}
     }
     let (direction, family) = [
-        ("ease_in_out_", "加減速"),
-        ("ease_out_in_", "減加速"),
-        ("ease_in_", "加速"),
-        ("ease_out_", "減速"),
+        (
+            "ease_in_out_",
+            localized("Ease in/out", "缓入缓出", "加減速"),
+        ),
+        (
+            "ease_out_in_",
+            localized("Ease out/in", "缓出缓入", "減加速"),
+        ),
+        ("ease_in_", localized("Ease in", "缓入", "加速")),
+        ("ease_out_", localized("Ease out", "缓出", "減速")),
     ]
     .into_iter()
     .find_map(|(prefix, direction)| name.strip_prefix(prefix).map(|family| (direction, family)))
     .unwrap_or(("", name));
     let family = match family {
-        "sine" => "サイン",
-        "quad" => "2次",
-        "cubic" => "3次",
-        "quart" => "4次",
-        "quint" => "5次",
-        "expo" => "指数",
-        "circ" => "円",
-        "back" => "戻る",
-        "elastic" => "弾性",
-        "bounce" => "跳ね返り",
+        "sine" => localized("Sine", "正弦", "サイン"),
+        "quad" => localized("Quadratic", "二次", "2次"),
+        "cubic" => localized("Cubic", "三次", "3次"),
+        "quart" => localized("Quartic", "四次", "4次"),
+        "quint" => localized("Quintic", "五次", "5次"),
+        "expo" => localized("Exponential", "指数", "指数"),
+        "circ" => localized("Circular", "圆形", "円"),
+        "back" => localized("Back", "回退", "戻る"),
+        "elastic" => localized("Elastic", "弹性", "弾性"),
+        "bounce" => localized("Bounce", "回弹", "跳ね返り"),
         other => other,
     };
     if direction.is_empty() {
@@ -6724,8 +7037,8 @@ fn easing_catalog_rows(
         rows.push(EasingCatalogRowData {
             header: true,
             easing_index: -1,
-            name: SharedString::new(),
-            label: SharedString::from(category),
+            name: SharedString::from(category),
+            label: SharedString::from(easing_category_label(category)),
             preview_path: SharedString::new(),
         });
         rows.extend(matching.into_iter().map(|(index, name)| {
@@ -6753,6 +7066,39 @@ fn sync_easing_catalog(window: &EasingConfigWindow, query: &str, curve: &BezierC
             curve.points(),
         ),
     );
+}
+
+fn easing_category_label(category: &str) -> &'static str {
+    match category {
+        "Basic" => localized("Basic", "基础", "基本"),
+        "Standard curves" => localized("Standard curves", "标准曲线", "標準カーブ"),
+        "Strong curves" => localized("Strong curves", "强曲线", "強いカーブ"),
+        "Bounce and elasticity" => localized("Bounce and elasticity", "回弹与弹性", "反動と弾性"),
+        "Special" => localized("Special", "特殊", "特殊"),
+        _ => "",
+    }
+}
+
+fn refresh_easing_translations(window: &EasingConfigWindow) {
+    let names = window.get_easing_names();
+    let labels = (0..names.row_count())
+        .filter_map(|index| names.row_data(index))
+        .map(|name| SharedString::from(easing_label(name.as_str())))
+        .collect();
+    update_vec_model(&window.get_easing_labels(), labels);
+    let rows = window.get_easing_catalog_rows();
+    let translated_rows = (0..rows.row_count())
+        .filter_map(|index| rows.row_data(index))
+        .map(|mut row| {
+            row.label = if row.header {
+                SharedString::from(easing_category_label(row.name.as_str()))
+            } else {
+                SharedString::from(easing_label(row.name.as_str()))
+            };
+            row
+        })
+        .collect();
+    update_vec_model(&rows, translated_rows);
 }
 
 fn sync_easing_window(
@@ -7025,30 +7371,52 @@ fn sync_transport(main: &MainWindow, timeline: &TimelineWindow, model: &Applicat
 }
 
 fn parse_required_i32(value: &str, label: &str, minimum: i32, maximum: i32) -> Result<i32, String> {
-    let parsed = value
-        .trim()
-        .parse::<i32>()
-        .map_err(|_| format!("{label}には整数を入力してください"))?;
+    let parsed = value.trim().parse::<i32>().map_err(|_| {
+        match CURRENT_UI_LANGUAGE.with(|language| language.get()) {
+            UiLanguage::English => format!("Enter an integer for {label}."),
+            UiLanguage::SimplifiedChinese => format!("请为{label}输入整数。"),
+            UiLanguage::Japanese => format!("{label}には整数を入力してください"),
+        }
+    })?;
     if (minimum..=maximum).contains(&parsed) {
         Ok(parsed)
     } else {
-        Err(format!(
-            "{label}は{minimum}から{maximum}の範囲で入力してください"
-        ))
+        Err(match CURRENT_UI_LANGUAGE.with(|language| language.get()) {
+            UiLanguage::English => {
+                format!("Enter {label} in the range {minimum} to {maximum}.")
+            }
+            UiLanguage::SimplifiedChinese => {
+                format!("请在 {minimum} 到 {maximum} 的范围内输入{label}。")
+            }
+            UiLanguage::Japanese => {
+                format!("{label}は{minimum}から{maximum}の範囲で入力してください")
+            }
+        })
     }
 }
 
 fn parse_required_f64(value: &str, label: &str, minimum: f64, maximum: f64) -> Result<f64, String> {
-    let parsed = value
-        .trim()
-        .parse::<f64>()
-        .map_err(|_| format!("{label}には数値を入力してください"))?;
+    let parsed = value.trim().parse::<f64>().map_err(|_| {
+        match CURRENT_UI_LANGUAGE.with(|language| language.get()) {
+            UiLanguage::English => format!("Enter a number for {label}."),
+            UiLanguage::SimplifiedChinese => format!("请为{label}输入数值。"),
+            UiLanguage::Japanese => format!("{label}には数値を入力してください"),
+        }
+    })?;
     if parsed.is_finite() && (minimum..=maximum).contains(&parsed) {
         Ok(parsed)
     } else {
-        Err(format!(
-            "{label}は{minimum}から{maximum}の範囲で入力してください"
-        ))
+        Err(match CURRENT_UI_LANGUAGE.with(|language| language.get()) {
+            UiLanguage::English => {
+                format!("Enter {label} in the range {minimum} to {maximum}.")
+            }
+            UiLanguage::SimplifiedChinese => {
+                format!("请在 {minimum} 到 {maximum} 的范围内输入{label}。")
+            }
+            UiLanguage::Japanese => {
+                format!("{label}は{minimum}から{maximum}の範囲で入力してください")
+            }
+        })
     }
 }
 
@@ -7065,31 +7433,55 @@ fn parse_i32_unbounded(value: &str, fallback: i32) -> i32 {
     value.trim().parse::<i32>().unwrap_or(fallback)
 }
 
-/// Selects the bundled Slint UI translation from the POSIX locale environment.
-///
-/// The `.slint` sources stay in Japanese; English and Simplified Chinese come
-/// from gettext catalogs converted from `i18n/AviQtl_{en_US,zh_CN}.ts`.
-/// When no POSIX locale variable names a supported language, the Slint
-/// runtime keeps its own system-locale selection (Japanese by default).
-fn select_bundled_ui_translation() {
-    let language = std::env::var("LC_ALL")
-        .or_else(|_| std::env::var("LC_MESSAGES"))
-        .or_else(|_| std::env::var("LANG"))
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    let selected = if language.starts_with("zh") {
-        Some("zh_CN")
-    } else if language.starts_with("en") {
-        Some("en_US")
-    } else if language.starts_with("ja") {
-        Some("en")
-    } else {
-        None
-    };
-    if let Some(selected) = selected
-        && let Err(error) = slint::select_bundled_translation(selected)
+/// Selects a persisted language or follows the operating-system locale.
+/// English is the source language and therefore also the fallback for an
+/// unsupported or unavailable locale.
+fn select_bundled_ui_translation(settings: &SettingsStore) -> Result<UiLanguage, String> {
+    let language = configured_ui_language(settings);
+    slint::select_bundled_translation(language.slint_locale())
+        .map_err(|error| error.to_string())?;
+    CURRENT_UI_LANGUAGE.with(|current| current.set(language));
+    Ok(language)
+}
+
+fn configured_ui_language(settings: &SettingsStore) -> UiLanguage {
+    match settings
+        .value("uiLanguage")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("System")
     {
-        eprintln!("UI translation unavailable: {error}");
+        "SimplifiedChinese" => UiLanguage::SimplifiedChinese,
+        "Japanese" => UiLanguage::Japanese,
+        "English" => UiLanguage::English,
+        _ => system_ui_language(),
+    }
+}
+
+fn system_ui_language() -> UiLanguage {
+    let locale = sys_locale::get_locale()
+        .or_else(|| {
+            std::env::var("LC_ALL")
+                .ok()
+                .filter(|value| !value.is_empty())
+        })
+        .or_else(|| {
+            std::env::var("LC_MESSAGES")
+                .ok()
+                .filter(|value| !value.is_empty())
+        })
+        .or_else(|| std::env::var("LANG").ok().filter(|value| !value.is_empty()))
+        .unwrap_or_default();
+    ui_language_from_locale(&locale)
+}
+
+fn ui_language_from_locale(locale: &str) -> UiLanguage {
+    let locale = locale.trim().to_ascii_lowercase();
+    if locale.starts_with("zh") {
+        UiLanguage::SimplifiedChinese
+    } else if locale.starts_with("ja") {
+        UiLanguage::Japanese
+    } else {
+        UiLanguage::English
     }
 }
 
@@ -7286,6 +7678,10 @@ mod tests {
     #[test]
     fn system_settings_choices_and_plugin_paths_match_the_qt_schema() {
         assert_eq!(choice_str(&SYSTEM_THEME_VALUES, 2, 0), "System");
+        assert_eq!(
+            choice_str(&SYSTEM_UI_LANGUAGE_VALUES, 2, 0),
+            "SimplifiedChinese"
+        );
         assert_eq!(choice_str(&SYSTEM_EXPORT_VIDEO_CODECS, 1, 2), "hevc_vaapi");
         assert_eq!(choice_str(&SYSTEM_EXPORT_AUDIO_CODECS, 1, 0), "opus");
         assert_eq!(choice_i32(&SYSTEM_AUDIO_BLOCK_SIZES, 5, 4), 8192);
@@ -7301,6 +7697,37 @@ mod tests {
     }
 
     #[test]
+    fn ui_locale_selection_uses_english_as_the_fallback() {
+        assert_eq!(
+            ui_language_from_locale("zh-CN"),
+            UiLanguage::SimplifiedChinese
+        );
+        assert_eq!(
+            ui_language_from_locale("zh_Hans_CN.UTF-8"),
+            UiLanguage::SimplifiedChinese
+        );
+        assert_eq!(ui_language_from_locale("ja-JP"), UiLanguage::Japanese);
+        assert_eq!(ui_language_from_locale("en-US"), UiLanguage::English);
+        assert_eq!(ui_language_from_locale("fr-FR"), UiLanguage::English);
+        assert_eq!(ui_language_from_locale(""), UiLanguage::English);
+    }
+
+    #[test]
+    fn effect_metadata_follows_the_selected_ui_language() {
+        CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::English));
+        assert_eq!(localized_effect_metadata("テキスト"), "Text");
+        assert_eq!(localized_effect_metadata("変形/クロップ"), "Transform/Crop");
+
+        CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::SimplifiedChinese));
+        assert_eq!(localized_effect_metadata("テキスト"), "文本");
+        assert_eq!(localized_effect_metadata("変形/クロップ"), "变形/裁剪");
+
+        CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::Japanese));
+        assert_eq!(localized_effect_metadata("テキスト"), "テキスト");
+        assert_eq!(localized_effect_metadata("変形/クロップ"), "変形/クロップ");
+    }
+
+    #[test]
     fn searchable_context_catalog_preserves_qt_category_paths() {
         let (catalog, _) = EffectCatalog::load();
         let items =
@@ -7309,7 +7736,7 @@ mod tests {
             .iter()
             .find(|item| item.id.as_str() == "clipping")
             .expect("clipping effect remains searchable by technical id");
-        assert!(clipping.categories.as_str().contains("変形/クロップ"));
+        assert!(clipping.categories.as_str().contains("Transform/Crop"));
     }
 
     #[test]
@@ -7392,11 +7819,11 @@ mod tests {
 
     #[test]
     fn easing_options_match_the_qt_parameter_contracts() {
-        assert_eq!(easing_label("ease_in_out_elastic"), "弾性 加減速");
-        assert_eq!(easing_label("ease_out_sine"), "サイン 減速");
-        assert_eq!(easing_label("ease_in_quad"), "2次 加速");
-        assert_eq!(easing_label("ease_out_in_circ"), "円 減加速");
-        assert_eq!(easing_label("ease_in_bounce"), "跳ね返り 加速");
+        assert_eq!(easing_label("ease_in_out_elastic"), "Elastic Ease in/out");
+        assert_eq!(easing_label("ease_out_sine"), "Sine Ease out");
+        assert_eq!(easing_label("ease_in_quad"), "Quadratic Ease in");
+        assert_eq!(easing_label("ease_out_in_circ"), "Circular Ease out/in");
+        assert_eq!(easing_label("ease_in_bounce"), "Bounce Ease in");
         assert_eq!(easing_name_at(0), "none");
         assert_eq!(easing_name_at(-1), "none");
 
@@ -7460,7 +7887,13 @@ mod tests {
                 .filter(|row| row.header)
                 .map(|row| row.label.as_str())
                 .collect::<Vec<_>>(),
-            vec!["基本", "標準カーブ", "強いカーブ", "反動と弾性", "特殊"]
+            vec![
+                "Basic",
+                "Standard curves",
+                "Strong curves",
+                "Bounce and elasticity",
+                "Special"
+            ]
         );
 
         let mut actual_names = rows
@@ -7483,7 +7916,7 @@ mod tests {
         let bounce = easing_catalog_rows("Bo_Un_Ce", 1, 1.0, 0.3, curve.points());
         assert_eq!(bounce.len(), 5);
         assert!(bounce[0].header);
-        assert_eq!(bounce[0].label.as_str(), "反動と弾性");
+        assert_eq!(bounce[0].label.as_str(), "Bounce and elasticity");
         assert!(
             bounce[1..]
                 .iter()

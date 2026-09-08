@@ -45,7 +45,8 @@ Slint windows only hold drafts and forward Apply, Reload, OK, or Close. Runtime 
 application model immediately after a successful atomic save, including quit confirmation,
 automatic recovery, recovery interval, undo limits, new-project defaults, timeline skimming and
 dimensions, the configured 1-512 layer limit, object-settings sidebar placement, the Dark/Light/System
-theme, preview render scale, and preview MSAA. Project settings stay outside the undo stack as in Qt,
+theme, System/English/Simplified Chinese/Japanese interface language, preview render scale, and
+preview MSAA. Project settings stay outside the undo stack as in Qt,
 while scene creation retains Qt's separate add and settings-update undo steps.
 
 The system-settings window exposes Qt's nine categories and persists the same scalar, plugin-path,
@@ -56,6 +57,14 @@ coordinates and camera, and `previewMsaaSamples` selects a real 1x/2x/4x/8x mult
 with resolve for fixed-function and complex blend paths, including nested scenes. Export deliberately
 remains single-sampled and full-resolution, matching the Qt separation between preview quality and
 output quality.
+
+English is the source language for Slint `@tr` strings and the fallback for unsupported locales.
+The System language preference uses the operating system's preferred locale, maps Chinese locales
+to Simplified Chinese and Japanese locales to Japanese, and otherwise selects English. The bundled
+`zh_CN` and `ja_JP` gettext catalogs update live after Apply or OK. Built-in effect and object
+metadata remains owned by the shared Qt JSON definitions; the Slint build extracts the matching
+English and Simplified Chinese translations from the existing Qt TS catalogs and translates that
+metadata only when projecting it into UI models.
 
 `bakeStrategy` and `onDemandPrefetchFrames` remain persisted for Qt settings compatibility, but they
 do not pretend to control a copied Qt `BakeController`: the Rust `SceneRenderPlan` caches typed clip

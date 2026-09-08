@@ -253,7 +253,7 @@ component KeyframeTrack inherits Rectangle {
         width: track-line.width;
         mouse-cursor: pointer;
         accessible-role: slider;
-        accessible-label: root.row-data.label + @tr(" キーフレーム");
+        accessible-label: root.row-data.label + @tr(" Keyframes");
         accessible-value: "\{root.row-data.current-frame}";
         accessible-value-minimum: 0;
         accessible-value-maximum: root.row-data.clip-duration;
@@ -304,10 +304,10 @@ component KeyframeTrack inherits Rectangle {
         marker-touch := TouchArea {
             mouse-cursor: marker.draggable ? move : marker.removable ? pointer : default;
             accessible-role: button;
-            accessible-label: @tr("キーフレーム {}", marker.frame);
+            accessible-label: @tr("Keyframe {}", marker.frame);
             accessible-description: marker.draggable
-                ? @tr("ドラッグしてキーフレームを移動")
-                : marker.removable ? @tr("キーフレーム") : @tr("固定キーフレーム");
+                ? @tr("Drag to move the keyframe")
+                : marker.removable ? @tr("Keyframe") : @tr("Fixed keyframe");
             accessible-action-default => { root.seek(marker.frame); }
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
@@ -436,18 +436,18 @@ component EffectSidebarEntry inherits Rectangle {
         Menu {
             MenuItem {
                 title: root.selected-count > 1
-                    ? @tr("選択した {} 件を削除", root.selected-count)
-                    : @tr("削除");
+                    ? @tr("Delete {} selected items", root.selected-count)
+                    : @tr("Delete");
                 enabled: root.selected-removable;
                 activated => { root.remove-selection(root.effect.index); }
             }
             MenuSeparator { }
             MenuItem {
-                title: @tr("プリセットを保存...");
+                title: @tr("Save Preset...");
                 activated => { root.save-preset(root.effect.index, root.effect.name); }
             }
             Menu {
-                title: @tr("プリセットを読み込み");
+                title: @tr("Load Preset");
                 enabled: root.preset-names.length > 0;
                 for preset in root.preset-names : MenuItem {
                     title: preset;
@@ -455,7 +455,7 @@ component EffectSidebarEntry inherits Rectangle {
                 }
             }
             Menu {
-                title: @tr("プリセットを削除");
+                title: @tr("Delete Preset");
                 enabled: root.preset-names.length > 0;
                 for preset in root.preset-names : MenuItem {
                     title: preset;
@@ -474,7 +474,7 @@ component EffectSidebarEntry inherits Rectangle {
             }
             CheckBox {
                 checked: root.effect.enabled;
-                accessible-label: root.effect.name + @tr("を有効にする");
+                accessible-label: root.effect.name + @tr(": enabled");
                 toggled => { root.set-enabled(root.effect.index, self.checked); }
             }
             Text {
@@ -580,7 +580,7 @@ component ObjectSettingRow inherits Rectangle {
             CheckBox {
                 visible: root.row-data.header-toggle-visible;
                 checked: root.row-data.effect-enabled;
-                accessible-label: root.row-data.label + @tr("を有効にする");
+                accessible-label: root.row-data.label + @tr(": enabled");
                 toggled => {
                     root.set-effect-enabled(
                         root.row-data.audio-plugin,
@@ -597,7 +597,7 @@ component ObjectSettingRow inherits Rectangle {
                 overflow: elide;
             }
             Button {
-                text: @tr("削除");
+                text: @tr("Delete");
                 visible: root.row-data.removable;
                 enabled: root.row-data.removable;
                 clicked => {
@@ -694,7 +694,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -709,7 +709,7 @@ component ObjectSettingRow inherits Rectangle {
             visible: root.row-data.audio-plugin;
             text: "K";
             enabled: root.row-data.interactive;
-            accessible-label: root.row-data.label + @tr("の先頭と末尾にキーフレームを作成");
+            accessible-label: root.row-data.label + @tr(": create keyframes at the start and end");
             clicked => {
                 root.seed-keyframes(
                     root.row-data.audio-plugin,
@@ -781,7 +781,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -837,7 +837,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -939,7 +939,7 @@ component ObjectSettingRow inherits Rectangle {
         Button {
             text: "...";
             enabled: root.row-data.interactive;
-            accessible-label: root.row-data.label + @tr("を選択");
+            accessible-label: root.row-data.label + @tr(": select");
             clicked => {
                 root.pick-path(
                     root.row-data.audio-plugin,
@@ -961,7 +961,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         Button {
             horizontal-stretch: 1;
-            text: root.row-data.text-value == "" ? @tr("デフォルト") : root.row-data.text-value;
+            text: root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + ": " + self.text;
             clicked => {
@@ -998,7 +998,7 @@ component ObjectSettingRow inherits Rectangle {
                 enabled: root.row-data.interactive;
                 mouse-cursor: pointer;
                 accessible-role: button;
-                accessible-label: root.row-data.label + @tr("の開始色を選択");
+                accessible-label: root.row-data.label + @tr(": select start color");
                 accessible-action-default => {
                     root.pick-color(
                         root.row-data.audio-plugin,
@@ -1036,7 +1036,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("補間");
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -1079,7 +1079,7 @@ component ObjectSettingRow inherits Rectangle {
                     && root.row-data.interpolation != "constant";
                 mouse-cursor: pointer;
                 accessible-role: button;
-                accessible-label: root.row-data.label + @tr("の終了色を選択");
+                accessible-label: root.row-data.label + @tr(": select end color");
                 accessible-action-default => {
                     root.pick-color(
                         root.row-data.audio-plugin,
@@ -1182,7 +1182,7 @@ component SceneTab inherits Rectangle {
             overflow: elide;
         }
         if !root.scene.root : TabCloseButton {
-            accessible-name: @tr("シーンを閉じる");
+            accessible-name: @tr("Close scene");
             clicked => { root.close(root.scene.id); }
         }
     }
@@ -1239,27 +1239,27 @@ component LayerHeaderItem inherits Rectangle {
     }
     layer-menu := ContextMenuArea {
         Menu {
-            MenuItem { title: @tr("上にレイヤーを挿入 (1行)"); activated => { root.command("insert-above", root.layer.index); } }
-            MenuItem { title: @tr("下にレイヤーを挿入 (1行)"); activated => { root.command("insert-below", root.layer.index); } }
-            MenuItem { title: @tr("複数レイヤーを挿入..."); activated => { root.command("insert-many", root.layer.index); } }
+            MenuItem { title: @tr("Insert Layer Above (1 row)"); activated => { root.command("insert-above", root.layer.index); } }
+            MenuItem { title: @tr("Insert Layer Below (1 row)"); activated => { root.command("insert-below", root.layer.index); } }
+            MenuItem { title: @tr("Insert multiple layers..."); activated => { root.command("insert-many", root.layer.index); } }
             MenuSeparator { }
-            MenuItem { title: @tr("このレイヤーの内容を1行下へ"); activated => { root.command("shift-down", root.layer.index); } }
-            MenuItem { title: @tr("このレイヤーの内容を1行上へ"); activated => { root.command("shift-up", root.layer.index); } }
-            MenuItem { title: @tr("範囲を指定してレイヤー移動..."); activated => { root.command("shift-range", root.layer.index); } }
+            MenuItem { title: @tr("Move layer contents down by 1"); activated => { root.command("shift-down", root.layer.index); } }
+            MenuItem { title: @tr("Move layer contents up by 1"); activated => { root.command("shift-up", root.layer.index); } }
+            MenuItem { title: @tr("Move layers by range..."); activated => { root.command("shift-range", root.layer.index); } }
             MenuSeparator { }
-            MenuItem { title: root.layer.visible ? @tr("このレイヤーを非表示にする") : @tr("このレイヤーを表示する"); activated => { root.command("toggle-visible", root.layer.index); } }
-            MenuItem { title: root.layer.locked ? @tr("このレイヤーのロックを解除") : @tr("このレイヤーをロックする"); activated => { root.command("toggle-lock", root.layer.index); } }
+            MenuItem { title: root.layer.visible ? @tr("Hide this layer") : @tr("Show this layer"); activated => { root.command("toggle-visible", root.layer.index); } }
+            MenuItem { title: root.layer.locked ? @tr("Unlock this layer") : @tr("Lock this layer"); activated => { root.command("toggle-lock", root.layer.index); } }
             MenuSeparator { }
-            MenuItem { title: @tr("すべてのレイヤーを表示"); activated => { root.command("show-all", root.layer.index); } }
-            MenuItem { title: @tr("すべてのレイヤーを非表示"); activated => { root.command("hide-all", root.layer.index); } }
+            MenuItem { title: @tr("Show all layers"); activated => { root.command("show-all", root.layer.index); } }
+            MenuItem { title: @tr("Hide all layers"); activated => { root.command("hide-all", root.layer.index); } }
         }
         header-touch := TouchArea {
             mouse-cursor: pointer;
             accessible-role: list-item;
-            accessible-label: @tr("レイヤー {}", root.layer.index + 1);
+            accessible-label: @tr("Layer {}", root.layer.index + 1);
             accessible-description: root.layer.visible
-                ? (root.layer.locked ? @tr("表示、ロック中") : @tr("表示、ロックなし"))
-                : (root.layer.locked ? @tr("非表示、ロック中") : @tr("非表示、ロックなし"));
+                ? (root.layer.locked ? @tr("Visible, locked") : @tr("Visible, unlocked"))
+                : (root.layer.locked ? @tr("Hidden, locked") : @tr("Hidden, unlocked"));
             accessible-item-selectable: true;
             accessible-item-selected: root.layer.selected;
             accessible-action-default => { root.activate(root.layer.index); }
@@ -1365,8 +1365,7 @@ component TimelineClipItem inherits Rectangle {
             mouse-cursor: move;
             accessible-role: list-item;
             accessible-label: root.clip-data.label;
-            accessible-description: @tr(
-                "クリップ: {}、レイヤー{}、フレーム{}から{}フレーム",
+            accessible-description: @tr("Clip: {}, layer {}, starts at frame {} for {} frames",
                 root.clip-data.label,
                 root.clip-data.layer + 1,
                 root.clip-data.start,
@@ -1564,7 +1563,7 @@ component ProjectTab inherits Rectangle {
             overflow: elide;
         }
         close-button := TabCloseButton {
-            accessible-name: @tr("プロジェクトを閉じる");
+            accessible-name: @tr("Close project");
             clicked => { root.close(); }
         }
     }
@@ -1581,7 +1580,7 @@ component ProjectTab inherits Rectangle {
 }
 
 export component ProjectRecoveryWindow inherits Window {
-    title: @tr("未保存のプロジェクトを復元");
+    title: @tr("Recover unsaved projects");
     preferred-width: 660px;
     preferred-height: 440px;
     min-width: 520px;
@@ -1602,7 +1601,7 @@ export component ProjectRecoveryWindow inherits Window {
         spacing: 12px;
 
         Text {
-            text: @tr("AviQtl は中断されたセッションの復元スナップショットを検出しました。復元すると新しい未保存プロジェクトとして開き、元のファイルを上書きすることはありません。");
+            text: @tr("AviQtl found recovery snapshots left by an interrupted session. Recovering opens a new unsaved project and never overwrites the original file.");
             color: AppTheme.foreground;
             wrap: word-wrap;
         }
@@ -1643,8 +1642,8 @@ export component ProjectRecoveryWindow inherits Window {
                             }
                             Text {
                                 text: recovery.valid
-                                    ? @tr("保存日時: {}", recovery.saved-at)
-                                    : @tr("無効な復元データ: {}", recovery.error);
+                                    ? @tr("Saved {}", recovery.saved-at)
+                                    : @tr("Invalid recovery: {}", recovery.error);
                                 color: recovery.valid ? AppTheme.muted-foreground : AppTheme.warning;
                                 overflow: elide;
                             }
@@ -1657,7 +1656,7 @@ export component ProjectRecoveryWindow inherits Window {
                             }
                         }
                         Button {
-                            text: @tr("復元");
+                            text: @tr("Recover");
                             enabled: recovery.valid;
                             clicked => {
                                 root.error-message = "";
@@ -1665,7 +1664,7 @@ export component ProjectRecoveryWindow inherits Window {
                             }
                         }
                         Button {
-                            text: @tr("破棄");
+                            text: @tr("Discard");
                             clicked => {
                                 root.pending-discard-id = recovery.id;
                                 root.pending-discard-name = recovery.name;
@@ -1679,7 +1678,7 @@ export component ProjectRecoveryWindow inherits Window {
         HorizontalLayout {
             alignment: end;
             Button {
-                text: @tr("閉じる");
+                text: @tr("Close");
                 clicked => { root.close-window(); }
             }
         }
@@ -1707,13 +1706,13 @@ export component ProjectRecoveryWindow inherits Window {
                 padding: 16px;
                 spacing: 12px;
                 Text {
-                    text: @tr("復元スナップショットを破棄");
+                    text: @tr("Discard recovery snapshot");
                     color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 Text {
-                    text: @tr("「{}」の復元スナップショットを破棄しますか？この操作は元に戻せません。", root.pending-discard-name);
+                    text: @tr("Discard the recovery snapshot for “{}”? This cannot be undone.", root.pending-discard-name);
                     color: AppTheme.muted-foreground;
                     wrap: word-wrap;
                     vertical-stretch: 1;
@@ -1722,7 +1721,7 @@ export component ProjectRecoveryWindow inherits Window {
                     alignment: end;
                     spacing: 8px;
                     Button {
-                        text: @tr("はい");
+                        text: @tr("Yes");
                         clicked => {
                             root.discard-recovery(root.pending-discard-id);
                             root.pending-discard-id = "";
@@ -1731,7 +1730,7 @@ export component ProjectRecoveryWindow inherits Window {
                         }
                     }
                     Button {
-                        text: @tr("いいえ");
+                        text: @tr("No");
                         clicked => {
                             root.pending-discard-id = "";
                             root.pending-discard-name = "";
@@ -1745,7 +1744,7 @@ export component ProjectRecoveryWindow inherits Window {
 }
 
 export component ProjectLauncherWindow inherits Window {
-    title: @tr("AviQtl Plus - プロジェクトランチャー");
+    title: @tr("AviQtl Plus - Project Launcher");
     preferred-width: 700px;
     preferred-height: 500px;
     min-width: 620px;
@@ -1768,28 +1767,28 @@ export component ProjectLauncherWindow inherits Window {
             horizontal-stretch: 1;
             spacing: AppTheme.spacing-md;
             Text {
-                text: @tr("新規プロジェクト");
+                text: @tr("New Project");
                 color: AppTheme.foreground;
                 font-size: 1.2rem;
                 font-weight: 600;
             }
             GroupBox {
-                title: @tr("プロジェクト設定");
+                title: @tr("Project Settings");
                 height: 220px;
                 vertical-stretch: 0;
                 GridLayout {
                     padding: AppTheme.spacing-md;
                     spacing: AppTheme.spacing-sm;
-                    Row { Text { text: @tr("幅 (横):"); color: AppTheme.muted-foreground; vertical-alignment: center; } width-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-width; accessible-label: @tr("幅 (横):"); } }
-                    Row { Text { text: @tr("高さ (縦):"); color: AppTheme.muted-foreground; vertical-alignment: center; } height-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-height; accessible-label: @tr("高さ (縦):"); } }
-                    Row { Text { text: @tr("フレームレート (FPS):"); color: AppTheme.muted-foreground; vertical-alignment: center; } fps-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-fps; accessible-label: @tr("フレームレート (FPS):"); } }
-                    Row { Text { text: @tr("サンプリングレート:"); color: AppTheme.muted-foreground; vertical-alignment: center; } sample-rate-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-sample-rate; accessible-label: @tr("サンプリングレート:"); } }
+                    Row { Text { text: @tr("launcher-width" => "Width:"); color: AppTheme.muted-foreground; vertical-alignment: center; } width-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-width; accessible-label: @tr("launcher-width" => "Width:"); } }
+                    Row { Text { text: @tr("launcher-height" => "Height:"); color: AppTheme.muted-foreground; vertical-alignment: center; } height-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-height; accessible-label: @tr("launcher-height" => "Height:"); } }
+                    Row { Text { text: @tr("Frame Rate (FPS):"); color: AppTheme.muted-foreground; vertical-alignment: center; } fps-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-fps; accessible-label: @tr("Frame Rate (FPS):"); } }
+                    Row { Text { text: @tr("Sample Rate:"); color: AppTheme.muted-foreground; vertical-alignment: center; } sample-rate-field := LineEdit { height: AppTheme.compact-control-height; text <=> root.default-sample-rate; accessible-label: @tr("Sample Rate:"); } }
                 }
             }
             create-button := Button {
-                text: @tr("新規プロジェクトを作成");
+                text: @tr("Create New Project");
                 primary: true;
-                accessible-label: @tr("新規プロジェクトを作成");
+                accessible-label: @tr("Create New Project");
                 clicked => {
                     root.create-project(width-field.text, height-field.text, fps-field.text, sample-rate-field.text);
                 }
@@ -1802,7 +1801,7 @@ export component ProjectLauncherWindow inherits Window {
             horizontal-stretch: 1;
             spacing: AppTheme.spacing-md;
             Text {
-                text: @tr("最近使ったプロジェクト");
+                text: @tr("Recent Projects");
                 color: AppTheme.foreground;
                 font-size: 1.2rem;
                 font-weight: 600;
@@ -1814,14 +1813,14 @@ export component ProjectLauncherWindow inherits Window {
                 border-color: AppTheme.subtle-border;
                 border-radius: AppTheme.surface-radius;
                 Text {
-                    text: @tr("最近使ったプロジェクトはありません");
+                    text: @tr("No recent projects");
                     color: AppTheme.muted-foreground;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
             }
             Button {
-                text: @tr("既存プロジェクトを開く...");
+                text: @tr("Open Existing Project...");
                 clicked => { root.open-project(); }
             }
         }
@@ -1829,7 +1828,7 @@ export component ProjectLauncherWindow inherits Window {
 }
 
 export component MainWindow inherits Window {
-    title: @tr("AviQtl Plus - プレビュー");
+    title: @tr("AviQtl Plus - Preview");
     preferred-width: 640px;
     preferred-height: 360px;
     min-width: 480px;
@@ -1880,43 +1879,43 @@ export component MainWindow inherits Window {
 
     MenuBar {
         Menu {
-            title: @tr("ファイル");
-            MenuItem { title: @tr("新規プロジェクト"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
-            MenuItem { title: @tr("プロジェクトを開く"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
+            title: @tr("File");
+            MenuItem { title: @tr("New Project"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
+            MenuItem { title: @tr("Open Project"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("プロジェクトの上書き保存"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
-            MenuItem { title: @tr("プロジェクトを名前を付けて保存..."); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
+            MenuItem { title: @tr("Save Project"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
+            MenuItem { title: @tr("Save Project As..."); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
             MenuItem {
-                title: @tr("不足しているメディアを管理");
+                title: @tr("Manage Missing Media");
                 enabled: !root.save-confirmation-visible && root.missing-media.length > 0;
                 activated => { root.missing-media-dialog-visible = true; }
             }
             MenuSeparator { }
-            MenuItem { title: @tr("メディアの書き出し..."); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
+            MenuItem { title: @tr("Export Media..."); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("終了"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
+            MenuItem { title: @tr("Exit"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
         }
         Menu {
-            title: @tr("編集");
-            MenuItem { title: @tr("元に戻す"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
-            MenuItem { title: @tr("やり直す"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+            title: @tr("Edit");
+            MenuItem { title: @tr("Undo"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
+            MenuItem { title: @tr("Redo"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
         }
         Menu {
-            title: @tr("設定");
-            MenuItem { title: @tr("プロジェクト設定"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
+            title: @tr("Settings");
+            MenuItem { title: @tr("Project Settings"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("環境設定"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
+            MenuItem { title: @tr("Preferences"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
         }
         Menu {
-            title: @tr("表示");
-            MenuItem { title: @tr("タイムラインの表示"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
-            MenuItem { title: @tr("設定ダイアログの表示"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
+            title: @tr("View");
+            MenuItem { title: @tr("Show Timeline"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
+            MenuItem { title: @tr("Show Settings Dialog"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
         }
         Menu {
-            title: @tr("ツール");
-            MenuItem { title: @tr("パッケージマネージャー"); enabled: !root.save-confirmation-visible; activated => { root.show-package-manager(); } }
+            title: @tr("Tools");
+            MenuItem { title: @tr("Package Manager"); enabled: !root.save-confirmation-visible; activated => { root.show-package-manager(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("バージョン情報"); enabled: !root.save-confirmation-visible; activated => { root.show-about(); } }
+            MenuItem { title: @tr("About"); enabled: !root.save-confirmation-visible; activated => { root.show-about(); } }
         }
     }
 
@@ -1948,7 +1947,7 @@ export component MainWindow inherits Window {
                 padding-top: AppTheme.spacing-xs;
                 spacing: AppTheme.spacing-xs;
                 accessible-role: tab-list;
-                accessible-label: @tr("プロジェクト");
+                accessible-label: @tr("Project");
                 for tab[index] in root.project-tabs: ProjectTab {
                     label: tab.name + (tab.dirty ? " *" : "");
                     selected: root.current-project == index;
@@ -1956,7 +1955,7 @@ export component MainWindow inherits Window {
                     activate => { root.select-project(index); }
                     close => { root.close-project(index); }
                 }
-                Button { text: "+"; width: 34px; accessible-label: @tr("新規プロジェクト"); clicked => { root.new-project(); } }
+                Button { text: "+"; width: 34px; accessible-label: @tr("New Project"); clicked => { root.new-project(); } }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
@@ -1984,15 +1983,15 @@ export component MainWindow inherits Window {
                     minimum: 0;
                     maximum: root.duration;
                     horizontal-stretch: 1;
-                    accessible-label: @tr("シークバー");
-                    accessible-description: @tr("タイムライン上の現在位置をドラッグして再生位置を変更します");
+                    accessible-label: @tr("Seek Bar");
+                    accessible-description: @tr("Drag to change playback position on the timeline");
                     changed => { root.seek(self.value); }
                 }
                 Text { text: round(root.playhead) + " / " + round(root.duration); font-family: "Monospace"; vertical-alignment: center; }
-                Button { text: "◀"; width: 34px; accessible-label: @tr("1フレーム戻る"); accessible-description: @tr("再生位置を1フレーム前に移動します"); clicked => { root.previous-frame(); } }
-                Button { text: root.playing ? "Ⅱ" : "▶"; width: 38px; primary: root.playing; accessible-label: root.playing ? @tr("一時停止") : @tr("再生"); accessible-description: @tr("再生を開始または一時停止します"); clicked => { root.toggle-playback(); } }
-                Button { text: "▶|"; width: 34px; accessible-label: @tr("1フレーム進む"); accessible-description: @tr("再生位置を1フレーム後に移動します"); clicked => { root.next-frame(); } }
-                Text { text: @tr("速度"); vertical-alignment: center; }
+                Button { text: "◀"; width: 34px; accessible-label: @tr("Back 1 Frame"); accessible-description: @tr("Move playback position 1 frame back"); clicked => { root.previous-frame(); } }
+                Button { text: root.playing ? "Ⅱ" : "▶"; width: 38px; primary: root.playing; accessible-label: root.playing ? @tr("Pause") : @tr("Play"); accessible-description: @tr("Start or pause playback"); clicked => { root.toggle-playback(); } }
+                Button { text: "▶|"; width: 34px; accessible-label: @tr("Forward 1 Frame"); accessible-description: @tr("Move playback position 1 frame forward"); clicked => { root.next-frame(); } }
+                Text { text: @tr("Speed"); vertical-alignment: center; }
                 SpinBox {
                     width: 88px;
                     value <=> root.playback-speed-percent;
@@ -2000,7 +1999,7 @@ export component MainWindow inherits Window {
                     maximum: 400;
                     step-size: 10;
                     enabled: !root.playing;
-                    accessible-label: @tr("再生速度（パーセント）");
+                    accessible-label: @tr("Playback speed (percent)");
                     edited(value) => { root.playback-speed-changed(value); }
                 }
                 Text { text: "%"; vertical-alignment: center; }
@@ -2031,15 +2030,15 @@ export component MainWindow inherits Window {
             padding-right: 6px;
             spacing: 8px;
             Text {
-                text: @tr("{} 個のメディアファイルが見つかりません", root.missing-media.length);
+                text: @tr("{} missing media files", root.missing-media.length);
                 color: AppTheme.foreground;
                 vertical-alignment: center;
                 overflow: elide;
                 horizontal-stretch: 1;
             }
             Button {
-                text: @tr("管理");
-                accessible-label: @tr("不足しているメディアを管理");
+                text: @tr("Manage");
+                accessible-label: @tr("Manage Missing Media");
                 clicked => { root.missing-media-dialog-visible = true; }
             }
         }
@@ -2070,7 +2069,7 @@ export component MainWindow inherits Window {
                 padding: 12px;
                 spacing: 10px;
                 Text {
-                    text: @tr("不足しているメディア");
+                    text: @tr("Missing Media");
                     color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
@@ -2108,8 +2107,8 @@ export component MainWindow inherits Window {
                                     }
                                 }
                                 Button {
-                                    text: @tr("置換");
-                                    accessible-label: @tr("不足しているメディアを置換");
+                                    text: @tr("Replace");
+                                    accessible-label: @tr("Replace Missing Media");
                                     clicked => { root.relink-missing-media(media.clip-id); }
                                 }
                             }
@@ -2119,7 +2118,7 @@ export component MainWindow inherits Window {
                 HorizontalLayout {
                     alignment: end;
                     Button {
-                        text: @tr("閉じる");
+                        text: @tr("Close");
                         clicked => { root.missing-media-dialog-visible = false; }
                     }
                 }
@@ -2150,13 +2149,13 @@ export component MainWindow inherits Window {
                 spacing: 12px;
 
                 Text {
-                    text: @tr("保存の確認");
+                    text: @tr("Confirm Save");
                     color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 Text {
-                    text: root.save-confirmation-project + @tr(" に保存されていない変更があります。\n続行する前に保存しますか？");
+                    text: root.save-confirmation-project + @tr(" has unsaved changes.\nSave before continuing?");
                     color: AppTheme.muted-foreground;
                     wrap: word-wrap;
                     vertical-stretch: 1;
@@ -2165,18 +2164,18 @@ export component MainWindow inherits Window {
                     alignment: end;
                     spacing: 8px;
                     Button {
-                        text: @tr("保存");
-                        accessible-label: @tr("保存");
+                        text: @tr("confirm-save" => "Save");
+                        accessible-label: @tr("confirm-save" => "Save");
                         clicked => { root.confirm-save(); }
                     }
                     Button {
-                        text: @tr("破棄");
-                        accessible-label: @tr("破棄");
+                        text: @tr("Discard");
+                        accessible-label: @tr("Discard");
                         clicked => { root.confirm-discard(); }
                     }
                     Button {
-                        text: @tr("キャンセル");
-                        accessible-label: @tr("キャンセル");
+                        text: @tr("Cancel");
+                        accessible-label: @tr("Cancel");
                         clicked => { root.confirm-cancel(); }
                     }
                 }
@@ -2186,7 +2185,7 @@ export component MainWindow inherits Window {
 }
 
 export component TimelineWindow inherits Window {
-    title: @tr("タイムライン");
+    title: @tr("Timeline");
     preferred-width: 1280px;
     preferred-height: 300px;
     min-width: 720px;
@@ -2516,7 +2515,7 @@ export component TimelineWindow inherits Window {
                 padding-top: AppTheme.spacing-xs;
                 spacing: AppTheme.spacing-xs;
                 accessible-role: tab-list;
-                accessible-label: @tr("シーン");
+                accessible-label: @tr("Scene");
                 for scene in root.scene-tabs: SceneTab {
                     scene: scene;
                     height: max(root.timeline-header-height * 1px, 32px);
@@ -2524,7 +2523,7 @@ export component TimelineWindow inherits Window {
                     settings(scene-id) => { root.scene-settings(scene-id); }
                     close(scene-id) => { root.scene-closed(scene-id); }
                 }
-                Button { text: "+"; width: 34px; accessible-label: @tr("新規シーン作成"); clicked => { root.show-scene-settings(); } }
+                Button { text: "+"; width: 34px; accessible-label: @tr("Create New Scene"); clicked => { root.show-scene-settings(); } }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
@@ -2563,7 +2562,7 @@ export component TimelineWindow inherits Window {
                         width: 43px;
                         height: 100%;
                         text <=> root.zoom-percent-text;
-                        accessible-label: @tr("タイムラインのズーム率");
+                        accessible-label: @tr("Timeline zoom");
                         accepted(value) => {
                             if value.is-float() {
                                 root.apply-zoom-percent(value.to-float());
@@ -2580,7 +2579,7 @@ export component TimelineWindow inherits Window {
                         Text { text: "▾"; horizontal-alignment: center; vertical-alignment: center; }
                         zoom-button := TouchArea {
                             accessible-role: button;
-                            accessible-label: @tr("ズーム率の一覧");
+                            accessible-label: @tr("Zoom presets");
                             clicked => { zoom-menu.show({ x: 0px, y: self.height }); }
                         }
                     }
@@ -2612,8 +2611,8 @@ export component TimelineWindow inherits Window {
                     height: 100%;
                     mouse-cursor: root.ruler-scrubbing ? move : pointer;
                     accessible-role: slider;
-                    accessible-label: @tr("シークバー");
-                    accessible-description: @tr("タイムライン上の現在位置をドラッグして再生位置を変更します");
+                    accessible-label: @tr("Seek Bar");
+                    accessible-description: @tr("Drag to change playback position on the timeline");
                     accessible-value: "\{round(root.playhead)}";
                     accessible-value-minimum: 0;
                     accessible-value-maximum: root.duration;
@@ -2675,7 +2674,7 @@ export component TimelineWindow inherits Window {
                 width: root.layer-header-width * 1px;
                 vertical-stretch: 1;
                 accessible-role: list;
-                accessible-label: @tr("レイヤー");
+                accessible-label: @tr("Layers");
                 viewport-width: self.visible-width;
                 viewport-height: root.layers.length * root.timeline-track-height * 1px;
                 viewport-y <=> root.shared-viewport-y;
@@ -2721,7 +2720,7 @@ export component TimelineWindow inherits Window {
                         height: timeline-scroll.visible-height;
                         accessible-role: main;
                         accessible-id: "timeline-viewport";
-                        accessible-label: @tr("タイムライン編集領域");
+                        accessible-label: @tr("Timeline editing area");
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.move {
                                 root.update-skimmer(
@@ -2883,7 +2882,7 @@ export component TimelineWindow inherits Window {
                     border-width: 1px;
                     border-color: AppTheme.accent;
                     Text {
-                        text: @tr("ここにドロップ");
+                        text: @tr("Drop here");
                         color: AppTheme.foreground;
                         font-size: 1.1rem;
                         font-weight: 700;
@@ -2935,14 +2934,14 @@ export component TimelineWindow inherits Window {
                 padding: 16px;
                 spacing: 12px;
                 Text {
-                    text: @tr("複数レイヤーを挿入");
+                    text: @tr("Insert multiple layers");
                     color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 HorizontalLayout {
                     spacing: 8px;
-                    Text { text: @tr("挿入するレイヤー数:"); vertical-alignment: center; }
+                    Text { text: @tr("Number of layers to insert:"); vertical-alignment: center; }
                     SpinBox {
                         value <=> root.insert-layers-count;
                         minimum: 1;
@@ -2950,16 +2949,16 @@ export component TimelineWindow inherits Window {
                         horizontal-stretch: 1;
                     }
                 }
-                Text { text: @tr("挿入方向:"); }
+                Text { text: @tr("Insertion direction:"); }
                 RadioGroup {
                     orientation: Orientation.horizontal;
                     RadioButton {
-                        text: @tr("選択レイヤーの上");
+                        text: @tr("Above selected layer");
                         checked: root.insert-layers-above;
                         toggled => { if self.checked { root.insert-layers-above = true; } }
                     }
                     RadioButton {
-                        text: @tr("選択レイヤーの下");
+                        text: @tr("Below selected layer");
                         checked: !root.insert-layers-above;
                         toggled => { if self.checked { root.insert-layers-above = false; } }
                     }
@@ -2968,7 +2967,7 @@ export component TimelineWindow inherits Window {
                 HorizontalLayout {
                     alignment: end;
                     spacing: 8px;
-                    Button { text: @tr("キャンセル"); clicked => { root.insert-layers-visible = false; } }
+                    Button { text: @tr("Cancel"); clicked => { root.insert-layers-visible = false; } }
                     Button {
                         text: "OK";
                         primary: true;
@@ -3009,12 +3008,12 @@ export component TimelineWindow inherits Window {
                 padding: 16px;
                 spacing: 12px;
                 Text {
-                    text: @tr("このレイヤー以降をまとめて移動");
+                    text: @tr("Move this layer and below together");
                     color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
-                Text { text: @tr("対象レイヤーの範囲:"); }
+                Text { text: @tr("Target layer range:"); }
                 HorizontalLayout {
                     spacing: 8px;
                     SpinBox { value <=> root.shift-layers-start; minimum: 1; maximum: root.maximum-layers; horizontal-stretch: 1; }
@@ -3023,19 +3022,19 @@ export component TimelineWindow inherits Window {
                 }
                 HorizontalLayout {
                     spacing: 8px;
-                    Text { text: @tr("移動量 (行数):"); vertical-alignment: center; }
+                    Text { text: @tr("Move amount (rows):"); vertical-alignment: center; }
                     SpinBox { value <=> root.shift-layers-count; minimum: 1; maximum: 100; horizontal-stretch: 1; }
                 }
-                Text { text: @tr("方向:"); }
+                Text { text: @tr("Direction:"); }
                 RadioGroup {
                     orientation: Orientation.horizontal;
                     RadioButton {
-                        text: @tr("上へ");
+                        text: @tr("Up");
                         checked: !root.shift-layers-down;
                         toggled => { if self.checked { root.shift-layers-down = false; } }
                     }
                     RadioButton {
-                        text: @tr("下へ");
+                        text: @tr("Down");
                         checked: root.shift-layers-down;
                         toggled => { if self.checked { root.shift-layers-down = true; } }
                     }
@@ -3044,7 +3043,7 @@ export component TimelineWindow inherits Window {
                 HorizontalLayout {
                     alignment: end;
                     spacing: 8px;
-                    Button { text: @tr("キャンセル"); clicked => { root.shift-layers-visible = false; } }
+                    Button { text: @tr("Cancel"); clicked => { root.shift-layers-visible = false; } }
                     Button {
                         text: "OK";
                         primary: true;
@@ -3090,7 +3089,7 @@ export component TimelineWindow inherits Window {
                     spacing: 4px;
                     context-search := LineEdit {
                         text <=> root.context-search-query;
-                        placeholder-text: @tr("エフェクト/オブジェクトを検索...");
+                        placeholder-text: @tr("Search effects/objects...");
                         edited(value) => {
                             root.context-catalog-page = false;
                             root.filter-context-catalog(value, root.context-target-kind);
@@ -3114,7 +3113,7 @@ export component TimelineWindow inherits Window {
                                 }
                             }
                             if root.context-search-query != "" && root.context-catalog-items.length == 0 : Text {
-                                text: @tr("一致する項目がありません");
+                                text: @tr("No matching items");
                                 height: 32px;
                                 color: AppTheme.muted-foreground;
                                 horizontal-alignment: center;
@@ -3122,7 +3121,7 @@ export component TimelineWindow inherits Window {
                             }
 
                             if root.context-search-query == "" && root.context-catalog-page : TimelineContextRow {
-                                title: @tr("‹ 戻る");
+                                title: @tr("‹ Back");
                                 activated => { root.context-catalog-page = false; }
                             }
                             if root.context-search-query == "" && root.context-catalog-page : Rectangle {
@@ -3138,7 +3137,7 @@ export component TimelineWindow inherits Window {
                             }
 
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("オブジェクトカタログを開く...");
+                                title: @tr("Browse object catalog...");
                                 activated => { root.browse-context-catalog(); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
@@ -3146,7 +3145,7 @@ export component TimelineWindow inherits Window {
                                 background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("オブジェクトを追加  ›");
+                                title: @tr("Add Object  ›");
                                 activated => { root.context-catalog-page = true; }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
@@ -3154,15 +3153,15 @@ export component TimelineWindow inherits Window {
                                 background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("元に戻す");
+                                title: @tr("Undo");
                                 activated => { root.activate-context-command("undo"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("やり直す");
+                                title: @tr("Redo");
                                 activated => { root.activate-context-command("redo"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("貼り付け");
+                                title: @tr("Paste");
                                 activated => { root.activate-context-command("paste"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
@@ -3170,28 +3169,28 @@ export component TimelineWindow inherits Window {
                                 background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("シーン設定...");
+                                title: @tr("Scene Settings...");
                                 activated => { root.activate-context-command("scene-settings"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("プロジェクト設定...");
+                                title: @tr("Project Settings...");
                                 activated => { root.activate-context-command("project-settings"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("環境設定...");
+                                title: @tr("Preferences...");
                                 activated => { root.activate-context-command("system-settings"); }
                             }
 
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("削除");
+                                title: @tr("Delete");
                                 activated => { root.activate-context-command("delete"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("分割");
+                                title: @tr("Split");
                                 activated => { root.activate-context-command("split"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("複製");
+                                title: @tr("Duplicate");
                                 activated => { root.activate-context-command("duplicate"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
@@ -3199,11 +3198,11 @@ export component TimelineWindow inherits Window {
                                 background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("切り取り");
+                                title: @tr("timeline-cut" => "Cut");
                                 activated => { root.activate-context-command("cut"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("コピー");
+                                title: @tr("Copy");
                                 activated => { root.activate-context-command("copy"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : Rectangle {
@@ -3211,11 +3210,11 @@ export component TimelineWindow inherits Window {
                                 background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
-                                title: (root.context-clip-by-upper-object ? "✓  " : "    ") + @tr("上のオブジェクトでクリッピング");
+                                title: (root.context-clip-by-upper-object ? "✓  " : "    ") + @tr("Clip by Upper Object");
                                 activated => { root.activate-context-command("clipping"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
-                                title: @tr("エフェクトカタログを開く...");
+                                title: @tr("Browse effect catalog...");
                                 activated => { root.browse-context-catalog(); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
@@ -3223,7 +3222,7 @@ export component TimelineWindow inherits Window {
                                 background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("エフェクトを追加  ›");
+                                title: @tr("Add Effect  ›");
                                 activated => { root.context-catalog-page = true; }
                             }
                         }
@@ -3262,7 +3261,7 @@ export component TimelineWindow inherits Window {
                 padding: 12px;
                 spacing: 8px;
                 Text {
-                    text: @tr("オブジェクト一覧");
+                    text: @tr("Object List");
                     color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
@@ -3272,7 +3271,7 @@ export component TimelineWindow inherits Window {
                     object-search := LineEdit {
                         horizontal-stretch: 1;
                         text <=> root.object-filter;
-                        placeholder-text: @tr("名前・カテゴリ・ID・パッケージを検索...");
+                        placeholder-text: @tr("Search name, category, ID, or package...");
                         edited(value) => {
                             root.object-catalog-selected-index = -1;
                             root.object-catalog-selected-id = "";
@@ -3292,13 +3291,13 @@ export component TimelineWindow inherits Window {
                     }
                 }
                 Text {
-                    text: root.object-catalog-items.length + @tr(" 件");
+                    text: root.object-catalog-items.length + @tr(" items");
                     color: AppTheme.muted-foreground;
                 }
                 ScrollView {
                     vertical-stretch: 1;
                     accessible-role: list;
-                    accessible-label: @tr("オブジェクト一覧");
+                    accessible-label: @tr("Object List");
                     VerticalLayout {
                         spacing: 4px;
                         for item[index] in root.object-catalog-items : Rectangle {
@@ -3357,7 +3356,7 @@ export component TimelineWindow inherits Window {
                             }
                         }
                         if root.object-catalog-items.length == 0 : Text {
-                            text: @tr("一致するオブジェクトがありません");
+                            text: @tr("No matching objects");
                             color: AppTheme.muted-foreground;
                             horizontal-alignment: center;
                         }
@@ -3366,11 +3365,11 @@ export component TimelineWindow inherits Window {
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
                     Button {
-                        text: @tr("キャンセル");
+                        text: @tr("Cancel");
                         clicked => { root.object-picker-visible = false; }
                     }
                     Button {
-                        text: @tr("追加");
+                        text: @tr("Add");
                         enabled: root.object-catalog-selected-id != "";
                         clicked => { root.accept-object-selection(); }
                     }
@@ -3381,7 +3380,7 @@ export component TimelineWindow inherits Window {
 }
 
 export component ExportWindow inherits Window {
-    title: @tr("メディアの書き出し");
+    title: @tr("Export Media");
     preferred-width: 620px;
     preferred-height: 580px;
     min-width: 520px;
@@ -3412,7 +3411,7 @@ export component ExportWindow inherits Window {
     in-out property <int> end-frame: 300;
     in property <bool> exporting: false;
     in property <float> export-progress: 0;
-    in property <string> progress-label: @tr("0 / 0 フレーム");
+    in property <string> progress-label: @tr("0 / 0 frames");
     in-out property <bool> cancel-confirmation-visible: false;
     in-out property <bool> result-visible: false;
     in property <bool> result-success: true;
@@ -3436,9 +3435,9 @@ export component ExportWindow inherits Window {
 
             HorizontalLayout {
                 spacing: 8px;
-                Text { text: @tr("形式:"); vertical-alignment: center; }
+                Text { text: @tr("Format:"); vertical-alignment: center; }
                 ComboBox {
-                    model: [@tr("動画ファイル"), @tr("画像シーケンス")];
+                    model: [@tr("Video File"), @tr("Image Sequence")];
                     current-index <=> root.format-index;
                 }
                 if root.format-index == 1 : ComboBox {
@@ -3447,22 +3446,22 @@ export component ExportWindow inherits Window {
                 }
                 LineEdit {
                     text <=> root.output-path;
-                    placeholder-text: root.format-index == 1 ? @tr("保存先フォルダ...") : @tr("保存先ファイルパス...");
+                    placeholder-text: root.format-index == 1 ? @tr("Destination folder...") : @tr("Destination file path...");
                     horizontal-stretch: 1;
                 }
                 Button {
-                    text: @tr("参照...");
+                    text: @tr("Browse...");
                     clicked => { root.browse-output(root.format-index == 1); }
                 }
             }
 
             if root.format-index == 0 : GroupBox {
-                title: @tr("映像");
+                title: @tr("Video");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: @tr("解像度:"); vertical-alignment: center; }
+                        Text { text: @tr("Resolution:"); vertical-alignment: center; }
                         Text { text: root.project-width + " × " + root.project-height; font-weight: 700; vertical-alignment: center; }
                     }
                     Row {
@@ -3470,7 +3469,7 @@ export component ExportWindow inherits Window {
                         Text { text: root.project-fps.to-fixed(3); font-weight: 700; vertical-alignment: center; }
                     }
                     Row {
-                        Text { text: @tr("コーデック:"); vertical-alignment: center; }
+                        Text { text: @tr("Codec:"); vertical-alignment: center; }
                         ComboBox {
                             model: root.video-codec-labels;
                             current-index <=> root.video-codec-index;
@@ -3478,11 +3477,11 @@ export component ExportWindow inherits Window {
                         }
                     }
                     Row {
-                        Text { text: @tr("品質モード:"); vertical-alignment: center; }
+                        Text { text: @tr("Quality mode:"); vertical-alignment: center; }
                         RadioGroup {
                             orientation: Orientation.horizontal;
                             RadioButton { text: "CRF"; checked <=> root.crf-mode; }
-                            RadioButton { text: @tr("ビットレート"); checked <=> root.bitrate-mode; }
+                            RadioButton { text: @tr("Bitrate"); checked <=> root.bitrate-mode; }
                         }
                     }
                     if root.crf-mode : Row {
@@ -3492,14 +3491,14 @@ export component ExportWindow inherits Window {
                             Slider { value <=> root.crf; minimum: 0; maximum: 51; horizontal-stretch: 1; }
                             Text { text: root.crf.round(); preferred-width: 28px; vertical-alignment: center; }
                             Text {
-                                text: root.crf <= 17 ? @tr("高品質") : root.crf <= 28 ? @tr("標準") : @tr("低品質");
+                                text: root.crf <= 17 ? @tr("High quality") : root.crf <= 28 ? @tr("Standard") : @tr("Low quality");
                                 color: root.crf <= 17 ? AppTheme.success : root.crf <= 28 ? AppTheme.muted-foreground : AppTheme.danger;
                                 vertical-alignment: center;
                             }
                         }
                     }
                     if root.bitrate-mode : Row {
-                        Text { text: @tr("ビットレート:"); vertical-alignment: center; }
+                        Text { text: @tr("Bitrate:"); vertical-alignment: center; }
                         HorizontalLayout {
                             SpinBox { value <=> root.bitrate-mbps; minimum: 1; maximum: 500; }
                             Text { text: "Mbps"; vertical-alignment: center; }
@@ -3507,16 +3506,16 @@ export component ExportWindow inherits Window {
                         }
                     }
                     if root.software-codec : Row {
-                        Text { text: @tr("プリセット:"); vertical-alignment: center; }
+                        Text { text: @tr("Preset:"); vertical-alignment: center; }
                         ComboBox {
-                            model: [@tr("最速 (ultrafast)"), @tr("高速 (fast)"), @tr("標準 (medium)"), @tr("高品質 (slow)"), @tr("最高品質 (veryslow)")];
+                            model: [@tr("Fastest (ultrafast)"), @tr("Fast (fast)"), @tr("Standard (medium)"), @tr("High quality (slow)"), @tr("Highest quality (veryslow)")];
                             current-index <=> root.preset-index;
                         }
                     }
                     if root.software-codec : Row {
-                        Text { text: @tr("プロファイル:"); vertical-alignment: center; }
+                        Text { text: @tr("Profile:"); vertical-alignment: center; }
                         ComboBox {
-                            model: [@tr("自動"), "Baseline", "Main", "High"];
+                            model: [@tr("Auto"), "Baseline", "Main", "High"];
                             current-index <=> root.profile-index;
                         }
                     }
@@ -3524,12 +3523,12 @@ export component ExportWindow inherits Window {
             }
 
             if root.format-index == 0 : GroupBox {
-                title: @tr("音声");
+                title: @tr("Audio");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: @tr("コーデック:"); vertical-alignment: center; }
+                        Text { text: @tr("Codec:"); vertical-alignment: center; }
                         ComboBox {
                             model: root.audio-codec-labels;
                             current-index <=> root.audio-codec-index;
@@ -3537,7 +3536,7 @@ export component ExportWindow inherits Window {
                         }
                     }
                     Row {
-                        Text { text: @tr("ビットレート:"); vertical-alignment: center; }
+                        Text { text: @tr("Bitrate:"); vertical-alignment: center; }
                         ComboBox {
                             model: ["96 kbps", "128 kbps", "192 kbps", "256 kbps", "320 kbps"];
                             current-index <=> root.audio-bitrate-index;
@@ -3548,19 +3547,19 @@ export component ExportWindow inherits Window {
             }
 
             GroupBox {
-                title: @tr("範囲");
+                title: @tr("Range");
                 HorizontalLayout {
                     padding: 10px;
                     spacing: 8px;
-                    CheckBox { text: @tr("タイムライン全体"); checked <=> root.full-range; }
-                    Text { text: @tr("開始:"); vertical-alignment: center; }
+                    CheckBox { text: @tr("Entire timeline"); checked <=> root.full-range; }
+                    Text { text: @tr("Start:"); vertical-alignment: center; }
                     SpinBox {
                         value <=> root.start-frame;
                         minimum: 0;
                         maximum: max(root.end-frame - 1, 0);
                         enabled: !root.full-range;
                     }
-                    Text { text: @tr("終了:"); vertical-alignment: center; }
+                    Text { text: @tr("End:"); vertical-alignment: center; }
                     SpinBox {
                         value <=> root.end-frame;
                         minimum: root.start-frame + 1;
@@ -3569,9 +3568,9 @@ export component ExportWindow inherits Window {
                     }
                     Text {
                         text: "(" + (root.full-range ? root.timeline-duration : root.end-frame - root.start-frame)
-                            + @tr(" フレーム / ")
+                            + @tr(" frames / ")
                             + ((root.full-range ? root.timeline-duration : root.end-frame - root.start-frame) / max(root.project-fps, 1)).to-fixed(2)
-                            + @tr(" 秒)");
+                            + @tr(" sec)");
                         opacity: 0.65;
                         vertical-alignment: center;
                     }
@@ -3582,9 +3581,9 @@ export component ExportWindow inherits Window {
             HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
-                Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
+                Button { text: @tr("Cancel"); clicked => { root.close-window(); } }
                 Button {
-                    text: @tr("書き出し開始");
+                    text: @tr("Start Export");
                     enabled: root.validate-output-path(root.output-path);
                     clicked => { root.start-export(); }
                 }
@@ -3606,12 +3605,12 @@ export component ExportWindow inherits Window {
             background: transparent;
             VerticalLayout {
                 spacing: 16px;
-                Text { text: @tr("書き出し中..."); color: white; font-size: 1.05rem; font-weight: 700; horizontal-alignment: center; }
+                Text { text: @tr("Exporting..."); color: white; font-size: 1.05rem; font-weight: 700; horizontal-alignment: center; }
                 ProgressIndicator { progress: root.export-progress / 100; }
                 Text { text: root.progress-label; color: #ffffffcc; horizontal-alignment: center; }
                 HorizontalLayout {
                     alignment: center;
-                    Button { text: @tr("キャンセル"); clicked => { root.request-cancel(); } }
+                    Button { text: @tr("Cancel"); clicked => { root.request-cancel(); } }
                 }
             }
         }
@@ -3635,13 +3634,13 @@ export component ExportWindow inherits Window {
             VerticalLayout {
                 padding: 16px;
                 spacing: 12px;
-                Text { text: @tr("書き出しキャンセル"); color: AppTheme.foreground; font-size: 1.1rem; font-weight: 700; }
-                Text { text: @tr("書き出しをキャンセルしますか？\n進捗は失われます。"); color: AppTheme.muted-foreground; wrap: word-wrap; vertical-stretch: 1; }
+                Text { text: @tr("Cancel Export"); color: AppTheme.foreground; font-size: 1.1rem; font-weight: 700; }
+                Text { text: @tr("Cancel the export?\nProgress will be lost."); color: AppTheme.muted-foreground; wrap: word-wrap; vertical-stretch: 1; }
                 HorizontalLayout {
                     alignment: end;
                     spacing: 8px;
-                    Button { text: @tr("はい"); clicked => { root.confirm-cancel(); } }
-                    Button { text: @tr("いいえ"); clicked => { root.dismiss-cancel(); } }
+                    Button { text: @tr("Yes"); clicked => { root.confirm-cancel(); } }
+                    Button { text: @tr("No"); clicked => { root.dismiss-cancel(); } }
                 }
             }
         }
@@ -3665,7 +3664,7 @@ export component ExportWindow inherits Window {
             VerticalLayout {
                 padding: 16px;
                 spacing: 12px;
-                Text { text: root.result-success ? @tr("完了") : @tr("エラー"); color: AppTheme.foreground; font-size: 1.1rem; font-weight: 700; }
+                Text { text: root.result-success ? @tr("Complete") : @tr("Error"); color: AppTheme.foreground; font-size: 1.1rem; font-weight: 700; }
                 Text { text: root.result-message; color: AppTheme.muted-foreground; wrap: word-wrap; vertical-stretch: 1; }
                 HorizontalLayout {
                     alignment: end;
@@ -3677,7 +3676,7 @@ export component ExportWindow inherits Window {
 }
 
 export component ProjectSettingsWindow inherits Window {
-    title: @tr("プロジェクト設定");
+    title: @tr("Project Settings");
     preferred-width: 450px;
     preferred-height: 240px;
     min-width: 390px;
@@ -3696,11 +3695,11 @@ export component ProjectSettingsWindow inherits Window {
         GridLayout {
             spacing: 10px;
             Row {
-                Text { text: @tr("幅:"); vertical-alignment: center; }
+                Text { text: @tr("settings-width" => "Width:"); vertical-alignment: center; }
                 SpinBox { value <=> root.project-width; minimum: 1; maximum: 8000; }
             }
             Row {
-                Text { text: @tr("高さ:"); vertical-alignment: center; }
+                Text { text: @tr("settings-height" => "Height:"); vertical-alignment: center; }
                 SpinBox { value <=> root.project-height; minimum: 1; maximum: 8000; }
             }
             Row {
@@ -3708,7 +3707,7 @@ export component ProjectSettingsWindow inherits Window {
                 LineEdit { text <=> root.project-fps; }
             }
             Row {
-                Text { text: @tr("サンプリングレート:"); vertical-alignment: center; }
+                Text { text: @tr("Sample Rate:"); vertical-alignment: center; }
                 SpinBox { value <=> root.project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
             }
         }
@@ -3717,20 +3716,20 @@ export component ProjectSettingsWindow inherits Window {
             alignment: center;
             spacing: 8px;
             Button {
-                text: @tr("適用");
+                text: @tr("Apply");
                 clicked => {
                     if root.apply-settings() {
                         root.close-window();
                     }
                 }
             }
-            Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
+            Button { text: @tr("Cancel"); clicked => { root.close-window(); } }
         }
     }
 }
 
 export component SceneSettingsWindow inherits Window {
-    title: root.creation-mode ? @tr("新規シーン作成") : @tr("シーン設定");
+    title: root.creation-mode ? @tr("Create New Scene") : @tr("Scene Settings");
     preferred-width: 450px;
     preferred-height: 550px;
     min-width: 410px;
@@ -3758,20 +3757,20 @@ export component SceneSettingsWindow inherits Window {
             padding: 15px;
             spacing: 14px;
             GroupBox {
-                title: @tr("基本設定");
+                title: @tr("Basic Settings");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: @tr("シーン名:"); vertical-alignment: center; }
+                        Text { text: @tr("Scene Name:"); vertical-alignment: center; }
                         LineEdit { text <=> root.scene-name; }
                     }
                     Row {
-                        Text { text: @tr("幅:"); vertical-alignment: center; }
+                        Text { text: @tr("settings-width" => "Width:"); vertical-alignment: center; }
                         SpinBox { value <=> root.scene-width; minimum: 1; maximum: 8000; }
                     }
                     Row {
-                        Text { text: @tr("高さ:"); vertical-alignment: center; }
+                        Text { text: @tr("settings-height" => "Height:"); vertical-alignment: center; }
                         SpinBox { value <=> root.scene-height; minimum: 1; maximum: 8000; }
                     }
                     Row {
@@ -3781,50 +3780,50 @@ export component SceneSettingsWindow inherits Window {
                 }
             }
             GroupBox {
-                title: @tr("編集とスナップ");
+                title: @tr("Editing and Snap");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row {
-                        Text { text: @tr("スナップを有効にする:"); vertical-alignment: center; }
+                        Text { text: @tr("Enable Snap:"); vertical-alignment: center; }
                         CheckBox { checked <=> root.enable-snap; }
                     }
                     Row {
-                        Text { text: @tr("磁力スナップ範囲:"); vertical-alignment: center; }
+                        Text { text: @tr("Magnetic Snap Range:"); vertical-alignment: center; }
                         SpinBox { value <=> root.magnetic-snap-range; minimum: 1; maximum: 100; }
                     }
                     Row {
-                        Text { text: @tr("グリッドモード:"); vertical-alignment: center; }
+                        Text { text: @tr("Grid Mode:"); vertical-alignment: center; }
                         ComboBox {
-                            model: [@tr("自動 (秒/フレーム)"), @tr("BPM (音楽)"), @tr("フレーム数固定")];
+                            model: [@tr("Auto (Seconds/Frames)"), @tr("BPM (Music)"), @tr("Fixed Frame Count")];
                             current-index <=> root.grid-mode-index;
                         }
                     }
                 }
             }
             if root.grid-mode-index == 1 : GroupBox {
-                title: @tr("BPM設定");
+                title: @tr("BPM Settings");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
                     Row { Text { text: "BPM:"; vertical-alignment: center; } LineEdit { text <=> root.grid-bpm; } }
-                    Row { Text { text: @tr("拍子 (分割数):"); vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; } }
-                    Row { Text { text: @tr("オフセット (秒):"); vertical-alignment: center; } LineEdit { text <=> root.grid-offset; } }
+                    Row { Text { text: @tr("Time Signature (Subdivisions):"); vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; } }
+                    Row { Text { text: @tr("Offset (Seconds):"); vertical-alignment: center; } LineEdit { text <=> root.grid-offset; } }
                 }
             }
             if root.grid-mode-index == 2 : GroupBox {
-                title: @tr("フレーム設定");
+                title: @tr("Frame Settings");
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
-                    Row { Text { text: @tr("間隔 (Frames):"); vertical-alignment: center; } LineEdit { text <=> root.grid-interval; } }
+                    Row { Text { text: @tr("Interval (Frames):"); vertical-alignment: center; } LineEdit { text <=> root.grid-interval; } }
                 }
             }
             Rectangle { vertical-stretch: 1; }
             HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
-                Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
+                Button { text: @tr("Cancel"); clicked => { root.close-window(); } }
                 Button {
                     text: "OK";
                     clicked => {
@@ -3946,7 +3945,7 @@ component SystemSettingsNavItem inherits Rectangle {
 }
 
 export component SystemSettingsWindow inherits Window {
-    title: @tr("環境設定");
+    title: @tr("Preferences");
     preferred-width: 960px;
     preferred-height: 680px;
     min-width: 760px;
@@ -3978,6 +3977,7 @@ export component SystemSettingsWindow inherits Window {
     in-out property <int> timeline-zoom-max: 400;
     in-out property <int> timeline-zoom-step: 10;
     in-out property <int> theme-index: 0;
+    in-out property <int> language-index: 0;
     in-out property <int> default-project-width: 1920;
     in-out property <int> default-project-height: 1080;
     in-out property <string> default-project-fps: "60";
@@ -4010,40 +4010,40 @@ export component SystemSettingsWindow inherits Window {
     callback close-window();
 
     pure function shortcut-name(action-id: string) -> string {
-        if action-id == "project.new" { return @tr("新規プロジェクト"); }
-        if action-id == "project.open" { return @tr("プロジェクトを開く"); }
-        if action-id == "project.save" { return @tr("上書き保存"); }
-        if action-id == "project.saveAs" { return @tr("名前を付けて保存"); }
-        if action-id == "project.export" { return @tr("メディアの書き出し"); }
-        if action-id == "app.quit" { return @tr("終了"); }
-        if action-id == "app.settings" { return @tr("環境設定"); }
-        if action-id == "edit.undo" { return @tr("元に戻す"); }
-        if action-id == "edit.redo" { return @tr("やり直す"); }
-        if action-id == "edit.cut" { return @tr("カット"); }
-        if action-id == "edit.copy" { return @tr("コピー"); }
-        if action-id == "edit.paste" { return @tr("貼り付け"); }
-        if action-id == "edit.delete" { return @tr("削除"); }
-        if action-id == "edit.duplicate" { return @tr("複製"); }
-        if action-id == "transport.playPause" { return @tr("再生 / 一時停止"); }
-        if action-id == "transport.nextFrame" { return @tr("1フレーム進む"); }
-        if action-id == "transport.prevFrame" { return @tr("1フレーム戻る"); }
-        if action-id == "transport.jumpStart" { return @tr("先頭へ移動"); }
-        if action-id == "transport.jumpEnd" { return @tr("末尾へ移動"); }
-        if action-id == "view.zoomIn" { return @tr("ズームイン"); }
-        if action-id == "view.zoomOut" { return @tr("ズームアウト"); }
-        if action-id == "view.timeline" { return @tr("タイムラインの表示"); }
-        if action-id == "view.objectSettings" { return @tr("設定ダイアログの表示"); }
-        if action-id == "project.settings" { return @tr("プロジェクト設定"); }
-        if action-id == "timeline.split" { return @tr("クリップを分割"); }
-        if action-id == "timeline.moveUp" { return @tr("レイヤーを上へ移動"); }
-        if action-id == "timeline.moveDown" { return @tr("レイヤーを下へ移動"); }
-        if action-id == "timeline.nudgeLeft" { return @tr("1フレーム左へ移動"); }
-        if action-id == "timeline.nudgeRight" { return @tr("1フレーム右へ移動"); }
-        if action-id == "timeline.addScene" { return @tr("新規シーン作成"); }
-        if action-id == "timeline.sceneSettings" { return @tr("現在のシーン設定"); }
-        if action-id == "timeline.removeScene" { return @tr("現在のシーンを削除"); }
-        if action-id == "timeline.layerLock" { return @tr("現在のレイヤーをロック/解除"); }
-        if action-id == "timeline.layerHide" { return @tr("現在のレイヤーを表示/非表示"); }
+        if action-id == "project.new" { return @tr("New Project"); }
+        if action-id == "project.open" { return @tr("Open Project"); }
+        if action-id == "project.save" { return @tr("save-project" => "Save"); }
+        if action-id == "project.saveAs" { return @tr("Save As"); }
+        if action-id == "project.export" { return @tr("Export Media"); }
+        if action-id == "app.quit" { return @tr("Exit"); }
+        if action-id == "app.settings" { return @tr("Preferences"); }
+        if action-id == "edit.undo" { return @tr("Undo"); }
+        if action-id == "edit.redo" { return @tr("Redo"); }
+        if action-id == "edit.cut" { return @tr("edit-menu-cut" => "Cut"); }
+        if action-id == "edit.copy" { return @tr("Copy"); }
+        if action-id == "edit.paste" { return @tr("Paste"); }
+        if action-id == "edit.delete" { return @tr("Delete"); }
+        if action-id == "edit.duplicate" { return @tr("Duplicate"); }
+        if action-id == "transport.playPause" { return @tr("Play / Pause"); }
+        if action-id == "transport.nextFrame" { return @tr("Forward 1 Frame"); }
+        if action-id == "transport.prevFrame" { return @tr("Back 1 Frame"); }
+        if action-id == "transport.jumpStart" { return @tr("Go to Start"); }
+        if action-id == "transport.jumpEnd" { return @tr("Go to End"); }
+        if action-id == "view.zoomIn" { return @tr("Zoom In"); }
+        if action-id == "view.zoomOut" { return @tr("Zoom Out"); }
+        if action-id == "view.timeline" { return @tr("Show Timeline"); }
+        if action-id == "view.objectSettings" { return @tr("Show Settings Dialog"); }
+        if action-id == "project.settings" { return @tr("Project Settings"); }
+        if action-id == "timeline.split" { return @tr("Split Clip"); }
+        if action-id == "timeline.moveUp" { return @tr("Move Layer Up"); }
+        if action-id == "timeline.moveDown" { return @tr("Move Layer Down"); }
+        if action-id == "timeline.nudgeLeft" { return @tr("Move Left 1 Frame"); }
+        if action-id == "timeline.nudgeRight" { return @tr("Move Right 1 Frame"); }
+        if action-id == "timeline.addScene" { return @tr("Create New Scene"); }
+        if action-id == "timeline.sceneSettings" { return @tr("Current Scene Settings"); }
+        if action-id == "timeline.removeScene" { return @tr("Delete Current Scene"); }
+        if action-id == "timeline.layerLock" { return @tr("Lock/Unlock Current Layer"); }
+        if action-id == "timeline.layerHide" { return @tr("Show/Hide Current Layer"); }
         return action-id;
     }
 
@@ -4064,11 +4064,11 @@ export component SystemSettingsWindow inherits Window {
                     padding: AppTheme.spacing-sm;
                     spacing: AppTheme.spacing-xs;
                     accessible-role: tab-list;
-                    accessible-label: @tr("環境設定");
+                    accessible-label: @tr("Preferences");
                     for tab-label[index] in [
-                        @tr("一般"), @tr("性能"), @tr("タイムライン"), @tr("外観"),
-                        @tr("新規プロジェクト"), @tr("書き出し"), @tr("デコードと音声"),
-                        @tr("プラグイン"), @tr("ショートカット")
+                        @tr("General"), @tr("Performance"), @tr("Timeline"), @tr("Appearance"),
+                        @tr("New Project"), @tr("Export"), @tr("Decode and Audio"),
+                        @tr("Plugins"), @tr("Shortcuts")
                     ] : SystemSettingsNavItem {
                         label: tab-label;
                         selected: root.tab-index == index;
@@ -4084,27 +4084,27 @@ export component SystemSettingsWindow inherits Window {
         if root.tab-index == 0 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("一般");
+            accessible-label: @tr("General");
             viewport-width: self.visible-width;
             viewport-height: general-page.preferred-height;
             general-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("ファイル");
+                    title: @tr("File");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        CheckBox { text: @tr("終了時に未保存のプロジェクトを確認する"); checked <=> root.confirm-unsaved; }
-                        CheckBox { text: @tr("自動バックアップを有効にする"); checked <=> root.auto-backup; }
+                        CheckBox { text: @tr("Check for unsaved projects when exiting"); checked <=> root.confirm-unsaved; }
+                        CheckBox { text: @tr("Enable automatic backups"); checked <=> root.auto-backup; }
                         SystemSettingSpinRow {
-                            label: @tr("バックアップ間隔");
+                            label: @tr("Backup interval");
                             value <=> root.backup-interval;
                             minimum: 1;
                             maximum: 60;
                             interactive: root.auto-backup;
                         }
                         SystemSettingSpinRow {
-                            label: @tr("最近使ったプロジェクトの保持数");
+                            label: @tr("Number of recent projects to keep");
                             value <=> root.recent-project-max-count;
                             minimum: 1;
                             maximum: 50;
@@ -4112,19 +4112,19 @@ export component SystemSettingsWindow inherits Window {
                     }
                 }
                 GroupBox {
-                    title: @tr("編集");
+                    title: @tr("Edit");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 6px;
-                        SystemSettingSpinRow { label: @tr("元に戻す回数"); value <=> root.undo-count; minimum: 1; maximum: 1000; }
-                        Text { text: @tr("回数を増やすとメモリ使用量が増えます"); color: AppTheme.muted-foreground; }
+                        SystemSettingSpinRow { label: @tr("Undo count"); value <=> root.undo-count; minimum: 1; maximum: 1000; }
+                        Text { text: @tr("Increasing this count increases memory usage"); color: AppTheme.muted-foreground; }
                     }
                 }
                 GroupBox {
-                    title: @tr("起動");
+                    title: @tr("Startup");
                     VerticalLayout {
                         padding: 10px;
-                        SystemSettingSpinRow { label: @tr("スプラッシュ画像サイズ"); value <=> root.splash-size; minimum: 128; maximum: 2048; step-size: 64; }
+                        SystemSettingSpinRow { label: @tr("Splash image size"); value <=> root.splash-size; minimum: 128; maximum: 2048; step-size: 64; }
                     }
                 }
             }
@@ -4133,18 +4133,18 @@ export component SystemSettingsWindow inherits Window {
         if root.tab-index == 1 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("性能");
+            accessible-label: @tr("Performance");
             viewport-width: self.visible-width;
             viewport-height: performance-page.preferred-height;
             performance-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("メモリとキャッシュ");
+                    title: @tr("Memory and Cache");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingSpinRow { label: @tr("最大画像サイズ"); value <=> root.max-image-size; minimum: 1024; maximum: 16384; step-size: 512; }
-                        SystemSettingSpinRow { label: @tr("キャッシュ容量"); value <=> root.cache-size; minimum: 64; maximum: 8192; step-size: 64; }
+                        SystemSettingSpinRow { label: @tr("Maximum image size"); value <=> root.max-image-size; minimum: 1024; maximum: 16384; step-size: 512; }
+                        SystemSettingSpinRow { label: @tr("Cache capacity"); value <=> root.cache-size; minimum: 64; maximum: 8192; step-size: 64; }
                     }
                 }
                 GroupBox {
@@ -4178,41 +4178,41 @@ export component SystemSettingsWindow inherits Window {
         if root.tab-index == 2 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("タイムライン");
+            accessible-label: @tr("Timeline");
             viewport-width: self.visible-width;
             viewport-height: timeline-settings-page.preferred-height;
             timeline-settings-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("操作");
+                    title: @tr("Controls");
                     VerticalLayout {
                         padding: 10px;
-                        CheckBox { text: @tr("タイムラインスキミングを有効にする"); checked <=> root.enable-timeline-skimming; }
+                        CheckBox { text: @tr("Enable timeline skimming"); checked <=> root.enable-timeline-skimming; }
                     }
                 }
                 GroupBox {
-                    title: @tr("見た目と寸法");
+                    title: @tr("Appearance and Dimensions");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingSpinRow { label: @tr("トラックの高さ"); value <=> root.timeline-track-height; minimum: 16; maximum: 100; }
-                        SystemSettingSpinRow { label: @tr("ヘッダーの高さ"); value <=> root.timeline-header-height; minimum: 16; maximum: 100; }
-                        CheckBox { text: @tr("設定サイドバーを右に配置"); checked <=> root.setting-dialog-sidebar-right; }
-                        SystemSettingSpinRow { label: @tr("ルーラーの高さ"); value <=> root.timeline-ruler-height; minimum: 16; maximum: 100; }
-                        SystemSettingSpinRow { label: @tr("最大レイヤー数"); value <=> root.timeline-max-layers; minimum: 1; maximum: 512; }
-                        SystemSettingSpinRow { label: @tr("レイヤーヘッダー幅"); value <=> root.timeline-layer-header-width; minimum: 40; maximum: 300; }
-                        SystemSettingSpinRow { label: @tr("クリップ端のつかみ幅"); value <=> root.timeline-clip-resize-handle-width; minimum: 4; maximum: 40; }
+                        SystemSettingSpinRow { label: @tr("Track height"); value <=> root.timeline-track-height; minimum: 16; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Header height"); value <=> root.timeline-header-height; minimum: 16; maximum: 100; }
+                        CheckBox { text: @tr("Place settings sidebar on the right"); checked <=> root.setting-dialog-sidebar-right; }
+                        SystemSettingSpinRow { label: @tr("Ruler height"); value <=> root.timeline-ruler-height; minimum: 16; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Maximum layer count"); value <=> root.timeline-max-layers; minimum: 1; maximum: 512; }
+                        SystemSettingSpinRow { label: @tr("Layer header width"); value <=> root.timeline-layer-header-width; minimum: 40; maximum: 300; }
+                        SystemSettingSpinRow { label: @tr("Clip edge handle width"); value <=> root.timeline-clip-resize-handle-width; minimum: 4; maximum: 40; }
                     }
                 }
                 GroupBox {
-                    title: @tr("編集制約とズーム");
+                    title: @tr("Editing Constraints and Zoom");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingSpinRow { label: @tr("最小クリップ長"); value <=> root.min-clip-duration-frames; minimum: 1; maximum: 100; }
-                        SystemSettingSpinRow { label: @tr("ズーム最小値"); value <=> root.timeline-zoom-min; minimum: 1; maximum: 1000; }
-                        SystemSettingSpinRow { label: @tr("ズーム最大値"); value <=> root.timeline-zoom-max; minimum: 1; maximum: 4000; }
-                        SystemSettingSpinRow { label: @tr("ズーム刻み"); value <=> root.timeline-zoom-step; minimum: 1; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Minimum clip length"); value <=> root.min-clip-duration-frames; minimum: 1; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Minimum zoom value"); value <=> root.timeline-zoom-min; minimum: 1; maximum: 1000; }
+                        SystemSettingSpinRow { label: @tr("Maximum zoom value"); value <=> root.timeline-zoom-max; minimum: 1; maximum: 4000; }
+                        SystemSettingSpinRow { label: @tr("Zoom step"); value <=> root.timeline-zoom-step; minimum: 1; maximum: 100; }
                     }
                 }
             }
@@ -4221,45 +4221,62 @@ export component SystemSettingsWindow inherits Window {
         if root.tab-index == 3 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("外観");
+            accessible-label: @tr("Appearance");
             viewport-width: self.visible-width;
             viewport-height: appearance-page.preferred-height;
             appearance-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("テーマ");
+                    title: @tr("Theme");
                     VerticalLayout {
                         padding: 10px;
-                        SystemSettingComboRow { label: @tr("カラーテーマ"); choices: [@tr("ダーク"), @tr("ライト"), @tr("システムに従う")]; current-index <=> root.theme-index; }
+                        SystemSettingComboRow { label: @tr("Color theme"); choices: [@tr("Dark"), @tr("Light"), @tr("Follow system")]; current-index <=> root.theme-index; }
                     }
                 }
-                Text { text: @tr("テーマの変更は「適用」または「OK」を押すとすぐに反映されます"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                GroupBox {
+                    title: @tr("Language");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow {
+                            label: @tr("Interface language");
+                            choices: [@tr("Follow system"), "English", "简体中文", "日本語"];
+                            current-index <=> root.language-index;
+                        }
+                        Text {
+                            text: @tr("Language changes are applied immediately after pressing Apply or OK.");
+                            color: AppTheme.muted-foreground;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+                Text { text: @tr("Theme changes take effect immediately after you click Apply or OK."); color: AppTheme.muted-foreground; wrap: word-wrap; }
             }
         }
 
         if root.tab-index == 4 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("新規プロジェクト");
+            accessible-label: @tr("New Project");
             viewport-width: self.visible-width;
             viewport-height: project-defaults-page.preferred-height;
             project-defaults-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("既定値");
+                    title: @tr("Defaults");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingSpinRow { label: @tr("幅"); value <=> root.default-project-width; minimum: 1; maximum: 16000; }
-                        SystemSettingSpinRow { label: @tr("高さ"); value <=> root.default-project-height; minimum: 1; maximum: 16000; }
+                        SystemSettingSpinRow { label: @tr("Width"); value <=> root.default-project-width; minimum: 1; maximum: 16000; }
+                        SystemSettingSpinRow { label: @tr("Height"); value <=> root.default-project-height; minimum: 1; maximum: 16000; }
                         HorizontalLayout {
                             spacing: 10px;
-                            Text { text: @tr("フレームレート"); width: 260px; vertical-alignment: center; }
-                            LineEdit { text <=> root.default-project-fps; accessible-label: @tr("フレームレート"); horizontal-stretch: 1; }
+                            Text { text: @tr("Frame rate"); width: 260px; vertical-alignment: center; }
+                            LineEdit { text <=> root.default-project-fps; accessible-label: @tr("Frame rate"); horizontal-stretch: 1; }
                         }
-                        SystemSettingSpinRow { label: @tr("総フレーム数"); value <=> root.default-project-frames; minimum: 1; maximum: 1000000; }
-                        SystemSettingSpinRow { label: @tr("サンプリング周波数"); value <=> root.default-project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
-                        SystemSettingSpinRow { label: @tr("既定クリップ長"); value <=> root.default-clip-duration; minimum: 1; maximum: 100000; }
+                        SystemSettingSpinRow { label: @tr("Total frames"); value <=> root.default-project-frames; minimum: 1; maximum: 1000000; }
+                        SystemSettingSpinRow { label: @tr("Sample rate"); value <=> root.default-project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+                        SystemSettingSpinRow { label: @tr("Default clip length"); value <=> root.default-clip-duration; minimum: 1; maximum: 100000; }
                     }
                 }
             }
@@ -4268,32 +4285,32 @@ export component SystemSettingsWindow inherits Window {
         if root.tab-index == 5 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("書き出し");
+            accessible-label: @tr("Export");
             viewport-width: self.visible-width;
             viewport-height: export-settings-page.preferred-height;
             export-settings-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("映像");
+                    title: @tr("Video");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingComboRow { label: @tr("既定の映像コーデック"); choices: [@tr("H.264 (VAAPI)"), @tr("HEVC (VAAPI)"), @tr("H.264 (CPU)")]; current-index <=> root.export-video-codec-index; }
-                        SystemSettingSpinRow { label: @tr("既定ビットレート"); value <=> root.export-default-bitrate-mbps; minimum: 1; maximum: 500; }
-                        SystemSettingSpinRow { label: @tr("既定CRF"); value <=> root.export-default-crf; minimum: 0; maximum: 51; }
-                        SystemSettingSpinRow { label: @tr("静止画品質"); value <=> root.export-image-quality; minimum: 0; maximum: 100; }
-                        SystemSettingSpinRow { label: @tr("連番桁数"); value <=> root.export-sequence-padding; minimum: 2; maximum: 10; }
+                        SystemSettingComboRow { label: @tr("Default video codec"); choices: [@tr("H.264 (VAAPI)"), @tr("HEVC (VAAPI)"), @tr("H.264 (CPU)")]; current-index <=> root.export-video-codec-index; }
+                        SystemSettingSpinRow { label: @tr("Default bitrate"); value <=> root.export-default-bitrate-mbps; minimum: 1; maximum: 500; }
+                        SystemSettingSpinRow { label: @tr("Default CRF"); value <=> root.export-default-crf; minimum: 0; maximum: 51; }
+                        SystemSettingSpinRow { label: @tr("Still image quality"); value <=> root.export-image-quality; minimum: 0; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Sequence number digits"); value <=> root.export-sequence-padding; minimum: 2; maximum: 10; }
                     }
                 }
                 GroupBox {
-                    title: @tr("音声と進行表示");
+                    title: @tr("Audio and Progress Display");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingComboRow { label: @tr("既定の音声コーデック"); choices: ["AAC", "Opus", "FLAC", "PCM 16bit"]; current-index <=> root.export-audio-codec-index; }
-                        SystemSettingSpinRow { label: @tr("音声ビットレート"); value <=> root.export-default-audio-bitrate-kbps; minimum: 32; maximum: 1536; step-size: 32; }
-                        SystemSettingSpinRow { label: @tr("フレーム取得待ち時間"); value <=> root.export-frame-grab-timeout-ms; minimum: 100; maximum: 10000; step-size: 100; }
-                        SystemSettingSpinRow { label: @tr("進捗更新間隔"); value <=> root.export-progress-interval; minimum: 1; maximum: 60; }
+                        SystemSettingComboRow { label: @tr("Default audio codec"); choices: ["AAC", "Opus", "FLAC", "PCM 16bit"]; current-index <=> root.export-audio-codec-index; }
+                        SystemSettingSpinRow { label: @tr("Audio bitrate"); value <=> root.export-default-audio-bitrate-kbps; minimum: 32; maximum: 1536; step-size: 32; }
+                        SystemSettingSpinRow { label: @tr("Frame fetch wait time"); value <=> root.export-frame-grab-timeout-ms; minimum: 100; maximum: 10000; step-size: 100; }
+                        SystemSettingSpinRow { label: @tr("Progress update interval"); value <=> root.export-progress-interval; minimum: 1; maximum: 60; }
                         SystemSettingSpinRow { label: @tr("Encoder queue memory (MB)"); value <=> root.export-encoder-queue-mb; minimum: 16; maximum: 1024; step-size: 16; }
                     }
                 }
@@ -4303,50 +4320,50 @@ export component SystemSettingsWindow inherits Window {
         if root.tab-index == 6 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("デコードと音声");
+            accessible-label: @tr("Decode and Audio");
             viewport-width: self.visible-width;
             viewport-height: decode-audio-page.preferred-height;
             decode-audio-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("映像デコード");
+                    title: @tr("Video Decoding");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingSpinRow { label: @tr("インデックス予約数"); value <=> root.video-decoder-index-reserve; minimum: 1000; maximum: 1000000; step-size: 1000; }
-                        SystemSettingSpinRow { label: @tr("最小キャッシュ量"); value <=> root.video-decoder-min-cache-mb; minimum: 16; maximum: 4096; step-size: 16; }
-                        SystemSettingSpinRow { label: @tr("ハードウェアフレームプール数"); value <=> root.hw-frame-pool-size; minimum: 1; maximum: 256; }
+                        SystemSettingSpinRow { label: @tr("Reserved index count"); value <=> root.video-decoder-index-reserve; minimum: 1000; maximum: 1000000; step-size: 1000; }
+                        SystemSettingSpinRow { label: @tr("Minimum cache amount"); value <=> root.video-decoder-min-cache-mb; minimum: 16; maximum: 4096; step-size: 16; }
+                        SystemSettingSpinRow { label: @tr("Hardware frame pool count"); value <=> root.hw-frame-pool-size; minimum: 1; maximum: 256; }
                     }
                 }
                 GroupBox {
-                    title: @tr("音声");
+                    title: @tr("Audio");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        SystemSettingComboRow { label: @tr("プラグイン最大ブロックサイズ"); choices: ["256", "512", "1024", "2048", "4096", "8192"]; current-index <=> root.audio-plugin-block-size-index; }
-                        SystemSettingSpinRow { label: @tr("Lua フック間隔"); value <=> root.lua-hook-interval-ms; minimum: 1; maximum: 1000; }
+                        SystemSettingComboRow { label: @tr("Maximum plugin block size"); choices: ["256", "512", "1024", "2048", "4096", "8192"]; current-index <=> root.audio-plugin-block-size-index; }
+                        SystemSettingSpinRow { label: @tr("Lua hook interval"); value <=> root.lua-hook-interval-ms; minimum: 1; maximum: 1000; }
                     }
                 }
-                Text { text: @tr("デコードと音声関連の設定は再起動後に反映されます"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                Text { text: @tr("Decode and audio settings take effect after restart"); color: AppTheme.muted-foreground; wrap: word-wrap; }
             }
         }
 
         if root.tab-index == 7 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("プラグイン");
+            accessible-label: @tr("Plugins");
             viewport-width: self.visible-width;
             viewport-height: plugin-page.preferred-height;
             plugin-page := VerticalLayout {
                 spacing: 14px;
-                Text { text: @tr("各形式ごとに有効化と検索パスを設定できます"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                Text { text: @tr("You can configure enablement and search paths for each format"); color: AppTheme.muted-foreground; wrap: word-wrap; }
                 GroupBox {
-                    title: @tr("Lua プラグイン");
+                    title: @tr("Lua Plugins");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 6px;
-                        CheckBox { text: @tr("ホットリロードを有効にする"); checked <=> root.lua-hot-reload; }
-                        Text { text: @tr("有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                        CheckBox { text: @tr("Enable Hot Reload"); checked <=> root.lua-hot-reload; }
+                        Text { text: @tr("When enabled, automatically reloads plugins when changes to the plugins folder are detected"); color: AppTheme.muted-foreground; wrap: word-wrap; }
                     }
                 }
                 for plugin[index] in root.plugin-settings : GroupBox {
@@ -4355,18 +4372,18 @@ export component SystemSettingsWindow inherits Window {
                         padding: 10px;
                         spacing: 7px;
                         CheckBox {
-                            text: @tr("{} を読み込む", plugin.format-name);
+                            text: @tr("Load {}", plugin.format-name);
                             checked: plugin.enabled;
                             toggled => { root.plugin-enabled-changed(index, self.checked); }
                         }
-                        Text { text: @tr("検索パス"); color: AppTheme.muted-foreground; }
+                        Text { text: @tr("Search Paths"); color: AppTheme.muted-foreground; }
                         CommitTextEdit {
                             source-text: plugin.paths;
                             preferred-height: 90px;
-                            accessible-label: plugin.format-name + ": " + @tr("検索パス");
+                            accessible-label: plugin.format-name + ": " + @tr("Search Paths");
                             commit(value) => { root.plugin-paths-changed(index, value); }
                         }
-                        Text { text: @tr("1行に1パスを入力します"); color: AppTheme.muted-foreground; }
+                        Text { text: @tr("Enter one path per line"); color: AppTheme.muted-foreground; }
                     }
                 }
             }
@@ -4375,17 +4392,17 @@ export component SystemSettingsWindow inherits Window {
         if root.tab-index == 8 : ScrollView {
             vertical-stretch: 1;
             accessible-role: tab-panel;
-            accessible-label: @tr("ショートカット");
+            accessible-label: @tr("Shortcuts");
             viewport-width: self.visible-width;
             viewport-height: shortcut-page.preferred-height;
             shortcut-page := VerticalLayout {
                 spacing: 10px;
-                Text { text: @tr("キーボードショートカット"); font-size: 1.2rem; font-weight: 700; }
-                Text { text: @tr("「Ctrl+S」や「Alt+Shift+N」の形式で入力してください"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                Text { text: @tr("Keyboard Shortcuts"); font-size: 1.2rem; font-weight: 700; }
+                Text { text: @tr("Enter shortcuts in a format such as “Ctrl+S” or “Alt+Shift+N”"); color: AppTheme.muted-foreground; wrap: word-wrap; }
                 for shortcut[index] in root.shortcut-settings : SystemSettingLineRow {
                     label: root.shortcut-name(shortcut.action-id);
                     value: shortcut.value;
-                    placeholder: @tr("未設定");
+                    placeholder: @tr("Not set");
                     commit(value) => { root.shortcut-value-changed(index, value); }
                 }
             }
@@ -4401,14 +4418,14 @@ export component SystemSettingsWindow inherits Window {
                 padding: AppTheme.spacing-sm;
                 spacing: AppTheme.spacing-sm;
                 Text {
-                    text: @tr("設定は「適用」または「OK」で保存されます");
+                    text: @tr("Settings are saved with “Apply” or “OK”");
                     color: AppTheme.muted-foreground;
                     vertical-alignment: center;
                     horizontal-stretch: 1;
                     overflow: elide;
                 }
-                Button { text: @tr("再読込"); clicked => { root.reload-settings(); } }
-                Button { text: @tr("適用"); clicked => { root.apply-settings(); } }
+                Button { text: @tr("Reload"); clicked => { root.reload-settings(); } }
+                Button { text: @tr("Apply"); clicked => { root.apply-settings(); } }
                 Button {
                     text: "OK";
                     primary: true;
@@ -4418,14 +4435,14 @@ export component SystemSettingsWindow inherits Window {
                         }
                     }
                 }
-                Button { text: @tr("閉じる"); clicked => { root.close-window(); } }
+                Button { text: @tr("Close"); clicked => { root.close-window(); } }
             }
         }
     }
 }
 
 export component ObjectSettingsWindow inherits Window {
-    title: root.has-selection ? @tr("設定ダイアログ - ") + root.clip-title : @tr("設定ダイアログ");
+    title: root.has-selection ? @tr("Settings Dialog - ") + root.clip-title : @tr("Settings Dialog");
     forward-focus: object-settings-shortcuts;
     preferred-width: 900px;
     preferred-height: 650px;
@@ -4514,7 +4531,7 @@ export component ObjectSettingsWindow inherits Window {
     if !root.has-selection : VerticalLayout {
         alignment: center;
         Text {
-            text: @tr("タイムラインでオブジェクトを選択してください");
+            text: @tr("Select an object on the timeline");
             color: AppTheme.muted-foreground;
             horizontal-alignment: center;
         }
@@ -4531,13 +4548,13 @@ export component ObjectSettingsWindow inherits Window {
                 spacing: 6px;
                 Text { text: root.clip-title; font-weight: 700; color: AppTheme.foreground; overflow: elide; }
                 Text {
-                    text: root.audio-plugin-mode ? @tr("オーディオプラグイン") : @tr("オブジェクト / エフェクト");
+                    text: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Object / Effect");
                     color: AppTheme.muted-foreground;
                 }
                 ScrollView {
                     vertical-stretch: 1;
                     accessible-role: list;
-                    accessible-label: root.audio-plugin-mode ? @tr("オーディオプラグイン") : @tr("オブジェクト / エフェクト");
+                    accessible-label: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Object / Effect");
                     VerticalLayout {
                         spacing: 2px;
                         for effect in root.effects : EffectSidebarEntry {
@@ -4561,8 +4578,8 @@ export component ObjectSettingsWindow inherits Window {
                         }
                         if root.effects.length == 0 : Text {
                             text: root.audio-plugin-mode
-                                ? @tr("オーディオプラグインはありません")
-                                : @tr("設定項目がありません");
+                                ? @tr("No audio plugins")
+                                : @tr("No settings available");
                             color: AppTheme.muted-foreground;
                             wrap: word-wrap;
                         }
@@ -4570,8 +4587,8 @@ export component ObjectSettingsWindow inherits Window {
                 }
                 Button {
                     text: root.audio-plugin-mode
-                        ? @tr("+ オーディオプラグインを追加")
-                        : @tr("+ エフェクトを追加");
+                        ? @tr("+ Add Audio Plugin")
+                        : @tr("+ Add Effect");
                     clicked => {
                         root.effect-filter = "";
                         root.filter-effects("");
@@ -4589,8 +4606,8 @@ export component ObjectSettingsWindow inherits Window {
                 spacing: 4px;
                 Text {
                     text: root.audio-plugin-mode
-                        ? @tr("音声オブジェクト / プラグイン設定")
-                        : @tr("選択オブジェクトの設定");
+                        ? @tr("Audio Object / Plugin Settings")
+                        : @tr("Selected Object Settings");
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
@@ -4675,22 +4692,22 @@ export component ObjectSettingsWindow inherits Window {
                 spacing: 8px;
                 Text {
                     text: root.audio-plugin-mode
-                        ? @tr("オーディオプラグインを追加")
-                        : @tr("フィルタ効果を追加");
+                        ? @tr("Add Audio Plugin")
+                        : @tr("Add Filter Effect");
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 LineEdit {
                     text <=> root.effect-filter;
                     placeholder-text: root.audio-plugin-mode
-                        ? @tr("名前・ID・カテゴリ・形式を検索...")
-                        : @tr("名前・ID・カテゴリを検索...");
+                        ? @tr("Search name, ID, category, or format...")
+                        : @tr("Search name, ID, or category...");
                     edited(value) => { root.filter-effects(value); }
                 }
                 ScrollView {
                     vertical-stretch: 1;
                     accessible-role: list;
-                    accessible-label: root.audio-plugin-mode ? @tr("オーディオプラグイン") : @tr("エフェクト");
+                    accessible-label: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Effects");
                     VerticalLayout {
                         spacing: 4px;
                         for item in root.effect-catalog-items : Rectangle {
@@ -4715,14 +4732,14 @@ export component ObjectSettingsWindow inherits Window {
                         if root.effect-catalog-items.length == 0 : Text {
                             text: root.audio-plugin-mode
                                 ? root.plugin-scan-status
-                                : @tr("一致するエフェクトがありません");
+                                : @tr("No matching effects");
                             color: AppTheme.muted-foreground;
                         }
                     }
                 }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: @tr("閉じる"); clicked => { root.effect-picker-visible = false; } }
+                    Button { text: @tr("Close"); clicked => { root.effect-picker-visible = false; } }
                 }
             }
         }
@@ -4744,11 +4761,11 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 14px;
                 spacing: 10px;
-                Text { text: @tr("プリセットを保存"); font-size: 1.15rem; font-weight: 700; }
+                Text { text: @tr("Save Preset"); font-size: 1.15rem; font-weight: 700; }
                 Text { text: root.preset-effect-name; color: AppTheme.muted-foreground; overflow: elide; }
                 LineEdit {
                     text <=> root.preset-name;
-                    placeholder-text: @tr("プリセット名を入力...");
+                    placeholder-text: @tr("Enter preset name...");
                     accepted(value) => {
                         if value != "" {
                             root.save-effect-preset(root.preset-effect-index, value);
@@ -4759,9 +4776,9 @@ export component ObjectSettingsWindow inherits Window {
                 Rectangle { vertical-stretch: 1; }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: @tr("キャンセル"); clicked => { root.preset-save-visible = false; } }
+                    Button { text: @tr("Cancel"); clicked => { root.preset-save-visible = false; } }
                     Button {
-                        text: @tr("保存");
+                        text: @tr("confirm-save" => "Save");
                         enabled: root.preset-name != "";
                         clicked => {
                             root.save-effect-preset(root.preset-effect-index, root.preset-name);
@@ -4788,7 +4805,7 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 14px;
                 spacing: 10px;
-                Text { text: @tr("色を選択"); font-size: 1.15rem; font-weight: 700; }
+                Text { text: @tr("Select Color"); font-size: 1.15rem; font-weight: 700; }
                 Rectangle {
                     height: 72px;
                     background: rgba(
@@ -4852,7 +4869,7 @@ export component ObjectSettingsWindow inherits Window {
                 Rectangle { vertical-stretch: 1; }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: @tr("キャンセル"); clicked => { root.color-picker-visible = false; } }
+                    Button { text: @tr("Cancel"); clicked => { root.color-picker-visible = false; } }
                     Button {
                         text: "OK";
                         primary: true;
@@ -4889,22 +4906,22 @@ export component ObjectSettingsWindow inherits Window {
             VerticalLayout {
                 padding: 14px;
                 spacing: 8px;
-                Text { text: @tr("フォントを選択"); font-size: 1.15rem; font-weight: 700; }
+                Text { text: @tr("Select Font"); font-size: 1.15rem; font-weight: 700; }
                 Text {
                     text: root.current-font-family == ""
-                        ? @tr("現在: デフォルト")
-                        : @tr("現在: ") + root.current-font-family;
+                        ? @tr("Current: Default")
+                        : @tr("Current: ") + root.current-font-family;
                     font-family: root.current-font-family;
                     color: AppTheme.muted-foreground;
                     overflow: elide;
                 }
                 LineEdit {
                     text <=> root.font-filter;
-                    placeholder-text: @tr("フォント名を検索...");
+                    placeholder-text: @tr("Search font names...");
                     edited(value) => { root.filter-fonts(value); }
                 }
                 Button {
-                    text: @tr("デフォルト");
+                    text: @tr("Default");
                     checkable: true;
                     checked: root.current-font-family == "";
                     clicked => {
@@ -4920,7 +4937,7 @@ export component ObjectSettingsWindow inherits Window {
                 ScrollView {
                     vertical-stretch: 1;
                     accessible-role: list;
-                    accessible-label: @tr("フォントを選択");
+                    accessible-label: @tr("Select Font");
                     VerticalLayout {
                         spacing: 4px;
                         for family in root.font-families : HorizontalLayout {
@@ -4942,7 +4959,7 @@ export component ObjectSettingsWindow inherits Window {
                                 }
                             }
                             Text {
-                                text: @tr("サンプル Sample 123");
+                                text: @tr("Sample 123");
                                 font-family: family;
                                 overflow: elide;
                                 horizontal-stretch: 1;
@@ -4950,14 +4967,14 @@ export component ObjectSettingsWindow inherits Window {
                             }
                         }
                         if root.font-families.length == 0 : Text {
-                            text: @tr("一致するフォントがありません");
+                            text: @tr("No matching fonts");
                             color: AppTheme.muted-foreground;
                         }
                     }
                 }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: @tr("閉じる"); clicked => { root.font-picker-visible = false; } }
+                    Button { text: @tr("Close"); clicked => { root.font-picker-visible = false; } }
                 }
             }
         }
@@ -4966,7 +4983,7 @@ export component ObjectSettingsWindow inherits Window {
 }
 
 export component EasingConfigWindow inherits Window {
-    title: @tr("補間設定: ") + root.param-name;
+    title: @tr("Interpolation Settings: ") + root.param-name;
     preferred-width: 880px;
     preferred-height: 560px;
     min-width: 760px;
@@ -5065,15 +5082,15 @@ export component EasingConfigWindow inherits Window {
         VerticalLayout {
         spacing: 10px;
         Text {
-            text: @tr("フレーム {}  ·  {}", root.keyframe-frame, root.param-name);
+            text: @tr("Frame {}  ·  {}", root.keyframe-frame, root.param-name);
             font-size: 1.15rem;
             font-weight: 700;
         }
         HorizontalLayout {
             spacing: 6px;
-            Text { text: @tr("プレビュー"); font-weight: 700; vertical-alignment: center; }
+            Text { text: @tr("Preview"); font-weight: 700; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
-            Text { text: @tr("ズーム:"); vertical-alignment: center; }
+            Text { text: @tr("Zoom:"); vertical-alignment: center; }
             Button {
                 text: "−";
                 width: 30px;
@@ -5258,14 +5275,14 @@ export component EasingConfigWindow inherits Window {
                 x: 6px;
                 y: parent.height - self.height - 4px;
                 text: root.custom-mode
-                    ? @tr("右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除")
-                    : @tr("右ドラッグ:パン  ホイール:ズーム");
+                    ? @tr("Right drag: pan  Wheel: zoom  Left drag: handle  Double-click: add  Right-click: delete")
+                    : @tr("Right drag: Pan  Wheel: Zoom");
                 font-size: 9px;
                 color: AppTheme.muted-foreground;
             }
         }
         if root.step-mode : GroupBox {
-            title: @tr("更新間隔");
+            title: @tr("Update interval");
             HorizontalLayout {
                 padding: 8px;
                 spacing: 8px;
@@ -5275,17 +5292,17 @@ export component EasingConfigWindow inherits Window {
                     maximum: 9999;
                     changed value => { root.apply-current(); }
                 }
-                Text { text: @tr("フレーム"); vertical-alignment: center; }
+                Text { text: @tr("Frame"); vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
         if root.elastic-mode : GroupBox {
-            title: @tr("詳細設定");
+            title: @tr("Advanced Settings");
             VerticalLayout {
                 padding: 8px;
                 spacing: 8px;
                 HorizontalLayout {
-                    Text { text: @tr("振幅"); width: 60px; vertical-alignment: center; }
+                    Text { text: @tr("Amplitude"); width: 60px; vertical-alignment: center; }
                     Slider {
                         horizontal-stretch: 1;
                         minimum: 0.1;
@@ -5296,7 +5313,7 @@ export component EasingConfigWindow inherits Window {
                     Text { text: "\{round(root.elastic-amplitude * 100) / 100}"; width: 52px; }
                 }
                 HorizontalLayout {
-                    Text { text: @tr("周期"); width: 60px; vertical-alignment: center; }
+                    Text { text: @tr("Period"); width: 60px; vertical-alignment: center; }
                     Slider {
                         horizontal-stretch: 1;
                         minimum: 0.05;
@@ -5309,7 +5326,7 @@ export component EasingConfigWindow inherits Window {
             }
         }
         if root.custom-mode : GroupBox {
-            title: @tr("制御点");
+            title: @tr("Control Point");
             GridLayout {
                 padding: 8px;
                 spacing: 8px;
@@ -5345,12 +5362,12 @@ export component EasingConfigWindow inherits Window {
         }
         Rectangle { vertical-stretch: 1; }
         Text {
-            text: @tr("選択内容は対象キーフレームへ即時反映されます");
+            text: @tr("The selection is applied to the target keyframe immediately");
             color: AppTheme.muted-foreground;
         }
         HorizontalLayout {
             Rectangle { horizontal-stretch: 1; }
-            Button { text: @tr("閉じる"); clicked => { root.close-window(); } }
+            Button { text: @tr("Close"); clicked => { root.close-window(); } }
         }
         }
         Rectangle {
@@ -5364,7 +5381,7 @@ export component EasingConfigWindow inherits Window {
                 spacing: 6px;
                 HorizontalLayout {
                     Text {
-                        text: @tr("種類");
+                        text: @tr("Type");
                         font-weight: 700;
                         vertical-alignment: center;
                     }
@@ -5382,13 +5399,13 @@ export component EasingConfigWindow inherits Window {
                 }
                 LineEdit {
                     text <=> root.easing-filter;
-                    placeholder-text: @tr("検索...");
+                    placeholder-text: @tr("Search...");
                     edited(value) => { root.filter-easings(value); }
                 }
                 ScrollView {
                     vertical-stretch: 1;
                     accessible-role: list;
-                    accessible-label: @tr("補間");
+                    accessible-label: @tr("Interpolation");
                     VerticalLayout {
                         spacing: 3px;
                         for item in root.easing-catalog-rows : Rectangle {
@@ -5467,7 +5484,7 @@ export component EasingConfigWindow inherits Window {
                             }
                         }
                         if root.easing-catalog-rows.length == 0 : Text {
-                            text: @tr("一致する補間方法がありません");
+                            text: @tr("No matching interpolation methods");
                             color: AppTheme.muted-foreground;
                             wrap: word-wrap;
                         }
@@ -5533,27 +5550,27 @@ component PackageListRow inherits Rectangle {
             }
             Text {
                 text: root.package-data.has-update
-                    ? @tr("アップデートあり: ") + root.package-data.latest-version
-                    : @tr("インストール済み: ") + root.package-data.installed-version;
+                    ? @tr("Update available: ") + root.package-data.latest-version
+                    : @tr("Installed: ") + root.package-data.installed-version;
                 color: root.package-data.has-update ? AppTheme.accent : AppTheme.muted-foreground;
                 font-size: 0.78rem;
                 visible: root.package-data.installed-version != "";
                 vertical-alignment: center;
             }
             Button {
-                text: @tr("権限");
+                text: @tr("Permissions");
                 visible: root.package-data.can-manage-permissions;
                 enabled: !root.busy;
                 clicked => { root.permissions(root.package-data.id, root.package-data.display-name); }
             }
             Button {
-                text: @tr("削除");
+                text: @tr("Delete");
                 visible: root.package-data.can-remove;
                 enabled: !root.busy;
                 clicked => { root.remove(root.package-data.id); }
             }
             Button {
-                text: root.package-data.has-update ? @tr("アップデート") : @tr("インストール");
+                text: root.package-data.has-update ? @tr("Update") : @tr("Install");
                 primary: true;
                 visible: root.show-install-button
                     && (!root.package-data.can-remove || root.package-data.has-update)
@@ -5568,7 +5585,7 @@ component PackageListRow inherits Rectangle {
 }
 
 export component PackageManagerWindow inherits Window {
-    title: @tr("パッケージマネージャー");
+    title: @tr("Package Manager");
     preferred-width: 760px;
     preferred-height: 520px;
     min-width: 660px;
@@ -5605,7 +5622,7 @@ export component PackageManagerWindow inherits Window {
         spacing: AppTheme.spacing-md;
         HorizontalLayout {
             spacing: AppTheme.spacing-xs;
-            for tab[index] in [@tr("エフェクト"), @tr("オブジェクト"), "MOD", @tr("インストール済み"), @tr("アプリケーション"), @tr("リポジトリ")] : Button {
+            for tab[index] in [@tr("Effects"), @tr("Objects"), "MOD", @tr("Installed"), @tr("Application"), @tr("Repositories")] : Button {
                 text: tab;
                 min-width: 0px;
                 horizontal-stretch: 1;
@@ -5621,12 +5638,12 @@ export component PackageManagerWindow inherits Window {
             spacing: AppTheme.spacing-sm;
             LineEdit {
                 text <=> root.search-query;
-                placeholder-text: @tr("検索...");
+                placeholder-text: @tr("Search...");
                 horizontal-stretch: 1;
                 edited(value) => { root.filter-packages(value); }
             }
             Button {
-                text: @tr("リポジトリを同期");
+                text: @tr("Sync Repository");
                 visible: root.tab-index < 3;
                 enabled: !root.busy;
                 clicked => { root.sync-repositories(); }
@@ -5645,7 +5662,7 @@ export component PackageManagerWindow inherits Window {
                     permissions(id, name) => { root.show-permissions(id, name); }
                 }
                 if root.packages.length == 0 && !root.busy : Text {
-                    text: @tr("このカテゴリにパッケージがありません。");
+                    text: @tr("No packages in this category.");
                     color: AppTheme.muted-foreground;
                     horizontal-alignment: center;
                 }
@@ -5654,7 +5671,7 @@ export component PackageManagerWindow inherits Window {
         if root.tab-index == 5 : VerticalLayout {
             spacing: 12px;
             GroupBox {
-                title: @tr("リポジトリを追加");
+                title: @tr("Add Repository");
                 height: 72px;
                 HorizontalLayout {
                     spacing: 8px;
@@ -5667,14 +5684,14 @@ export component PackageManagerWindow inherits Window {
                         }
                     }
                     Button {
-                        text: @tr("追加");
+                        text: @tr("Add");
                         enabled: root.repository-url != "" && !root.busy;
                         clicked => { root.add-repository(root.repository-url); }
                     }
                 }
             }
             GroupBox {
-                title: @tr("設定済みリポジトリ");
+                title: @tr("Configured Repositories");
                 vertical-stretch: 1;
                 ScrollView {
                     VerticalLayout {
@@ -5706,7 +5723,7 @@ export component PackageManagerWindow inherits Window {
                                     }
                                 }
                                 CheckBox {
-                                    text: @tr("有効");
+                                    text: @tr("Enabled");
                                     checked: repository.enabled;
                                     enabled: !root.busy;
                                     toggled => {
@@ -5714,7 +5731,7 @@ export component PackageManagerWindow inherits Window {
                                     }
                                 }
                                 Button {
-                                    text: @tr("削除");
+                                    text: @tr("Delete");
                                     enabled: !root.busy;
                                     clicked => { root.remove-repository(repository.url); }
                                 }
@@ -5726,12 +5743,12 @@ export component PackageManagerWindow inherits Window {
             HorizontalLayout {
                 spacing: 8px;
                 Button {
-                    text: @tr("リポジトリを同期");
+                    text: @tr("Sync Repository");
                     enabled: !root.busy;
                     clicked => { root.sync-repositories(); }
                 }
                 Button {
-                    text: @tr("すべてアップグレード");
+                    text: @tr("Upgrade All");
                     primary: true;
                     enabled: !root.busy && root.has-updates;
                     clicked => { root.upgrade-all(); }
@@ -5767,7 +5784,7 @@ export component PackageManagerWindow inherits Window {
                     error-content := VerticalLayout {
                         padding: 14px;
                         spacing: 12px;
-                        Text { text: @tr("パッケージマネージャーエラー"); color: AppTheme.foreground; font-weight: 700; }
+                        Text { text: @tr("Package Manager Error"); color: AppTheme.foreground; font-weight: 700; }
                         Text { text: root.error-message; color: AppTheme.muted-foreground; wrap: word-wrap; }
                         HorizontalLayout {
                             alignment: end;
@@ -5795,7 +5812,7 @@ export component PackageManagerWindow inherits Window {
                     update-content := VerticalLayout {
                         padding: 14px;
                         spacing: 12px;
-                        Text { text: @tr("AviQtl Plus アップデート"); color: AppTheme.foreground; font-weight: 700; }
+                        Text { text: @tr("AviQtl Plus Update"); color: AppTheme.foreground; font-weight: 700; }
                         Text { text: root.update-message; color: AppTheme.muted-foreground; wrap: word-wrap; }
                         HorizontalLayout {
                             alignment: end;
@@ -5809,7 +5826,7 @@ export component PackageManagerWindow inherits Window {
 }
 
 export component PluginPermissionWindow inherits Window {
-    title: @tr("権限管理: ") + root.plugin-name;
+    title: @tr("Permissions: ") + root.plugin-name;
     preferred-width: 500px;
     preferred-height: 600px;
     min-width: 420px;
@@ -5829,7 +5846,7 @@ export component PluginPermissionWindow inherits Window {
         padding: 16px;
         spacing: 12px;
         Text {
-            text: @tr("このプラグインに許可する権限を選択してください:");
+            text: @tr("Select the permissions to grant to this plugin:");
             color: AppTheme.foreground;
             wrap: word-wrap;
         }
@@ -5889,17 +5906,17 @@ export component PluginPermissionWindow inherits Window {
         }
         HorizontalLayout {
             spacing: 8px;
-            Button { text: @tr("すべて許可"); clicked => { root.set-all(true); } }
-            Button { text: @tr("すべて拒否"); clicked => { root.set-all(false); } }
+            Button { text: @tr("Allow All"); clicked => { root.set-all(true); } }
+            Button { text: @tr("Deny All"); clicked => { root.set-all(false); } }
             Rectangle { horizontal-stretch: 1; }
-            Button { text: @tr("キャンセル"); clicked => { root.close-window(); } }
+            Button { text: @tr("Cancel"); clicked => { root.close-window(); } }
             Button { text: "OK"; primary: true; clicked => { root.accept(); } }
         }
     }
 }
 
 export component AboutWindow inherits Window {
-    title: @tr("AviQtl Plusについて");
+    title: @tr("About AviQtl Plus");
     preferred-width: 420px;
     preferred-height: 260px;
     min-width: 420px;
@@ -5943,7 +5960,7 @@ export component AboutWindow inherits Window {
         }
         Rectangle { height: 1px; background: AppTheme.border; }
         Text {
-            text: @tr("AviQtl Plus は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。");
+            text: @tr("AviQtl Plus is not AviUtl.\n\nThis software is released under the GNU Affero General Public License Version 3.");
             color: AppTheme.muted-foreground;
             font-size: 13px;
             wrap: word-wrap;
@@ -5959,7 +5976,7 @@ export component AboutWindow inherits Window {
             link-touch := TouchArea {
                 mouse-cursor: pointer;
                 accessible-role: button;
-                accessible-label: @tr("AviQtl Plus プロジェクトページ");
+                accessible-label: @tr("AviQtl Plus project page");
                 accessible-description: link-text.text;
                 accessible-action-default => { root.open-project-page(); }
                 clicked => { root.open-project-page(); }
