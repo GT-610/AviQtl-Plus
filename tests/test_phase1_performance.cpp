@@ -5,6 +5,7 @@
 #include "settings_manager.hpp"
 #include "engine/timeline/bake_controller.hpp"
 
+#include <QElapsedTimer>
 #include <QJsonDocument>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -67,11 +68,14 @@ class TestPhase1Performance : public QObject {
 
         PerformanceMetrics::instance().reset();
         int bakeCalls = 0;
+        QElapsedTimer scrubTimer;
+        scrubTimer.start();
         for (int frame = 0; frame <= kLastFrame; frame += kFrameStep) {
             BakeController::instance().bake(scene.id, frame);
             ECSRenderBridge::instance().notifyFrameReady();
             ++bakeCalls;
         }
+        const qint64 scrubMs = scrubTimer.elapsed();
 
         const PerformanceSnapshot snapshot = PerformanceMetrics::instance().snapshot();
         QCOMPARE(snapshot.value(PerformanceCounter::BakeCalls), static_cast<quint64>(bakeCalls));
@@ -79,6 +83,9 @@ class TestPhase1Performance : public QObject {
         QVERIFY(snapshot.value(PerformanceCounter::BakeTrackCacheHits) > 0);
         QVERIFY(snapshot.value(PerformanceCounter::BakeClipsVisited) < static_cast<quint64>(bakeCalls * kClipCount / 10));
         QVERIFY(snapshot.value(PerformanceCounter::EcsBridgeStatesReused) > 0);
+        // Performance gate: the full scrub must finish inside the 60s CTest timeout.
+        QVERIFY2(scrubMs < 55'000,
+                 qPrintable(QStringLiteral("scrub stalled: %1 ms").arg(scrubMs)));
 
         const QJsonObject context{
             {QStringLiteral("clip_count"), kClipCount},

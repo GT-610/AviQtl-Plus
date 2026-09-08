@@ -80,6 +80,9 @@ void TestLargeTimelinePerformance::materializesQmlClipSnapshot() {
     QCOMPARE(snapshot.size(), kClipCount);
     QCOMPARE(snapshot.first().toMap().value(QStringLiteral("id")).toInt(), 1);
     QCOMPARE(snapshot.last().toMap().value(QStringLiteral("id")).toInt(), kClipCount);
+    // Performance gate: snapshotting 5k clips must stay far below the 300s CTest timeout.
+    QVERIFY2(elapsedMs < 30'000,
+             qPrintable(QStringLiteral("qml snapshot stalled: %1 ms").arg(elapsedMs)));
     QTextStream(stdout) << "large_timeline qml_snapshot clips=" << kClipCount << " elapsed_ms=" << elapsedMs << Qt::endl;
 }
 
@@ -87,6 +90,8 @@ void TestLargeTimelinePerformance::filtersViewportAndRetainsActiveClips() {
     TimelineController controller;
     populateLargeTimeline(controller);
 
+    QElapsedTimer timer;
+    timer.start();
     const QVariantList viewport = controller.clipsForViewport(0, 200, 0, 9, {kClipCount});
     QCOMPARE(viewport.size(), 101);
 
@@ -99,6 +104,9 @@ void TestLargeTimelinePerformance::filtersViewportAndRetainsActiveClips() {
 
     const QVariantList retainedVisible = controller.clipsForViewport(0, 200, 0, 9, {1});
     QCOMPARE(retainedVisible.size(), 100);
+    // Performance gate: viewport filtering must stay far below the 300s CTest timeout.
+    QVERIFY2(timer.elapsed() < 30'000,
+             qPrintable(QStringLiteral("viewport filter stalled: %1 ms").arg(timer.elapsed())));
 }
 
 void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
@@ -149,6 +157,8 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     QVERIFY(initialDelegateCount < 800);
     QVERIFY(!timelineView->property("renderedClipIds").toList().contains(kClipCount));
     const qint64 creationMs = timer.elapsed();
+    QVERIFY2(creationMs < 120'000,
+             qPrintable(QStringLiteral("delegate creation stalled: %1 ms").arg(creationMs)));
     QTextStream(stdout) << "large_timeline qml_delegates total_clips=" << kClipCount << " rendered=" << initialDelegateCount << " elapsed_ms=" << creationMs << Qt::endl;
 
     const int initialLoadedLastFrame = timelineView->property("loadedLastFrame").toInt();
@@ -204,6 +214,8 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     const int scrollRevisionCount = timelineView->property("viewportModelRevision").toInt() - scrollInitialRevision;
 
     QTextStream(stdout) << "large_timeline continuous_scroll steps=" << interactionSteps << " model_refreshes=" << scrollRevisionCount << " peak_rendered=" << scrollPeakDelegateCount << " elapsed_ms=" << scrollMs << Qt::endl;
+    QVERIFY2(scrollMs < 120'000,
+             qPrintable(QStringLiteral("continuous scroll stalled: %1 ms").arg(scrollMs)));
     QVERIFY(timelineView->property("renderedClipIds").toList().contains(finalScrollClipId));
     QVERIFY(scrollPeakDelegateCount < 1'000);
     QVERIFY(scrollRevisionCount > 0);
@@ -225,6 +237,8 @@ void TestLargeTimelinePerformance::virtualizesTimelineViewDelegates() {
     const int zoomRevisionCount = timelineView->property("viewportModelRevision").toInt() - zoomInitialRevision;
 
     QTextStream(stdout) << "large_timeline continuous_zoom steps=" << interactionSteps << " model_refreshes=" << zoomRevisionCount << " peak_rendered=" << zoomPeakDelegateCount << " elapsed_ms=" << zoomMs << Qt::endl;
+    QVERIFY2(zoomMs < 120'000,
+             qPrintable(QStringLiteral("continuous zoom stalled: %1 ms").arg(zoomMs)));
     QVERIFY(timelineView->property("renderedClipIds").toList().contains(finalScrollClipId));
     QVERIFY(zoomPeakDelegateCount < 1'600);
     QVERIFY(zoomRevisionCount > 0);
@@ -248,6 +262,9 @@ void TestLargeTimelinePerformance::findsClipsAcrossLargeTimeline() {
     const qint64 elapsedMs = timer.elapsed();
 
     QVERIFY(checksum > 0);
+    // Performance gate: 10k id lookups must stay far below the 300s CTest timeout.
+    QVERIFY2(elapsedMs < 30'000,
+             qPrintable(QStringLiteral("clip lookup stalled: %1 ms").arg(elapsedMs)));
     QTextStream(stdout) << "large_timeline clip_lookup clips=" << kClipCount << " lookups=" << lookupCount << " elapsed_ms=" << elapsedMs << Qt::endl;
 }
 
@@ -277,16 +294,23 @@ void TestLargeTimelinePerformance::movesLargeSelectionWithUndoRedo() {
         QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 5);
         const int expectedLastStart = ((batchSize - 1) / kLayerCount) * kClipSpacing + 5;
         QCOMPARE(controller.timeline()->findClipById(batchSize)->startFrame, expectedLastStart);
+        // Performance gates: batch move/undo/redo must stay far below the 300s CTest timeout.
+        QVERIFY2(moveMs < 30'000,
+                 qPrintable(QStringLiteral("batch move stalled: %1 ms").arg(moveMs)));
 
         timer.restart();
         controller.timeline()->undo();
         const qint64 undoMs = timer.elapsed();
         QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 0);
+        QVERIFY2(undoMs < 30'000,
+                 qPrintable(QStringLiteral("batch undo stalled: %1 ms").arg(undoMs)));
 
         timer.restart();
         controller.timeline()->redo();
         const qint64 redoMs = timer.elapsed();
         QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 5);
+        QVERIFY2(redoMs < 30'000,
+                 qPrintable(QStringLiteral("batch redo stalled: %1 ms").arg(redoMs)));
 
         QTextStream(stdout) << "large_timeline batch_move clips=" << kClipCount << " selected=" << batchSize << " move_ms=" << moveMs << " undo_ms=" << undoMs << " redo_ms=" << redoMs << Qt::endl;
 
@@ -316,16 +340,23 @@ void TestLargeTimelinePerformance::movesLargeSelectionNatively() {
     QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 5);
     QCOMPARE(controller.timeline()->findClipById(batchSize)->startFrame, ((batchSize - 1) / kLayerCount) * kClipSpacing + 5);
     QCOMPARE(controller.timeline()->undoStack()->count(), 1);
+    // Performance gates: native move/undo/redo must stay far below the 300s CTest timeout.
+    QVERIFY2(moveMs < 30'000,
+             qPrintable(QStringLiteral("native move stalled: %1 ms").arg(moveMs)));
 
     timer.restart();
     controller.undo();
     const qint64 undoMs = timer.elapsed();
     QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 0);
+    QVERIFY2(undoMs < 30'000,
+             qPrintable(QStringLiteral("native undo stalled: %1 ms").arg(undoMs)));
 
     timer.restart();
     controller.redo();
     const qint64 redoMs = timer.elapsed();
     QCOMPARE(controller.timeline()->findClipById(1)->startFrame, 5);
+    QVERIFY2(redoMs < 30'000,
+             qPrintable(QStringLiteral("native redo stalled: %1 ms").arg(redoMs)));
 
     QTextStream(stdout) << "large_timeline native_selection_move clips=" << kClipCount << " selected=" << batchSize << " move_ms=" << moveMs << " undo_ms=" << undoMs << " redo_ms=" << redoMs << Qt::endl;
 }

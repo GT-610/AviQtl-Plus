@@ -412,6 +412,10 @@ void TestVideoDecoder::representativeMediaSeekWorkload() {
     }
 
     std::ranges::sort(seekTimes);
+    // Performance gate: every representative seek must finish inside the
+    // per-seek wait budget instead of stalling until the CTest timeout.
+    QVERIFY2(seekTimes.last() < 30'000,
+             qPrintable(QStringLiteral("max seek stalled: %1 ms").arg(seekTimes.last())));
     const VideoDecoder::CacheStats stats = decoder.cacheStats();
     QVERIFY(stats.frameCost <= stats.frameMaxCost);
     QTextStream(stdout) << "video_representative path=" << QFileInfo(videoPath).fileName() << " bytes=" << QFileInfo(videoPath).size() << " frames=" << decoder.totalFrameCount() << " fps=" << decoder.sourceFps() << " startup_ms=" << startupMs
