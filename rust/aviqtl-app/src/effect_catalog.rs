@@ -1,3 +1,4 @@
+use crate::settings::package_paths;
 use aviqtl_rust_core::api::{EffectDocument, EffectMetadata, parse_effect_metadata};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -146,18 +147,12 @@ fn category_matches(categories: &[String], category: &str) -> bool {
 }
 
 fn metadata_roots() -> Vec<PathBuf> {
-    let mut roots = Vec::new();
-    if let Ok(executable) = std::env::current_exe()
-        && let Some(directory) = executable.parent()
-    {
-        roots.push(directory.join("effects"));
-        roots.push(directory.join("objects"));
-        roots.push(directory.join("../Resources/effects"));
-        roots.push(directory.join("../Resources/objects"));
-    }
-    roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/qml/effects"));
-    roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/qml/objects"));
-    roots
+    let paths = package_paths();
+    paths
+        .effect_roots
+        .into_iter()
+        .chain(paths.object_roots)
+        .collect()
 }
 
 fn json_files(root: &Path) -> Vec<PathBuf> {

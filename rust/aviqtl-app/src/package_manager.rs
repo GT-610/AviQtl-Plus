@@ -1,5 +1,5 @@
 use crate::project_io::write_atomic;
-use crate::settings::{SettingsStore, application_data_root};
+use crate::settings::{SettingsStore, package_paths};
 use aviqtl_rust_core::api::{
     PackageCatalog, PackageRepositoryOperation, PluginPermission, PluginPermissionState,
     enabled_package_repositories, mutate_package_repositories, normalize_package_metadata,
@@ -1538,20 +1538,7 @@ fn parse_json_object(bytes: &[u8], maximum_bytes: u64) -> Option<Map<String, Val
 }
 
 fn default_package_root() -> PathBuf {
-    if let Ok(executable) = std::env::current_exe()
-        && let Some(directory) = executable.parent()
-    {
-        return package_root_for_executable_directory(directory);
-    }
-    application_data_root().join("repos")
-}
-
-fn package_root_for_executable_directory(directory: &Path) -> PathBuf {
-    directory
-        .join("../Resources")
-        .canonicalize()
-        .map(|resources| resources.join("repos"))
-        .unwrap_or_else(|_| directory.join("repos"))
+    package_paths().package_root
 }
 
 fn system_language() -> String {
@@ -1603,23 +1590,22 @@ mod tests {
     }
 
     #[test]
-    fn packaged_macos_application_uses_the_resources_package_root() {
-        let root = temporary_root();
-        let bundle = root.parent().expect("root has parent");
-        let executable_directory = bundle.join("AviQtl.app/Contents/MacOS");
-        let resources = bundle.join("AviQtl.app/Contents/Resources");
-        fs::create_dir_all(&executable_directory).expect("executable directory creates");
-        fs::create_dir_all(&resources).expect("resources directory creates");
-
+    fn package_state_uses_the_user_data_root() {
+        let paths = package_paths();
         assert_eq!(
-            package_root_for_executable_directory(&executable_directory),
-            resources
-                .canonicalize()
-                .expect("resources canonicalize")
-                .join("repos")
+            paths.package_root,
+            crate::settings::application_data_root().join("repos")
         );
-
-        fs::remove_dir_all(bundle).expect("temporary bundle removes");
+        assert!(
+            paths
+                .effect_roots
+                .contains(&crate::settings::application_data_root().join("effects"))
+        );
+        assert!(
+            paths
+                .object_roots
+                .contains(&crate::settings::application_data_root().join("objects"))
+        );
     }
 
     struct FakeHttpClient {

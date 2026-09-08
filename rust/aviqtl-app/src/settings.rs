@@ -9,6 +9,13 @@ pub struct SettingsStore {
     path: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackagePaths {
+    pub package_root: PathBuf,
+    pub effect_roots: Vec<PathBuf>,
+    pub object_roots: Vec<PathBuf>,
+}
+
 impl SettingsStore {
     pub fn load() -> (Self, String) {
         Self::load_from(default_settings_path(), platform_default_settings())
@@ -142,6 +149,50 @@ pub fn application_data_root() -> PathBuf {
         }
     }
     std::env::temp_dir().join("AviQtl Plus")
+}
+
+pub fn package_paths() -> PackagePaths {
+    let data_root = application_data_root();
+    let mut effect_roots = Vec::new();
+    let mut object_roots = Vec::new();
+    let mut add_resource_root = |root: PathBuf| {
+        let effect_root = root.join("effects");
+        let object_root = root.join("objects");
+        if !effect_roots.contains(&effect_root) {
+            effect_roots.push(effect_root);
+        }
+        if !object_roots.contains(&object_root) {
+            object_roots.push(object_root);
+        }
+    };
+
+    if let Ok(executable) = std::env::current_exe()
+        && let Some(directory) = executable.parent()
+    {
+        add_resource_root(resource_root_for_executable_directory(directory));
+    }
+    add_resource_root(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/qml"));
+    add_resource_root(data_root.clone());
+
+    PackagePaths {
+        package_root: data_root.join("repos"),
+        effect_roots,
+        object_roots,
+    }
+}
+
+fn resource_root_for_executable_directory(directory: &Path) -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        directory
+            .join("../Resources")
+            .canonicalize()
+            .unwrap_or_else(|_| directory.to_path_buf())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        directory.to_path_buf()
+    }
 }
 
 fn platform_default_settings() -> Map<String, Value> {
