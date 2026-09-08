@@ -1,4 +1,4 @@
-use aviqtl_rust_core::api::{ClipDocument, ProjectDocument};
+use aviqtl_rust_core::api::{ClipDocument, MAX_TIMELINE_LAYER, ProjectDocument};
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -32,7 +32,7 @@ impl ClipSelection {
     }
 
     pub fn set_selected_layer(&mut self, layer: i32) {
-        self.selected_layer = layer.clamp(0, 127);
+        self.selected_layer = layer.clamp(0, MAX_TIMELINE_LAYER);
     }
 
     pub fn is_selected(&self, clip_id: i32) -> bool {

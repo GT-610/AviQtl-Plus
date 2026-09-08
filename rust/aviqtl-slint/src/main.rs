@@ -69,6 +69,52 @@ const AUDIO_CODECS: [(&str, &str); 5] = [
 const PRESET_VALUES: [&str; 5] = ["ultrafast", "fast", "medium", "slow", "veryslow"];
 const PROFILE_VALUES: [&str; 4] = ["", "baseline", "main", "high"];
 const AUDIO_BITRATES: [i32; 5] = [96, 128, 192, 256, 320];
+const SYSTEM_THEME_VALUES: [&str; 3] = ["Dark", "Light", "System"];
+const SYSTEM_PREVIEW_RENDER_SCALES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];
+const SYSTEM_PREVIEW_MSAA_SAMPLES: [i32; 4] = [0, 2, 4, 8];
+const SYSTEM_BAKE_STRATEGIES: [&str; 2] = ["OnDemand", "FullBake"];
+const SYSTEM_EXPORT_VIDEO_CODECS: [&str; 3] = ["h264_vaapi", "hevc_vaapi", "libx264"];
+const SYSTEM_EXPORT_AUDIO_CODECS: [&str; 4] = ["aac", "opus", "flac", "pcm_s16le"];
+const SYSTEM_AUDIO_BLOCK_SIZES: [i32; 6] = [256, 512, 1024, 2048, 4096, 8192];
+const SYSTEM_PLUGIN_FORMATS: [&str; 11] = [
+    "LADSPA", "DSSI", "LV2", "VST2", "VST3", "CLAP", "SF2", "SFZ", "JSFX", "Effects", "Objects",
+];
+const SYSTEM_SHORTCUT_ROWS: [(&str, &str); 34] = [
+    ("project.new", "Ctrl+N"),
+    ("project.open", "Ctrl+O"),
+    ("project.save", "Ctrl+S"),
+    ("project.saveAs", "Ctrl+Shift+S"),
+    ("project.export", "Ctrl+E"),
+    ("app.quit", "Ctrl+Q"),
+    ("app.settings", "Ctrl+P"),
+    ("edit.undo", "Ctrl+Z"),
+    ("edit.redo", "Ctrl+Shift+Z"),
+    ("edit.cut", "Ctrl+X"),
+    ("edit.copy", "Ctrl+C"),
+    ("edit.paste", "Ctrl+V"),
+    ("edit.delete", "Delete"),
+    ("edit.duplicate", "Ctrl+D"),
+    ("transport.playPause", "Space"),
+    ("transport.nextFrame", "Right"),
+    ("transport.prevFrame", "Left"),
+    ("transport.jumpStart", "Home"),
+    ("transport.jumpEnd", "End"),
+    ("view.zoomIn", "Ctrl++"),
+    ("view.zoomOut", "Ctrl+-"),
+    ("view.timeline", "F3"),
+    ("view.objectSettings", "F4"),
+    ("project.settings", "Alt+Enter"),
+    ("timeline.split", "S"),
+    ("timeline.moveUp", "Alt+Up"),
+    ("timeline.moveDown", "Alt+Down"),
+    ("timeline.nudgeLeft", "Alt+Left"),
+    ("timeline.nudgeRight", "Alt+Right"),
+    ("timeline.addScene", "Ctrl+T"),
+    ("timeline.sceneSettings", "Alt+S"),
+    ("timeline.removeScene", "Ctrl+Shift+Delete"),
+    ("timeline.layerLock", "Ctrl+L"),
+    ("timeline.layerHide", "Ctrl+H"),
+];
 const EASING_CATEGORIES: [(&str, &[&str]); 5] = [
     ("基本", &["none", "linear"]),
     (
@@ -269,6 +315,71 @@ struct ExportPlannerRuntime {
     source_key: Option<PreviewSourceKey>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct WindowGeometry {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    maximized: bool,
+}
+
+impl WindowGeometry {
+    const fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+            maximized: false,
+        }
+    }
+
+    fn load(settings: &SettingsStore, id: &str, fallback: Self) -> Self {
+        let key = format!("windowGeometry_{id}");
+        Self::from_value(settings.value(&key), fallback)
+    }
+
+    fn from_value(value: Option<&serde_json::Value>, fallback: Self) -> Self {
+        let Some(value) = value.and_then(serde_json::Value::as_object) else {
+            return fallback;
+        };
+        Self {
+            x: json_i32(value.get("x"), fallback.x),
+            y: json_i32(value.get("y"), fallback.y),
+            width: json_i32(value.get("width"), fallback.width).max(1),
+            height: json_i32(value.get("height"), fallback.height).max(1),
+            maximized: value
+                .get("maximized")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(fallback.maximized),
+        }
+    }
+
+    fn capture(window: &slint::Window) -> Self {
+        let scale_factor = window.scale_factor().max(f32::EPSILON);
+        let position = window.position().to_logical(scale_factor);
+        let size = window.size().to_logical(scale_factor);
+        Self {
+            x: position.x.round() as i32,
+            y: position.y.round() as i32,
+            width: size.width.round().max(1.0) as i32,
+            height: size.height.round().max(1.0) as i32,
+            maximized: window.is_maximized(),
+        }
+    }
+
+    fn json(self) -> serde_json::Value {
+        serde_json::json!({
+            "x": self.x,
+            "y": self.y,
+            "width": self.width,
+            "height": self.height,
+            "maximized": self.maximized,
+        })
+    }
+}
+
 struct AudioPluginDiscoveryRuntime {
     stop: Arc<AtomicBool>,
     receiver: Receiver<AudioPluginScanOutcome>,
@@ -434,6 +545,15 @@ impl PreviewRuntime {
         }
     }
 
+    fn set_render_settings(&mut self, render_scale: f32, msaa_samples: u32) {
+        let changed = self.surface.set_render_scale(render_scale)
+            | self.surface.set_msaa_samples(msaa_samples);
+        if changed {
+            self.decoder.reset();
+            self.requested_frame = None;
+        }
+    }
+
     fn update(&mut self, model: &ApplicationModel, main: &MainWindow) -> bool {
         let Some(project_instance_id) = model.current_project_instance_id() else {
             if self.source_key.is_some() || self.requested_frame.is_some() || self.planner.is_some()
@@ -516,6 +636,7 @@ struct LifecycleUi {
     package_manager: slint::Weak<PackageManagerWindow>,
     plugin_permissions: slint::Weak<PluginPermissionWindow>,
     about: slint::Weak<AboutWindow>,
+    preview: Rc<RefCell<PreviewRuntime>>,
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
     effect_catalog: Rc<RefCell<EffectCatalog>>,
@@ -935,6 +1056,89 @@ impl LifecycleUi {
         }
     }
 
+    fn sync_live_settings(&self) {
+        let settings = self.settings.borrow();
+        self.preview.borrow_mut().set_render_settings(
+            settings
+                .f64_value("previewRenderScale", 1.0)
+                .clamp(0.25, 1.0) as f32,
+            settings.i32_value("previewMsaaSamples", 0).max(0) as u32,
+        );
+        if let (Some(main), Some(timeline), Some(object_settings)) = (
+            self.main.upgrade(),
+            self.timeline.upgrade(),
+            self.object_settings.upgrade(),
+        ) {
+            sync_timeline_runtime_settings(&main, &timeline, &object_settings, &settings);
+        }
+        let theme_index = system_theme_index(&settings);
+        if let Some(window) = self.launcher.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.recovery.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.main.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.timeline.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.object_settings.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.easing.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.project_settings.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.scene_settings.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.system_settings.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.export.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.package_manager.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.plugin_permissions.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+        if let Some(window) = self.about.upgrade() {
+            window
+                .global::<AppTheme>()
+                .set_preference_index(theme_index);
+        }
+    }
+
     fn hydrate_audio_plugins(&self) {
         let result = {
             let catalog = self.audio_plugin_catalog.borrow();
@@ -964,6 +1168,7 @@ impl LifecycleUi {
     }
 
     fn hide_all_windows(&self) {
+        self.persist_visible_window_geometries();
         if let Some(window) = self.timeline.upgrade() {
             let _ = window.hide();
         }
@@ -1002,6 +1207,40 @@ impl LifecycleUi {
         }
         if let Some(window) = self.main.upgrade() {
             let _ = window.hide();
+        }
+    }
+
+    fn persist_visible_window_geometries(&self) {
+        let mut replacement = self.settings.borrow().snapshot();
+        let mut changed = false;
+        changed |= insert_visible_window_geometry(&mut replacement, "main", &self.main);
+        changed |= insert_visible_window_geometry(&mut replacement, "timeline", &self.timeline);
+        changed |= insert_visible_window_geometry(
+            &mut replacement,
+            "projectSettings",
+            &self.project_settings,
+        );
+        changed |= insert_visible_window_geometry(
+            &mut replacement,
+            "objectSettings",
+            &self.object_settings,
+        );
+        changed |= insert_visible_window_geometry(
+            &mut replacement,
+            "systemSettings",
+            &self.system_settings,
+        );
+        changed |= insert_visible_window_geometry(&mut replacement, "about", &self.about);
+        changed |=
+            insert_visible_window_geometry(&mut replacement, "sceneSettings", &self.scene_settings);
+        changed |= insert_visible_window_geometry(&mut replacement, "easingConfig", &self.easing);
+        changed |= insert_visible_window_geometry(
+            &mut replacement,
+            "packageManager",
+            &self.package_manager,
+        );
+        if changed && let Err(error) = self.settings.borrow_mut().apply(replacement) {
+            eprintln!("Failed to save window geometries: {error}");
         }
     }
 }
@@ -1061,14 +1300,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     launcher
         .window()
         .set_size(slint::LogicalSize::new(700.0, 500.0));
-    main.window()
-        .set_size(slint::LogicalSize::new(640.0, 360.0));
-    timeline
-        .window()
-        .set_size(slint::LogicalSize::new(1280.0, 300.0));
-    let (zoom_minimum, zoom_maximum, _) = timeline_zoom_settings(&settings.borrow());
-    timeline.set_zoom_min(zoom_minimum.round() as i32);
-    timeline.set_zoom_max(zoom_maximum.round() as i32);
+    restore_window_geometry(
+        main.window(),
+        &settings.borrow(),
+        "main",
+        WindowGeometry::new(100, 100, 640, 360),
+    );
+    restore_window_geometry(
+        timeline.window(),
+        &settings.borrow(),
+        "timeline",
+        WindowGeometry::new(100, 600, 1280, 300),
+    );
+    sync_timeline_zoom_settings(&timeline, &settings.borrow());
     let object_settings = ObjectSettingsWindow::new()?;
     let easing = EasingConfigWindow::new()?;
     let project_settings = ProjectSettingsWindow::new()?;
@@ -1078,6 +1322,45 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let package_manager = PackageManagerWindow::new()?;
     let plugin_permissions = PluginPermissionWindow::new()?;
     let about = AboutWindow::new()?;
+    for (window, id, fallback) in [
+        (
+            project_settings.window(),
+            "projectSettings",
+            WindowGeometry::new(800, 100, 450, 240),
+        ),
+        (
+            object_settings.window(),
+            "objectSettings",
+            WindowGeometry::new(800, 420, 900, 650),
+        ),
+        (
+            system_settings.window(),
+            "systemSettings",
+            WindowGeometry::new(200, 200, 760, 680),
+        ),
+        (
+            about.window(),
+            "about",
+            WindowGeometry::new(400, 300, 420, 260),
+        ),
+        (
+            scene_settings.window(),
+            "sceneSettings",
+            WindowGeometry::new(300, 200, 450, 550),
+        ),
+        (
+            easing.window(),
+            "easingConfig",
+            WindowGeometry::new(420, 180, 880, 560),
+        ),
+        (
+            package_manager.window(),
+            "packageManager",
+            WindowGeometry::new(500, 300, 650, 450),
+        ),
+    ] {
+        restore_window_geometry(window, &settings.borrow(), id, fallback);
+    }
     about.set_version(SharedString::from(env!("CARGO_PKG_VERSION")));
     about.set_codename(SharedString::from("Rolling Release"));
     initialize_export_draft(&export, &settings.borrow());
@@ -1093,9 +1376,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let export_codecs = Rc::new(RefCell::new(ExportCodecState::default()));
     let export_planner = Rc::new(RefCell::new(ExportPlannerRuntime::default()));
     sync_launcher_defaults(&launcher, &settings.borrow());
+    system_settings
+        .set_plugin_settings(ModelRc::new(VecModel::<SystemPluginSettingData>::default()));
+    system_settings.set_shortcut_settings(ModelRc::new(
+        VecModel::<SystemShortcutSettingData>::default(),
+    ));
     sync_system_settings(&system_settings, &settings.borrow());
     main.set_preview_image(preview_image);
     main.set_project_tabs(ModelRc::new(VecModel::<ProjectTabData>::default()));
+    main.set_missing_media(ModelRc::new(VecModel::<MissingMediaData>::default()));
     recovery.set_recoveries(ModelRc::new(VecModel::<RecoveryEntryData>::default()));
     timeline.set_scene_tabs(ModelRc::new(VecModel::<SceneTabData>::default()));
     timeline.set_clips(ModelRc::new(VecModel::<TimelineClipData>::default()));
@@ -1150,12 +1439,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         package_manager: package_manager.as_weak(),
         plugin_permissions: plugin_permissions.as_weak(),
         about: about.as_weak(),
+        preview: preview.clone(),
         model: model.clone(),
         settings: settings.clone(),
         effect_catalog: effect_catalog.clone(),
         audio_plugin_catalog: audio_plugin_catalog.clone(),
         quit_confirmed: Cell::new(false),
     });
+    lifecycle_ui.sync_live_settings();
     install_callbacks(
         WindowRefs {
             launcher: &launcher,
@@ -1177,6 +1468,34 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         font_families,
         lifecycle_ui,
     );
+    install_window_geometry_close_handler(timeline.as_weak(), settings.clone(), "timeline");
+    install_window_geometry_close_handler(
+        object_settings.as_weak(),
+        settings.clone(),
+        "objectSettings",
+    );
+    install_window_geometry_close_handler(easing.as_weak(), settings.clone(), "easingConfig");
+    install_window_geometry_close_handler(
+        project_settings.as_weak(),
+        settings.clone(),
+        "projectSettings",
+    );
+    install_window_geometry_close_handler(
+        scene_settings.as_weak(),
+        settings.clone(),
+        "sceneSettings",
+    );
+    install_window_geometry_close_handler(
+        system_settings.as_weak(),
+        settings.clone(),
+        "systemSettings",
+    );
+    install_window_geometry_close_handler(
+        package_manager.as_weak(),
+        settings.clone(),
+        "packageManager",
+    );
+    install_window_geometry_close_handler(about.as_weak(), settings.clone(), "about");
     install_timeline_file_drop(
         &main,
         &timeline,
@@ -1476,6 +1795,7 @@ fn install_timeline_file_drop(
                     frame,
                     layer,
                     default_duration,
+                    window.get_maximum_layers(),
                     &catalog,
                 )
             })
@@ -1484,11 +1804,11 @@ fn install_timeline_file_drop(
             TimelineMediaDropResult {
                 imported: false,
                 next_frame: 0,
-                layer: layer.clamp(0, 127),
+                layer: layer.clamp(0, timeline_last_layer(&window)),
             },
             |(next_frame, next_layer)| {
                 window.set_skimmer_frame(next_frame.max(0));
-                window.set_skimmer_layer(next_layer.clamp(0, 127));
+                window.set_skimmer_layer(next_layer.clamp(0, timeline_last_layer(&window)));
                 window.set_skimmer_visible(true);
                 TimelineMediaDropResult {
                     imported: true,
@@ -1577,6 +1897,7 @@ fn install_callbacks(
     font_families: Rc<Vec<String>>,
     lifecycle_ui: Rc<LifecycleUi>,
 ) {
+    let system_apply_ui = lifecycle_ui.clone();
     let model = lifecycle_ui.model.clone();
     let settings = lifecycle_ui.settings.clone();
     let effect_catalog = lifecycle_ui.effect_catalog.clone();
@@ -2036,8 +2357,10 @@ fn install_callbacks(
         }
     });
     let easing_close = easing.as_weak();
+    let easing_close_settings = settings.clone();
     easing.on_close_window(move || {
         if let Some(window) = easing_close.upgrade() {
+            persist_window_geometry(&easing_close_settings, "easingConfig", window.window());
             let _ = window.hide();
         }
     });
@@ -2275,6 +2598,51 @@ fn install_callbacks(
         close_ui.handle(step);
     });
 
+    let relink_model = model.clone();
+    let relink_main = main.as_weak();
+    let relink_timeline = timeline.as_weak();
+    main.on_relink_missing_media(move |clip_id| {
+        let target = relink_model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| {
+                workspace
+                    .missing_media()
+                    .into_iter()
+                    .find(|entry| entry.clip_id == clip_id)
+                    .map(|entry| {
+                        let path = PathBuf::from(&entry.path);
+                        let suggested_path = if path.is_absolute() {
+                            path
+                        } else {
+                            workspace
+                                .project()
+                                .path
+                                .as_deref()
+                                .and_then(Path::parent)
+                                .map_or(path.clone(), |directory| directory.join(path))
+                        };
+                        (entry.clip_type, suggested_path)
+                    })
+            });
+        let Some((clip_type, suggested_path)) = target else {
+            return;
+        };
+        let Some(path) = choose_missing_media_replacement(&clip_type, &suggested_path) else {
+            return;
+        };
+        let error = {
+            let mut application = relink_model.borrow_mut();
+            application.current_workspace_mut().and_then(|workspace| {
+                (!workspace.relink_media(clip_id, &path)).then(|| workspace.status().to_owned())
+            })
+        };
+        if let Some(message) = error {
+            show_error_dialog(&message);
+        }
+        sync_weak_windows(&relink_main, &relink_timeline, &relink_model);
+    });
+
     let recover_ui = lifecycle_ui.clone();
     recovery.on_recover_project(move |id| {
         let recover_ui = recover_ui.clone();
@@ -2379,12 +2747,11 @@ fn install_callbacks(
     });
 
     let package_window = package_manager.as_weak();
-    let package_parent = main.as_weak();
     let package_open_model = package_manager_model.clone();
     main.on_show_package_manager(move || {
-        if let (Some(window), Some(parent)) = (package_window.upgrade(), package_parent.upgrade()) {
+        if let Some(window) = package_window.upgrade() {
             sync_package_manager(&window, &package_open_model.borrow());
-            let _ = show_centered_and_redraw(&window, &parent);
+            let _ = show_and_redraw(&window);
         }
     });
     let package_tab_window = package_manager.as_weak();
@@ -2592,10 +2959,9 @@ fn install_callbacks(
     });
 
     let about_window = about.as_weak();
-    let about_parent = main.as_weak();
     main.on_show_about(move || {
-        if let (Some(window), Some(parent)) = (about_window.upgrade(), about_parent.upgrade()) {
-            let _ = show_centered_and_redraw(&window, &parent);
+        if let Some(window) = about_window.upgrade() {
+            let _ = show_and_redraw(&window);
         }
     });
     about.on_open_project_page(move || {
@@ -2639,8 +3005,10 @@ fn install_callbacks(
         applied
     });
     let project_close_window = project_settings.as_weak();
+    let project_close_settings = settings.clone();
     project_settings.on_close_window(move || {
         if let Some(window) = project_close_window.upgrade() {
+            persist_window_geometry(&project_close_settings, "projectSettings", window.window());
             let _ = window.hide();
         }
     });
@@ -2702,9 +3070,11 @@ fn install_callbacks(
     timeline.on_timeline_action(move |action, frame, layer| {
         match action.as_str() {
             "undo" | "redo" | "paste" => {
-                let pixels_per_frame = timeline_action_window
+                let (pixels_per_frame, last_layer) = timeline_action_window
                     .upgrade()
-                    .map_or(1.0, |window| window.get_pixels_per_frame());
+                    .map_or((1.0, 127), |window| {
+                        (window.get_pixels_per_frame(), timeline_last_layer(&window))
+                    });
                 if let Some(workspace) = timeline_action_model.borrow_mut().current_workspace_mut()
                 {
                     match action.as_str() {
@@ -2720,7 +3090,11 @@ fn install_callbacks(
                                 false,
                                 f64::from(pixels_per_frame),
                             );
-                            workspace.paste_clips_at(frame, layer.clamp(0, 127));
+                            workspace.paste_clips_at(
+                                frame,
+                                layer.clamp(0, last_layer),
+                                last_layer + 1,
+                            );
                         }
                         _ => unreachable!(),
                     }
@@ -2826,9 +3200,10 @@ fn install_callbacks(
     let object_add_main = main.as_weak();
     let object_add_timeline = timeline.as_weak();
     timeline.on_add_catalog_object(move |object_id, frame, layer| {
-        let pixels_per_frame = object_add_timeline
-            .upgrade()
-            .map_or(1.0, |window| window.get_pixels_per_frame());
+        let (pixels_per_frame, last_layer) =
+            object_add_timeline.upgrade().map_or((1.0, 127), |window| {
+                (window.get_pixels_per_frame(), timeline_last_layer(&window))
+            });
         let default_duration = object_add_settings
             .borrow()
             .i32_value("defaultClipDuration", 100)
@@ -2846,7 +3221,7 @@ fn install_callbacks(
                 workspace.insert_catalog_object_at(
                     object_id.as_str(),
                     frame,
-                    layer.clamp(0, 127),
+                    layer.clamp(0, last_layer),
                     default_duration,
                     &catalog,
                 )
@@ -2949,8 +3324,10 @@ fn install_callbacks(
         applied
     });
     let scene_close_window = scene_settings.as_weak();
+    let scene_close_settings = settings.clone();
     scene_settings.on_close_window(move || {
         if let Some(window) = scene_close_window.upgrade() {
+            persist_window_geometry(&scene_close_settings, "sceneSettings", window.window());
             let _ = window.hide();
         }
     });
@@ -2962,9 +3339,52 @@ fn install_callbacks(
             sync_system_settings(&window, &system_reload_store.borrow());
         }
     });
+    let system_plugin_enabled_window = system_settings.as_weak();
+    system_settings.on_plugin_enabled_changed(move |index, enabled| {
+        let Some(window) = system_plugin_enabled_window.upgrade() else {
+            return;
+        };
+        let model = window.get_plugin_settings();
+        if let Some(mut row) = usize::try_from(index)
+            .ok()
+            .and_then(|index| model.row_data(index).map(|row| (index, row)))
+        {
+            row.1.enabled = enabled;
+            model.set_row_data(row.0, row.1);
+        }
+    });
+    let system_plugin_paths_window = system_settings.as_weak();
+    system_settings.on_plugin_paths_changed(move |index, paths| {
+        let Some(window) = system_plugin_paths_window.upgrade() else {
+            return;
+        };
+        let model = window.get_plugin_settings();
+        if let Some(mut row) = usize::try_from(index)
+            .ok()
+            .and_then(|index| model.row_data(index).map(|row| (index, row)))
+        {
+            row.1.paths = paths;
+            model.set_row_data(row.0, row.1);
+        }
+    });
+    let system_shortcut_window = system_settings.as_weak();
+    system_settings.on_shortcut_value_changed(move |index, value| {
+        let Some(window) = system_shortcut_window.upgrade() else {
+            return;
+        };
+        let model = window.get_shortcut_settings();
+        if let Some(mut row) = usize::try_from(index)
+            .ok()
+            .and_then(|index| model.row_data(index).map(|row| (index, row)))
+        {
+            row.1.value = value;
+            model.set_row_data(row.0, row.1);
+        }
+    });
     let system_apply_store = settings.clone();
     let system_apply_model = model.clone();
     let system_apply_launcher = launcher.as_weak();
+    let system_apply_timeline = timeline.as_weak();
     let system_apply_window = system_settings.as_weak();
     system_settings.on_apply_settings(move || {
         let Some(window) = system_apply_window.upgrade() else {
@@ -2976,6 +3396,11 @@ fn install_callbacks(
                 if let Some(launcher) = system_apply_launcher.upgrade() {
                     sync_launcher_defaults(&launcher, &system_apply_store.borrow());
                 }
+                if let Some(timeline) = system_apply_timeline.upgrade() {
+                    sync_timeline_zoom_settings(&timeline, &system_apply_store.borrow());
+                }
+                system_apply_ui.sync_live_settings();
+                system_apply_ui.sync();
                 true
             }
             Err(message) => {
@@ -2985,8 +3410,10 @@ fn install_callbacks(
         }
     });
     let system_close_window = system_settings.as_weak();
+    let system_close_settings = settings.clone();
     system_settings.on_close_window(move || {
         if let Some(window) = system_close_window.upgrade() {
+            persist_window_geometry(&system_close_settings, "systemSettings", window.window());
             let _ = window.hide();
         }
     });
@@ -3035,6 +3462,9 @@ fn install_callbacks(
     let clip_command_settings = object_settings.as_weak();
     let clip_command_ui = object_settings_ui.clone();
     timeline.on_clip_command(move |action, clip_id, frame, layer| {
+        let maximum_layers = clip_command_timeline
+            .upgrade()
+            .map_or(128, |window| window.get_maximum_layers());
         let open_effect_picker = action.as_str() == "browse-effect";
         let extension_id = action
             .as_str()
@@ -3050,7 +3480,7 @@ fn install_callbacks(
                     workspace.split_selected_clips_at(frame);
                 }
                 "duplicate" => {
-                    workspace.duplicate_selected_clips_at(frame, layer);
+                    workspace.duplicate_selected_clips_at(frame, layer, maximum_layers);
                 }
                 "cut" => {
                     workspace.cut_selected_clips();
@@ -3090,17 +3520,26 @@ fn install_callbacks(
             "trim-end" => TimelineDragKind::TrimEnd,
             _ => TimelineDragKind::Move,
         };
-        let pixels_per_frame = clip_drag_timeline
-            .upgrade()
-            .map_or(1.0, |window| window.get_pixels_per_frame());
+        let (pixels_per_frame, layer_height, minimum_duration_frames, maximum_layers) =
+            clip_drag_timeline
+                .upgrade()
+                .map_or((1.0, 30.0, 5, 128), |window| {
+                    (
+                        window.get_pixels_per_frame(),
+                        window.get_timeline_track_height() as f32,
+                        window.get_minimum_clip_duration_frames(),
+                        window.get_maximum_layers(),
+                    )
+                });
         if let Some(workspace) = clip_drag_model.borrow_mut().current_workspace_mut() {
             workspace.drag_selected_clips(TimelineDragRequest {
                 anchor_clip_id: clip_id,
                 kind,
                 delta_pixels: (delta_x, delta_y),
                 pixels_per_frame,
-                layer_height: 30.0,
-                minimum_duration_frames: 5,
+                layer_height,
+                minimum_duration_frames,
+                maximum_layers,
                 ignore_snap,
             });
         }
@@ -3122,13 +3561,22 @@ fn install_callbacks(
     let layer_command_main = main.as_weak();
     let layer_command_timeline = timeline.as_weak();
     timeline.on_layer_command(move |action, layer| {
+        let maximum_layers = layer_command_timeline
+            .upgrade()
+            .map_or(128, |window| window.get_maximum_layers());
         if let Some(workspace) = layer_command_model.borrow_mut().current_workspace_mut() {
             match action.as_str() {
                 "insert-above" => {
-                    workspace.insert_layers(layer, 1, true);
+                    workspace.insert_layers(layer, 1, true, maximum_layers);
                 }
                 "insert-below" => {
-                    workspace.insert_layers(layer, 1, false);
+                    workspace.insert_layers(layer, 1, false, maximum_layers);
+                }
+                "shift-down" => {
+                    workspace.shift_layers(layer, layer, 1, maximum_layers);
+                }
+                "shift-up" => {
+                    workspace.shift_layers(layer, layer, -1, maximum_layers);
                 }
                 "toggle-lock" => {
                     workspace.toggle_layer_lock(layer);
@@ -3137,10 +3585,10 @@ fn install_callbacks(
                     workspace.toggle_layer_visibility(layer);
                 }
                 "show-all" => {
-                    workspace.set_all_layers_visible(true);
+                    workspace.set_all_layers_visible(true, maximum_layers);
                 }
                 "hide-all" => {
-                    workspace.set_all_layers_visible(false);
+                    workspace.set_all_layers_visible(false, maximum_layers);
                 }
                 _ => {}
             }
@@ -3149,6 +3597,42 @@ fn install_callbacks(
             &layer_command_main,
             &layer_command_timeline,
             &layer_command_model,
+        );
+    });
+
+    let insert_layers_model = model.clone();
+    let insert_layers_main = main.as_weak();
+    let insert_layers_timeline = timeline.as_weak();
+    timeline.on_insert_layers(move |layer, count, above| {
+        let maximum_layers = insert_layers_timeline
+            .upgrade()
+            .map_or(128, |window| window.get_maximum_layers());
+        let _ = insert_layers_model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.insert_layers(layer, count, above, maximum_layers));
+        sync_weak_windows(
+            &insert_layers_main,
+            &insert_layers_timeline,
+            &insert_layers_model,
+        );
+    });
+
+    let shift_layers_model = model.clone();
+    let shift_layers_main = main.as_weak();
+    let shift_layers_timeline = timeline.as_weak();
+    timeline.on_shift_layers(move |start, end, delta| {
+        let maximum_layers = shift_layers_timeline
+            .upgrade()
+            .map_or(128, |window| window.get_maximum_layers());
+        let _ = shift_layers_model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| workspace.shift_layers(start, end, delta, maximum_layers));
+        sync_weak_windows(
+            &shift_layers_main,
+            &shift_layers_timeline,
+            &shift_layers_model,
         );
     });
 
@@ -3180,7 +3664,7 @@ fn install_callbacks(
                 )
             });
         window.set_skimmer_frame(snapped_frame);
-        window.set_skimmer_layer(layer.clamp(0, 127));
+        window.set_skimmer_layer(layer.clamp(0, timeline_last_layer(&window)));
         window.set_skimmer_visible(true);
     });
     let skimmer_leave_window = timeline.as_weak();
@@ -3762,6 +4246,7 @@ fn dispatch_shortcut(
         | ShortcutAction::ToggleLayerVisibility => {
             if let Some(workspace) = model.borrow_mut().current_workspace_mut() {
                 let skimmer_targets = use_skimmer && timeline_window.get_skimmer_visible();
+                let maximum_layers = timeline_window.get_maximum_layers();
                 let selected_layer = workspace.selected_layer();
                 let frame = if skimmer_targets {
                     timeline_window.get_skimmer_frame()
@@ -3782,7 +4267,7 @@ fn dispatch_shortcut(
                     }
                     ShortcutAction::Paste => {
                         if let Some((next_frame, next_layer)) =
-                            workspace.paste_clips_at(frame, layer)
+                            workspace.paste_clips_at(frame, layer, maximum_layers)
                         {
                             advance_shortcut_target(
                                 workspace,
@@ -3798,7 +4283,7 @@ fn dispatch_shortcut(
                     }
                     ShortcutAction::Duplicate => {
                         if let Some((next_frame, next_layer)) =
-                            workspace.duplicate_selected_clips_at(frame, layer)
+                            workspace.duplicate_selected_clips_at(frame, layer, maximum_layers)
                         {
                             advance_shortcut_target(
                                 workspace,
@@ -3818,16 +4303,16 @@ fn dispatch_shortcut(
                         workspace.split_selected_clips_at(frame);
                     }
                     ShortcutAction::MoveUp => {
-                        workspace.move_selected_clips(-1, 0);
+                        workspace.move_selected_clips(-1, 0, maximum_layers);
                     }
                     ShortcutAction::MoveDown => {
-                        workspace.move_selected_clips(1, 0);
+                        workspace.move_selected_clips(1, 0, maximum_layers);
                     }
                     ShortcutAction::NudgeLeft => {
-                        workspace.move_selected_clips(0, -1);
+                        workspace.move_selected_clips(0, -1, maximum_layers);
                     }
                     ShortcutAction::NudgeRight => {
-                        workspace.move_selected_clips(0, 1);
+                        workspace.move_selected_clips(0, 1, maximum_layers);
                     }
                     ShortcutAction::RemoveScene => {
                         workspace.remove_scene(workspace.selected_scene());
@@ -3855,7 +4340,7 @@ fn advance_shortcut_target(
 ) {
     if skimmer_targets {
         timeline.set_skimmer_frame(frame.max(0));
-        timeline.set_skimmer_layer(layer.clamp(0, 127));
+        timeline.set_skimmer_layer(layer.clamp(0, timeline_last_layer(timeline)));
     } else {
         workspace.set_edit_target(frame, layer);
     }
@@ -3951,6 +4436,67 @@ fn timeline_zoom_settings(settings: &SettingsStore) -> (f32, f32, f32) {
         .clamp(minimum as i32, 1_000) as f32;
     let step = settings.i32_value("timelineZoomStep", 10).clamp(1, 100) as f32;
     (minimum, maximum, step)
+}
+
+fn sync_timeline_zoom_settings(window: &TimelineWindow, settings: &SettingsStore) {
+    let (minimum, maximum, _) = timeline_zoom_settings(settings);
+    window.set_zoom_min(minimum.round() as i32);
+    window.set_zoom_max(maximum.round() as i32);
+    let current = scale_to_zoom_percent(window.get_pixels_per_frame()).clamp(minimum, maximum);
+    window.set_pixels_per_frame(zoom_percent_to_scale(current));
+}
+
+fn system_theme_index(settings: &SettingsStore) -> i32 {
+    choice_index_str(
+        &setting_string(settings, "theme", "Dark"),
+        &SYSTEM_THEME_VALUES,
+        0,
+    )
+}
+
+fn timeline_maximum_layers(settings: &SettingsStore) -> i32 {
+    settings.i32_value("timelineMaxLayers", 128).clamp(1, 512)
+}
+
+fn timeline_last_layer(window: &TimelineWindow) -> i32 {
+    window.get_maximum_layers().clamp(1, 512) - 1
+}
+
+fn sync_timeline_runtime_settings(
+    main: &MainWindow,
+    timeline: &TimelineWindow,
+    object_settings: &ObjectSettingsWindow,
+    settings: &SettingsStore,
+) {
+    let header_height = settings
+        .i32_value("timelineHeaderHeight", 28)
+        .clamp(16, 100);
+    main.set_project_tab_height(header_height);
+    timeline.set_timeline_header_height(header_height);
+    timeline
+        .set_timeline_track_height(settings.i32_value("timelineTrackHeight", 30).clamp(16, 100));
+    timeline
+        .set_timeline_ruler_height(settings.i32_value("timelineRulerHeight", 32).clamp(16, 100));
+    timeline.set_maximum_layers(timeline_maximum_layers(settings));
+    timeline.set_layer_header_width(
+        settings
+            .i32_value("timelineLayerHeaderWidth", 60)
+            .clamp(40, 300),
+    );
+    timeline.set_clip_resize_handle_width(
+        settings
+            .i32_value("timelineClipResizeHandleWidth", 10)
+            .clamp(4, 40),
+    );
+    timeline.set_minimum_clip_duration_frames(
+        settings.i32_value("minClipDurationFrames", 5).clamp(1, 100),
+    );
+    let skimming_enabled = settings.bool_value("enableTimelineSkimming", true);
+    timeline.set_timeline_skimming_enabled(skimming_enabled);
+    if !skimming_enabled {
+        timeline.set_skimmer_visible(false);
+    }
+    object_settings.set_sidebar_on_right(settings.bool_value("settingDialogSidebarRight", false));
 }
 
 fn clamp_viewport(value: f32, visible: f32, viewport: f32) -> f32 {
@@ -4198,7 +4744,10 @@ fn sync_export_window(
 
     let available_audio = available_audio_encoders();
     let (audio_labels, audio_values) = filtered_codec_catalog(&available_audio, &AUDIO_CODECS);
-    let default_audio = setting_string(settings, "exportDefaultAudioCodec", "aac");
+    let default_audio = match setting_string(settings, "exportDefaultAudioCodec", "aac").as_str() {
+        "opus" => "libopus".to_owned(),
+        value => value.to_owned(),
+    };
     let audio_index = selected_codec_index(&audio_values, &default_audio);
     codecs.audio_values = audio_values;
     window.set_audio_codec_labels(ModelRc::new(VecModel::from(audio_labels)));
@@ -4636,6 +5185,106 @@ fn project_file_dialog() -> rfd::FileDialog {
         .add_filter("JSON files", &["json"])
 }
 
+fn json_i32(value: Option<&serde_json::Value>, fallback: i32) -> i32 {
+    value
+        .and_then(serde_json::Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok())
+        .or_else(|| {
+            value
+                .and_then(serde_json::Value::as_f64)
+                .filter(|value| value.is_finite())
+                .map(|value| value.round() as i32)
+        })
+        .unwrap_or(fallback)
+}
+
+fn restore_window_geometry(
+    window: &slint::Window,
+    settings: &SettingsStore,
+    id: &str,
+    fallback: WindowGeometry,
+) {
+    let geometry = WindowGeometry::load(settings, id, fallback);
+    window.set_size(slint::LogicalSize::new(
+        geometry.width as f32,
+        geometry.height as f32,
+    ));
+    window.set_position(slint::LogicalPosition::new(
+        geometry.x as f32,
+        geometry.y as f32,
+    ));
+    window.set_maximized(geometry.maximized);
+}
+
+fn persist_window_geometry(
+    settings: &Rc<RefCell<SettingsStore>>,
+    id: &str,
+    window: &slint::Window,
+) {
+    let mut replacement = settings.borrow().snapshot();
+    replacement.insert(
+        format!("windowGeometry_{id}"),
+        WindowGeometry::capture(window).json(),
+    );
+    if let Err(error) = settings.borrow_mut().apply(replacement) {
+        eprintln!("Failed to save {id} window geometry: {error}");
+    }
+}
+
+fn insert_visible_window_geometry<T: ComponentHandle + 'static>(
+    replacement: &mut serde_json::Map<String, serde_json::Value>,
+    id: &str,
+    window: &slint::Weak<T>,
+) -> bool {
+    let Some(window) = window.upgrade() else {
+        return false;
+    };
+    if !window.window().is_visible() {
+        return false;
+    }
+    replacement.insert(
+        format!("windowGeometry_{id}"),
+        WindowGeometry::capture(window.window()).json(),
+    );
+    true
+}
+
+fn install_window_geometry_close_handler<T: ComponentHandle + 'static>(
+    window: slint::Weak<T>,
+    settings: Rc<RefCell<SettingsStore>>,
+    id: &'static str,
+) {
+    let Some(component) = window.upgrade() else {
+        return;
+    };
+    component.window().on_close_requested(move || {
+        if let Some(component) = window.upgrade() {
+            persist_window_geometry(&settings, id, component.window());
+        }
+        CloseRequestResponse::HideWindow
+    });
+}
+
+fn choose_missing_media_replacement(clip_type: &str, suggested_path: &Path) -> Option<PathBuf> {
+    let mut dialog = rfd::FileDialog::new().set_title("不足しているメディアを置換");
+    dialog = match clip_type {
+        "audio" => dialog.add_filter("Audio files", &["wav", "mp3", "aac", "m4a", "flac", "ogg"]),
+        "image" => dialog.add_filter(
+            "Image files",
+            &["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"],
+        ),
+        "video" => dialog.add_filter("Video files", &["mp4", "mov", "avi", "mkv", "webm", "wmv"]),
+        _ => return None,
+    };
+    if let Some(parent) = suggested_path.parent().filter(|parent| parent.exists()) {
+        dialog = dialog.set_directory(parent);
+    }
+    if let Some(name) = suggested_path.file_name() {
+        dialog = dialog.set_file_name(name.to_string_lossy().into_owned());
+    }
+    dialog.pick_file()
+}
+
 fn show_and_redraw<T: ComponentHandle + 'static>(window: &T) -> Result<(), slint::PlatformError> {
     window.show()?;
     let window = window.as_weak();
@@ -4758,12 +5407,186 @@ fn sync_system_settings(window: &SystemSettingsWindow, settings: &SettingsStore)
     window.set_confirm_unsaved(settings.bool_value("showConfirmOnClose", true));
     window.set_auto_backup(settings.bool_value("enableAutoBackup", true));
     window.set_backup_interval(settings.i32_value("backupInterval", 5).clamp(1, 60));
+    window
+        .set_recent_project_max_count(settings.i32_value("recentProjectMaxCount", 10).clamp(1, 50));
     window.set_undo_count(settings.i32_value("undoCount", 32).clamp(1, 1_000));
+    window.set_splash_size(settings.i32_value("splashSize", 512).clamp(128, 2_048));
+    window.set_max_image_size(
+        settings
+            .i32_value("maxImageSize", 8_192)
+            .clamp(1_024, 16_384),
+    );
+    window.set_cache_size(settings.i32_value("cacheSize", 512).clamp(64, 8_192));
+    window.set_preview_render_scale_index(choice_index_f64(
+        settings.f64_value("previewRenderScale", 1.0),
+        &SYSTEM_PREVIEW_RENDER_SCALES,
+        0,
+    ));
+    window.set_preview_msaa_index(choice_index_i32(
+        settings.i32_value("previewMsaaSamples", 0),
+        &SYSTEM_PREVIEW_MSAA_SAMPLES,
+        0,
+    ));
+    window.set_bake_strategy_index(choice_index_str(
+        &setting_string(settings, "bakeStrategy", "OnDemand"),
+        &SYSTEM_BAKE_STRATEGIES,
+        0,
+    ));
+    window.set_on_demand_prefetch_frames(
+        settings
+            .i32_value("onDemandPrefetchFrames", 30)
+            .clamp(0, 600),
+    );
+    window.set_enable_timeline_skimming(settings.bool_value("enableTimelineSkimming", true));
+    window.set_timeline_track_height(settings.i32_value("timelineTrackHeight", 30).clamp(16, 100));
+    window.set_timeline_header_height(
+        settings
+            .i32_value("timelineHeaderHeight", 28)
+            .clamp(16, 100),
+    );
+    window
+        .set_setting_dialog_sidebar_right(settings.bool_value("settingDialogSidebarRight", false));
+    window.set_timeline_ruler_height(settings.i32_value("timelineRulerHeight", 32).clamp(16, 100));
+    window.set_timeline_max_layers(settings.i32_value("timelineMaxLayers", 128).clamp(1, 512));
+    window.set_timeline_layer_header_width(
+        settings
+            .i32_value("timelineLayerHeaderWidth", 60)
+            .clamp(40, 300),
+    );
+    window.set_timeline_clip_resize_handle_width(
+        settings
+            .i32_value("timelineClipResizeHandleWidth", 10)
+            .clamp(4, 40),
+    );
+    window
+        .set_min_clip_duration_frames(settings.i32_value("minClipDurationFrames", 5).clamp(1, 100));
+    let (zoom_minimum, zoom_maximum, zoom_step) = timeline_zoom_settings(settings);
+    window.set_timeline_zoom_min(zoom_minimum.round() as i32);
+    window.set_timeline_zoom_max(zoom_maximum.round() as i32);
+    window.set_timeline_zoom_step(zoom_step.round() as i32);
+    window.set_theme_index(choice_index_str(
+        &setting_string(settings, "theme", "Dark"),
+        &SYSTEM_THEME_VALUES,
+        0,
+    ));
     window.set_default_project_width(defaults.width);
     window.set_default_project_height(defaults.height);
     window.set_default_project_fps(SharedString::from(defaults.fps.to_string()));
     window.set_default_project_frames(defaults.duration);
     window.set_default_project_sample_rate(defaults.sample_rate);
+    window.set_default_clip_duration(
+        settings
+            .i32_value("defaultClipDuration", 100)
+            .clamp(1, 100_000),
+    );
+    window.set_export_video_codec_index(choice_index_str(
+        &setting_string(settings, "exportDefaultCodec", "libx264"),
+        &SYSTEM_EXPORT_VIDEO_CODECS,
+        2,
+    ));
+    window.set_export_default_bitrate_mbps(
+        settings
+            .i32_value("exportDefaultBitrateMbps", 15)
+            .clamp(1, 500),
+    );
+    window.set_export_default_crf(settings.i32_value("exportDefaultCrf", 20).clamp(0, 51));
+    window.set_export_image_quality(settings.i32_value("exportImageQuality", 95).clamp(0, 100));
+    window.set_export_sequence_padding(settings.i32_value("exportSequencePadding", 6).clamp(2, 10));
+    let audio_codec = setting_string(settings, "exportDefaultAudioCodec", "aac");
+    window.set_export_audio_codec_index(if audio_codec == "libopus" {
+        1
+    } else {
+        choice_index_str(&audio_codec, &SYSTEM_EXPORT_AUDIO_CODECS, 0)
+    });
+    window.set_export_default_audio_bitrate_kbps(
+        settings
+            .i32_value("exportDefaultAudioBitrateKbps", 192)
+            .clamp(32, 1_536),
+    );
+    window.set_export_frame_grab_timeout_ms(
+        settings
+            .i32_value("exportFrameGrabTimeoutMs", 2_000)
+            .clamp(100, 10_000),
+    );
+    window
+        .set_export_progress_interval(settings.i32_value("exportProgressInterval", 5).clamp(1, 60));
+    window.set_export_encoder_queue_mb(
+        settings
+            .i32_value("exportEncoderQueueMB", 128)
+            .clamp(16, 1_024),
+    );
+    window.set_video_decoder_index_reserve(
+        settings
+            .i32_value("videoDecoderIndexReserve", 108_000)
+            .clamp(1_000, 1_000_000),
+    );
+    window.set_video_decoder_min_cache_mb(
+        settings
+            .i32_value("videoDecoderMinCacheMB", 64)
+            .clamp(16, 4_096),
+    );
+    window.set_hw_frame_pool_size(settings.i32_value("hwFramePoolSize", 32).clamp(1, 256));
+    window.set_audio_plugin_block_size_index(choice_index_i32(
+        settings.i32_value("audioPluginMaxBlockSize", 4_096),
+        &SYSTEM_AUDIO_BLOCK_SIZES,
+        4,
+    ));
+    window.set_lua_hook_interval_ms(settings.i32_value("luaHookIntervalMs", 16).clamp(1, 1_000));
+    window.set_lua_hot_reload(settings.bool_value("luaHotReload", false));
+
+    update_vec_model(
+        &window.get_plugin_settings(),
+        SYSTEM_PLUGIN_FORMATS
+            .iter()
+            .map(|format| SystemPluginSettingData {
+                format_name: SharedString::from(*format),
+                enabled: settings.bool_value(&format!("pluginEnable{format}"), true),
+                paths: SharedString::from(plugin_paths_text(settings, format)),
+            })
+            .collect(),
+    );
+    update_vec_model(
+        &window.get_shortcut_settings(),
+        SYSTEM_SHORTCUT_ROWS
+            .iter()
+            .map(|(action_id, fallback)| SystemShortcutSettingData {
+                action_id: SharedString::from(*action_id),
+                value: SharedString::from(shortcut_setting(settings, action_id, fallback)),
+            })
+            .collect(),
+    );
+}
+
+fn choice_index_str(value: &str, choices: &[&str], fallback: usize) -> i32 {
+    choices
+        .iter()
+        .position(|choice| *choice == value)
+        .unwrap_or(fallback) as i32
+}
+
+fn choice_index_i32(value: i32, choices: &[i32], fallback: usize) -> i32 {
+    choices
+        .iter()
+        .position(|choice| *choice == value)
+        .unwrap_or(fallback) as i32
+}
+
+fn choice_index_f64(value: f64, choices: &[f64], fallback: usize) -> i32 {
+    choices
+        .iter()
+        .position(|choice| (*choice - value).abs() <= f64::EPSILON)
+        .unwrap_or(fallback) as i32
+}
+
+fn plugin_paths_text(settings: &SettingsStore, format: &str) -> String {
+    settings
+        .value(&format!("pluginPaths{format}"))
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn sync_package_manager(window: &PackageManagerWindow, model: &PackageManagerModel) {
@@ -4860,53 +5683,311 @@ fn apply_system_settings(
     settings: &Rc<RefCell<SettingsStore>>,
     model: &Rc<RefCell<ApplicationModel>>,
 ) -> Result<(), String> {
+    let replacement = system_settings_replacement(window, settings.borrow().snapshot())?;
+    settings.borrow_mut().apply(replacement)?;
+    apply_runtime_settings(&mut model.borrow_mut(), &settings.borrow());
+    Ok(())
+}
+
+fn system_settings_replacement(
+    window: &SystemSettingsWindow,
+    mut replacement: serde_json::Map<String, serde_json::Value>,
+) -> Result<serde_json::Map<String, serde_json::Value>, String> {
     let fps = parse_required_f64(
         &window.get_default_project_fps(),
         "既定のフレームレート",
         1.0,
         240.0,
     )?;
-    let mut replacement = settings.borrow().snapshot();
-    replacement.insert(
-        "showConfirmOnClose".to_owned(),
-        serde_json::json!(window.get_confirm_unsaved()),
-    );
-    replacement.insert(
-        "enableAutoBackup".to_owned(),
-        serde_json::json!(window.get_auto_backup()),
-    );
-    replacement.insert(
-        "backupInterval".to_owned(),
-        serde_json::json!(window.get_backup_interval().clamp(1, 60)),
-    );
-    replacement.insert(
-        "undoCount".to_owned(),
-        serde_json::json!(window.get_undo_count().clamp(1, 1_000)),
-    );
-    replacement.insert(
-        "defaultProjectWidth".to_owned(),
-        serde_json::json!(window.get_default_project_width().clamp(1, 16_000)),
-    );
-    replacement.insert(
-        "defaultProjectHeight".to_owned(),
-        serde_json::json!(window.get_default_project_height().clamp(1, 16_000)),
-    );
-    replacement.insert("defaultProjectFps".to_owned(), serde_json::json!(fps));
-    replacement.insert(
-        "defaultProjectFrames".to_owned(),
-        serde_json::json!(window.get_default_project_frames().clamp(1, 1_000_000)),
-    );
-    replacement.insert(
-        "defaultProjectSampleRate".to_owned(),
-        serde_json::json!(
-            window
-                .get_default_project_sample_rate()
-                .clamp(8_000, 192_000)
+    let zoom_minimum = window.get_timeline_zoom_min().clamp(1, 400);
+    let zoom_maximum = window.get_timeline_zoom_max().clamp(zoom_minimum, 1_000);
+    for (key, value) in [
+        (
+            "showConfirmOnClose",
+            serde_json::json!(window.get_confirm_unsaved()),
         ),
-    );
-    settings.borrow_mut().apply(replacement)?;
-    apply_runtime_settings(&mut model.borrow_mut(), &settings.borrow());
-    Ok(())
+        (
+            "enableAutoBackup",
+            serde_json::json!(window.get_auto_backup()),
+        ),
+        (
+            "backupInterval",
+            serde_json::json!(window.get_backup_interval().clamp(1, 60)),
+        ),
+        (
+            "recentProjectMaxCount",
+            serde_json::json!(window.get_recent_project_max_count().clamp(1, 50)),
+        ),
+        (
+            "undoCount",
+            serde_json::json!(window.get_undo_count().clamp(1, 1_000)),
+        ),
+        (
+            "splashSize",
+            serde_json::json!(window.get_splash_size().clamp(128, 2_048)),
+        ),
+        (
+            "maxImageSize",
+            serde_json::json!(window.get_max_image_size().clamp(1_024, 16_384)),
+        ),
+        (
+            "cacheSize",
+            serde_json::json!(window.get_cache_size().clamp(64, 8_192)),
+        ),
+        (
+            "previewRenderScale",
+            serde_json::json!(choice_f64(
+                &SYSTEM_PREVIEW_RENDER_SCALES,
+                window.get_preview_render_scale_index(),
+                0,
+            )),
+        ),
+        (
+            "previewMsaaSamples",
+            serde_json::json!(choice_i32(
+                &SYSTEM_PREVIEW_MSAA_SAMPLES,
+                window.get_preview_msaa_index(),
+                0,
+            )),
+        ),
+        (
+            "bakeStrategy",
+            serde_json::json!(choice_str(
+                &SYSTEM_BAKE_STRATEGIES,
+                window.get_bake_strategy_index(),
+                0,
+            )),
+        ),
+        (
+            "onDemandPrefetchFrames",
+            serde_json::json!(window.get_on_demand_prefetch_frames().clamp(0, 600)),
+        ),
+        (
+            "enableTimelineSkimming",
+            serde_json::json!(window.get_enable_timeline_skimming()),
+        ),
+        (
+            "timelineTrackHeight",
+            serde_json::json!(window.get_timeline_track_height().clamp(16, 100)),
+        ),
+        (
+            "timelineHeaderHeight",
+            serde_json::json!(window.get_timeline_header_height().clamp(16, 100)),
+        ),
+        (
+            "settingDialogSidebarRight",
+            serde_json::json!(window.get_setting_dialog_sidebar_right()),
+        ),
+        (
+            "timelineRulerHeight",
+            serde_json::json!(window.get_timeline_ruler_height().clamp(16, 100)),
+        ),
+        (
+            "timelineMaxLayers",
+            serde_json::json!(window.get_timeline_max_layers().clamp(1, 512)),
+        ),
+        (
+            "timelineLayerHeaderWidth",
+            serde_json::json!(window.get_timeline_layer_header_width().clamp(40, 300)),
+        ),
+        (
+            "timelineClipResizeHandleWidth",
+            serde_json::json!(window.get_timeline_clip_resize_handle_width().clamp(4, 40)),
+        ),
+        (
+            "minClipDurationFrames",
+            serde_json::json!(window.get_min_clip_duration_frames().clamp(1, 100)),
+        ),
+        ("timelineZoomMin", serde_json::json!(zoom_minimum)),
+        ("timelineZoomMax", serde_json::json!(zoom_maximum)),
+        (
+            "timelineZoomStep",
+            serde_json::json!(window.get_timeline_zoom_step().clamp(1, 100)),
+        ),
+        (
+            "theme",
+            serde_json::json!(choice_str(
+                &SYSTEM_THEME_VALUES,
+                window.get_theme_index(),
+                0,
+            )),
+        ),
+        (
+            "defaultProjectWidth",
+            serde_json::json!(window.get_default_project_width().clamp(1, 16_000)),
+        ),
+        (
+            "defaultProjectHeight",
+            serde_json::json!(window.get_default_project_height().clamp(1, 16_000)),
+        ),
+        ("defaultProjectFps", serde_json::json!(fps)),
+        (
+            "defaultProjectFrames",
+            serde_json::json!(window.get_default_project_frames().clamp(1, 1_000_000)),
+        ),
+        (
+            "defaultProjectSampleRate",
+            serde_json::json!(
+                window
+                    .get_default_project_sample_rate()
+                    .clamp(8_000, 192_000)
+            ),
+        ),
+        (
+            "defaultClipDuration",
+            serde_json::json!(window.get_default_clip_duration().clamp(1, 100_000)),
+        ),
+        (
+            "exportDefaultCodec",
+            serde_json::json!(choice_str(
+                &SYSTEM_EXPORT_VIDEO_CODECS,
+                window.get_export_video_codec_index(),
+                2,
+            )),
+        ),
+        (
+            "exportDefaultBitrateMbps",
+            serde_json::json!(window.get_export_default_bitrate_mbps().clamp(1, 500)),
+        ),
+        (
+            "exportDefaultCrf",
+            serde_json::json!(window.get_export_default_crf().clamp(0, 51)),
+        ),
+        (
+            "exportImageQuality",
+            serde_json::json!(window.get_export_image_quality().clamp(0, 100)),
+        ),
+        (
+            "exportSequencePadding",
+            serde_json::json!(window.get_export_sequence_padding().clamp(2, 10)),
+        ),
+        (
+            "exportDefaultAudioCodec",
+            serde_json::json!(choice_str(
+                &SYSTEM_EXPORT_AUDIO_CODECS,
+                window.get_export_audio_codec_index(),
+                0,
+            )),
+        ),
+        (
+            "exportDefaultAudioBitrateKbps",
+            serde_json::json!(
+                window
+                    .get_export_default_audio_bitrate_kbps()
+                    .clamp(32, 1_536)
+            ),
+        ),
+        (
+            "exportFrameGrabTimeoutMs",
+            serde_json::json!(window.get_export_frame_grab_timeout_ms().clamp(100, 10_000)),
+        ),
+        (
+            "exportProgressInterval",
+            serde_json::json!(window.get_export_progress_interval().clamp(1, 60)),
+        ),
+        (
+            "exportEncoderQueueMB",
+            serde_json::json!(window.get_export_encoder_queue_mb().clamp(16, 1_024)),
+        ),
+        (
+            "videoDecoderIndexReserve",
+            serde_json::json!(
+                window
+                    .get_video_decoder_index_reserve()
+                    .clamp(1_000, 1_000_000)
+            ),
+        ),
+        (
+            "videoDecoderMinCacheMB",
+            serde_json::json!(window.get_video_decoder_min_cache_mb().clamp(16, 4_096)),
+        ),
+        (
+            "hwFramePoolSize",
+            serde_json::json!(window.get_hw_frame_pool_size().clamp(1, 256)),
+        ),
+        (
+            "audioPluginMaxBlockSize",
+            serde_json::json!(choice_i32(
+                &SYSTEM_AUDIO_BLOCK_SIZES,
+                window.get_audio_plugin_block_size_index(),
+                4,
+            )),
+        ),
+        (
+            "luaHookIntervalMs",
+            serde_json::json!(window.get_lua_hook_interval_ms().clamp(1, 1_000)),
+        ),
+        (
+            "luaHotReload",
+            serde_json::json!(window.get_lua_hot_reload()),
+        ),
+    ] {
+        replacement.insert(key.to_owned(), value);
+    }
+
+    let plugin_settings = window.get_plugin_settings();
+    for index in 0..plugin_settings.row_count() {
+        let Some(row) = plugin_settings.row_data(index) else {
+            continue;
+        };
+        replacement.insert(
+            format!("pluginEnable{}", row.format_name),
+            serde_json::json!(row.enabled),
+        );
+        replacement.insert(
+            format!("pluginPaths{}", row.format_name),
+            plugin_paths_value(&row.paths),
+        );
+    }
+
+    let mut shortcuts = replacement
+        .get("shortcuts")
+        .and_then(serde_json::Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let shortcut_settings = window.get_shortcut_settings();
+    for index in 0..shortcut_settings.row_count() {
+        let Some(row) = shortcut_settings.row_data(index) else {
+            continue;
+        };
+        shortcuts.insert(
+            row.action_id.to_string(),
+            serde_json::Value::String(row.value.to_string()),
+        );
+    }
+    replacement.insert("shortcuts".to_owned(), serde_json::Value::Object(shortcuts));
+    Ok(replacement)
+}
+
+fn choice_str<'a>(choices: &'a [&'a str], index: i32, fallback: usize) -> &'a str {
+    usize::try_from(index)
+        .ok()
+        .and_then(|index| choices.get(index).copied())
+        .unwrap_or(choices[fallback])
+}
+
+fn choice_i32(choices: &[i32], index: i32, fallback: usize) -> i32 {
+    usize::try_from(index)
+        .ok()
+        .and_then(|index| choices.get(index).copied())
+        .unwrap_or(choices[fallback])
+}
+
+fn choice_f64(choices: &[f64], index: i32, fallback: usize) -> f64 {
+    usize::try_from(index)
+        .ok()
+        .and_then(|index| choices.get(index).copied())
+        .unwrap_or(choices[fallback])
+}
+
+fn plugin_paths_value(text: &str) -> serde_json::Value {
+    serde_json::Value::Array(
+        text.lines()
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(|path| serde_json::Value::String(path.to_owned()))
+            .collect(),
+    )
 }
 
 fn sync_weak_windows(
@@ -4946,11 +6027,30 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
     );
 
     let Some(workspace) = model.current_workspace() else {
+        update_vec_model(&main.get_missing_media(), Vec::new());
+        main.set_missing_media_dialog_visible(false);
         update_vec_model(&timeline.get_scene_tabs(), Vec::new());
         update_vec_model(&timeline.get_clips(), Vec::new());
         update_vec_model(&timeline.get_layers(), Vec::new());
         return;
     };
+    let missing_media = workspace
+        .missing_media()
+        .into_iter()
+        .map(|entry| MissingMediaData {
+            clip_id: entry.clip_id,
+            scene_id: entry.scene_id,
+            layer: entry.layer,
+            clip_type: SharedString::from(entry.clip_type),
+            path: SharedString::from(entry.path),
+            name: SharedString::from(entry.name),
+        })
+        .collect::<Vec<_>>();
+    let has_missing_media = !missing_media.is_empty();
+    update_vec_model(&main.get_missing_media(), missing_media);
+    if !has_missing_media {
+        main.set_missing_media_dialog_visible(false);
+    }
     let scenes = workspace
         .scene_tabs()
         .into_iter()
@@ -4980,7 +6080,7 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
     update_vec_model(&timeline.get_clips(), clips);
     let selected_layer = workspace.selected_layer();
     let scene = workspace.selected_scene_document();
-    let layers = (0..128)
+    let layers = (0..timeline.get_maximum_layers().clamp(1, 512))
         .map(|index| LayerData {
             index,
             visible: scene.is_none_or(|scene| !scene.hidden_layers.contains(&index)),
@@ -6060,6 +7160,56 @@ mod tests {
         AudioPluginSettings, KeyframePoint, ObjectControlKind, ObjectControlOption, ObjectEffect,
     };
     use serde_json::json;
+
+    #[test]
+    fn window_geometry_uses_qt_keys_and_clamps_invalid_sizes() {
+        let fallback = WindowGeometry::new(100, 200, 640, 480);
+        let value = json!({
+            "x": -120,
+            "y": 45,
+            "width": 1280,
+            "height": 720,
+            "maximized": true
+        });
+        assert_eq!(
+            WindowGeometry::from_value(Some(&value), fallback),
+            WindowGeometry {
+                x: -120,
+                y: 45,
+                width: 1280,
+                height: 720,
+                maximized: true,
+            }
+        );
+
+        let invalid = json!({"width": 0, "height": -5});
+        assert_eq!(
+            WindowGeometry::from_value(Some(&invalid), fallback),
+            WindowGeometry {
+                width: 1,
+                height: 1,
+                ..fallback
+            }
+        );
+        assert_eq!(WindowGeometry::from_value(None, fallback), fallback);
+    }
+
+    #[test]
+    fn system_settings_choices_and_plugin_paths_match_the_qt_schema() {
+        assert_eq!(choice_str(&SYSTEM_THEME_VALUES, 2, 0), "System");
+        assert_eq!(choice_str(&SYSTEM_EXPORT_VIDEO_CODECS, 1, 2), "hevc_vaapi");
+        assert_eq!(choice_str(&SYSTEM_EXPORT_AUDIO_CODECS, 1, 0), "opus");
+        assert_eq!(choice_i32(&SYSTEM_AUDIO_BLOCK_SIZES, 5, 4), 8192);
+        assert_eq!(choice_f64(&SYSTEM_PREVIEW_RENDER_SCALES, 3, 0), 0.25);
+        assert_eq!(choice_str(&SYSTEM_THEME_VALUES, -1, 0), "Dark");
+        assert_eq!(choice_i32(&SYSTEM_AUDIO_BLOCK_SIZES, 99, 4), 4096);
+        assert_eq!(
+            plugin_paths_value(" /plugins/one \n\n/plugins/two "),
+            json!(["/plugins/one", "/plugins/two"])
+        );
+        assert_eq!(SYSTEM_PLUGIN_FORMATS.len(), 11);
+        assert_eq!(SYSTEM_SHORTCUT_ROWS.len(), 34);
+    }
 
     #[test]
     fn searchable_context_catalog_preserves_qt_category_paths() {

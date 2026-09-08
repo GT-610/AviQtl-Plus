@@ -44,8 +44,8 @@ pub use crate::preset::{
     EffectPreset, PresetError, build_effect_preset, parse_effect_preset, preset_name_is_safe,
 };
 pub use crate::project::{
-    AudioPluginDocument, ClipDocument, EffectDocument, ExtraFields, ProjectDocument,
-    ProjectSettings, SceneDocument,
+    AudioPluginDocument, ClipDocument, EffectDocument, ExtraFields, MAX_TIMELINE_LAYER,
+    MAX_TIMELINE_LAYERS, ProjectDocument, ProjectSettings, SceneDocument,
 };
 pub use crate::recovery::{
     RecoveryInspection, RecoveryMetadata, build_recovery_metadata, inspect_recovery_metadata,
@@ -592,7 +592,7 @@ pub fn find_vacant_scene_frame(
     start_frame: i32,
     duration_frames: i32,
 ) -> Result<i32, TimelineError> {
-    if !(0..=127).contains(&layer) || duration_frames <= 0 {
+    if !(0..=MAX_TIMELINE_LAYER).contains(&layer) || duration_frames <= 0 {
         return Err(TimelineError::InvalidArgument);
     }
     if !document.scenes.iter().any(|scene| scene.id == scene_id) {

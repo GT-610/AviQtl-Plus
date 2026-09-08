@@ -9,8 +9,8 @@ use crate::policy::{
     playback_mode,
 };
 use crate::project::{
-    AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, ProjectDocument, ProjectError,
-    ProjectSettings, SceneDocument, parse_project_document,
+    AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, MAX_TIMELINE_LAYER,
+    ProjectDocument, ProjectError, ProjectSettings, SceneDocument, parse_project_document,
 };
 use crate::timeline_domain::allocate_id;
 use serde::{Deserialize, Serialize};
@@ -1674,7 +1674,7 @@ fn validate_document(document: &ProjectDocument) -> Result<(), StateError> {
         clip.id < 1
             || clip.start < 0
             || clip.duration < 1
-            || !(0..=127).contains(&clip.layer)
+            || !(0..=MAX_TIMELINE_LAYER).contains(&clip.layer)
             || !scene_ids.contains(&clip.scene_id)
             || !clip_ids.insert(clip.id)
     }) {

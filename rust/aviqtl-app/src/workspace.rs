@@ -2,6 +2,7 @@ use crate::audio_plugin::{AudioPluginAddition, AudioPluginCatalog, AudioPluginHy
 use crate::effect_catalog::EffectCatalog;
 use crate::effect_selection::EffectSelection;
 use crate::media_import::{MediaImportKind, plan_media_import};
+use crate::missing_media::{MissingMediaEntry, find_missing_media, plan_media_relink};
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
 use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
@@ -9,11 +10,12 @@ use crate::selection::{ClipSelection, SelectionBox};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
-    ClipDocument, EffectDocument, EffectInsertion, EffectMetadata, EffectPreset, ProjectDocument,
-    ProjectSettings, SceneDocument, TimelineCommand, TimelineTransaction, clipboard_duration,
-    evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move,
-    plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift,
-    snap_scene_frame, timeline_duration as core_timeline_duration,
+    ClipDocument, EffectDocument, EffectInsertion, EffectMetadata, EffectPreset,
+    MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectDocument, ProjectSettings, SceneDocument,
+    TimelineCommand, TimelineTransaction, clipboard_duration, evaluate_keyframe_track,
+    find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move, plan_clipboard_paste,
+    plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
+    timeline_duration as core_timeline_duration,
 };
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -190,6 +192,33 @@ impl WorkspaceModel {
                     .saturating_add(TIMELINE_TAIL_PADDING_FRAMES),
             )
             .max(MIN_TIMELINE_VIEW_FRAMES)
+    }
+
+    pub fn missing_media(&self) -> Vec<MissingMediaEntry> {
+        find_missing_media(&self.project.document, self.project.path.as_deref())
+    }
+
+    pub fn relink_media(&mut self, clip_id: i32, path: &Path) -> bool {
+        let plan = match plan_media_relink(&self.project.document, clip_id, path) {
+            Ok(plan) => plan,
+            Err(error) => {
+                self.status = error;
+                return false;
+            }
+        };
+        let display_path = plan.path.clone();
+        if self.execute(TimelineCommand::SetEffectParameter {
+            clip_id: plan.clip_id,
+            effect_index: plan.effect_index,
+            param_name: plan.parameter.to_owned(),
+            value: Value::String(plan.path),
+            media_duration_seconds: plan.media_duration_seconds,
+        }) {
+            self.status = format!("Relinked media to {display_path}");
+            true
+        } else {
+            false
+        }
     }
 
     pub fn status(&self) -> &str {
@@ -1765,7 +1794,9 @@ impl WorkspaceModel {
         &mut self,
         requested_frame: i32,
         requested_layer: i32,
+        maximum_layers: i32,
     ) -> Option<(i32, i32)> {
+        let maximum_layers = maximum_layers.clamp(1, MAX_TIMELINE_LAYERS);
         if self.clip_clipboard.is_empty() {
             return None;
         }
@@ -1783,6 +1814,10 @@ impl WorkspaceModel {
                 return None;
             }
         };
+        if geometry.iter().any(|entry| entry.layer >= maximum_layers) {
+            self.status = format!("Pasted clips exceed the {maximum_layers}-layer timeline");
+            return None;
+        }
         let ids = match self
             .project
             .state
@@ -1815,13 +1850,18 @@ impl WorkspaceModel {
         self.status = format!("Pasted {} clip(s)", self.clip_clipboard.len());
         Some((
             safe_frame.saturating_add(duration),
-            requested_layer.clamp(0, 127),
+            requested_layer.clamp(0, maximum_layers - 1),
         ))
     }
 
-    pub fn duplicate_selected_clips_at(&mut self, frame: i32, layer: i32) -> Option<(i32, i32)> {
+    pub fn duplicate_selected_clips_at(
+        &mut self,
+        frame: i32,
+        layer: i32,
+        maximum_layers: i32,
+    ) -> Option<(i32, i32)> {
         self.copy_selected_clips();
-        self.paste_clips_at(frame, layer)
+        self.paste_clips_at(frame, layer, maximum_layers)
     }
 
     pub fn insert_catalog_object_at(
@@ -1846,7 +1886,7 @@ impl WorkspaceModel {
             self.status = "Standard drawing effect is not available".to_owned();
             return false;
         }
-        let layer = target_layer.clamp(0, 127);
+        let layer = target_layer.clamp(0, MAX_TIMELINE_LAYER);
         if self
             .selected_scene_document()
             .is_some_and(|scene| scene.locked_layers.contains(&layer))
@@ -1909,12 +1949,20 @@ impl WorkspaceModel {
         mut frame: i32,
         mut layer: i32,
         default_duration_frames: i32,
+        maximum_layers: i32,
         catalog: &EffectCatalog,
     ) -> Option<(i32, i32)> {
         let mut imported = 0usize;
         let mut errors = Vec::new();
         for path in paths {
-            match self.import_media_file(path, frame, layer, default_duration_frames, catalog) {
+            match self.import_media_file(
+                path,
+                frame,
+                layer,
+                default_duration_frames,
+                maximum_layers,
+                catalog,
+            ) {
                 Ok((next_frame, target_layer)) => {
                     frame = next_frame;
                     layer = target_layer;
@@ -1938,6 +1986,7 @@ impl WorkspaceModel {
         requested_start: i32,
         target_layer: i32,
         default_duration_frames: i32,
+        maximum_layers: i32,
         catalog: &EffectCatalog,
     ) -> Result<(i32, i32), String> {
         let scene_fps = self
@@ -1948,7 +1997,8 @@ impl WorkspaceModel {
         let path = plan.path.to_string_lossy().into_owned();
         let duration = plan.duration_frames;
         let scene_id = self.selected_scene;
-        let layer = target_layer.clamp(0, 127);
+        let maximum_layers = maximum_layers.clamp(1, MAX_TIMELINE_LAYERS);
+        let layer = target_layer.clamp(0, maximum_layers - 1);
         let start = match plan.kind {
             MediaImportKind::Video => find_vacant_linked_media_frame(
                 &self.project.document,
@@ -1956,6 +2006,7 @@ impl WorkspaceModel {
                 layer,
                 requested_start,
                 duration,
+                maximum_layers,
             )?,
             MediaImportKind::Audio | MediaImportKind::Image => find_vacant_scene_frame(
                 &self.project.document,
@@ -2066,11 +2117,31 @@ impl WorkspaceModel {
         Ok((start.saturating_add(duration), layer))
     }
 
-    pub fn move_selected_clips(&mut self, delta_layer: i32, delta_frame: i32) -> bool {
+    pub fn move_selected_clips(
+        &mut self,
+        delta_layer: i32,
+        delta_frame: i32,
+        maximum_layers: i32,
+    ) -> bool {
         let ids = self.selection.ids().to_vec();
         if ids.is_empty() {
             return false;
         }
+        let maximum_layer = maximum_layers.clamp(1, MAX_TIMELINE_LAYERS) - 1;
+        let selected_layers = self
+            .project
+            .document
+            .clips
+            .iter()
+            .filter(|clip| ids.contains(&clip.id))
+            .map(|clip| clip.layer)
+            .collect::<Vec<_>>();
+        let minimum_selected_layer = selected_layers.iter().copied().min().unwrap_or(0);
+        let maximum_selected_layer = selected_layers.iter().copied().max().unwrap_or(0);
+        let delta_layer = delta_layer.clamp(
+            -minimum_selected_layer,
+            maximum_layer.saturating_sub(maximum_selected_layer),
+        );
         match plan_clip_delta_move(
             &self.project.document,
             self.selected_scene,
@@ -2125,14 +2196,14 @@ impl WorkspaceModel {
         })
     }
 
-    pub fn set_all_layers_visible(&mut self, visible: bool) -> bool {
+    pub fn set_all_layers_visible(&mut self, visible: bool, maximum_layers: i32) -> bool {
         let Some(mut scene) = self.selected_scene_document().cloned() else {
             return false;
         };
         scene.hidden_layers = if visible {
             Vec::new()
         } else {
-            (0..128).collect()
+            (0..maximum_layers.clamp(1, MAX_TIMELINE_LAYERS)).collect()
         };
         self.execute(TimelineCommand::UpdateScene {
             scene_id: scene.id,
@@ -2157,7 +2228,13 @@ impl WorkspaceModel {
         })
     }
 
-    pub fn insert_layers(&mut self, target_layer: i32, count: i32, above: bool) -> bool {
+    pub fn insert_layers(
+        &mut self,
+        target_layer: i32,
+        count: i32,
+        above: bool,
+        maximum_layers: i32,
+    ) -> bool {
         match plan_scene_layer_insertion(
             &self.project.document,
             self.selected_scene,
@@ -2165,7 +2242,17 @@ impl WorkspaceModel {
             count,
             above,
         ) {
-            Ok(updates) => self.execute_geometry_updates(updates),
+            Ok(updates)
+                if updates
+                    .iter()
+                    .all(|update| update.layer < maximum_layers.clamp(1, MAX_TIMELINE_LAYERS)) =>
+            {
+                self.execute_geometry_updates(updates)
+            }
+            Ok(_) => {
+                self.status = "Layer insertion exceeds the configured timeline".to_owned();
+                false
+            }
             Err(error) => {
                 self.status = error.to_string();
                 false
@@ -2173,7 +2260,13 @@ impl WorkspaceModel {
         }
     }
 
-    pub fn shift_layers(&mut self, start_layer: i32, end_layer: i32, delta: i32) -> bool {
+    pub fn shift_layers(
+        &mut self,
+        start_layer: i32,
+        end_layer: i32,
+        delta: i32,
+        maximum_layers: i32,
+    ) -> bool {
         match plan_scene_layer_shift(
             &self.project.document,
             self.selected_scene,
@@ -2181,7 +2274,17 @@ impl WorkspaceModel {
             end_layer,
             delta,
         ) {
-            Ok(updates) => self.execute_geometry_updates(updates),
+            Ok(updates)
+                if updates
+                    .iter()
+                    .all(|update| update.layer < maximum_layers.clamp(1, MAX_TIMELINE_LAYERS)) =>
+            {
+                self.execute_geometry_updates(updates)
+            }
+            Ok(_) => {
+                self.status = "Layer shift exceeds the configured timeline".to_owned();
+                false
+            }
             Err(error) => {
                 self.status = error.to_string();
                 false
@@ -2529,10 +2632,11 @@ fn find_vacant_linked_media_frame(
     video_layer: i32,
     requested_start: i32,
     duration: i32,
+    maximum_layers: i32,
 ) -> Result<i32, String> {
     let audio_layer = video_layer
         .checked_add(1)
-        .filter(|layer| *layer <= 127)
+        .filter(|layer| *layer < maximum_layers.clamp(1, MAX_TIMELINE_LAYERS))
         .ok_or_else(|| "A linked video requires an audio layer below it".to_owned())?;
     let mut candidate = requested_start.max(0);
     for _ in 0..100 {
@@ -2841,7 +2945,7 @@ mod tests {
         workspace.click_clip(2, true);
         assert_eq!(workspace.selected_clip_ids(), [2, 1]);
         assert!(workspace.copy_selected_clips());
-        assert_eq!(workspace.paste_clips_at(80, 4), Some((130, 4)));
+        assert_eq!(workspace.paste_clips_at(80, 4, 128), Some((130, 4)));
         assert_eq!(workspace.document().clips.len(), 5);
         assert_eq!(workspace.document_revision(), 1);
         assert!(workspace.can_undo());
@@ -2851,6 +2955,18 @@ mod tests {
         assert!(workspace.redo());
         assert_eq!(workspace.document().clips.len(), 5);
         assert_eq!(workspace.document_revision(), 3);
+    }
+
+    #[test]
+    fn clipboard_rejects_content_beyond_the_configured_layer_count() {
+        let mut workspace = workspace();
+        workspace.click_clip(1, false);
+        workspace.click_clip(2, true);
+        assert!(workspace.copy_selected_clips());
+        let clip_count = workspace.document().clips.len();
+        assert_eq!(workspace.paste_clips_at(80, 0, 1), None);
+        assert_eq!(workspace.document().clips.len(), clip_count);
+        assert!(workspace.status().contains("1-layer timeline"));
     }
 
     #[test]
@@ -2864,7 +2980,7 @@ mod tests {
         let mut workspace = workspace();
 
         assert_eq!(
-            workspace.import_media_files(&paths, 60, 4, 15, &catalog),
+            workspace.import_media_files(&paths, 60, 4, 15, 128, &catalog),
             Some((105, 4))
         );
         assert_eq!(workspace.status(), "Imported 3 media file(s)");
@@ -2928,6 +3044,62 @@ mod tests {
         for path in paths {
             std::fs::remove_file(path).expect("temporary media placeholder is removable");
         }
+    }
+
+    #[test]
+    fn missing_media_relink_is_type_safe_dirty_and_undoable() {
+        let missing_path = std::env::temp_dir().join(format!(
+            "aviqtl-workspace-missing-{}-{}.png",
+            std::process::id(),
+            crate::recovery::generate_recovery_id()
+        ));
+        let replacement_path = temporary_media_file("png");
+        let wrong_type_path = temporary_media_file("wav");
+        let state = TimelineState::from_json(
+            format!(
+                r#"{{
+                    "version": 3,
+                    "settings": {{"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000}},
+                    "scenes": [{{"id": 1, "name": "Root", "duration": 300}}],
+                    "clips": [{{
+                        "id": 7,
+                        "sceneId": 1,
+                        "type": "image",
+                        "start": 0,
+                        "duration": 100,
+                        "layer": 2,
+                        "effects": [{{"id": "image", "params": {{"path": {missing_path:?}}}}}]
+                    }}]
+                }}"#,
+            )
+            .as_bytes(),
+        )
+        .expect("missing-media workspace fixture loads");
+        let document = state.snapshot();
+        let mut workspace = WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        });
+
+        assert_eq!(workspace.missing_media().len(), 1);
+        assert!(!workspace.relink_media(7, &wrong_type_path));
+        assert_eq!(workspace.missing_media().len(), 1);
+        assert!(workspace.relink_media(7, &replacement_path));
+        assert!(workspace.project().dirty);
+        assert!(workspace.missing_media().is_empty());
+        assert_eq!(
+            workspace.document().clips[0].effects[0].params["path"],
+            replacement_path.to_string_lossy().as_ref()
+        );
+        assert!(workspace.undo());
+        assert_eq!(workspace.missing_media().len(), 1);
+        assert!(workspace.redo());
+        assert!(workspace.missing_media().is_empty());
+
+        std::fs::remove_file(replacement_path).expect("replacement fixture is removable");
+        std::fs::remove_file(wrong_type_path).expect("wrong-type fixture is removable");
     }
 
     #[test]
@@ -3018,7 +3190,7 @@ mod tests {
         // Duplicate pastes at the right-clicked frame/layer like Qt.
         workspace.context_click_clip(1);
         let (next_frame, layer) = workspace
-            .duplicate_selected_clips_at(80, 4)
+            .duplicate_selected_clips_at(80, 4, 128)
             .expect("duplicate succeeds");
         assert_eq!((next_frame, layer), (100, 4));
         assert!(

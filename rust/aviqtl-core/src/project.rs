@@ -27,6 +27,8 @@ const MAX_GRID_OFFSET: f64 = 86_400.0;
 const MAX_GRID_INTERVAL: i32 = 1_000_000;
 const MAX_GRID_SUBDIVISION: i32 = 128;
 const MAX_MAGNETIC_SNAP_RANGE: i32 = 100;
+pub const MAX_TIMELINE_LAYERS: i32 = 512;
+pub const MAX_TIMELINE_LAYER: i32 = MAX_TIMELINE_LAYERS - 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProjectError {
@@ -218,7 +220,7 @@ fn normalize_layers(value: Option<&Value>) -> Value {
     let mut layers = BTreeSet::new();
     for layer in array(value) {
         let index = integer(Some(&layer), -1);
-        if (0..=127).contains(&index) {
+        if (0..=MAX_TIMELINE_LAYER).contains(&index) {
             layers.insert(index);
         }
     }
@@ -501,7 +503,7 @@ fn normalize_clips(root: &mut Map<String, Value>) {
             let scene_id = integer(clip.get("sceneId"), 0);
             let start = integer(clip.get("start"), 0);
             let duration = integer(clip.get("duration"), 0);
-            let layer = integer(clip.get("layer"), 0).clamp(0, 127);
+            let layer = integer(clip.get("layer"), 0).clamp(0, MAX_TIMELINE_LAYER);
             let clip_by_upper_object = boolean(clip.get("clipByUpperObject"), false);
             set_integer(&mut clip, "id", id);
             set_integer(&mut clip, "sceneId", scene_id);
@@ -647,7 +649,7 @@ mod tests {
             serde_json::json!([])
         );
         assert_eq!(normalized["clips"][0]["type"], "camera_control");
-        assert_eq!(normalized["clips"][0]["layer"], 127);
+        assert_eq!(normalized["clips"][0]["layer"], 500);
         assert_eq!(
             normalized["clips"][0]["audioPlugins"]
                 .as_array()

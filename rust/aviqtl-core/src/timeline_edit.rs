@@ -3,9 +3,10 @@ use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_LOCKED_LAYER, STATUS_OK,
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
+use crate::project::MAX_TIMELINE_LAYER;
 
 const MIN_LAYER: i32 = 0;
-const MAX_LAYER: i32 = 127;
+const MAX_LAYER: i32 = MAX_TIMELINE_LAYER;
 
 fn clamp_i64(value: i64) -> i32 {
     value.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
@@ -1157,13 +1158,13 @@ mod tests {
 
     #[test]
     fn every_plan_rejects_layers_outside_the_domain() {
-        let clips = [clip(1, 127, 0, 10)];
+        let clips = [clip(1, MAX_LAYER, 0, 10)];
         let movement = [AviQtlTimelineMoveInput {
             clip_id: 1,
-            old_layer: 127,
+            old_layer: MAX_LAYER,
             old_start_frame: 0,
             duration_frames: 10,
-            target_layer: 128,
+            target_layer: MAX_LAYER + 1,
             target_start_frame: 0,
         }];
         assert_eq!(
@@ -1171,15 +1172,15 @@ mod tests {
             Err(STATUS_INVALID_ARGUMENT)
         );
         assert_eq!(
-            plan_insert_layers(&clips, 127, 1, true),
+            plan_insert_layers(&clips, MAX_LAYER, 1, true),
             Err(STATUS_INVALID_ARGUMENT)
         );
         assert_eq!(
-            plan_shift_layers(&clips, 127, 127, 1),
+            plan_shift_layers(&clips, MAX_LAYER, MAX_LAYER, 1),
             Err(STATUS_INVALID_ARGUMENT)
         );
         assert_eq!(
-            plan_clipboard_placement(&[], &clips, 0, 128),
+            plan_clipboard_placement(&[], &clips, 0, MAX_LAYER + 1),
             Err(STATUS_INVALID_ARGUMENT)
         );
     }

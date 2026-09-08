@@ -1,6 +1,8 @@
 use crate::decode::{DecodedContent, DecodedScene};
 use aviqtl_media::VideoFrame;
-use aviqtl_render::{CompositionLayer, CompositionMask, CompositionSource, Compositor};
+use aviqtl_render::{
+    CompositionLayer, CompositionMask, CompositionSize, CompositionSource, Compositor,
+};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -16,6 +18,8 @@ pub struct PreviewSurface {
     texture: wgpu::Texture,
     nested_surfaces: HashMap<u64, SceneSurface>,
     size: (u32, u32),
+    render_scale: f32,
+    msaa_samples: u32,
 }
 
 impl PreviewSurface {
@@ -29,7 +33,40 @@ impl PreviewSurface {
             texture,
             nested_surfaces: HashMap::new(),
             size: (WIDTH, HEIGHT),
+            render_scale: 1.0,
+            msaa_samples: 1,
         }
+    }
+
+    pub fn set_render_scale(&mut self, render_scale: f32) -> bool {
+        let render_scale = if render_scale.is_finite() {
+            render_scale.clamp(0.25, 1.0)
+        } else {
+            1.0
+        };
+        if (self.render_scale - render_scale).abs() <= f32::EPSILON {
+            return false;
+        }
+        self.render_scale = render_scale;
+        true
+    }
+
+    pub fn set_msaa_samples(&mut self, msaa_samples: u32) -> bool {
+        let msaa_samples = match msaa_samples {
+            2 | 4 | 8 => msaa_samples,
+            _ => 1,
+        };
+        if self.msaa_samples == msaa_samples {
+            return false;
+        }
+        self.msaa_samples = msaa_samples;
+        self.compositor = Compositor::new_with_sample_count(
+            &self.device,
+            wgpu::TextureFormat::Rgba8Unorm,
+            msaa_samples,
+        );
+        self.nested_surfaces.clear();
+        true
     }
 
     pub fn size(&self) -> (u32, u32) {
@@ -41,8 +78,8 @@ impl PreviewSurface {
     }
 
     pub fn compose(&mut self, scene: &DecodedScene, generation: u64) -> bool {
-        let width = scene.width.max(1);
-        let height = scene.height.max(1);
+        let logical_size = (scene.width.max(1), scene.height.max(1));
+        let (width, height) = scaled_preview_size(logical_size, self.render_scale);
         let target_replaced = self.texture.width() != width || self.texture.height() != height;
         if target_replaced {
             self.replace_target(width, height);
@@ -50,11 +87,14 @@ impl PreviewSurface {
         let mut active_nested = HashSet::new();
         let prepared = self.prepare_layers(scene, generation, &mut active_nested);
         let layers = composition_layers(&prepared, generation);
-        self.compositor.render(
+        self.compositor.render_scaled(
             &self.device,
             &self.queue,
             &self.texture,
-            (width, height),
+            CompositionSize {
+                physical: (width, height),
+                logical: logical_size,
+            },
             &layers,
             scene.camera.as_ref(),
         );
@@ -173,10 +213,11 @@ impl PreviewSurface {
         let size = (scene.width.max(1), scene.height.max(1));
         let prepared = self.prepare_layers(scene, generation, active_nested);
         let layers = composition_layers(&prepared, generation);
+        let msaa_samples = self.msaa_samples;
         let surface = self
             .nested_surfaces
             .entry(scene.instance_key)
-            .or_insert_with(|| SceneSurface::new(&self.device, &self.queue, size));
+            .or_insert_with(|| SceneSurface::new(&self.device, &self.queue, size, msaa_samples));
         surface.ensure_size(&self.device, &self.queue, size);
         if scene.opaque_background {
             surface.compositor.render_opaque_black(
@@ -205,6 +246,22 @@ impl PreviewSurface {
         self.texture = create_texture(&self.device, &self.queue, width, height, &pixels);
         self.size = (width, height);
     }
+}
+
+fn scaled_preview_size(logical_size: (u32, u32), render_scale: f32) -> (u32, u32) {
+    let render_scale = if render_scale.is_finite() {
+        render_scale.clamp(0.25, 1.0)
+    } else {
+        1.0
+    };
+    (
+        ((logical_size.0.max(1) as f32) * render_scale)
+            .round()
+            .max(1.0) as u32,
+        ((logical_size.1.max(1) as f32) * render_scale)
+            .round()
+            .max(1.0) as u32,
+    )
 }
 
 enum PreparedSource<'a> {
@@ -269,10 +326,19 @@ struct SceneSurface {
 }
 
 impl SceneSurface {
-    fn new(device: &wgpu::Device, queue: &wgpu::Queue, size: (u32, u32)) -> Self {
+    fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        size: (u32, u32),
+        msaa_samples: u32,
+    ) -> Self {
         let pixels = vec![0_u8; size.0 as usize * size.1 as usize * 4];
         Self {
-            compositor: Compositor::new(device, wgpu::TextureFormat::Rgba8Unorm),
+            compositor: Compositor::new_with_sample_count(
+                device,
+                wgpu::TextureFormat::Rgba8Unorm,
+                msaa_samples,
+            ),
             texture: Arc::new(create_texture(device, queue, size.0, size.1, &pixels)),
             size,
         }
@@ -357,4 +423,83 @@ fn write_pixels(
             depth_or_array_layers: 1,
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aviqtl_media::VideoFrame;
+    use aviqtl_render::{BlendMode, LayerCrop, LayerTransform};
+
+    #[test]
+    fn preview_scale_preserves_aspect_and_qt_bounds() {
+        assert_eq!(scaled_preview_size((1920, 1080), 1.0), (1920, 1080));
+        assert_eq!(scaled_preview_size((1920, 1080), 0.75), (1440, 810));
+        assert_eq!(scaled_preview_size((1920, 1080), 0.5), (960, 540));
+        assert_eq!(scaled_preview_size((1920, 1080), 0.25), (480, 270));
+        assert_eq!(scaled_preview_size((0, 0), f32::NAN), (1, 1));
+    }
+
+    #[test]
+    #[ignore = "requires a real GPU adapter"]
+    fn scaled_msaa_preview_composes_fixed_and_complex_blends_without_validation_errors() {
+        let instance = wgpu::Instance::default();
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: None,
+        }))
+        .expect("real GPU adapter");
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
+                .expect("GPU device");
+        let frame = |rgba: [u8; 4]| VideoFrame {
+            width: 64,
+            height: 32,
+            rgba: rgba.into_iter().cycle().take(64 * 32 * 4).collect(),
+            timestamp_seconds: 0.0,
+        };
+        let scene = DecodedScene {
+            instance_key: 1,
+            width: 64,
+            height: 32,
+            camera: None,
+            opaque_background: false,
+            layers: vec![
+                crate::decode::DecodedLayer {
+                    cache_key: 1,
+                    timeline_layer: 1,
+                    transform: LayerTransform::default(),
+                    blend_mode: BlendMode::Normal,
+                    crop: LayerCrop::default(),
+                    mask: None,
+                    effects: Vec::new(),
+                    content: DecodedContent::Frame(frame([255, 0, 0, 255])),
+                },
+                crate::decode::DecodedLayer {
+                    cache_key: 2,
+                    timeline_layer: 0,
+                    transform: LayerTransform::default(),
+                    blend_mode: BlendMode::Overlay,
+                    crop: LayerCrop::default(),
+                    mask: None,
+                    effects: Vec::new(),
+                    content: DecodedContent::Frame(frame([0, 0, 255, 128])),
+                },
+            ],
+        };
+        let mut surface = PreviewSurface::new(device.clone(), queue);
+        assert!(surface.set_render_scale(0.5));
+        assert!(surface.set_msaa_samples(4));
+
+        let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        assert!(surface.compose(&scene, 1));
+        assert_eq!(surface.size(), (32, 16));
+        let pixels = surface.read_rgba().expect("scaled MSAA preview readback");
+        let validation_error = pollster::block_on(error_scope.pop());
+
+        assert!(validation_error.is_none(), "{validation_error:?}");
+        assert_eq!(pixels.len(), 32 * 16 * 4);
+        assert!(pixels.as_chunks::<4>().0.iter().any(|pixel| pixel[3] > 0));
+    }
 }

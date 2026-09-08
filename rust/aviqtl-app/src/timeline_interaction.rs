@@ -1,5 +1,6 @@
 use aviqtl_rust_core::api::{
-    ClipGeometryUpdate, ProjectDocument, plan_clip_delta_move, plan_clip_resize, snap_scene_frame,
+    ClipGeometryUpdate, MAX_TIMELINE_LAYER, ProjectDocument, plan_clip_delta_move,
+    plan_clip_resize, snap_scene_frame,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +18,7 @@ pub struct TimelineDragRequest {
     pub pixels_per_frame: f32,
     pub layer_height: f32,
     pub minimum_duration_frames: i32,
+    pub maximum_layers: i32,
     pub ignore_snap: bool,
 }
 
@@ -62,8 +64,21 @@ pub fn plan_timeline_drag(
                 scene,
                 f64::from(request.pixels_per_frame),
             );
-            let delta_layer =
+            let requested_delta_layer =
                 (request.delta_pixels.1 / request.layer_height.max(1.0)).round() as i32;
+            let maximum_layer = request.maximum_layers.clamp(1, MAX_TIMELINE_LAYER + 1) - 1;
+            let moving_layers = document
+                .clips
+                .iter()
+                .filter(|clip| clip.scene_id == scene_id && moving_ids.contains(&clip.id))
+                .map(|clip| clip.layer)
+                .collect::<Vec<_>>();
+            let minimum_selected_layer = moving_layers.iter().copied().min().unwrap_or(0);
+            let maximum_selected_layer = moving_layers.iter().copied().max().unwrap_or(0);
+            let delta_layer = requested_delta_layer.clamp(
+                -minimum_selected_layer,
+                maximum_layer.saturating_sub(maximum_selected_layer),
+            );
             plan_clip_delta_move(
                 document,
                 scene_id,
@@ -154,6 +169,7 @@ mod tests {
                 pixels_per_frame: 1.0,
                 layer_height: 30.0,
                 minimum_duration_frames: 5,
+                maximum_layers: 128,
                 ignore_snap: true,
             },
         )
@@ -176,6 +192,7 @@ mod tests {
                 pixels_per_frame: 1.0,
                 layer_height: 30.0,
                 minimum_duration_frames: 5,
+                maximum_layers: 128,
                 ignore_snap: false,
             },
         )
@@ -194,12 +211,34 @@ mod tests {
                 pixels_per_frame: 1.0,
                 layer_height: 30.0,
                 minimum_duration_frames: 5,
+                maximum_layers: 128,
                 ignore_snap: true,
             },
         )
         .expect("unsnapped move plans");
         assert_eq!(unsnapped.updates[0].start, 6);
         assert_eq!(unsnapped.snap_frame, None);
+    }
+
+    #[test]
+    fn move_respects_the_configured_timeline_layer_count() {
+        let plan = plan_timeline_drag(
+            &document(),
+            1,
+            &[3],
+            TimelineDragRequest {
+                anchor_clip_id: 3,
+                kind: TimelineDragKind::Move,
+                delta_pixels: (0.0, 300.0),
+                pixels_per_frame: 1.0,
+                layer_height: 30.0,
+                minimum_duration_frames: 5,
+                maximum_layers: 2,
+                ignore_snap: true,
+            },
+        )
+        .expect("bounded move plans");
+        assert_eq!(plan.updates[0].layer, 1);
     }
 
     #[test]
@@ -215,6 +254,7 @@ mod tests {
                 pixels_per_frame: 1.0,
                 layer_height: 30.0,
                 minimum_duration_frames: 5,
+                maximum_layers: 128,
                 ignore_snap: true,
             },
         )
@@ -233,6 +273,7 @@ mod tests {
                 pixels_per_frame: 1.0,
                 layer_height: 30.0,
                 minimum_duration_frames: 8,
+                maximum_layers: 128,
                 ignore_snap: true,
             },
         )

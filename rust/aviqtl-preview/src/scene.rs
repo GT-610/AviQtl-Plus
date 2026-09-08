@@ -791,12 +791,244 @@ mod tests {
     use super::*;
     use aviqtl_rust_core::api::TimelineState;
     use serde_json::json;
+    use std::collections::BTreeSet;
+    use std::fs;
 
     fn document(value: serde_json::Value) -> ProjectDocument {
         let bytes = serde_json::to_vec(&value).expect("preview fixture serializes");
         TimelineState::from_json(&bytes)
             .expect("preview fixture parses")
             .snapshot()
+    }
+
+    fn qt_catalog_entries(directory: &str) -> Vec<(String, BTreeMap<String, Value>)> {
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(directory);
+        let mut paths = fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("read {}: {error}", directory.display()))
+            .map(|entry| entry.expect("catalog entry").path())
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "json")
+            })
+            .collect::<Vec<_>>();
+        paths.sort();
+        paths
+            .into_iter()
+            .map(|path| {
+                let value: Value = serde_json::from_slice(
+                    &fs::read(&path)
+                        .unwrap_or_else(|error| panic!("read {}: {error}", path.display())),
+                )
+                .unwrap_or_else(|error| panic!("parse {}: {error}", path.display()));
+                let id = value["id"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{} has a string id", path.display()))
+                    .to_owned();
+                let params =
+                    serde_json::from_value(value["params"].clone()).unwrap_or_else(|error| {
+                        panic!("parse params from {}: {error}", path.display())
+                    });
+                (id, params)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn every_qt_effect_catalog_entry_has_an_explicit_preview_route() {
+        let entries = qt_catalog_entries("ui/qml/effects");
+        assert_eq!(
+            entries.len(),
+            44,
+            "new Qt effects require an explicit route"
+        );
+
+        let special_routes = BTreeSet::from(["blend_layer", "clipping", "transform"]);
+        for (id, params) in &entries {
+            let effects = layer_visual_effects(
+                &[EvaluatedEffect {
+                    effect_index: 0,
+                    id: id.clone(),
+                    params: params.clone(),
+                }],
+                12,
+                120,
+            );
+            if special_routes.contains(id.as_str()) {
+                assert!(
+                    effects.is_empty(),
+                    "{id} is handled outside the visual-effect pass"
+                );
+            } else {
+                assert_eq!(
+                    effects.len(),
+                    1,
+                    "Qt effect {id} has no preview implementation"
+                );
+            }
+        }
+
+        let document = document(json!({
+            "version": 3,
+            "settings": {"width": 1920, "height": 1080, "fps": 60.0, "sampleRate": 48000},
+            "scenes": [{"id": 1, "name": "Root", "duration": 300}],
+            "clips": [{
+                "id": 1,
+                "sceneId": 1,
+                "type": "rect",
+                "start": 0,
+                "duration": 120,
+                "layer": 0,
+                "effects": [
+                    {"id": "transform", "params": {"blendMode": "乗算"}},
+                    {"id": "clipping", "params": {"top": 1, "bottom": 2, "left": 3, "right": 4, "center": true}},
+                    {"id": "blend_layer", "params": {"blendMode": 3, "opacityValue": 0.5}},
+                    {"id": "rect", "params": {"sizeW": 20, "sizeH": 20}}
+                ]
+            }]
+        }));
+        let mut planner = PreviewPlanner::new(&document, None);
+        let planned = planner.build(&document, 1, 0).expect("special routes plan");
+        let layer = &planned.scene.layers[0];
+        assert_eq!(layer.blend_mode, BlendMode::Multiply);
+        assert_eq!(
+            layer.crop,
+            LayerCrop {
+                top: 1.0,
+                bottom: 2.0,
+                left: 3.0,
+                right: 4.0,
+                recenter: true,
+            }
+        );
+        assert!(
+            layer.effects.is_empty(),
+            "blend_layer is compositor-owned by design"
+        );
+    }
+
+    #[test]
+    fn every_qt_object_catalog_entry_reaches_its_production_render_route() {
+        let entries = qt_catalog_entries("ui/qml/objects");
+        assert_eq!(
+            entries.len(),
+            17,
+            "new Qt objects require an explicit route"
+        );
+        let ids = entries
+            .iter()
+            .map(|(id, _)| id.as_str())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            ids,
+            BTreeSet::from([
+                "GroupControl",
+                "audio",
+                "camera_control",
+                "counter",
+                "flare",
+                "frame_buffer",
+                "image",
+                "lens_flare_object",
+                "pie_shape",
+                "polygon_shape",
+                "radial_lines",
+                "rect",
+                "scene",
+                "star",
+                "text",
+                "track_line",
+                "video",
+            ])
+        );
+
+        for (id, mut params) in entries {
+            if id == "scene" {
+                params.insert("targetSceneId".to_owned(), json!(2));
+            }
+            if id == "image" || id == "video" {
+                params.insert("path".to_owned(), json!("catalog-placeholder.png"));
+            }
+            if id == "GroupControl" {
+                params.insert("x".to_owned(), json!(25));
+            }
+            let mut clips = vec![json!({
+                "id": 1,
+                "sceneId": 1,
+                "type": id,
+                "start": 0,
+                "duration": 120,
+                "layer": 0,
+                "effects": [{"id": id, "params": params}]
+            })];
+            if id == "GroupControl" {
+                clips.push(json!({
+                    "id": 2,
+                    "sceneId": 1,
+                    "type": "rect",
+                    "start": 0,
+                    "duration": 120,
+                    "layer": 1,
+                    "effects": [{"id": "rect", "params": {"sizeW": 20, "sizeH": 20}}]
+                }));
+            }
+            let document = document(json!({
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60.0, "sampleRate": 48000},
+                "scenes": [
+                    {"id": 1, "name": "Root", "duration": 300},
+                    {"id": 2, "name": "Nested", "duration": 300}
+                ],
+                "clips": clips
+            }));
+            let mut planner = PreviewPlanner::new(&document, None);
+            let planned = planner
+                .build(&document, 1, 0)
+                .unwrap_or_else(|| panic!("Qt object {id} plans"));
+
+            match id.as_str() {
+                "audio" => {
+                    assert_eq!(planned.audio.len(), 1, "audio reaches the audio plan");
+                    assert!(planned.scene.layers.is_empty());
+                }
+                "camera_control" => {
+                    assert!(
+                        planned.scene.camera.is_some(),
+                        "camera reaches the scene camera"
+                    );
+                    assert!(planned.scene.layers.is_empty());
+                }
+                "GroupControl" => {
+                    assert_eq!(planned.scene.layers.len(), 1);
+                    assert_eq!(planned.scene.layers[0].clip_id, 2);
+                    assert_eq!(planned.scene.layers[0].transform.x, 25.0);
+                }
+                "image" | "video" => assert!(matches!(
+                    planned.scene.layers[0].content,
+                    PreviewContent::Media { .. }
+                )),
+                "text" | "counter" => assert!(matches!(
+                    planned.scene.layers[0].content,
+                    PreviewContent::Text { .. }
+                )),
+                "rect" | "polygon_shape" | "pie_shape" => assert!(matches!(
+                    planned.scene.layers[0].content,
+                    PreviewContent::Shape { .. }
+                )),
+                "track_line" | "star" | "radial_lines" | "flare" | "lens_flare_object" => {
+                    assert!(matches!(
+                        planned.scene.layers[0].content,
+                        PreviewContent::Procedural { .. }
+                    ))
+                }
+                "scene" | "frame_buffer" => assert!(matches!(
+                    planned.scene.layers[0].content,
+                    PreviewContent::Scene { .. }
+                )),
+                _ => unreachable!("catalog id set is asserted above"),
+            }
+        }
     }
 
     #[test]

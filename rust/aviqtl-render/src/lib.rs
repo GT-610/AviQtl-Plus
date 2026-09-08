@@ -1411,6 +1411,13 @@ pub struct CompositionLayer<'a> {
     pub effects: &'a [VisualEffect],
 }
 
+/// Physical render-target dimensions paired with the logical scene dimensions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CompositionSize {
+    pub physical: (u32, u32),
+    pub logical: (u32, u32),
+}
+
 #[derive(Clone, Copy)]
 pub struct CompositionMask<'a> {
     pub cache_key: u64,
@@ -1430,6 +1437,7 @@ pub struct Compositor {
     background_bind_group_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     target_format: wgpu::TextureFormat,
+    sample_count: u32,
     targets: Option<CompositionTargets>,
     layers: HashMap<u64, GpuLayer>,
 }
@@ -1437,6 +1445,7 @@ pub struct Compositor {
 #[derive(Clone, Copy)]
 struct ProjectionContext<'a> {
     target_size: (u32, u32),
+    logical_size: (u32, u32),
     camera: Option<&'a CameraRenderPlan>,
 }
 
@@ -1456,7 +1465,7 @@ fn ordered_composition_layers<'layers, 'source>(
     let camera = projection
         .camera
         .copied()
-        .unwrap_or_else(|| default_camera(projection.target_size.1.max(1) as f32));
+        .unwrap_or_else(|| default_camera(projection.logical_size.1.max(1) as f32));
     let mut ordered = layers.iter().collect::<Vec<_>>();
     ordered.sort_by(|left, right| {
         let left_depth = qt_transparent_camera_depth(left.transform, camera);
@@ -1484,6 +1493,18 @@ fn qt_transparent_camera_depth(transform: LayerTransform, camera: CameraRenderPl
 
 impl Compositor {
     pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+        Self::new_with_sample_count(device, target_format, 1)
+    }
+
+    pub fn new_with_sample_count(
+        device: &wgpu::Device,
+        target_format: wgpu::TextureFormat,
+        sample_count: u32,
+    ) -> Self {
+        let sample_count = match sample_count {
+            2 | 4 | 8 => sample_count,
+            _ => 1,
+        };
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("aviqtl-compositor-layer-layout"),
             entries: &[
@@ -1590,7 +1611,10 @@ impl Compositor {
                 }),
                 primitive: wgpu::PrimitiveState::default(),
                 depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
+                multisample: wgpu::MultisampleState {
+                    count: sample_count,
+                    ..Default::default()
+                },
                 multiview_mask: None,
                 cache: None,
             })
@@ -1686,7 +1710,10 @@ impl Compositor {
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
+            multisample: wgpu::MultisampleState {
+                count: sample_count,
+                ..Default::default()
+            },
             multiview_mask: None,
             cache: None,
         });
@@ -1707,6 +1734,7 @@ impl Compositor {
             background_bind_group_layout,
             sampler,
             target_format,
+            sample_count,
             targets: None,
             layers: HashMap::new(),
         }
@@ -1721,8 +1749,32 @@ impl Compositor {
         layers: &[CompositionLayer<'_>],
         camera: Option<&CameraRenderPlan>,
     ) {
+        self.render_scaled(
+            device,
+            queue,
+            target,
+            CompositionSize {
+                physical: target_size,
+                logical: target_size,
+            },
+            layers,
+            camera,
+        );
+    }
+
+    /// Renders into a scaled preview target while preserving scene-space coordinates.
+    pub fn render_scaled(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        target: &wgpu::Texture,
+        size: CompositionSize,
+        layers: &[CompositionLayer<'_>],
+        camera: Option<&CameraRenderPlan>,
+    ) {
         let projection = ProjectionContext {
-            target_size,
+            target_size: size.physical,
+            logical_size: size.logical,
             camera,
         };
         self.render_with_clear(
@@ -1752,6 +1804,7 @@ impl Compositor {
     ) {
         let projection = ProjectionContext {
             target_size,
+            logical_size: target_size,
             camera,
         };
         self.render_with_clear(
@@ -1775,6 +1828,7 @@ impl Compositor {
     ) {
         let projection = ProjectionContext {
             target_size,
+            logical_size: target_size,
             camera,
         };
         self.render_with_clear(
@@ -1835,6 +1889,90 @@ impl Compositor {
                 .get(&layer.cache_key)
                 .expect("active layer was prepared before effect rendering")
                 .encode_effect_passes(&mut encoder, &self.effect_pipeline);
+        }
+        if self.sample_count > 1 {
+            let multisample_view = targets
+                .multisample_view
+                .as_ref()
+                .expect("multisample target matches the compositor sample count");
+            {
+                encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("aviqtl-compositor-msaa-clear-pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: multisample_view,
+                        depth_slice: None,
+                        resolve_target: Some(&targets.views[0]),
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(clear_color),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+            }
+            let mut current_target = 0;
+            for layer in ordered {
+                let gpu_layer = self
+                    .layers
+                    .get(&layer.cache_key)
+                    .expect("active layer was prepared before rendering");
+                if let Some(pipeline) = self.fixed_pipeline(gpu_layer.blend_mode) {
+                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: Some("aviqtl-compositor-msaa-fixed-pass"),
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: multisample_view,
+                            depth_slice: None,
+                            resolve_target: Some(&targets.views[current_target]),
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Load,
+                                store: wgpu::StoreOp::Store,
+                            },
+                        })],
+                        depth_stencil_attachment: None,
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
+                        multiview_mask: None,
+                    });
+                    pass.set_pipeline(pipeline);
+                    pass.set_bind_group(0, &gpu_layer.bind_group, &[]);
+                    pass.draw(0..6, 0..1);
+                    continue;
+                }
+                let next_target = 1 - current_target;
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("aviqtl-compositor-msaa-complex-pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: multisample_view,
+                        depth_slice: None,
+                        resolve_target: Some(&targets.views[next_target]),
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                pass.set_pipeline(&self.complex_pipeline);
+                pass.set_bind_group(0, &gpu_layer.bind_group, &[]);
+                pass.set_bind_group(1, &targets.background_bind_groups[current_target], &[]);
+                pass.draw(0..6, 0..1);
+                drop(pass);
+                current_target = next_target;
+            }
+            copy_texture(
+                &mut encoder,
+                &targets.textures[current_target],
+                target,
+                projection.target_size,
+            );
+            queue.submit([encoder.finish()]);
+            return;
         }
         {
             encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1944,6 +2082,7 @@ impl Compositor {
             &self.background_bind_group_layout,
             self.target_format,
             size,
+            self.sample_count,
         ));
     }
 }
@@ -1953,6 +2092,8 @@ struct CompositionTargets {
     textures: [wgpu::Texture; 2],
     views: [wgpu::TextureView; 2],
     background_bind_groups: [wgpu::BindGroup; 2],
+    _multisample_texture: Option<wgpu::Texture>,
+    multisample_view: Option<wgpu::TextureView>,
 }
 
 impl CompositionTargets {
@@ -1961,6 +2102,7 @@ impl CompositionTargets {
         background_layout: &wgpu::BindGroupLayout,
         format: wgpu::TextureFormat,
         size: (u32, u32),
+        sample_count: u32,
     ) -> Self {
         let textures = [
             create_composition_texture(device, format, size),
@@ -1974,11 +2116,32 @@ impl CompositionTargets {
             create_background_bind_group(device, background_layout, &views[0]),
             create_background_bind_group(device, background_layout, &views[1]),
         ];
+        let multisample_texture = (sample_count > 1).then(|| {
+            device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("aviqtl-compositor-msaa-target"),
+                size: wgpu::Extent3d {
+                    width: size.0,
+                    height: size.1,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count,
+                dimension: wgpu::TextureDimension::D2,
+                format,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+        });
+        let multisample_view = multisample_texture
+            .as_ref()
+            .map(|texture| texture.create_view(&wgpu::TextureViewDescriptor::default()));
         Self {
             size,
             textures,
             views,
             background_bind_groups,
+            _multisample_texture: multisample_texture,
+            multisample_view,
         }
     }
 }
@@ -2272,7 +2435,7 @@ impl GpuLayer {
             ),
         };
         let uniform_values = layer_uniform(
-            projection.target_size,
+            projection.logical_size,
             layer.source.size(),
             layer.transform,
             layer.crop,
@@ -2406,7 +2569,7 @@ impl GpuLayer {
             &self.uniform,
             0,
             &f32_bytes(layer_uniform(
-                projection.target_size,
+                projection.logical_size,
                 layer.source.size(),
                 layer.transform,
                 layer.crop,
@@ -2755,6 +2918,7 @@ mod tests {
             layers,
             ProjectionContext {
                 target_size: (1920, 1080),
+                logical_size: (1920, 1080),
                 camera,
             },
         )

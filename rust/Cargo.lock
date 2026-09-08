@@ -636,6 +636,7 @@ dependencies = [
  "aviqtl-media",
  "aviqtl-render",
  "aviqtl-rust-core",
+ "pollster",
  "serde_json",
  "wgpu",
 ]

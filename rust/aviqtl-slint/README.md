@@ -35,9 +35,43 @@ always creates a dirty pathless project, so Save opens Save As and never overwri
 Settings follow the same ownership boundary. `SettingsStore` remains the persisted source of truth;
 Slint windows only hold drafts and forward Apply, Reload, OK, or Close. Runtime settings update the
 application model immediately after a successful atomic save, including quit confirmation,
-automatic recovery, recovery interval, undo limits, and new-project defaults. Project settings stay
-outside the undo stack as in Qt, while scene creation retains Qt's separate add and settings-update
-undo steps.
+automatic recovery, recovery interval, undo limits, new-project defaults, timeline skimming and
+dimensions, the configured 1-512 layer limit, object-settings sidebar placement, the Dark/Light/System
+theme, preview render scale, and preview MSAA. Project settings stay outside the undo stack as in Qt,
+while scene creation retains Qt's separate add and settings-update undo steps.
+
+The system-settings window exposes Qt's nine categories and persists the same scalar, plugin-path,
+and 34-shortcut keys. Plugin and shortcut rows are stable host-owned models; applying a draft also
+refreshes timeline zoom bounds and the live shortcut resolver without rebuilding the window.
+`previewRenderScale` renders into a smaller physical wgpu target while keeping the scene's logical
+coordinates and camera, and `previewMsaaSamples` selects a real 1x/2x/4x/8x multisample compositor
+with resolve for fixed-function and complex blend paths, including nested scenes. Export deliberately
+remains single-sampled and full-resolution, matching the Qt separation between preview quality and
+output quality.
+
+`bakeStrategy` and `onDemandPrefetchFrames` remain persisted for Qt settings compatibility, but they
+do not pretend to control a copied Qt `BakeController`: the Rust `SceneRenderPlan` caches typed clip
+and effect metadata when the document revision changes and evaluates the requested frame directly.
+There is currently no separate per-frame bake cache for those two controls to tune.
+
+Catalog inventory tests read the shipped Qt metadata and require all 44 built-in effects and all 17
+built-in objects to reach an explicit production preview route. Transform, clipping, and blend-layer
+handling are asserted separately because they belong to geometry/crop/compositor planning rather
+than the visual-effect pass.
+
+Missing-media handling follows that boundary as well. `aviqtl-app` resolves project-relative media,
+validates type-safe replacements, and commits relinks through the normal timeline command stack so
+dirty state, revision tracking, Undo, and Redo remain consistent. Slint only presents the conditional
+File-menu entry, missing-media status, manager, and filtered native replacement chooser.
+
+Window placement is stored under Qt's existing `windowGeometry_*` keys. The Slint host restores and
+persists logical position, logical size, and maximized state for each migrated editor window without
+letting unopened hidden windows erase an older saved geometry.
+
+Custom timeline and editor surfaces declare accessibility roles, names, descriptions, selection or
+value state, and supported actions explicitly. Standard Slint widgets keep their native semantics,
+and form controls receive labels instead of relying on adjacent visual text. Native VoiceOver
+traversal remains part of the deferred unlocked-desktop suite.
 
 The egui work is therefore not discarded. Domain and application crates are reused directly, while
 production preview and export code have been extracted into GUI-neutral crates for Slint. The

@@ -1,8 +1,56 @@
-import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ProgressIndicator, RadioGroup, ScrollView, Slider, SpinBox, TextEdit } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, Palette, ProgressIndicator, RadioGroup, ScrollView, Slider, SpinBox, TextEdit } from "std-widgets.slint";
+
+export global AppTheme {
+    // 0 = dark, 1 = light, 2 = follow the operating system.
+    in-out property <int> preference-index: 2;
+    out property <bool> dark: preference-index == 0
+        ? true
+        : preference-index == 1
+            ? false
+            : Palette.color-scheme == ColorScheme.dark;
+    out property <brush> window-background: dark ? #181a20 : #f4f5f7;
+    out property <brush> panel-background: dark ? #252a32 : #ffffff;
+    out property <brush> raised-background: dark ? #2b3038 : #eef0f3;
+    out property <brush> control-background: dark ? #343943 : #e3e6eb;
+    out property <brush> hover-background: dark ? #3a3f49 : #d9dee6;
+    out property <brush> selection-background: dark ? #385d8c : #c8ddfa;
+    out property <brush> foreground: dark ? #f2f3f5 : #20242b;
+    out property <brush> muted-foreground: dark ? #aeb3bc : #646b78;
+    out property <brush> border: dark ? #4b515d : #bcc2cc;
+    out property <brush> accent: dark ? #70a6ef : #2468b4;
+
+    changed preference-index => {
+        Palette.color-scheme = preference-index == 0
+            ? ColorScheme.dark
+            : preference-index == 1
+                ? ColorScheme.light
+                : ColorScheme.unknown;
+    }
+}
 
 export struct ProjectTabData {
     name: string,
     dirty: bool,
+}
+
+export struct MissingMediaData {
+    clip-id: int,
+    scene-id: int,
+    layer: int,
+    clip-type: string,
+    path: string,
+    name: string,
+}
+
+export struct SystemPluginSettingData {
+    format-name: string,
+    enabled: bool,
+    paths: string,
+}
+
+export struct SystemShortcutSettingData {
+    action-id: string,
+    value: string,
 }
 
 export struct RecoveryEntryData {
@@ -175,12 +223,25 @@ component KeyframeTrack inherits Rectangle {
         y: 11px;
         width: max(parent.width - root.inset * 2, 1px);
         height: 2px;
-        background: #59606c;
+        background: AppTheme.border;
     }
     track-touch := TouchArea {
         x: track-line.x;
         width: track-line.width;
         mouse-cursor: pointer;
+        accessible-role: slider;
+        accessible-label: root.row-data.label + @tr(" キーフレーム");
+        accessible-value: "\{root.row-data.current-frame}";
+        accessible-value-minimum: 0;
+        accessible-value-maximum: root.row-data.clip-duration;
+        accessible-value-step: 1;
+        accessible-action-increment => { root.seek(min(root.row-data.clip-duration, root.row-data.current-frame + 1)); }
+        accessible-action-decrement => { root.seek(max(0, root.row-data.current-frame - 1)); }
+        accessible-action-set-value(value) => {
+            if value.is-float() {
+                root.seek(round(value.to-float()).clamp(0, root.row-data.clip-duration));
+            }
+        }
         clicked => {
             if root.row-data.clip-duration > 0 {
                 root.seek(round(self.mouse-x / self.width * root.row-data.clip-duration));
@@ -214,11 +275,17 @@ component KeyframeTrack inherits Rectangle {
             height: 8px;
             x: 4px;
             y: 4px;
-            background: marker.virtual-end ? #8b8f98 : #e5e8ee;
+            background: marker.virtual-end ? AppTheme.muted-foreground : AppTheme.foreground;
             transform-rotation: 45deg;
         }
         marker-touch := TouchArea {
             mouse-cursor: marker.draggable ? move : marker.removable ? pointer : default;
+            accessible-role: button;
+            accessible-label: @tr("キーフレーム {}", marker.frame);
+            accessible-description: marker.draggable
+                ? @tr("ドラッグしてキーフレームを移動")
+                : marker.removable ? @tr("キーフレーム") : @tr("固定キーフレーム");
+            accessible-action-default => { root.seek(marker.frame); }
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                     parent.dragging = marker.draggable;
@@ -275,7 +342,7 @@ component KeyframeTrack inherits Rectangle {
         y: 2px;
         width: 1px;
         height: 20px;
-        background: #6da8f0;
+        background: AppTheme.accent;
     }
 }
 
@@ -336,9 +403,9 @@ component EffectSidebarEntry inherits Rectangle {
     private property <bool> drag-threshold-crossed: false;
     private property <length> drag-y: 0px;
     height: 34px;
-    background: root.effect.selected ? #405f8b : effect-touch.has-hover ? #343a45 : transparent;
+    background: root.effect.selected ? AppTheme.selection-background : effect-touch.has-hover ? AppTheme.hover-background : transparent;
     border-width: root.effect.selected ? 1px : 0px;
-    border-color: #759bd2;
+    border-color: AppTheme.accent;
 
     effect-menu := ContextMenuArea {
         Menu {
@@ -377,7 +444,7 @@ component EffectSidebarEntry inherits Rectangle {
             spacing: 6px;
             Text {
                 text: "☷";
-                color: #9ea4ae;
+                color: AppTheme.muted-foreground;
                 vertical-alignment: center;
             }
             CheckBox {
@@ -387,7 +454,7 @@ component EffectSidebarEntry inherits Rectangle {
             }
             Text {
                 text: root.effect.name;
-                color: #f1f2f4;
+                color: AppTheme.foreground;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
                 overflow: elide;
@@ -397,6 +464,11 @@ component EffectSidebarEntry inherits Rectangle {
             x: 53px;
             width: max(parent.width - self.x, 1px);
             mouse-cursor: pointer;
+            accessible-role: list-item;
+            accessible-label: root.effect.name;
+            accessible-item-selectable: true;
+            accessible-item-selected: root.effect.selected;
+            accessible-action-default => { root.activate(root.effect.index, false, false); }
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                     root.activate(
@@ -470,10 +542,10 @@ component ObjectSettingRow inherits Rectangle {
         : root.row-data.row-kind == "keyframes" ? 24px
         : 44px;
     background: root.row-data.row-kind == "effect"
-        ? (root.row-data.selected ? #304a6d : #2d323b)
+        ? (root.row-data.selected ? AppTheme.selection-background : AppTheme.raised-background)
         : transparent;
     border-width: root.row-data.row-kind == "effect" ? 1px : 0px;
-    border-color: root.row-data.selected ? #7099d1 : #4b515d;
+    border-color: root.row-data.selected ? AppTheme.accent : AppTheme.border;
 
     if root.row-data.row-kind == "effect" : Rectangle {
         HorizontalLayout {
@@ -512,6 +584,13 @@ component ObjectSettingRow inherits Rectangle {
             x: 32px;
             width: max(parent.width - 90px, 1px);
             mouse-cursor: pointer;
+            accessible-role: list-item;
+            accessible-label: root.row-data.label;
+            accessible-item-selectable: true;
+            accessible-item-selected: root.row-data.selected;
+            accessible-action-default => {
+                root.activate-effect(root.row-data.audio-plugin, root.row-data.effect-index);
+            }
             clicked => {
                 root.activate-effect(root.row-data.audio-plugin, root.row-data.effect-index);
             }
@@ -524,10 +603,10 @@ component ObjectSettingRow inherits Rectangle {
         Text {
             text: root.row-data.label;
             font-weight: 700;
-            color: #b9c9df;
+            color: AppTheme.muted-foreground;
             vertical-alignment: center;
         }
-        Rectangle { horizontal-stretch: 1; height: 1px; background: #4b515d; }
+        Rectangle { horizontal-stretch: 1; height: 1px; background: AppTheme.border; }
     }
 
     if root.row-data.row-kind == "boolean" : HorizontalLayout {
@@ -888,7 +967,7 @@ component ObjectSettingRow inherits Rectangle {
             width: 52px;
             background: root.row-data.color-value;
             border-width: 1px;
-            border-color: start-color-touch.has-hover ? #70a6ef : #626976;
+            border-color: start-color-touch.has-hover ? AppTheme.accent : AppTheme.border;
             border-radius: 3px;
             start-color-touch := TouchArea {
                 enabled: root.row-data.interactive;
@@ -967,7 +1046,7 @@ component ObjectSettingRow inherits Rectangle {
                 && root.row-data.interpolation != ""
                 && root.row-data.interpolation != "constant" ? 1 : 0.45;
             border-width: 1px;
-            border-color: end-color-touch.has-hover ? #70a6ef : #626976;
+            border-color: end-color-touch.has-hover ? AppTheme.accent : AppTheme.border;
             border-radius: 3px;
             end-color-touch := TouchArea {
                 enabled: root.row-data.interactive
@@ -1020,7 +1099,7 @@ component ObjectSettingRow inherits Rectangle {
         padding-right: 6px;
         spacing: 7px;
         Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
-        Text { text: root.row-data.text-value; color: #9ea4ae; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+        Text { text: root.row-data.text-value; color: AppTheme.muted-foreground; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
     }
 }
 
@@ -1032,9 +1111,9 @@ component SceneTab inherits Rectangle {
     preferred-width: 140px;
     min-width: 100px;
     height: 28px;
-    background: root.scene.selected ? #4772b3 : scene-touch.has-hover ? #3a3f49 : #292d35;
+    background: root.scene.selected ? AppTheme.selection-background : scene-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
     border-width: root.scene.selected ? 1px : 0px;
-    border-color: #7aa2df;
+    border-color: AppTheme.accent;
 
     HorizontalLayout {
         padding-left: 8px;
@@ -1042,7 +1121,7 @@ component SceneTab inherits Rectangle {
         spacing: 4px;
         Text {
             text: root.scene.name;
-            color: #f4f5f7;
+            color: AppTheme.foreground;
             vertical-alignment: center;
             horizontal-stretch: 1;
             overflow: elide;
@@ -1057,6 +1136,11 @@ component SceneTab inherits Rectangle {
     scene-touch := TouchArea {
         width: root.scene.root ? parent.width : parent.width - 28px;
         mouse-cursor: pointer;
+        accessible-role: tab;
+        accessible-label: root.scene.name;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.scene.selected;
+        accessible-action-default => { root.activate(root.scene.id); }
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.activate(root.scene.id);
@@ -1074,7 +1158,7 @@ component LayerHeaderItem inherits Rectangle {
     callback command(string, int);
     callback scroll-requested(length) -> bool;
     height: 30px;
-    background: root.layer.selected ? #3d526f : header-touch.has-hover ? #353a44 : #2a2e36;
+    background: root.layer.selected ? AppTheme.selection-background : header-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
     border-width: 0px;
 
     HorizontalLayout {
@@ -1083,12 +1167,12 @@ component LayerHeaderItem inherits Rectangle {
         spacing: 4px;
         Text {
             text: root.layer.visible ? "●" : "○";
-            color: root.layer.visible ? #8fcf94 : #8b8f98;
+            color: root.layer.visible ? #8fcf94 : AppTheme.muted-foreground;
             vertical-alignment: center;
         }
         Text {
             text: root.layer.index + 1;
-            color: #f1f2f4;
+            color: AppTheme.foreground;
             horizontal-alignment: center;
             vertical-alignment: center;
             horizontal-stretch: 1;
@@ -1101,17 +1185,30 @@ component LayerHeaderItem inherits Rectangle {
     }
     layer-menu := ContextMenuArea {
         Menu {
-            MenuItem { title: @tr("上にレイヤーを挿入"); activated => { root.command("insert-above", root.layer.index); } }
-            MenuItem { title: @tr("下にレイヤーを挿入"); activated => { root.command("insert-below", root.layer.index); } }
+            MenuItem { title: @tr("上にレイヤーを挿入 (1行)"); activated => { root.command("insert-above", root.layer.index); } }
+            MenuItem { title: @tr("下にレイヤーを挿入 (1行)"); activated => { root.command("insert-below", root.layer.index); } }
+            MenuItem { title: @tr("複数レイヤーを挿入..."); activated => { root.command("insert-many", root.layer.index); } }
             MenuSeparator { }
-            MenuItem { title: root.layer.locked ? @tr("レイヤーのロックを解除") : @tr("レイヤーをロック"); activated => { root.command("toggle-lock", root.layer.index); } }
-            MenuItem { title: root.layer.visible ? @tr("レイヤーを非表示") : @tr("レイヤーを表示"); activated => { root.command("toggle-visible", root.layer.index); } }
+            MenuItem { title: @tr("このレイヤーの内容を1行下へ"); activated => { root.command("shift-down", root.layer.index); } }
+            MenuItem { title: @tr("このレイヤーの内容を1行上へ"); activated => { root.command("shift-up", root.layer.index); } }
+            MenuItem { title: @tr("範囲を指定してレイヤー移動..."); activated => { root.command("shift-range", root.layer.index); } }
+            MenuSeparator { }
+            MenuItem { title: root.layer.visible ? @tr("このレイヤーを非表示にする") : @tr("このレイヤーを表示する"); activated => { root.command("toggle-visible", root.layer.index); } }
+            MenuItem { title: root.layer.locked ? @tr("このレイヤーのロックを解除") : @tr("このレイヤーをロックする"); activated => { root.command("toggle-lock", root.layer.index); } }
             MenuSeparator { }
             MenuItem { title: @tr("すべてのレイヤーを表示"); activated => { root.command("show-all", root.layer.index); } }
             MenuItem { title: @tr("すべてのレイヤーを非表示"); activated => { root.command("hide-all", root.layer.index); } }
         }
         header-touch := TouchArea {
             mouse-cursor: pointer;
+            accessible-role: list-item;
+            accessible-label: @tr("レイヤー {}", root.layer.index + 1);
+            accessible-description: root.layer.visible
+                ? (root.layer.locked ? @tr("表示、ロック中") : @tr("表示、ロックなし"))
+                : (root.layer.locked ? @tr("非表示、ロック中") : @tr("非表示、ロックなし"));
+            accessible-item-selectable: true;
+            accessible-item-selected: root.layer.selected;
+            accessible-action-default => { root.activate(root.layer.index); }
             scroll-event(event) => {
                 if root.scroll-requested(event.delta-y) { accept } else { reject }
             }
@@ -1129,7 +1226,7 @@ component LayerHeaderItem inherits Rectangle {
         y: parent.height - 1px;
         width: 100%;
         height: 1px;
-        background: #454a55;
+        background: AppTheme.control-background;
     }
 }
 
@@ -1139,13 +1236,13 @@ component TimelineContextRow inherits Rectangle {
     callback activated();
     height: 30px;
     border-radius: 3px;
-    background: !root.enabled ? transparent : row-touch.has-hover ? #3b4657 : transparent;
+    background: !root.enabled ? transparent : row-touch.has-hover ? AppTheme.hover-background : transparent;
 
     Text {
         x: 9px;
         width: parent.width - 18px;
         text: root.title;
-        color: root.enabled ? #f2f3f5 : #777e89;
+        color: root.enabled ? AppTheme.foreground : AppTheme.muted-foreground;
         overflow: elide;
         vertical-alignment: center;
     }
@@ -1162,6 +1259,7 @@ component TimelineContextRow inherits Rectangle {
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
     in property <float> pixels-per-frame: 1;
+    in property <length> resize-handle-width: 10px;
     callback activate(int, bool);
     callback prepare-drag(int, bool);
     callback context-activate(int, float, float);
@@ -1206,9 +1304,21 @@ component TimelineClipItem inherits Rectangle {
         }
     }
     clip-touch := TouchArea {
-            x: min(7px, parent.width / 2);
-            width: max(parent.width - 14px, 1px);
+            x: min(root.resize-handle-width, parent.width / 2);
+            width: max(parent.width - 2 * root.resize-handle-width, 1px);
             mouse-cursor: move;
+            accessible-role: list-item;
+            accessible-label: root.clip-data.label;
+            accessible-description: @tr(
+                "クリップ: {}、レイヤー{}、フレーム{}から{}フレーム",
+                root.clip-data.label,
+                root.clip-data.layer + 1,
+                root.clip-data.start,
+                root.clip-data.duration
+            );
+            accessible-item-selectable: true;
+            accessible-item-selected: root.clip-data.selected;
+            accessible-action-default => { root.activate(root.clip-data.id, false); }
             scroll-event(event) => {
                 if root.scroll-requested(
                     event.delta-x,
@@ -1277,7 +1387,7 @@ component TimelineClipItem inherits Rectangle {
     }
     trim-start-touch := TouchArea {
         x: 0px;
-        width: min(7px, parent.width / 2);
+        width: min(root.resize-handle-width, parent.width / 2);
         mouse-cursor: ew-resize;
         scroll-event(event) => {
             if root.scroll-requested(
@@ -1323,7 +1433,7 @@ component TimelineClipItem inherits Rectangle {
     }
     trim-end-touch := TouchArea {
         x: parent.width - self.width;
-        width: min(7px, parent.width / 2);
+        width: min(root.resize-handle-width, parent.width / 2);
         mouse-cursor: ew-resize;
         scroll-event(event) => {
             if root.scroll-requested(
@@ -1372,14 +1482,15 @@ component TimelineClipItem inherits Rectangle {
 component ProjectTab inherits Rectangle {
     in property <string> label;
     in property <bool> selected;
+    in property <length> tab-height: 28px;
     callback activate();
     callback close();
     preferred-width: 150px;
     min-width: 110px;
-    height: 28px;
-    background: root.selected ? #4772b3 : tab-touch.has-hover ? #3a3f49 : #292d35;
+    height: root.tab-height;
+    background: root.selected ? AppTheme.selection-background : tab-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
     border-width: root.selected ? 1px : 0px;
-    border-color: #7aa2df;
+    border-color: AppTheme.accent;
 
     HorizontalLayout {
         padding-left: 8px;
@@ -1387,7 +1498,7 @@ component ProjectTab inherits Rectangle {
         spacing: 4px;
         Text {
             text: root.label;
-            color: #f4f5f7;
+            color: AppTheme.foreground;
             vertical-alignment: center;
             horizontal-stretch: 1;
             overflow: elide;
@@ -1402,17 +1513,22 @@ component ProjectTab inherits Rectangle {
     tab-touch := TouchArea {
         width: parent.width - close-button.width - 4px;
         mouse-cursor: pointer;
+        accessible-role: tab;
+        accessible-label: root.label;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.selected;
+        accessible-action-default => { root.activate(); }
         clicked => { root.activate(); }
     }
 }
 
 export component ProjectRecoveryWindow inherits Window {
-    title: "Recover unsaved projects";
+    title: @tr("未保存のプロジェクトを復元");
     preferred-width: 660px;
     preferred-height: 440px;
     min-width: 520px;
     min-height: 320px;
-    background: #20232a;
+    background: AppTheme.window-background;
 
     in property <[RecoveryEntryData]> recoveries;
     in-out property <string> error-message: "";
@@ -1428,8 +1544,8 @@ export component ProjectRecoveryWindow inherits Window {
         spacing: 12px;
 
         Text {
-            text: "AviQtl found recovery snapshots left by an interrupted session. Recovering opens a new unsaved project and never overwrites the original file.";
-            color: #e5e7eb;
+            text: @tr("AviQtl は中断されたセッションの復元スナップショットを検出しました。復元すると新しい未保存プロジェクトとして開き、元のファイルを上書きすることはありません。");
+            color: AppTheme.foreground;
             wrap: word-wrap;
         }
         if root.error-message != "" : Text {
@@ -1449,9 +1565,9 @@ export component ProjectRecoveryWindow inherits Window {
 
                 for recovery in root.recoveries : Rectangle {
                     height: 92px;
-                    background: #2b2f38;
+                    background: AppTheme.raised-background;
                     border-width: 1px;
-                    border-color: #555b68;
+                    border-color: AppTheme.border;
                     border-radius: 4px;
 
                     HorizontalLayout {
@@ -1463,25 +1579,27 @@ export component ProjectRecoveryWindow inherits Window {
                             horizontal-stretch: 1;
                             Text {
                                 text: recovery.name;
-                                color: #f2f3f5;
+                                color: AppTheme.foreground;
                                 font-weight: 700;
                                 overflow: elide;
                             }
                             Text {
-                                text: recovery.valid ? "Saved " + recovery.saved-at : "Invalid recovery: " + recovery.error;
-                                color: recovery.valid ? #b8bdc7 : #f2c078;
+                                text: recovery.valid
+                                    ? @tr("保存日時: {}", recovery.saved-at)
+                                    : @tr("無効な復元データ: {}", recovery.error);
+                                color: recovery.valid ? AppTheme.muted-foreground : #f2c078;
                                 overflow: elide;
                             }
                             Text {
                                 text: recovery.original-project-url;
                                 visible: recovery.original-project-url != "";
-                                color: #9298a3;
+                                color: AppTheme.muted-foreground;
                                 font-size: 0.72rem;
                                 overflow: elide;
                             }
                         }
                         Button {
-                            text: "Recover";
+                            text: @tr("復元");
                             enabled: recovery.valid;
                             clicked => {
                                 root.error-message = "";
@@ -1489,7 +1607,7 @@ export component ProjectRecoveryWindow inherits Window {
                             }
                         }
                         Button {
-                            text: "Discard";
+                            text: @tr("破棄");
                             clicked => {
                                 root.pending-discard-id = recovery.id;
                                 root.pending-discard-name = recovery.name;
@@ -1503,7 +1621,7 @@ export component ProjectRecoveryWindow inherits Window {
         HorizontalLayout {
             alignment: end;
             Button {
-                text: "Close";
+                text: @tr("閉じる");
                 clicked => { root.close-window(); }
             }
         }
@@ -1522,23 +1640,23 @@ export component ProjectRecoveryWindow inherits Window {
             height: 160px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b2f38;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #555b68;
+            border-color: AppTheme.border;
             border-radius: 6px;
 
             VerticalLayout {
                 padding: 16px;
                 spacing: 12px;
                 Text {
-                    text: "Discard recovery snapshot";
-                    color: #f2f3f5;
+                    text: @tr("復元スナップショットを破棄");
+                    color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 Text {
-                    text: "Discard the recovery snapshot for “" + root.pending-discard-name + "”? This cannot be undone.";
-                    color: #d6d9df;
+                    text: @tr("「{}」の復元スナップショットを破棄しますか？この操作は元に戻せません。", root.pending-discard-name);
+                    color: AppTheme.muted-foreground;
                     wrap: word-wrap;
                     vertical-stretch: 1;
                 }
@@ -1546,7 +1664,7 @@ export component ProjectRecoveryWindow inherits Window {
                     alignment: end;
                     spacing: 8px;
                     Button {
-                        text: "Yes";
+                        text: @tr("はい");
                         clicked => {
                             root.discard-recovery(root.pending-discard-id);
                             root.pending-discard-id = "";
@@ -1555,7 +1673,7 @@ export component ProjectRecoveryWindow inherits Window {
                         }
                     }
                     Button {
-                        text: "No";
+                        text: @tr("いいえ");
                         clicked => {
                             root.pending-discard-id = "";
                             root.pending-discard-name = "";
@@ -1595,10 +1713,10 @@ export component ProjectLauncherWindow inherits Window {
                 GridLayout {
                     padding: 10px;
                     spacing: 10px;
-                    Row { Text { text: @tr("幅 (横):"); } width-field := LineEdit { text <=> root.default-width; } }
-                    Row { Text { text: @tr("高さ (縦):"); } height-field := LineEdit { text <=> root.default-height; } }
-                    Row { Text { text: @tr("フレームレート (FPS):"); } fps-field := LineEdit { text <=> root.default-fps; } }
-                    Row { Text { text: @tr("サンプリングレート:"); } sample-rate-field := LineEdit { text <=> root.default-sample-rate; } }
+                    Row { Text { text: @tr("幅 (横):"); } width-field := LineEdit { text <=> root.default-width; accessible-label: @tr("幅 (横):"); } }
+                    Row { Text { text: @tr("高さ (縦):"); } height-field := LineEdit { text <=> root.default-height; accessible-label: @tr("高さ (縦):"); } }
+                    Row { Text { text: @tr("フレームレート (FPS):"); } fps-field := LineEdit { text <=> root.default-fps; accessible-label: @tr("フレームレート (FPS):"); } }
+                    Row { Text { text: @tr("サンプリングレート:"); } sample-rate-field := LineEdit { text <=> root.default-sample-rate; accessible-label: @tr("サンプリングレート:"); } }
                 }
             }
             create-button := Button {
@@ -1617,7 +1735,7 @@ export component ProjectLauncherWindow inherits Window {
             Rectangle {
                 vertical-stretch: 1;
                 border-width: 1px;
-                border-color: #696d75;
+                border-color: AppTheme.border;
                 Text {
                     text: @tr("最近使ったプロジェクトはありません");
                     opacity: 0.65;
@@ -1639,10 +1757,11 @@ export component MainWindow inherits Window {
     preferred-height: 360px;
     min-width: 480px;
     min-height: 300px;
-    background: #181a20;
+    background: AppTheme.window-background;
     forward-focus: main-shortcuts;
 
     in property <[ProjectTabData]> project-tabs;
+    in property <[MissingMediaData]> missing-media;
     in property <int> current-project: -1;
     in property <image> preview-image;
     in-out property <float> playhead: 0;
@@ -1652,6 +1771,8 @@ export component MainWindow inherits Window {
     in property <string> status-text: "Ready";
     in property <bool> save-confirmation-visible: false;
     in property <string> save-confirmation-project: "";
+    in-out property <bool> missing-media-dialog-visible: false;
+    in property <int> project-tab-height: 28;
 
     callback new-project();
     callback open-project();
@@ -1667,6 +1788,7 @@ export component MainWindow inherits Window {
     callback show-object-settings();
     callback show-package-manager();
     callback show-about();
+    callback relink-missing-media(int);
     callback select-project(int);
     callback close-project(int);
     callback confirm-save();
@@ -1687,6 +1809,11 @@ export component MainWindow inherits Window {
             MenuSeparator { }
             MenuItem { title: @tr("プロジェクトの上書き保存"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
             MenuItem { title: @tr("プロジェクトを名前を付けて保存..."); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
+            MenuItem {
+                title: @tr("不足しているメディアを管理");
+                enabled: !root.save-confirmation-visible && root.missing-media.length > 0;
+                activated => { root.missing-media-dialog-visible = true; }
+            }
             MenuSeparator { }
             MenuItem { title: @tr("メディアの書き出し..."); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
             MenuSeparator { }
@@ -1736,17 +1863,20 @@ export component MainWindow inherits Window {
         VerticalLayout {
             spacing: 0px;
             Rectangle {
-            height: 28px;
-            background: #23262d;
+            height: root.project-tab-height * 1px;
+            background: AppTheme.panel-background;
             HorizontalLayout {
                 spacing: 0px;
+                accessible-role: tab-list;
+                accessible-label: @tr("プロジェクト");
                 for tab[index] in root.project-tabs: ProjectTab {
                     label: tab.name + (tab.dirty ? " *" : "");
                     selected: root.current-project == index;
+                    tab-height: root.project-tab-height * 1px;
                     activate => { root.select-project(index); }
                     close => { root.close-project(index); }
                 }
-                Button { text: "+"; width: 38px; clicked => { root.new-project(); } }
+                Button { text: "+"; width: 38px; accessible-label: @tr("新規プロジェクト"); clicked => { root.new-project(); } }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
@@ -1762,7 +1892,7 @@ export component MainWindow inherits Window {
         }
             Rectangle {
             height: 40px;
-            background: #25282f;
+            background: AppTheme.panel-background;
             HorizontalLayout {
                 padding-left: 10px;
                 padding-right: 10px;
@@ -1773,12 +1903,13 @@ export component MainWindow inherits Window {
                     maximum: root.duration;
                     horizontal-stretch: 1;
                     accessible-label: @tr("シークバー");
+                    accessible-description: @tr("タイムライン上の現在位置をドラッグして再生位置を変更します");
                     changed => { root.seek(self.value); }
                 }
                 Text { text: round(root.playhead) + " / " + round(root.duration); font-family: "Monospace"; vertical-alignment: center; }
-                Button { text: "◀"; accessible-label: @tr("1フレーム戻る"); clicked => { root.previous-frame(); } }
-                Button { text: root.playing ? "Ⅱ" : "▶"; accessible-label: root.playing ? @tr("一時停止") : @tr("再生"); clicked => { root.toggle-playback(); } }
-                Button { text: "▶|"; accessible-label: @tr("1フレーム進む"); clicked => { root.next-frame(); } }
+                Button { text: "◀"; accessible-label: @tr("1フレーム戻る"); accessible-description: @tr("再生位置を1フレーム前に移動します"); clicked => { root.previous-frame(); } }
+                Button { text: root.playing ? "Ⅱ" : "▶"; accessible-label: root.playing ? @tr("一時停止") : @tr("再生"); accessible-description: @tr("再生を開始または一時停止します"); clicked => { root.toggle-playback(); } }
+                Button { text: "▶|"; accessible-label: @tr("1フレーム進む"); accessible-description: @tr("再生位置を1フレーム後に移動します"); clicked => { root.next-frame(); } }
                 Text { text: @tr("速度"); vertical-alignment: center; }
                 SpinBox {
                     value <=> root.playback-speed-percent;
@@ -1794,8 +1925,120 @@ export component MainWindow inherits Window {
         }
             Rectangle {
             height: 22px;
-            background: #1d2026;
-            Text { text: root.status-text; x: 8px; vertical-alignment: center; color: #c7cad1; font-size: 0.82rem; }
+            background: AppTheme.raised-background;
+            Text { text: root.status-text; x: 8px; vertical-alignment: center; color: AppTheme.muted-foreground; font-size: 0.82rem; }
+            }
+        }
+    }
+
+    if root.missing-media.length > 0 : Rectangle {
+        z: 100;
+        width: min(430px, root.width - 24px);
+        height: 42px;
+        x: root.width - self.width - 12px;
+        y: root.height - self.height - 12px;
+        background: AppTheme.control-background;
+        border-width: 1px;
+        border-color: AppTheme.border;
+        border-radius: 5px;
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 6px;
+            spacing: 8px;
+            Text {
+                text: @tr("{} 個のメディアファイルが見つかりません", root.missing-media.length);
+                color: AppTheme.foreground;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: @tr("管理");
+                accessible-label: @tr("不足しているメディアを管理");
+                clicked => { root.missing-media-dialog-visible = true; }
+            }
+        }
+    }
+
+    if root.missing-media-dialog-visible : missing-media-focus := FocusScope {
+        z: 900;
+        width: min(root.width - 32px, 560px);
+        height: min(root.height - 32px, 360px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        init => { self.focus(); }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.missing-media-dialog-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+
+        Rectangle {
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 6px;
+            VerticalLayout {
+                padding: 12px;
+                spacing: 10px;
+                Text {
+                    text: @tr("不足しているメディア");
+                    color: AppTheme.foreground;
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    viewport-width: self.visible-width;
+                    viewport-height: missing-media-list.preferred-height;
+                    missing-media-list := VerticalLayout {
+                        width: parent.width;
+                        spacing: 6px;
+                        for media in root.missing-media : Rectangle {
+                            height: 64px;
+                            background: AppTheme.panel-background;
+                            border-width: 1px;
+                            border-color: AppTheme.border;
+                            border-radius: 4px;
+                            HorizontalLayout {
+                                padding: 8px;
+                                spacing: 8px;
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: media.clip-type + ": " + media.name;
+                                        color: AppTheme.foreground;
+                                        font-weight: 700;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: media.path;
+                                        color: AppTheme.muted-foreground;
+                                        font-size: 0.78rem;
+                                        overflow: elide;
+                                    }
+                                }
+                                Button {
+                                    text: @tr("置換");
+                                    accessible-label: @tr("不足しているメディアを置換");
+                                    clicked => { root.relink-missing-media(media.clip-id); }
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    Button {
+                        text: @tr("閉じる");
+                        clicked => { root.missing-media-dialog-visible = false; }
+                    }
+                }
             }
         }
     }
@@ -1813,9 +2056,9 @@ export component MainWindow inherits Window {
             height: 174px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b2f38;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #555b68;
+            border-color: AppTheme.border;
             border-radius: 6px;
 
             VerticalLayout {
@@ -1824,13 +2067,13 @@ export component MainWindow inherits Window {
 
                 Text {
                     text: @tr("保存の確認");
-                    color: #f2f3f5;
+                    color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
                 Text {
                     text: root.save-confirmation-project + @tr(" に保存されていない変更があります。\n続行する前に保存しますか？");
-                    color: #d6d9df;
+                    color: AppTheme.muted-foreground;
                     wrap: word-wrap;
                     vertical-stretch: 1;
                 }
@@ -1878,6 +2121,14 @@ export component TimelineWindow inherits Window {
     in-out property <float> pixels-per-frame: 1;
     in property <int> zoom-min: 10;
     in property <int> zoom-max: 400;
+    in property <bool> timeline-skimming-enabled: true;
+    in property <int> timeline-track-height: 30;
+    in property <int> timeline-header-height: 28;
+    in property <int> timeline-ruler-height: 32;
+    in property <int> maximum-layers: 128;
+    in property <int> layer-header-width: 60;
+    in property <int> clip-resize-handle-width: 10;
+    in property <int> minimum-clip-duration-frames: 5;
     in-out property <bool> skimmer-visible: false;
     in-out property <int> skimmer-frame: 0;
     in-out property <int> skimmer-layer: 0;
@@ -1908,6 +2159,15 @@ export component TimelineWindow inherits Window {
     private property <bool> context-catalog-page: false;
     private property <length> context-popup-x: 0px;
     private property <length> context-popup-y: 0px;
+    private property <bool> insert-layers-visible: false;
+    private property <int> insert-layers-target: 0;
+    private property <int> insert-layers-count: 5;
+    private property <bool> insert-layers-above: true;
+    private property <bool> shift-layers-visible: false;
+    private property <int> shift-layers-start: 1;
+    private property <int> shift-layers-end: root.maximum-layers;
+    private property <int> shift-layers-count: 1;
+    private property <bool> shift-layers-down: true;
     callback timeline-action(string, int, int);
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
@@ -1925,6 +2185,8 @@ export component TimelineWindow inherits Window {
     callback clip-drag-finished(string, int, float, float, bool);
     callback layer-activated(int);
     callback layer-command(string, int);
+    callback insert-layers(int, int, bool);
+    callback shift-layers(int, int, int);
     callback empty-clicked(int, int);
     callback box-selection-started(int, int, bool);
     callback box-selection-updated(int, int);
@@ -1971,7 +2233,11 @@ export component TimelineWindow inherits Window {
 
     function update-skimmer(frame: float, layer: int, ignore-snap: bool) {
         skimmer-leave-timer.running = false;
-        root.skimmer-hovered(frame, layer, ignore-snap);
+        if root.timeline-skimming-enabled {
+            root.skimmer-hovered(frame, layer, ignore-snap);
+        } else {
+            root.skimmer-visible = false;
+        }
     }
 
     function schedule-skimmer-left() {
@@ -2056,7 +2322,7 @@ export component TimelineWindow inherits Window {
 
     function file-drop-layer(window-y: float) -> int {
         let content-y = window-y * 1px - timeline-scroll.absolute-position.y - root.shared-viewport-y;
-        return min(127, max(0, floor(content-y / 30px)));
+        return min(root.maximum-layers - 1, max(0, floor(content-y / (root.timeline-track-height * 1px))));
     }
 
     native-file-hovered(window-x, window-y, ignore-snap) => {
@@ -2158,27 +2424,30 @@ export component TimelineWindow inherits Window {
         VerticalLayout {
             spacing: 0px;
             Rectangle {
-            height: 28px;
-            background: #2a2e36;
+            height: root.timeline-header-height * 1px;
+            background: AppTheme.raised-background;
             HorizontalLayout {
                 spacing: 0px;
+                accessible-role: tab-list;
+                accessible-label: @tr("シーン");
                 for scene in root.scene-tabs: SceneTab {
                     scene: scene;
+                    height: root.timeline-header-height * 1px;
                     activate(scene-id) => { root.scene-selected(scene-id); }
                     settings(scene-id) => { root.scene-settings(scene-id); }
                     close(scene-id) => { root.scene-closed(scene-id); }
                 }
-                Button { text: "+"; width: 40px; clicked => { root.show-scene-settings(); } }
+                Button { text: "+"; width: 40px; accessible-label: @tr("新規シーン作成"); clicked => { root.show-scene-settings(); } }
                 Rectangle { horizontal-stretch: 1; }
             }
         }
             Rectangle {
-            height: 32px;
-            background: #343943;
+            height: root.timeline-ruler-height * 1px;
+            background: AppTheme.control-background;
             zoom-menu := ContextMenuArea {
                 x: 0px;
                 y: 0px;
-                width: 60px;
+                width: root.layer-header-width * 1px;
                 height: 100%;
                 Menu {
                     MenuItem { title: "10"; activated => { root.apply-zoom-percent(10); } }
@@ -2192,7 +2461,7 @@ export component TimelineWindow inherits Window {
                     MenuItem { title: "400"; activated => { root.apply-zoom-percent(400); } }
                 }
                 Rectangle {
-                    background: #2a2e36;
+                    background: AppTheme.raised-background;
                     zoom-field := LineEdit {
                         x: 0px;
                         width: 43px;
@@ -2211,7 +2480,7 @@ export component TimelineWindow inherits Window {
                         x: 43px;
                         width: 17px;
                         height: 100%;
-                        background: zoom-button.has-hover ? #464b55 : #343943;
+                        background: zoom-button.has-hover ? AppTheme.hover-background : AppTheme.control-background;
                         Text { text: "▾"; horizontal-alignment: center; vertical-alignment: center; }
                         zoom-button := TouchArea {
                             accessible-role: button;
@@ -2222,8 +2491,8 @@ export component TimelineWindow inherits Window {
                 }
             }
             ruler-scroll := ScrollView {
-                x: 60px;
-                width: parent.width - 60px;
+                x: root.layer-header-width * 1px;
+                width: parent.width - root.layer-header-width * 1px;
                 height: parent.height;
                 viewport-width: max(root.duration * root.pixels-per-frame * 1px, self.visible-width);
                 viewport-height: self.visible-height;
@@ -2233,11 +2502,11 @@ export component TimelineWindow inherits Window {
                     x: tick * 60 * root.pixels-per-frame * 1px;
                     width: 1px;
                     height: 100%;
-                    background: #626874;
+                    background: AppTheme.border;
                     Text {
                         x: 4px;
                         text: tick * 60;
-                        color: #e2e4e8;
+                        color: AppTheme.foreground;
                         font-family: "Monospace";
                         font-size: 0.78rem;
                     }
@@ -2246,6 +2515,30 @@ export component TimelineWindow inherits Window {
                     width: 100%;
                     height: 100%;
                     mouse-cursor: root.ruler-scrubbing ? move : pointer;
+                    accessible-role: slider;
+                    accessible-label: @tr("シークバー");
+                    accessible-description: @tr("タイムライン上の現在位置をドラッグして再生位置を変更します");
+                    accessible-value: "\{round(root.playhead)}";
+                    accessible-value-minimum: 0;
+                    accessible-value-maximum: root.duration;
+                    accessible-value-step: 1;
+                    accessible-action-increment => {
+                        root.begin-scrub();
+                        root.scrub-to(min(root.duration, root.playhead + 1));
+                        root.end-scrub();
+                    }
+                    accessible-action-decrement => {
+                        root.begin-scrub();
+                        root.scrub-to(max(0, root.playhead - 1));
+                        root.end-scrub();
+                    }
+                    accessible-action-set-value(value) => {
+                        if value.is-float() {
+                            root.begin-scrub();
+                            root.scrub-to(value.to-float().clamp(0, root.duration));
+                            root.end-scrub();
+                        }
+                    }
                     pointer-event(event) => {
                         if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                             root.ruler-scrubbing = true;
@@ -2283,17 +2576,35 @@ export component TimelineWindow inherits Window {
             vertical-stretch: 1;
             spacing: 0px;
             layer-scroll := ScrollView {
-                width: 60px;
+                width: root.layer-header-width * 1px;
                 vertical-stretch: 1;
+                accessible-role: list;
+                accessible-label: @tr("レイヤー");
                 viewport-width: self.visible-width;
-                viewport-height: root.layers.length * 30px;
+                viewport-height: root.layers.length * root.timeline-track-height * 1px;
                 viewport-y <=> root.shared-viewport-y;
                 for layer in root.layers: LayerHeaderItem {
-                    y: layer.index * 30px;
-                    width: 60px;
+                    y: layer.index * root.timeline-track-height * 1px;
+                    width: root.layer-header-width * 1px;
+                    height: root.timeline-track-height * 1px;
                     layer: layer;
                     activate(layer-index) => { root.layer-activated(layer-index); }
-                    command(action, layer-index) => { root.layer-command(action, layer-index); }
+                    command(action, layer-index) => {
+                        if action == "insert-many" {
+                            root.insert-layers-target = layer-index;
+                            root.insert-layers-count = 5;
+                            root.insert-layers-above = true;
+                            root.insert-layers-visible = true;
+                        } else if action == "shift-range" {
+                            root.shift-layers-start = layer-index + 1;
+                            root.shift-layers-end = root.maximum-layers;
+                            root.shift-layers-count = 1;
+                            root.shift-layers-down = true;
+                            root.shift-layers-visible = true;
+                        } else {
+                            root.layer-command(action, layer-index);
+                        }
+                    }
                     scroll-requested(delta-y) => { root.scroll-layers(delta-y) }
                 }
             }
@@ -2302,7 +2613,7 @@ export component TimelineWindow inherits Window {
                 horizontal-stretch: 1;
                 vertical-stretch: 1;
                 viewport-width: max(root.duration * root.pixels-per-frame * 1px, self.visible-width);
-                viewport-height: root.layers.length * 30px;
+                viewport-height: root.layers.length * root.timeline-track-height * 1px;
                 viewport-x <=> root.shared-viewport-x;
                 viewport-y <=> root.shared-viewport-y;
                 mouse-drag-pan-enabled: false;
@@ -2319,21 +2630,21 @@ export component TimelineWindow inherits Window {
                             if event.kind == PointerEventKind.move {
                                 root.update-skimmer(
                                     (self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px),
-                                    floor((self.mouse-y - root.shared-viewport-y) / 30px),
+                                    floor((self.mouse-y - root.shared-viewport-y) / (root.timeline-track-height * 1px)),
                                     event.modifiers.shift
                                 );
                             }
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                                 root.empty-clicked(
                                     floor((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px)),
-                                    floor((self.mouse-y - root.shared-viewport-y) / 30px)
+                                    floor((self.mouse-y - root.shared-viewport-y) / (root.timeline-track-height * 1px))
                                 );
                             }
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
                                 root.box-active = true;
                                 root.box-dragging = false;
                                 root.context-frame = max(0, floor((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px)));
-                                root.context-layer = min(127, max(0, floor((self.mouse-y - root.shared-viewport-y) / 30px)));
+                                root.context-layer = min(root.maximum-layers - 1, max(0, floor((self.mouse-y - root.shared-viewport-y) / (root.timeline-track-height * 1px))));
                                 root.box-start-frame = root.context-frame;
                                 root.box-start-layer = root.context-layer;
                                 root.box-current-frame = root.box-start-frame;
@@ -2348,7 +2659,7 @@ export component TimelineWindow inherits Window {
                             }
                             if event.kind == PointerEventKind.move && root.box-active {
                                 root.box-current-frame = max(0, floor((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px)));
-                                root.box-current-layer = min(127, max(0, floor((self.mouse-y - root.shared-viewport-y) / 30px)));
+                                root.box-current-layer = min(root.maximum-layers - 1, max(0, floor((self.mouse-y - root.shared-viewport-y) / (root.timeline-track-height * 1px))));
                                 if abs(self.mouse-x - root.box-press-x) >= 3px || abs(self.mouse-y - root.box-press-y) >= 3px {
                                     root.box-dragging = true;
                                     root.box-selection-updated(root.box-current-frame, root.box-current-layer);
@@ -2393,20 +2704,22 @@ export component TimelineWindow inherits Window {
                 Rectangle {
                     width: 100%;
                     height: 100%;
-                    background: #1b1e24;
+                    background: AppTheme.window-background;
                 }
                 for row in root.layers.length: Rectangle {
-                    y: row * 30px;
+                    y: row * root.timeline-track-height * 1px;
                     width: 100%;
                     height: 1px;
-                    background: #414650;
+                    background: AppTheme.border;
                 }
                 for clip in root.clips: TimelineClipItem {
                     x: clip.start * root.pixels-per-frame * 1px;
-                    y: clip.layer * 30px + 3px;
+                    y: clip.layer * root.timeline-track-height * 1px + 3px;
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
+                    height: max(root.timeline-track-height * 1px - 6px, 1px);
                     clip-data: clip;
                     pixels-per-frame: root.pixels-per-frame;
+                    resize-handle-width: root.clip-resize-handle-width * 1px;
                     activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }
                     prepare-drag(clip-id, additive) => { root.clip-drag-started(clip-id, additive); }
                     context-activate(clip-id, window-x, window-y) => {
@@ -2430,7 +2743,7 @@ export component TimelineWindow inherits Window {
                     pointer-hovered(content-x, content-y, ignore-snap) => {
                         root.update-skimmer(
                             content-x / root.pixels-per-frame,
-                            floor(content-y / 30),
+                            floor(content-y / root.timeline-track-height),
                             ignore-snap
                         );
                     }
@@ -2452,9 +2765,9 @@ export component TimelineWindow inherits Window {
                 }
                 if root.box-active && root.box-dragging : Rectangle {
                     x: min(root.box-start-frame, root.box-current-frame) * root.pixels-per-frame * 1px;
-                    y: min(root.box-start-layer, root.box-current-layer) * 30px;
+                    y: min(root.box-start-layer, root.box-current-layer) * root.timeline-track-height * 1px;
                     width: max(abs(root.box-current-frame - root.box-start-frame) * root.pixels-per-frame * 1px, 1px);
-                    height: max((abs(root.box-current-layer - root.box-start-layer) + 1) * 30px, 1px);
+                    height: max((abs(root.box-current-layer - root.box-start-layer) + 1) * root.timeline-track-height * 1px, 1px);
                     background: #4b82ca44;
                     border-width: 1px;
                     border-color: #7aafefff;
@@ -2490,7 +2803,161 @@ export component TimelineWindow inherits Window {
                 }
             }
         }
-            Rectangle { height: 22px; background: #252931; Text { text: root.action-status; x: 8px; vertical-alignment: center; font-size: 0.82rem; } }
+            Rectangle { height: 22px; background: AppTheme.panel-background; Text { text: root.action-status; x: 8px; color: AppTheme.foreground; vertical-alignment: center; font-size: 0.82rem; } }
+        }
+    }
+
+    if root.insert-layers-visible : insert-layers-focus := FocusScope {
+        z: 300;
+        width: 100%;
+        height: 100%;
+        init => { self.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.insert-layers-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+        Rectangle { background: #00000088; TouchArea { } }
+        Rectangle {
+            width: min(parent.width - 32px, 430px);
+            height: 240px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 6px;
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+                Text {
+                    text: @tr("複数レイヤーを挿入");
+                    color: AppTheme.foreground;
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: @tr("挿入するレイヤー数:"); vertical-alignment: center; }
+                    SpinBox {
+                        value <=> root.insert-layers-count;
+                        minimum: 1;
+                        maximum: 100;
+                        horizontal-stretch: 1;
+                    }
+                }
+                Text { text: @tr("挿入方向:"); }
+                RadioGroup {
+                    orientation: Orientation.horizontal;
+                    RadioButton {
+                        text: @tr("選択レイヤーの上");
+                        checked: root.insert-layers-above;
+                        toggled => { if self.checked { root.insert-layers-above = true; } }
+                    }
+                    RadioButton {
+                        text: @tr("選択レイヤーの下");
+                        checked: !root.insert-layers-above;
+                        toggled => { if self.checked { root.insert-layers-above = false; } }
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button { text: @tr("キャンセル"); clicked => { root.insert-layers-visible = false; } }
+                    Button {
+                        text: "OK";
+                        primary: true;
+                        clicked => {
+                            root.insert-layers(root.insert-layers-target, root.insert-layers-count, root.insert-layers-above);
+                            root.insert-layers-visible = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.shift-layers-visible : shift-layers-focus := FocusScope {
+        z: 300;
+        width: 100%;
+        height: 100%;
+        init => { self.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.shift-layers-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+        Rectangle { background: #00000088; TouchArea { } }
+        Rectangle {
+            width: min(parent.width - 32px, 470px);
+            height: 330px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 6px;
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+                Text {
+                    text: @tr("このレイヤー以降をまとめて移動");
+                    color: AppTheme.foreground;
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                Text { text: @tr("対象レイヤーの範囲:"); }
+                HorizontalLayout {
+                    spacing: 8px;
+                    SpinBox { value <=> root.shift-layers-start; minimum: 1; maximum: root.maximum-layers; horizontal-stretch: 1; }
+                    Text { text: "～"; vertical-alignment: center; }
+                    SpinBox { value <=> root.shift-layers-end; minimum: 1; maximum: root.maximum-layers; horizontal-stretch: 1; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: @tr("移動量 (行数):"); vertical-alignment: center; }
+                    SpinBox { value <=> root.shift-layers-count; minimum: 1; maximum: 100; horizontal-stretch: 1; }
+                }
+                Text { text: @tr("方向:"); }
+                RadioGroup {
+                    orientation: Orientation.horizontal;
+                    RadioButton {
+                        text: @tr("上へ");
+                        checked: !root.shift-layers-down;
+                        toggled => { if self.checked { root.shift-layers-down = false; } }
+                    }
+                    RadioButton {
+                        text: @tr("下へ");
+                        checked: root.shift-layers-down;
+                        toggled => { if self.checked { root.shift-layers-down = true; } }
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button { text: @tr("キャンセル"); clicked => { root.shift-layers-visible = false; } }
+                    Button {
+                        text: "OK";
+                        primary: true;
+                        clicked => {
+                            root.shift-layers(
+                                root.shift-layers-start - 1,
+                                root.shift-layers-end - 1,
+                                root.shift-layers-down ? root.shift-layers-count : -root.shift-layers-count
+                            );
+                            root.shift-layers-visible = false;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -2513,9 +2980,9 @@ export component TimelineWindow inherits Window {
                 }
             }
             Rectangle {
-                background: #252a32;
+                background: AppTheme.panel-background;
                 border-width: 1px;
-                border-color: #646b78;
+                border-color: AppTheme.border;
                 border-radius: 5px;
                 VerticalLayout {
                     padding: 5px;
@@ -2548,7 +3015,7 @@ export component TimelineWindow inherits Window {
                             if root.context-search-query != "" && root.context-catalog-items.length == 0 : Text {
                                 text: @tr("一致する項目がありません");
                                 height: 32px;
-                                color: #aeb3bc;
+                                color: AppTheme.muted-foreground;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
@@ -2559,7 +3026,7 @@ export component TimelineWindow inherits Window {
                             }
                             if root.context-search-query == "" && root.context-catalog-page : Rectangle {
                                 height: 1px;
-                                background: #4b515d;
+                                background: AppTheme.border;
                             }
                             if root.context-search-query == "" && root.context-catalog-page : VerticalLayout {
                                 spacing: 2px;
@@ -2570,12 +3037,12 @@ export component TimelineWindow inherits Window {
                             }
 
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: "Browse object catalog...";
+                                title: @tr("オブジェクトカタログを開く...");
                                 activated => { root.browse-context-catalog(); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
                                 height: 1px;
-                                background: #4b515d;
+                                background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
                                 title: @tr("オブジェクトを追加  ›");
@@ -2583,7 +3050,7 @@ export component TimelineWindow inherits Window {
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
                                 height: 1px;
-                                background: #4b515d;
+                                background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
                                 title: @tr("元に戻す");
@@ -2599,7 +3066,7 @@ export component TimelineWindow inherits Window {
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
                                 height: 1px;
-                                background: #4b515d;
+                                background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
                                 title: @tr("シーン設定...");
@@ -2628,7 +3095,7 @@ export component TimelineWindow inherits Window {
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
                                 height: 1px;
-                                background: #4b515d;
+                                background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
                                 title: @tr("切り取り");
@@ -2640,19 +3107,19 @@ export component TimelineWindow inherits Window {
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : Rectangle {
                                 height: 1px;
-                                background: #4b515d;
+                                background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
                                 title: (root.context-clip-by-upper-object ? "✓  " : "    ") + @tr("上のオブジェクトでクリッピング");
                                 activated => { root.activate-context-command("clipping"); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
-                                title: "Browse effect catalog...";
+                                title: @tr("エフェクトカタログを開く...");
                                 activated => { root.browse-context-catalog(); }
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
                                 height: 1px;
-                                background: #4b515d;
+                                background: AppTheme.border;
                             }
                             if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
                                 title: @tr("エフェクトを追加  ›");
@@ -2685,9 +3152,9 @@ export component TimelineWindow inherits Window {
             height: min(parent.height - 40px, 560px);
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b3038;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #646b78;
+            border-color: AppTheme.border;
             border-radius: 5px;
             TouchArea { }
             VerticalLayout {
@@ -2695,7 +3162,7 @@ export component TimelineWindow inherits Window {
                 spacing: 8px;
                 Text {
                     text: @tr("オブジェクト一覧");
-                    color: #f2f3f5;
+                    color: AppTheme.foreground;
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
@@ -2725,28 +3192,30 @@ export component TimelineWindow inherits Window {
                 }
                 Text {
                     text: root.object-catalog-items.length + @tr(" 件");
-                    color: #aeb3bc;
+                    color: AppTheme.muted-foreground;
                 }
                 ScrollView {
                     vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: @tr("オブジェクト一覧");
                     VerticalLayout {
                         spacing: 4px;
                         for item[index] in root.object-catalog-items : Rectangle {
                             height: 64px;
                             background: index == root.object-catalog-selected-index
-                                ? #42658f
-                                : (item-touch.has-hover ? #373d47 : #252a31);
+                                ? AppTheme.selection-background
+                                : (item-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background);
                             border-width: 1px;
                             border-color: index == root.object-catalog-selected-index
-                                ? #82b4ef
-                                : #454b56;
+                                ? AppTheme.accent
+                                : AppTheme.border;
                             border-radius: 4px;
                             VerticalLayout {
                                 padding: 8px;
                                 spacing: 2px;
                                 Text {
                                     text: item.name;
-                                    color: #f2f3f5;
+                                    color: AppTheme.foreground;
                                     font-weight: 700;
                                     overflow: elide;
                                 }
@@ -2754,7 +3223,7 @@ export component TimelineWindow inherits Window {
                                     text: item.categories == ""
                                         ? item.id
                                         : item.categories + "   ·   " + item.id;
-                                    color: #abb1bb;
+                                    color: AppTheme.muted-foreground;
                                     overflow: elide;
                                 }
                             }
@@ -2787,7 +3256,7 @@ export component TimelineWindow inherits Window {
                         }
                         if root.object-catalog-items.length == 0 : Text {
                             text: @tr("一致するオブジェクトがありません");
-                            color: #aeb3bc;
+                            color: AppTheme.muted-foreground;
                             horizontal-alignment: center;
                         }
                     }
@@ -2922,7 +3391,7 @@ export component ExportWindow inherits Window {
                             Text { text: root.crf.round(); preferred-width: 28px; vertical-alignment: center; }
                             Text {
                                 text: root.crf <= 17 ? @tr("高品質") : root.crf <= 28 ? @tr("標準") : @tr("低品質");
-                                color: root.crf <= 17 ? #76dba4 : root.crf <= 28 ? #d6d9df : #ff9ca8;
+                                color: root.crf <= 17 ? #76dba4 : root.crf <= 28 ? AppTheme.muted-foreground : #ff9ca8;
                                 vertical-alignment: center;
                             }
                         }
@@ -3057,15 +3526,15 @@ export component ExportWindow inherits Window {
             height: 170px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b2f38;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #555b68;
+            border-color: AppTheme.border;
             border-radius: 6px;
             VerticalLayout {
                 padding: 16px;
                 spacing: 12px;
-                Text { text: @tr("書き出しキャンセル"); color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
-                Text { text: @tr("書き出しをキャンセルしますか？\n進捗は失われます。"); color: #d6d9df; wrap: word-wrap; vertical-stretch: 1; }
+                Text { text: @tr("書き出しキャンセル"); color: AppTheme.foreground; font-size: 1.1rem; font-weight: 700; }
+                Text { text: @tr("書き出しをキャンセルしますか？\n進捗は失われます。"); color: AppTheme.muted-foreground; wrap: word-wrap; vertical-stretch: 1; }
                 HorizontalLayout {
                     alignment: end;
                     spacing: 8px;
@@ -3087,15 +3556,15 @@ export component ExportWindow inherits Window {
             height: 170px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b2f38;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #555b68;
+            border-color: AppTheme.border;
             border-radius: 6px;
             VerticalLayout {
                 padding: 16px;
                 spacing: 12px;
-                Text { text: root.result-success ? @tr("完了") : @tr("エラー"); color: #f2f3f5; font-size: 1.1rem; font-weight: 700; }
-                Text { text: root.result-message; color: #d6d9df; wrap: word-wrap; vertical-stretch: 1; }
+                Text { text: root.result-success ? @tr("完了") : @tr("エラー"); color: AppTheme.foreground; font-size: 1.1rem; font-weight: 700; }
+                Text { text: root.result-message; color: AppTheme.muted-foreground; wrap: word-wrap; vertical-stretch: 1; }
                 HorizontalLayout {
                     alignment: end;
                     Button { text: "OK"; clicked => { root.dismiss-result(); } }
@@ -3267,98 +3736,510 @@ export component SceneSettingsWindow inherits Window {
     }
 }
 
+component SystemSettingSpinRow inherits HorizontalLayout {
+    in property <string> label;
+    in-out property <int> value;
+    in property <int> minimum: 0;
+    in property <int> maximum: 100;
+    in property <int> step-size: 1;
+    in property <bool> interactive: true;
+    spacing: 10px;
+    opacity: root.interactive ? 1 : 0.5;
+    Text {
+        text: root.label;
+        width: 260px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    SpinBox {
+        value <=> root.value;
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step-size: root.step-size;
+        enabled: root.interactive;
+        accessible-label: root.label;
+        horizontal-stretch: 1;
+    }
+}
+
+component SystemSettingComboRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <[string]> choices;
+    in-out property <int> current-index;
+    spacing: 10px;
+    Text {
+        text: root.label;
+        width: 260px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    ComboBox {
+        model: root.choices;
+        current-index <=> root.current-index;
+        accessible-label: root.label;
+        horizontal-stretch: 1;
+    }
+}
+
+component SystemSettingLineRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <string> placeholder;
+    callback commit(string);
+    spacing: 10px;
+    Text {
+        text: root.label;
+        width: 260px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    CommitLineEdit {
+        source-text: root.value;
+        placeholder-text: root.placeholder;
+        accessible-label: root.label;
+        horizontal-stretch: 1;
+        commit(value) => { root.commit(value); }
+    }
+}
+
 export component SystemSettingsWindow inherits Window {
     title: @tr("環境設定");
-    preferred-width: 620px;
-    preferred-height: 590px;
-    min-width: 520px;
-    min-height: 480px;
+    preferred-width: 760px;
+    preferred-height: 680px;
+    min-width: 620px;
+    min-height: 520px;
 
+    in-out property <int> tab-index: 0;
     in-out property <bool> confirm-unsaved: true;
     in-out property <bool> auto-backup: true;
     in-out property <int> backup-interval: 5;
+    in-out property <int> recent-project-max-count: 10;
     in-out property <int> undo-count: 32;
+    in-out property <int> splash-size: 512;
+    in-out property <int> max-image-size: 8192;
+    in-out property <int> cache-size: 512;
+    in-out property <int> preview-render-scale-index: 0;
+    in-out property <int> preview-msaa-index: 0;
+    in-out property <int> bake-strategy-index: 0;
+    in-out property <int> on-demand-prefetch-frames: 30;
+    in-out property <bool> enable-timeline-skimming: true;
+    in-out property <int> timeline-track-height: 30;
+    in-out property <int> timeline-header-height: 28;
+    in-out property <bool> setting-dialog-sidebar-right: false;
+    in-out property <int> timeline-ruler-height: 32;
+    in-out property <int> timeline-max-layers: 128;
+    in-out property <int> timeline-layer-header-width: 60;
+    in-out property <int> timeline-clip-resize-handle-width: 10;
+    in-out property <int> min-clip-duration-frames: 5;
+    in-out property <int> timeline-zoom-min: 10;
+    in-out property <int> timeline-zoom-max: 400;
+    in-out property <int> timeline-zoom-step: 10;
+    in-out property <int> theme-index: 0;
     in-out property <int> default-project-width: 1920;
     in-out property <int> default-project-height: 1080;
     in-out property <string> default-project-fps: "60";
     in-out property <int> default-project-frames: 3600;
     in-out property <int> default-project-sample-rate: 48000;
+    in-out property <int> default-clip-duration: 100;
+    in-out property <int> export-video-codec-index: 2;
+    in-out property <int> export-default-bitrate-mbps: 15;
+    in-out property <int> export-default-crf: 20;
+    in-out property <int> export-image-quality: 95;
+    in-out property <int> export-sequence-padding: 6;
+    in-out property <int> export-audio-codec-index: 0;
+    in-out property <int> export-default-audio-bitrate-kbps: 192;
+    in-out property <int> export-frame-grab-timeout-ms: 2000;
+    in-out property <int> export-progress-interval: 5;
+    in-out property <int> export-encoder-queue-mb: 128;
+    in-out property <int> video-decoder-index-reserve: 108000;
+    in-out property <int> video-decoder-min-cache-mb: 64;
+    in-out property <int> hw-frame-pool-size: 32;
+    in-out property <int> audio-plugin-block-size-index: 4;
+    in-out property <int> lua-hook-interval-ms: 16;
+    in-out property <bool> lua-hot-reload: false;
+    in property <[SystemPluginSettingData]> plugin-settings;
+    in property <[SystemShortcutSettingData]> shortcut-settings;
+    callback plugin-enabled-changed(int, bool);
+    callback plugin-paths-changed(int, string);
+    callback shortcut-value-changed(int, string);
     callback reload-settings();
     callback apply-settings() -> bool;
     callback close-window();
 
+    pure function shortcut-name(action-id: string) -> string {
+        if action-id == "project.new" { return @tr("新規プロジェクト"); }
+        if action-id == "project.open" { return @tr("プロジェクトを開く"); }
+        if action-id == "project.save" { return @tr("上書き保存"); }
+        if action-id == "project.saveAs" { return @tr("名前を付けて保存"); }
+        if action-id == "project.export" { return @tr("メディアの書き出し"); }
+        if action-id == "app.quit" { return @tr("終了"); }
+        if action-id == "app.settings" { return @tr("環境設定"); }
+        if action-id == "edit.undo" { return @tr("元に戻す"); }
+        if action-id == "edit.redo" { return @tr("やり直す"); }
+        if action-id == "edit.cut" { return @tr("カット"); }
+        if action-id == "edit.copy" { return @tr("コピー"); }
+        if action-id == "edit.paste" { return @tr("貼り付け"); }
+        if action-id == "edit.delete" { return @tr("削除"); }
+        if action-id == "edit.duplicate" { return @tr("複製"); }
+        if action-id == "transport.playPause" { return @tr("再生 / 一時停止"); }
+        if action-id == "transport.nextFrame" { return @tr("1フレーム進む"); }
+        if action-id == "transport.prevFrame" { return @tr("1フレーム戻る"); }
+        if action-id == "transport.jumpStart" { return @tr("先頭へ移動"); }
+        if action-id == "transport.jumpEnd" { return @tr("末尾へ移動"); }
+        if action-id == "view.zoomIn" { return @tr("ズームイン"); }
+        if action-id == "view.zoomOut" { return @tr("ズームアウト"); }
+        if action-id == "view.timeline" { return @tr("タイムラインの表示"); }
+        if action-id == "view.objectSettings" { return @tr("設定ダイアログの表示"); }
+        if action-id == "project.settings" { return @tr("プロジェクト設定"); }
+        if action-id == "timeline.split" { return @tr("クリップを分割"); }
+        if action-id == "timeline.moveUp" { return @tr("レイヤーを上へ移動"); }
+        if action-id == "timeline.moveDown" { return @tr("レイヤーを下へ移動"); }
+        if action-id == "timeline.nudgeLeft" { return @tr("1フレーム左へ移動"); }
+        if action-id == "timeline.nudgeRight" { return @tr("1フレーム右へ移動"); }
+        if action-id == "timeline.addScene" { return @tr("新規シーン作成"); }
+        if action-id == "timeline.sceneSettings" { return @tr("現在のシーン設定"); }
+        if action-id == "timeline.removeScene" { return @tr("現在のシーンを削除"); }
+        if action-id == "timeline.layerLock" { return @tr("現在のレイヤーをロック/解除"); }
+        if action-id == "timeline.layerHide" { return @tr("現在のレイヤーを表示/非表示"); }
+        return action-id;
+    }
+
     VerticalLayout {
         padding: 12px;
         spacing: 10px;
-        ScrollView {
-            VerticalLayout {
+        HorizontalLayout {
+            spacing: 4px;
+            accessible-role: tab-list;
+            accessible-label: @tr("環境設定");
+            for tab-label[index] in [
+                @tr("一般"), @tr("性能"), @tr("タイムライン"), @tr("外観"),
+                @tr("新規プロジェクト"), @tr("書き出し"), @tr("デコードと音声"),
+                @tr("プラグイン"), @tr("ショートカット")
+            ] : Button {
+                text: tab-label;
+                primary: root.tab-index == index;
+                accessible-role: tab;
+                accessible-item-selected: root.tab-index == index;
+                accessible-label: tab-label;
+                horizontal-stretch: 1;
+                clicked => { root.tab-index = index; }
+            }
+        }
+
+        if root.tab-index == 0 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("一般");
+            viewport-width: self.visible-width;
+            viewport-height: general-page.preferred-height;
+            general-page := VerticalLayout {
                 spacing: 14px;
                 GroupBox {
-                    title: @tr("一般 / ファイル");
+                    title: @tr("ファイル");
                     VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        CheckBox {
-                            text: @tr("終了時に未保存のプロジェクトを確認する");
-                            checked <=> root.confirm-unsaved;
+                        CheckBox { text: @tr("終了時に未保存のプロジェクトを確認する"); checked <=> root.confirm-unsaved; }
+                        CheckBox { text: @tr("自動バックアップを有効にする"); checked <=> root.auto-backup; }
+                        SystemSettingSpinRow {
+                            label: @tr("バックアップ間隔");
+                            value <=> root.backup-interval;
+                            minimum: 1;
+                            maximum: 60;
+                            interactive: root.auto-backup;
                         }
-                        CheckBox {
-                            text: @tr("自動バックアップを有効にする");
-                            checked <=> root.auto-backup;
-                        }
-                        HorizontalLayout {
-                            opacity: root.auto-backup ? 1 : 0.5;
-                            Text { text: @tr("バックアップ間隔"); vertical-alignment: center; }
-                            SpinBox {
-                                value <=> root.backup-interval;
-                                minimum: 1;
-                                maximum: 60;
-                                enabled: root.auto-backup;
-                            }
-                            Text { text: @tr("分"); vertical-alignment: center; }
-                            Rectangle { horizontal-stretch: 1; }
-                        }
-                        HorizontalLayout {
-                            Text { text: @tr("元に戻す回数"); vertical-alignment: center; }
-                            SpinBox { value <=> root.undo-count; minimum: 1; maximum: 1000; }
-                            Rectangle { horizontal-stretch: 1; }
+                        SystemSettingSpinRow {
+                            label: @tr("最近使ったプロジェクトの保持数");
+                            value <=> root.recent-project-max-count;
+                            minimum: 1;
+                            maximum: 50;
                         }
                     }
                 }
                 GroupBox {
-                    title: @tr("新規プロジェクト");
-                    GridLayout {
+                    title: @tr("編集");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        SystemSettingSpinRow { label: @tr("元に戻す回数"); value <=> root.undo-count; minimum: 1; maximum: 1000; }
+                        Text { text: @tr("回数を増やすとメモリ使用量が増えます"); color: AppTheme.muted-foreground; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("起動");
+                    VerticalLayout {
+                        padding: 10px;
+                        SystemSettingSpinRow { label: @tr("スプラッシュ画像サイズ"); value <=> root.splash-size; minimum: 128; maximum: 2048; step-size: 64; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 1 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("性能");
+            viewport-width: self.visible-width;
+            viewport-height: performance-page.preferred-height;
+            performance-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("メモリとキャッシュ");
+                    VerticalLayout {
                         padding: 10px;
                         spacing: 9px;
-                        Row {
-                            Text { text: @tr("幅:"); vertical-alignment: center; }
-                            SpinBox { value <=> root.default-project-width; minimum: 1; maximum: 16000; }
-                        }
-                        Row {
-                            Text { text: @tr("高さ:"); vertical-alignment: center; }
-                            SpinBox { value <=> root.default-project-height; minimum: 1; maximum: 16000; }
-                        }
-                        Row {
-                            Text { text: "FPS:"; vertical-alignment: center; }
-                            LineEdit { text <=> root.default-project-fps; }
-                        }
-                        Row {
-                            Text { text: @tr("総フレーム数:"); vertical-alignment: center; }
-                            SpinBox { value <=> root.default-project-frames; minimum: 1; maximum: 1000000; step-size: 100; }
-                        }
-                        Row {
-                            Text { text: @tr("サンプリングレート:"); vertical-alignment: center; }
-                            SpinBox { value <=> root.default-project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+                        SystemSettingSpinRow { label: @tr("最大画像サイズ"); value <=> root.max-image-size; minimum: 1024; maximum: 16384; step-size: 512; }
+                        SystemSettingSpinRow { label: @tr("キャッシュ容量"); value <=> root.cache-size; minimum: 64; maximum: 8192; step-size: 64; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Preview rendering");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("Render scale"); choices: ["100%", "75%", "50%", "25%"]; current-index <=> root.preview-render-scale-index; }
+                        SystemSettingComboRow { label: @tr("Preview antialiasing"); choices: [@tr("Disabled"), "2x MSAA", "4x MSAA", "8x MSAA"]; current-index <=> root.preview-msaa-index; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Timeline baking");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("Strategy"); choices: [@tr("On demand"), @tr("Bake all clips")]; current-index <=> root.bake-strategy-index; }
+                        SystemSettingSpinRow {
+                            label: @tr("Prefetch frames");
+                            value <=> root.on-demand-prefetch-frames;
+                            minimum: 0;
+                            maximum: 600;
+                            step-size: 10;
+                            interactive: root.bake-strategy-index == 0;
                         }
                     }
                 }
-                Rectangle { vertical-stretch: 1; }
             }
         }
+
+        if root.tab-index == 2 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("タイムライン");
+            viewport-width: self.visible-width;
+            viewport-height: timeline-settings-page.preferred-height;
+            timeline-settings-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("操作");
+                    VerticalLayout {
+                        padding: 10px;
+                        CheckBox { text: @tr("タイムラインスキミングを有効にする"); checked <=> root.enable-timeline-skimming; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("見た目と寸法");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("トラックの高さ"); value <=> root.timeline-track-height; minimum: 16; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("ヘッダーの高さ"); value <=> root.timeline-header-height; minimum: 16; maximum: 100; }
+                        CheckBox { text: @tr("設定サイドバーを右に配置"); checked <=> root.setting-dialog-sidebar-right; }
+                        SystemSettingSpinRow { label: @tr("ルーラーの高さ"); value <=> root.timeline-ruler-height; minimum: 16; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("最大レイヤー数"); value <=> root.timeline-max-layers; minimum: 1; maximum: 512; }
+                        SystemSettingSpinRow { label: @tr("レイヤーヘッダー幅"); value <=> root.timeline-layer-header-width; minimum: 40; maximum: 300; }
+                        SystemSettingSpinRow { label: @tr("クリップ端のつかみ幅"); value <=> root.timeline-clip-resize-handle-width; minimum: 4; maximum: 40; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("編集制約とズーム");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("最小クリップ長"); value <=> root.min-clip-duration-frames; minimum: 1; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("ズーム最小値"); value <=> root.timeline-zoom-min; minimum: 1; maximum: 1000; }
+                        SystemSettingSpinRow { label: @tr("ズーム最大値"); value <=> root.timeline-zoom-max; minimum: 1; maximum: 4000; }
+                        SystemSettingSpinRow { label: @tr("ズーム刻み"); value <=> root.timeline-zoom-step; minimum: 1; maximum: 100; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 3 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("外観");
+            viewport-width: self.visible-width;
+            viewport-height: appearance-page.preferred-height;
+            appearance-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("テーマ");
+                    VerticalLayout {
+                        padding: 10px;
+                        SystemSettingComboRow { label: @tr("カラーテーマ"); choices: [@tr("ダーク"), @tr("ライト"), @tr("システムに従う")]; current-index <=> root.theme-index; }
+                    }
+                }
+                Text { text: @tr("テーマの変更は「適用」または「OK」を押すとすぐに反映されます"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+            }
+        }
+
+        if root.tab-index == 4 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("新規プロジェクト");
+            viewport-width: self.visible-width;
+            viewport-height: project-defaults-page.preferred-height;
+            project-defaults-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("既定値");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("幅"); value <=> root.default-project-width; minimum: 1; maximum: 16000; }
+                        SystemSettingSpinRow { label: @tr("高さ"); value <=> root.default-project-height; minimum: 1; maximum: 16000; }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            Text { text: @tr("フレームレート"); width: 260px; vertical-alignment: center; }
+                            LineEdit { text <=> root.default-project-fps; accessible-label: @tr("フレームレート"); horizontal-stretch: 1; }
+                        }
+                        SystemSettingSpinRow { label: @tr("総フレーム数"); value <=> root.default-project-frames; minimum: 1; maximum: 1000000; }
+                        SystemSettingSpinRow { label: @tr("サンプリング周波数"); value <=> root.default-project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+                        SystemSettingSpinRow { label: @tr("既定クリップ長"); value <=> root.default-clip-duration; minimum: 1; maximum: 100000; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 5 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("書き出し");
+            viewport-width: self.visible-width;
+            viewport-height: export-settings-page.preferred-height;
+            export-settings-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("映像");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("既定の映像コーデック"); choices: [@tr("H.264 (VAAPI)"), @tr("HEVC (VAAPI)"), @tr("H.264 (CPU)")]; current-index <=> root.export-video-codec-index; }
+                        SystemSettingSpinRow { label: @tr("既定ビットレート"); value <=> root.export-default-bitrate-mbps; minimum: 1; maximum: 500; }
+                        SystemSettingSpinRow { label: @tr("既定CRF"); value <=> root.export-default-crf; minimum: 0; maximum: 51; }
+                        SystemSettingSpinRow { label: @tr("静止画品質"); value <=> root.export-image-quality; minimum: 0; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("連番桁数"); value <=> root.export-sequence-padding; minimum: 2; maximum: 10; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("音声と進行表示");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("既定の音声コーデック"); choices: ["AAC", "Opus", "FLAC", "PCM 16bit"]; current-index <=> root.export-audio-codec-index; }
+                        SystemSettingSpinRow { label: @tr("音声ビットレート"); value <=> root.export-default-audio-bitrate-kbps; minimum: 32; maximum: 1536; step-size: 32; }
+                        SystemSettingSpinRow { label: @tr("フレーム取得待ち時間"); value <=> root.export-frame-grab-timeout-ms; minimum: 100; maximum: 10000; step-size: 100; }
+                        SystemSettingSpinRow { label: @tr("進捗更新間隔"); value <=> root.export-progress-interval; minimum: 1; maximum: 60; }
+                        SystemSettingSpinRow { label: @tr("Encoder queue memory (MB)"); value <=> root.export-encoder-queue-mb; minimum: 16; maximum: 1024; step-size: 16; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 6 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("デコードと音声");
+            viewport-width: self.visible-width;
+            viewport-height: decode-audio-page.preferred-height;
+            decode-audio-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("映像デコード");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("インデックス予約数"); value <=> root.video-decoder-index-reserve; minimum: 1000; maximum: 1000000; step-size: 1000; }
+                        SystemSettingSpinRow { label: @tr("最小キャッシュ量"); value <=> root.video-decoder-min-cache-mb; minimum: 16; maximum: 4096; step-size: 16; }
+                        SystemSettingSpinRow { label: @tr("ハードウェアフレームプール数"); value <=> root.hw-frame-pool-size; minimum: 1; maximum: 256; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("音声");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("プラグイン最大ブロックサイズ"); choices: ["256", "512", "1024", "2048", "4096", "8192"]; current-index <=> root.audio-plugin-block-size-index; }
+                        SystemSettingSpinRow { label: @tr("Lua フック間隔"); value <=> root.lua-hook-interval-ms; minimum: 1; maximum: 1000; }
+                    }
+                }
+                Text { text: @tr("デコードと音声関連の設定は再起動後に反映されます"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+            }
+        }
+
+        if root.tab-index == 7 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("プラグイン");
+            viewport-width: self.visible-width;
+            viewport-height: plugin-page.preferred-height;
+            plugin-page := VerticalLayout {
+                spacing: 14px;
+                Text { text: @tr("各形式ごとに有効化と検索パスを設定できます"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                GroupBox {
+                    title: @tr("Lua プラグイン");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        CheckBox { text: @tr("ホットリロードを有効にする"); checked <=> root.lua-hot-reload; }
+                        Text { text: @tr("有効にすると、plugins フォルダの変更を検知してプラグインを自動的に再読み込みします"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                    }
+                }
+                for plugin[index] in root.plugin-settings : GroupBox {
+                    title: plugin.format-name;
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 7px;
+                        CheckBox {
+                            text: @tr("{} を読み込む", plugin.format-name);
+                            checked: plugin.enabled;
+                            toggled => { root.plugin-enabled-changed(index, self.checked); }
+                        }
+                        Text { text: @tr("検索パス"); color: AppTheme.muted-foreground; }
+                        CommitTextEdit {
+                            source-text: plugin.paths;
+                            preferred-height: 90px;
+                            accessible-label: plugin.format-name + ": " + @tr("検索パス");
+                            commit(value) => { root.plugin-paths-changed(index, value); }
+                        }
+                        Text { text: @tr("1行に1パスを入力します"); color: AppTheme.muted-foreground; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 8 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("ショートカット");
+            viewport-width: self.visible-width;
+            viewport-height: shortcut-page.preferred-height;
+            shortcut-page := VerticalLayout {
+                spacing: 10px;
+                Text { text: @tr("キーボードショートカット"); font-size: 1.2rem; font-weight: 700; }
+                Text { text: @tr("「Ctrl+S」や「Alt+Shift+N」の形式で入力してください"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                for shortcut[index] in root.shortcut-settings : SystemSettingLineRow {
+                    label: root.shortcut-name(shortcut.action-id);
+                    value: shortcut.value;
+                    placeholder: @tr("未設定");
+                    commit(value) => { root.shortcut-value-changed(index, value); }
+                }
+            }
+        }
+
         Rectangle {
             height: 52px;
             border-width: 1px;
-            border-color: #555b68;
+            border-color: AppTheme.border;
             HorizontalLayout {
                 padding: 8px;
                 spacing: 8px;
@@ -3394,6 +4275,7 @@ export component ObjectSettingsWindow inherits Window {
     in property <bool> has-selection: false;
     in property <string> clip-title: "";
     in property <bool> audio-plugin-mode: false;
+    in property <bool> sidebar-on-right: false;
     in property <string> plugin-scan-status: "Audio plugins · scanning…";
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
@@ -3474,26 +4356,29 @@ export component ObjectSettingsWindow inherits Window {
         alignment: center;
         Text {
             text: @tr("タイムラインでオブジェクトを選択してください");
-            color: #aeb3bc;
+            color: AppTheme.muted-foreground;
             horizontal-alignment: center;
         }
     }
 
-    if root.has-selection : HorizontalLayout {
-        spacing: 0px;
-        Rectangle {
+    if root.has-selection : Rectangle {
+        sidebar := Rectangle {
+            x: root.sidebar-on-right ? parent.width - 250px : 0px;
             width: 250px;
-            background: #262a32;
+            height: 100%;
+            background: AppTheme.panel-background;
             VerticalLayout {
                 padding: 8px;
                 spacing: 6px;
-                Text { text: root.clip-title; font-weight: 700; color: #f2f3f5; overflow: elide; }
+                Text { text: root.clip-title; font-weight: 700; color: AppTheme.foreground; overflow: elide; }
                 Text {
                     text: root.audio-plugin-mode ? @tr("オーディオプラグイン") : @tr("オブジェクト / エフェクト");
-                    color: #aeb3bc;
+                    color: AppTheme.muted-foreground;
                 }
                 ScrollView {
                     vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: root.audio-plugin-mode ? @tr("オーディオプラグイン") : @tr("オブジェクト / エフェクト");
                     VerticalLayout {
                         spacing: 2px;
                         for effect in root.effects : EffectSidebarEntry {
@@ -3519,7 +4404,7 @@ export component ObjectSettingsWindow inherits Window {
                             text: root.audio-plugin-mode
                                 ? @tr("オーディオプラグインはありません")
                                 : @tr("設定項目がありません");
-                            color: #9ea4ae;
+                            color: AppTheme.muted-foreground;
                             wrap: word-wrap;
                         }
                     }
@@ -3536,8 +4421,10 @@ export component ObjectSettingsWindow inherits Window {
                 }
             }
         }
-        ScrollView {
-            horizontal-stretch: 1;
+        settings-content := ScrollView {
+            x: root.sidebar-on-right ? 0px : 250px;
+            width: parent.width - 250px;
+            height: 100%;
             VerticalLayout {
                 padding: 10px;
                 spacing: 4px;
@@ -3620,9 +4507,9 @@ export component ObjectSettingsWindow inherits Window {
             height: min(parent.height - 48px, 520px);
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b3038;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #646b78;
+            border-color: AppTheme.border;
             border-radius: 4px;
             VerticalLayout {
                 padding: 12px;
@@ -3643,13 +4530,15 @@ export component ObjectSettingsWindow inherits Window {
                 }
                 ScrollView {
                     vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: root.audio-plugin-mode ? @tr("オーディオプラグイン") : @tr("エフェクト");
                     VerticalLayout {
                         spacing: 4px;
                         for item in root.effect-catalog-items : Rectangle {
                             height: item.header ? 28px : 34px;
                             if item.header : Text {
                                 text: item.name;
-                                color: #b9c9df;
+                                color: AppTheme.muted-foreground;
                                 font-weight: 700;
                                 vertical-alignment: center;
                             }
@@ -3668,7 +4557,7 @@ export component ObjectSettingsWindow inherits Window {
                             text: root.audio-plugin-mode
                                 ? root.plugin-scan-status
                                 : @tr("一致するエフェクトがありません");
-                            color: #aeb3bc;
+                            color: AppTheme.muted-foreground;
                         }
                     }
                 }
@@ -3689,15 +4578,15 @@ export component ObjectSettingsWindow inherits Window {
             height: 190px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b3038;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #646b78;
+            border-color: AppTheme.border;
             border-radius: 4px;
             VerticalLayout {
                 padding: 14px;
                 spacing: 10px;
                 Text { text: @tr("プリセットを保存"); font-size: 1.15rem; font-weight: 700; }
-                Text { text: root.preset-effect-name; color: #aeb3bc; overflow: elide; }
+                Text { text: root.preset-effect-name; color: AppTheme.muted-foreground; overflow: elide; }
                 LineEdit {
                     text <=> root.preset-name;
                     placeholder-text: @tr("プリセット名を入力...");
@@ -3733,9 +4622,9 @@ export component ObjectSettingsWindow inherits Window {
             height: min(parent.height - 48px, 430px);
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b3038;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #646b78;
+            border-color: AppTheme.border;
             border-radius: 4px;
             VerticalLayout {
                 padding: 14px;
@@ -3750,7 +4639,7 @@ export component ObjectSettingsWindow inherits Window {
                         root.picker-alpha / 255
                     );
                     border-width: 1px;
-                    border-color: #737b89;
+                    border-color: AppTheme.border;
                     border-radius: 4px;
                 }
                 HorizontalLayout {
@@ -3834,9 +4723,9 @@ export component ObjectSettingsWindow inherits Window {
             height: min(parent.height - 48px, 540px);
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: #2b3038;
+            background: AppTheme.raised-background;
             border-width: 1px;
-            border-color: #646b78;
+            border-color: AppTheme.border;
             border-radius: 4px;
             VerticalLayout {
                 padding: 14px;
@@ -3847,7 +4736,7 @@ export component ObjectSettingsWindow inherits Window {
                         ? @tr("現在: デフォルト")
                         : @tr("現在: ") + root.current-font-family;
                     font-family: root.current-font-family;
-                    color: #aeb3bc;
+                    color: AppTheme.muted-foreground;
                     overflow: elide;
                 }
                 LineEdit {
@@ -3871,6 +4760,8 @@ export component ObjectSettingsWindow inherits Window {
                 }
                 ScrollView {
                     vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: @tr("フォントを選択");
                     VerticalLayout {
                         spacing: 4px;
                         for family in root.font-families : HorizontalLayout {
@@ -3901,7 +4792,7 @@ export component ObjectSettingsWindow inherits Window {
                         }
                         if root.font-families.length == 0 : Text {
                             text: @tr("一致するフォントがありません");
-                            color: #aeb3bc;
+                            color: AppTheme.muted-foreground;
                         }
                     }
                 }
@@ -4052,9 +4943,9 @@ export component EasingConfigWindow inherits Window {
         preview-area := Rectangle {
             height: 230px;
             horizontal-stretch: 1;
-            background: #20242b;
+            background: AppTheme.window-background;
             border-width: 1px;
-            border-color: #535965;
+            border-color: AppTheme.border;
             border-radius: 4px;
             clip: true;
 
@@ -4067,7 +4958,7 @@ export component EasingConfigWindow inherits Window {
                 viewbox-height: 1 / root.preview-scale;
                 fit: fill;
                 commands: "M 0 0 L 0 1 M 0.25 0 L 0.25 1 M 0.5 0 L 0.5 1 M 0.75 0 L 0.75 1 M 1 0 L 1 1 M 0 0 L 1 0 M 0 0.25 L 1 0.25 M 0 0.5 L 1 0.5 M 0 0.75 L 1 0.75 M 0 1 L 1 1";
-                stroke: #3d434e;
+                stroke: AppTheme.border;
                 stroke-width: 1px;
                 clip: true;
             }
@@ -4080,7 +4971,7 @@ export component EasingConfigWindow inherits Window {
                 viewbox-height: 1 / root.preview-scale;
                 fit: fill;
                 commands: "M 0 1 L 1 0";
-                stroke: #69717f;
+                stroke: AppTheme.border;
                 stroke-width: 1px;
                 clip: true;
             }
@@ -4093,7 +4984,7 @@ export component EasingConfigWindow inherits Window {
                 viewbox-height: 1 / root.preview-scale;
                 fit: fill;
                 commands: root.tangent-path;
-                stroke: #858d9b;
+                stroke: AppTheme.muted-foreground;
                 stroke-width: 1px;
                 clip: true;
             }
@@ -4106,7 +4997,7 @@ export component EasingConfigWindow inherits Window {
                 viewbox-height: 1 / root.preview-scale;
                 fit: fill;
                 commands: root.preview-path;
-                stroke: #70a6ef;
+                stroke: AppTheme.accent;
                 stroke-width: 2px;
                 clip: true;
             }
@@ -4116,10 +5007,10 @@ export component EasingConfigWindow inherits Window {
                 x: root.preview-pixel-x(handle.x) - self.width / 2;
                 y: root.preview-pixel-y(handle.y) - self.height / 2;
                 visible: root.custom-mode && (!handle.anchor || handle.removable);
-                background: handle.anchor ? #70a6ef : #e5e8ed;
+                background: handle.anchor ? AppTheme.accent : AppTheme.foreground;
                 border-radius: self.width / 2;
                 border-width: handle.removable ? 2px : 1px;
-                border-color: handle.removable ? #e0ad5d : #171a20;
+                border-color: handle.removable ? #e0ad5d : AppTheme.border;
             }
             preview-input := TouchArea {
                 mouse-cursor: root.pan-active || root.drag-point-index >= 0 ? move : pointer;
@@ -4211,7 +5102,7 @@ export component EasingConfigWindow inherits Window {
                     ? @tr("右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除")
                     : @tr("右ドラッグ:パン  ホイール:ズーム");
                 font-size: 9px;
-                color: #aeb3bc;
+                color: AppTheme.muted-foreground;
             }
         }
         if root.step-mode : GroupBox {
@@ -4296,7 +5187,7 @@ export component EasingConfigWindow inherits Window {
         Rectangle { vertical-stretch: 1; }
         Text {
             text: @tr("選択内容は対象キーフレームへ即時反映されます");
-            color: #aeb3bc;
+            color: AppTheme.muted-foreground;
         }
         HorizontalLayout {
             Rectangle { horizontal-stretch: 1; }
@@ -4305,9 +5196,9 @@ export component EasingConfigWindow inherits Window {
         }
         Rectangle {
             width: 280px;
-            background: #262a32;
+            background: AppTheme.panel-background;
             border-width: 1px;
-            border-color: #4b515d;
+            border-color: AppTheme.border;
             border-radius: 4px;
             VerticalLayout {
                 padding: 8px;
@@ -4324,7 +5215,7 @@ export component EasingConfigWindow inherits Window {
                             && root.selected-easing-index < root.easing-labels.length
                             ? root.easing-labels[root.selected-easing-index]
                             : "";
-                        color: #aeb3bc;
+                        color: AppTheme.muted-foreground;
                         overflow: elide;
                         horizontal-alignment: right;
                         vertical-alignment: center;
@@ -4337,6 +5228,8 @@ export component EasingConfigWindow inherits Window {
                 }
                 ScrollView {
                     vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: @tr("補間");
                     VerticalLayout {
                         spacing: 3px;
                         for item in root.easing-catalog-rows : Rectangle {
@@ -4344,14 +5237,14 @@ export component EasingConfigWindow inherits Window {
                             background: item.header
                                 ? transparent
                                 : item.easing-index == root.selected-easing-index
-                                    ? #385d8c
-                                    : catalog-touch.has-hover ? #353b45 : #2b3038;
+                                    ? AppTheme.selection-background
+                                    : catalog-touch.has-hover ? AppTheme.hover-background : AppTheme.raised-background;
                             border-width: item.header ? 0px : item.easing-index == root.selected-easing-index ? 2px : 1px;
-                            border-color: item.easing-index == root.selected-easing-index ? #70a6ef : #4b515d;
+                            border-color: item.easing-index == root.selected-easing-index ? AppTheme.accent : AppTheme.border;
                             border-radius: item.header ? 0px : 4px;
                             if item.header : Text {
                                 text: item.label;
-                                color: #aeb3bc;
+                                color: AppTheme.muted-foreground;
                                 font-size: 0.9rem;
                                 font-weight: 700;
                                 vertical-alignment: bottom;
@@ -4361,9 +5254,9 @@ export component EasingConfigWindow inherits Window {
                                 spacing: 8px;
                                 Rectangle {
                                     width: 72px;
-                                    background: item.easing-index == root.selected-easing-index ? #223b5a : #20242b;
+                                    background: item.easing-index == root.selected-easing-index ? AppTheme.selection-background : AppTheme.window-background;
                                     border-width: 1px;
-                                    border-color: #535965;
+                                    border-color: AppTheme.border;
                                     Path {
                                         x: 4px;
                                         y: 4px;
@@ -4375,7 +5268,7 @@ export component EasingConfigWindow inherits Window {
                                         viewbox-height: 1.6;
                                         fit: fill;
                                         commands: item.preview-path;
-                                        stroke: item.easing-index == root.selected-easing-index ? #e8f1ff : #70a6ef;
+                                        stroke: item.easing-index == root.selected-easing-index ? AppTheme.foreground : AppTheme.accent;
                                         stroke-width: 1.5px;
                                         clip: true;
                                     }
@@ -4384,13 +5277,13 @@ export component EasingConfigWindow inherits Window {
                                     alignment: center;
                                     Text {
                                         text: item.label;
-                                        color: #f2f3f5;
+                                        color: AppTheme.foreground;
                                         overflow: elide;
                                         vertical-alignment: center;
                                     }
                                     Text {
                                         text: item.name;
-                                        color: #9299a5;
+                                        color: AppTheme.muted-foreground;
                                         font-size: 0.8rem;
                                         overflow: elide;
                                         vertical-alignment: center;
@@ -4415,7 +5308,7 @@ export component EasingConfigWindow inherits Window {
                         }
                         if root.easing-catalog-rows.length == 0 : Text {
                             text: @tr("一致する補間方法がありません");
-                            color: #aeb3bc;
+                            color: AppTheme.muted-foreground;
                             wrap: word-wrap;
                         }
                     }
@@ -4434,9 +5327,9 @@ component PackageListRow inherits Rectangle {
     callback permissions(string, string);
 
     height: max(content.preferred-height + 20px, 86px);
-    background: #252a32;
+    background: AppTheme.panel-background;
     border-width: 1px;
-    border-color: #454b56;
+    border-color: AppTheme.border;
     border-radius: 5px;
     content := VerticalLayout {
         padding: 10px;
@@ -4447,7 +5340,7 @@ component PackageListRow inherits Rectangle {
                 text: root.package-data.display-name == ""
                     ? root.package-data.id
                     : root.package-data.display-name;
-                color: #f2f3f5;
+                color: AppTheme.foreground;
                 font-size: 14px;
                 font-weight: 700;
                 overflow: elide;
@@ -4457,14 +5350,14 @@ component PackageListRow inherits Rectangle {
                 text: root.package-data.version == ""
                     ? root.package-data.latest-version
                     : root.package-data.version;
-                color: #9da4af;
+                color: AppTheme.muted-foreground;
                 font-size: 10px;
                 vertical-alignment: center;
             }
         }
         if root.package-data.description != "" : Text {
             text: root.package-data.description;
-            color: #d1d5dc;
+            color: AppTheme.muted-foreground;
             font-size: 12px;
             wrap: word-wrap;
         }
@@ -4472,7 +5365,7 @@ component PackageListRow inherits Rectangle {
             spacing: 8px;
             Text {
                 text: root.package-data.author == "" ? "" : "Author: " + root.package-data.author;
-                color: #9da4af;
+                color: AppTheme.muted-foreground;
                 font-size: 11px;
                 visible: root.package-data.author != "";
                 horizontal-stretch: 1;
@@ -4482,7 +5375,7 @@ component PackageListRow inherits Rectangle {
                 text: root.package-data.has-update
                     ? @tr("アップデートあり: ") + root.package-data.latest-version
                     : @tr("インストール済み: ") + root.package-data.installed-version;
-                color: root.package-data.has-update ? #70a6ef : #aeb3bc;
+                color: root.package-data.has-update ? AppTheme.accent : AppTheme.muted-foreground;
                 font-size: 11px;
                 visible: root.package-data.installed-version != "";
                 vertical-alignment: center;
@@ -4520,7 +5413,7 @@ export component PackageManagerWindow inherits Window {
     preferred-height: 450px;
     min-width: 650px;
     min-height: 450px;
-    background: #181a20;
+    background: AppTheme.window-background;
 
     in-out property <int> tab-index: 0;
     in-out property <string> search-query;
@@ -4593,7 +5486,7 @@ export component PackageManagerWindow inherits Window {
                 }
                 if root.packages.length == 0 && !root.busy : Text {
                     text: @tr("このカテゴリにパッケージがありません。");
-                    color: #9da4af;
+                    color: AppTheme.muted-foreground;
                     horizontal-alignment: center;
                 }
             }
@@ -4628,9 +5521,9 @@ export component PackageManagerWindow inherits Window {
                         spacing: 5px;
                         for repository in root.repositories : Rectangle {
                             height: 48px;
-                            background: #252a32;
+                            background: AppTheme.panel-background;
                             border-width: 1px;
-                            border-color: #454b56;
+                            border-color: AppTheme.border;
                             border-radius: 4px;
                             HorizontalLayout {
                                 padding: 6px;
@@ -4640,14 +5533,14 @@ export component PackageManagerWindow inherits Window {
                                     horizontal-stretch: 1;
                                     Text {
                                         text: repository.name == "" ? repository.url : repository.name;
-                                        color: #f2f3f5;
+                                        color: AppTheme.foreground;
                                         font-size: 13px;
                                         font-weight: 700;
                                         overflow: elide;
                                     }
                                     Text {
                                         text: repository.url;
-                                        color: #9da4af;
+                                        color: AppTheme.muted-foreground;
                                         font-size: 11px;
                                         overflow: elide;
                                     }
@@ -4692,7 +5585,7 @@ export component PackageManagerWindow inherits Window {
         }
         Text {
             text: root.status-text;
-            color: #aeb3bc;
+            color: AppTheme.muted-foreground;
             font-size: 11px;
             overflow: elide;
         }
@@ -4707,15 +5600,15 @@ export component PackageManagerWindow inherits Window {
                 Rectangle {
                     width: min(460px, root.width - 40px);
                     height: error-content.preferred-height + 28px;
-                    background: #2a2e36;
+                    background: AppTheme.panel-background;
                     border-width: 1px;
                     border-color: #c55b5b;
                     border-radius: 6px;
                     error-content := VerticalLayout {
                         padding: 14px;
                         spacing: 12px;
-                        Text { text: @tr("パッケージマネージャーエラー"); color: #f2f3f5; font-weight: 700; }
-                        Text { text: root.error-message; color: #e3e5e8; wrap: word-wrap; }
+                        Text { text: @tr("パッケージマネージャーエラー"); color: AppTheme.foreground; font-weight: 700; }
+                        Text { text: root.error-message; color: AppTheme.muted-foreground; wrap: word-wrap; }
                         HorizontalLayout {
                             alignment: end;
                             Button { text: "OK"; primary: true; clicked => { root.dismiss-error(); } }
@@ -4735,15 +5628,15 @@ export component PackageManagerWindow inherits Window {
                 Rectangle {
                     width: min(480px, root.width - 40px);
                     height: update-content.preferred-height + 28px;
-                    background: #2a2e36;
+                    background: AppTheme.panel-background;
                     border-width: 1px;
-                    border-color: #70a6ef;
+                    border-color: AppTheme.accent;
                     border-radius: 6px;
                     update-content := VerticalLayout {
                         padding: 14px;
                         spacing: 12px;
-                        Text { text: @tr("AviQtl Plus アップデート"); color: #f2f3f5; font-weight: 700; }
-                        Text { text: root.update-message; color: #e3e5e8; wrap: word-wrap; }
+                        Text { text: @tr("AviQtl Plus アップデート"); color: AppTheme.foreground; font-weight: 700; }
+                        Text { text: root.update-message; color: AppTheme.muted-foreground; wrap: word-wrap; }
                         HorizontalLayout {
                             alignment: end;
                             Button { text: "OK"; primary: true; clicked => { root.dismiss-update(); } }
@@ -4761,7 +5654,7 @@ export component PluginPermissionWindow inherits Window {
     preferred-height: 600px;
     min-width: 420px;
     min-height: 420px;
-    background: #181a20;
+    background: AppTheme.window-background;
 
     in property <string> plugin-id;
     in property <string> plugin-name;
@@ -4777,7 +5670,7 @@ export component PluginPermissionWindow inherits Window {
         spacing: 12px;
         Text {
             text: @tr("このプラグインに許可する権限を選択してください:");
-            color: #f2f3f5;
+            color: AppTheme.foreground;
             wrap: word-wrap;
         }
         ScrollView {
@@ -4786,9 +5679,9 @@ export component PluginPermissionWindow inherits Window {
                 spacing: 4px;
                 for permission[index] in root.permissions : Rectangle {
                     height: 60px;
-                    background: permission-touch.has-hover ? #303640 : #252a32;
+                    background: permission-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
                     border-width: 1px;
-                    border-color: #454b56;
+                    border-color: AppTheme.border;
                     border-radius: 4px;
                     permission-touch := TouchArea {
                         enabled: true;
@@ -4818,13 +5711,13 @@ export component PluginPermissionWindow inherits Window {
                             spacing: 2px;
                             Text {
                                 text: permission.title == "" ? permission.name : permission.title;
-                                color: #f2f3f5;
+                                color: AppTheme.foreground;
                                 font-weight: 700;
                                 overflow: elide;
                             }
                             Text {
                                 text: permission.description == "" ? permission.name : permission.description;
-                                color: #9da4af;
+                                color: AppTheme.muted-foreground;
                                 font-size: 11px;
                                 overflow: elide;
                             }
@@ -4852,7 +5745,7 @@ export component AboutWindow inherits Window {
     max-width: 420px;
     min-height: 260px;
     max-height: 260px;
-    background: #181a20;
+    background: AppTheme.window-background;
 
     in property <string> version;
     in property <string> codename: "Rolling Release";
@@ -4874,23 +5767,23 @@ export component AboutWindow inherits Window {
                 spacing: 4px;
                 Text {
                     text: "AviQtl Plus " + root.version;
-                    color: #f2f3f5;
+                    color: AppTheme.foreground;
                     font-size: 28px;
                     font-weight: 700;
                     overflow: elide;
                 }
                 Text {
                     text: root.codename;
-                    color: #70a6ef;
+                    color: AppTheme.accent;
                     font-size: 14px;
                     font-weight: 700;
                 }
             }
         }
-        Rectangle { height: 1px; background: #565b66; }
+        Rectangle { height: 1px; background: AppTheme.border; }
         Text {
             text: @tr("AviQtl Plus は AviUtl ではありません。\n\nこのソフトウェアは GNU Affero General Public License Version 3 に基づいて公開されています。");
-            color: #d8dbe1;
+            color: AppTheme.muted-foreground;
             font-size: 13px;
             wrap: word-wrap;
         }
@@ -4898,14 +5791,14 @@ export component AboutWindow inherits Window {
             height: 24px;
             link-text := Text {
                 text: "https://codeberg.org/taisho-guy/AviQtl";
-                color: #70a6ef;
+                color: AppTheme.accent;
                 font-size: 13px;
                 vertical-alignment: center;
             }
             link-touch := TouchArea {
                 mouse-cursor: pointer;
                 accessible-role: button;
-                accessible-label: "AviQtl Plus project page";
+                accessible-label: @tr("AviQtl Plus プロジェクトページ");
                 accessible-description: link-text.text;
                 accessible-action-default => { root.open-project-page(); }
                 clicked => { root.open-project-page(); }

@@ -159,7 +159,7 @@ fn public_api_plans_snapped_collision_safe_timeline_interactions() {
         Ok(10)
     );
     assert_eq!(
-        find_vacant_scene_frame(&document, 1, &[], 128, 10, 10),
+        find_vacant_scene_frame(&document, 1, &[], 512, 10, 10),
         Err(TimelineError::InvalidArgument)
     );
     let moved = plan_clip_delta_move(&document, 1, &[4], 0, 10).expect("move plans");

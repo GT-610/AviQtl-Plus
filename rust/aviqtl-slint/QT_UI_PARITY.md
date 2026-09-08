@@ -54,7 +54,7 @@ still require the separately scheduled Computer Use suite.
 | Recovery | Launcher-owned non-modal recovery, recover/discard rules, empty close | foundation |
 | Package Manager | Repository sync, search, lifecycle, permissions, rollback, and update notices | foundation |
 | Preview and export rendering | Every Qt built-in object/effect produces the same functional output | partial |
-| Accessibility | Equivalent names, roles, descriptions, focus, and VoiceOver reachability | missing |
+| Accessibility | Equivalent names, roles, descriptions, focus, and VoiceOver reachability | foundation |
 
 ## Current verified Slint foundation
 
@@ -85,6 +85,13 @@ still require the separately scheduled Computer Use suite.
   generated objects off the UI thread, preserves nested scenes, frame buffers, upper-object masks,
   cameras, blend/crop/transform data, and all renderer-backed visual effects, then composites into
   the Slint-imported wgpu texture.
+- Qt catalog inventory tests require every one of the 44 shipped effects and 17 shipped objects to
+  reach an explicit production preview route. Transform, clipping, and blend-layer routing are
+  asserted independently because they are consumed by geometry, crop, and compositor planning.
+- Preview render scale keeps logical scene coordinates and camera projection while reducing the
+  physical wgpu target. Preview MSAA uses real 2x/4x/8x multisample attachments and resolves both
+  fixed-function and complex blend paths, including nested scenes. Export remains full-resolution
+  and single-sampled, as Qt's preview-quality settings do not alter export output.
 - Preview invalidation follows a stable project-instance ID plus document revision, selected scene,
   and playhead. Timeline edits, project settings, Undo, and Redo advance the revision; Slint redraws
   only after a decoded frame batch is ready. Automated planning, decoding, and state invalidation
@@ -95,7 +102,7 @@ still require the separately scheduled Computer Use suite.
   progress and ETA. Worker tests cover request units, completion events, video and image-sequence
   cancellation, and removal of partial outputs. Native modality, chooser behavior, close interception,
   and a user-observed output comparison remain in the deferred GUI suite.
-- Real project, scene, 128-layer, clip, selection, and transport models reach Slint.
+- Real project, scene, configured 1-512-layer, clip, selection, and transport models reach Slint.
 - Main and timeline `FocusScope`s resolve all 34 configurable Qt shortcut actions from the live
   settings store. Editor shortcuts remain window-scoped and use the active timeline skimmer only
   when the timeline window receives the key. Static Slint menu accelerators were removed so they
@@ -134,6 +141,10 @@ still require the separately scheduled Computer Use suite.
 - Open replaces only a clean pathless placeholder; Save, Save As, tab close, and application quit
   share a tested framework-neutral lifecycle state machine. Dirty projects are visited in tab order,
   and save failure or chooser cancellation stops the deferred close action.
+- Missing project media is resolved against the project directory and exposed through the same
+  conditional File-menu action and non-modal manager as Qt. Replacement choosers are filtered by
+  media type, and the framework-neutral relink command validates the new file before committing a
+  dirty, revisioned, one-step Undo/Redo transaction.
 - Recovery snapshots use the same Rust metadata contract as Qt and are written by a GUI-neutral
   background worker. Every project owns an independent recovery ID; newer generations replace old
   snapshots, claimed entries disappear from the launcher-owned recovery window, and successful
@@ -146,10 +157,24 @@ still require the separately scheduled Computer Use suite.
   untouched on Cancel. Scene creation and editing preserve every Qt field, including duration,
   grid mode, BPM, offset, interval, subdivision, and magnetic snapping. A newly created scene keeps
   Qt's two-step Add Scene then Update Scene Settings undo order.
-- The first system-settings slice preserves the Qt draft workflow: opening or Reload copies the
+- System settings preserve Qt's nine pages and draft workflow: opening or Reload copies the
   persisted values, Apply saves without closing, OK saves and closes, and Close discards the draft.
-  Applying settings immediately updates quit confirmation, automatic recovery enablement and
-  interval, undo limits for existing and future projects, and launcher/new-scene defaults.
+  General, performance, timeline, appearance, new-project, export, decode/audio, plugin, and all 34
+  shortcut values keep the Qt keys and ranges. Plugin and shortcut rows use stable host-owned
+  models. Applying settings immediately updates quit confirmation, automatic recovery enablement
+  and interval, undo limits for existing and future projects, launcher/new-scene defaults, timeline
+  skimming, track/header/ruler and hit-area dimensions, the configured 1-512 layer limit, object-settings
+  sidebar placement, Dark/Light/System theme selection across every independent window, preview
+  render scale/MSAA, zoom bounds, and the live shortcut resolver; restart-scoped decoder/audio values
+  stay persisted. `bakeStrategy` and `onDemandPrefetchFrames` are retained as compatible persisted
+  keys, while the Rust typed render planner caches complete clip/effect metadata per document revision
+  and evaluates requested frames directly instead of reproducing Qt's separate per-frame bake cache.
+- The layer menu preserves Qt's complete command order for one-row and multi-row insertion, current
+  and explicit-range shifts in either direction, locking, per-layer visibility, and show/hide all.
+  Multi-row and range edits remain single Rust-owned undoable transactions.
+- Main, timeline, project, object, scene, system, easing, Package Manager, and About windows restore
+  and persist Qt-compatible `windowGeometry_*` keys using logical coordinates, logical dimensions,
+  and maximized state. A hidden window that was never opened does not overwrite its saved geometry.
 - The Slint frontend uses native `rfd` open/save dialogs. Its default Linux backend is the Rust
   XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
 - Timeline and clip mouse context menus use an accessible Slint `PopupWindow`, because Slint 1.17's
@@ -196,6 +221,11 @@ still require the separately scheduled Computer Use suite.
   pointer-feel verification remains deferred and therefore keeps this area at `foundation`.
 - Slint list models remain stable during pointer callbacks so delegates are not destroyed while a
   drag or context menu is active.
+- Custom project/scene tabs, layers, clips, keyframe tracks, effect rows, catalogs, the timeline
+  ruler, and system-settings tabs now expose explicit accessibility roles, names, selection/value
+  state, descriptions, and default/value actions. Standard widgets retain their native accessible
+  implementations, while form fields that previously relied on adjacent text now have explicit
+  labels. VoiceOver traversal and announcement order remain in the deferred native GUI suite.
 - Audio objects now switch the left sidebar to the Qt audio-plugin stack while keeping the built-in
   audio-object controls on the right. The framework-neutral catalog reuses the Rust CLAP/VST3 and
   Carla LADSPA/DSSI/LV2/VST2 discovery and inspection paths, preserves Qt category order and
