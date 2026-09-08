@@ -384,7 +384,9 @@ void TestDailyEditingWorkflow::imageDecoderOwnershipIsUnified() {
     QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
 
     controller.requestImageLoad(clipId, firstPath);
-    QCoreApplication::processEvents();
+    auto *firstDecoder = qobject_cast<ImageDecoder *>(controller.mediaManager()->decoderForClip(clipId));
+    QVERIFY(firstDecoder != nullptr);
+    QTRY_VERIFY(firstDecoder->isReady());
     QCOMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 1);
     QCOMPARE(qobject_cast<ImageDecoder *>(controller.mediaManager()->decoderForClip(clipId))->source(),
              QUrl::fromLocalFile(firstPath));
@@ -394,6 +396,7 @@ void TestDailyEditingWorkflow::imageDecoderOwnershipIsUnified() {
     auto *replacement = qobject_cast<ImageDecoder *>(controller.mediaManager()->decoderForClip(clipId));
     QVERIFY(replacement != nullptr);
     QCOMPARE(replacement->source(), QUrl::fromLocalFile(secondPath));
+    QTRY_VERIFY(replacement->isReady());
 
     controller.deleteClip(clipId);
     QTRY_COMPARE(controller.mediaManager()->findChildren<ImageDecoder *>().size(), 0);

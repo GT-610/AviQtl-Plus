@@ -30,7 +30,6 @@ class ImageDecoder : public MediaDecoder {
 
     VideoFrameStore *m_store;
     QVideoFrame m_cachedVideoFrame;
-    QImage m_cachedImage;
     QFuture<void> m_future;
 };
 
