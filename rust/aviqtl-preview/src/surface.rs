@@ -16,6 +16,8 @@ pub struct PreviewSurface {
     queue: wgpu::Queue,
     compositor: Compositor,
     texture: wgpu::Texture,
+    readback_buffer: Option<wgpu::Buffer>,
+    readback_capacity: u64,
     nested_surfaces: HashMap<u64, SceneSurface>,
     size: (u32, u32),
     render_scale: f32,
@@ -31,6 +33,8 @@ impl PreviewSurface {
             device,
             queue,
             texture,
+            readback_buffer: None,
+            readback_capacity: 0,
             nested_surfaces: HashMap::new(),
             size: (WIDTH, HEIGHT),
             render_scale: 1.0,
@@ -103,18 +107,26 @@ impl PreviewSurface {
         target_replaced
     }
 
-    pub fn read_rgba(&self) -> Result<Vec<u8>, String> {
+    pub fn read_rgba(&mut self) -> Result<Vec<u8>, String> {
         let width = self.texture.width();
         let height = self.texture.height();
         let unpadded_bytes_per_row = width.saturating_mul(4);
         let alignment = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let padded_bytes_per_row = unpadded_bytes_per_row.div_ceil(alignment) * alignment;
-        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("aviqtl-preview-readback"),
-            size: u64::from(padded_bytes_per_row) * u64::from(height),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
+        let required_capacity = u64::from(padded_bytes_per_row) * u64::from(height);
+        if self.readback_capacity < required_capacity {
+            self.readback_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("aviqtl-preview-readback"),
+                size: required_capacity,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            }));
+            self.readback_capacity = required_capacity;
+        }
+        let buffer = self
+            .readback_buffer
+            .as_ref()
+            .ok_or_else(|| "GPU readback buffer was not created".to_owned())?;
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {

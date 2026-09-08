@@ -10,8 +10,8 @@ use aviqtl_rust_core::api::{
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -235,6 +235,60 @@ struct DecodeRequest {
     scene: PreviewScene,
 }
 
+struct DecodeQueue {
+    state: Mutex<DecodeQueueState>,
+    ready: Condvar,
+}
+
+struct DecodeQueueState {
+    request: Option<DecodeRequest>,
+    stopped: bool,
+}
+
+impl DecodeQueue {
+    fn new() -> Self {
+        Self {
+            state: Mutex::new(DecodeQueueState {
+                request: None,
+                stopped: false,
+            }),
+            ready: Condvar::new(),
+        }
+    }
+
+    fn submit(&self, request: DecodeRequest) {
+        let mut state = self.state.lock().expect("decode queue lock");
+        if !state.stopped {
+            state.request = Some(request);
+            self.ready.notify_one();
+        }
+    }
+
+    fn take(&self) -> Option<DecodeRequest> {
+        let mut state = self.state.lock().expect("decode queue lock");
+        loop {
+            if let Some(request) = state.request.take() {
+                return Some(request);
+            }
+            if state.stopped {
+                return None;
+            }
+            state = self.ready.wait(state).expect("decode queue wait");
+        }
+    }
+
+    fn clear(&self) {
+        self.state.lock().expect("decode queue lock").request = None;
+    }
+
+    fn stop(&self) {
+        let mut state = self.state.lock().expect("decode queue lock");
+        state.stopped = true;
+        state.request = None;
+        self.ready.notify_one();
+    }
+}
+
 struct DecodeResult {
     generation: u64,
     batch: PreviewBatch,
@@ -327,7 +381,7 @@ pub struct PreviewBatch {
 }
 
 pub struct MediaPreview {
-    request_sender: Option<Sender<DecodeRequest>>,
+    request_queue: Arc<DecodeQueue>,
     result_receiver: Receiver<DecodeResult>,
     worker: Option<JoinHandle<()>>,
     requested: Option<PreviewScene>,
@@ -336,14 +390,15 @@ pub struct MediaPreview {
 
 impl MediaPreview {
     pub fn new(wake: Arc<dyn Fn() + Send + Sync>) -> Self {
-        let (request_sender, request_receiver) = mpsc::channel::<DecodeRequest>();
+        let request_queue = Arc::new(DecodeQueue::new());
         let (result_sender, result_receiver) = mpsc::channel::<DecodeResult>();
+        let worker_queue = Arc::clone(&request_queue);
         let worker = thread::Builder::new()
             .name("aviqtl-media-preview".to_owned())
-            .spawn(move || run_worker(request_receiver, result_sender, wake))
+            .spawn(move || run_worker(worker_queue, result_sender, wake))
             .expect("media preview worker must start");
         Self {
-            request_sender: Some(request_sender),
+            request_queue,
             result_receiver,
             worker: Some(worker),
             requested: None,
@@ -361,12 +416,10 @@ impl MediaPreview {
     pub fn request_fresh(&mut self, scene: PreviewScene) {
         self.requested = Some(scene.clone());
         self.generation = self.generation.wrapping_add(1);
-        if let Some(sender) = &self.request_sender {
-            let _ = sender.send(DecodeRequest {
-                generation: self.generation,
-                scene,
-            });
-        }
+        self.request_queue.submit(DecodeRequest {
+            generation: self.generation,
+            scene,
+        });
     }
 
     pub fn poll(&mut self) -> Option<PreviewBatch> {
@@ -382,13 +435,14 @@ impl MediaPreview {
     pub fn reset(&mut self) {
         self.requested = None;
         self.generation = self.generation.wrapping_add(1);
+        self.request_queue.clear();
         while self.result_receiver.try_recv().is_ok() {}
     }
 }
 
 impl Drop for MediaPreview {
     fn drop(&mut self) {
-        self.request_sender.take();
+        self.request_queue.stop();
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
@@ -396,17 +450,14 @@ impl Drop for MediaPreview {
 }
 
 fn run_worker(
-    receiver: Receiver<DecodeRequest>,
+    queue: Arc<DecodeQueue>,
     sender: Sender<DecodeResult>,
     wake: Arc<dyn Fn() + Send + Sync>,
 ) {
     let mut videos = HashMap::<PathBuf, VideoDecoder>::new();
     let mut images = HashMap::<PathBuf, VideoFrame>::new();
     let text = TextRasterizer::new();
-    while let Ok(mut request) = receiver.recv() {
-        while let Ok(newer) = receiver.try_recv() {
-            request = newer;
-        }
+    while let Some(request) = queue.take() {
         let mut errors = Vec::new();
         let scene = decode_scene(request.scene, &mut videos, &mut images, &text, &mut errors);
         let batch = PreviewBatch {
@@ -619,6 +670,37 @@ mod tests {
         assert_eq!(preview.generation, first_generation);
         preview.request_fresh(scene);
         assert_eq!(preview.generation, first_generation.wrapping_add(1));
+    }
+
+    #[test]
+    fn decode_queue_keeps_only_the_newest_pending_request() {
+        let queue = DecodeQueue::new();
+        queue.submit(DecodeRequest {
+            generation: 1,
+            scene: PreviewScene {
+                instance_key: 1,
+                width: 1,
+                height: 1,
+                camera: None,
+                opaque_background: false,
+                layers: Vec::new(),
+            },
+        });
+        queue.submit(DecodeRequest {
+            generation: 2,
+            scene: PreviewScene {
+                instance_key: 2,
+                width: 1,
+                height: 1,
+                camera: None,
+                opaque_background: false,
+                layers: Vec::new(),
+            },
+        });
+
+        let request = queue.take().expect("latest request is available");
+        assert_eq!(request.generation, 2);
+        assert_eq!(request.scene.instance_key, 2);
     }
 
     fn text_source(content: &str) -> PreviewSource {
