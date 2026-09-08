@@ -7,6 +7,7 @@ pub mod effect_selection;
 pub mod lifecycle;
 pub mod media_import;
 pub mod missing_media;
+pub mod mod_host;
 pub mod object_settings;
 pub mod package_manager;
 pub mod preset_store;
