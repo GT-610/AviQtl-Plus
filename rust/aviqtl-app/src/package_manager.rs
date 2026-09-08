@@ -45,6 +45,7 @@ pub struct PackageOperationOutcome {
     pub removed: Vec<String>,
     pub errors: Vec<String>,
     pub reload_effect_catalog: bool,
+    pub reload_script_plugins: bool,
     pub self_update_version: Option<String>,
 }
 
@@ -384,6 +385,7 @@ impl PackageManagerModel {
                     }) => {
                         outcome.reload_effect_catalog =
                             matches!(package_type.as_str(), "effect" | "object");
+                        outcome.reload_script_plugins = package_type == "mod";
                         outcome.installed.push(package_id);
                     }
                     Ok(PackageInstallOutcome::SelfUpdate { version }) => {
@@ -402,6 +404,7 @@ impl PackageManagerModel {
                     Ok(package_type) => {
                         outcome.reload_effect_catalog =
                             matches!(package_type.as_str(), "effect" | "object");
+                        outcome.reload_script_plugins = package_type == "mod";
                         outcome.removed.push(package_id);
                     }
                     Err(error) => {
@@ -432,6 +435,7 @@ impl PackageManagerModel {
                         }) => {
                             outcome.reload_effect_catalog |=
                                 matches!(package_type.as_str(), "effect" | "object");
+                            outcome.reload_script_plugins |= package_type == "mod";
                             outcome.installed.push(package_id);
                         }
                         Ok(PackageInstallOutcome::SelfUpdate { version }) => {

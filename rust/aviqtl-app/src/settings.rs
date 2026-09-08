@@ -14,6 +14,7 @@ pub struct PackagePaths {
     pub package_root: PathBuf,
     pub effect_roots: Vec<PathBuf>,
     pub object_roots: Vec<PathBuf>,
+    pub plugin_roots: Vec<PathBuf>,
 }
 
 impl SettingsStore {
@@ -155,29 +156,40 @@ pub fn package_paths() -> PackagePaths {
     let data_root = application_data_root();
     let mut effect_roots = Vec::new();
     let mut object_roots = Vec::new();
+    let mut plugin_roots = Vec::new();
     let mut add_resource_root = |root: PathBuf| {
         let effect_root = root.join("effects");
         let object_root = root.join("objects");
+        let plugin_root = root.join("plugins");
         if !effect_roots.contains(&effect_root) {
             effect_roots.push(effect_root);
         }
         if !object_roots.contains(&object_root) {
             object_roots.push(object_root);
         }
+        if !plugin_roots.contains(&plugin_root) {
+            plugin_roots.push(plugin_root);
+        }
     };
 
+    add_resource_root(data_root.clone());
     if let Ok(executable) = std::env::current_exe()
         && let Some(directory) = executable.parent()
     {
         add_resource_root(resource_root_for_executable_directory(directory));
     }
     add_resource_root(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/qml"));
-    add_resource_root(data_root.clone());
+    let source_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let source_plugins = source_root.join("plugins");
+    if !plugin_roots.contains(&source_plugins) {
+        plugin_roots.push(source_plugins);
+    }
 
     PackagePaths {
         package_root: data_root.join("repos"),
         effect_roots,
         object_roots,
+        plugin_roots,
     }
 }
 
