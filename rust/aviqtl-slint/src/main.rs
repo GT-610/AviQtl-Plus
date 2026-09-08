@@ -6,6 +6,7 @@ use aviqtl_app::{
     audio_plugin::{AudioPluginCatalog, AudioPluginScanOutcome, AudioPluginScanner},
     easing::{BezierCurve, sample_easing_curve},
     effect_catalog::EffectCatalog,
+    mod_host::ModHost,
     object_settings::{
         KeyframePoint, ObjectControl, ObjectControlKind, ObjectSettings,
         keyframe_interpolation_names,
@@ -1292,6 +1293,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut application_model = ApplicationModel::default();
     apply_runtime_settings(&mut application_model, &settings.borrow());
     let model = Rc::new(RefCell::new(application_model));
+    let mod_host = Rc::new(RefCell::new(ModHost::load(&settings.borrow())));
+    eprintln!(
+        "Script plugins · {} loaded",
+        mod_host.borrow().plugin_count()
+    );
     let launcher = ProjectLauncherWindow::new()?;
     select_bundled_ui_translation();
     let recovery = ProjectRecoveryWindow::new()?;
@@ -1504,6 +1510,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         effect_catalog.clone(),
     );
     install_keyboard_shortcuts(&main, &timeline, model.clone(), settings.clone());
+    let mod_host_for_timer = mod_host.clone();
+    let mod_settings_for_timer = settings.clone();
+    let mod_model_for_timer = model.clone();
+    let mod_catalog_for_timer = effect_catalog.clone();
     install_export_callbacks(
         &main,
         &export,
@@ -1513,6 +1523,29 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         export_codecs.clone(),
         export_planner.clone(),
     );
+
+    {
+        let defaults = project_defaults(&mod_settings_for_timer.borrow());
+        let max_layers = timeline_maximum_layers(&mod_settings_for_timer.borrow());
+        let default_duration = mod_settings_for_timer
+            .borrow()
+            .i32_value("defaultClipDuration", 100)
+            .clamp(1, 10_000);
+        let outcome = mod_host.borrow_mut().apply_pending(
+            &mut model.borrow_mut(),
+            &mut mod_settings_for_timer.borrow_mut(),
+            &effect_catalog.borrow(),
+            &defaults,
+            max_layers,
+            default_duration,
+        );
+        for diagnostic in outcome.diagnostics {
+            eprintln!("MOD: {diagnostic}");
+        }
+        if outcome.model_changed {
+            sync_windows(&main, &timeline, &model.borrow());
+        }
+    }
 
     if validation_frames.is_some() {
         let project =
@@ -1537,6 +1570,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_launcher = launcher.as_weak();
     let animation_recovery = recovery.as_weak();
     let animation_settings = object_settings.as_weak();
+    let animation_mod_host = mod_host_for_timer.clone();
+    let animation_mod_model = mod_model_for_timer.clone();
+    let animation_mod_settings = mod_settings_for_timer.clone();
+    let animation_mod_catalog = mod_catalog_for_timer.clone();
     let animation_easing = easing.as_weak();
     let animation_effect_catalog = effect_catalog.clone();
     let animation_audio_catalog = audio_plugin_catalog;
@@ -1613,6 +1650,32 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             );
                         }
                     }
+                    if outcome.reload_script_plugins {
+                        let defaults = project_defaults(&animation_mod_settings.borrow());
+                        let max_layers = timeline_maximum_layers(&animation_mod_settings.borrow());
+                        let default_duration = animation_mod_settings
+                            .borrow()
+                            .i32_value("defaultClipDuration", 100)
+                            .clamp(1, 10_000);
+                        let reload = animation_mod_host.borrow_mut().reload(
+                            &mut animation_mod_model.borrow_mut(),
+                            &mut animation_mod_settings.borrow_mut(),
+                            &animation_mod_catalog.borrow(),
+                            &defaults,
+                            max_layers,
+                            default_duration,
+                        );
+                        for diagnostic in reload.diagnostics {
+                            eprintln!("MOD: {diagnostic}");
+                        }
+                        if reload.model_changed
+                            && let (Some(main), Some(timeline)) =
+                                (animation_main.upgrade(), animation_timeline.upgrade())
+                        {
+                            sync_windows(&main, &timeline, &animation_mod_model.borrow());
+                            sync_transport(&main, &timeline, &animation_mod_model.borrow());
+                        }
+                    }
                     if let Some(window) = animation_package_manager.upgrade() {
                         window.set_busy(false);
                         window.set_progress(1.0);
@@ -1676,6 +1739,32 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     &animation_audio_catalog.borrow(),
                     window.get_effect_filter().as_str(),
                 );
+            }
+        }
+        {
+            let defaults = project_defaults(&animation_mod_settings.borrow());
+            let max_layers = timeline_maximum_layers(&animation_mod_settings.borrow());
+            let default_duration = animation_mod_settings
+                .borrow()
+                .i32_value("defaultClipDuration", 100)
+                .clamp(1, 10_000);
+            let tick = animation_mod_host.borrow_mut().tick(
+                &mut animation_mod_model.borrow_mut(),
+                &mut animation_mod_settings.borrow_mut(),
+                &animation_mod_catalog.borrow(),
+                &defaults,
+                max_layers,
+                default_duration,
+            );
+            for diagnostic in tick.diagnostics {
+                eprintln!("MOD: {diagnostic}");
+            }
+            if tick.model_changed
+                && let (Some(main), Some(timeline)) =
+                    (animation_main.upgrade(), animation_timeline.upgrade())
+            {
+                sync_windows(&main, &timeline, &animation_mod_model.borrow());
+                sync_transport(&main, &timeline, &animation_mod_model.borrow());
             }
         }
         if let Some(main) = animation_main.upgrade() {
