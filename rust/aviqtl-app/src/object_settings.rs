@@ -71,10 +71,6 @@ pub struct ObjectControl {
 }
 
 impl ObjectControl {
-    pub fn display_value(&self) -> String {
-        self.display_value_at(&self.value)
-    }
-
     pub fn display_value_at(&self, value: &Value) -> String {
         let value = value_payload(value);
         match value {
@@ -95,10 +91,6 @@ impl ObjectControl {
         }
     }
 
-    pub fn number_value(&self) -> f64 {
-        self.number_value_at(&self.value)
-    }
-
     pub fn number_value_at(&self, value: &Value) -> f64 {
         value_payload(value)
             .as_f64()
@@ -106,16 +98,8 @@ impl ObjectControl {
             .unwrap_or_default()
     }
 
-    pub fn bool_value(&self) -> bool {
-        self.bool_value_at(&self.value)
-    }
-
     pub fn bool_value_at(&self, value: &Value) -> bool {
         value_payload(value).as_bool().unwrap_or(false)
-    }
-
-    pub fn selected_option(&self) -> Option<usize> {
-        self.selected_option_at(&self.value)
     }
 
     pub fn selected_option_at(&self, value: &Value) -> Option<usize> {
@@ -839,7 +823,7 @@ mod tests {
             .find(|control| control.param.as_deref() == Some("size"))
             .expect("size");
         assert!(size.keyframed);
-        assert_eq!(size.number_value(), 10.0);
+        assert_eq!(size.number_value_at(&size.value.clone()), 10.0);
         assert_eq!((size.interval_start, size.interval_end), (0, 20));
         assert_eq!(size.start_value, json!(0));
         assert_eq!(size.end_value, json!(20));
@@ -887,7 +871,7 @@ mod tests {
         assert_eq!(gain.param.as_deref(), Some("0"));
         assert_eq!(gain.label, "Gain");
         assert_eq!(gain.unit, "dB");
-        assert_eq!(gain.number_value(), 0.5);
+        assert_eq!(gain.number_value_at(&gain.value.clone()), 0.5);
         assert_eq!(gain.step, Some(0.01));
         assert!(gain.keyframed);
     }
