@@ -12,11 +12,17 @@ use tiny_skia::{
 };
 
 const MAX_RASTER_DIMENSION: f32 = 8_192.0;
+// Mirror the bake_plan parser limits so direct API callers cannot trigger
+// unbounded allocation or iteration behind the renderers' backs.
+const MAX_PARTICLES: u32 = 2_000;
+const MAX_RADIAL_LINES: u32 = 512;
+const MAX_LENS_GHOSTS: u32 = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProceduralRasterError {
     InvalidDimensions,
     InvalidPath,
+    InvalidCount,
     AllocationFailed,
 }
 
@@ -27,6 +33,7 @@ impl Display for ProceduralRasterError {
                 "procedural object dimensions are invalid or exceed 8192 pixels"
             }
             Self::InvalidPath => "procedural object path could not be constructed",
+            Self::InvalidCount => "procedural object particle count exceeds the supported limit",
             Self::AllocationFailed => "procedural object pixel buffer could not be allocated",
         })
     }
@@ -38,6 +45,19 @@ pub fn rasterize_procedural_object(
     plan: &ProceduralObjectRenderPlan,
     timestamp_seconds: f64,
 ) -> Result<VideoFrame, ProceduralRasterError> {
+    let count_within_limit = match plan {
+        ProceduralObjectRenderPlan::TrackLine(_) => true,
+        ProceduralObjectRenderPlan::ParticleField(plan) => {
+            (1..=MAX_PARTICLES).contains(&plan.count)
+        }
+        ProceduralObjectRenderPlan::RadialLines(plan) => {
+            (1..=MAX_RADIAL_LINES).contains(&plan.line_count)
+        }
+        ProceduralObjectRenderPlan::LensFlare(plan) => plan.ghosts <= MAX_LENS_GHOSTS,
+    };
+    if !count_within_limit {
+        return Err(ProceduralRasterError::InvalidCount);
+    }
     let pixmap = match plan {
         ProceduralObjectRenderPlan::TrackLine(plan) => rasterize_track_line(plan)?,
         ProceduralObjectRenderPlan::ParticleField(plan) => rasterize_particle_field(plan)?,

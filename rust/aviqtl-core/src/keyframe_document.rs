@@ -381,10 +381,12 @@ pub(crate) fn inspect_track(
         .into_iter()
         .map(|point| {
             let object = point.as_object().cloned().unwrap_or_default();
+            // Match the evaluator: a missing interp behaves as linear there,
+            // so inspection must report it the same way.
             let interpolation = object
                 .get("interp")
                 .and_then(Value::as_str)
-                .unwrap_or("none")
+                .unwrap_or("linear")
                 .to_owned();
             let mut options = Map::new();
             options.insert("interp".to_owned(), Value::String(interpolation.clone()));
@@ -567,8 +569,7 @@ fn apply(request: Request) -> Response {
             };
             let options = options.as_object().cloned().unwrap_or_default();
             if frame <= 0 {
-                let Some(start) = object.get_mut("start").and_then(Value::as_object_mut)
-                else {
+                let Some(start) = object.get_mut("start").and_then(Value::as_object_mut) else {
                     return response(track, false, false);
                 };
                 start.insert("value".to_owned(), value.clone());
@@ -605,10 +606,7 @@ fn apply(request: Request) -> Response {
                     keyframe.insert(name.to_owned(), value.clone());
                 }
             }
-            let Some(points) = object
-                .get_mut("points")
-                .and_then(Value::as_array_mut)
-            else {
+            let Some(points) = object.get_mut("points").and_then(Value::as_array_mut) else {
                 return response(track, false, false);
             };
             if let Some(index) = points.iter().position(|point| point_frame(point) == frame) {

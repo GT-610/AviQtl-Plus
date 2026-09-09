@@ -38,6 +38,7 @@ pub fn rasterize_shape(
     if !plan.width.is_finite()
         || !plan.height.is_finite()
         || !plan.stroke_width.is_finite()
+        || !plan.edge_padding.is_finite()
         || plan.width < 0.0
         || plan.height < 0.0
         || plan.stroke_width < 0.0

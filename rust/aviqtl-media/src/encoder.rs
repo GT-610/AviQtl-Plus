@@ -61,6 +61,7 @@ pub struct VideoEncoderConfig {
 #[derive(Debug)]
 pub enum EncodeError {
     InvalidFrame,
+    InvalidConfiguration,
     CodecUnavailable(String),
     Ffmpeg(ffmpeg::Error),
     Image(image::ImageError),
@@ -71,6 +72,7 @@ impl Display for EncodeError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidFrame => formatter.write_str("invalid RGBA frame dimensions"),
+            Self::InvalidConfiguration => formatter.write_str("invalid encoder configuration"),
             Self::CodecUnavailable(codec) => write!(formatter, "encoder is unavailable: {codec}"),
             Self::Ffmpeg(error) => write!(formatter, "FFmpeg: {error}"),
             Self::Image(error) => write!(formatter, "image encode: {error}"),
@@ -85,7 +87,7 @@ impl Error for EncodeError {
             Self::Ffmpeg(error) => Some(error),
             Self::Image(error) => Some(error),
             Self::Io(error) => Some(error),
-            Self::InvalidFrame | Self::CodecUnavailable(_) => None,
+            Self::InvalidFrame | Self::InvalidConfiguration | Self::CodecUnavailable(_) => None,
         }
     }
 }
@@ -475,7 +477,7 @@ fn validate_config(config: &VideoEncoderConfig) -> Result<(), EncodeError> {
         || config.sample_rate == 0
         || config.output_path.as_os_str().is_empty()
     {
-        return Err(EncodeError::InvalidFrame);
+        return Err(EncodeError::InvalidConfiguration);
     }
     Ok(())
 }

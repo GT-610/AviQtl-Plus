@@ -148,7 +148,9 @@ impl PreviewSurface {
             },
         );
         self.queue.submit([encoder.finish()]);
-        let slice = buffer.slice(..);
+        // Map exactly the rows just written: the buffer only grows, so after
+        // a target-size reduction its full capacity holds stale trailing rows.
+        let slice = buffer.slice(..required_capacity);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result.map_err(|error| error.to_string()));

@@ -514,15 +514,11 @@ fn require_permission(vm: &mut Vm, api_name: &str) -> Result<(), LuaError> {
     if allowed {
         Ok(())
     } else {
-        ACTIVE_CONTEXT.with(|active| {
-            if let Some(context) = active.borrow_mut().as_mut() {
-                context.execution.diagnostics.push(format!(
-                    "{} denied {}",
-                    context.plugin_id,
-                    permission.name()
-                ));
-            }
-        });
+        push_diagnostic(format!(
+            "{} denied {}",
+            plugin_id_of_active_context(),
+            permission.name()
+        ));
         Err(host_error(
             vm,
             &format!("permission denied: {}", permission.name()),
@@ -530,10 +526,39 @@ fn require_permission(vm: &mut Vm, api_name: &str) -> Result<(), LuaError> {
     }
 }
 
+fn plugin_id_of_active_context() -> String {
+    ACTIVE_CONTEXT.with(|active| {
+        active
+            .borrow()
+            .as_ref()
+            .map(|context| context.plugin_id.clone())
+            .unwrap_or_default()
+    })
+}
+
 fn push_command(command: ScriptHostCommand) {
     ACTIVE_CONTEXT.with(|active| {
-        if let Some(context) = active.borrow_mut().as_mut() {
+        if let Some(context) = active.borrow_mut().as_mut()
+            && context.execution.commands.len() < MAX_DISPATCH_COMMANDS
+        {
             context.execution.commands.push(command);
+        }
+    });
+}
+
+/// Scripts are untrusted input: a looping plugin must not grow host-side
+/// buffers without bound within a single dispatch. Entries beyond the caps
+/// are dropped; the caps are documented here rather than enforced per call
+/// site so every append path shares them.
+const MAX_DISPATCH_COMMANDS: usize = 4096;
+const MAX_DISPATCH_DIAGNOSTICS: usize = 1024;
+
+fn push_diagnostic(message: String) {
+    ACTIVE_CONTEXT.with(|active| {
+        if let Some(context) = active.borrow_mut().as_mut()
+            && context.execution.diagnostics.len() < MAX_DISPATCH_DIAGNOSTICS
+        {
+            context.execution.diagnostics.push(message);
         }
     });
 }
