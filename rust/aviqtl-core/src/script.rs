@@ -81,6 +81,126 @@ struct Metadata {
     groups: Vec<Group>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScriptParameterKind {
+    Track,
+    Check,
+    Color,
+    Select,
+    Text,
+    String,
+    File,
+    Folder,
+    Value,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScriptParameterOption {
+    pub label: String,
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScriptParameter {
+    pub kind: ScriptParameterKind,
+    pub var_name: String,
+    pub label: String,
+    pub default_value: Value,
+    pub min_value: Value,
+    pub max_value: Value,
+    pub step: Value,
+    pub options: Vec<ScriptParameterOption>,
+    pub group_name: String,
+    pub is_section_check: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScriptParameterGroup {
+    pub name: String,
+    pub default_expanded: bool,
+    pub parameters: Vec<ScriptParameter>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScriptMetadata {
+    pub information: String,
+    pub script_type: String,
+    pub require_version: i32,
+    pub is_filter: bool,
+    pub label: String,
+    pub parameters: Vec<ScriptParameter>,
+    pub groups: Vec<ScriptParameterGroup>,
+}
+
+impl From<ParameterType> for ScriptParameterKind {
+    fn from(parameter_type: ParameterType) -> Self {
+        match parameter_type {
+            ParameterType::Track => Self::Track,
+            ParameterType::Check => Self::Check,
+            ParameterType::Color => Self::Color,
+            ParameterType::Select => Self::Select,
+            ParameterType::Text => Self::Text,
+            ParameterType::String => Self::String,
+            ParameterType::File => Self::File,
+            ParameterType::Folder => Self::Folder,
+            ParameterType::Value => Self::Value,
+        }
+    }
+}
+
+impl From<Parameter> for ScriptParameter {
+    fn from(parameter: Parameter) -> Self {
+        Self {
+            kind: parameter.parameter_type.into(),
+            var_name: parameter.var_name,
+            label: parameter.label,
+            default_value: parameter.default_value,
+            min_value: parameter.min_value,
+            max_value: parameter.max_value,
+            step: parameter.step,
+            options: parameter
+                .options
+                .into_iter()
+                .map(|option| ScriptParameterOption {
+                    label: option.label,
+                    value: option.value,
+                })
+                .collect(),
+            group_name: parameter.group_name,
+            is_section_check: parameter.is_section_check,
+        }
+    }
+}
+
+impl From<Group> for ScriptParameterGroup {
+    fn from(group: Group) -> Self {
+        Self {
+            name: group.name,
+            default_expanded: group.default_expanded,
+            parameters: group.params.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<Metadata> for ScriptMetadata {
+    fn from(metadata: Metadata) -> Self {
+        Self {
+            information: metadata.information,
+            script_type: metadata.script_type,
+            require_version: metadata.require_version,
+            is_filter: metadata.is_filter,
+            label: metadata.label,
+            parameters: metadata.params.into_iter().map(Into::into).collect(),
+            groups: metadata.groups.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+/// Parses AviUtl-style script header metadata without executing the script body.
+pub fn inspect_script_metadata(input: &str) -> ScriptMetadata {
+    parse_metadata(input).into()
+}
+
 type ParameterParser = fn(&str) -> Parameter;
 
 fn finite_number(value: &str) -> f64 {

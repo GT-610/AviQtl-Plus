@@ -1,0 +1,1131 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: aviqtl-slint\n"
+"PO-Revision-Date: 2026-09-08 00:00+0800\n"
+"Last-Translator: AviQtl contributors\n"
+"Language-Team: Simplified Chinese\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_CN\n"
+
+msgid " Keyframes"
+msgstr " 关键帧"
+
+msgid " frames / "
+msgstr " 帧 / "
+
+msgid " has unsaved changes.\nSave before continuing?"
+msgstr " 有未保存的更改。\n继续之前要保存吗？"
+
+msgid " items"
+msgstr " 项"
+
+msgid " sec)"
+msgstr " 秒)"
+
+msgid "+ Add Audio Plugin"
+msgstr "+ 添加音频插件"
+
+msgid "+ Add Effect"
+msgstr "+ 添加效果"
+
+msgid "0 / 0 frames"
+msgstr "0 / 0 帧"
+
+msgid ": create keyframes at the start and end"
+msgstr "：在开头和末尾创建关键帧"
+
+msgid ": enabled"
+msgstr "：已启用"
+
+msgid ": select"
+msgstr "：选择"
+
+msgid ": select end color"
+msgstr "：选择结束颜色"
+
+msgid ": select start color"
+msgstr "：选择起始颜色"
+
+msgid "About"
+msgstr "版本信息"
+
+msgid "About AviQtl Plus"
+msgstr "关于 AviQtl Plus"
+
+msgid "Above selected layer"
+msgstr "所选图层之上"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Add Audio Plugin"
+msgstr "添加音频插件"
+
+msgid "Add Effect  ›"
+msgstr "添加效果  ›"
+
+msgid "Add Filter Effect"
+msgstr "添加滤镜效果"
+
+msgid "Add Object  ›"
+msgstr "添加对象  ›"
+
+msgid "Add Repository"
+msgstr "添加仓库"
+
+msgid "Advanced Settings"
+msgstr "详细设置"
+
+msgid "Allow All"
+msgstr "全部允许"
+
+msgid "Amplitude"
+msgstr "振幅"
+
+msgid "Appearance"
+msgstr "外观"
+
+msgid "Appearance and Dimensions"
+msgstr "外观与尺寸"
+
+msgid "Application"
+msgstr "应用程序"
+
+msgid "Apply"
+msgstr "应用"
+
+msgid "Audio"
+msgstr "音频"
+
+msgid "Audio Object / Plugin Settings"
+msgstr "音频对象 / 插件设置"
+
+msgid "Audio Plugins"
+msgstr "音频插件"
+
+msgid "Audio and Progress Display"
+msgstr "音频与进度显示"
+
+msgid "Audio bitrate"
+msgstr "音频比特率"
+
+msgid "Auto"
+msgstr "自动"
+
+msgid "Auto (Seconds/Frames)"
+msgstr "自动（秒/帧）"
+
+msgid "AviQtl Plus - Preview"
+msgstr "AviQtl Plus - 预览"
+
+msgid "AviQtl Plus - Project Launcher"
+msgstr "AviQtl Plus - 项目启动器"
+
+msgid "AviQtl Plus Update"
+msgstr "AviQtl Plus 更新"
+
+msgid "AviQtl Plus is not AviUtl.\n\nThis software is released under the GNU Affero General Public License Version 3."
+msgstr "AviQtl Plus 不是 AviUtl。\n\n本软件基于 GNU Affero General Public License Version 3 发布。"
+
+msgid "AviQtl Plus project page"
+msgstr "AviQtl Plus 项目页面"
+
+msgid "AviQtl found recovery snapshots left by an interrupted session. Recovering opens a new unsaved project and never overwrites the original file."
+msgstr "AviQtl 发现了上次异常中断后留下的恢复快照。恢复时会作为新的未保存项目打开，不会覆盖原始文件。"
+
+msgid "BPM (Music)"
+msgstr "BPM（音乐）"
+
+msgid "BPM Settings"
+msgstr "BPM 设置"
+
+msgid "Back 1 Frame"
+msgstr "后退 1 帧"
+
+msgid "Backup interval"
+msgstr "备份间隔"
+
+msgid "Bake all clips"
+msgstr "烘焙所有剪辑"
+
+msgid "Basic Settings"
+msgstr "基本设置"
+
+msgid "Below selected layer"
+msgstr "所选图层之下"
+
+msgid "Bitrate"
+msgstr "比特率"
+
+msgid "Bitrate:"
+msgstr "比特率："
+
+msgid "Browse effect catalog..."
+msgstr "浏览效果目录..."
+
+msgid "Browse object catalog..."
+msgstr "浏览对象目录..."
+
+msgid "Browse..."
+msgstr "浏览..."
+
+msgid "Cache capacity"
+msgstr "缓存容量"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Cancel Export"
+msgstr "取消导出"
+
+msgid "Cancel the export?\nProgress will be lost."
+msgstr "确定要取消导出吗？\n进度将丢失。"
+
+msgid "Check for unsaved projects when exiting"
+msgstr "退出时检查未保存的项目"
+
+msgid "Clip by Upper Object"
+msgstr "用上方对象裁剪"
+
+msgid "Clip edge handle width"
+msgstr "片段边缘拖拽宽度"
+
+msgid "Clip: {}, layer {}, starts at frame {} for {} frames"
+msgstr "剪辑：{}，图层 {}，从第 {} 帧开始，持续 {} 帧"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Close project"
+msgstr "关闭项目"
+
+msgid "Close scene"
+msgstr "关闭场景"
+
+msgid "Codec:"
+msgstr "编解码器："
+
+msgid "Color theme"
+msgstr "配色主题"
+
+msgid "Complete"
+msgstr "完成"
+
+msgid "Configured Repositories"
+msgstr "已配置的仓库"
+
+msgid "Confirm Save"
+msgstr "保存确认"
+
+msgid "Control Point"
+msgstr "控制点"
+
+msgid "Controls"
+msgstr "操作"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Create New Project"
+msgstr "创建新项目"
+
+msgid "Create New Scene"
+msgstr "新建场景"
+
+msgid "Current Scene Settings"
+msgstr "当前场景设置"
+
+msgid "Current: "
+msgstr "当前："
+
+msgid "Current: Default"
+msgstr "当前：默认"
+
+msgid "Dark"
+msgstr "深色"
+
+msgid "Decode and Audio"
+msgstr "解码与音频"
+
+msgid "Decode and audio settings take effect after restart"
+msgstr "解码和音频相关设置将在重启后生效"
+
+msgid "Default"
+msgstr "默认"
+
+msgid "Default CRF"
+msgstr "默认 CRF"
+
+msgid "Default audio codec"
+msgstr "默认音频编解码器"
+
+msgid "Default bitrate"
+msgstr "默认比特率"
+
+msgid "Default clip length"
+msgstr "默认片段长度"
+
+msgid "Default video codec"
+msgstr "默认视频编解码器"
+
+msgid "Defaults"
+msgstr "默认值"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete Current Scene"
+msgstr "删除当前场景"
+
+msgid "Delete Preset"
+msgstr "删除预设"
+
+msgid "Delete {} selected items"
+msgstr "删除选中的 {} 项"
+
+msgid "Deny All"
+msgstr "全部拒绝"
+
+msgid "Destination file path..."
+msgstr "保存目标文件路径..."
+
+msgid "Destination folder..."
+msgstr "保存目标文件夹..."
+
+msgid "Direction:"
+msgstr "方向："
+
+msgid "Disabled"
+msgstr "禁用"
+
+msgid "Discard"
+msgstr "放弃"
+
+msgid "Discard recovery snapshot"
+msgstr "丢弃恢复快照"
+
+msgid "Discard the recovery snapshot for “{}”? This cannot be undone."
+msgstr "要丢弃“{}”的恢复快照吗？此操作无法撤销。"
+
+msgid "Down"
+msgstr "向下"
+
+msgid "Drag to change playback position on the timeline"
+msgstr "拖动以更改时间线上的播放位置"
+
+msgid "Drag to move the keyframe"
+msgstr "拖动以移动关键帧"
+
+msgid "Drop here"
+msgstr "拖放到此处"
+
+msgid "Duplicate"
+msgstr "复制副本"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Editing Constraints and Zoom"
+msgstr "编辑限制与缩放"
+
+msgid "Editing and Snap"
+msgstr "编辑与吸附"
+
+msgid "Effects"
+msgstr "特效"
+
+msgid "Enable Hot Reload"
+msgstr "启用热重载"
+
+msgid "Enable Snap:"
+msgstr "启用吸附："
+
+msgid "Enable automatic backups"
+msgstr "启用自动备份"
+
+msgid "Enable timeline skimming"
+msgstr "启用时间线掠过预览"
+
+msgid "Enabled"
+msgstr "启用"
+
+msgid "Encoder queue memory (MB)"
+msgstr "编码器队列内存（MB）"
+
+msgid "End:"
+msgstr "结束："
+
+msgid "Enter one path per line"
+msgstr "每行输入一个路径"
+
+msgid "Enter preset name..."
+msgstr "请输入预设名称…"
+
+msgid "Enter shortcuts in a format such as “Ctrl+S” or “Alt+Shift+N”"
+msgstr "请以“Ctrl+S”或“Alt+Shift+N”的格式输入"
+
+msgid "Entire timeline"
+msgstr "整个时间线"
+
+msgid "Error"
+msgstr "错误"
+
+msgid "Exit"
+msgstr "退出"
+
+msgid "Export"
+msgstr "导出"
+
+msgid "Export Media"
+msgstr "导出媒体"
+
+msgid "Export Media..."
+msgstr "导出媒体..."
+
+msgid "Exporting..."
+msgstr "正在导出..."
+
+msgid "Fast (fast)"
+msgstr "快速 (fast)"
+
+msgid "Fastest (ultrafast)"
+msgstr "最快 (ultrafast)"
+
+msgid "File"
+msgstr "文件"
+
+msgid "Fixed Frame Count"
+msgstr "固定帧数"
+
+msgid "Fixed keyframe"
+msgstr "固定关键帧"
+
+msgid "Follow system"
+msgstr "跟随系统"
+
+msgid "Format:"
+msgstr "格式："
+
+msgid "Forward 1 Frame"
+msgstr "前进 1 帧"
+
+msgid "Frame"
+msgstr "帧"
+
+msgid "Frame Rate (FPS):"
+msgstr "帧率 (FPS)："
+
+msgid "Frame Settings"
+msgstr "帧设置"
+
+msgid "Frame fetch wait time"
+msgstr "帧获取等待时间"
+
+msgid "Frame rate"
+msgstr "帧率"
+
+msgid "Frame {}  ·  {}"
+msgstr "帧 {}  ·  {}"
+
+msgid "General"
+msgstr "常规"
+
+msgid "Go to End"
+msgstr "移动到末尾"
+
+msgid "Go to Start"
+msgstr "移动到开头"
+
+msgid "Grid Mode:"
+msgstr "网格模式："
+
+msgid "H.264 (CPU)"
+msgstr "H.264 (CPU)"
+
+msgid "H.264 (VAAPI)"
+msgstr "H.264 (VAAPI)"
+
+msgid "HEVC (VAAPI)"
+msgstr "HEVC (VAAPI)"
+
+msgid "Hardware frame pool count"
+msgstr "硬件帧池数量"
+
+msgid "Header height"
+msgstr "标题栏高度"
+
+msgid "Height"
+msgstr "高度"
+
+msgid "Hidden, locked"
+msgstr "隐藏，已锁定"
+
+msgid "Hidden, unlocked"
+msgstr "隐藏，未锁定"
+
+msgid "Hide all layers"
+msgstr "隐藏所有图层"
+
+msgid "Hide this layer"
+msgstr "隐藏此图层"
+
+msgid "High quality"
+msgstr "高质量"
+
+msgid "High quality (slow)"
+msgstr "高质量 (slow)"
+
+msgid "Highest quality (veryslow)"
+msgstr "最高质量 (veryslow)"
+
+msgid "Image Sequence"
+msgstr "图片序列"
+
+msgid "Increasing this count increases memory usage"
+msgstr "增加次数会提高内存使用量"
+
+msgid "Insert Layer Above (1 row)"
+msgstr "向上插入图层（1 层）"
+
+msgid "Insert Layer Below (1 row)"
+msgstr "向下插入图层（1 层）"
+
+msgid "Insert multiple layers"
+msgstr "插入多个图层"
+
+msgid "Insert multiple layers..."
+msgstr "插入多个图层..."
+
+msgid "Insertion direction:"
+msgstr "插入方向："
+
+msgid "Install"
+msgstr "安装"
+
+msgid "Installed"
+msgstr "已安装"
+
+msgid "Installed: "
+msgstr "已安装："
+
+msgid "Interface language"
+msgstr "界面语言"
+
+msgid "Interpolation"
+msgstr "插值"
+
+msgid "Interpolation Settings: "
+msgstr "插值设置："
+
+msgid "Interval (Frames):"
+msgstr "间隔（帧）："
+
+msgid "Invalid recovery: {}"
+msgstr "无效的恢复数据：{}"
+
+msgid "Keyboard Shortcuts"
+msgstr "键盘快捷键"
+
+msgid "Keyframe"
+msgstr "关键帧"
+
+msgid "Keyframe {}"
+msgstr "关键帧 {}"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Language changes are applied immediately after pressing Apply or OK."
+msgstr "按下“应用”或“确定”后，语言更改会立即生效。"
+
+msgid "Layer header width"
+msgstr "图层标题宽度"
+
+msgid "Layer {}"
+msgstr "图层 {}"
+
+msgid "Layers"
+msgstr "图层"
+
+msgid "Light"
+msgstr "浅色"
+
+msgid "Load Preset"
+msgstr "加载预设"
+
+msgid "Load {}"
+msgstr "加载 {}"
+
+msgid "Lock this layer"
+msgstr "锁定此图层"
+
+msgid "Lock/Unlock Current Layer"
+msgstr "锁定/解锁当前图层"
+
+msgid "Low quality"
+msgstr "低质量"
+
+msgid "Lua Plugins"
+msgstr "Lua 插件"
+
+msgid "Lua hook interval"
+msgstr "Lua 钩子间隔"
+
+msgid "Magnetic Snap Range:"
+msgstr "磁力吸附范围："
+
+msgid "Manage"
+msgstr "管理"
+
+msgid "Manage Missing Media"
+msgstr "管理缺失媒体"
+
+msgid "Maximum image size"
+msgstr "最大图像尺寸"
+
+msgid "Maximum layer count"
+msgstr "最大图层数"
+
+msgid "Maximum plugin block size"
+msgstr "插件最大块大小"
+
+msgid "Maximum zoom value"
+msgstr "最大缩放值"
+
+msgid "Memory and Cache"
+msgstr "内存与缓存"
+
+msgid "Minimum cache amount"
+msgstr "最小缓存量"
+
+msgid "Minimum clip length"
+msgstr "最小片段长度"
+
+msgid "Minimum zoom value"
+msgstr "最小缩放值"
+
+msgid "Missing Media"
+msgstr "缺失媒体"
+
+msgid "Move Layer Down"
+msgstr "下移图层"
+
+msgid "Move Layer Up"
+msgstr "上移图层"
+
+msgid "Move Left 1 Frame"
+msgstr "向左移动 1 帧"
+
+msgid "Move Right 1 Frame"
+msgstr "向右移动 1 帧"
+
+msgid "Move amount (rows):"
+msgstr "移动行数："
+
+msgid "Move layer contents down by 1"
+msgstr "将此图层内容下移一行"
+
+msgid "Move layer contents up by 1"
+msgstr "将此图层内容上移一行"
+
+msgid "Move layers by range..."
+msgstr "指定范围移动图层..."
+
+msgid "Move playback position 1 frame back"
+msgstr "将播放位置移动到前一帧"
+
+msgid "Move playback position 1 frame forward"
+msgstr "将播放位置移动到后一帧"
+
+msgid "Move this layer and below together"
+msgstr "批量移动此图层及以下"
+
+msgid "New Project"
+msgstr "新建项目"
+
+msgid "No"
+msgstr "否"
+
+msgid "No audio plugins"
+msgstr "没有音频插件"
+
+msgid "No matching effects"
+msgstr "没有匹配的效果"
+
+msgid "No matching fonts"
+msgstr "没有匹配的字体"
+
+msgid "No matching interpolation methods"
+msgstr "没有匹配的插值方法"
+
+msgid "No matching items"
+msgstr "没有匹配项"
+
+msgid "No matching objects"
+msgstr "没有匹配的对象"
+
+msgid "No packages in this category."
+msgstr "此分类下没有软件包。"
+
+msgid "No recent projects"
+msgstr "没有最近使用的项目"
+
+msgid "No settings available"
+msgstr "没有可用设置项"
+
+msgid "Not set"
+msgstr "未设置"
+
+msgid "Number of layers to insert:"
+msgstr "要插入的图层数："
+
+msgid "Number of recent projects to keep"
+msgstr "最近使用项目的保留数量"
+
+msgid "Object / Effect"
+msgstr "对象 / 效果"
+
+msgid "Object List"
+msgstr "对象列表"
+
+msgid "Objects"
+msgstr "对象"
+
+msgid "Offset (Seconds):"
+msgstr "偏移（秒）："
+
+msgid "On demand"
+msgstr "按需"
+
+msgid "Open Existing Project..."
+msgstr "打开现有项目..."
+
+msgid "Open Project"
+msgstr "打开项目"
+
+msgid "Package Manager"
+msgstr "软件包管理器"
+
+msgid "Package Manager Error"
+msgstr "软件包管理器错误"
+
+msgid "Paste"
+msgstr "粘贴"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Performance"
+msgstr "性能"
+
+msgid "Period"
+msgstr "周期"
+
+msgid "Permissions"
+msgstr "权限"
+
+msgid "Permissions: "
+msgstr "权限管理："
+
+msgid "Place settings sidebar on the right"
+msgstr "将设置侧边栏放在右侧"
+
+msgid "Play"
+msgstr "播放"
+
+msgid "Play / Pause"
+msgstr "播放 / 暂停"
+
+msgid "Playback speed (percent)"
+msgstr "播放速度（百分比）"
+
+msgid "Plugins"
+msgstr "插件"
+
+msgid "Preferences"
+msgstr "首选项"
+
+msgid "Preferences..."
+msgstr "首选项..."
+
+msgid "Prefetch frames"
+msgstr "预取帧数"
+
+msgid "Preset:"
+msgstr "预设："
+
+msgid "Preview"
+msgstr "预览"
+
+msgid "Preview antialiasing"
+msgstr "预览抗锯齿"
+
+msgid "Preview rendering"
+msgstr "预览渲染"
+
+msgid "Profile:"
+msgstr "配置文件："
+
+msgid "Progress update interval"
+msgstr "进度更新间隔"
+
+msgid "Project"
+msgstr "项目"
+
+msgid "Project Settings"
+msgstr "项目设置"
+
+msgid "Project Settings..."
+msgstr "项目设置..."
+
+msgid "Quality mode:"
+msgstr "质量模式："
+
+msgid "Range"
+msgstr "范围"
+
+msgid "Recent Projects"
+msgstr "最近使用的项目"
+
+msgid "Recover"
+msgstr "恢复"
+
+msgid "Recover unsaved projects"
+msgstr "恢复未保存的项目"
+
+msgid "Redo"
+msgstr "重做"
+
+msgid "Reload"
+msgstr "重新加载"
+
+msgid "Render scale"
+msgstr "渲染缩放"
+
+msgid "Replace"
+msgstr "替换"
+
+msgid "Replace Missing Media"
+msgstr "替换缺失媒体"
+
+msgid "Repositories"
+msgstr "仓库"
+
+msgid "Reserved index count"
+msgstr "索引预留数量"
+
+msgid "Resolution:"
+msgstr "分辨率："
+
+msgid "Right drag: Pan  Wheel: Zoom"
+msgstr "右键拖动：平移  滚轮：缩放"
+
+msgid "Right drag: pan  Wheel: zoom  Left drag: handle  Double-click: add  Right-click: delete"
+msgstr "右键拖动：平移  滚轮：缩放  左键拖动：控制柄  双击：添加  右键单击：删除"
+
+msgid "Ruler height"
+msgstr "标尺高度"
+
+msgid "Sample 123"
+msgstr "示例 Sample 123"
+
+msgid "Sample Rate:"
+msgstr "采样率："
+
+msgid "Sample rate"
+msgstr "采样频率"
+
+msgid "Save As"
+msgstr "另存为"
+
+msgid "Save Preset"
+msgstr "保存预设"
+
+msgid "Save Preset..."
+msgstr "保存预设…"
+
+msgid "Save Project"
+msgstr "覆盖保存项目"
+
+msgid "Save Project As..."
+msgstr "项目另存为..."
+
+msgid "Saved {}"
+msgstr "保存于 {}"
+
+msgid "Scene"
+msgstr "场景"
+
+msgid "Scene Name:"
+msgstr "场景名："
+
+msgid "Scene Settings"
+msgstr "场景设置"
+
+msgid "Scene Settings..."
+msgstr "场景设置..."
+
+msgid "Search Paths"
+msgstr "搜索路径"
+
+msgid "Search effects/objects..."
+msgstr "搜索效果/对象..."
+
+msgid "Search font names..."
+msgstr "搜索字体名称..."
+
+msgid "Search name, ID, category, or format..."
+msgstr "搜索名称、ID、类别或格式..."
+
+msgid "Search name, ID, or category..."
+msgstr "搜索名称、ID 或类别..."
+
+msgid "Search name, category, ID, or package..."
+msgstr "搜索名称、类别、ID 或包..."
+
+msgid "Search..."
+msgstr "搜索..."
+
+msgid "Seek Bar"
+msgstr "进度条"
+
+msgid "Select Color"
+msgstr "选择颜色"
+
+msgid "Select Font"
+msgstr "选择字体"
+
+msgid "Select an object on the timeline"
+msgstr "请在时间线上选择对象"
+
+msgid "Select the permissions to grant to this plugin:"
+msgstr "请选择要授予此插件的权限："
+
+msgid "Selected Object Settings"
+msgstr "所选对象设置"
+
+msgid "Sequence number digits"
+msgstr "序列编号位数"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Settings Dialog"
+msgstr "设置对话框"
+
+msgid "Settings Dialog - "
+msgstr "设置对话框 - "
+
+msgid "Settings are saved with “Apply” or “OK”"
+msgstr "设置会在点击“应用”或“OK”后保存"
+
+msgid "Shortcuts"
+msgstr "快捷键"
+
+msgid "Show Settings Dialog"
+msgstr "显示设置对话框"
+
+msgid "Show Timeline"
+msgstr "显示时间线"
+
+msgid "Show all layers"
+msgstr "显示所有图层"
+
+msgid "Show this layer"
+msgstr "显示此图层"
+
+msgid "Show/Hide Current Layer"
+msgstr "显示/隐藏当前图层"
+
+msgid "Speed"
+msgstr "速度"
+
+msgid "Splash image size"
+msgstr "启动画面图像大小"
+
+msgid "Split"
+msgstr "分割"
+
+msgid "Split Clip"
+msgstr "分割片段"
+
+msgid "Standard"
+msgstr "标准"
+
+msgid "Standard (medium)"
+msgstr "标准 (medium)"
+
+msgid "Start Export"
+msgstr "开始导出"
+
+msgid "Start or pause playback"
+msgstr "开始或暂停播放"
+
+msgid "Start:"
+msgstr "开始："
+
+msgid "Startup"
+msgstr "启动"
+
+msgid "Still image quality"
+msgstr "静态图像质量"
+
+msgid "Strategy"
+msgstr "策略"
+
+msgid "Sync Repository"
+msgstr "同步仓库"
+
+msgid "Target layer range:"
+msgstr "目标图层范围："
+
+msgid "The selection is applied to the target keyframe immediately"
+msgstr "所选内容会立即应用到目标关键帧"
+
+msgid "Theme"
+msgstr "主题"
+
+msgid "Theme changes take effect immediately after you click Apply or OK."
+msgstr "单击“应用”或“确定”后，主题更改会立即生效"
+
+msgid "Time Signature (Subdivisions):"
+msgstr "拍号（分割数）："
+
+msgid "Timeline"
+msgstr "时间线"
+
+msgid "Timeline baking"
+msgstr "时间线烘焙"
+
+msgid "Timeline editing area"
+msgstr "时间线编辑区域"
+
+msgid "Timeline zoom"
+msgstr "时间线缩放率"
+
+msgid "Tools"
+msgstr "工具"
+
+msgid "Total frames"
+msgstr "总帧数"
+
+msgid "Track height"
+msgstr "轨道高度"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Undo"
+msgstr "撤销"
+
+msgid "Undo count"
+msgstr "撤销次数"
+
+msgid "Unlock this layer"
+msgstr "解锁此图层"
+
+msgid "Up"
+msgstr "向上"
+
+msgid "Update"
+msgstr "更新"
+
+msgid "Update available: "
+msgstr "有可用更新："
+
+msgid "Update interval"
+msgstr "更新间隔"
+
+msgid "Upgrade All"
+msgstr "全部升级"
+
+msgid "Video"
+msgstr "视频"
+
+msgid "Video Decoding"
+msgstr "视频解码"
+
+msgid "Video File"
+msgstr "视频文件"
+
+msgid "View"
+msgstr "显示"
+
+msgid "Visible, locked"
+msgstr "显示，已锁定"
+
+msgid "Visible, unlocked"
+msgstr "显示，未锁定"
+
+msgid "When enabled, automatically reloads plugins when changes to the plugins folder are detected"
+msgstr "启用后，检测到 plugins 文件夹变更时将自动重新加载插件"
+
+msgid "Width"
+msgstr "宽度"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "You can configure enablement and search paths for each format"
+msgstr "可为每种格式设置是否启用及搜索路径"
+
+msgid "Zoom In"
+msgstr "放大"
+
+msgid "Zoom Out"
+msgstr "缩小"
+
+msgid "Zoom presets"
+msgstr "缩放率列表"
+
+msgid "Zoom step"
+msgstr "缩放步进"
+
+msgid "Zoom:"
+msgstr "缩放："
+
+msgid "{} missing media files"
+msgstr "缺失 {} 个媒体文件"
+
+msgid "‹ Back"
+msgstr "‹ 返回"
+
+msgctxt "confirm-save"
+msgid "Save"
+msgstr "保存"
+
+msgctxt "edit-menu-cut"
+msgid "Cut"
+msgstr "剪切"
+
+msgctxt "launcher-height"
+msgid "Height:"
+msgstr "高度（纵向）："
+
+msgctxt "launcher-width"
+msgid "Width:"
+msgstr "宽度（横向）："
+
+msgctxt "save-project"
+msgid "Save"
+msgstr "覆盖保存"
+
+msgctxt "settings-height"
+msgid "Height:"
+msgstr "高度："
+
+msgctxt "settings-width"
+msgid "Width:"
+msgstr "宽度："
+
+msgctxt "timeline-cut"
+msgid "Cut"
+msgstr "剪切"
+
+msgid "Cut"
+msgstr "剪切"
+
+msgid "Select All"
+msgstr "全选"

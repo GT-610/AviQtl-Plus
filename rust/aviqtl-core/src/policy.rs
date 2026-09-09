@@ -137,7 +137,7 @@ fn resolve_audio_time(
     }
 }
 
-fn resolve_video_time(
+pub(crate) fn resolve_video_time(
     relative_frame: i32,
     source_fps: f64,
     direct_mode: bool,
@@ -289,7 +289,7 @@ pub(crate) fn permission_from_name(value: &str) -> i32 {
         .unwrap_or(-1)
 }
 
-fn permission_for_api(value: &str) -> i32 {
+pub(crate) fn permission_for_api(value: &str) -> i32 {
     API_PERMISSIONS
         .iter()
         .find_map(|(name, permission)| (*name == value).then(|| permission_from_name(permission)))
@@ -314,7 +314,7 @@ fn package_type(value: &str) -> i32 {
     }
 }
 
-fn safe_archive_path(value: &str) -> bool {
+pub(crate) fn safe_archive_path(value: &str) -> bool {
     let has_drive_prefix = value.as_bytes().get(1) == Some(&b':')
         && value
             .as_bytes()

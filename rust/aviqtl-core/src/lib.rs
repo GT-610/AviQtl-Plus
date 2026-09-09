@@ -1,6 +1,7 @@
 #![recursion_limit = "256"]
 
 mod abi;
+pub mod api;
 mod audio;
 mod bake_plan;
 mod effect;
@@ -15,6 +16,7 @@ mod preset;
 mod project;
 mod recovery;
 mod script;
+mod script_runtime;
 mod settings;
 mod timeline;
 mod timeline_domain;

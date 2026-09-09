@@ -1,0 +1,16 @@
+[package]
+name = "aviqtl-export"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+aviqtl-audio = { path = "../aviqtl-audio" }
+aviqtl-media = { path = "../aviqtl-media" }
+aviqtl-preview = { path = "../aviqtl-preview" }
+aviqtl-rust-core = { path = "../aviqtl-core" }
+wgpu = { version = "29.0.1", default-features = false, features = ["std", "wgsl"] }
+
+[lints.rust]
+unsafe_code = "forbid"

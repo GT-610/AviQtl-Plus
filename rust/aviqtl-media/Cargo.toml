@@ -1,0 +1,13 @@
+[package]
+name = "aviqtl-media"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+ffmpeg = { package = "ffmpeg-the-third", version = "6.0.0", default-features = false, features = ["codec", "format", "software-resampling", "software-scaling"] }
+image = { version = "0.25.10", default-features = false, features = ["gif", "jpeg", "png", "tiff", "webp"] }
+
+[lints.rust]
+unsafe_code = "forbid"

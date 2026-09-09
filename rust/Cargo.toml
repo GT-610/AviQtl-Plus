@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["aviqtl-core"]
+members = ["aviqtl-app", "aviqtl-audio", "aviqtl-carla", "aviqtl-core", "aviqtl-export", "aviqtl-media", "aviqtl-preview", "aviqtl-render", "aviqtl-slint"]
+
+[workspace.package]
+version = "0.6.2"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
 
 [profile.dev]
 panic = "abort"
