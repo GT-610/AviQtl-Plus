@@ -7451,10 +7451,10 @@ fn sync_recovery_entries(window: &ProjectRecoveryWindow, entries: Vec<aviqtl_app
 }
 
 fn update_vec_model<T: Clone + 'static>(model: &ModelRc<T>, rows: Vec<T>) {
-    let model = model
-        .as_any()
-        .downcast_ref::<VecModel<T>>()
-        .expect("UI list properties are initialized with VecModel");
+    let Some(model) = model.as_any().downcast_ref::<VecModel<T>>() else {
+        eprintln!("UI list was replaced with a non-VecModel; skipping sync");
+        return;
+    };
     let common_rows = model.row_count().min(rows.len());
     for (index, row) in rows.iter().take(common_rows).cloned().enumerate() {
         model.set_row_data(index, row);
