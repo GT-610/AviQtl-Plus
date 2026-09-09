@@ -144,10 +144,6 @@ impl ApplicationModel {
         self.projects.is_empty()
     }
 
-    pub fn project_count(&self) -> usize {
-        self.projects.len()
-    }
-
     pub fn current_project_index(&self) -> Option<usize> {
         self.current_project
     }
@@ -372,19 +368,6 @@ impl ApplicationModel {
             return false;
         }
         self.current_project = Some(index);
-        true
-    }
-
-    /// Closes a clean project immediately. User-facing close requests should use the lifecycle flow.
-    pub fn close_clean_project(&mut self, index: usize) -> bool {
-        if self
-            .projects
-            .get(index)
-            .is_none_or(|project| project.workspace.project().dirty)
-        {
-            return false;
-        }
-        self.remove_project(index);
         true
     }
 
@@ -720,8 +703,11 @@ mod tests {
         assert_eq!(app.current_project_index(), Some(2));
         assert!(app.select_project(1));
         assert_eq!(app.current_project_instance_id(), Some(second_id));
-        assert!(app.close_clean_project(1));
-        assert_eq!(app.project_count(), 2);
+        assert!(matches!(
+            app.request_close_project(1),
+            LifecycleStep::ProjectClosed { project_index: 1 }
+        ));
+        assert_eq!(app.tabs().len(), 2);
         assert_eq!(app.current_project_index(), Some(1));
         assert_eq!(app.current_project_instance_id(), Some(third_id));
         assert_eq!(app.tabs()[1].name, "Untitled 3");
@@ -778,7 +764,7 @@ mod tests {
             .expect("fixture project saves");
 
         assert_eq!(app.open_project(&path), Ok(0));
-        assert_eq!(app.project_count(), 1);
+        assert_eq!(app.tabs().len(), 1);
         assert_ne!(app.current_project_instance_id(), Some(placeholder_id));
         assert_eq!(
             app.current_workspace()
@@ -803,7 +789,7 @@ mod tests {
             .expect("fixture project saves");
 
         assert_eq!(app.open_project(&path), Ok(1));
-        assert_eq!(app.project_count(), 2);
+        assert_eq!(app.tabs().len(), 2);
         assert_eq!(app.current_project_index(), Some(1));
 
         std::fs::remove_file(path).expect("fixture project removes");
@@ -868,7 +854,7 @@ mod tests {
             app.answer_save_confirmation(SaveDecision::Cancel),
             LifecycleStep::Cancelled
         );
-        assert_eq!(app.project_count(), 1);
+        assert_eq!(app.tabs().len(), 1);
 
         assert!(matches!(
             app.request_close_project(0),
@@ -882,7 +868,7 @@ mod tests {
             }
         ));
         assert_eq!(app.complete_save_path(None), LifecycleStep::Cancelled);
-        assert_eq!(app.project_count(), 1);
+        assert_eq!(app.tabs().len(), 1);
 
         assert!(matches!(
             app.request_close_project(0),
@@ -924,7 +910,7 @@ mod tests {
             app.answer_save_confirmation(SaveDecision::Discard),
             LifecycleStep::QuitReady
         );
-        assert_eq!(app.project_count(), 4);
+        assert_eq!(app.tabs().len(), 4);
     }
 
     #[test]
@@ -937,7 +923,7 @@ mod tests {
             .dirty = true;
 
         assert_eq!(app.request_quit(false), LifecycleStep::QuitReady);
-        assert_eq!(app.project_count(), 1);
+        assert_eq!(app.tabs().len(), 1);
     }
 
     #[test]
@@ -987,7 +973,7 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(app.project_count(), 1);
+        assert_eq!(app.tabs().len(), 1);
         assert!(
             app.current_workspace()
                 .expect("project remains")

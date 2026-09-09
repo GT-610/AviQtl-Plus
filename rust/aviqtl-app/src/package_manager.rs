@@ -41,8 +41,6 @@ pub enum PackageOperation {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PackageOperationOutcome {
-    pub installed: Vec<String>,
-    pub removed: Vec<String>,
     pub errors: Vec<String>,
     pub reload_effect_catalog: bool,
     pub reload_script_plugins: bool,
@@ -174,7 +172,6 @@ impl PackageHttpClient for UreqPackageHttpClient {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PackageSyncOutcome {
-    pub repositories_synced: usize,
     pub errors: Vec<String>,
 }
 
@@ -341,7 +338,7 @@ impl PackageManagerModel {
             };
             let repository_url = text(repository_info.get("url"));
             match self.fetch_repository(client, &repository_url, &mut repository_info) {
-                Ok(()) => outcome.repositories_synced += 1,
+                Ok(()) => {}
                 Err(error) => outcome.errors.push(error),
             }
         }
@@ -380,13 +377,11 @@ impl PackageManagerModel {
                     &mut progress,
                 ) {
                     Ok(PackageInstallOutcome::Installed {
-                        package_id,
-                        package_type,
+                        package_type, ..
                     }) => {
                         outcome.reload_effect_catalog =
                             matches!(package_type.as_str(), "effect" | "object");
                         outcome.reload_script_plugins = package_type == "mod";
-                        outcome.installed.push(package_id);
                     }
                     Ok(PackageInstallOutcome::SelfUpdate { version }) => {
                         outcome.self_update_version = Some(version);
@@ -405,7 +400,6 @@ impl PackageManagerModel {
                         outcome.reload_effect_catalog =
                             matches!(package_type.as_str(), "effect" | "object");
                         outcome.reload_script_plugins = package_type == "mod";
-                        outcome.removed.push(package_id);
                     }
                     Err(error) => {
                         self.status = "Removal failed".to_owned();
@@ -429,14 +423,10 @@ impl PackageManagerModel {
                         progress(status, base + value.clamp(0.0, 1.0) * scale);
                     };
                     match self.install_package(client, &package_id, "", "", &mut step_progress) {
-                        Ok(PackageInstallOutcome::Installed {
-                            package_id,
-                            package_type,
-                        }) => {
+                        Ok(PackageInstallOutcome::Installed { package_type, .. }) => {
                             outcome.reload_effect_catalog |=
                                 matches!(package_type.as_str(), "effect" | "object");
                             outcome.reload_script_plugins |= package_type == "mod";
-                            outcome.installed.push(package_id);
                         }
                         Ok(PackageInstallOutcome::SelfUpdate { version }) => {
                             outcome.self_update_version = Some(version);
@@ -1899,7 +1889,6 @@ mod tests {
         );
 
         let outcome = model.refresh_repositories(&client);
-        assert_eq!(outcome.repositories_synced, 1);
         assert_eq!(outcome.errors.len(), 1);
         assert_eq!(
             model.packages(PackageSection::Effect, "")[0].id,
@@ -2029,7 +2018,6 @@ mod tests {
             |_, _| {},
         );
         assert!(install.errors.is_empty(), "{:?}", install.errors);
-        assert_eq!(install.installed, ["effect.demo"]);
         assert!(install.reload_effect_catalog);
         let deployed = root
             .parent()
@@ -2056,7 +2044,6 @@ mod tests {
             |_, _| {},
         );
         assert!(remove.errors.is_empty(), "{:?}", remove.errors);
-        assert_eq!(remove.removed, ["effect.demo"]);
         assert!(!deployed.exists());
         assert!(
             !read_json_object(&root.join("installed.json"), MAX_INSTALLED_STATE_BYTES,)

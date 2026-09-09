@@ -28,8 +28,6 @@ pub struct ModTickOutcome {
 
 struct LoadedPlugin {
     id: String,
-    #[allow(dead_code)]
-    display_name: String,
     path: PathBuf,
     parameters: BTreeMap<String, Value>,
     runtime: ScriptRuntime,
@@ -78,13 +76,6 @@ impl ModHost {
 
     pub fn plugin_count(&self) -> usize {
         self.plugins.len()
-    }
-
-    pub fn plugin_ids(&self) -> Vec<String> {
-        self.plugins
-            .iter()
-            .map(|plugin| plugin.id.clone())
-            .collect()
     }
 
     pub fn take_diagnostics(&mut self) -> Vec<String> {
@@ -175,11 +166,6 @@ impl ModHost {
                     }
                     self.plugins.push(LoadedPlugin {
                         id: manifest.id.clone(),
-                        display_name: if manifest.name.is_empty() {
-                            manifest.id.clone()
-                        } else {
-                            manifest.name.clone()
-                        },
                         path: candidate.path,
                         parameters,
                         runtime,
@@ -1101,7 +1087,6 @@ mod tests {
         host.plugins.clear();
         host.plugins.push(LoadedPlugin {
             id: "script.test".to_owned(),
-            display_name: "test".to_owned(),
             path: PathBuf::from("test.lua"),
             parameters: BTreeMap::new(),
             runtime,
