@@ -562,15 +562,15 @@ fn apply(request: Request) -> Response {
                 inferred_duration(&track).max(frame.saturating_add(1))
             };
             let mut normalized = normalize_track(&track, &fallback, duration);
-            let object = normalized
-                .as_object_mut()
-                .expect("normalized track is an object");
+            let Some(object) = normalized.as_object_mut() else {
+                return response(track, false, false);
+            };
             let options = options.as_object().cloned().unwrap_or_default();
             if frame <= 0 {
-                let start = object
-                    .get_mut("start")
-                    .and_then(Value::as_object_mut)
-                    .expect("normalized start is an object");
+                let Some(start) = object.get_mut("start").and_then(Value::as_object_mut)
+                else {
+                    return response(track, false, false);
+                };
                 start.insert("value".to_owned(), value.clone());
                 let interpolation = options
                     .get("interp")
@@ -605,10 +605,12 @@ fn apply(request: Request) -> Response {
                     keyframe.insert(name.to_owned(), value.clone());
                 }
             }
-            let points = object
+            let Some(points) = object
                 .get_mut("points")
                 .and_then(Value::as_array_mut)
-                .expect("normalized points is an array");
+            else {
+                return response(track, false, false);
+            };
             if let Some(index) = points.iter().position(|point| point_frame(point) == frame) {
                 points[index] = Value::Object(keyframe);
             } else {
@@ -632,11 +634,13 @@ fn apply(request: Request) -> Response {
             if frame <= 0 {
                 return response(normalized, false, false);
             }
-            let points = normalized
+            let Some(points) = normalized
                 .as_object_mut()
                 .and_then(|track| track.get_mut("points"))
                 .and_then(Value::as_array_mut)
-                .expect("normalized points is an array");
+            else {
+                return response(track, false, false);
+            };
             let previous_length = points.len();
             points.retain(|point| point_frame(point) != frame);
             let changed = previous_length != points.len();
@@ -661,11 +665,13 @@ fn apply(request: Request) -> Response {
             if old_frame <= 0 || new_frame <= 0 {
                 return response(normalized, false, false);
             }
-            let points = normalized
+            let Some(points) = normalized
                 .as_object_mut()
                 .and_then(|track| track.get_mut("points"))
                 .and_then(Value::as_array_mut)
-                .expect("normalized points is an array");
+            else {
+                return response(track, false, false);
+            };
             if points.iter().any(|point| point_frame(point) == new_frame) {
                 return response(normalized, false, false);
             }
@@ -675,10 +681,10 @@ fn apply(request: Request) -> Response {
             else {
                 return response(normalized, false, false);
             };
-            points[source]
-                .as_object_mut()
-                .expect("keyframe point is an object")
-                .insert("frame".to_owned(), Value::from(new_frame));
+            let Some(source_point) = points[source].as_object_mut() else {
+                return response(track, false, false);
+            };
+            source_point.insert("frame".to_owned(), Value::from(new_frame));
             sort_points(points);
             response(normalized, true, true)
         }
@@ -715,19 +721,21 @@ fn apply(request: Request) -> Response {
             };
             let mut changed = !was_structured;
             if old_duration > 0 && old_duration != new_duration {
-                let points = normalized
+                let Some(points) = normalized
                     .as_object_mut()
                     .and_then(|track| track.get_mut("points"))
                     .and_then(Value::as_array_mut)
-                    .expect("normalized points is an array");
+                else {
+                    return response(track, false, false);
+                };
                 if let Some(point) = points
                     .iter_mut()
                     .find(|point| point_frame(point) == old_duration)
                 {
-                    point
-                        .as_object_mut()
-                        .expect("keyframe point is an object")
-                        .insert("frame".to_owned(), Value::from(new_duration));
+                    let Some(point) = point.as_object_mut() else {
+                        return response(track, false, false);
+                    };
+                    point.insert("frame".to_owned(), Value::from(new_duration));
                     sort_points(points);
                     changed = true;
                 }
@@ -797,10 +805,15 @@ fn apply(request: Request) -> Response {
                 {
                     let next_frame = frame - first_half_duration;
                     if next_frame > 0 && next_frame <= second_end {
-                        point
-                            .as_object_mut()
-                            .expect("keyframe point is an object")
-                            .insert("frame".to_owned(), Value::from(next_frame));
+                        let is_object = point.is_object();
+                        if !is_object {
+                            let mut result = response(track, false, false);
+                            result.secondary_track = Some(Value::Object(Map::new()));
+                            return result;
+                        }
+                        if let Value::Object(object) = &mut point {
+                            object.insert("frame".to_owned(), Value::from(next_frame));
+                        }
                         second_points.push(point);
                     }
                 }
