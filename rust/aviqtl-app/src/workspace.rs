@@ -239,14 +239,6 @@ impl WorkspaceModel {
         self.transport.playback_speed()
     }
 
-    pub fn selected_clip_ids(&self) -> &[i32] {
-        self.selection.ids()
-    }
-
-    pub fn primary_clip_id(&self) -> Option<i32> {
-        self.selection.primary()
-    }
-
     pub fn selected_layer(&self) -> i32 {
         self.selection.selected_layer()
     }
@@ -837,22 +829,6 @@ impl WorkspaceModel {
         }
     }
 
-    pub fn set_effect_parameter(
-        &mut self,
-        effect_index: usize,
-        param_name: &str,
-        value: Value,
-    ) -> bool {
-        let Some(relative_frame) = self.selected_clip_document().map(|clip| {
-            self.playhead
-                .saturating_sub(clip.start)
-                .clamp(0, clip.duration.max(0))
-        }) else {
-            return false;
-        };
-        self.set_effect_parameter_at_frame(effect_index, param_name, relative_frame, value)
-    }
-
     pub fn set_effect_parameter_at_frame(
         &mut self,
         effect_index: usize,
@@ -1425,14 +1401,6 @@ impl WorkspaceModel {
         } else {
             clip.effects.len()
         }
-    }
-
-    pub fn can_undo(&self) -> bool {
-        !self.undo.is_empty()
-    }
-
-    pub fn can_redo(&self) -> bool {
-        !self.redo.is_empty()
     }
 
     pub fn set_undo_limit(&mut self, limit: usize) {
@@ -3045,6 +3013,17 @@ mod tests {
         path
     }
 
+    fn selected_ids(workspace: &WorkspaceModel) -> Vec<i32> {
+        let mut ids: Vec<i32> = workspace
+            .timeline_clips()
+            .iter()
+            .filter(|clip| clip.selected)
+            .map(|clip| clip.id)
+            .collect();
+        ids.sort_unstable();
+        ids
+    }
+
     fn workspace() -> WorkspaceModel {
         let state = TimelineState::from_json(
             br#"{
@@ -3227,12 +3206,11 @@ mod tests {
         assert_eq!(workspace.document_revision(), 0);
         workspace.click_clip(1, false);
         workspace.click_clip(2, true);
-        assert_eq!(workspace.selected_clip_ids(), [2, 1]);
+        assert_eq!(selected_ids(&workspace), [1, 2]);
         assert!(workspace.copy_selected_clips());
         assert_eq!(workspace.paste_clips_at(80, 4, 128), Some((130, 4)));
         assert_eq!(workspace.document().clips.len(), 5);
         assert_eq!(workspace.document_revision(), 1);
-        assert!(workspace.can_undo());
         assert!(workspace.undo());
         assert_eq!(workspace.document().clips.len(), 3);
         assert_eq!(workspace.document_revision(), 2);
@@ -3430,15 +3408,15 @@ mod tests {
         workspace.click_clip(1, false);
         workspace.click_clip(2, true);
         workspace.prepare_clip_drag(1, false);
-        assert_eq!(workspace.selected_clip_ids(), [2, 1]);
+        assert_eq!(selected_ids(&workspace), [1, 2]);
 
         workspace.click_clip(1, false);
         workspace.prepare_clip_drag(2, false);
-        assert_eq!(workspace.selected_clip_ids(), [2]);
+        assert_eq!(selected_ids(&workspace), [2]);
 
         workspace.click_clip(1, false);
         workspace.prepare_clip_drag(2, true);
-        assert_eq!(workspace.selected_clip_ids(), [2, 1]);
+        assert_eq!(selected_ids(&workspace), [1, 2]);
     }
 
     #[test]
@@ -3458,7 +3436,7 @@ mod tests {
         workspace.seek(0);
         workspace.click_clip(2, false);
         workspace.context_click_clip(1);
-        assert_eq!(workspace.selected_clip_ids(), [1]);
+        assert_eq!(selected_ids(&workspace), [1]);
         assert!(workspace.split_selected_clips_at(10));
         let clip_one: Vec<_> = workspace
             .document()
@@ -3516,7 +3494,6 @@ mod tests {
         assert_eq!(workspace.document().settings.fps, 60.0);
         assert_eq!(workspace.document().settings.sample_rate, 192_000);
         assert_eq!(workspace.document_revision(), 1);
-        assert!(!workspace.can_undo());
         assert!(!workspace.undo());
         assert_eq!(workspace.document().settings.width, 8_000);
         assert_eq!(workspace.document().settings.height, 1);
@@ -3651,7 +3628,7 @@ mod tests {
 
         assert_eq!(workspace.playhead(), 40);
         assert_eq!(workspace.selected_layer(), 7);
-        assert_eq!(workspace.selected_clip_ids(), [1]);
+        assert_eq!(selected_ids(&workspace), [1]);
 
         // HEAD clamps seek-family calls to the clip end (50 here) so the
         // edit target can no longer run past the timeline like Qt's
@@ -3660,7 +3637,7 @@ mod tests {
 
         assert_eq!(workspace.playhead(), 50);
         assert_eq!(workspace.selected_layer(), 7);
-        assert_eq!(workspace.selected_clip_ids(), [1]);
+        assert_eq!(selected_ids(&workspace), [1]);
     }
 
     #[test]
@@ -3692,14 +3669,14 @@ mod tests {
         assert!(workspace.set_effect_enabled(1, false));
         assert!(!workspace.document().clips[0].effects[1].enabled);
 
-        assert!(workspace.set_effect_parameter(0, "count", json!(4.6)));
+        assert!(workspace.set_effect_parameter_at_frame(0, "count", 0, json!(4.6)));
         let count = &workspace.document().clips[0].effects[0].params["count"];
         assert_eq!(count["$aviqtlType"], "int");
         assert_eq!(count["value"], 5);
         assert_eq!(count["extension"], 7);
 
         workspace.seek(10);
-        assert!(workspace.set_effect_parameter(1, "size", json!(15.0)));
+        assert!(workspace.set_effect_parameter_at_frame(1, "size", 10, json!(15.0)));
         let track = workspace.document().clips[0].effects[1]
             .keyframes
             .as_ref()
@@ -4005,11 +3982,11 @@ mod tests {
         let store = PresetStore::from_root(root.clone());
         let mut workspace = workspace_with_effects();
         workspace.click_clip(1, false);
-        assert!(workspace.set_effect_parameter(0, "count", json!(5.0)));
+        assert!(workspace.set_effect_parameter_at_frame(0, "count", 0, json!(5.0)));
         assert!(workspace.save_effect_preset(&store, 0, "Current"));
         assert_eq!(store.names("rect"), ["Current"]);
 
-        assert!(workspace.set_effect_parameter(0, "count", json!(2.0)));
+        assert!(workspace.set_effect_parameter_at_frame(0, "count", 0, json!(2.0)));
         assert_eq!(
             workspace.document().clips[0].effects[0].params["count"]["value"],
             2

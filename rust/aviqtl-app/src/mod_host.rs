@@ -1169,7 +1169,6 @@ mod tests {
         assert_eq!(outcome.applied_commands, 4);
         let workspace = model.current_workspace().expect("workspace");
         assert_eq!(workspace.document().clips.len(), 2);
-        assert!(workspace.can_undo());
         let workspace = model.current_workspace_mut().expect("workspace");
         assert!(workspace.undo());
         assert_eq!(workspace.document().clips.len(), 0);
