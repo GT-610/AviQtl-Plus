@@ -129,7 +129,6 @@ pub struct CarlaPluginProcessor {
     _host_descriptor: Box<ffi::NativeHostDescriptor>,
     _ui_name: CString,
     _resource_dir: CString,
-    info: CarlaPluginInfo,
     parameter_count: usize,
     input_left: Vec<f32>,
     input_right: Vec<f32>,
@@ -250,16 +249,11 @@ impl CarlaPluginProcessor {
             _host_descriptor: host_descriptor,
             _ui_name: ui_name,
             _resource_dir: resource_dir,
-            info,
             parameter_count,
             input_left: vec![0.0; max_block_size],
             input_right: vec![0.0; max_block_size],
             active: true,
         })
-    }
-
-    pub fn info(&self) -> &CarlaPluginInfo {
-        &self.info
     }
 
     pub fn parameter_count(&self) -> usize {

@@ -19,7 +19,6 @@ pub struct PreviewSurface {
     readback_buffer: Option<wgpu::Buffer>,
     readback_capacity: u64,
     nested_surfaces: HashMap<u64, SceneSurface>,
-    size: (u32, u32),
     render_scale: f32,
     msaa_samples: u32,
 }
@@ -36,7 +35,6 @@ impl PreviewSurface {
             readback_buffer: None,
             readback_capacity: 0,
             nested_surfaces: HashMap::new(),
-            size: (WIDTH, HEIGHT),
             render_scale: 1.0,
             msaa_samples: 1,
         }
@@ -71,10 +69,6 @@ impl PreviewSurface {
         );
         self.nested_surfaces.clear();
         true
-    }
-
-    pub fn size(&self) -> (u32, u32) {
-        self.size
     }
 
     pub fn texture(&self) -> &wgpu::Texture {
@@ -256,7 +250,6 @@ impl PreviewSurface {
     fn replace_target(&mut self, width: u32, height: u32) {
         let pixels = vec![0_u8; width as usize * height as usize * 4];
         self.texture = create_texture(&self.device, &self.queue, width, height, &pixels);
-        self.size = (width, height);
     }
 }
 
@@ -506,7 +499,10 @@ mod tests {
 
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         assert!(surface.compose(&scene, 1));
-        assert_eq!(surface.size(), (32, 16));
+        assert_eq!(
+            (surface.texture().width(), surface.texture().height()),
+            (32, 16)
+        );
         let pixels = surface.read_rgba().expect("scaled MSAA preview readback");
         let validation_error = pollster::block_on(error_scope.pop());
 

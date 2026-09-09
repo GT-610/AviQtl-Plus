@@ -1740,28 +1740,6 @@ impl Compositor {
         }
     }
 
-    pub fn render(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        target: &wgpu::Texture,
-        target_size: (u32, u32),
-        layers: &[CompositionLayer<'_>],
-        camera: Option<&CameraRenderPlan>,
-    ) {
-        self.render_scaled(
-            device,
-            queue,
-            target,
-            CompositionSize {
-                physical: target_size,
-                logical: target_size,
-            },
-            layers,
-            camera,
-        );
-    }
-
     /// Renders into a scaled preview target while preserving scene-space coordinates.
     pub fn render_scaled(
         &mut self,

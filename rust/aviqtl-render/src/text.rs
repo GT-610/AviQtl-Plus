@@ -157,12 +157,6 @@ impl TextRasterizer {
     }
 }
 
-impl Default for TextRasterizer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 fn requested_family(name: &str) -> Family<'_> {
     if name.eq_ignore_ascii_case("serif") {
         Family::Serif

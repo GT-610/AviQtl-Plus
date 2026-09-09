@@ -115,9 +115,10 @@ pub fn decode_image(path: &Path) -> Result<VideoFrame, MediaError> {
 }
 
 /// Interleaved stereo float32 samples at the decoder's configured output rate.
+/// The rate is available from `AudioDecoder::sample_rate`; decoded blocks do
+/// not repeat it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioSamples {
-    pub sample_rate: u32,
     pub samples: Vec<f32>,
 }
 
@@ -156,12 +157,6 @@ pub fn media_duration_seconds(
         }
     }
     Ok(None)
-}
-
-impl AudioSamples {
-    pub fn frame_count(&self) -> usize {
-        self.samples.len() / 2
-    }
 }
 
 struct AudioChunk {
@@ -249,7 +244,6 @@ impl AudioDecoder {
             written_frames += copy_frames;
         }
         Ok(AudioSamples {
-            sample_rate: self.sample_rate,
             samples: output,
         })
     }
@@ -815,7 +809,7 @@ mod tests {
         let first = decoder
             .decode_range(0.05, 4_800)
             .expect("first audio range decodes");
-        assert_eq!(first.frame_count(), 4_800);
+        assert_eq!(first.samples.len() / 2, 4_800);
         assert!(first.samples.iter().any(|sample| sample.abs() > 0.01));
         assert_eq!(
             decoder
@@ -826,7 +820,7 @@ mod tests {
         let tail = decoder
             .decode_range(0.25, 4_800)
             .expect("range crossing end-of-stream decodes");
-        assert_eq!(tail.frame_count(), 4_800);
+        assert_eq!(tail.samples.len() / 2, 4_800);
         assert!(
             tail.samples[..2_000]
                 .iter()
