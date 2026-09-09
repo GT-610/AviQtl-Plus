@@ -10,7 +10,7 @@ use aviqtl_rust_core::api::{
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use plugin_host::{AudioPluginChain, AudioPluginProcessContext, DEFAULT_PLUGIN_BLOCK_SIZE};
+use plugin_host::{AudioPluginChain, AudioPluginProcessContext};
 pub use plugin_host::{
     AudioPluginDescription, AudioPluginParameterInfo, ModernAudioPluginFormat,
     ModernAudioPluginInfo, inspect_audio_plugin, scan_modern_audio_plugins,
@@ -53,46 +53,6 @@ pub struct TimelineAudioMixer {
 }
 
 impl TimelineAudioMixer {
-    pub fn mix_frame(
-        &mut self,
-        timeline_frame: i32,
-        fps: f64,
-        sample_rate: u32,
-        sources: &[TimelineAudioSource],
-    ) -> Result<TimelineAudioBlock, TimelineAudioError> {
-        self.mix_frame_with_plugin_block_size(
-            timeline_frame,
-            fps,
-            sample_rate,
-            DEFAULT_PLUGIN_BLOCK_SIZE,
-            sources,
-        )
-    }
-
-    pub fn mix_frame_with_plugin_block_size(
-        &mut self,
-        timeline_frame: i32,
-        fps: f64,
-        sample_rate: u32,
-        max_plugin_block_size: usize,
-        sources: &[TimelineAudioSource],
-    ) -> Result<TimelineAudioBlock, TimelineAudioError> {
-        let Some((start_sample, output_frames)) =
-            frame_sample_range(timeline_frame, fps, sample_rate)
-        else {
-            return Err(TimelineAudioError::InvalidTiming);
-        };
-        self.mix_planned_frame(
-            timeline_frame,
-            fps,
-            sample_rate,
-            start_sample,
-            output_frames,
-            max_plugin_block_size,
-            sources,
-        )
-    }
-
     pub fn mix_frame_with_sample_count_and_plugin_block_size(
         &mut self,
         timeline_frame: i32,
@@ -243,7 +203,11 @@ impl TimelineAudioMixer {
     }
 }
 
+#[cfg(test)]
 fn frame_sample_range(timeline_frame: i32, fps: f64, sample_rate: u32) -> Option<(i64, usize)> {
+    // Test-only helper: production mixes through
+    // mix_frame_with_sample_count_and_plugin_block_size with an explicit
+    // frame count, so the implicit range lookup survives only for tests.
     if timeline_frame < 0 || !fps.is_finite() || fps <= 0.0 || sample_rate == 0 {
         return None;
     }
@@ -286,6 +250,7 @@ fn mix_parameters(plan: &AudioLayerPlan, timeline_frame: i32, fps: f64) -> Stere
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugin_host::DEFAULT_PLUGIN_BLOCK_SIZE;
     use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -322,8 +287,17 @@ mod tests {
     fn export_sample_count_can_start_at_an_arbitrary_timeline_frame() {
         let fps = 60_000.0 / 1_001.0;
         let mut mixer = TimelineAudioMixer::default();
+        let (_, preview_frames) =
+            frame_sample_range(1, fps, 48_000).expect("timing is valid");
         let preview = mixer
-            .mix_frame(1, fps, 48_000, &[])
+            .mix_frame_with_sample_count_and_plugin_block_size(
+                1,
+                fps,
+                48_000,
+                preview_frames,
+                DEFAULT_PLUGIN_BLOCK_SIZE,
+                &[],
+            )
             .expect("timeline audio frame mixes");
         let export = mixer
             .mix_frame_with_sample_count_and_plugin_block_size(
@@ -357,7 +331,14 @@ mod tests {
             plan: plan(7),
         };
         let block = TimelineAudioMixer::default()
-            .mix_frame(0, 60.0, 48_000, &[source])
+            .mix_frame_with_sample_count_and_plugin_block_size(
+                0,
+                60.0,
+                48_000,
+                800,
+                DEFAULT_PLUGIN_BLOCK_SIZE,
+                &[source],
+            )
             .expect("valid frame timing still mixes");
         assert_eq!(block.samples.len(), 1_600);
         assert!(block.samples.iter().all(|sample| *sample == 0.0));
@@ -405,10 +386,24 @@ mod tests {
         };
         let mut mixer = TimelineAudioMixer::default();
         let first = mixer
-            .mix_frame(0, 60.0, 48_000, std::slice::from_ref(&source))
+            .mix_frame_with_sample_count_and_plugin_block_size(
+                0,
+                60.0,
+                48_000,
+                800,
+                DEFAULT_PLUGIN_BLOCK_SIZE,
+                std::slice::from_ref(&source),
+            )
             .expect("first timeline frame mixes");
         let second = mixer
-            .mix_frame(1, 60.0, 48_000, &[source])
+            .mix_frame_with_sample_count_and_plugin_block_size(
+                1,
+                60.0,
+                48_000,
+                800,
+                DEFAULT_PLUGIN_BLOCK_SIZE,
+                &[source],
+            )
             .expect("second timeline frame mixes");
         assert_eq!(first.samples.len(), 1_600);
         assert_eq!(second.start_sample, 800);
