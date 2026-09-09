@@ -39,7 +39,7 @@ export global AppTheme {
     out property <length> control-radius: 6px;
     out property <length> surface-radius: 10px;
     out property <length> compact-control-height: 30px;
-    out property <length> toolbar-height: 46px;
+    out property <length> toolbar-height: 38px;
     out property <length> status-height: 24px;
 
     changed preference-index => {
@@ -1033,9 +1033,9 @@ component ObjectSettingRow inherits Rectangle {
 component TabCloseButton inherits Rectangle {
     in property <string> accessible-name;
     callback clicked();
-    width: 22px;
-    height: 22px;
-    border-radius: 11px;
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
     background: close-touch.has-hover ? AppTheme.hover-background : transparent;
     animate background { duration: 150ms; }
 
@@ -1056,16 +1056,110 @@ component TabCloseButton inherits Rectangle {
     }
 }
 
+component TabAddButton inherits Rectangle {
+    in property <string> accessible-name;
+    callback clicked();
+    width: 40px;
+    height: 100%;
+    background: add-touch.has-hover ? AppTheme.hover-background : transparent;
+    animate background { duration: 150ms; }
+
+    Text {
+        text: "+";
+        color: add-touch.has-hover ? AppTheme.accent : AppTheme.foreground;
+        font-size: 1.15rem;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    add-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.accessible-name;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+    }
+}
+
+component TransportButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> accessible-name;
+    in property <string> help-text;
+    in property <bool> active: false;
+    private property <brush> icon-color: transport-touch.has-hover || root.active ? AppTheme.accent : AppTheme.foreground;
+    callback clicked();
+    width: 32px;
+    height: 32px;
+    border-radius: AppTheme.control-radius;
+    background: root.active
+        ? AppTheme.selection-background
+        : transport-touch.has-hover
+            ? AppTheme.hover-background
+            : transparent;
+    animate background { duration: 120ms; }
+
+    if root.icon == "previous" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 11 3 L 5 8 L 11 13";
+        stroke: root.icon-color;
+        stroke-width: 2px;
+    }
+    if root.icon == "play" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 5 3 L 13 8 L 5 13 Z";
+        fill: root.icon-color;
+    }
+    if root.icon == "pause" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 4 3 L 7 3 L 7 13 L 4 13 Z M 9 3 L 12 3 L 12 13 L 9 13 Z";
+        fill: root.icon-color;
+    }
+    if root.icon == "next" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 5 3 L 11 8 L 5 13";
+        stroke: root.icon-color;
+        stroke-width: 2px;
+    }
+    transport-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.accessible-name;
+        accessible-description: root.help-text;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+    }
+}
+
 component SceneTab inherits Rectangle {
     in property <SceneTabData> scene;
     callback activate(int);
     callback close(int);
     callback settings(int);
-    preferred-width: 148px;
-    min-width: 108px;
+    preferred-width: 100px;
+    min-width: 100px;
     max-width: 220px;
     horizontal-stretch: 0;
-    height: 32px;
+    height: 28px;
     background: root.scene.selected ? AppTheme.panel-background : scene-touch.has-hover ? AppTheme.hover-background : transparent;
     border-width: root.scene.selected ? 1px : 0px;
     border-color: AppTheme.subtle-border;
@@ -1442,8 +1536,8 @@ component ProjectTab inherits Rectangle {
     in property <length> tab-height: 28px;
     callback activate();
     callback close();
-    preferred-width: 158px;
-    min-width: 112px;
+    preferred-width: 120px;
+    min-width: 120px;
     max-width: 240px;
     horizontal-stretch: 0;
     height: root.tab-height;
@@ -1841,24 +1935,21 @@ export component MainWindow inherits Window {
         VerticalLayout {
             spacing: 0px;
             Rectangle {
-            height: max(root.project-tab-height * 1px, 32px) + AppTheme.spacing-xs;
+            height: root.project-tab-height * 1px;
             background: AppTheme.raised-background;
             HorizontalLayout {
-                padding-left: AppTheme.spacing-xs;
-                padding-right: AppTheme.spacing-xs;
-                padding-top: AppTheme.spacing-xs;
-                spacing: AppTheme.spacing-xs;
+                spacing: 0px;
                 accessible-role: tab-list;
                 accessible-label: @tr("Project");
                 for tab[index] in root.project-tabs: ProjectTab {
                     label: tab.name + (tab.dirty ? " *" : "");
                     selected: root.current-project == index;
-                    tab-height: max(root.project-tab-height * 1px, 32px);
+                    tab-height: root.project-tab-height * 1px;
                     activate => { root.select-project(index); }
                     close => { root.close-project(index); }
                 }
-                Button { text: "+"; width: 34px; accessible-label: @tr("New Project"); clicked => { root.new-project(); } }
                 Rectangle { horizontal-stretch: 1; }
+                TabAddButton { accessible-name: @tr("New Project"); clicked => { root.new-project(); } }
             }
         }
             Rectangle {
@@ -1875,11 +1966,11 @@ export component MainWindow inherits Window {
             height: AppTheme.toolbar-height;
             background: AppTheme.panel-background;
             HorizontalLayout {
-                padding-left: AppTheme.spacing-md;
-                padding-right: AppTheme.spacing-md;
-                padding-top: AppTheme.spacing-sm;
-                padding-bottom: AppTheme.spacing-sm;
-                spacing: AppTheme.spacing-sm;
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-top: 3px;
+                padding-bottom: 3px;
+                spacing: 10px;
                 seek-slider := Slider {
                     value: root.playhead;
                     minimum: 0;
@@ -1889,30 +1980,43 @@ export component MainWindow inherits Window {
                     accessible-description: @tr("Drag to change playback position on the timeline");
                     changed => { root.seek(self.value); }
                 }
-                Text { text: round(root.playhead) + " / " + round(root.duration); font-family: "Monospace"; vertical-alignment: center; }
-                Button { text: "◀"; width: 34px; accessible-label: @tr("Back 1 Frame"); accessible-description: @tr("Move playback position 1 frame back"); clicked => { root.previous-frame(); } }
-                Button { text: root.playing ? "Ⅱ" : "▶"; width: 38px; primary: root.playing; accessible-label: root.playing ? @tr("Pause") : @tr("Play"); accessible-description: @tr("Start or pause playback"); clicked => { root.toggle-playback(); } }
-                Button { text: "▶|"; width: 34px; accessible-label: @tr("Forward 1 Frame"); accessible-description: @tr("Move playback position 1 frame forward"); clicked => { root.next-frame(); } }
-                Text { text: @tr("Speed"); vertical-alignment: center; }
-                SpinBox {
-                    width: 88px;
-                    value <=> root.playback-speed-percent;
-                    minimum: 10;
-                    maximum: 400;
-                    step-size: 10;
-                    enabled: !root.playing;
-                    accessible-label: @tr("Playback speed (percent)");
-                    edited(value) => { root.playback-speed-changed(value); }
+                Text {
+                    text: round(root.playhead) + " / " + round(root.duration);
+                    width: 40px;
+                    font-family: "Monospace";
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
                 }
-                Text { text: "%"; vertical-alignment: center; }
+                HorizontalLayout {
+                    min-width: 96px;
+                    max-width: 96px;
+                    horizontal-stretch: 0;
+                    spacing: 0px;
+                    TransportButton { icon: "previous"; accessible-name: @tr("Back 1 Frame"); help-text: @tr("Move playback position 1 frame back"); clicked => { root.previous-frame(); } }
+                    TransportButton { icon: root.playing ? "pause" : "play"; active: root.playing; accessible-name: root.playing ? @tr("Pause") : @tr("Play"); help-text: @tr("Start or pause playback"); clicked => { root.toggle-playback(); } }
+                    TransportButton { icon: "next"; accessible-name: @tr("Forward 1 Frame"); help-text: @tr("Move playback position 1 frame forward"); clicked => { root.next-frame(); } }
+                }
+                HorizontalLayout {
+                    min-width: 130px;
+                    max-width: 130px;
+                    horizontal-stretch: 0;
+                    spacing: 5px;
+                    Text { text: @tr("Speed"); vertical-alignment: center; }
+                    SpinBox {
+                        width: 80px;
+                        height: 28px;
+                        value <=> root.playback-speed-percent;
+                        minimum: 10;
+                        maximum: 400;
+                        step-size: 10;
+                        enabled: !root.playing;
+                        accessible-label: @tr("Playback speed (percent)");
+                        edited(value) => { root.playback-speed-changed(value); }
+                    }
+                    Text { text: "%"; vertical-alignment: center; }
+                }
             }
         }
-            Rectangle {
-            height: AppTheme.status-height;
-            background: AppTheme.window-background;
-            Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: AppTheme.subtle-border; }
-            Text { text: root.status-text; x: AppTheme.spacing-sm; vertical-alignment: center; color: AppTheme.muted-foreground; font-size: 0.78rem; }
-            }
         }
     }
 
@@ -2409,24 +2513,21 @@ export component TimelineWindow inherits Window {
         VerticalLayout {
             spacing: 0px;
             Rectangle {
-            height: max(root.timeline-header-height * 1px, 32px) + AppTheme.spacing-xs;
+            height: root.timeline-header-height * 1px;
             background: AppTheme.raised-background;
             HorizontalLayout {
-                padding-left: AppTheme.spacing-xs;
-                padding-right: AppTheme.spacing-xs;
-                padding-top: AppTheme.spacing-xs;
-                spacing: AppTheme.spacing-xs;
+                spacing: 0px;
                 accessible-role: tab-list;
                 accessible-label: @tr("Scene");
                 for scene in root.scene-tabs: SceneTab {
                     scene: scene;
-                    height: max(root.timeline-header-height * 1px, 32px);
+                    height: root.timeline-header-height * 1px;
                     activate(scene-id) => { root.scene-selected(scene-id); }
                     settings(scene-id) => { root.scene-settings(scene-id); }
                     close(scene-id) => { root.scene-closed(scene-id); }
                 }
-                Button { text: "+"; width: 34px; accessible-label: @tr("Create New Scene"); clicked => { root.show-scene-settings(); } }
                 Rectangle { horizontal-stretch: 1; }
+                TabAddButton { accessible-name: @tr("Create New Scene"); clicked => { root.show-scene-settings(); } }
             }
         }
             Rectangle {
@@ -2494,6 +2595,7 @@ export component TimelineWindow inherits Window {
                 viewport-width: max(root.duration * root.pixels-per-frame * 1px, self.visible-width);
                 viewport-height: self.visible-height;
                 viewport-x <=> root.shared-viewport-x;
+                mouse-drag-pan-enabled: false;
                 for tick in 61: Rectangle {
                     visible: tick * 60 <= root.duration;
                     x: tick * 60 * root.pixels-per-frame * 1px;
@@ -2508,64 +2610,77 @@ export component TimelineWindow inherits Window {
                         font-size: 0.78rem;
                     }
                 }
-                ruler-wheel := TouchArea {
-                    width: 100%;
+                Rectangle {
+                    x: root.playhead * root.pixels-per-frame * 1px;
+                    width: 2px;
                     height: 100%;
-                    mouse-cursor: root.ruler-scrubbing ? move : pointer;
-                    accessible-role: slider;
-                    accessible-label: @tr("Seek Bar");
-                    accessible-description: @tr("Drag to change playback position on the timeline");
-                    accessible-value: "\{round(root.playhead)}";
-                    accessible-value-minimum: 0;
-                    accessible-value-maximum: root.duration;
-                    accessible-value-step: 1;
-                    accessible-action-increment => {
+                    background: AppTheme.accent;
+                }
+            }
+            ruler-input := TouchArea {
+                x: root.layer-header-width * 1px;
+                width: parent.width - root.layer-header-width * 1px;
+                height: parent.height;
+                mouse-cursor: root.ruler-scrubbing ? move : pointer;
+                accessible-role: slider;
+                accessible-label: @tr("Seek Bar");
+                accessible-description: @tr("Drag to change playback position on the timeline");
+                accessible-value: "\{round(root.playhead)}";
+                accessible-value-minimum: 0;
+                accessible-value-maximum: root.duration;
+                accessible-value-step: 1;
+                accessible-action-increment => {
+                    root.begin-scrub();
+                    root.scrub-to(min(root.duration, root.playhead + 1));
+                    root.end-scrub();
+                }
+                accessible-action-decrement => {
+                    root.begin-scrub();
+                    root.scrub-to(max(0, root.playhead - 1));
+                    root.end-scrub();
+                }
+                accessible-action-set-value(value) => {
+                    if value.is-float() {
                         root.begin-scrub();
-                        root.scrub-to(min(root.duration, root.playhead + 1));
+                        root.scrub-to(value.to-float().clamp(0, root.duration));
                         root.end-scrub();
                     }
-                    accessible-action-decrement => {
+                }
+                clicked => {
+                    root.begin-scrub();
+                    root.scrub-to((self.mouse-x - root.shared-viewport-x) / (root.pixels-per-frame * 1px));
+                    root.end-scrub();
+                }
+                pointer-event(event) => {
+                    let content-x = self.mouse-x - root.shared-viewport-x;
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        root.ruler-scrubbing = true;
                         root.begin-scrub();
-                        root.scrub-to(max(0, root.playhead - 1));
+                        root.scrub-to(content-x / (root.pixels-per-frame * 1px));
+                    }
+                    if event.kind == PointerEventKind.move && root.ruler-scrubbing {
+                        root.scrub-to(content-x / (root.pixels-per-frame * 1px));
+                    }
+                    if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.ruler-scrubbing {
+                        root.scrub-to(content-x / (root.pixels-per-frame * 1px));
+                        root.ruler-scrubbing = false;
                         root.end-scrub();
                     }
-                    accessible-action-set-value(value) => {
-                        if value.is-float() {
-                            root.begin-scrub();
-                            root.scrub-to(value.to-float().clamp(0, root.duration));
-                            root.end-scrub();
-                        }
+                    if event.kind == PointerEventKind.cancel && root.ruler-scrubbing {
+                        root.ruler-scrubbing = false;
+                        root.end-scrub();
                     }
-                    pointer-event(event) => {
-                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                            root.ruler-scrubbing = true;
-                            root.begin-scrub();
-                            root.scrub-to(self.mouse-x / (root.pixels-per-frame * 1px));
-                        }
-                        if event.kind == PointerEventKind.move && root.ruler-scrubbing {
-                            root.scrub-to(self.mouse-x / (root.pixels-per-frame * 1px));
-                        }
-                        if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.ruler-scrubbing {
-                            root.scrub-to(self.mouse-x / (root.pixels-per-frame * 1px));
-                            root.ruler-scrubbing = false;
-                            root.end-scrub();
-                        }
-                        if event.kind == PointerEventKind.cancel && root.ruler-scrubbing {
-                            root.ruler-scrubbing = false;
-                            root.end-scrub();
-                        }
-                    }
-                    scroll-event(event) => {
-                        root.apply-timeline-scroll(
-                            event.delta-x,
-                            event.delta-y,
-                            self.mouse-x,
-                            false,
-                            false,
-                            false,
-                            true
-                        ) ? accept : reject
-                    }
+                }
+                scroll-event(event) => {
+                    root.apply-timeline-scroll(
+                        event.delta-x,
+                        event.delta-y,
+                        self.mouse-x - root.shared-viewport-x,
+                        false,
+                        false,
+                        false,
+                        true
+                    ) ? accept : reject
                 }
             }
         }
@@ -2796,16 +2911,10 @@ export component TimelineWindow inherits Window {
                     x: root.playhead * root.pixels-per-frame * 1px;
                     width: 2px;
                     height: 100%;
-                    background: AppTheme.danger;
+                    background: AppTheme.accent;
                 }
             }
         }
-            Rectangle {
-                height: AppTheme.status-height;
-                background: AppTheme.window-background;
-                Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: AppTheme.subtle-border; }
-                Text { text: root.action-status; x: AppTheme.spacing-sm; color: AppTheme.muted-foreground; vertical-alignment: center; font-size: 0.78rem; }
-            }
         }
     }
 
