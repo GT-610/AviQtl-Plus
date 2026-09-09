@@ -3,7 +3,29 @@ use crate::abi::{
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid, utf8,
 };
 use crate::policy::{valid_recovery_id, valid_recovery_snapshot_name};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
+
+/// Validated metadata stored next to one recovery snapshot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecoveryMetadata {
+    pub id: String,
+    #[serde(rename = "originalProjectUrl")]
+    pub original_project_url: String,
+    #[serde(rename = "displayName")]
+    pub display_name: String,
+    #[serde(rename = "savedAt")]
+    pub saved_at: String,
+    #[serde(rename = "snapshotFile")]
+    pub snapshot_file: String,
+}
+
+/// Validation result for a recovery metadata file discovered on disk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecoveryInspection {
+    pub metadata: RecoveryMetadata,
+    pub status: String,
+}
 
 fn text(value: Option<&Value>) -> String {
     value.and_then(Value::as_str).unwrap_or_default().to_owned()
@@ -162,6 +184,59 @@ fn recovery_id_from_snapshot(file_name: &str) -> String {
     } else {
         String::new()
     }
+}
+
+/// Reports whether a recovery identifier can safely own files in the recovery directory.
+pub fn recovery_id_is_valid(id: &str) -> bool {
+    valid_recovery_id(id)
+}
+
+/// Reports whether a snapshot file name is canonically owned by a recovery identifier.
+pub fn recovery_snapshot_name_is_valid(id: &str, file_name: &str) -> bool {
+    valid_recovery_snapshot_name(id, file_name)
+}
+
+/// Extracts the recovery identifier that canonically owns a snapshot file name.
+pub fn recovery_id_from_snapshot_name(file_name: &str) -> Option<String> {
+    let id = recovery_id_from_snapshot(file_name);
+    (!id.is_empty()).then_some(id)
+}
+
+/// Builds metadata after validating its identifier, timestamp, and snapshot ownership.
+pub fn build_recovery_metadata(
+    id: &str,
+    original_project_url: &str,
+    display_name: &str,
+    saved_at: &str,
+    snapshot_file: &str,
+) -> Option<RecoveryMetadata> {
+    let document = metadata_document(
+        id,
+        original_project_url,
+        display_name,
+        saved_at,
+        snapshot_file,
+    )?;
+    serde_json::from_value(Value::Object(document)).ok()
+}
+
+/// Parses and validates metadata against the identifier encoded by its file name.
+pub fn inspect_recovery_metadata(id: &str, bytes: &[u8]) -> Option<RecoveryInspection> {
+    let metadata = serde_json::from_slice::<Value>(bytes)
+        .ok()?
+        .as_object()
+        .cloned()?;
+    let inspection = inspect_metadata(id, &metadata);
+    Some(RecoveryInspection {
+        metadata: RecoveryMetadata {
+            id: text(inspection.get("id")),
+            original_project_url: text(inspection.get("originalProjectUrl")),
+            display_name: text(inspection.get("displayName")),
+            saved_at: text(inspection.get("savedAt")),
+            snapshot_file: text(inspection.get("snapshotFile")),
+        },
+        status: text(inspection.get("status")),
+    })
 }
 
 fn output_ranges_valid(

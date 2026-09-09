@@ -5,26 +5,47 @@ use crate::abi::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 const PRESET_VERSION: i32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct PresetDocument {
-    version: i32,
+pub struct EffectPreset {
+    pub version: i32,
     #[serde(rename = "effectId")]
-    effect_id: String,
-    name: String,
+    pub effect_id: String,
+    pub name: String,
     #[serde(default)]
-    enabled: bool,
+    pub enabled: bool,
     #[serde(default)]
-    params: Map<String, Value>,
+    pub params: Map<String, Value>,
     #[serde(default)]
-    keyframes: Map<String, Value>,
+    pub keyframes: Map<String, Value>,
     #[serde(flatten)]
-    extra: BTreeMap<String, Value>,
+    pub extra: BTreeMap<String, Value>,
 }
 
-fn safe_name(value: &str) -> bool {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresetError {
+    InvalidName,
+    InvalidDocument,
+    Serialization,
+}
+
+impl Display for PresetError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::InvalidName => "preset effect and preset names must be safe path components",
+            Self::InvalidDocument => "preset document is invalid or does not match its identity",
+            Self::Serialization => "preset document could not be serialized",
+        })
+    }
+}
+
+impl Error for PresetError {}
+
+pub fn preset_name_is_safe(value: &str) -> bool {
     !value.is_empty()
         && !value.starts_with('.')
         && !value.contains("..")
@@ -46,11 +67,11 @@ fn build_document(
     enabled: bool,
     params: Map<String, Value>,
     keyframes: Map<String, Value>,
-) -> Option<PresetDocument> {
-    if !safe_name(effect_id) || !safe_name(name) {
+) -> Option<EffectPreset> {
+    if !preset_name_is_safe(effect_id) || !preset_name_is_safe(name) {
         return None;
     }
-    Some(PresetDocument {
+    Some(EffectPreset {
         version: PRESET_VERSION,
         effect_id: effect_id.to_owned(),
         name: name.to_owned(),
@@ -61,20 +82,43 @@ fn build_document(
     })
 }
 
-fn normalize_document(input: &[u8], effect_id: &str, name: &str) -> Option<PresetDocument> {
-    if !safe_name(effect_id) || !safe_name(name) {
+fn normalize_document(input: &[u8], effect_id: &str, name: &str) -> Option<EffectPreset> {
+    if !preset_name_is_safe(effect_id) || !preset_name_is_safe(name) {
         return None;
     }
-    let document: PresetDocument = serde_json::from_slice(input).ok()?;
+    let document: EffectPreset = serde_json::from_slice(input).ok()?;
     if document.version != PRESET_VERSION
         || document.effect_id != effect_id
         || document.name != name
-        || !safe_name(&document.effect_id)
-        || !safe_name(&document.name)
+        || !preset_name_is_safe(&document.effect_id)
+        || !preset_name_is_safe(&document.name)
     {
         return None;
     }
     Some(document)
+}
+
+pub fn build_effect_preset(
+    effect_id: &str,
+    name: &str,
+    enabled: bool,
+    params: Map<String, Value>,
+    keyframes: Map<String, Value>,
+) -> Result<Vec<u8>, PresetError> {
+    let document = build_document(effect_id, name, enabled, params, keyframes)
+        .ok_or(PresetError::InvalidName)?;
+    serde_json::to_vec(&document).map_err(|_| PresetError::Serialization)
+}
+
+pub fn parse_effect_preset(
+    input: &[u8],
+    effect_id: &str,
+    name: &str,
+) -> Result<EffectPreset, PresetError> {
+    if !preset_name_is_safe(effect_id) || !preset_name_is_safe(name) {
+        return Err(PresetError::InvalidName);
+    }
+    normalize_document(input, effect_id, name).ok_or(PresetError::InvalidDocument)
 }
 
 unsafe fn bytes<'a>(input: *const u8, input_length: usize) -> &'a [u8] {
@@ -120,7 +164,7 @@ fn validate_transform_ranges(
 }
 
 unsafe fn write_json(
-    document: &PresetDocument,
+    document: &EffectPreset,
     output: *mut u8,
     output_capacity: usize,
     output_length: *mut usize,
@@ -144,7 +188,7 @@ unsafe fn write_json(
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_preset_name_is_safe(value: *const u8, value_length: usize) -> u32 {
     // SAFETY: The helper validates the pointer/length pair before borrowing it.
-    u32::from(unsafe { utf8(value, value_length) }.is_some_and(safe_name))
+    u32::from(unsafe { utf8(value, value_length) }.is_some_and(preset_name_is_safe))
 }
 
 #[unsafe(no_mangle)]
@@ -242,12 +286,12 @@ mod tests {
 
     #[test]
     fn names_reject_hidden_and_traversal_components() {
-        assert!(safe_name("Warm Look"));
-        assert!(!safe_name(""));
-        assert!(!safe_name(".hidden"));
-        assert!(!safe_name("../escape"));
-        assert!(!safe_name("nested/name"));
-        assert!(!safe_name("nested\\name"));
+        assert!(preset_name_is_safe("Warm Look"));
+        assert!(!preset_name_is_safe(""));
+        assert!(!preset_name_is_safe(".hidden"));
+        assert!(!preset_name_is_safe("../escape"));
+        assert!(!preset_name_is_safe("nested/name"));
+        assert!(!preset_name_is_safe("nested\\name"));
     }
 
     #[test]

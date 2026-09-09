@@ -2,11 +2,11 @@ use crate::abi::{
     AviQtlIdAllocation, AviQtlSceneSettings, AviQtlTimelineClipGeometry, STATUS_BUFFER_TOO_SMALL,
     STATUS_INVALID_ARGUMENT, STATUS_OK, STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
+use crate::project::DEFAULT_FPS;
 use std::collections::BTreeSet;
 
 const DEFAULT_WIDTH: i32 = 1920;
 const DEFAULT_HEIGHT: i32 = 1080;
-const DEFAULT_FPS: f64 = 60.0;
 const DEFAULT_TOTAL_FRAMES: i32 = 300;
 const MAX_DIMENSION: i32 = 32_768;
 const MAX_FPS: f64 = 1_000.0;
@@ -86,7 +86,7 @@ fn rounded_non_negative(value: f64) -> i32 {
     value.round().clamp(0.0, f64::from(i32::MAX)) as i32
 }
 
-fn snap_frame(
+pub(crate) fn snap_frame(
     frame: f64,
     ignore_snap: bool,
     settings: AviQtlSceneSettings,
@@ -138,7 +138,7 @@ fn snap_frame(
     rounded_non_negative(((frame - offset) / step).round() * step + offset)
 }
 
-fn timeline_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
+pub(crate) fn timeline_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
     clips
         .iter()
         .filter(|clip| clip.duration_frames > 0)
@@ -219,7 +219,7 @@ fn inverse_permutation(permutation: &[i32]) -> Option<Vec<i32>> {
     inverse.iter().all(|index| *index >= 0).then_some(inverse)
 }
 
-fn plan_index_move(
+pub(crate) fn plan_index_move(
     length: usize,
     old_index: i32,
     new_index: i32,
@@ -240,7 +240,7 @@ fn plan_index_move(
     Some((permutation, inverse))
 }
 
-fn plan_multi_reorder(
+pub(crate) fn plan_multi_reorder(
     length: usize,
     indices: &[i32],
     target_index: i32,

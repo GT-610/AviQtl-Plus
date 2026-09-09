@@ -87,6 +87,14 @@ pub(crate) struct TrackMutation {
     pub(crate) base_value: Option<Value>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct InspectedKeyframePoint {
+    pub(crate) frame: i32,
+    pub(crate) value: Value,
+    pub(crate) interpolation: String,
+    pub(crate) options: Value,
+}
+
 impl From<Response> for TrackMutation {
     fn from(response: Response) -> Self {
         Self {
@@ -364,6 +372,63 @@ pub(crate) fn evaluate_resolved_track(points: &[Value], frame: i32, fallback: &V
     evaluate_track(points, frame, fallback)
 }
 
+pub(crate) fn inspect_track(
+    track: &Value,
+    fallback: &Value,
+    duration: i32,
+) -> Vec<InspectedKeyframePoint> {
+    flatten(&normalize_track(track, fallback, duration))
+        .into_iter()
+        .map(|point| {
+            let object = point.as_object().cloned().unwrap_or_default();
+            // Match the evaluator: a missing interp behaves as linear there,
+            // so inspection must report it the same way.
+            let interpolation = object
+                .get("interp")
+                .and_then(Value::as_str)
+                .unwrap_or("linear")
+                .to_owned();
+            let mut options = Map::new();
+            options.insert("interp".to_owned(), Value::String(interpolation.clone()));
+            if interpolation == "custom" || interpolation == "bezier" {
+                options.insert(
+                    "points".to_owned(),
+                    Value::Array(
+                        custom_points(&object)
+                            .into_iter()
+                            .filter_map(serde_json::Number::from_f64)
+                            .map(Value::Number)
+                            .collect(),
+                    ),
+                );
+            } else if let Some(points) = object.get("points") {
+                options.insert("points".to_owned(), points.clone());
+            }
+            if let Some(mode_params) = object.get("modeParams") {
+                options.insert("modeParams".to_owned(), mode_params.clone());
+            }
+            InspectedKeyframePoint {
+                frame: point_frame(&point),
+                value: point_value(&point)
+                    .cloned()
+                    .unwrap_or_else(|| fallback.clone()),
+                interpolation,
+                options: Value::Object(options),
+            }
+        })
+        .collect()
+}
+
+pub(crate) fn evaluate_document_track(
+    track: &Value,
+    fallback: &Value,
+    duration: i32,
+    frame: i32,
+) -> Value {
+    let points = resolve_track(track, fallback, duration);
+    evaluate_resolved_track(&points, frame, fallback)
+}
+
 fn evaluate_request(request: EvaluationRequest) -> EvaluationResponse {
     let mut points = if is_structured(&request.track) {
         let duration = inferred_duration(&request.track);
@@ -499,15 +564,14 @@ fn apply(request: Request) -> Response {
                 inferred_duration(&track).max(frame.saturating_add(1))
             };
             let mut normalized = normalize_track(&track, &fallback, duration);
-            let object = normalized
-                .as_object_mut()
-                .expect("normalized track is an object");
+            let Some(object) = normalized.as_object_mut() else {
+                return response(track, false, false);
+            };
             let options = options.as_object().cloned().unwrap_or_default();
             if frame <= 0 {
-                let start = object
-                    .get_mut("start")
-                    .and_then(Value::as_object_mut)
-                    .expect("normalized start is an object");
+                let Some(start) = object.get_mut("start").and_then(Value::as_object_mut) else {
+                    return response(track, false, false);
+                };
                 start.insert("value".to_owned(), value.clone());
                 let interpolation = options
                     .get("interp")
@@ -515,6 +579,14 @@ fn apply(request: Request) -> Response {
                     .or_else(|| start.get("interp").cloned())
                     .unwrap_or_else(|| Value::String("none".to_owned()));
                 start.insert("interp".to_owned(), interpolation);
+                if !options.is_empty() {
+                    for name in ["points", "modeParams"] {
+                        start.remove(name);
+                        if let Some(value) = options.get(name) {
+                            start.insert(name.to_owned(), value.clone());
+                        }
+                    }
+                }
                 let mut result = response(normalized, true, true);
                 result.base_value = Some(value);
                 return result;
@@ -534,10 +606,9 @@ fn apply(request: Request) -> Response {
                     keyframe.insert(name.to_owned(), value.clone());
                 }
             }
-            let points = object
-                .get_mut("points")
-                .and_then(Value::as_array_mut)
-                .expect("normalized points is an array");
+            let Some(points) = object.get_mut("points").and_then(Value::as_array_mut) else {
+                return response(track, false, false);
+            };
             if let Some(index) = points.iter().position(|point| point_frame(point) == frame) {
                 points[index] = Value::Object(keyframe);
             } else {
@@ -561,11 +632,13 @@ fn apply(request: Request) -> Response {
             if frame <= 0 {
                 return response(normalized, false, false);
             }
-            let points = normalized
+            let Some(points) = normalized
                 .as_object_mut()
                 .and_then(|track| track.get_mut("points"))
                 .and_then(Value::as_array_mut)
-                .expect("normalized points is an array");
+            else {
+                return response(track, false, false);
+            };
             let previous_length = points.len();
             points.retain(|point| point_frame(point) != frame);
             let changed = previous_length != points.len();
@@ -590,11 +663,13 @@ fn apply(request: Request) -> Response {
             if old_frame <= 0 || new_frame <= 0 {
                 return response(normalized, false, false);
             }
-            let points = normalized
+            let Some(points) = normalized
                 .as_object_mut()
                 .and_then(|track| track.get_mut("points"))
                 .and_then(Value::as_array_mut)
-                .expect("normalized points is an array");
+            else {
+                return response(track, false, false);
+            };
             if points.iter().any(|point| point_frame(point) == new_frame) {
                 return response(normalized, false, false);
             }
@@ -604,10 +679,10 @@ fn apply(request: Request) -> Response {
             else {
                 return response(normalized, false, false);
             };
-            points[source]
-                .as_object_mut()
-                .expect("keyframe point is an object")
-                .insert("frame".to_owned(), Value::from(new_frame));
+            let Some(source_point) = points[source].as_object_mut() else {
+                return response(track, false, false);
+            };
+            source_point.insert("frame".to_owned(), Value::from(new_frame));
             sort_points(points);
             response(normalized, true, true)
         }
@@ -644,19 +719,21 @@ fn apply(request: Request) -> Response {
             };
             let mut changed = !was_structured;
             if old_duration > 0 && old_duration != new_duration {
-                let points = normalized
+                let Some(points) = normalized
                     .as_object_mut()
                     .and_then(|track| track.get_mut("points"))
                     .and_then(Value::as_array_mut)
-                    .expect("normalized points is an array");
+                else {
+                    return response(track, false, false);
+                };
                 if let Some(point) = points
                     .iter_mut()
                     .find(|point| point_frame(point) == old_duration)
                 {
-                    point
-                        .as_object_mut()
-                        .expect("keyframe point is an object")
-                        .insert("frame".to_owned(), Value::from(new_duration));
+                    let Some(point) = point.as_object_mut() else {
+                        return response(track, false, false);
+                    };
+                    point.insert("frame".to_owned(), Value::from(new_duration));
                     sort_points(points);
                     changed = true;
                 }
@@ -726,10 +803,15 @@ fn apply(request: Request) -> Response {
                 {
                     let next_frame = frame - first_half_duration;
                     if next_frame > 0 && next_frame <= second_end {
-                        point
-                            .as_object_mut()
-                            .expect("keyframe point is an object")
-                            .insert("frame".to_owned(), Value::from(next_frame));
+                        let is_object = point.is_object();
+                        if !is_object {
+                            let mut result = response(track, false, false);
+                            result.secondary_track = Some(Value::Object(Map::new()));
+                            return result;
+                        }
+                        if let Value::Object(object) = &mut point {
+                            object.insert("frame".to_owned(), Value::from(next_frame));
+                        }
                         second_points.push(point);
                     }
                 }
@@ -998,6 +1080,62 @@ mod tests {
         assert_eq!(
             moved.flat.iter().map(point_frame).collect::<Vec<_>>(),
             [0, 8, 10, 20]
+        );
+    }
+
+    #[test]
+    fn setting_the_start_keyframe_replaces_interpolation_options() {
+        let random = apply(Request::Set {
+            track: json!({
+                "start": {
+                    "frame": 0,
+                    "value": 0.0,
+                    "interp": "custom",
+                    "points": [0.33, 0.0, 0.66, 1.0, 1.0, 1.0]
+                },
+                "points": [{"frame": 10, "value": 10.0, "interp": "none"}]
+            }),
+            fallback: json!(0.0),
+            duration: 10,
+            frame: 0,
+            value: json!(1.0),
+            options: json!({"interp": "random", "modeParams": {"stepFrames": 3}}),
+        });
+        assert_eq!(random.track["start"]["interp"], "random");
+        assert_eq!(random.track["start"]["modeParams"]["stepFrames"], 3);
+        assert!(random.track["start"].get("points").is_none());
+
+        let custom = apply(Request::Set {
+            track: random.track,
+            fallback: json!(0.0),
+            duration: 10,
+            frame: 0,
+            value: json!(2.0),
+            options: json!({
+                "interp": "custom",
+                "points": [0.2, -0.1, 0.8, 1.1, 1.0, 1.0]
+            }),
+        });
+        assert_eq!(custom.track["start"]["interp"], "custom");
+        assert_eq!(
+            custom.track["start"]["points"],
+            json!([0.2, -0.1, 0.8, 1.1, 1.0, 1.0])
+        );
+        assert!(custom.track["start"].get("modeParams").is_none());
+
+        let value_only = apply(Request::Set {
+            track: custom.track,
+            fallback: json!(0.0),
+            duration: 10,
+            frame: 0,
+            value: json!(3.0),
+            options: json!({}),
+        });
+        assert_eq!(value_only.track["start"]["value"], 3.0);
+        assert_eq!(value_only.track["start"]["interp"], "custom");
+        assert_eq!(
+            value_only.track["start"]["points"],
+            json!([0.2, -0.1, 0.8, 1.1, 1.0, 1.0])
         );
     }
 
