@@ -178,11 +178,18 @@ pub fn package_paths() -> PackagePaths {
     {
         add_resource_root(resource_root_for_executable_directory(directory));
     }
-    add_resource_root(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/qml"));
-    let source_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let source_plugins = source_root.join("plugins");
-    if !plugin_roots.contains(&source_plugins) {
-        plugin_roots.push(source_plugins);
+    // Compile-time source paths are for development only: keep them out of
+    // release builds unless explicitly opted in, so shipped binaries never
+    // probe the build machine's checkout.
+    let dev_resources = cfg!(debug_assertions)
+        || std::env::var("AVIQTL_DEV_RESOURCES").is_ok_and(|value| !value.is_empty() && value != "0");
+    if dev_resources {
+        add_resource_root(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/qml"));
+        let source_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let source_plugins = source_root.join("plugins");
+        if !plugin_roots.contains(&source_plugins) {
+            plugin_roots.push(source_plugins);
+        }
     }
 
     PackagePaths {

@@ -651,7 +651,7 @@ fn effect_source_is_video(effect: &EffectDocument) -> bool {
         })
 }
 
-fn value_payload(value: &Value) -> &Value {
+pub(crate) fn value_payload(value: &Value) -> &Value {
     value
         .as_object()
         .filter(|object| object.contains_key("$aviqtlType"))

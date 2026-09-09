@@ -42,6 +42,21 @@ impl ProjectSession {
     }
 
     pub fn blank_with(defaults: ProjectDefaults) -> Self {
+        // Normalize caller input with the same bounds as the launcher settings
+        // so the fixed document below always serializes and validates.
+        let defaults = ProjectDefaults {
+            width: defaults.width.clamp(1, 16_000),
+            height: defaults.height.clamp(1, 16_000),
+            fps: if defaults.fps.is_finite() {
+                defaults.fps.clamp(1.0, 240.0)
+            } else {
+                60.0
+            },
+            sample_rate: defaults.sample_rate.clamp(8_000, 192_000),
+            duration: defaults.duration.clamp(1, 1_000_000),
+            enable_snap: defaults.enable_snap,
+            magnetic_snap_range: defaults.magnetic_snap_range.clamp(1, 100),
+        };
         let document = serde_json::json!({
             "version": 3,
             "settings": {

@@ -97,7 +97,21 @@ pub fn plan_timeline_drag(
                 f64::from(request.pixels_per_frame),
             )
             .min(end.saturating_sub(minimum_duration_frames));
-            let delta_start = start.saturating_sub(anchor.start);
+            let mut delta_start = start.saturating_sub(anchor.start);
+            // The same delta applies to every selected clip: bound it so no
+            // clip in the group starts before frame zero or shrinks below the
+            // minimum duration instead of saturating clips independently.
+            let mut lower = 0i32.saturating_sub(anchor.start);
+            let mut upper = anchor
+                .duration
+                .saturating_sub(minimum_duration_frames);
+            for clip in document.clips.iter().filter(|clip| {
+                clip.scene_id == scene_id && moving_ids.contains(&clip.id)
+            }) {
+                lower = lower.max(0i32.saturating_sub(clip.start));
+                upper = upper.min(clip.duration.saturating_sub(minimum_duration_frames));
+            }
+            delta_start = delta_start.max(lower).min(upper.max(lower));
             plan_clip_resize(document, scene_id, &moving_ids, delta_start, -delta_start)
                 .map_err(|error| error.to_string())?
         }
@@ -280,5 +294,36 @@ mod tests {
         .expect("end trim plans");
         assert_eq!(end.updates[0].start, 0);
         assert_eq!(end.updates[0].duration, 8);
+    }
+
+    #[test]
+    fn trim_start_is_bounded_by_the_whole_selection() {
+        // Clip 1 starts at frame zero, so trimming the shared left edge
+        // earlier must hold the entire group instead of saturating clips
+        // independently.
+        let plan = plan_timeline_drag(
+            &document(),
+            1,
+            &[1, 2],
+            TimelineDragRequest {
+                anchor_clip_id: 2,
+                kind: TimelineDragKind::TrimStart,
+                delta_pixels: (-100.0, 0.0),
+                pixels_per_frame: 1.0,
+                layer_height: 30.0,
+                minimum_duration_frames: 5,
+                maximum_layers: 128,
+                ignore_snap: true,
+            },
+        )
+        .expect("group trim plans");
+        let by_id = |id| {
+            plan.updates
+                .iter()
+                .find(|update| update.clip_id == id)
+                .expect("clip planned")
+        };
+        assert_eq!((by_id(1).start, by_id(1).duration), (0, 20));
+        assert_eq!((by_id(2).start, by_id(2).duration), (25, 20));
     }
 }

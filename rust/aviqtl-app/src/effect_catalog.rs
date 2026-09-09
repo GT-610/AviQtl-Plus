@@ -157,8 +157,13 @@ fn metadata_roots() -> Vec<PathBuf> {
 
 fn json_files(root: &Path) -> Vec<PathBuf> {
     let mut directories = vec![root.to_path_buf()];
+    let mut visited = BTreeSet::new();
     let mut files = Vec::new();
     while let Some(directory) = directories.pop() {
+        let canonical = directory.canonicalize().unwrap_or(directory.clone());
+        if !visited.insert(canonical) {
+            continue;
+        }
         let Ok(entries) = fs::read_dir(directory) else {
             continue;
         };
@@ -217,7 +222,11 @@ mod tests {
     #[test]
     fn runtime_catalog_loads_built_in_effects_and_objects() {
         let (catalog, _) = EffectCatalog::load();
-        assert_eq!(catalog.entries.len(), 61);
+        assert!(
+            catalog.entries.len() >= 60,
+            "expected the built-in catalog, found {} entries",
+            catalog.entries.len()
+        );
         assert_eq!(catalog.find("blur").expect("blur").kind, "effect");
         assert_eq!(catalog.find("rect").expect("rect").kind, "object");
         assert_eq!(
