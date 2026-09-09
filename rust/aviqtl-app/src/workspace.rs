@@ -1685,7 +1685,9 @@ impl WorkspaceModel {
             return false;
         }
         if removed_selected_scene {
-            self.selected_scene = self.project.document.scenes[0].id;
+            if let Some(scene) = self.project.document.scenes.first() {
+                self.selected_scene = scene.id;
+            }
             self.selection.clear();
             self.effect_selection.clear();
             self.playhead = 0;
