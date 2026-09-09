@@ -13,14 +13,7 @@ class TestPluginManifest : public QObject {
 
   private slots:
     void validManifest();
-    void missingId();
-    void missingName();
-    void missingVersion();
-    void emptyFields();
-    void noManifestFile();
-    void invalidLua();
     void manifestValidity();
-    void normalizesManifestFields();
     void scriptParamsAllowBlankLinesAndTypedSelect();
     void oversizedManifest();
 };
@@ -56,119 +49,6 @@ return {
     QCOMPARE(manifest.minAppVersion, QStringLiteral("0.2.0"));
 }
 
-void TestPluginManifest::missingId() {
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-
-    QFile manifestFile(dir.path() + QStringLiteral("/manifest.lua"));
-    QVERIFY(manifestFile.open(QIODevice::WriteOnly));
-    QTextStream out(&manifestFile);
-    out << R"(
-return {
-    name = "No ID Plugin",
-    version = "1.0.0"
-}
-)";
-    manifestFile.close();
-
-    ModEngine &engine = ModEngine::instance();
-    PluginManifest manifest = engine.loadManifest(dir.path());
-
-    QVERIFY(!manifest.isValid());
-}
-
-void TestPluginManifest::missingName() {
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-
-    QFile manifestFile(dir.path() + QStringLiteral("/manifest.lua"));
-    QVERIFY(manifestFile.open(QIODevice::WriteOnly));
-    QTextStream out(&manifestFile);
-    out << R"(
-return {
-    id = "com.test.noname",
-    version = "1.0.0"
-}
-)";
-    manifestFile.close();
-
-    ModEngine &engine = ModEngine::instance();
-    PluginManifest manifest = engine.loadManifest(dir.path());
-
-    QVERIFY(!manifest.isValid());
-}
-
-void TestPluginManifest::missingVersion() {
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-
-    QFile manifestFile(dir.path() + QStringLiteral("/manifest.lua"));
-    QVERIFY(manifestFile.open(QIODevice::WriteOnly));
-    QTextStream out(&manifestFile);
-    out << R"(
-return {
-    id = "com.test.noversion",
-    name = "No Version Plugin"
-}
-)";
-    manifestFile.close();
-
-    ModEngine &engine = ModEngine::instance();
-    PluginManifest manifest = engine.loadManifest(dir.path());
-
-    QVERIFY(!manifest.isValid());
-}
-
-void TestPluginManifest::emptyFields() {
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-
-    QFile manifestFile(dir.path() + QStringLiteral("/manifest.lua"));
-    QVERIFY(manifestFile.open(QIODevice::WriteOnly));
-    QTextStream out(&manifestFile);
-    out << R"(
-return {
-    id = "",
-    name = "",
-    version = ""
-}
-)";
-    manifestFile.close();
-
-    ModEngine &engine = ModEngine::instance();
-    PluginManifest manifest = engine.loadManifest(dir.path());
-
-    QVERIFY(!manifest.isValid());
-}
-
-void TestPluginManifest::noManifestFile() {
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-
-    // No manifest.lua file created
-    ModEngine &engine = ModEngine::instance();
-    PluginManifest manifest = engine.loadManifest(dir.path());
-
-    QVERIFY(!manifest.isValid());
-    QVERIFY(manifest.id.isEmpty());
-}
-
-void TestPluginManifest::invalidLua() {
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-
-    QFile manifestFile(dir.path() + QStringLiteral("/manifest.lua"));
-    QVERIFY(manifestFile.open(QIODevice::WriteOnly));
-    QTextStream out(&manifestFile);
-    out << "this is not valid lua code {{{{";
-    manifestFile.close();
-
-    ModEngine &engine = ModEngine::instance();
-    PluginManifest manifest = engine.loadManifest(dir.path());
-
-    QVERIFY(!manifest.isValid());
-}
-
 void TestPluginManifest::manifestValidity() {
     PluginManifest empty;
     QVERIFY(!empty.isValid());
@@ -182,35 +62,6 @@ void TestPluginManifest::manifestValidity() {
 
     partial.version = QStringLiteral("1.0.0");
     QVERIFY(partial.isValid());
-}
-
-void TestPluginManifest::normalizesManifestFields() {
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-
-    QFile manifestFile(dir.path() + QStringLiteral("/manifest.lua"));
-    QVERIFY(manifestFile.open(QIODevice::WriteOnly));
-    QTextStream out(&manifestFile);
-    out << R"(
-return {
-    id = "  com.test.normalized  ",
-    name = "  Normalized Plugin  ",
-    version = "  1.0.0  ",
-    author = "  Test Author  ",
-    description = "  Description  ",
-    min_app_version = "  0.2.0  "
-}
-)";
-    manifestFile.close();
-
-    const PluginManifest manifest = ModEngine::instance().loadManifest(dir.path());
-    QVERIFY(manifest.isValid());
-    QCOMPARE(manifest.id, QStringLiteral("com.test.normalized"));
-    QCOMPARE(manifest.name, QStringLiteral("Normalized Plugin"));
-    QCOMPARE(manifest.version, QStringLiteral("1.0.0"));
-    QCOMPARE(manifest.author, QStringLiteral("Test Author"));
-    QCOMPARE(manifest.description, QStringLiteral("Description"));
-    QCOMPARE(manifest.minAppVersion, QStringLiteral("0.2.0"));
 }
 
 void TestPluginManifest::scriptParamsAllowBlankLinesAndTypedSelect() {

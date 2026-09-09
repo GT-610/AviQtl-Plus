@@ -2,13 +2,13 @@ name: Analysis
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   test:
-    name: Test & Analyze
+    name: Test Rust + Slint
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,46 +22,20 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Install Dependencies
+      - name: Install native dependencies
         run: |
           pacman-key --init
           pacman-key --populate archlinux
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
-            base-devel git cmake ninja clang mold python \
-            qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
-            qt6-svg qt6-5compat qt6-tools qt6-wayland \
-            ffmpeg luajit carla extra-cmake-modules \
-            sudo ccache vulkan-headers vulkan-icd-loader
+            base-devel clang python pkgconf ffmpeg mesa vulkan-devel \
+            libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
 
-      - name: Configure
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Validate build script
+        run: python -m unittest tests.test_build_version
 
-      - name: Test Rust Core
+      - name: Format, lint, and test workspace
         run: |
           cargo fmt --manifest-path rust/Cargo.toml --all -- --check
-          cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets -- -D warnings
-          cargo test --manifest-path rust/Cargo.toml --locked --workspace
-
-      - name: Verify Rust C ABI
-        run: python tests/check_rust_abi.py --rust-src rust/aviqtl-core/src --header core/include/rust_core_abi.hpp
-
-      - name: Build Tests
-        run: cmake --build build
-
-      - name: Run Tests
-        run: cd build && ctest --output-on-failure
-        env:
-          QT_QPA_PLATFORM: offscreen
-
-      - name: Run clang-tidy
-        run: |
-          # Remove GCC-specific flags not recognized by clang-tidy
-          sed -i 's/-mno-direct-extern-access//g' build/compile_commands.json
-          run-clang-tidy -p build -quiet \
-            core/src/*.cpp \
-            engine/**/*.cpp \
-            scripting/*.cpp \
-            ui/src/*.cpp \
-            ui/src/**/*.cpp
-        continue-on-error: false
+          cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets --all-features -- -D warnings
+          cargo test --manifest-path rust/Cargo.toml --locked --workspace --all-features

@@ -2,18 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "aviqtl",
   "dependencies": [
-    "ecm",
     {
       "name": "ffmpeg",
       "features": [
         "x264"
       ]
     },
-    "luajit",
     {
       "name": "pkgconf",
       "host": true
-    },
-    "vulkan"
+    }
   ]
 }

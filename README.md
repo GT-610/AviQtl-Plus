@@ -14,7 +14,7 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plus is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) that continues the **Qt Quick + QRhi + ECS** development path after the upstream project was rebuilt with **Rust + Slint + wgpu**. See [About the project](https://aviqtl.gt610.dpdns.org/guide/start-here/about) for the full story.
+> AviQtl-Plus is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) that continues the **Qt Quick + QRhi + ECS** development path after the upstream project was rebuilt with **Rust + Slint + wgpu**. The frontend is now migrating in the same direction: **Rust + Slint is the default build** (under construction), while the legacy Qt frontend remains available via `python3 BUILD.py --frontend qt`. See [About the project](https://aviqtl.gt610.dpdns.org/guide/start-here/about) for the full story.
 
 ## What is AviQtl-Plus?
 
@@ -60,11 +60,12 @@ AviQtl-Plus stands on the shoulders of many wonderful projects.
 | AviUtl | Non-free | Respected origin |
 | AviQtl | AGPLv3 | Original Qt Quick project; `aviqtl` branch of the upstream |
 | NeoUtl | AGPLv3 | New Rust + Slint + wgpu version by the original author |
-| AviQtl-Plus | AGPLv3 | This project — continued Qt Quick + QRhi + ECS development |
+| AviQtl-Plus | AGPLv3 | This project — migrating from Qt Quick + QRhi + ECS to Rust + Slint + wgpu |
 | Carla | GPLv2+ | Audio effect host (VST3/LV2 etc.) |
 | FFmpeg | GPLv2+ | Video/audio decoding & encoding |
 | LuaJIT | MIT | High-performance script engine |
-| Qt | GPLv3 | UI/UX framework |
+| Qt | GPLv3 | UI/UX framework for the legacy frontend |
+| Slint | GPLv3 | UI framework for the default frontend |
 | Zrythm | AGPLv3 | Reference for audio plugin implementation |
 | Remix Icon | Remix Icon License | Symbol icons |
 

@@ -3,47 +3,36 @@ name: Build & Release
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    tags: ["v*"]
 
 permissions:
   contents: write
 
-env:
-  APP_NAME: AviQtl
-
 jobs:
   test:
-    name: Test
+    name: Test Rust + Slint
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.97.1
-
-      - name: Install Dependencies
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: rustfmt, clippy
+      - name: Install native dependencies
         run: |
           pacman-key --init
           pacman-key --populate archlinux
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
-            base-devel git cmake ninja clang mold \
-            qt6-base qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
-            qt6-svg qt6-5compat qt6-tools qt6-wayland \
-            ffmpeg luajit carla extra-cmake-modules \
-            sudo ccache vulkan-headers vulkan-icd-loader
-
-      - name: Run Tests
+            base-devel clang python pkgconf ffmpeg mesa vulkan-devel \
+            libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
+      - name: Validate
         run: |
-          cargo test --manifest-path rust/Cargo.toml --locked --workspace
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
-          cd build && ctest --output-on-failure
-        env:
-          QT_QPA_PLATFORM: offscreen
+          python -m unittest tests.test_build_version
+          cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+          cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets --all-features -- -D warnings
+          cargo test --manifest-path rust/Cargo.toml --locked --workspace --all-features
 
   build:
     name: Build ${{ matrix.platform }}
@@ -69,214 +58,94 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.97.1
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.97.1
-
-      - name: Select pinned Rust tools (macOS)
-        if: matrix.platform == 'macos'
-        shell: bash
-        run: |
-          EXPECTED_RUST_VERSION=$(sed -nE 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml)
-          if [ -z "$EXPECTED_RUST_VERSION" ]; then
-            echo "Could not determine the pinned Rust version" >&2
-            exit 1
-          fi
-          CARGO_PATH=$(rustup which cargo)
-          RUSTC_PATH=$(rustup which rustc)
-          if [ "$(dirname "$CARGO_PATH")" != "$(dirname "$RUSTC_PATH")" ]; then
-            echo "Pinned cargo and rustc were resolved from different toolchains" >&2
-            exit 1
-          fi
-          "$CARGO_PATH" --version | grep -F "cargo $EXPECTED_RUST_VERSION "
-          "$RUSTC_PATH" --version | grep -F "rustc $EXPECTED_RUST_VERSION "
-          echo "$(dirname "$CARGO_PATH")" >> "$GITHUB_PATH"
-
-      - name: Install Dependencies (Linux)
+      - name: Install Linux dependencies
         if: matrix.platform == 'linux'
         run: |
           pacman-key --init
           pacman-key --populate archlinux
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
-            base-devel git cmake ninja clang mold zip mesa vulkan-devel \
-            libxkbcommon wayland wayland-protocols libffi ffmpeg luajit fftw \
-            qt6-base qt6-wayland qt6-declarative qt6-quick3d qt6-multimedia qt6-shadertools \
-            qt6-svg qt6-5compat qt6-tools lilv ladspa carla openmp \
-            extra-cmake-modules libc++ fluidsynth spirv-tools \
-            sudo ccache
+            base-devel clang python pkgconf zip ffmpeg mesa vulkan-devel \
+            libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
 
-      - name: Install Dependencies (macOS)
+      - name: Install macOS dependencies
         if: matrix.platform == 'macos'
-        run: |
-          echo "No additional dependencies needed"
+        run: brew install pkgconf ffmpeg
 
-      - name: Set up Python (Windows)
+      - uses: actions/setup-python@v5
         if: matrix.platform == 'windows'
-        uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Install Qt (Windows)
-        if: matrix.platform == 'windows'
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: "6.10.3"
-          arch: win64_msvc2022_64
-          modules: qt5compat qtmultimedia qtquick3d qtshadertools
-          cache: true
-          setup-python: false
-
-      - name: Locate vcpkg (Windows)
+      - name: Locate vcpkg
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
           $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
-          if (-not $vcpkgRoot) {
-            $vcpkgRoot = "C:\vcpkg"
-          }
+          if (-not $vcpkgRoot) { $vcpkgRoot = "C:\vcpkg" }
           if (-not (Test-Path -LiteralPath (Join-Path $vcpkgRoot "vcpkg.exe"))) {
             throw "vcpkg.exe was not found under $vcpkgRoot"
           }
           "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Restore vcpkg caches (Windows)
+      - name: Restore vcpkg caches
         if: matrix.platform == 'windows'
         uses: actions/cache@v4
         with:
           path: |
-            .build_tmp/vcpkg-downloads
             .build_tmp/vcpkg-binary-cache
-          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'triplets/*.cmake') }}
+            .build_tmp/msvc/Release/vcpkg_installed
+          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
-      - name: Restore Carla SDK (Windows)
-        if: matrix.platform == 'windows'
-        uses: actions/cache@v4
-        with:
-          path: vendor/carla
-          key: windows-carla-${{ hashFiles('BUILD.py') }}
-
-      - name: Prepare vcpkg cache (Windows)
+      - name: Prepare vcpkg cache
         if: matrix.platform == 'windows'
         shell: pwsh
         run: New-Item -ItemType Directory -Force -Path .build_tmp\vcpkg-binary-cache | Out-Null
 
-      - name: Setup ccache
-        if: matrix.platform != 'windows'
-        uses: hendrikmuhs/ccache-action@v1
-        with:
-          max-size: 500M
-          key: ${{ matrix.platform }}-ccache
-
-      - name: Determine Version
+      - name: Determine version
         id: version
         shell: bash
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          PROJECT_VERSION=$(sed -nE 's/^project[(]AviQtl[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)
-          if [ -z "$PROJECT_VERSION" ]; then
-            echo "Could not determine project version from CMakeLists.txt" >&2
+          VERSION=$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' rust/Cargo.toml | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "Could not determine version from rust/Cargo.toml" >&2
             exit 1
           fi
-          if [ "$REF_TYPE" = "tag" ]; then
-            EXPECTED_TAG="v$PROJECT_VERSION"
-            if [ "$REF_NAME" != "$EXPECTED_TAG" ]; then
-              echo "Release tag $REF_NAME does not match expected tag $EXPECTED_TAG" >&2
-              exit 1
-            fi
-            VERSION="$PROJECT_VERSION"
-          else
-            VERSION="$PROJECT_VERSION"
+          if [ "$REF_TYPE" = "tag" ] && [ "$REF_NAME" != "v$VERSION" ]; then
+            echo "Release tag $REF_NAME does not match v$VERSION" >&2
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
 
-      - name: Build (Linux)
+      - name: Build Linux
         if: matrix.platform == 'linux'
-        run: |
-          python3 BUILD.py --no-container \
-            --version "${{ steps.version.outputs.version }}"
+        run: python BUILD.py --arch --no-container --version "${{ steps.version.outputs.version }}"
 
-      - name: Test (Linux)
-        if: matrix.platform == 'linux'
-        run: ctest --test-dir .build_tmp/arch/Release --output-on-failure
-        env:
-          QT_QPA_PLATFORM: offscreen
-
-      - name: Build (macOS)
+      - name: Build macOS
         if: matrix.platform == 'macos'
-        run: |
-          python3 BUILD.py --xcode \
-            --version "${{ steps.version.outputs.version }}"
+        run: python BUILD.py --xcode --version "${{ steps.version.outputs.version }}"
 
-      - name: Test (macOS)
-        if: matrix.platform == 'macos'
-        run: ctest --test-dir .build_tmp/xcode/Release --output-on-failure
-        env:
-          QT_QPA_PLATFORM: offscreen
-
-      - name: Build (Windows)
+      - name: Build Windows
         if: matrix.platform == 'windows'
         shell: pwsh
         env:
-          GIT_TERMINAL_PROMPT: 0
           VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.build_tmp\vcpkg-binary-cache,readwrite
-        run: >-
-          python BUILD.py --msvc
-          --qt-dir "$env:QT_ROOT_DIR"
-          --version "${{ steps.version.outputs.version }}"
+        run: python BUILD.py --msvc --version "${{ steps.version.outputs.version }}"
 
-      - name: Test (Windows)
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: ctest --test-dir .build_tmp\msvc\Release --output-on-failure
-        env:
-          QT_QPA_PLATFORM: offscreen
-
-      - name: Verify packaged runtime (Windows)
-        if: matrix.platform == 'windows'
-        shell: pwsh
+      - name: Verify package has no Qt runtime
+        shell: bash
         run: |
-          $required = @(
-            "AviQtl.exe",
-            "Qt6Core.dll",
-            "Qt6Gui.dll",
-            "Qt6Qml.dll",
-            "Qt6Quick.dll",
-            "avcodec-62.dll",
-            "avformat-62.dll",
-            "avutil-60.dll",
-            "swresample-6.dll",
-            "swscale-9.dll",
-            "lua51.dll",
-            "vulkan-1.dll",
-            "libcarla_standalone2.dll",
-            "libcarla_native-plugin.dll",
-            "libcarla_host-plugin.dll",
-            "libcarla_utils.dll"
-          )
-          $missing = @($required | Where-Object {
-            -not (Test-Path -LiteralPath (Join-Path "build" $_))
-          })
-          if ($missing.Count -ne 0) {
-            throw "Packaged runtime files are missing: $($missing -join ', ')"
-          }
-          $x264Dlls = @(Get-ChildItem -LiteralPath build -Filter "*x264*.dll" -File)
-          if ($x264Dlls.Count -eq 0) {
-            throw "The packaged x264 runtime DLL is missing"
-          }
-          $pkgconfDlls = @(Get-ChildItem -LiteralPath build -Filter "pkgconf*.dll" -File)
-          if ($pkgconfDlls.Count -ne 0) {
-            throw "Host-only pkgconf DLLs were packaged: $($pkgconfDlls.Name -join ', ')"
-          }
+          if find build -iname 'Qt6*' -print -quit | grep -q .; then
+            echo "Qt runtime files were packaged" >&2
+            exit 1
+          fi
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
@@ -289,29 +158,15 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - name: Determine Version
-        id: version
-        shell: bash
-        env:
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          TAG_NAME="$REF_NAME"
-          VERSION=$(echo "$TAG_NAME" | sed -E 's/^v?//; s/-.*$//')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_name=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: AviQtl-*
           merge-multiple: true
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ steps.version.outputs.release_name }}
+          name: ${{ github.ref_name }}
           generate_release_notes: true
           files: dist/*
         env:

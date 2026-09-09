@@ -28,32 +28,7 @@ private:
 
     static QStringList easingNames() { return AviQtl::RustCore::easingNames(); }
 
-private slots:
-    // --- Rust keyframe document bridge ---
-    void keyframeDocument_inspectSortsAndFlattens() {
-        QVariantList points;
-        points.append(makePoint(20, 3.0));
-        points.append(makePoint(10, 2.0));
-        QVariantMap track = makeStructuredTrack(1.0, points);
-        const auto result = AviQtl::Core::RustKeyframeDocument::inspect(track, 1.0);
-        QVERIFY(result.has_value());
-        const QVariantList flat = result->flat;
-        QCOMPARE(flat.size(), 3);
-        QCOMPARE(flat[0].toMap()[QStringLiteral("frame")].toInt(), 0);
-        QCOMPARE(flat[0].toMap()[QStringLiteral("value")].toDouble(), 1.0);
-        QCOMPARE(flat[1].toMap()[QStringLiteral("frame")].toInt(), 10);
-        QCOMPARE(flat[2].toMap()[QStringLiteral("frame")].toInt(), 20);
-    }
-
-    void keyframeDocument_inspectPreservesStartWithoutPoints() {
-        QVariantMap track = makeStructuredTrack(5.0, QVariantList());
-        const auto result = AviQtl::Core::RustKeyframeDocument::inspect(track, 5.0);
-        QVERIFY(result.has_value());
-        const QVariantList flat = result->flat;
-        QCOMPARE(flat.size(), 1);
-        QCOMPARE(flat[0].toMap()[QStringLiteral("value")].toDouble(), 5.0);
-    }
-
+  private slots:
     // --- evaluateTrack: numeric linear ---
     void evaluateTrack_numericLinear() {
         QVariantList track;
@@ -268,46 +243,6 @@ private slots:
                  QStringLiteral("first"));
         QCOMPARE(evaluateResolvedTrack(labels, 10, QStringLiteral("fallback")).value(),
                  QStringLiteral("second"));
-    }
-
-    // --- Rust keyframe normalization ---
-    void keyframeDocument_normalizeClipsBeyondDuration() {
-        QVariantList points;
-        points.append(makePoint(50, 1.0));
-        points.append(makePoint(200, 2.0));
-        QVariantMap track = makeStructuredTrack(0.0, points);
-
-        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(track, 0.0, 100);
-        QVERIFY(result.has_value());
-        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
-        QCOMPARE(resultPoints.size(), 1);
-        QCOMPARE(resultPoints[0].toMap()[QStringLiteral("frame")].toInt(), 50);
-    }
-
-    void keyframeDocument_normalizePreservesWithinDuration() {
-        QVariantList points;
-        points.append(makePoint(30, 1.0));
-        points.append(makePoint(60, 2.0));
-        QVariantMap track = makeStructuredTrack(0.0, points);
-
-        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(track, 0.0, 100);
-        QVERIFY(result.has_value());
-        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
-        QCOMPARE(resultPoints.size(), 2);
-    }
-
-    void keyframeDocument_normalizeFlatLegacy() {
-        QVariantList flat;
-        flat.append(makePoint(0, 0.0));
-        flat.append(makePoint(50, 1.0));
-        flat.append(makePoint(200, 2.0));
-
-        const auto result = AviQtl::Core::RustKeyframeDocument::normalize(flat, 0.0, 100);
-        QVERIFY(result.has_value());
-        const QVariantList resultPoints = result->track[QStringLiteral("points")].toList();
-        // frame=0 goes into start, frame=50 stays, frame=200 is clipped
-        QCOMPARE(resultPoints.size(), 1);
-        QCOMPARE(resultPoints[0].toMap()[QStringLiteral("frame")].toInt(), 50);
     }
 
     // --- Rust-owned easing names ---
