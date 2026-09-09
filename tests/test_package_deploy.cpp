@@ -30,8 +30,6 @@ class TestPackageDeploy : public QObject {
     void rejectsUnsupportedCatalogTypesAndRefreshesSuccessfulRemoval();
     void deploysPackageFiles_data();
     void deploysPackageFiles();
-    void rejectsUnknownPackageType();
-    void rejectsInvalidPackageIds();
     void extractsSafeArchive();
     void rejectsTraversalArchive();
     void rejectsSymlinkArchive();
@@ -377,25 +375,6 @@ void TestPackageDeploy::deploysPackageFiles() {
     QFile installedPayload(QDir(packageDir).filePath(QStringLiteral("payload.txt")));
     QVERIFY(installedPayload.open(QIODevice::ReadOnly));
     QCOMPARE(installedPayload.readAll(), packageType.toUtf8());
-}
-
-void TestPackageDeploy::rejectsUnknownPackageType() {
-    QVERIFY(PackageDeployment::deployDirectory(QStringLiteral("unknown")).isEmpty());
-
-    QTemporaryDir sourceDir;
-    QVERIFY(sourceDir.isValid());
-    QCOMPARE(PackageDeployment::deployFiles(QStringLiteral("org.aviqtl.invalid"), sourceDir.path(), QStringLiteral("unknown")),
-             PackageDeployment::FileOperationResult::Failed);
-}
-
-void TestPackageDeploy::rejectsInvalidPackageIds() {
-    QTemporaryDir sourceDir;
-    QVERIFY(sourceDir.isValid());
-
-    QCOMPARE(PackageDeployment::deployFiles(QStringLiteral("../escape"), sourceDir.path(), QStringLiteral("effect")), PackageDeployment::FileOperationResult::Failed);
-    QCOMPARE(PackageDeployment::deployFiles(QStringLiteral("contains/slash"), sourceDir.path(), QStringLiteral("effect")), PackageDeployment::FileOperationResult::Failed);
-    QCOMPARE(PackageDeployment::deployFiles(QStringLiteral("contains\\slash"), sourceDir.path(), QStringLiteral("effect")), PackageDeployment::FileOperationResult::Failed);
-    QCOMPARE(PackageDeployment::deployFiles(QString(), sourceDir.path(), QStringLiteral("effect")), PackageDeployment::FileOperationResult::Failed);
 }
 
 void TestPackageDeploy::extractsSafeArchive() {

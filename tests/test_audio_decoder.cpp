@@ -286,6 +286,12 @@ void TestAudioDecoder::representativeLongAudioWorkload() {
     QVERIFY(std::any_of(peaks.cbegin(), peaks.cend(), [](float value) { return std::abs(value) > 0.001F; }));
 
     std::ranges::sort(readTimes);
+    // Performance gates: reads and waveform builds must finish inside their
+    // wait budgets instead of stalling until the CTest timeout.
+    QVERIFY2(readTimes.last() < 30'000,
+             qPrintable(QStringLiteral("max read stalled: %1 ms").arg(readTimes.last())));
+    QVERIFY2(waveformTimer.elapsed() < 60'000,
+             qPrintable(QStringLiteral("waveform build stalled: %1 ms").arg(waveformTimer.elapsed())));
     const AudioDecoder::CacheStats stats = decoder.cacheStats();
     QVERIFY(stats.chunkEntries <= stats.maxChunkEntries);
     QVERIFY(stats.cachedSamples <= stats.maxChunkEntries * stats.samplesPerChunk);

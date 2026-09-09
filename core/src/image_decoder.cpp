@@ -44,7 +44,7 @@ void ImageDecoder::load() {
         return;
     }
     if (m_future.isRunning()) {
-        m_future.waitForFinished();
+        return;
     }
     m_future = QtConcurrent::run([this, path]() -> void { decodeImage(path); });
 }
@@ -169,9 +169,9 @@ void ImageDecoder::decodeImage(const QString &path) {
         sws_scale(swsCtx, srcFrame->data, srcFrame->linesize, 0, srcFrame->height, rgbaFrame->data, rgbaFrame->linesize);
 
         QImage img(rgbaFrame->data[0], rgbaFrame->width, rgbaFrame->height, rgbaFrame->linesize[0], QImage::Format_RGBA8888);
-        m_cachedImage = img.copy();
+        const QImage cachedImage = img.copy();
         const QString &clipIdStr = clipIdString();
-        m_store->setFrameSafe(clipIdStr, m_cachedImage);
+        m_store->setFrameSafe(clipIdStr, cachedImage);
 
         QVideoFrameFormat fmt(QSize(rgbaFrame->width, rgbaFrame->height), QVideoFrameFormat::Format_RGBA8888);
 #pragma clang diagnostic push
@@ -185,6 +185,7 @@ void ImageDecoder::decodeImage(const QString &path) {
         av_frame_free(&rgbaFrame);
         rgbaGuard.dismiss();
 
+        m_isReady.store(true, std::memory_order_release);
         m_store->setVideoFrameSafe(clipIdStr, m_cachedVideoFrame);
         QMetaObject::invokeMethod(this, [this]() -> void { emit ready(); }, Qt::QueuedConnection);
     }

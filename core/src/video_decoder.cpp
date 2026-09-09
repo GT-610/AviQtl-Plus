@@ -786,8 +786,7 @@ auto VideoDecoder::cacheStats() const -> CacheStats {
 }
 
 void VideoDecoder::setPlaying(bool playing) {
-    // 再生状態をスレッドセーフに更新
-    m_isPlaying.store(playing, std::memory_order_release);
+    Q_UNUSED(playing);
 }
 
 } // namespace AviQtl::Core

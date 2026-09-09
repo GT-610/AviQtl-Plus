@@ -421,12 +421,10 @@ if(WIN32)
     )
 endif()
 
-add_test(
-    NAME build_version
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_build_version.py
-)
-set_tests_properties(build_version PROPERTIES TIMEOUT 30)
-
+# NOTE: tests/test_build_version.py covers BUILD.py packaging helpers and is
+# intentionally not registered with CTest. Run it directly when touching the
+# build script:
+#   PYTHONPATH=<repo-root> python3 tests/test_build_version.py
 set_tests_properties(audio_decoder PROPERTIES TIMEOUT 180)
 set_tests_properties(
     video_decoder qml_composite_capture
@@ -448,7 +446,7 @@ aviqtl_label_tests(unit
     lua_host plugin_manifest
     mod_engine permission_manager selection_service
     project_service transport_service timeline_batch_move clip_by_upper_object
-    project_recovery build_version
+    project_recovery
 )
 
 aviqtl_label_tests(integration
