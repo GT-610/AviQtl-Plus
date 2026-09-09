@@ -220,10 +220,6 @@ impl ScriptRuntime {
         Ok((runtime, execution))
     }
 
-    pub fn plugin_id(&self) -> &str {
-        &self.plugin_id
-    }
-
     pub fn set_parameters(
         &mut self,
         parameters: &BTreeMap<String, JsonValue>,

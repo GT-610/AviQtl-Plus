@@ -347,13 +347,6 @@ impl SettingsState {
             persistent: !key.starts_with('_'),
         }
     }
-
-    pub fn remove_value(&mut self, key: &str) -> SettingsMutation {
-        SettingsMutation {
-            changed: self.settings.remove(key).is_some(),
-            persistent: !key.starts_with('_'),
-        }
-    }
 }
 
 pub struct AviQtlSettingsState {

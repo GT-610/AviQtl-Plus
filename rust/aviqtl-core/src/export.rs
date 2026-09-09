@@ -51,14 +51,6 @@ pub enum ExportImageFormat {
 }
 
 impl ExportImageFormat {
-    pub fn from_qt_name(value: &str) -> Self {
-        if value == "JPEG" {
-            Self::Jpeg
-        } else {
-            Self::Png
-        }
-    }
-
     pub fn extension(self) -> &'static str {
         match self {
             Self::Png => "png",
@@ -637,7 +629,9 @@ pub unsafe extern "C" fn aviqtl_export_codec_backend(
     codec_name_length: usize,
 ) -> u32 {
     // SAFETY: The caller upholds the readable byte-range contract above.
-    unsafe { utf8(codec_name, codec_name_length) }.map_or(CODEC_BACKEND_SOFTWARE, codec_backend)
+    unsafe { utf8(codec_name, codec_name_length) }
+        .map(|name| export_codec_backend(name) as u32)
+        .unwrap_or(CODEC_BACKEND_SOFTWARE)
 }
 
 /// Returns a static software fallback codec name, or null when no fallback is defined.
@@ -682,7 +676,9 @@ pub unsafe extern "C" fn aviqtl_export_fixed_gop_mode(
     codec_name_length: usize,
 ) -> u32 {
     // SAFETY: The caller upholds the readable byte-range contract above.
-    unsafe { utf8(codec_name, codec_name_length) }.map_or(FIXED_GOP_NONE, fixed_gop_mode)
+    unsafe { utf8(codec_name, codec_name_length) }
+        .map(|name| export_fixed_gop_mode(name) as u32)
+        .unwrap_or(FIXED_GOP_NONE)
 }
 
 #[unsafe(no_mangle)]
@@ -691,7 +687,7 @@ pub extern "C" fn aviqtl_export_encoder_queue_size(
     height: i32,
     budget_mb: i32,
 ) -> usize {
-    encoder_queue_size(width, height, budget_mb)
+    export_encoder_queue_size(width, height, budget_mb)
 }
 
 fn encoder_queue_size(width: i32, height: i32, budget_mb: i32) -> usize {

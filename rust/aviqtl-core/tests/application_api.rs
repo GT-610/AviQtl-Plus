@@ -366,7 +366,7 @@ fn public_api_manages_plugin_permissions_without_legacy_handles() {
     permissions.grant_all("plugin");
     assert_eq!(permissions.granted("plugin"), PluginPermission::ALL);
     permissions.revoke_all("plugin");
-    assert!(!permissions.is_authorized("plugin"));
+    assert!(permissions.granted("plugin").is_empty());
 }
 
 #[test]

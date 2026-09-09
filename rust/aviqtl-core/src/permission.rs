@@ -187,10 +187,6 @@ impl PluginPermissionState {
         self.state.revoke_all(plugin_id);
     }
 
-    pub fn is_authorized(&self, plugin_id: &str) -> bool {
-        self.state.mask(plugin_id) != 0
-    }
-
     pub fn granted(&self, plugin_id: &str) -> Vec<PluginPermission> {
         PluginPermission::ALL
             .into_iter()
