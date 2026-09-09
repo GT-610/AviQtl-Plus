@@ -456,7 +456,7 @@ impl TimelineState {
                         effect
                             .keyframes
                             .as_mut()
-                            .expect("existing keyframe map remains available")
+                            .ok_or(StateError::Conflict)?
                             .insert(param_name.clone(), mutation.track);
                     }
                 }
@@ -550,7 +550,7 @@ impl TimelineState {
                 effect
                     .keyframes
                     .as_mut()
-                    .expect("existing keyframe map remains available")
+                    .ok_or(StateError::Conflict)?
                     .insert(param_name, mutation.track);
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
@@ -590,7 +590,7 @@ impl TimelineState {
                 effect
                     .keyframes
                     .as_mut()
-                    .expect("existing keyframe map remains available")
+                    .ok_or(StateError::Conflict)?
                     .insert(param_name, mutation.track);
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
@@ -678,7 +678,7 @@ impl TimelineState {
                     plugin
                         .keyframes
                         .as_mut()
-                        .expect("existing keyframe map remains available")
+                        .ok_or(StateError::Conflict)?
                         .insert(param_name, mutation.track);
                 }
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
@@ -743,7 +743,7 @@ impl TimelineState {
                 plugin
                     .keyframes
                     .as_mut()
-                    .expect("existing keyframe map remains available")
+                    .ok_or(StateError::Conflict)?
                     .insert(param_name, mutation.track);
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
@@ -774,7 +774,7 @@ impl TimelineState {
                 plugin
                     .keyframes
                     .as_mut()
-                    .expect("existing keyframe map remains available")
+                    .ok_or(StateError::Conflict)?
                     .insert(param_name, mutation.track);
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
