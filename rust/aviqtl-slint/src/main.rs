@@ -4736,11 +4736,11 @@ fn system_theme_index(settings: &SettingsStore) -> i32 {
 }
 
 fn timeline_maximum_layers(settings: &SettingsStore) -> i32 {
-    settings.i32_value("timelineMaxLayers", 128).clamp(1, 512)
+    settings.i32_value("timelineMaxLayers", 128).clamp(1, 128)
 }
 
 fn timeline_last_layer(window: &TimelineWindow) -> i32 {
-    window.get_maximum_layers().clamp(1, 512) - 1
+    window.get_maximum_layers().clamp(1, 128) - 1
 }
 
 fn sync_timeline_runtime_settings(
@@ -5774,7 +5774,7 @@ fn sync_system_settings(window: &SystemSettingsWindow, settings: &SettingsStore)
     window
         .set_setting_dialog_sidebar_right(settings.bool_value("settingDialogSidebarRight", false));
     window.set_timeline_ruler_height(settings.i32_value("timelineRulerHeight", 32).clamp(16, 100));
-    window.set_timeline_max_layers(settings.i32_value("timelineMaxLayers", 128).clamp(1, 512));
+    window.set_timeline_max_layers(settings.i32_value("timelineMaxLayers", 128).clamp(1, 128));
     window.set_timeline_layer_header_width(
         settings
             .i32_value("timelineLayerHeaderWidth", 60)
@@ -6207,7 +6207,7 @@ fn system_settings_replacement(
         ),
         (
             "timelineMaxLayers",
-            serde_json::json!(window.get_timeline_max_layers().clamp(1, 512)),
+            serde_json::json!(window.get_timeline_max_layers().clamp(1, 128)),
         ),
         (
             "timelineLayerHeaderWidth",
@@ -6498,7 +6498,7 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
     update_vec_model(&timeline.get_clips(), clips);
     let selected_layer = workspace.selected_layer();
     let scene = workspace.selected_scene_document();
-    let layers = (0..timeline.get_maximum_layers().clamp(1, 512))
+    let layers = (0..timeline.get_maximum_layers().clamp(1, 128))
         .map(|index| LayerData {
             index,
             visible: scene.is_none_or(|scene| !scene.hidden_layers.contains(&index)),

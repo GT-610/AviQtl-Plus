@@ -27,7 +27,7 @@ const MAX_GRID_OFFSET: f64 = 86_400.0;
 const MAX_GRID_INTERVAL: i32 = 1_000_000;
 const MAX_GRID_SUBDIVISION: i32 = 128;
 const MAX_MAGNETIC_SNAP_RANGE: i32 = 100;
-pub const MAX_TIMELINE_LAYERS: i32 = 512;
+pub const MAX_TIMELINE_LAYERS: i32 = 128;
 pub const MAX_TIMELINE_LAYER: i32 = MAX_TIMELINE_LAYERS - 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -649,7 +649,7 @@ mod tests {
             serde_json::json!([])
         );
         assert_eq!(normalized["clips"][0]["type"], "camera_control");
-        assert_eq!(normalized["clips"][0]["layer"], 500);
+        assert_eq!(normalized["clips"][0]["layer"], 127);
         assert_eq!(
             normalized["clips"][0]["audioPlugins"]
                 .as_array()
