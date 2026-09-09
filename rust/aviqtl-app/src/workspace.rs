@@ -894,6 +894,66 @@ impl WorkspaceModel {
         self.execute(command)
     }
 
+    pub fn set_effect_interval_start_parameter_at_frame(
+        &mut self,
+        effect_index: usize,
+        param_name: &str,
+        start_frame: i32,
+        end_frame: i32,
+        value: Value,
+    ) -> bool {
+        let Some((clip, effect, original)) =
+            self.effect_parameter_context(effect_index, param_name)
+        else {
+            return false;
+        };
+        let clip_id = clip.id;
+        let duration = clip.duration.max(0);
+        let start_frame = start_frame.clamp(0, duration);
+        let end_frame = end_frame.clamp(0, duration);
+        let value = replace_value_payload(&original, value);
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get(param_name));
+        let Some(track) = track else {
+            return self.execute(TimelineCommand::SetEffectParameter {
+                clip_id,
+                effect_index,
+                param_name: param_name.to_owned(),
+                value,
+                media_duration_seconds: None,
+            });
+        };
+        let points = inspect_keyframe_track(Some(track), &original, duration);
+        let start_options = editable_keyframe_options_at(&points, start_frame);
+        let end_exists = points.iter().any(|point| point.frame == end_frame);
+        let interpolation = points
+            .iter()
+            .find(|point| point.frame == start_frame)
+            .map_or("", |point| point.interpolation.as_str());
+        let right_independent = end_exists && !matches!(interpolation, "" | "constant" | "none");
+        let mut commands = vec![TimelineCommand::SetEffectKeyframe {
+            clip_id,
+            effect_index,
+            param_name: param_name.to_owned(),
+            frame: start_frame,
+            value: value.clone(),
+            options: start_options,
+        }];
+        if !right_independent && end_frame != start_frame {
+            commands.push(TimelineCommand::SetEffectKeyframe {
+                clip_id,
+                effect_index,
+                param_name: param_name.to_owned(),
+                frame: end_frame,
+                value,
+                options: editable_keyframe_options_at(&points, end_frame),
+            });
+        }
+        self.execute_batch(commands)
+    }
+
     pub fn add_effect_keyframe(
         &mut self,
         effect_index: usize,
@@ -2889,6 +2949,21 @@ fn keyframe_options_at(
         )
 }
 
+fn editable_keyframe_options_at(
+    points: &[aviqtl_rust_core::api::KeyframePoint],
+    frame: i32,
+) -> Value {
+    let mut options = keyframe_options_at(points, frame, "linear");
+    if matches!(
+        options.get("interp").and_then(Value::as_str),
+        Some("constant" | "none")
+    ) && let Some(options) = options.as_object_mut()
+    {
+        options.insert("interp".to_owned(), Value::String("linear".to_owned()));
+    }
+    options
+}
+
 fn scene_settings_input(scene: &SceneDocument) -> SceneSettingsInput {
     SceneSettingsInput {
         name: scene.name.clone(),
@@ -3761,6 +3836,59 @@ mod tests {
         assert_eq!(points[0].interpolation, "random");
         assert_eq!(points[0].options["modeParams"]["stepFrames"], 3);
         assert_eq!(points[2].interpolation, "none");
+    }
+
+    #[test]
+    fn dual_slider_start_value_preserves_an_independent_end_value() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        let undo_count = workspace.undo.len();
+
+        assert!(workspace.set_effect_interval_start_parameter_at_frame(
+            1,
+            "size",
+            0,
+            20,
+            json!(5.0),
+        ));
+
+        let effect = &workspace.document().clips[0].effects[1];
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get("size"));
+        let points = inspect_keyframe_track(track, &effect.params["size"], 100);
+        assert_eq!(points[0].value, json!(5.0));
+        assert_eq!(points[1].value, json!(20));
+        assert_eq!(workspace.undo.len(), undo_count + 1);
+    }
+
+    #[test]
+    fn dual_slider_start_value_updates_the_linked_end_in_one_edit() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        assert!(workspace.set_effect_keyframe_options(1, "size", 0, json!({"interp":"none"}),));
+        let undo_count = workspace.undo.len();
+
+        assert!(workspace.set_effect_interval_start_parameter_at_frame(
+            1,
+            "size",
+            0,
+            20,
+            json!(7.0),
+        ));
+
+        let effect = &workspace.document().clips[0].effects[1];
+        let track = effect
+            .keyframes
+            .as_ref()
+            .and_then(|tracks| tracks.get("size"));
+        let points = inspect_keyframe_track(track, &effect.params["size"], 100);
+        assert_eq!(points[0].value, json!(7.0));
+        assert_eq!(points[1].value, json!(7.0));
+        assert_eq!(points[0].interpolation, "linear");
+        assert_eq!(points[1].interpolation, "linear");
+        assert_eq!(workspace.undo.len(), undo_count + 1);
     }
 
     #[test]

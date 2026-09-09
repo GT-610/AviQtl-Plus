@@ -217,19 +217,22 @@ fn current_ui_language() -> UiLanguage {
 }
 
 fn localized_effect_metadata(value: &str) -> Cow<'_, str> {
-    let catalog = CURRENT_UI_LANGUAGE.with(|language| match language.get() {
-        UiLanguage::English => Some(EFFECT_METADATA_ENGLISH),
-        UiLanguage::SimplifiedChinese => Some(EFFECT_METADATA_SIMPLIFIED_CHINESE),
-        UiLanguage::Japanese => None,
-    });
-    let Some(catalog) = catalog else {
-        return Cow::Borrowed(value);
+    let translated = |catalog: &'static [(&'static str, &'static str)]| {
+        catalog
+            .binary_search_by_key(&value, |(source, _)| *source)
+            .ok()
+            .map(|index| catalog[index].1)
     };
-    catalog
-        .binary_search_by_key(&value, |(source, _)| *source)
-        .ok()
-        .map(|index| Cow::Borrowed(catalog[index].1))
-        .unwrap_or_else(|| Cow::Borrowed(value))
+    match current_ui_language() {
+        UiLanguage::English => translated(EFFECT_METADATA_ENGLISH)
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| Cow::Borrowed(value)),
+        UiLanguage::SimplifiedChinese => translated(EFFECT_METADATA_SIMPLIFIED_CHINESE)
+            .or_else(|| translated(EFFECT_METADATA_ENGLISH))
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| Cow::Borrowed(value)),
+        UiLanguage::Japanese => Cow::Borrowed(value),
+    }
 }
 
 fn localized_effect_categories(categories: &[String]) -> String {
@@ -639,6 +642,7 @@ impl PreviewRuntime {
             project_path: workspace.project().path.clone(),
         };
         if self.source_key.as_ref() != Some(&source_key) {
+            self.decoder.reset();
             if let Some(planner) = self.planner.as_mut() {
                 planner.rebuild(workspace.document(), workspace.project().path.as_deref());
             } else {
@@ -755,6 +759,14 @@ impl ObjectSettingsUi {
         }
     }
 
+    fn sync_lightweight(&self) {
+        if let (Some(main), Some(timeline)) = (self.main.upgrade(), self.timeline.upgrade()) {
+            let model = self.model.borrow();
+            sync_project_tabs(&main, &model);
+            sync_transport(&main, &timeline, &model);
+        }
+    }
+
     fn control(
         &self,
         audio_plugin: bool,
@@ -785,7 +797,7 @@ impl ObjectSettingsUi {
         frame: i32,
         value: serde_json::Value,
     ) {
-        let _ = self
+        let changed = self
             .model
             .borrow_mut()
             .current_workspace_mut()
@@ -801,7 +813,38 @@ impl ObjectSettingsUi {
                     workspace.set_effect_parameter_at_frame(effect_index, param_name, frame, value)
                 }
             });
-        self.sync();
+        if changed {
+            self.sync();
+        }
+    }
+
+    fn set_value_deferred(
+        &self,
+        audio_plugin: bool,
+        effect_index: usize,
+        param_name: &str,
+        frame: i32,
+        value: serde_json::Value,
+    ) {
+        let changed = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                if audio_plugin {
+                    workspace.set_audio_plugin_parameter_at_frame(
+                        effect_index,
+                        param_name,
+                        frame,
+                        value,
+                    )
+                } else {
+                    workspace.set_effect_parameter_at_frame(effect_index, param_name, frame, value)
+                }
+            });
+        if changed {
+            self.sync_lightweight();
+        }
     }
 
     fn set_text(
@@ -832,13 +875,42 @@ impl ObjectSettingsUi {
         if !value.is_finite() {
             return;
         }
-        self.set_text(
+        self.set_value_deferred(
             audio_plugin,
             effect_index,
             param_name,
             frame,
-            &value.to_string(),
+            serde_json::Value::from(f64::from(value)),
         );
+    }
+
+    fn set_start_number(
+        &self,
+        effect_index: usize,
+        param_name: &str,
+        start_frame: i32,
+        end_frame: i32,
+        value: f32,
+    ) {
+        if !value.is_finite() {
+            return;
+        }
+        let changed = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .is_some_and(|workspace| {
+                workspace.set_effect_interval_start_parameter_at_frame(
+                    effect_index,
+                    param_name,
+                    start_frame,
+                    end_frame,
+                    serde_json::Value::from(f64::from(value)),
+                )
+            });
+        if changed {
+            self.sync_lightweight();
+        }
     }
 
     fn set_option(
@@ -2214,6 +2286,18 @@ fn install_callbacks(
             value,
         );
     });
+    let object_start_number_ui = object_settings_ui.clone();
+    object_settings.on_set_parameter_start_number(
+        move |index, param, start_frame, end_frame, value| {
+            object_start_number_ui.set_start_number(
+                index.max(0) as usize,
+                param.as_str(),
+                start_frame.max(0),
+                end_frame.max(0),
+                value,
+            );
+        },
+    );
     let object_bool_ui = object_settings_ui.clone();
     object_settings.on_set_parameter_bool(move |audio_plugin, index, param, frame, value| {
         object_bool_ui.set_value(
@@ -6358,20 +6442,7 @@ fn sync_transport_weak(
 }
 
 fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &ApplicationModel) {
-    let tabs = model
-        .tabs()
-        .into_iter()
-        .map(|tab| ProjectTabData {
-            name: SharedString::from(tab.name),
-            dirty: tab.dirty,
-        })
-        .collect::<Vec<_>>();
-    update_vec_model(&main.get_project_tabs(), tabs);
-    main.set_current_project(
-        model
-            .current_project_index()
-            .map_or(-1, |index| index as i32),
-    );
+    sync_project_tabs(main, model);
 
     let Some(workspace) = model.current_workspace() else {
         update_vec_model(&main.get_missing_media(), Vec::new());
@@ -6414,7 +6485,7 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
         .into_iter()
         .map(|clip| TimelineClipData {
             id: clip.id,
-            label: SharedString::from(clip.label),
+            label: SharedString::from(localized_effect_metadata(&clip.label).into_owned()),
             start: clip.start,
             duration: clip.duration,
             layer: clip.layer,
@@ -6437,6 +6508,23 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
         .collect::<Vec<_>>();
     update_vec_model(&timeline.get_layers(), layers);
     sync_transport(main, timeline, model);
+}
+
+fn sync_project_tabs(main: &MainWindow, model: &ApplicationModel) {
+    let tabs = model
+        .tabs()
+        .into_iter()
+        .map(|tab| ProjectTabData {
+            name: SharedString::from(tab.name),
+            dirty: tab.dirty,
+        })
+        .collect::<Vec<_>>();
+    update_vec_model(&main.get_project_tabs(), tabs);
+    main.set_current_project(
+        model
+            .current_project_index()
+            .map_or(-1, |index| index as i32),
+    );
 }
 
 fn object_settings_sync_key(model: &ApplicationModel) -> Option<ObjectSettingsSyncKey> {
@@ -6480,7 +6568,8 @@ fn sync_object_settings(
     window.set_audio_plugin_mode(projection.audio_plugin_mode);
     window.set_clip_title(SharedString::from(format!(
         "{}  (ID {})",
-        projection.clip_label, projection.clip_id
+        localized_effect_metadata(&projection.clip_label),
+        projection.clip_id
     )));
     let effects = if projection.audio_plugin_mode {
         window.set_selected_effect_count(
@@ -6796,11 +6885,13 @@ fn push_object_settings_rows(
         checked: false,
         keyframed: false,
         range_mode: false,
+        right_interactive: false,
         start_frame: 0,
         end_frame: 0,
         current_frame: 0,
         clip_duration: 0,
         interpolation: SharedString::new(),
+        parameter_button_label: SharedString::new(),
         number_value: 0.0,
         end_number_value: 0.0,
         minimum: 0.0,
@@ -6818,6 +6909,7 @@ fn push_object_settings_rows(
     });
     for control in controls {
         let (minimum, maximum) = object_control_range(control);
+        let localized_label = localized_effect_metadata(&control.label).into_owned();
         let option_labels = control
             .options
             .iter()
@@ -6834,13 +6926,25 @@ fn push_object_settings_rows(
         };
         let text_value = control.display_value_at(start_value);
         let end_text_value = control.display_value_at(&control.end_value);
+        let end_keyframe_exists = control
+            .keyframes
+            .iter()
+            .any(|point| point.frame == control.interval_end);
+        let right_interactive = !audio_plugin
+            && supports_track
+            && control.keyframed
+            && end_keyframe_exists
+            && !matches!(
+                control.start_interpolation.as_str(),
+                "" | "constant" | "none"
+            );
         let parameter_row = ObjectSettingRowData {
             row_kind: SharedString::from(control.kind.as_str()),
             source_kind: SharedString::from(control.source_kind.clone()),
             audio_plugin,
             effect_index: index as i32,
             param_name: SharedString::from(control.param.clone().unwrap_or_default()),
-            label: SharedString::from(localized_effect_metadata(&control.label).into_owned()),
+            label: SharedString::from(localized_label.clone()),
             effect_enabled: enabled,
             header_toggle_visible,
             selected,
@@ -6849,6 +6953,7 @@ fn push_object_settings_rows(
             checked: control.bool_value_at(start_value),
             keyframed: control.keyframed,
             range_mode: !audio_plugin && supports_track && control.keyframed,
+            right_interactive,
             start_frame: if audio_plugin {
                 control.relative_frame
             } else {
@@ -6858,6 +6963,11 @@ fn push_object_settings_rows(
             current_frame: control.relative_frame,
             clip_duration: control.clip_duration,
             interpolation: SharedString::from(control.start_interpolation.clone()),
+            parameter_button_label: SharedString::from(parameter_button_label(
+                &localized_label,
+                control.keyframed,
+                &control.start_interpolation,
+            )),
             number_value: finite_f32(control.number_value_at(start_value), 0.0),
             end_number_value: finite_f32(control.number_value_at(&control.end_value), 0.0),
             minimum,
@@ -6958,6 +7068,14 @@ fn easing_name_at(index: i32) -> &'static str {
         .ok()
         .and_then(|index| keyframe_interpolation_names().get(index).copied())
         .unwrap_or("none")
+}
+
+fn parameter_button_label(label: &str, keyframed: bool, interpolation: &str) -> String {
+    if keyframed && !matches!(interpolation, "" | "constant" | "none") {
+        format!("{label} ({})", easing_label(interpolation))
+    } else {
+        label.to_owned()
+    }
 }
 
 fn easing_label(name: &str) -> String {
@@ -7717,14 +7835,50 @@ mod tests {
         CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::English));
         assert_eq!(localized_effect_metadata("テキスト"), "Text");
         assert_eq!(localized_effect_metadata("変形/クロップ"), "Transform/Crop");
+        assert_eq!(localized_effect_metadata("標準描画"), "Standard Drawing");
+        assert_eq!(localized_effect_metadata("拡大率"), "Scale");
+        assert_eq!(localized_effect_metadata("X軸回転"), "X Rotation");
+        assert_eq!(localized_effect_metadata("中心X"), "Center X");
+        assert_eq!(localized_effect_metadata("不透明度"), "Opacity");
+        assert_eq!(localized_effect_metadata("合成モード"), "Blend Mode");
+        assert_eq!(localized_effect_metadata("通常"), "Normal");
 
         CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::SimplifiedChinese));
         assert_eq!(localized_effect_metadata("テキスト"), "文本");
         assert_eq!(localized_effect_metadata("変形/クロップ"), "变形/裁剪");
+        assert_eq!(localized_effect_metadata("標準描画"), "标准绘制");
+        assert_eq!(localized_effect_metadata("拡大率"), "缩放率");
+        assert_eq!(localized_effect_metadata("X軸回転"), "X 轴旋转");
+        assert_eq!(localized_effect_metadata("中心X"), "中心 X");
+        assert_eq!(localized_effect_metadata("不透明度"), "不透明度");
+        assert_eq!(localized_effect_metadata("合成モード"), "混合模式");
+        assert_eq!(localized_effect_metadata("通常"), "正常");
 
         CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::Japanese));
         assert_eq!(localized_effect_metadata("テキスト"), "テキスト");
         assert_eq!(localized_effect_metadata("変形/クロップ"), "変形/クロップ");
+        assert_eq!(localized_effect_metadata("標準描画"), "標準描画");
+    }
+
+    #[test]
+    fn dual_slider_button_uses_the_localized_property_and_easing_names() {
+        CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::English));
+        assert_eq!(
+            parameter_button_label(&localized_effect_metadata("拡大率"), true, "linear"),
+            "Scale (Linear)"
+        );
+
+        CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::SimplifiedChinese));
+        assert_eq!(
+            parameter_button_label(&localized_effect_metadata("拡大率"), true, "linear"),
+            "缩放率 (线性)"
+        );
+
+        CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::Japanese));
+        assert_eq!(
+            parameter_button_label(&localized_effect_metadata("拡大率"), true, "linear"),
+            "拡大率 (直線)"
+        );
     }
 
     #[test]

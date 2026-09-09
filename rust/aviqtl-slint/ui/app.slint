@@ -209,11 +209,13 @@ export struct ObjectSettingRowData {
     checked: bool,
     keyframed: bool,
     range-mode: bool,
+    right-interactive: bool,
     start-frame: int,
     end-frame: int,
     current-frame: int,
     clip-duration: int,
     interpolation: string,
+    parameter-button-label: string,
     number-value: float,
     end-number-value: float,
     minimum: float,
@@ -549,6 +551,7 @@ component ObjectSettingRow inherits Rectangle {
     callback remove-effect(bool, int);
     callback set-text(bool, int, string, int, string);
     callback set-number(bool, int, string, int, float);
+    callback set-start-number(int, string, int, int, float);
     callback set-bool(bool, int, string, int, bool);
     callback set-option(bool, int, string, int, int);
     callback pick-path(bool, int, string, int, string, string, string);
@@ -655,11 +658,10 @@ component ObjectSettingRow inherits Rectangle {
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
-    if root.row-data.row-kind == "number" && root.row-data.source-kind == "slider" : HorizontalLayout {
+    if root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" : HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
-        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         Slider {
             horizontal-stretch: 1;
             value: root.row-data.number-value;
@@ -668,13 +670,23 @@ component ObjectSettingRow inherits Rectangle {
             step: root.row-data.step;
             enabled: root.row-data.interactive;
             changed(value) => {
-                root.set-number(
-                    root.row-data.audio-plugin,
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    value
-                );
+                if root.row-data.audio-plugin {
+                    root.set-number(
+                        true,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        value
+                    );
+                } else {
+                    root.set-start-number(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        root.row-data.end-frame,
+                        value
+                    );
+                }
             }
         }
         CommitLineEdit {
@@ -694,7 +706,8 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
+            width: 150px;
+            text: root.row-data.parameter-button-label;
             enabled: root.row-data.interactive;
             clicked => {
                 root.open-easing(
@@ -718,13 +731,13 @@ component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
-        if root.row-data.range-mode : CommitLineEdit {
+        if !root.row-data.audio-plugin : CommitLineEdit {
             width: 76px;
-            source-text: root.row-data.end-text-value;
-            enabled: root.row-data.interactive
-                && root.row-data.interpolation != ""
-                && root.row-data.interpolation != "constant";
+            source-text: root.row-data.right-interactive
+                ? root.row-data.end-text-value
+                : root.row-data.text-value;
+            enabled: root.row-data.interactive && root.row-data.right-interactive;
+            opacity: root.row-data.right-interactive ? 1 : 0.45;
             horizontal-alignment: right;
             commit(value) => {
                 root.set-text(
@@ -736,15 +749,16 @@ component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        if root.row-data.range-mode : Slider {
+        if !root.row-data.audio-plugin : Slider {
             horizontal-stretch: 1;
-            value: root.row-data.end-number-value;
+            value: root.row-data.right-interactive
+                ? root.row-data.end-number-value
+                : root.row-data.number-value;
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
-            enabled: root.row-data.interactive
-                && root.row-data.interpolation != ""
-                && root.row-data.interpolation != "constant";
+            enabled: root.row-data.interactive && root.row-data.right-interactive;
+            opacity: root.row-data.right-interactive ? 1 : 0.45;
             changed(value) => {
                 root.set-number(
                     root.row-data.audio-plugin,
@@ -756,118 +770,6 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
-        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
-    }
-
-    if root.row-data.row-kind == "number" && root.row-data.source-kind != "slider" : HorizontalLayout {
-        padding-left: 6px;
-        padding-right: 6px;
-        spacing: 7px;
-        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
-        CommitLineEdit {
-            width: 120px;
-            source-text: root.row-data.text-value;
-            enabled: root.row-data.interactive;
-            horizontal-alignment: right;
-            commit(value) => {
-                root.set-text(
-                    root.row-data.audio-plugin,
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    value
-                );
-            }
-        }
-        Button {
-            visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
-            enabled: root.row-data.interactive;
-            clicked => {
-                root.open-easing(
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    root.row-data.end-frame
-                );
-            }
-        }
-        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
-        if root.row-data.range-mode : CommitLineEdit {
-            width: 120px;
-            source-text: root.row-data.end-text-value;
-            enabled: root.row-data.interactive
-                && root.row-data.interpolation != ""
-                && root.row-data.interpolation != "constant";
-            horizontal-alignment: right;
-            commit(value) => {
-                root.set-text(
-                    root.row-data.audio-plugin,
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.end-frame,
-                    value
-                );
-            }
-        }
-        Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
-        Rectangle { horizontal-stretch: 1; }
-        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
-    }
-
-    if root.row-data.row-kind == "integer" : HorizontalLayout {
-        padding-left: 6px;
-        padding-right: 6px;
-        spacing: 7px;
-        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
-        CommitLineEdit {
-            width: 120px;
-            source-text: root.row-data.text-value;
-            enabled: root.row-data.interactive;
-            horizontal-alignment: right;
-            commit(value) => {
-                root.set-text(
-                    root.row-data.audio-plugin,
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    value
-                );
-            }
-        }
-        Button {
-            visible: !root.row-data.audio-plugin;
-            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
-            enabled: root.row-data.interactive;
-            clicked => {
-                root.open-easing(
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    root.row-data.end-frame
-                );
-            }
-        }
-        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
-        if root.row-data.range-mode : CommitLineEdit {
-            width: 120px;
-            source-text: root.row-data.end-text-value;
-            enabled: root.row-data.interactive
-                && root.row-data.interpolation != ""
-                && root.row-data.interpolation != "constant";
-            horizontal-alignment: right;
-            commit(value) => {
-                root.set-text(
-                    root.row-data.audio-plugin,
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.end-frame,
-                    value
-                );
-            }
-        }
-        Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
-        Rectangle { horizontal-stretch: 1; }
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
@@ -4491,6 +4393,7 @@ export component ObjectSettingsWindow inherits Window {
     callback preset-names(int) -> [string];
     callback set-parameter-text(bool, int, string, int, string);
     callback set-parameter-number(bool, int, string, int, float);
+    callback set-parameter-start-number(int, string, int, int, float);
     callback set-parameter-bool(bool, int, string, int, bool);
     callback set-parameter-option(bool, int, string, int, int);
     callback choose-parameter-path(bool, int, string, int, string, string, string);
@@ -4633,6 +4536,9 @@ export component ObjectSettingsWindow inherits Window {
                     }
                     set-number(audio-plugin, index, param, frame, value) => {
                         root.set-parameter-number(audio-plugin, index, param, frame, value);
+                    }
+                    set-start-number(index, param, start-frame, end-frame, value) => {
+                        root.set-parameter-start-number(index, param, start-frame, end-frame, value);
                     }
                     set-bool(audio-plugin, index, param, frame, value) => {
                         root.set-parameter-bool(audio-plugin, index, param, frame, value);

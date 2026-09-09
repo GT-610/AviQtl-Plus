@@ -386,6 +386,8 @@ pub struct MediaPreview {
     worker: Option<JoinHandle<()>>,
     requested: Option<PreviewScene>,
     generation: u64,
+    minimum_valid_generation: u64,
+    displayed_generation: u64,
 }
 
 impl MediaPreview {
@@ -403,6 +405,8 @@ impl MediaPreview {
             worker: Some(worker),
             requested: None,
             generation: 0,
+            minimum_valid_generation: 0,
+            displayed_generation: 0,
         }
     }
 
@@ -425,16 +429,26 @@ impl MediaPreview {
     pub fn poll(&mut self) -> Option<PreviewBatch> {
         let mut newest = None;
         while let Ok(result) = self.result_receiver.try_recv() {
-            if result.generation == self.generation {
+            if self.accepts_completed_generation(result.generation) {
                 newest = Some(result.batch);
             }
         }
         newest
     }
 
+    fn accepts_completed_generation(&mut self, generation: u64) -> bool {
+        if generation < self.minimum_valid_generation || generation <= self.displayed_generation {
+            return false;
+        }
+        self.displayed_generation = generation;
+        true
+    }
+
     pub fn reset(&mut self) {
         self.requested = None;
         self.generation = self.generation.wrapping_add(1);
+        self.minimum_valid_generation = self.generation;
+        self.displayed_generation = self.generation;
         self.request_queue.clear();
         while self.result_receiver.try_recv().is_ok() {}
     }
@@ -701,6 +715,48 @@ mod tests {
         let request = queue.take().expect("latest request is available");
         assert_eq!(request.generation, 2);
         assert_eq!(request.scene.instance_key, 2);
+    }
+
+    #[test]
+    fn playback_accepts_the_latest_completed_frame_without_waiting_for_the_latest_request() {
+        let mut preview = MediaPreview::new(Arc::new(|| {}));
+        let scene = PreviewScene {
+            instance_key: 1,
+            width: 1,
+            height: 1,
+            camera: None,
+            opaque_background: false,
+            layers: Vec::new(),
+        };
+
+        preview.request_fresh(scene.clone());
+        let first = preview.generation;
+        preview.request_fresh(scene.clone());
+        preview.request_fresh(scene);
+
+        assert!(first < preview.generation);
+        assert!(preview.accepts_completed_generation(first));
+        assert!(!preview.accepts_completed_generation(first));
+        assert!(preview.accepts_completed_generation(preview.generation));
+    }
+
+    #[test]
+    fn reset_rejects_results_from_the_previous_preview_source() {
+        let mut preview = MediaPreview::new(Arc::new(|| {}));
+        let scene = PreviewScene {
+            instance_key: 1,
+            width: 1,
+            height: 1,
+            camera: None,
+            opaque_background: false,
+            layers: Vec::new(),
+        };
+
+        preview.request_fresh(scene);
+        let stale = preview.generation;
+        preview.reset();
+
+        assert!(!preview.accepts_completed_generation(stale));
     }
 
     fn text_source(content: &str) -> PreviewSource {
