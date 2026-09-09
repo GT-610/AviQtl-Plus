@@ -584,7 +584,7 @@ fn run_video_export(
         ..
     } = job
     else {
-        unreachable!("video worker receives a video job")
+        return Err("internal error: video worker received a non-video job".to_owned());
     };
     let encoder = open_video_encoder(config)
         .map_err(|error| format!("Encoder error: initialization failed: {error}"))?;
@@ -680,7 +680,7 @@ fn run_image_sequence_export(
         progress_interval,
     } = job
     else {
-        unreachable!("image worker receives an image-sequence job")
+        return Err("internal error: image worker received a non-image job".to_owned());
     };
     let created_directory = !output_directory.exists();
     if created_directory {
