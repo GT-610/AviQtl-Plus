@@ -54,6 +54,10 @@ pub struct TextRasterizer {
 
 impl TextRasterizer {
     /// Loads the platform font directories once for subsequent text frames.
+    ///
+    /// No `Default` impl by design: construction scans the system font
+    /// catalog, so call sites spell out `new()`.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let mut database = Database::new();
         database.load_system_fonts();
