@@ -2,11 +2,11 @@ use crate::abi::{
     AviQtlIdAllocation, AviQtlSceneSettings, AviQtlTimelineClipGeometry, STATUS_BUFFER_TOO_SMALL,
     STATUS_INVALID_ARGUMENT, STATUS_OK, STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
 };
+use crate::project::DEFAULT_FPS;
 use std::collections::BTreeSet;
 
 const DEFAULT_WIDTH: i32 = 1920;
 const DEFAULT_HEIGHT: i32 = 1080;
-const DEFAULT_FPS: f64 = 60.0;
 const DEFAULT_TOTAL_FRAMES: i32 = 300;
 const MAX_DIMENSION: i32 = 32_768;
 const MAX_FPS: f64 = 1_000.0;

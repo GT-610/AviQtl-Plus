@@ -2,6 +2,7 @@ use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_INVALID_JSON, STATUS_OK,
     STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid, utf8,
 };
+use crate::project::DEFAULT_FPS;
 use serde_json::{Map, Value, json};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -10,7 +11,6 @@ use std::sync::Mutex;
 // Keep these defaults aligned with core/include/constants.hpp.
 const DEFAULT_WIDTH: i32 = 1920;
 const DEFAULT_HEIGHT: i32 = 1080;
-const DEFAULT_FPS: f64 = 60.0;
 const DEFAULT_SAMPLE_RATE: i32 = 48_000;
 const DEFAULT_CLIP_DURATION: i32 = 100;
 const AUDIO_MAX_BLOCK_SIZE: i32 = 4096;
