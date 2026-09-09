@@ -238,8 +238,17 @@ impl CarlaPluginProcessor {
                 .activate
                 .expect("processing callbacks were validated")(native_handle);
         }
-        let parameter_count = usize::try_from(unsafe { (api.get_parameter_count)(host_handle, 0) })
-            .unwrap_or(usize::MAX);
+        let raw_count = unsafe { (api.get_parameter_count)(host_handle, 0) };
+        // The count comes from untrusted plugin code: reject values that
+        // would turn the inspect loop below into an allocation bomb.
+        const MAX_CARLA_PARAMETERS: usize = 10_000;
+        let parameter_count = usize::try_from(raw_count)
+            .map_err(|_| format!("Carla reported an invalid parameter count: {raw_count}"))?;
+        if parameter_count > MAX_CARLA_PARAMETERS {
+            return Err(format!(
+                "Carla reported an implausible parameter count: {parameter_count}"
+            ));
+        }
         Ok(Self {
             api,
             descriptor,
@@ -610,7 +619,7 @@ fn conventional_library_directories() -> &'static [&'static str] {
 
 unsafe extern "C" fn host_get_buffer_size(handle: *mut c_void) -> u32 {
     let state = unsafe { &*(handle.cast::<HostState>()) };
-    u32::try_from(state.max_block_size).unwrap_or(u32::MAX)
+    state.max_block_size.min(u32::MAX as usize) as u32
 }
 
 unsafe extern "C" fn host_get_sample_rate(handle: *mut c_void) -> f64 {
