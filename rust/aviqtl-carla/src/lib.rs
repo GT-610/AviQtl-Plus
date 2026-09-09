@@ -873,18 +873,20 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires installed Carla libraries"]
     fn installed_carla_pair_exposes_the_native_rack_descriptor() {
         let Some(paths) = CarlaLibraryPaths::discover(None) else {
-            return;
+            panic!("installed Carla libraries are required; run with -- --ignored where available");
         };
         let api = CarlaApi::load(&paths).expect("installed Carla libraries load");
         assert!(!unsafe { (api.get_native_rack_plugin)() }.is_null());
     }
 
     #[test]
+    #[ignore = "requires installed Carla libraries and AVIQTL_CARLA_TEST_LADSPA"]
     fn external_ladspa_fixture_processes_through_carla() {
         let Some(path) = std::env::var_os("AVIQTL_CARLA_TEST_LADSPA").map(PathBuf::from) else {
-            return;
+            panic!("AVIQTL_CARLA_TEST_LADSPA must point at a LADSPA fixture; run with -- --ignored where available");
         };
         let paths = CarlaLibraryPaths::discover(None).expect("Carla libraries are installed");
         let info = CarlaPluginInfo {

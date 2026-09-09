@@ -723,9 +723,10 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires an ffmpeg binary on PATH"]
     fn decodes_a_real_generated_video_when_ffmpeg_cli_is_available() {
         if Command::new("ffmpeg").arg("-version").output().is_err() {
-            return;
+            panic!("ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg");
         }
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -772,9 +773,10 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires an ffmpeg binary on PATH"]
     fn decodes_and_caches_a_real_audio_range_when_ffmpeg_cli_is_available() {
         if Command::new("ffmpeg").arg("-version").output().is_err() {
-            return;
+            panic!("ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg");
         }
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)

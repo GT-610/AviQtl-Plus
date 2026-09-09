@@ -597,11 +597,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires ffmpeg software codecs (libx264, aac)"]
     fn encodes_real_video_and_audio_when_software_codecs_are_available() {
         if !available_video_encoders().contains(&"libx264")
             || !available_audio_encoders().contains(&"aac")
         {
-            return;
+            panic!("libx264/aac are required for this test; run with -- --ignored where available");
         }
         let path = temporary_path("mp4");
         let mut encoder = VideoEncoder::open(&VideoEncoderConfig {
