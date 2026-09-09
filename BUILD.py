@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and package the Rust + Slint AviQtl desktop application."""
+"""Build and package the AviQtl desktop application (Rust + Slint by default)."""
 
 import argparse
 import locale
@@ -70,11 +70,16 @@ class BuildConfig:
     is_debug: bool
     use_container: bool
     is_offline: bool
-    qt_dir: Optional[Path] = None  # Deprecated CLI compatibility only.
+    frontend: str = "slint"  # "slint" (default) or "qt" (legacy C++/QML frontend).
+    qt_dir: Optional[Path] = None  # Qt builds only: forwarded to CMAKE_PREFIX_PATH.
     version_major: int = 0
     version_minor: int = 0
     version_patch: int = 0
     version_string: str = "0.0.0"
+
+    def __post_init__(self):
+        if self.frontend not in ("slint", "qt"):
+            raise ValueError(f"Unknown frontend: {self.frontend!r} (expected 'slint' or 'qt')")
 
     @property
     def build_type(self) -> str:
@@ -91,6 +96,10 @@ class BuildConfig:
     @property
     def cargo_profile(self) -> str:
         return "debug" if self.is_debug else "release"
+
+    @property
+    def qt_build_dir(self) -> Path:
+        return self.work_dir / "qt-build"
 
     @property
     def dist_dir(self) -> Path:
@@ -137,11 +146,12 @@ class PlatformBuilder:
         self.current_proc: Optional[subprocess.Popen] = None
 
     def build(self):
-        self.logger.progress(10, f"{self.config.build_type} Rust + Slint build started")
+        frontend = "Rust + Slint" if self.config.frontend == "slint" else "Qt (legacy)"
+        self.logger.progress(10, f"{self.config.build_type} {frontend} build started")
         self.logger.section("Checking dependencies")
         self.install_dependencies()
         self.check_cancelled()
-        self.logger.section("Compiling Rust + Slint frontend")
+        self.logger.section(f"Compiling {frontend} frontend")
         self.compile()
         self.logger.progress(70, "Compilation complete")
         self.check_cancelled()
@@ -186,10 +196,90 @@ class PlatformBuilder:
         return command
 
     def compile(self):
+        if self.config.frontend == "qt":
+            self.compile_qt()
+            return
         jobs = multiprocessing.cpu_count()
         self.env["CARGO_BUILD_JOBS"] = str(jobs)
         self.logger.log(f"Parallel jobs: {jobs}")
         self.run_cmd(self.get_cargo_build_cmd())
+
+    def check_qt_prerequisites(self):
+        if not shutil.which("cmake"):
+            raise RuntimeError("cmake was not found; install CMake to build the Qt frontend")
+        if not shutil.which("ninja"):
+            raise RuntimeError("ninja was not found; install Ninja to build the Qt frontend")
+        qt_dir = self.config.qt_dir
+        if qt_dir is not None:
+            if not (qt_dir / "lib" / "cmake" / "Qt6").is_dir():
+                raise RuntimeError(
+                    f"--qt-dir does not look like a Qt6 prefix: {qt_dir} "
+                    "(expected lib/cmake/Qt6 underneath)"
+                )
+            return
+        for tool in ("qmake6", "qmake"):
+            found = shutil.which(tool, path=self.env.get("PATH"))
+            if found:
+                self.logger.log(f"Found Qt: {found}")
+                return
+        raise RuntimeError(
+            "Qt6 was not found on PATH; pass --qt-dir <Qt6 prefix> "
+            "or install Qt 6.5+ with Quick, QuickControls2, Quick3D, "
+            "Multimedia, ShaderTools and LinguistTools"
+        )
+
+    def get_cmake_configure_cmd(self) -> List[str]:
+        command = [
+            "cmake", "-S", str(self.config.source_dir), "-B", str(self.config.qt_build_dir),
+            "-G", "Ninja", f"-DCMAKE_BUILD_TYPE={self.config.build_type}",
+        ]
+        if self.config.qt_dir is not None:
+            command.append(f"-DCMAKE_PREFIX_PATH={self.config.qt_dir}")
+        if self.config.is_offline:
+            command.append("-DAVIQTL_CARGO_OFFLINE=ON")
+        return command
+
+    def get_cmake_build_cmd(self) -> List[str]:
+        return [
+            "cmake", "--build", str(self.config.qt_build_dir),
+            "--target", "AviQtl", "--", f"-j{multiprocessing.cpu_count()}",
+        ]
+
+    def compile_qt(self):
+        self.check_qt_prerequisites()
+        self.run_cmd(self.get_cmake_configure_cmd())
+        self.check_cancelled()
+        self.run_cmd(self.get_cmake_build_cmd())
+
+    def qt_product(self) -> Path:
+        """Locate the built Qt product: macOS bundle when present, else the binary."""
+        bundle = self.config.qt_build_dir / "bin" / "AviQtl.app"
+        if bundle.is_dir():
+            return bundle
+        suffix = ".exe" if os.name == "nt" else ""
+        return self.config.qt_build_dir / "bin" / f"AviQtl{suffix}"
+
+    def package_qt(self):
+        """Stage a development Qt build: raw product plus shared resources.
+
+        This intentionally skips platform deployment (macdeployqt/windeployqt
+        bundling). Use it to keep working against the legacy frontend while
+        Slint is under construction, not for release packaging.
+        """
+        self.prepare_output_dir()
+        source = self.qt_product()
+        if not source.exists():
+            raise FileNotFoundError(f"Qt product not found: {source}")
+        destination = self.config.output_dir / source.name
+        if source.is_dir():
+            shutil.copytree(source, destination, dirs_exist_ok=True)
+        else:
+            shutil.copy2(source, destination)
+        self.copy_resources(self.config.output_dir)
+        if discovery := self.find_carla_discovery_tool(windows=os.name == "nt"):
+            shutil.copy2(discovery, self.config.output_dir / discovery.name)
+        self.logger.log(f"Qt product (development build, undeployed): {destination}")
+        self.logger.log("Note: run macdeployqt/windeployqt on the Qt binary before distributing it")
 
     def cargo_binary(self, windows: bool = False) -> Path:
         suffix = ".exe" if windows else ""
@@ -234,6 +324,8 @@ class PlatformBuilder:
     def archive(self):
         self.config.dist_dir.mkdir(parents=True, exist_ok=True)
         archive_name = self.get_archive_name()
+        if self.config.frontend == "qt":
+            archive_name += "-Qt"
         self.create_zip(archive_name)
         self.logger.log(f"Archive: {self.config.dist_dir / (archive_name + '.zip')}")
 
@@ -311,6 +403,8 @@ class LinuxBuilderBase(PlatformBuilder):
             self.create_container()
 
     def package(self):
+        if self.config.frontend == "qt":
+            return self.package_qt()
         self.prepare_output_dir()
         source = self.cargo_binary()
         if not source.is_file():
@@ -432,6 +526,8 @@ class Msys2Builder(WindowsDependencyMixin, PlatformBuilder):
         return re.findall(r"DLL Name:\s*(\S+)", result.stdout) if result.returncode == 0 else []
 
     def package(self):
+        if self.config.frontend == "qt":
+            return self.package_qt()
         self.prepare_output_dir()
         source = self.cargo_binary(windows=True)
         if not source.is_file():
@@ -554,6 +650,8 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
         return re.findall(r"^\s+([^\s]+\.dll)\s*$", result.stdout, flags=re.IGNORECASE | re.MULTILINE)
 
     def package(self):
+        if self.config.frontend == "qt":
+            return self.package_qt()
         self.prepare_output_dir()
         source = self.cargo_binary(windows=True)
         if not source.is_file():
@@ -639,6 +737,8 @@ class XcodeBuilder(PlatformBuilder):
             self.run_cmd(["install_name_tool", "-id", f"@rpath/{dylib.name}", str(dylib)])
 
     def package(self):
+        if self.config.frontend == "qt":
+            return self.package_qt()
         self.prepare_output_dir()
         source = self.cargo_binary()
         if not source.is_file():
@@ -668,6 +768,8 @@ class XcodeBuilder(PlatformBuilder):
         return f"AviQtl-macOS-Xcode-{normalize_macos_architecture(platform.machine())}"
 
     def create_zip(self, archive_name: str):
+        if self.config.frontend == "qt":
+            return super().create_zip(archive_name)
         archive_path = self.config.dist_dir / f"{archive_name}.zip"
         archive_path.unlink(missing_ok=True)
         self.run_cmd([
@@ -725,21 +827,25 @@ class BuildWorker(threading.Thread):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="BUILD.py", description="Build and package the AviQtl Rust + Slint application",
+        prog="BUILD.py", description="Build and package the AviQtl desktop application",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=("Examples:\n  python BUILD.py --arch\n  python BUILD.py --msys2 --debug\n"
-                "  python BUILD.py --msvc\n  python BUILD.py --xcode --offline\n"),
+                "  python BUILD.py --msvc\n  python BUILD.py --xcode --offline\n"
+                "  python BUILD.py --xcode --frontend qt --debug\n"),
     )
     targets = parser.add_mutually_exclusive_group()
     targets.add_argument("--arch", action="store_true", help="Build for Arch Linux")
     targets.add_argument("--msys2", action="store_true", help="Build for Windows MSYS2 UCRT64")
     targets.add_argument("--msvc", action="store_true", help="Build for Windows MSVC x64")
     targets.add_argument("--xcode", action="store_true", help="Build for macOS")
+    parser.add_argument("--frontend", choices=("slint", "qt"), default="slint",
+                        help="Frontend to build (default: slint; qt selects the legacy C++/QML frontend)")
     parser.add_argument("--offline", action="store_true", help="Do not download dependencies")
     parser.add_argument("--debug", action="store_true", help="Build the debug profile")
     parser.add_argument("--no-container", action="store_true", help="Build Linux directly on the host")
     parser.add_argument("--qt-dir", type=Path,
-                        help="Deprecated compatibility option; ignored because Slint does not use Qt")
+                        help="Qt6 install prefix for --frontend qt (forwarded to CMAKE_PREFIX_PATH); "
+                             "ignored by the Slint build")
     parser.add_argument("--version", type=str,
                         help="Validate the release version against rust/Cargo.toml")
     return parser.parse_args()
@@ -779,12 +885,12 @@ def main():
         source_dir=source_dir, temp_base=source_dir / ".build_tmp",
         output_dir=source_dir / "build", target=target, is_debug=args.debug,
         use_container=target == "arch" and not args.no_container,
-        is_offline=args.offline, qt_dir=args.qt_dir,
+        is_offline=args.offline, frontend=args.frontend, qt_dir=args.qt_dir,
         version_major=version_parts[0], version_minor=version_parts[1],
         version_patch=version_parts[2], version_string=version_string,
     )
-    if args.qt_dir:
-        print("Warning: --qt-dir is retained for compatibility but ignored by the Slint build")
+    if args.qt_dir and args.frontend != "qt":
+        print("Warning: --qt-dir only affects --frontend qt builds; ignored by the Slint build")
     worker = BuildWorker(config)
     cancelled = False
 
@@ -798,7 +904,8 @@ def main():
 
     signal.signal(signal.SIGINT, lambda _signum, _frame: cancel_build())
     mode = "Container" if config.use_container else "Host"
-    print(f"Build started | frontend=Slint | target={target} | {config.build_type} | "
+    frontend_label = "Slint" if config.frontend == "slint" else "Qt (legacy)"
+    print(f"Build started | frontend={frontend_label} | target={target} | {config.build_type} | "
           f"{mode} | offline={config.is_offline}")
     worker.start()
     while not worker.finished_event.is_set():
