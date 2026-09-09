@@ -243,9 +243,7 @@ impl AudioDecoder {
                 .copy_from_slice(&chunk.samples[source_start..source_end]);
             written_frames += copy_frames;
         }
-        Ok(AudioSamples {
-            samples: output,
-        })
+        Ok(AudioSamples { samples: output })
     }
 
     fn ensure_chunk(&mut self, index: i64) -> Result<(), MediaError> {
@@ -726,7 +724,9 @@ mod tests {
     #[ignore = "requires an ffmpeg binary on PATH"]
     fn decodes_a_real_generated_video_when_ffmpeg_cli_is_available() {
         if Command::new("ffmpeg").arg("-version").output().is_err() {
-            panic!("ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg");
+            panic!(
+                "ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg"
+            );
         }
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -776,7 +776,9 @@ mod tests {
     #[ignore = "requires an ffmpeg binary on PATH"]
     fn decodes_and_caches_a_real_audio_range_when_ffmpeg_cli_is_available() {
         if Command::new("ffmpeg").arg("-version").output().is_err() {
-            panic!("ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg");
+            panic!(
+                "ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg"
+            );
         }
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)

@@ -287,8 +287,7 @@ mod tests {
     fn export_sample_count_can_start_at_an_arbitrary_timeline_frame() {
         let fps = 60_000.0 / 1_001.0;
         let mut mixer = TimelineAudioMixer::default();
-        let (_, preview_frames) =
-            frame_sample_range(1, fps, 48_000).expect("timing is valid");
+        let (_, preview_frames) = frame_sample_range(1, fps, 48_000).expect("timing is valid");
         let preview = mixer
             .mix_frame_with_sample_count_and_plugin_block_size(
                 1,
@@ -350,7 +349,9 @@ mod tests {
     #[ignore = "requires an ffmpeg binary on PATH"]
     fn decodes_and_mixes_consecutive_real_timeline_frames() {
         if Command::new("ffmpeg").arg("-version").output().is_err() {
-            panic!("ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg");
+            panic!(
+                "ffmpeg is required for this test; run with -- --ignored on machines with ffmpeg"
+            );
         }
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)

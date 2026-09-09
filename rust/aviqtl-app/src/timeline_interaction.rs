@@ -102,12 +102,12 @@ pub fn plan_timeline_drag(
             // clip in the group starts before frame zero or shrinks below the
             // minimum duration instead of saturating clips independently.
             let mut lower = 0i32.saturating_sub(anchor.start);
-            let mut upper = anchor
-                .duration
-                .saturating_sub(minimum_duration_frames);
-            for clip in document.clips.iter().filter(|clip| {
-                clip.scene_id == scene_id && moving_ids.contains(&clip.id)
-            }) {
+            let mut upper = anchor.duration.saturating_sub(minimum_duration_frames);
+            for clip in document
+                .clips
+                .iter()
+                .filter(|clip| clip.scene_id == scene_id && moving_ids.contains(&clip.id))
+            {
                 lower = lower.max(0i32.saturating_sub(clip.start));
                 upper = upper.min(clip.duration.saturating_sub(minimum_duration_frames));
             }

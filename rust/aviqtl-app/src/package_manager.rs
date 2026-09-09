@@ -376,9 +376,7 @@ impl PackageManagerModel {
                     &version,
                     &mut progress,
                 ) {
-                    Ok(PackageInstallOutcome::Installed {
-                        package_type, ..
-                    }) => {
+                    Ok(PackageInstallOutcome::Installed { package_type, .. }) => {
                         outcome.reload_effect_catalog =
                             matches!(package_type.as_str(), "effect" | "object");
                         outcome.reload_script_plugins = package_type == "mod";

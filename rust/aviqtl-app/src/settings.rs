@@ -182,7 +182,8 @@ pub fn package_paths() -> PackagePaths {
     // release builds unless explicitly opted in, so shipped binaries never
     // probe the build machine's checkout.
     let dev_resources = cfg!(debug_assertions)
-        || std::env::var("AVIQTL_DEV_RESOURCES").is_ok_and(|value| !value.is_empty() && value != "0");
+        || std::env::var("AVIQTL_DEV_RESOURCES")
+            .is_ok_and(|value| !value.is_empty() && value != "0");
     if dev_resources {
         add_resource_root(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ui/qml"));
         let source_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");

@@ -1,6 +1,6 @@
+use crate::object_settings::value_payload;
 use aviqtl_media::{MediaStreamKind, media_duration_seconds};
 use aviqtl_rust_core::api::{ClipDocument, ProjectDocument};
-use crate::object_settings::value_payload;
 use std::path::{Path, PathBuf};
 
 const AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "aac", "m4a", "flac", "ogg"];
