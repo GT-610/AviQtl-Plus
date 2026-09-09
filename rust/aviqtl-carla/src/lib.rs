@@ -242,13 +242,21 @@ impl CarlaPluginProcessor {
         // The count comes from untrusted plugin code: reject values that
         // would turn the inspect loop below into an allocation bomb.
         const MAX_CARLA_PARAMETERS: usize = 10_000;
-        let parameter_count = usize::try_from(raw_count)
-            .map_err(|_| format!("Carla reported an invalid parameter count: {raw_count}"))?;
-        if parameter_count > MAX_CARLA_PARAMETERS {
-            return Err(format!(
-                "Carla reported an implausible parameter count: {parameter_count}"
-            ));
-        }
+        let parameter_count = match usize::try_from(raw_count) {
+            Ok(count) if count <= MAX_CARLA_PARAMETERS => count,
+            Ok(_) => {
+                release_handles(&api, descriptor, native_handle, host_handle);
+                return Err(format!(
+                    "Carla reported an implausible parameter count: {raw_count}"
+                ));
+            }
+            Err(_) => {
+                release_handles(&api, descriptor, native_handle, host_handle);
+                return Err(format!(
+                    "Carla reported an invalid parameter count: {raw_count}"
+                ));
+            }
+        };
         Ok(Self {
             api,
             descriptor,
@@ -388,6 +396,27 @@ impl CarlaPluginProcessor {
             );
         }
         Ok(())
+    }
+}
+
+/// Releases a half-constructed processor the same way `Drop` does.
+/// Used by `load` failure paths that run before `Self` exists.
+fn release_handles(
+    api: &CarlaApi,
+    descriptor: *const ffi::NativePluginDescriptor,
+    native_handle: *mut c_void,
+    host_handle: *mut c_void,
+) {
+    unsafe {
+        if let Some(deactivate) = (*descriptor).deactivate {
+            deactivate(native_handle);
+        }
+        if !host_handle.is_null() {
+            (api.host_handle_free)(host_handle);
+        }
+        if let Some(cleanup) = (*descriptor).cleanup {
+            cleanup(native_handle);
+        }
     }
 }
 
@@ -895,7 +924,9 @@ mod tests {
     #[ignore = "requires installed Carla libraries and AVIQTL_CARLA_TEST_LADSPA"]
     fn external_ladspa_fixture_processes_through_carla() {
         let Some(path) = std::env::var_os("AVIQTL_CARLA_TEST_LADSPA").map(PathBuf::from) else {
-            panic!("AVIQTL_CARLA_TEST_LADSPA must point at a LADSPA fixture; run with -- --ignored where available");
+            panic!(
+                "AVIQTL_CARLA_TEST_LADSPA must point at a LADSPA fixture; run with -- --ignored where available"
+            );
         };
         let paths = CarlaLibraryPaths::discover(None).expect("Carla libraries are installed");
         let info = CarlaPluginInfo {

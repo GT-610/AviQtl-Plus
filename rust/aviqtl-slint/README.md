@@ -128,22 +128,17 @@ From the `rust` directory:
 cargo run -p aviqtl-slint
 ```
 
-The repository-level release script keeps the historical platform switches, but now builds and
-packages this Rust + Slint executable instead of the Qt/CMake application:
+The Rust + Slint executable is validated with Cargo directly; repository-level
+packaging for it is not part of this change (`BUILD.py` on this branch still
+targets the Qt/CMake application — the `--frontend` switch arrives in the
+stacked build-system change):
 
 ```sh
-python BUILD.py --arch
-python BUILD.py --msys2
-python BUILD.py --msvc
-python BUILD.py --xcode
+cargo run -p aviqtl-slint
 ```
 
-`--debug`, `--offline`, `--no-container`, and `--version` remain available. `--qt-dir` is accepted
-only so existing MSVC automation does not break; it is ignored and emits a warning. Cargo output is
-kept below `.build_tmp/<target>/<Debug|Release>/cargo-target`, while user-facing executable and
-archive names remain `AviQtl` and the established `AviQtl-<platform>.zip` names. Runtime effects,
-objects, plugins, effect packages, and repository metadata are copied into the package alongside
-the executable, or into `AviQtl.app/Contents/Resources` on macOS.
+Runtime effects, objects, plugins, effect packages, and repository metadata
+are resolved from the shared resource directories during development.
 
 The current validation project exercises the two-window Slint/wgpu integration, real timeline
 models, and the production preview planning/decoding/compositing bridge:
