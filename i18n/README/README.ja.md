@@ -14,7 +14,7 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plusは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkであり、上流プロジェクトが**Rust + Slint + wgpu**で再構築された後も**Qt Quick + QRhi + ECS**の開発路線を継続しています。詳しい経緯は[プロジェクトについて](https://aviqtl.gt610.dpdns.org/guide/start-here/about)をご覧ください。
+> AviQtl-Plusは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkであり、上流プロジェクトが**Rust + Slint + wgpu**で再構築された後も**Qt Quick + QRhi + ECS**の開発路線を継続しています。現在フロントエンドは同じ方向へ移行中です。**デフォルトビルドはRust + Slint（開発中）**であり、従来のQtフロントエンドは`python3 BUILD.py --frontend qt`で引き続きビルドできます。詳しい経緯は[プロジェクトについて](https://aviqtl.gt610.dpdns.org/guide/start-here/about)をご覧ください。
 
 ## [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)とは
 
@@ -60,11 +60,12 @@ AviQtl-Plusは、多くの素晴らしいプロジェクトの上に成り立っ
 | AviUtl | 非自由 | リスペクト元 |
 | AviQtl | AGPLv3 | 元のQt Quick版プロジェクト；上流の`aviqtl`ブランチ |
 | NeoUtl | AGPLv3 | 原作者によるRust + Slint + wgpu版 |
-| AviQtl-Plus | AGPLv3 | このプロジェクト — Qt Quick + QRhi + ECS 開発の継続 |
+| AviQtl-Plus | AGPLv3 | このプロジェクト — Qt Quick + QRhi + ECS から Rust + Slint + wgpu へ移行中 |
 | Carla | GPLv2+ | 音声エフェクト（VST3/LV2等）のホスト |
 | FFmpeg | GPLv2+ | 動画・音声のデコード / エンコード |
 | LuaJIT | MIT | 高速なスクリプトエンジン |
-| Qt | GPLv3 | UI/UXフレームワーク |
+| Qt | GPLv3 | 従来フロントエンドのUI/UXフレームワーク |
+| Slint | GPLv3 | デフォルトフロントエンドのUIフレームワーク |
 | Zrythm | AGPLv3 | 音声プラグイン実装の参考 |
 | Remix Icon | Remix Icon License | シンボルアイコン |
 
