@@ -917,6 +917,21 @@ mod tests {
 
     #[test]
     fn plan_identity_routes_qt_legacy_plugins_to_the_carla_backend() {
+        let test_root = std::env::temp_dir().join(format!(
+            "aviqtl-carla-plugin-host-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time follows the Unix epoch")
+                .as_nanos()
+        ));
+        let native_library = test_root.join("carla-native.dll");
+        let host_library = test_root.join("carla-host.dll");
+        let resource_dir = test_root.join("resources");
+        std::fs::create_dir_all(&resource_dir).expect("create Carla resource directory");
+        std::fs::write(&native_library, b"").expect("create Carla native library placeholder");
+        std::fs::write(&host_library, b"").expect("create Carla host library placeholder");
+
         let plugin = EvaluatedAudioPlugin {
             id: "LV2:bundle.lv2/http://example.org/gain:42".to_owned(),
             enabled: true,
@@ -933,9 +948,18 @@ mod tests {
                 ("name".to_owned(), json!("Gain")),
                 ("vendor".to_owned(), json!("Example")),
                 ("category".to_owned(), json!("Utility")),
-                ("carlaNativeLibrary".to_owned(), json!("/carla/native")),
-                ("carlaHostLibrary".to_owned(), json!("/carla/host")),
-                ("carlaResourceDir".to_owned(), json!("/carla/resources")),
+                (
+                    "carlaNativeLibrary".to_owned(),
+                    json!(native_library.to_string_lossy().into_owned()),
+                ),
+                (
+                    "carlaHostLibrary".to_owned(),
+                    json!(host_library.to_string_lossy().into_owned()),
+                ),
+                (
+                    "carlaResourceDir".to_owned(),
+                    json!(resource_dir.to_string_lossy().into_owned()),
+                ),
             ]),
         };
         let identity = PluginIdentity::from_plan(&plugin).expect("Carla identity");
@@ -945,5 +969,7 @@ mod tests {
         assert_eq!(info.format, "LV2");
         assert_eq!(info.label, "bundle.lv2/http://example.org/gain");
         assert_eq!(info.unique_id, 42);
+
+        std::fs::remove_dir_all(test_root).expect("remove Carla test directory");
     }
 }

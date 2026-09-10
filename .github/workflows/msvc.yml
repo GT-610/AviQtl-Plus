@@ -12,6 +12,7 @@ on:
       - "rust-toolchain.toml"
       - "vcpkg.json"
       - "vcpkg-configuration.json"
+      - "ports/**"
   pull_request:
     branches: ["main"]
     paths:
@@ -22,6 +23,7 @@ on:
       - "rust-toolchain.toml"
       - "vcpkg.json"
       - "vcpkg-configuration.json"
+      - "ports/**"
 
 permissions:
   contents: read
@@ -67,7 +69,7 @@ jobs:
             .build_tmp/vcpkg-downloads
             .build_tmp/vcpkg-binary-cache
             .build_tmp/msvc/Release/vcpkg_installed
-          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}
 
       - name: Prepare cache directory
         shell: pwsh

@@ -97,7 +97,7 @@ jobs:
           path: |
             .build_tmp/vcpkg-binary-cache
             .build_tmp/msvc/Release/vcpkg_installed
-          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}
 
       - name: Prepare vcpkg cache
         if: matrix.platform == 'windows'
