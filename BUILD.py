@@ -631,10 +631,17 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
             if value := self.env.get(variable):
                 base = Path(value)
                 candidates.extend((base / "bin", base / "Tools/Llvm/x64/bin"))
-        for root in (
-            Path(os.environ.get("LOCALAPPDATA", "")) / "vcpkg/downloads/tools/clang",
+        download_roots = [
+            Path(value) / "tools/clang"
+            for value in (self.env.get("VCPKG_DOWNLOADS"), os.environ.get("VCPKG_DOWNLOADS"))
+            if value
+        ]
+        download_roots.extend((
+            Path(self.env.get("LOCALAPPDATA", os.environ.get("LOCALAPPDATA", "")))
+            / "vcpkg/downloads/tools/clang",
             self.vcpkg_root / "downloads/tools/clang" if self.vcpkg_root else Path(),
-        ):
+        ))
+        for root in download_roots:
             if root.is_dir():
                 candidates.extend(path.parent for path in root.glob("*/bin/libclang.dll"))
         if clang := shutil.which("clang.exe", path=self.env.get("PATH")):
