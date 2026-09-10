@@ -1,0 +1,13 @@
+diff --git a/libswscale/ops.h b/libswscale/ops.h
+--- a/libswscale/ops.h
++++ b/libswscale/ops.h
+@@ -23,6 +23,8 @@
+ 
+ #include <assert.h>
+ #include <stdbool.h>
+-#include <stdalign.h>
++#if !defined(_MSC_VER)
++#include <stdalign.h>
++#endif
+ 
+ #include "libavutil/bprint.h"

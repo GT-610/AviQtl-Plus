@@ -1,0 +1,77 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "ffmpeg",
+  "version": "9.0.1",
+  "description": "A library to decode, encode, transcode, mux, demux, stream, filter and play pretty much anything.",
+  "license": "LGPL-2.1-or-later",
+  "dependencies": [
+    {
+      "name": "ffmpeg-bin2c",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-get-vars",
+      "host": true
+    },
+    {
+      "name": "vcpkg-pkgconfig-get-modules",
+      "host": true
+    }
+  ],
+  "default-features": [
+    "avcodec",
+    "avdevice",
+    "avfilter",
+    "avformat",
+    "swresample",
+    "swscale"
+  ],
+  "features": {
+    "avcodec": {
+      "description": "Build the avcodec library"
+    },
+    "avdevice": {
+      "description": "Build the avdevice library",
+      "dependencies": [
+        {
+          "name": "ffmpeg",
+          "default-features": false,
+          "features": ["avcodec", "avformat"]
+        }
+      ]
+    },
+    "avfilter": {
+      "description": "Build the avfilter library"
+    },
+    "avformat": {
+      "description": "Build the avformat library",
+      "dependencies": [
+        {
+          "name": "ffmpeg",
+          "default-features": false,
+          "features": ["avcodec"]
+        }
+      ]
+    },
+    "gpl": {
+      "description": "Allow use of GPL code"
+    },
+    "swresample": {
+      "description": "Build the swresample library"
+    },
+    "swscale": {
+      "description": "Build the swscale library"
+    },
+    "x264": {
+      "description": "H.264 encoding via x264",
+      "dependencies": [
+        {
+          "name": "ffmpeg",
+          "default-features": false,
+          "features": ["gpl"]
+        },
+        "x264"
+      ]
+    }
+  }
+}
