@@ -442,7 +442,7 @@ class ArchBuilder(LinuxBuilderBase):
 class WindowsDependencyMixin:
     WINDOWS_SYSTEM_DLLS = {
         "advapi32.dll", "authz.dll", "avrt.dll", "bcrypt.dll", "bcryptprimitives.dll",
-        "cfgmgr32.dll", "comctl32.dll",
+        "cfgmgr32.dll", "combase.dll", "comctl32.dll",
         "comdlg32.dll", "crypt32.dll", "d3d9.dll", "d3d11.dll", "d3d12.dll",
         "d3dcompiler_47.dll", "dcomp.dll", "dnsapi.dll", "dwmapi.dll", "dwrite.dll",
         "dxgi.dll", "dxva2.dll", "gdi32.dll", "gdiplus.dll", "imm32.dll",
@@ -452,7 +452,7 @@ class WindowsDependencyMixin:
         "netapi32.dll", "ole32.dll", "oleaut32.dll", "opengl32.dll", "powrprof.dll",
         "propsys.dll", "rpcrt4.dll", "secur32.dll", "setupapi.dll", "shcore.dll",
         "shell32.dll", "shlwapi.dll", "ucrtbase.dll", "user32.dll", "userenv.dll",
-        "uxtheme.dll", "version.dll", "vcruntime140.dll", "vcruntime140_1.dll",
+        "uiautomationcore.dll", "uxtheme.dll", "version.dll", "vcruntime140.dll", "vcruntime140_1.dll",
         "winhttp.dll", "wininet.dll", "winmm.dll", "winspool.drv", "ws2_32.dll",
         "wsock32.dll", "wtsapi32.dll",
     }
@@ -623,6 +623,27 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
         candidates.extend((Path(r"C:\vcpkg"), self.config.source_dir / "vcpkg"))
         return next((root for root in candidates if (root / "vcpkg.exe").is_file()), None)
 
+    def find_libclang(self) -> Path | None:
+        candidates: list[Path] = []
+        if value := self.env.get("LIBCLANG_PATH"):
+            candidates.append(Path(value))
+        for variable in ("LLVMInstallDir", "VCINSTALLDIR", "VSINSTALLDIR"):
+            if value := self.env.get(variable):
+                base = Path(value)
+                candidates.extend((base / "bin", base / "Tools/Llvm/x64/bin"))
+        for root in (
+            Path(os.environ.get("LOCALAPPDATA", "")) / "vcpkg/downloads/tools/clang",
+            self.vcpkg_root / "downloads/tools/clang" if self.vcpkg_root else Path(),
+        ):
+            if root.is_dir():
+                candidates.extend(path.parent for path in root.glob("*/bin/libclang.dll"))
+        if clang := shutil.which("clang.exe", path=self.env.get("PATH")):
+            candidates.append(Path(clang).parent)
+        for directory in dict.fromkeys(candidates):
+            if (directory / "libclang.dll").is_file():
+                return directory
+        return None
+
     def ffmpeg_release_log_paths(self, installed_root: Path) -> list[Path]:
         """Return the possible vcpkg log files for the FFmpeg Release build.
 
@@ -632,7 +653,9 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
         """
         roots = [
             installed_root / "vcpkg" / "buildtrees" / "ffmpeg",
+            installed_root / "vcpkg" / "blds" / "ffmpeg",
             self.vcpkg_root / "buildtrees" / "ffmpeg" if self.vcpkg_root else None,
+            self.vcpkg_root / "blds" / "ffmpeg" if self.vcpkg_root else None,
         ]
         paths: list[Path] = []
         for root in roots:
@@ -714,6 +737,14 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
             "VCPKGRS_TRIPLET": self.vcpkg_triplet,
             "FFMPEG_DIR": str(target_root),
         })
+        if libclang_path := self.find_libclang():
+            self.env["LIBCLANG_PATH"] = str(libclang_path)
+            self.logger.log(f"Using libclang at {libclang_path}")
+        else:
+            raise RuntimeError(
+                "libclang.dll was not found; install the LLVM/Clang component or "
+                "let vcpkg acquire its clang tool"
+            )
         if self.config.is_offline:
             if not (target_root / "include" / "libavcodec" / "avcodec.h").is_file():
                 raise RuntimeError(f"Offline MSVC dependencies are incomplete: {target_root}")

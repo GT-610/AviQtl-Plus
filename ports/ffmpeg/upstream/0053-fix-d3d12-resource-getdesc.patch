@@ -1,0 +1,41 @@
+diff --git a/libavcodec/d3d12va_decode.c b/libavcodec/d3d12va_decode.c
+index 2d0c0c2..f52d052 100644
+--- a/libavcodec/d3d12va_decode.c
++++ b/libavcodec/d3d12va_decode.c
+@@ -85,3 +85,3 @@ static ID3D12Resource *get_reference_only_resource(AVCodecContext *avctx, ID3D12
+     // allocate frame
+-    output_resource->lpVtbl->GetDesc(output_resource, &desc);
++    desc = output_resource->lpVtbl->GetDesc(output_resource);
+     desc.Flags = D3D12_RESOURCE_FLAG_VIDEO_DECODE_REFERENCE_ONLY | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+diff --git a/libavcodec/d3d12va_encode.c b/libavcodec/d3d12va_encode.c
+index a2ccfd4..43ae2cc 100644
+--- a/libavcodec/d3d12va_encode.c
++++ b/libavcodec/d3d12va_encode.c
+@@ -579,4 +579,4 @@ static int d3d12va_encode_picture(AVCodecContext *avctx, const AVFrame *frame,
+     if (ctx->is_texture_array) {
+         D3D12_RESOURCE_DESC references_tex_array_desc = { 0 };
+-        pic->recon_surface->texture->lpVtbl->GetDesc(pic->recon_surface->texture, &references_tex_array_desc);
++        references_tex_array_desc = pic->recon_surface->texture->lpVtbl->GetDesc(pic->recon_surface->texture);
+ 
+diff --git a/libavfilter/vf_mestimate_d3d12.c b/libavfilter/vf_mestimate_d3d12.c
+index 4a0c8e7..e6b28e9 100644
+--- a/libavfilter/vf_mestimate_d3d12.c
++++ b/libavfilter/vf_mestimate_d3d12.c
+@@ -792,7 +792,7 @@ static int estimate_motion_vectors(AVFilterContext *ctx, AVFrame *in)
+     UINT num_rows_back;
+ 
+     // Get the resource description for backward texture
+-    s->resolved_mv_texture_back->lpVtbl->GetDesc(s->resolved_mv_texture_back, &texture_desc_back);
++    texture_desc_back = s->resolved_mv_texture_back->lpVtbl->GetDesc(s->resolved_mv_texture_back);
+ 
+     av_log(ctx, AV_LOG_DEBUG, "Back texture desc: Width=%llu, Height=%u, Format=%d\n",
+            (unsigned long long)texture_desc_back.Width, texture_desc_back.Height, texture_desc_back.Format);
+@@ -833,7 +833,7 @@ static int estimate_motion_vectors(AVFilterContext *ctx, AVFrame *in)
+         UINT num_rows_fwd;
+ 
+         // Get the resource description for forward texture
+-        s->resolved_mv_texture_fwd->lpVtbl->GetDesc(s->resolved_mv_texture_fwd, &texture_desc_fwd);
++        texture_desc_fwd = s->resolved_mv_texture_fwd->lpVtbl->GetDesc(s->resolved_mv_texture_fwd);
+ 
+         av_log(ctx, AV_LOG_DEBUG, "Fwd texture desc: Width=%llu, Height=%u, Format=%d\n",
+                (unsigned long long)texture_desc_fwd.Width, texture_desc_fwd.Height, texture_desc_fwd.Format);

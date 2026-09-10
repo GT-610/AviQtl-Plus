@@ -71,6 +71,8 @@ set(_ffmpeg_patch_names
     0050-fix-test-ld-absolute-lib-paths.patch
     0051-fix-msvc-undef-flags.patch
     0052-fix-disable-unstable-swscale-link.patch
+    0053-fix-d3d12-resource-getdesc.patch
+    0054-fix-msvc-stdalign-include.patch
 )
 foreach(_ffmpeg_patch_name IN LISTS _ffmpeg_patch_names)
     string(REPLACE
