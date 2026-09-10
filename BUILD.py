@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, ClassVar, List, Optional, Type
@@ -610,6 +611,85 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
         candidates.extend((Path(r"C:\vcpkg"), self.config.source_dir / "vcpkg"))
         return next((root for root in candidates if (root / "vcpkg.exe").is_file()), None)
 
+    def ffmpeg_release_log_paths(self, installed_root: Path) -> list[Path]:
+        """Return the possible vcpkg log files for the FFmpeg Release build.
+
+        vcpkg normally keeps buildtrees under its own checkout even when an
+        alternate --x-install-root is used. Some versions/layouts instead put
+        them below the install root, so support both locations.
+        """
+        roots = [
+            installed_root / "vcpkg" / "buildtrees" / "ffmpeg",
+            self.vcpkg_root / "buildtrees" / "ffmpeg" if self.vcpkg_root else None,
+        ]
+        paths: list[Path] = []
+        for root in roots:
+            if root is None:
+                continue
+            for suffix in ("out.log", "err.log"):
+                path = root / f"build-{self.vcpkg_triplet}-rel-{suffix}"
+                if path not in paths:
+                    paths.append(path)
+        return paths
+
+    @staticmethod
+    def read_log_tail(path: Path, max_bytes: int = 8192, max_lines: int = 1) -> str:
+        try:
+            with path.open("rb") as log_file:
+                log_file.seek(0, os.SEEK_END)
+                size = log_file.tell()
+                log_file.seek(max(0, size - max_bytes))
+                contents = log_file.read().decode(
+                    locale.getpreferredencoding(False), errors="replace"
+                )
+        except OSError:
+            return ""
+        lines = [line.strip() for line in contents.splitlines() if line.strip()]
+        return "\n".join(lines[-max_lines:]) if lines else ""
+
+    def monitor_ffmpeg_release(self, installed_root: Path, stop_event: threading.Event):
+        """Report vcpkg's otherwise captured FFmpeg Release build progress."""
+        paths = self.ffmpeg_release_log_paths(installed_root)
+        last_state = None
+        last_report = 0.0
+        while not stop_event.wait(10):
+            existing = []
+            for path in paths:
+                try:
+                    size = path.stat().st_size
+                except OSError:
+                    continue
+                existing.append((path, size, self.read_log_tail(path)))
+
+            if not existing:
+                state = None
+            else:
+                state = tuple((str(path), size, tail) for path, size, tail in existing)
+
+            now = time.monotonic()
+            if state is not None and (state != last_state or now - last_report >= 30):
+                details = "; ".join(
+                    f"{path.name}: {size / 1024 / 1024:.1f} MiB"
+                    + (f", latest: {tail}" if tail else "")
+                    for path, size, tail in existing
+                )
+                self.logger.log(f"FFmpeg Release is still building ({details})")
+                last_state = state
+                last_report = now
+            elif state is None and now - last_report >= 30:
+                self.logger.log("FFmpeg Release is still building; waiting for vcpkg log files")
+                last_state = None
+                last_report = now
+
+    def log_ffmpeg_failure(self, installed_root: Path):
+        error_logs = [path for path in self.ffmpeg_release_log_paths(installed_root) if path.name.endswith("-err.log")]
+        for path in error_logs:
+            tail = self.read_log_tail(path, max_bytes=32768, max_lines=40)
+            if tail:
+                self.logger.log(f"FFmpeg Release error log: {path}")
+                self.logger.log(tail)
+                return
+
     def install_dependencies(self):
         self.setup_msvc_environment()
         self.vcpkg_root = self.find_vcpkg_root()
@@ -626,11 +706,27 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
             if not (target_root / "include" / "libavcodec" / "avcodec.h").is_file():
                 raise RuntimeError(f"Offline MSVC dependencies are incomplete: {target_root}")
             return
-        self.run_cmd([
-            str(self.vcpkg_root / "vcpkg.exe"), "install", "--triplet", self.vcpkg_triplet,
-            "--x-manifest-root", str(self.config.source_dir),
-            "--x-install-root", str(installed_root),
-        ])
+        stop_event = threading.Event()
+        monitor = threading.Thread(
+            target=self.monitor_ffmpeg_release,
+            args=(installed_root, stop_event),
+            name="ffmpeg-release-log-monitor",
+            daemon=True,
+        )
+        self.logger.log("FFmpeg Release build output is captured by vcpkg; progress summaries will appear every 10 seconds")
+        monitor.start()
+        try:
+            self.run_cmd([
+                str(self.vcpkg_root / "vcpkg.exe"), "install", "--triplet", self.vcpkg_triplet,
+                "--x-manifest-root", str(self.config.source_dir),
+                "--x-install-root", str(installed_root),
+            ])
+        except subprocess.CalledProcessError:
+            self.log_ffmpeg_failure(installed_root)
+            raise
+        finally:
+            stop_event.set()
+            monitor.join(timeout=2)
 
     def vcpkg_bin_directory(self) -> Path:
         return self.config.work_dir / "vcpkg_installed" / self.vcpkg_triplet / "bin"
