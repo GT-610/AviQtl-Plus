@@ -3,13 +3,17 @@
 
 set(_ffmpeg_compat_patch "${CMAKE_CURRENT_LIST_DIR}/0008-msvc-no-stdalign.patch")
 
-# Visual Studio's bundled vcpkg does not ship the builtin ports checkout.  The
-# versioned port selected by the manifest is instead materialized in the
-# versioning/registry cache.  Prefer a normal checkout when available, then
-# search those cache locations for the requested FFmpeg 9.0.1 port.
+# Visual Studio's bundled vcpkg does not ship the builtin ports checkout. Keep
+# a copy of the exact vcpkg FFmpeg 9.0.1 port in this overlay so the build is
+# independent of the host vcpkg layout. The checkout and registry-cache
+# fallbacks are useful for local development and remain compatible with older
+# working trees that do not yet contain the vendored copy.
 set(_ffmpeg_upstream_port_dir "")
+set(_ffmpeg_vendored_port_dir "${CMAKE_CURRENT_LIST_DIR}/upstream")
 set(_ffmpeg_checkout_port_dir "${VCPKG_ROOT_DIR}/ports/ffmpeg")
-if(EXISTS "${_ffmpeg_checkout_port_dir}/portfile.cmake")
+if(EXISTS "${_ffmpeg_vendored_port_dir}/portfile.cmake")
+    set(_ffmpeg_upstream_port_dir "${_ffmpeg_vendored_port_dir}")
+elseif(EXISTS "${_ffmpeg_checkout_port_dir}/portfile.cmake")
     set(_ffmpeg_upstream_port_dir "${_ffmpeg_checkout_port_dir}")
 else()
     file(GLOB _ffmpeg_versioned_port_dirs LIST_DIRECTORIES true
