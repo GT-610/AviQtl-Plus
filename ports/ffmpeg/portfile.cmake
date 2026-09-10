@@ -1,8 +1,4 @@
 # Reuse the vcpkg-maintained FFmpeg 9.0.1 port and add the small MSVC
-# compatibility patch kept in this repository.
-
-set(_ffmpeg_compat_patch "${CMAKE_CURRENT_LIST_DIR}/0008-msvc-no-stdalign.patch")
-
 # Visual Studio's bundled vcpkg does not ship the builtin ports checkout. Keep
 # a copy of the exact vcpkg FFmpeg 9.0.1 port in this overlay so the build is
 # independent of the host vcpkg layout. The checkout and registry-cache
@@ -54,18 +50,6 @@ endif()
 
 file(READ "${_ffmpeg_upstream_portfile}" _ffmpeg_port_contents)
 
-# Windows SDK 10.0.20348.0 (shipped by VS2022 17.4+) provides stdalign.h.
-# Keep the compatibility patch only for older MSVC toolsets, which is the
-# case for VS2019 16.x / _MSC_VER 1929.
-vcpkg_cmake_get_vars(_ffmpeg_cmake_vars_file)
-include("${_ffmpeg_cmake_vars_file}")
-set(_ffmpeg_needs_std_align_compat OFF)
-if(VCPKG_DETECTED_MSVC)
-    if(NOT VCPKG_DETECTED_MSVC_VERSION OR VCPKG_DETECTED_MSVC_VERSION LESS 1934)
-        set(_ffmpeg_needs_std_align_compat ON)
-    endif()
-endif()
-
 # The upstream port resolves its helper files relative to its own directory.
 # The generated copy keeps those references valid while allowing us to append
 # the project-specific patch to vcpkg_from_github(PATCHES ...).
@@ -96,14 +80,6 @@ foreach(_ffmpeg_patch_name IN LISTS _ffmpeg_patch_names)
         "${_ffmpeg_port_contents}"
     )
 endforeach()
-if(_ffmpeg_needs_std_align_compat)
-    string(REPLACE
-        "        ${_ffmpeg_upstream_port_dir}/0052-fix-disable-unstable-swscale-link.patch"
-        "        ${_ffmpeg_upstream_port_dir}/0052-fix-disable-unstable-swscale-link.patch\n        ${_ffmpeg_compat_patch}"
-        _ffmpeg_port_contents
-        "${_ffmpeg_port_contents}"
-    )
-endif()
 
 set(_ffmpeg_generated_portfile "${CURRENT_BUILDTREES_DIR}/ffmpeg-overlay-portfile.cmake")
 file(WRITE "${_ffmpeg_generated_portfile}" "${_ffmpeg_port_contents}")

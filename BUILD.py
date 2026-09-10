@@ -575,7 +575,9 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
         vswhere = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
         if vswhere.is_file():
             result = subprocess.run(
-                [str(vswhere), "-latest", "-products", "*", "-property", "installationPath"],
+                [str(vswhere), "-latest", "-products", "*",
+                 "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                 "-version", "[17.0,)", "-property", "installationPath"],
                 capture_output=True, text=True, encoding=locale.getpreferredencoding(False), errors="replace",
             )
             if result.returncode == 0 and result.stdout.strip():
@@ -601,6 +603,16 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
                 raise RuntimeError(f"vcvarsall.bat failed: {result.stderr}")
             self.env.update(self.parse_cmd_environment(result.stdout))
             self.env.pop("Path", None)
+            visual_studio_version = self.env.get("VISUALSTUDIOVERSION", "")
+            try:
+                visual_studio_major = int(visual_studio_version.split(".", 1)[0])
+            except (ValueError, IndexError):
+                visual_studio_major = 0
+            if visual_studio_major < 17:
+                raise RuntimeError(
+                    "Visual Studio 2022 or newer is required for MSVC builds; "
+                    f"detected VisualStudioVersion={visual_studio_version or 'unknown'}"
+                )
         finally:
             if wrapper_path:
                 Path(wrapper_path).unlink(missing_ok=True)
