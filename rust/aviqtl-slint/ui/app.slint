@@ -2238,6 +2238,12 @@ export component TimelineWindow inherits Window {
     in property <int> layer-header-width: 60;
     in property <int> clip-resize-handle-width: 10;
     in property <int> minimum-clip-duration-frames: 5;
+    in property <string> grid-mode: "Auto";
+    in property <float> grid-fps: 60;
+    in property <float> grid-bpm: 120;
+    in property <float> grid-offset: 0;
+    in property <int> grid-interval: 10;
+    in property <int> grid-subdivision: 4;
     in-out property <bool> skimmer-visible: false;
     in-out property <int> skimmer-frame: 0;
     in-out property <int> skimmer-layer: 0;
@@ -2277,6 +2283,18 @@ export component TimelineWindow inherits Window {
     private property <int> shift-layers-end: root.maximum-layers;
     private property <int> shift-layers-count: 1;
     private property <bool> shift-layers-down: true;
+    private property <float> visible-grid-step: root.grid-step-frames();
+    private property <float> visible-grid-offset: root.grid-mode == "BPM"
+        ? root.grid-offset * root.grid-fps
+        : 0;
+    private property <int> first-visible-grid-index: floor(
+        ((-root.shared-viewport-x / (max(root.pixels-per-frame, 0.05) * 1px))
+            - root.visible-grid-offset) / max(root.visible-grid-step, 0.01)
+    ) - 1;
+    private property <int> visible-grid-line-count: ceil(
+        timeline-scroll.visible-width
+            / (max(root.visible-grid-step, 0.01) * max(root.pixels-per-frame, 0.05) * 1px)
+    ) + 3;
     callback timeline-action(string, int, int);
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
@@ -2319,6 +2337,26 @@ export component TimelineWindow inherits Window {
 
     function scale-to-zoom-percent(scale: float) -> float {
         return scale <= 1 ? scale * 100 : 100 + (scale - 1) * 300 / 9;
+    }
+
+    function grid-step-frames() -> float {
+        if root.grid-mode == "BPM" {
+            let divisions = root.pixels-per-frame > 3 ? 4 : root.pixels-per-frame > 1.5 ? 2 : 1;
+            return max(root.grid-fps / max(root.grid-bpm / 60, 0.01) / divisions, 0.01);
+        }
+        if root.grid-mode == "Frame" {
+            return max(root.grid-interval, 1);
+        }
+        if root.pixels-per-frame < 0.5 {
+            return max(ceil(root.grid-fps), 1);
+        }
+        if root.pixels-per-frame < 1.5 {
+            return 10;
+        }
+        if root.pixels-per-frame < 3 {
+            return 5;
+        }
+        return 1;
     }
 
     function apply-zoom-percent(percent: float) {
@@ -2843,6 +2881,23 @@ export component TimelineWindow inherits Window {
                     width: 100%;
                     height: 1px;
                     background: AppTheme.subtle-border;
+                }
+                for grid-line in root.visible-grid-line-count: Rectangle {
+                    private property <int> grid-index: root.first-visible-grid-index + grid-line;
+                    private property <int> bpm-divisions: root.pixels-per-frame > 3 ? 4 : root.pixels-per-frame > 1.5 ? 2 : 1;
+                    private property <bool> measure-line: root.grid-mode == "BPM"
+                        && Math.mod(self.grid-index, max(root.grid-subdivision * self.bpm-divisions, 1)) == 0;
+                    private property <bool> beat-line: root.grid-mode == "BPM"
+                        && Math.mod(self.grid-index, self.bpm-divisions) == 0;
+                    x: (root.visible-grid-offset + self.grid-index * root.visible-grid-step)
+                        * root.pixels-per-frame * 1px;
+                    width: self.measure-line ? 2px : 1px;
+                    height: 100%;
+                    background: self.measure-line
+                        ? AppTheme.accent.transparentize(0.48)
+                        : self.beat-line
+                            ? AppTheme.border.transparentize(0.38)
+                            : AppTheme.subtle-border.transparentize(0.42);
                 }
                 for clip in root.clips: TimelineClipItem {
                     x: clip.start * root.pixels-per-frame * 1px;

@@ -7486,6 +7486,14 @@ fn sync_transport(main: &MainWindow, timeline: &TimelineWindow, model: &Applicat
     timeline.set_duration(workspace.timeline_view_duration());
     timeline.set_selected_layer(workspace.selected_layer());
     timeline.set_action_status(SharedString::from(workspace.status()));
+    if let Some(scene) = workspace.scene_settings(workspace.selected_scene()) {
+        timeline.set_grid_mode(SharedString::from(scene.grid_mode));
+        timeline.set_grid_fps(finite_f32(scene.fps, 60.0));
+        timeline.set_grid_bpm(finite_f32(scene.grid_bpm, 120.0));
+        timeline.set_grid_offset(finite_f32(scene.grid_offset, 0.0));
+        timeline.set_grid_interval(scene.grid_interval.max(1));
+        timeline.set_grid_subdivision(scene.grid_subdivision.max(1));
+    }
 }
 
 fn parse_required_i32(value: &str, label: &str, minimum: i32, maximum: i32) -> Result<i32, String> {
