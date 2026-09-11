@@ -246,10 +246,9 @@ pub fn project_object_settings(
     } else {
         Vec::new()
     };
-    let clip_label = clip
-        .effects
-        .first()
-        .map(|effect| effect_name(effect, catalog.find(&effect.id)))
+    let clip_label = catalog
+        .find(&clip.clip_type)
+        .map(|metadata| metadata.name.clone())
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| clip.clip_type.clone());
     ObjectSettings {
@@ -814,6 +813,7 @@ mod tests {
         let projection =
             project_object_settings(&document, clip, 1, 20, &catalog, |index| index == 1);
 
+        assert_eq!(projection.clip_label, "図形");
         assert!(!projection.effects[0].removable);
         assert!(projection.effects[1].removable);
         assert!(projection.effects[1].selected);
