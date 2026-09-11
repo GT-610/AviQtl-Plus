@@ -2338,9 +2338,13 @@ export component TimelineWindow inherits Window {
         return scale <= 1 ? scale * 100 : 100 + (scale - 1) * 300 / 9;
     }
 
+    function bpm-divisions-for(pixels-per-frame: float) -> int {
+        return pixels-per-frame > 3 ? 4 : pixels-per-frame > 1.5 ? 2 : 1;
+    }
+
     function grid-step-frames() -> float {
         if root.grid-mode == "BPM" {
-            let divisions = root.pixels-per-frame > 3 ? 4 : root.pixels-per-frame > 1.5 ? 2 : 1;
+            let divisions = root.bpm-divisions-for(root.pixels-per-frame);
             return max(root.grid-fps / max(root.grid-bpm / 60, 0.01) / divisions, 0.01);
         }
         if root.grid-mode == "Frame" {
@@ -2905,7 +2909,7 @@ export component TimelineWindow inherits Window {
                 }
                 for grid-line in root.visible-grid-line-count: Rectangle {
                     private property <int> grid-index: root.first-visible-grid-index + grid-line;
-                    private property <int> bpm-divisions: root.pixels-per-frame > 3 ? 4 : root.pixels-per-frame > 1.5 ? 2 : 1;
+                    private property <int> bpm-divisions: root.bpm-divisions-for(root.pixels-per-frame);
                     private property <bool> measure-line: root.grid-mode == "BPM"
                         && Math.mod(self.grid-index, max(root.grid-subdivision * self.bpm-divisions, 1)) == 0;
                     private property <bool> beat-line: root.grid-mode == "BPM"
