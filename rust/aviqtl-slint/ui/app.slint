@@ -1320,6 +1320,7 @@ component TimelineContextRow inherits Rectangle {
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
     in property <float> pixels-per-frame: 1;
+    in property <length> track-height: 30px;
     in property <length> resize-handle-width: 10px;
     callback activate(int, bool);
     callback prepare-drag(int, bool);
@@ -1339,6 +1340,15 @@ component TimelineClipItem inherits Rectangle {
     min-width: 8px;
     height: 24px;
     background: transparent;
+
+    function frame-delta(delta: length) -> length {
+        let frame-width = max(root.pixels-per-frame * 1px, 0.05px);
+        return round(delta / frame-width) * frame-width;
+    }
+
+    function layer-delta(delta: length) -> length {
+        return round(delta / max(root.track-height, 1px)) * max(root.track-height, 1px);
+    }
 
     clip-visual := Rectangle {
         x: root.active-drag == "move" ? root.drag-x : root.active-drag == "trim-start" ? root.drag-x : 0px;
@@ -1409,8 +1419,8 @@ component TimelineClipItem inherits Rectangle {
                     }
                 }
                 if event.kind == PointerEventKind.move && root.active-drag == "move" {
-                    root.drag-x = self.mouse-x - self.pressed-x;
-                    root.drag-y = self.mouse-y - self.pressed-y;
+                    root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                    root.drag-y = root.layer-delta(self.mouse-y - self.pressed-y);
                     if !root.threshold-crossed && (abs(root.drag-x) >= 3px || abs(root.drag-y) >= 3px) {
                         root.threshold-crossed = true;
                         root.prepare-drag(root.clip-data.id, root.drag-additive);
@@ -1476,7 +1486,7 @@ component TimelineClipItem inherits Rectangle {
                 root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
-                root.drag-x = self.mouse-x - self.pressed-x;
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
             }
             if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-start" {
                 root.drag-finished("trim-start", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
@@ -1522,7 +1532,7 @@ component TimelineClipItem inherits Rectangle {
                 root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
-                root.drag-x = self.mouse-x - self.pressed-x;
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
             }
             if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-end" {
                 root.drag-finished("trim-end", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
@@ -2841,6 +2851,7 @@ export component TimelineWindow inherits Window {
                     height: max(root.timeline-track-height * 1px - 6px, 1px);
                     clip-data: clip;
                     pixels-per-frame: root.pixels-per-frame;
+                    track-height: root.timeline-track-height * 1px;
                     resize-handle-width: root.clip-resize-handle-width * 1px;
                     activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }
                     prepare-drag(clip-id, additive) => { root.clip-drag-started(clip-id, additive); }
