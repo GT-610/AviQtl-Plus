@@ -122,6 +122,25 @@ class TestBuildScript(unittest.TestCase):
                 packaged = destination.joinpath(parts[-2], parts[-1]) if parts[0] == "ui" else destination.joinpath(*parts)
                 self.assertEqual(packaged.read_text(encoding="utf-8"), contents)
 
+    def test_output_cleanup_preserves_the_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            output = source / "build"
+            nested = output / "nested"
+            nested.mkdir(parents=True)
+            (output / "old-file.txt").write_text("old", encoding="utf-8")
+            (nested / "old-nested-file.txt").write_text("old", encoding="utf-8")
+            original_directory = output.stat()
+            builder = PlatformBuilder(
+                config_for(source), Logger(lambda _message: None, lambda *_args: None)
+            )
+
+            builder.prepare_output_dir()
+
+            self.assertTrue(output.is_dir())
+            self.assertEqual(list(output.iterdir()), [])
+            self.assertEqual(output.stat().st_ino, original_directory.st_ino)
+
     @unittest.skipUnless(os.name == "nt", "MSVC builder is only available on Windows")
     def test_msvc_exports_dependencies_for_later_github_actions_steps(self):
         with tempfile.TemporaryDirectory() as temporary:

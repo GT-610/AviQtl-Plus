@@ -290,9 +290,16 @@ class PlatformBuilder:
         raise NotImplementedError
 
     def prepare_output_dir(self):
-        if self.config.output_dir.exists():
-            self.remove_tree(self.config.output_dir)
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
+        for entry in self.config.output_dir.iterdir():
+            if entry.is_dir() and not entry.is_symlink():
+                self.remove_tree(entry)
+                continue
+            try:
+                entry.unlink()
+            except PermissionError:
+                os.chmod(entry, os.stat(entry).st_mode | stat.S_IWUSR)
+                entry.unlink()
 
     def copy_resources(self, destination: Path):
         for parts in self.RESOURCE_DIRECTORIES:
