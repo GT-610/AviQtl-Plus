@@ -139,6 +139,11 @@ export struct EffectCatalogItemData {
     categories: string,
 }
 
+export struct ObjectCatalogMenuCategoryData {
+    name: string,
+    items: [EffectCatalogItemData],
+}
+
 export struct PackageData {
     id: string,
     package-type: string,
@@ -1290,33 +1295,6 @@ component LayerHeaderItem inherits Rectangle {
     }
 }
 
-component TimelineContextRow inherits Rectangle {
-    in property <string> title;
-    in property <bool> enabled: true;
-    callback activated();
-    height: 30px;
-    border-radius: AppTheme.control-radius;
-    background: !root.enabled ? transparent : row-touch.has-hover ? AppTheme.hover-background : transparent;
-    animate background { duration: 120ms; }
-
-    Text {
-        x: 9px;
-        width: parent.width - 18px;
-        text: root.title;
-        color: root.enabled ? AppTheme.foreground : AppTheme.muted-foreground;
-        overflow: elide;
-        vertical-alignment: center;
-    }
-    row-touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
-        accessible-role: button;
-        accessible-label: root.title;
-        accessible-action-default => { root.activated(); }
-        clicked => { root.activated(); }
-    }
-}
-
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
     in property <float> pixels-per-frame: 1;
@@ -2224,6 +2202,7 @@ export component TimelineWindow inherits Window {
     in property <[EffectCatalogItemData]> object-catalog-items;
     in property <[string]> object-catalog-categories;
     in property <[EffectCatalogItemData]> context-catalog-items;
+    in property <[ObjectCatalogMenuCategoryData]> object-catalog-menu-categories;
     in property <int> duration: 3600;
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
@@ -2405,37 +2384,18 @@ export component TimelineWindow inherits Window {
     }
 
     function open-context-popup(kind: int, clip-id: int, x: length, y: length, clip-by-upper-object: bool) {
-        context-category-popup.close();
-        context-catalog-popup.close();
         root.context-target-kind = kind;
         root.context-clip-id = clip-id;
         root.context-clip-by-upper-object = clip-by-upper-object;
         root.context-search-query = "";
-        root.context-popup-x = min(max(x, 4px), max(4px, root.width - 344px));
-        root.context-popup-y = min(max(y, 4px), max(4px, root.height - 292px));
+        root.context-popup-x = max(x, 0px);
+        root.context-popup-y = max(y, 0px);
         root.filter-context-catalog("", kind);
-        timeline-context-popup.show();
-    }
-
-    function open-context-catalog-menu() {
-        if root.context-target-kind == 0 {
-            root.filter-objects("", 0);
-            context-category-popup.show();
-        } else {
-            root.filter-context-catalog("", root.context-target-kind);
-            context-catalog-popup.show();
-        }
-    }
-
-    function open-context-object-category(index: int) {
-        root.filter-objects("", index);
-        context-catalog-popup.show();
+        timeline-context-menu.show({ x: root.context-popup-x, y: root.context-popup-y });
     }
 
     function close-context-popups() {
-        context-catalog-popup.close();
-        context-category-popup.close();
-        timeline-context-popup.close();
+        timeline-context-menu.close();
     }
 
     function activate-context-catalog-item(id: string) {
@@ -3173,248 +3133,88 @@ export component TimelineWindow inherits Window {
         }
     }
 
-    timeline-context-popup := PopupWindow {
-        x: root.context-popup-x;
-        y: root.context-popup-y;
-        width: min(340px, root.width - 8px);
-        height: min(420px, max(212px, root.height - 8px));
-        close-policy: PopupClosePolicy.close-on-click-outside;
-        forward-focus: context-search;
-
-        context-popup-focus := FocusScope {
-            forward-focus: context-search;
-            capture-key-pressed(event) => {
-                if event.text == Key.Escape {
-                    timeline-context-popup.close();
-                    accept
-                } else {
-                    reject
-                }
+    timeline-context-menu := ContextMenuArea {
+        width: 1px;
+        height: 1px;
+        Menu {
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Browse object catalog...");
+                activated => { root.browse-context-catalog(); }
             }
-            Rectangle {
-                background: AppTheme.panel-background;
-                border-width: 1px;
-                border-color: AppTheme.border;
-                border-radius: 5px;
-                VerticalLayout {
-                    padding: 5px;
-                    spacing: 4px;
-                    context-search := LineEdit {
-                        text <=> root.context-search-query;
-                        placeholder-text: @tr("Search effects/objects...");
-                        edited(value) => {
-                            context-catalog-popup.close();
-                            context-category-popup.close();
-                            root.filter-context-catalog(value, root.context-target-kind);
-                        }
-                        accepted(value) => {
-                            if root.context-catalog-items.length == 1 {
-                                root.activate-context-catalog-item(root.context-catalog-items[0].id);
-                            }
-                        }
-                    }
-                    ScrollView {
-                        vertical-stretch: 1;
-                        VerticalLayout {
-                            spacing: 2px;
-
-                            if root.context-search-query != "" : VerticalLayout {
-                                spacing: 2px;
-                                for item in root.context-catalog-items : TimelineContextRow {
-                                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
-                                    activated => { root.activate-context-catalog-item(item.id); }
-                                }
-                            }
-                            if root.context-search-query != "" && root.context-catalog-items.length == 0 : Text {
-                                text: @tr("No matching items");
-                                height: 32px;
-                                color: AppTheme.muted-foreground;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Browse object catalog...");
-                                activated => { root.browse-context-catalog(); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Add Object  ›");
-                                activated => { root.open-context-catalog-menu(); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Undo");
-                                activated => { root.activate-context-command("undo"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Redo");
-                                activated => { root.activate-context-command("redo"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Paste");
-                                activated => { root.activate-context-command("paste"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Scene Settings...");
-                                activated => { root.activate-context-command("scene-settings"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Project Settings...");
-                                activated => { root.activate-context-command("project-settings"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Preferences...");
-                                activated => { root.activate-context-command("system-settings"); }
-                            }
-
-                            if root.context-search-query == "" && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Delete");
-                                activated => { root.activate-context-command("delete"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Split");
-                                activated => { root.activate-context-command("split"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Duplicate");
-                                activated => { root.activate-context-command("duplicate"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind > 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("timeline-cut" => "Cut");
-                                activated => { root.activate-context-command("cut"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Copy");
-                                activated => { root.activate-context-command("copy"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 1 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 1 : TimelineContextRow {
-                                title: (root.context-clip-by-upper-object ? "✓  " : "    ") + @tr("Clip by Upper Object");
-                                activated => { root.activate-context-command("clipping"); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind == 1 : TimelineContextRow {
-                                title: @tr("Browse effect catalog...");
-                                activated => { root.browse-context-catalog(); }
-                            }
-                            if root.context-search-query == "" && root.context-target-kind > 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Add Effect  ›");
-                                activated => { root.open-context-catalog-menu(); }
-                            }
-                        }
+            if root.context-target-kind == 0 : Menu {
+                title: @tr("Add Object");
+                for category in root.object-catalog-menu-categories : Menu {
+                    title: category.name;
+                    for item in category.items : MenuItem {
+                        title: item.name;
+                        activated => { root.activate-context-catalog-item(item.id); }
                     }
                 }
             }
-        }
-    }
-
-    context-category-popup := PopupWindow {
-        x: root.context-popup-x + 340px + 232px <= root.width
-            ? root.context-popup-x + 340px
-            : max(4px, root.context-popup-x - 232px);
-        y: root.context-popup-y;
-        width: 228px;
-        height: min(420px, max(160px, root.height - root.context-popup-y - 8px));
-        close-policy: PopupClosePolicy.close-on-click-outside;
-        Rectangle {
-            background: AppTheme.panel-background;
-            border-width: 1px;
-            border-color: AppTheme.border;
-            border-radius: 5px;
-            VerticalLayout {
-                padding: 5px;
-                spacing: 3px;
-                Text {
-                    text: @tr("Add Object");
-                    height: 28px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                Rectangle { height: 1px; background: AppTheme.border; }
-                ScrollView {
-                    vertical-stretch: 1;
-                    VerticalLayout {
-                        spacing: 2px;
-                        for category[index] in root.object-catalog-categories : TimelineContextRow {
-                            title: category + "  ›";
-                            activated => { root.open-context-object-category(index); }
-                        }
-                    }
-                }
+            if root.context-target-kind == 0 : MenuSeparator { }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Undo");
+                activated => { root.activate-context-command("undo"); }
             }
-        }
-    }
-
-    context-catalog-popup := PopupWindow {
-        private property <length> category-x: root.context-popup-x + 340px + 232px <= root.width
-            ? root.context-popup-x + 340px
-            : max(4px, root.context-popup-x - 232px);
-        x: root.context-target-kind == 0
-            ? (self.category-x + 228px + 304px <= root.width
-                ? self.category-x + 228px
-                : max(4px, self.category-x - 304px))
-            : (root.context-popup-x + 340px + 304px <= root.width
-                ? root.context-popup-x + 340px
-                : max(4px, root.context-popup-x - 304px));
-        y: root.context-popup-y;
-        width: 300px;
-        height: min(420px, max(160px, root.height - root.context-popup-y - 8px));
-        close-policy: PopupClosePolicy.close-on-click-outside;
-        Rectangle {
-            background: AppTheme.panel-background;
-            border-width: 1px;
-            border-color: AppTheme.border;
-            border-radius: 5px;
-            VerticalLayout {
-                padding: 5px;
-                spacing: 3px;
-                Text {
-                    text: root.context-target-kind == 0 ? @tr("Add Object") : @tr("Add Effect");
-                    height: 28px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                Rectangle { height: 1px; background: AppTheme.border; }
-                ScrollView {
-                    vertical-stretch: 1;
-                    VerticalLayout {
-                        spacing: 2px;
-                        if root.context-target-kind == 0 : VerticalLayout {
-                            spacing: 2px;
-                            for item in root.object-catalog-items : TimelineContextRow {
-                                title: item.name;
-                                activated => { root.activate-context-catalog-item(item.id); }
-                            }
-                        }
-                        if root.context-target-kind > 0 : VerticalLayout {
-                            spacing: 2px;
-                            for item in root.context-catalog-items : TimelineContextRow {
-                                title: item.categories == "" ? item.name : item.categories + " / " + item.name;
-                                activated => { root.activate-context-catalog-item(item.id); }
-                            }
-                        }
-                    }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Redo");
+                activated => { root.activate-context-command("redo"); }
+            }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Paste");
+                activated => { root.activate-context-command("paste"); }
+            }
+            if root.context-target-kind == 0 : MenuSeparator { }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Scene Settings...");
+                activated => { root.activate-context-command("scene-settings"); }
+            }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Project Settings...");
+                activated => { root.activate-context-command("project-settings"); }
+            }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Preferences...");
+                activated => { root.activate-context-command("system-settings"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Delete");
+                activated => { root.activate-context-command("delete"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Split");
+                activated => { root.activate-context-command("split"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Duplicate");
+                activated => { root.activate-context-command("duplicate"); }
+            }
+            if root.context-target-kind > 0 : MenuSeparator { }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("timeline-cut" => "Cut");
+                activated => { root.activate-context-command("cut"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Copy");
+                activated => { root.activate-context-command("copy"); }
+            }
+            if root.context-target-kind == 1 : MenuSeparator { }
+            if root.context-target-kind == 1 : MenuItem {
+                title: @tr("Clip by Upper Object");
+                checkable: true;
+                checked: root.context-clip-by-upper-object;
+                activated => { root.activate-context-command("clipping"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Browse effect catalog...");
+                activated => { root.browse-context-catalog(); }
+            }
+            if root.context-target-kind > 0 : MenuSeparator { }
+            if root.context-target-kind > 0 : Menu {
+                title: @tr("Add Effect");
+                for item in root.context-catalog-items : MenuItem {
+                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
+                    activated => { root.activate-context-catalog-item(item.id); }
                 }
             }
         }
