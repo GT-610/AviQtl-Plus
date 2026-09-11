@@ -1045,6 +1045,55 @@ mod tests {
     }
 
     #[test]
+    fn bundled_examples_load_and_run_load_hooks_without_permissions() {
+        let plugin_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("plugins");
+        for directory in [
+            "example_animation",
+            "example_clip_ops",
+            "example_project_info",
+            "example_transport",
+        ] {
+            let source = fs::read_to_string(plugin_root.join(directory).join("main.lua"))
+                .expect("bundled example script remains readable");
+            let manifest_source =
+                fs::read_to_string(plugin_root.join(directory).join("manifest.lua"))
+                    .expect("bundled example manifest remains readable");
+            let manifest = parse_script_plugin_manifest(&manifest_source)
+                .expect("bundled example manifest remains valid");
+            let parameters = inspect_script_metadata(&source)
+                .parameters
+                .into_iter()
+                .map(|parameter| (parameter.var_name, parameter.default_value))
+                .collect();
+            let permissions = PluginPermissionState::default();
+            let (mut runtime, initial) = ScriptRuntime::load(
+                manifest.id,
+                &source,
+                &format!("{directory}/main.lua"),
+                &parameters,
+                &permissions,
+                ScriptHostSnapshot::default(),
+            )
+            .expect("bundled example loads with the default permission set");
+            assert!(initial.diagnostics.is_empty(), "{directory}");
+            assert!(
+                runtime
+                    .dispatch(
+                        ScriptHook::Load,
+                        &permissions,
+                        ScriptHostSnapshot::default()
+                    )
+                    .diagnostics
+                    .is_empty(),
+                "{directory}"
+            );
+        }
+    }
+
+    #[test]
     fn update_hook_commands_drive_the_workspace() {
         let settings_path = temporary_path("settings.json");
         let settings = test_settings(settings_path.clone());

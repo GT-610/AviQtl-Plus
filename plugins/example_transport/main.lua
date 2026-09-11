@@ -8,13 +8,17 @@
 local frame_counter = 0
 local is_monitoring = true
 
+local function safe_log(message)
+    pcall(aviqtl.log, message)
+end
+
 -- Log level names for display
 local log_levels = {[0]="DEBUG", [1]="INFO", [2]="WARNING", [3]="ERROR"}
 
 -- Helper function to log with level
 function log_with_level(level, msg)
     if log_level >= level then
-        aviqtl.log("[" .. log_levels[level] .. "] " .. msg)
+        safe_log("[" .. log_levels[level] .. "] " .. msg)
     end
 end
 
