@@ -28,7 +28,9 @@
 local time = 0
 
 local function safe_log(message)
-    pcall(aviqtl.log, message)
+    if aviqtl.has_permission("log.output") then
+        aviqtl.log(message)
+    end
 end
 
 function AviQtlOnLoad()

@@ -436,6 +436,7 @@ fn install_aviqtl_api(vm: &mut Vm) -> Result<(), ScriptRuntimeError> {
         .with("end_group", command_end_group)
         .build();
 
+    let has_permission = vm.native(api_has_permission);
     let log = vm.native(api_log);
     let undo = vm.native(api_undo);
     let redo = vm.native(api_redo);
@@ -448,6 +449,7 @@ fn install_aviqtl_api(vm: &mut Vm) -> Result<(), ScriptRuntimeError> {
         .with("scene", LuaValue::Table(scene))
         .with("settings", LuaValue::Table(settings))
         .with("command", LuaValue::Table(command))
+        .with("has_permission", has_permission)
         .with("log", log)
         .with("undo", undo)
         .with("redo", redo)
@@ -607,6 +609,19 @@ fn api_log(vm: &mut Vm, function: u32, arguments: u32) -> Result<u32, LuaError> 
         vm, function, arguments, 0,
     )?));
     Ok(0)
+}
+
+fn api_has_permission(vm: &mut Vm, function: u32, arguments: u32) -> Result<u32, LuaError> {
+    let permission_name = string_arg(vm, function, arguments, 0)?;
+    let permission = PluginPermission::from_name(&permission_name)
+        .ok_or_else(|| host_error(vm, "unknown AviQtl permission"))?;
+    let granted = ACTIVE_CONTEXT.with(|active| {
+        active
+            .borrow()
+            .as_ref()
+            .is_some_and(|context| context.granted.contains(&permission))
+    });
+    Ok(vm.nat_return(function, &[LuaValue::Bool(granted)]))
 }
 
 fn api_transport_play(vm: &mut Vm, _: u32, _: u32) -> Result<u32, LuaError> {
@@ -986,6 +1001,43 @@ mod tests {
         );
         assert!(execution.commands.is_empty());
         assert_eq!(execution.diagnostics, ["plugin denied transport.control"]);
+    }
+
+    #[test]
+    fn scripts_can_check_permissions_without_triggering_denial_diagnostics() {
+        let source = r#"
+            if aviqtl.has_permission("log.output") then
+                aviqtl.log("allowed")
+            end
+        "#;
+        let denied = PluginPermissionState::default();
+        let (_, denied_execution) = ScriptRuntime::load(
+            "plugin",
+            source,
+            "plugin.lua",
+            &BTreeMap::new(),
+            &denied,
+            ScriptHostSnapshot::default(),
+        )
+        .expect("permission check loads");
+        assert!(denied_execution.commands.is_empty());
+        assert!(denied_execution.diagnostics.is_empty());
+
+        let allowed = permissions(&[PluginPermission::LogOutput]);
+        let (_, allowed_execution) = ScriptRuntime::load(
+            "plugin",
+            source,
+            "plugin.lua",
+            &BTreeMap::new(),
+            &allowed,
+            ScriptHostSnapshot::default(),
+        )
+        .expect("permission check loads");
+        assert_eq!(
+            allowed_execution.commands,
+            [ScriptHostCommand::Log("allowed".to_owned())]
+        );
+        assert!(allowed_execution.diagnostics.is_empty());
     }
 
     #[test]

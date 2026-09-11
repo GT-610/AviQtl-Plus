@@ -2,7 +2,9 @@
 -- This plugin demonstrates how to use the AviQtl clip API
 
 local function safe_log(message)
-    pcall(aviqtl.log, message)
+    if aviqtl.has_permission("log.output") then
+        aviqtl.log(message)
+    end
 end
 
 -- Called when plugin is loaded
@@ -75,7 +77,9 @@ end
 -- Called when project is opened
 function AviQtlOnProjectOpen(path)
     safe_log("[Clip Ops Example] Project opened, listing clips:")
-    list_all_clips()
+    if aviqtl.has_permission("clip.read") then
+        list_all_clips()
+    end
 end
 
 safe_log("[Clip Ops Example] Commands available:")

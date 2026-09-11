@@ -1078,17 +1078,20 @@ mod tests {
                 ScriptHostSnapshot::default(),
             )
             .expect("bundled example loads with the default permission set");
-            assert!(initial.diagnostics.is_empty(), "{directory}");
             assert!(
-                runtime
-                    .dispatch(
-                        ScriptHook::Load,
-                        &permissions,
-                        ScriptHostSnapshot::default()
-                    )
-                    .diagnostics
-                    .is_empty(),
-                "{directory}"
+                initial.diagnostics.is_empty(),
+                "{directory}: {:?}",
+                initial.diagnostics
+            );
+            let output = runtime.dispatch(
+                ScriptHook::Load,
+                &permissions,
+                ScriptHostSnapshot::default(),
+            );
+            assert!(
+                output.diagnostics.is_empty(),
+                "{directory}: {:?}",
+                output.diagnostics
             );
         }
     }

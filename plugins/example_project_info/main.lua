@@ -2,12 +2,16 @@
 -- This plugin demonstrates how to use the AviQtl project and settings API
 
 local function safe_log(message)
-    pcall(aviqtl.log, message)
+    if aviqtl.has_permission("log.output") then
+        aviqtl.log(message)
+    end
 end
 
 local function safe_setting_get(key)
-    local ok, value = pcall(aviqtl.settings.get, key)
-    return ok and value or nil
+    if aviqtl.has_permission("settings.read") then
+        return aviqtl.settings.get(key)
+    end
+    return nil
 end
 
 -- Called when plugin is loaded
@@ -82,7 +86,9 @@ end
 -- Called when project is saved
 function AviQtlOnProjectSave(path)
     safe_log("[Project Info Example] Project saved to: " .. path)
-    get_project_info()
+    if aviqtl.has_permission("project.read") then
+        get_project_info()
+    end
 end
 
 safe_log("[Project Info Example] Commands available:")
