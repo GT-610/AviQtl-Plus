@@ -564,11 +564,11 @@ component ObjectSettingRow inherits Rectangle {
     callback remove-keyframe(bool, int, string, int);
     callback move-keyframe(bool, int, string, int, int);
     callback open-easing(int, string, int, int);
-    height: root.row-data.row-kind == "effect" ? 42px
-        : root.row-data.row-kind == "header" ? 36px
-        : root.row-data.row-kind == "text" ? 90px
-        : root.row-data.row-kind == "keyframes" ? 24px
-        : 44px;
+    height: root.row-data.row-kind == "effect" ? 34px
+        : root.row-data.row-kind == "header" ? 28px
+        : root.row-data.row-kind == "text" ? 68px
+        : root.row-data.row-kind == "keyframes" ? 20px
+        : 34px;
     background: root.row-data.row-kind == "effect"
         ? (root.row-data.selected ? AppTheme.selection-background : AppTheme.raised-background)
         : transparent;
@@ -576,22 +576,15 @@ component ObjectSettingRow inherits Rectangle {
     border-color: root.row-data.selected ? AppTheme.accent : AppTheme.border;
 
     if root.row-data.row-kind == "effect" : Rectangle {
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            background: AppTheme.border;
+        }
         HorizontalLayout {
             padding-left: 8px;
             padding-right: 6px;
             spacing: 7px;
-            CheckBox {
-                visible: root.row-data.header-toggle-visible;
-                checked: root.row-data.effect-enabled;
-                accessible-label: root.row-data.label + @tr(": enabled");
-                toggled => {
-                    root.set-effect-enabled(
-                        root.row-data.audio-plugin,
-                        root.row-data.effect-index,
-                        self.checked
-                    );
-                }
-            }
             Text {
                 text: root.row-data.label;
                 font-weight: 700;
@@ -600,6 +593,7 @@ component ObjectSettingRow inherits Rectangle {
                 overflow: elide;
             }
             Button {
+                height: 26px;
                 text: @tr("Delete");
                 visible: root.row-data.removable;
                 enabled: root.row-data.removable;
@@ -609,8 +603,8 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         TouchArea {
-            x: 32px;
-            width: max(parent.width - 90px, 1px);
+            x: 8px;
+            width: max(parent.width - 82px, 1px);
             mouse-cursor: pointer;
             accessible-role: list-item;
             accessible-label: root.row-data.label;
@@ -663,6 +657,7 @@ component ObjectSettingRow inherits Rectangle {
         padding-right: 6px;
         spacing: 7px;
         Slider {
+            height: 26px;
             horizontal-stretch: 1;
             value: root.row-data.number-value;
             minimum: root.row-data.minimum;
@@ -691,6 +686,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         CommitLineEdit {
             width: 76px;
+            height: 26px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: right;
@@ -707,6 +703,7 @@ component ObjectSettingRow inherits Rectangle {
         Button {
             visible: !root.row-data.audio-plugin;
             width: 150px;
+            height: 26px;
             text: root.row-data.parameter-button-label;
             enabled: root.row-data.interactive;
             clicked => {
@@ -720,6 +717,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: root.row-data.audio-plugin;
+            height: 26px;
             text: "K";
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + @tr(": create keyframes at the start and end");
@@ -733,6 +731,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         if !root.row-data.audio-plugin : CommitLineEdit {
             width: 76px;
+            height: 26px;
             source-text: root.row-data.right-interactive
                 ? root.row-data.end-text-value
                 : root.row-data.text-value;
@@ -750,6 +749,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         if !root.row-data.audio-plugin : Slider {
+            height: 26px;
             horizontal-stretch: 1;
             value: root.row-data.right-interactive
                 ? root.row-data.end-number-value
@@ -780,6 +780,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
         ComboBox {
             width: 220px;
+            height: 26px;
             model: root.row-data.option-labels;
             current-index: root.row-data.selected-option;
             enabled: root.row-data.interactive;
@@ -803,6 +804,7 @@ component ObjectSettingRow inherits Rectangle {
         spacing: 7px;
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: top; }
         CommitTextEdit {
+            height: 62px;
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
@@ -825,6 +827,7 @@ component ObjectSettingRow inherits Rectangle {
         spacing: 7px;
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         CommitLineEdit {
+            height: 26px;
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
@@ -839,6 +842,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Button {
+            height: 26px;
             text: "...";
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + @tr(": select");
@@ -863,6 +867,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         Button {
             horizontal-stretch: 1;
+            height: 26px;
             text: root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + ": " + self.text;
@@ -892,6 +897,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         Rectangle {
             width: 52px;
+            height: 26px;
             background: root.row-data.color-value;
             border-width: 1px;
             border-color: start-color-touch.has-hover ? AppTheme.accent : AppTheme.border;
@@ -923,6 +929,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         CommitLineEdit {
             width: 82px;
+            height: 26px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: center;
@@ -938,6 +945,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
+            height: 26px;
             text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
             enabled: root.row-data.interactive;
             clicked => {
@@ -952,6 +960,7 @@ component ObjectSettingRow inherits Rectangle {
         if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
         if root.row-data.range-mode : CommitLineEdit {
             width: 82px;
+            height: 26px;
             source-text: root.row-data.end-text-value;
             enabled: root.row-data.interactive
                 && root.row-data.interpolation != ""
@@ -968,6 +977,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         if root.row-data.range-mode : Rectangle {
             width: 52px;
+            height: 26px;
             background: root.row-data.end-color-value;
             opacity: root.row-data.interactive
                 && root.row-data.interpolation != ""
@@ -4614,8 +4624,8 @@ export component ObjectSettingsWindow inherits Window {
             width: parent.width - 250px;
             height: 100%;
             VerticalLayout {
-                padding: 10px;
-                spacing: 4px;
+                padding: 8px;
+                spacing: 2px;
                 Text {
                     text: root.audio-plugin-mode
                         ? @tr("Audio Object / Plugin Settings")
