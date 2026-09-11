@@ -1,11 +1,14 @@
 import argparse
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from BUILD import (
     BuildConfig,
     Logger,
+    MsvcBuilder,
     PlatformBuilder,
     XcodeBuilder,
     determine_target,
@@ -118,6 +121,41 @@ class TestBuildScript(unittest.TestCase):
             for parts, contents in fixtures.items():
                 packaged = destination.joinpath(parts[-2], parts[-1]) if parts[0] == "ui" else destination.joinpath(*parts)
                 self.assertEqual(packaged.read_text(encoding="utf-8"), contents)
+
+    @unittest.skipUnless(os.name == "nt", "MSVC builder is only available on Windows")
+    def test_msvc_exports_dependencies_for_later_github_actions_steps(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            github_env = source / "github-env"
+            github_path = source / "github-path"
+            builder = MsvcBuilder(
+                config_for(source, target="msvc"),
+                Logger(lambda _message: None, lambda *_args: None),
+            )
+            ffmpeg_dir = source / "vcpkg_installed" / "x64-windows"
+            libclang_path = source / "clang" / "bin"
+            builder.env.update({
+                "FFMPEG_DIR": str(ffmpeg_dir),
+                "LIBCLANG_PATH": str(libclang_path),
+            })
+
+            with patch.dict(
+                os.environ,
+                {
+                    "GITHUB_ENV": str(github_env),
+                    "GITHUB_PATH": str(github_path),
+                },
+            ):
+                builder.export_github_actions_environment()
+
+            self.assertEqual(
+                github_env.read_text(encoding="utf-8").splitlines(),
+                [f"FFMPEG_DIR={ffmpeg_dir}", f"LIBCLANG_PATH={libclang_path}"],
+            )
+            self.assertEqual(
+                github_path.read_text(encoding="utf-8").splitlines(),
+                [str(builder.vcpkg_bin_directory())],
+            )
 
     def test_macos_plist_keeps_app_name_and_slint_process_name(self):
         with tempfile.TemporaryDirectory() as temporary:

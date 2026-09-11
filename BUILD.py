@@ -651,6 +651,19 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
                 return directory
         return None
 
+    def export_github_actions_environment(self):
+        github_env = os.environ.get("GITHUB_ENV")
+        github_path = os.environ.get("GITHUB_PATH")
+        if not github_env or not github_path:
+            return
+
+        with Path(github_env).open("a", encoding="utf-8") as environment_file:
+            for name in ("FFMPEG_DIR", "LIBCLANG_PATH"):
+                environment_file.write(f"{name}={self.env[name]}\n")
+        with Path(github_path).open("a", encoding="utf-8") as path_file:
+            path_file.write(f"{self.vcpkg_bin_directory()}\n")
+        self.logger.log("Exported MSVC dependency paths for later GitHub Actions steps")
+
     def ffmpeg_release_log_paths(self, installed_root: Path) -> list[Path]:
         """Return the possible vcpkg log files for the FFmpeg Release build.
 
@@ -752,6 +765,7 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
                 "libclang.dll was not found; install the LLVM/Clang component or "
                 "let vcpkg acquire its clang tool"
             )
+        self.export_github_actions_environment()
         if self.config.is_offline:
             if not (target_root / "include" / "libavcodec" / "avcodec.h").is_file():
                 raise RuntimeError(f"Offline MSVC dependencies are incomplete: {target_root}")
