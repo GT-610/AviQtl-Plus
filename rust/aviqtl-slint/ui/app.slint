@@ -2269,10 +2269,13 @@ export component TimelineWindow inherits Window {
         ((-root.shared-viewport-x / (max(root.pixels-per-frame, 0.05) * 1px))
             - root.visible-grid-offset) / max(root.visible-grid-step, 0.01)
     ) - 1;
-    private property <int> visible-grid-line-count: ceil(
-        timeline-scroll.visible-width
-            / (max(root.visible-grid-step, 0.01) * max(root.pixels-per-frame, 0.05) * 1px)
-    ) + 3;
+    private property <int> visible-grid-line-count: min(
+        ceil(
+            timeline-scroll.visible-width
+                / (max(root.visible-grid-step, 0.01) * max(root.pixels-per-frame, 0.05) * 1px)
+        ) + 3,
+        512
+    );
     callback timeline-action(string, int, int);
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
