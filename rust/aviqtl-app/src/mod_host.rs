@@ -1093,6 +1093,29 @@ mod tests {
                 "{directory}: {:?}",
                 output.diagnostics
             );
+            for (hook, hook_name) in [
+                (
+                    ScriptHook::ProjectOpen(format!("{directory}/project.aviqtl")),
+                    "ProjectOpen",
+                ),
+                (
+                    ScriptHook::ProjectSave(format!("{directory}/project.aviqtl")),
+                    "ProjectSave",
+                ),
+                (ScriptHook::Update, "Update"),
+            ] {
+                let output = runtime.dispatch(hook, &permissions, ScriptHostSnapshot::default());
+                assert!(
+                    output.commands.is_empty(),
+                    "{directory} {hook_name}: {:?}",
+                    output.commands
+                );
+                assert!(
+                    output.diagnostics.is_empty(),
+                    "{directory} {hook_name}: {:?}",
+                    output.diagnostics
+                );
+            }
         }
     }
 

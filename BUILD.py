@@ -291,7 +291,10 @@ class PlatformBuilder:
 
     def prepare_output_dir(self):
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
-        for entry in self.config.output_dir.iterdir():
+        # Materialize the directory entries before removing anything.  Keeping
+        # an os.scandir iterator alive while rmtree runs can leave the output
+        # directory handle open on Windows.
+        for entry in list(self.config.output_dir.iterdir()):
             if entry.is_dir() and not entry.is_symlink():
                 self.remove_tree(entry)
                 continue
