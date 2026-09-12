@@ -1083,6 +1083,11 @@ mod tests {
                 "{directory}: {:?}",
                 initial.diagnostics
             );
+            assert!(
+                initial.commands.is_empty(),
+                "{directory}: {:?}",
+                initial.commands
+            );
             let output = runtime.dispatch(
                 ScriptHook::Load,
                 &permissions,
@@ -1092,6 +1097,11 @@ mod tests {
                 output.diagnostics.is_empty(),
                 "{directory}: {:?}",
                 output.diagnostics
+            );
+            assert!(
+                output.commands.is_empty(),
+                "{directory}: {:?}",
+                output.commands
             );
             for (hook, hook_name) in [
                 (
