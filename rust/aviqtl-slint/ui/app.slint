@@ -51,6 +51,10 @@ export global AppTheme {
     }
 }
 
+export global TimelineMetrics {
+    out property <float> minimum-scale: 0.0001;
+}
+
 export struct ProjectTabData {
     name: string,
     dirty: bool,
@@ -1320,7 +1324,7 @@ component TimelineClipItem inherits Rectangle {
     background: transparent;
 
     function frame-delta(delta: length) -> length {
-        let frame-width = max(root.pixels-per-frame * 1px, 0.05px);
+        let frame-width = max(root.pixels-per-frame, TimelineMetrics.minimum-scale) * 1px;
         return round(delta / frame-width) * frame-width;
     }
 
@@ -2262,17 +2266,18 @@ export component TimelineWindow inherits Window {
     private property <int> shift-layers-count: 1;
     private property <bool> shift-layers-down: true;
     private property <float> visible-grid-step: root.grid-step-frames();
+    private property <float> timeline-scale: max(root.pixels-per-frame, TimelineMetrics.minimum-scale);
     private property <float> visible-grid-offset: root.grid-mode == "BPM"
         ? root.grid-offset * root.grid-fps
         : 0;
     private property <int> first-visible-grid-index: floor(
-        ((-root.shared-viewport-x / (max(root.pixels-per-frame, 0.05) * 1px))
+        ((-root.shared-viewport-x / (root.timeline-scale * 1px))
             - root.visible-grid-offset) / max(root.visible-grid-step, 0.01)
     ) - 1;
     private property <int> visible-grid-line-count: min(
         ceil(
             timeline-scroll.visible-width
-                / (max(root.visible-grid-step, 0.01) * max(root.pixels-per-frame, 0.05) * 1px)
+                / (max(root.visible-grid-step, 0.01) * root.timeline-scale * 1px)
         ) + 3,
         512
     );
@@ -2878,7 +2883,7 @@ export component TimelineWindow inherits Window {
                     private property <bool> beat-line: root.grid-mode == "BPM"
                         && Math.mod(self.grid-index, self.bpm-divisions) == 0;
                     x: (root.visible-grid-offset + self.grid-index * root.visible-grid-step)
-                        * root.pixels-per-frame * 1px;
+                        * root.timeline-scale * 1px;
                     width: self.measure-line ? 2px : 1px;
                     height: 100%;
                     background: self.measure-line
@@ -2893,7 +2898,7 @@ export component TimelineWindow inherits Window {
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
                     height: max(root.timeline-track-height * 1px - 6px, 1px);
                     clip-data: clip;
-                    pixels-per-frame: root.pixels-per-frame;
+                    pixels-per-frame: root.timeline-scale;
                     track-height: root.timeline-track-height * 1px;
                     resize-handle-width: root.clip-resize-handle-width * 1px;
                     activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }

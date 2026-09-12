@@ -28,6 +28,8 @@ pub struct TimelineDragPlan {
     pub snap_frame: Option<i32>,
 }
 
+pub const MIN_TIMELINE_SCALE: f32 = 0.0001;
+
 pub fn plan_timeline_drag(
     document: &ProjectDocument,
     scene_id: i32,
@@ -54,7 +56,8 @@ pub fn plan_timeline_drag(
     } else {
         vec![request.anchor_clip_id]
     };
-    let delta_frames = f64::from(request.delta_pixels.0 / request.pixels_per_frame.max(0.0001));
+    let delta_frames =
+        f64::from(request.delta_pixels.0 / request.pixels_per_frame.max(MIN_TIMELINE_SCALE));
     let minimum_duration_frames = request.minimum_duration_frames.max(1);
     let updates = match request.kind {
         TimelineDragKind::Move => {
