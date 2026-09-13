@@ -28,6 +28,8 @@ pub struct TimelineDragPlan {
     pub snap_frame: Option<i32>,
 }
 
+pub const MIN_TIMELINE_SCALE: f32 = 0.0001;
+
 pub fn plan_timeline_drag(
     document: &ProjectDocument,
     scene_id: i32,
@@ -54,7 +56,8 @@ pub fn plan_timeline_drag(
     } else {
         vec![request.anchor_clip_id]
     };
-    let delta_frames = f64::from(request.delta_pixels.0 / request.pixels_per_frame.max(0.05));
+    let delta_frames =
+        f64::from(request.delta_pixels.0 / request.pixels_per_frame.max(MIN_TIMELINE_SCALE));
     let minimum_duration_frames = request.minimum_duration_frames.max(1);
     let updates = match request.kind {
         TimelineDragKind::Move => {
@@ -232,6 +235,27 @@ mod tests {
         .expect("unsnapped move plans");
         assert_eq!(unsnapped.updates[0].start, 6);
         assert_eq!(unsnapped.snap_frame, None);
+    }
+
+    #[test]
+    fn move_converts_preview_pixels_using_the_actual_timeline_scale() {
+        let plan = plan_timeline_drag(
+            &document(),
+            1,
+            &[1],
+            TimelineDragRequest {
+                anchor_clip_id: 1,
+                kind: TimelineDragKind::Move,
+                delta_pixels: (0.05, 0.0),
+                pixels_per_frame: 0.01,
+                layer_height: 30.0,
+                minimum_duration_frames: 5,
+                maximum_layers: 128,
+                ignore_snap: true,
+            },
+        )
+        .expect("scaled move plans");
+        assert_eq!(plan.updates[0].start, 5);
     }
 
     #[test]

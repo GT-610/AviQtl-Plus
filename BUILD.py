@@ -290,9 +290,19 @@ class PlatformBuilder:
         raise NotImplementedError
 
     def prepare_output_dir(self):
-        if self.config.output_dir.exists():
-            self.remove_tree(self.config.output_dir)
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
+        # Materialize the directory entries before removing anything.  Keeping
+        # an os.scandir iterator alive while rmtree runs can leave the output
+        # directory handle open on Windows.
+        for entry in list(self.config.output_dir.iterdir()):
+            if entry.is_dir() and not entry.is_symlink():
+                self.remove_tree(entry)
+                continue
+            try:
+                entry.unlink()
+            except PermissionError:
+                os.chmod(entry, os.stat(entry).st_mode | stat.S_IWUSR)
+                entry.unlink()
 
     def copy_resources(self, destination: Path):
         for parts in self.RESOURCE_DIRECTORIES:
@@ -651,6 +661,19 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
                 return directory
         return None
 
+    def export_github_actions_environment(self):
+        github_env = os.environ.get("GITHUB_ENV")
+        github_path = os.environ.get("GITHUB_PATH")
+        if not github_env or not github_path:
+            return
+
+        with Path(github_env).open("a", encoding="utf-8") as environment_file:
+            for name in ("FFMPEG_DIR", "LIBCLANG_PATH"):
+                environment_file.write(f"{name}={self.env[name]}\n")
+        with Path(github_path).open("a", encoding="utf-8") as path_file:
+            path_file.write(f"{self.vcpkg_bin_directory()}\n")
+        self.logger.log("Exported MSVC dependency paths for later GitHub Actions steps")
+
     def ffmpeg_release_log_paths(self, installed_root: Path) -> list[Path]:
         """Return the possible vcpkg log files for the FFmpeg Release build.
 
@@ -752,6 +775,7 @@ class MsvcBuilder(WindowsDependencyMixin, PlatformBuilder):
                 "libclang.dll was not found; install the LLVM/Clang component or "
                 "let vcpkg acquire its clang tool"
             )
+        self.export_github_actions_environment()
         if self.config.is_offline:
             if not (target_root / "include" / "libavcodec" / "avcodec.h").is_file():
                 raise RuntimeError(f"Offline MSVC dependencies are incomplete: {target_root}")

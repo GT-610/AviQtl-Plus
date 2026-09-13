@@ -51,6 +51,10 @@ export global AppTheme {
     }
 }
 
+export global TimelineMetrics {
+    out property <float> minimum-scale: 0.0001;
+}
+
 export struct ProjectTabData {
     name: string,
     dirty: bool,
@@ -137,6 +141,11 @@ export struct EffectCatalogItemData {
     id: string,
     name: string,
     categories: string,
+}
+
+export struct ObjectCatalogMenuCategoryData {
+    name: string,
+    items: [EffectCatalogItemData],
 }
 
 export struct PackageData {
@@ -564,11 +573,11 @@ component ObjectSettingRow inherits Rectangle {
     callback remove-keyframe(bool, int, string, int);
     callback move-keyframe(bool, int, string, int, int);
     callback open-easing(int, string, int, int);
-    height: root.row-data.row-kind == "effect" ? 42px
-        : root.row-data.row-kind == "header" ? 36px
-        : root.row-data.row-kind == "text" ? 90px
-        : root.row-data.row-kind == "keyframes" ? 24px
-        : 44px;
+    height: root.row-data.row-kind == "effect" ? 34px
+        : root.row-data.row-kind == "header" ? 28px
+        : root.row-data.row-kind == "text" ? 68px
+        : root.row-data.row-kind == "keyframes" ? 20px
+        : 34px;
     background: root.row-data.row-kind == "effect"
         ? (root.row-data.selected ? AppTheme.selection-background : AppTheme.raised-background)
         : transparent;
@@ -576,22 +585,15 @@ component ObjectSettingRow inherits Rectangle {
     border-color: root.row-data.selected ? AppTheme.accent : AppTheme.border;
 
     if root.row-data.row-kind == "effect" : Rectangle {
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            background: AppTheme.border;
+        }
         HorizontalLayout {
             padding-left: 8px;
             padding-right: 6px;
             spacing: 7px;
-            CheckBox {
-                visible: root.row-data.header-toggle-visible;
-                checked: root.row-data.effect-enabled;
-                accessible-label: root.row-data.label + @tr(": enabled");
-                toggled => {
-                    root.set-effect-enabled(
-                        root.row-data.audio-plugin,
-                        root.row-data.effect-index,
-                        self.checked
-                    );
-                }
-            }
             Text {
                 text: root.row-data.label;
                 font-weight: 700;
@@ -600,6 +602,7 @@ component ObjectSettingRow inherits Rectangle {
                 overflow: elide;
             }
             Button {
+                height: 26px;
                 text: @tr("Delete");
                 visible: root.row-data.removable;
                 enabled: root.row-data.removable;
@@ -609,8 +612,8 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         TouchArea {
-            x: 32px;
-            width: max(parent.width - 90px, 1px);
+            x: 8px;
+            width: max(parent.width - 82px, 1px);
             mouse-cursor: pointer;
             accessible-role: list-item;
             accessible-label: root.row-data.label;
@@ -663,6 +666,7 @@ component ObjectSettingRow inherits Rectangle {
         padding-right: 6px;
         spacing: 7px;
         Slider {
+            height: 26px;
             horizontal-stretch: 1;
             value: root.row-data.number-value;
             minimum: root.row-data.minimum;
@@ -691,6 +695,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         CommitLineEdit {
             width: 76px;
+            height: 26px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: right;
@@ -707,6 +712,7 @@ component ObjectSettingRow inherits Rectangle {
         Button {
             visible: !root.row-data.audio-plugin;
             width: 150px;
+            height: 26px;
             text: root.row-data.parameter-button-label;
             enabled: root.row-data.interactive;
             clicked => {
@@ -720,6 +726,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: root.row-data.audio-plugin;
+            height: 26px;
             text: "K";
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + @tr(": create keyframes at the start and end");
@@ -733,6 +740,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         if !root.row-data.audio-plugin : CommitLineEdit {
             width: 76px;
+            height: 26px;
             source-text: root.row-data.right-interactive
                 ? root.row-data.end-text-value
                 : root.row-data.text-value;
@@ -750,6 +758,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         if !root.row-data.audio-plugin : Slider {
+            height: 26px;
             horizontal-stretch: 1;
             value: root.row-data.right-interactive
                 ? root.row-data.end-number-value
@@ -780,6 +789,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
         ComboBox {
             width: 220px;
+            height: 26px;
             model: root.row-data.option-labels;
             current-index: root.row-data.selected-option;
             enabled: root.row-data.interactive;
@@ -803,6 +813,7 @@ component ObjectSettingRow inherits Rectangle {
         spacing: 7px;
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: top; }
         CommitTextEdit {
+            height: 62px;
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
@@ -825,6 +836,7 @@ component ObjectSettingRow inherits Rectangle {
         spacing: 7px;
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         CommitLineEdit {
+            height: 26px;
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
@@ -839,6 +851,7 @@ component ObjectSettingRow inherits Rectangle {
             }
         }
         Button {
+            height: 26px;
             text: "...";
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + @tr(": select");
@@ -863,6 +876,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         Button {
             horizontal-stretch: 1;
+            height: 26px;
             text: root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + ": " + self.text;
@@ -892,6 +906,7 @@ component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
         Rectangle {
             width: 52px;
+            height: 26px;
             background: root.row-data.color-value;
             border-width: 1px;
             border-color: start-color-touch.has-hover ? AppTheme.accent : AppTheme.border;
@@ -923,6 +938,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         CommitLineEdit {
             width: 82px;
+            height: 26px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: center;
@@ -938,6 +954,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         Button {
             visible: !root.row-data.audio-plugin;
+            height: 26px;
             text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
             enabled: root.row-data.interactive;
             clicked => {
@@ -952,6 +969,7 @@ component ObjectSettingRow inherits Rectangle {
         if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
         if root.row-data.range-mode : CommitLineEdit {
             width: 82px;
+            height: 26px;
             source-text: root.row-data.end-text-value;
             enabled: root.row-data.interactive
                 && root.row-data.interpolation != ""
@@ -968,6 +986,7 @@ component ObjectSettingRow inherits Rectangle {
         }
         if root.row-data.range-mode : Rectangle {
             width: 52px;
+            height: 26px;
             background: root.row-data.end-color-value;
             opacity: root.row-data.interactive
                 && root.row-data.interpolation != ""
@@ -1280,36 +1299,10 @@ component LayerHeaderItem inherits Rectangle {
     }
 }
 
-component TimelineContextRow inherits Rectangle {
-    in property <string> title;
-    in property <bool> enabled: true;
-    callback activated();
-    height: 30px;
-    border-radius: AppTheme.control-radius;
-    background: !root.enabled ? transparent : row-touch.has-hover ? AppTheme.hover-background : transparent;
-    animate background { duration: 120ms; }
-
-    Text {
-        x: 9px;
-        width: parent.width - 18px;
-        text: root.title;
-        color: root.enabled ? AppTheme.foreground : AppTheme.muted-foreground;
-        overflow: elide;
-        vertical-alignment: center;
-    }
-    row-touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
-        accessible-role: button;
-        accessible-label: root.title;
-        accessible-action-default => { root.activated(); }
-        clicked => { root.activated(); }
-    }
-}
-
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
     in property <float> pixels-per-frame: 1;
+    in property <length> track-height: 30px;
     in property <length> resize-handle-width: 10px;
     callback activate(int, bool);
     callback prepare-drag(int, bool);
@@ -1329,6 +1322,15 @@ component TimelineClipItem inherits Rectangle {
     min-width: 8px;
     height: 24px;
     background: transparent;
+
+    function frame-delta(delta: length) -> length {
+        let frame-width = max(root.pixels-per-frame, TimelineMetrics.minimum-scale) * 1px;
+        return round(delta / frame-width) * frame-width;
+    }
+
+    function layer-delta(delta: length) -> length {
+        return round(delta / max(root.track-height, 1px)) * max(root.track-height, 1px);
+    }
 
     clip-visual := Rectangle {
         x: root.active-drag == "move" ? root.drag-x : root.active-drag == "trim-start" ? root.drag-x : 0px;
@@ -1399,8 +1401,8 @@ component TimelineClipItem inherits Rectangle {
                     }
                 }
                 if event.kind == PointerEventKind.move && root.active-drag == "move" {
-                    root.drag-x = self.mouse-x - self.pressed-x;
-                    root.drag-y = self.mouse-y - self.pressed-y;
+                    root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                    root.drag-y = root.layer-delta(self.mouse-y - self.pressed-y);
                     if !root.threshold-crossed && (abs(root.drag-x) >= 3px || abs(root.drag-y) >= 3px) {
                         root.threshold-crossed = true;
                         root.prepare-drag(root.clip-data.id, root.drag-additive);
@@ -1466,7 +1468,7 @@ component TimelineClipItem inherits Rectangle {
                 root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
-                root.drag-x = self.mouse-x - self.pressed-x;
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
             }
             if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-start" {
                 root.drag-finished("trim-start", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
@@ -1512,7 +1514,7 @@ component TimelineClipItem inherits Rectangle {
                 root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
-                root.drag-x = self.mouse-x - self.pressed-x;
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
             }
             if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-end" {
                 root.drag-finished("trim-end", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
@@ -2204,6 +2206,7 @@ export component TimelineWindow inherits Window {
     in property <[EffectCatalogItemData]> object-catalog-items;
     in property <[string]> object-catalog-categories;
     in property <[EffectCatalogItemData]> context-catalog-items;
+    in property <[ObjectCatalogMenuCategoryData]> object-catalog-menu-categories;
     in property <int> duration: 3600;
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
@@ -2218,6 +2221,12 @@ export component TimelineWindow inherits Window {
     in property <int> layer-header-width: 60;
     in property <int> clip-resize-handle-width: 10;
     in property <int> minimum-clip-duration-frames: 5;
+    in property <string> grid-mode: "Auto";
+    in property <float> grid-fps: 60;
+    in property <float> grid-bpm: 120;
+    in property <float> grid-offset: 0;
+    in property <int> grid-interval: 10;
+    in property <int> grid-subdivision: 4;
     in-out property <bool> skimmer-visible: false;
     in-out property <int> skimmer-frame: 0;
     in-out property <int> skimmer-layer: 0;
@@ -2245,7 +2254,6 @@ export component TimelineWindow inherits Window {
     private property <int> context-clip-id: -1;
     private property <bool> context-clip-by-upper-object: false;
     private property <string> context-search-query: "";
-    private property <bool> context-catalog-page: false;
     private property <length> context-popup-x: 0px;
     private property <length> context-popup-y: 0px;
     private property <bool> insert-layers-visible: false;
@@ -2257,6 +2265,22 @@ export component TimelineWindow inherits Window {
     private property <int> shift-layers-end: root.maximum-layers;
     private property <int> shift-layers-count: 1;
     private property <bool> shift-layers-down: true;
+    private property <float> visible-grid-step: root.grid-step-frames();
+    private property <float> timeline-scale: max(root.pixels-per-frame, TimelineMetrics.minimum-scale);
+    private property <float> visible-grid-offset: root.grid-mode == "BPM"
+        ? root.grid-offset * root.grid-fps
+        : 0;
+    private property <int> first-visible-grid-index: floor(
+        ((-root.shared-viewport-x / (root.timeline-scale * 1px))
+            - root.visible-grid-offset) / max(root.visible-grid-step, 0.01)
+    ) - 1;
+    private property <int> visible-grid-line-count: min(
+        ceil(
+            timeline-scroll.visible-width
+                / (max(root.visible-grid-step, 0.01) * root.timeline-scale * 1px)
+        ) + 3,
+        512
+    );
     callback timeline-action(string, int, int);
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
@@ -2299,6 +2323,30 @@ export component TimelineWindow inherits Window {
 
     function scale-to-zoom-percent(scale: float) -> float {
         return scale <= 1 ? scale * 100 : 100 + (scale - 1) * 300 / 9;
+    }
+
+    function bpm-divisions-for(pixels-per-frame: float) -> int {
+        return pixels-per-frame > 3 ? 4 : pixels-per-frame > 1.5 ? 2 : 1;
+    }
+
+    function grid-step-frames() -> float {
+        if root.grid-mode == "BPM" {
+            let divisions = root.bpm-divisions-for(root.pixels-per-frame);
+            return max(root.grid-fps / max(root.grid-bpm / 60, 0.01) / divisions, 0.01);
+        }
+        if root.grid-mode == "Frame" {
+            return max(root.grid-interval, 1);
+        }
+        if root.pixels-per-frame < 0.5 {
+            return max(ceil(root.grid-fps), 1);
+        }
+        if root.pixels-per-frame < 1.5 {
+            return 10;
+        }
+        if root.pixels-per-frame < 3 {
+            return 5;
+        }
+        return 1;
     }
 
     function apply-zoom-percent(percent: float) {
@@ -2348,21 +2396,24 @@ export component TimelineWindow inherits Window {
         root.context-clip-id = clip-id;
         root.context-clip-by-upper-object = clip-by-upper-object;
         root.context-search-query = "";
-        root.context-catalog-page = false;
-        root.context-popup-x = min(max(x, 4px), max(4px, root.width - 344px));
-        root.context-popup-y = min(max(y, 4px), max(4px, root.height - 292px));
+        root.context-popup-x = max(x, 0px);
+        root.context-popup-y = max(y, 0px);
         root.filter-context-catalog("", kind);
-        timeline-context-popup.show();
+        timeline-context-menu.show({ x: root.context-popup-x, y: root.context-popup-y });
+    }
+
+    function close-context-popups() {
+        timeline-context-menu.close();
     }
 
     function activate-context-catalog-item(id: string) {
         if root.context-target-kind == 0 {
             if root.add-catalog-object(id, root.context-frame, root.context-layer) {
-                timeline-context-popup.close();
+                root.close-context-popups();
             }
         } else {
             root.clip-command("add-extension:" + id, root.context-clip-id, root.context-frame, root.context-layer);
-            timeline-context-popup.close();
+            root.close-context-popups();
         }
     }
 
@@ -2372,7 +2423,7 @@ export component TimelineWindow inherits Window {
         } else {
             root.clip-command(action, root.context-clip-id, root.context-frame, root.context-layer);
         }
-        timeline-context-popup.close();
+        root.close-context-popups();
     }
 
     function browse-context-catalog() {
@@ -2381,7 +2432,7 @@ export component TimelineWindow inherits Window {
         } else {
             root.clip-command("browse-effect", root.context-clip-id, root.context-frame, root.context-layer);
         }
-        timeline-context-popup.close();
+        root.close-context-popups();
     }
 
     function accept-object-selection() {
@@ -2824,13 +2875,31 @@ export component TimelineWindow inherits Window {
                     height: 1px;
                     background: AppTheme.subtle-border;
                 }
+                for grid-line in root.visible-grid-line-count: Rectangle {
+                    private property <int> grid-index: root.first-visible-grid-index + grid-line;
+                    private property <int> bpm-divisions: root.bpm-divisions-for(root.pixels-per-frame);
+                    private property <bool> measure-line: root.grid-mode == "BPM"
+                        && Math.mod(self.grid-index, max(root.grid-subdivision * self.bpm-divisions, 1)) == 0;
+                    private property <bool> beat-line: root.grid-mode == "BPM"
+                        && Math.mod(self.grid-index, self.bpm-divisions) == 0;
+                    x: (root.visible-grid-offset + self.grid-index * root.visible-grid-step)
+                        * root.timeline-scale * 1px;
+                    width: self.measure-line ? 2px : 1px;
+                    height: 100%;
+                    background: self.measure-line
+                        ? AppTheme.accent.transparentize(0.48)
+                        : self.beat-line
+                            ? AppTheme.border.transparentize(0.38)
+                            : AppTheme.subtle-border.transparentize(0.42);
+                }
                 for clip in root.clips: TimelineClipItem {
                     x: clip.start * root.pixels-per-frame * 1px;
                     y: clip.layer * root.timeline-track-height * 1px + 3px;
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
                     height: max(root.timeline-track-height * 1px - 6px, 1px);
                     clip-data: clip;
-                    pixels-per-frame: root.pixels-per-frame;
+                    pixels-per-frame: root.timeline-scale;
+                    track-height: root.timeline-track-height * 1px;
                     resize-handle-width: root.clip-resize-handle-width * 1px;
                     activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }
                     prepare-drag(clip-id, additive) => { root.clip-drag-started(clip-id, additive); }
@@ -3072,172 +3141,88 @@ export component TimelineWindow inherits Window {
         }
     }
 
-    timeline-context-popup := PopupWindow {
-        x: root.context-popup-x;
-        y: root.context-popup-y;
-        width: min(340px, root.width - 8px);
-        height: min(420px, max(212px, root.height - 8px));
-        close-policy: PopupClosePolicy.close-on-click-outside;
-        forward-focus: context-search;
-
-        context-popup-focus := FocusScope {
-            forward-focus: context-search;
-            capture-key-pressed(event) => {
-                if event.text == Key.Escape {
-                    timeline-context-popup.close();
-                    accept
-                } else {
-                    reject
+    timeline-context-menu := ContextMenuArea {
+        width: 1px;
+        height: 1px;
+        Menu {
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Browse object catalog...");
+                activated => { root.browse-context-catalog(); }
+            }
+            if root.context-target-kind == 0 : Menu {
+                title: @tr("Add Object");
+                for category in root.object-catalog-menu-categories : Menu {
+                    title: category.name;
+                    for item in category.items : MenuItem {
+                        title: item.name;
+                        activated => { root.activate-context-catalog-item(item.id); }
+                    }
                 }
             }
-            Rectangle {
-                background: AppTheme.panel-background;
-                border-width: 1px;
-                border-color: AppTheme.border;
-                border-radius: 5px;
-                VerticalLayout {
-                    padding: 5px;
-                    spacing: 4px;
-                    context-search := LineEdit {
-                        text <=> root.context-search-query;
-                        placeholder-text: @tr("Search effects/objects...");
-                        edited(value) => {
-                            root.context-catalog-page = false;
-                            root.filter-context-catalog(value, root.context-target-kind);
-                        }
-                        accepted(value) => {
-                            if root.context-catalog-items.length == 1 {
-                                root.activate-context-catalog-item(root.context-catalog-items[0].id);
-                            }
-                        }
-                    }
-                    ScrollView {
-                        vertical-stretch: 1;
-                        VerticalLayout {
-                            spacing: 2px;
-
-                            if root.context-search-query != "" : VerticalLayout {
-                                spacing: 2px;
-                                for item in root.context-catalog-items : TimelineContextRow {
-                                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
-                                    activated => { root.activate-context-catalog-item(item.id); }
-                                }
-                            }
-                            if root.context-search-query != "" && root.context-catalog-items.length == 0 : Text {
-                                text: @tr("No matching items");
-                                height: 32px;
-                                color: AppTheme.muted-foreground;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-
-                            if root.context-search-query == "" && root.context-catalog-page : TimelineContextRow {
-                                title: @tr("‹ Back");
-                                activated => { root.context-catalog-page = false; }
-                            }
-                            if root.context-search-query == "" && root.context-catalog-page : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && root.context-catalog-page : VerticalLayout {
-                                spacing: 2px;
-                                for item in root.context-catalog-items : TimelineContextRow {
-                                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
-                                    activated => { root.activate-context-catalog-item(item.id); }
-                                }
-                            }
-
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Browse object catalog...");
-                                activated => { root.browse-context-catalog(); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Add Object  ›");
-                                activated => { root.context-catalog-page = true; }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Undo");
-                                activated => { root.activate-context-command("undo"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Redo");
-                                activated => { root.activate-context-command("redo"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Paste");
-                                activated => { root.activate-context-command("paste"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Scene Settings...");
-                                activated => { root.activate-context-command("scene-settings"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Project Settings...");
-                                activated => { root.activate-context-command("project-settings"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 0 : TimelineContextRow {
-                                title: @tr("Preferences...");
-                                activated => { root.activate-context-command("system-settings"); }
-                            }
-
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Delete");
-                                activated => { root.activate-context-command("delete"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Split");
-                                activated => { root.activate-context-command("split"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Duplicate");
-                                activated => { root.activate-context-command("duplicate"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("timeline-cut" => "Cut");
-                                activated => { root.activate-context-command("cut"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Copy");
-                                activated => { root.activate-context-command("copy"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
-                                title: (root.context-clip-by-upper-object ? "✓  " : "    ") + @tr("Clip by Upper Object");
-                                activated => { root.activate-context-command("clipping"); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind == 1 : TimelineContextRow {
-                                title: @tr("Browse effect catalog...");
-                                activated => { root.browse-context-catalog(); }
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : Rectangle {
-                                height: 1px;
-                                background: AppTheme.border;
-                            }
-                            if root.context-search-query == "" && !root.context-catalog-page && root.context-target-kind > 0 : TimelineContextRow {
-                                title: @tr("Add Effect  ›");
-                                activated => { root.context-catalog-page = true; }
-                            }
-                        }
-                    }
+            if root.context-target-kind == 0 : MenuSeparator { }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Undo");
+                activated => { root.activate-context-command("undo"); }
+            }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Redo");
+                activated => { root.activate-context-command("redo"); }
+            }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Paste");
+                activated => { root.activate-context-command("paste"); }
+            }
+            if root.context-target-kind == 0 : MenuSeparator { }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Scene Settings...");
+                activated => { root.activate-context-command("scene-settings"); }
+            }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Project Settings...");
+                activated => { root.activate-context-command("project-settings"); }
+            }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Preferences...");
+                activated => { root.activate-context-command("system-settings"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Delete");
+                activated => { root.activate-context-command("delete"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Split");
+                activated => { root.activate-context-command("split"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Duplicate");
+                activated => { root.activate-context-command("duplicate"); }
+            }
+            if root.context-target-kind > 0 : MenuSeparator { }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("timeline-cut" => "Cut");
+                activated => { root.activate-context-command("cut"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Copy");
+                activated => { root.activate-context-command("copy"); }
+            }
+            if root.context-target-kind == 1 : MenuSeparator { }
+            if root.context-target-kind == 1 : MenuItem {
+                title: @tr("Clip by Upper Object");
+                checkable: true;
+                checked: root.context-clip-by-upper-object;
+                activated => { root.activate-context-command("clipping"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Browse effect catalog...");
+                activated => { root.browse-context-catalog(); }
+            }
+            if root.context-target-kind > 0 : MenuSeparator { }
+            if root.context-target-kind > 0 : Menu {
+                title: @tr("Add Effect");
+                for item in root.context-catalog-items : MenuItem {
+                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
+                    activated => { root.activate-context-catalog-item(item.id); }
                 }
             }
         }
@@ -4614,8 +4599,8 @@ export component ObjectSettingsWindow inherits Window {
             width: parent.width - 250px;
             height: 100%;
             VerticalLayout {
-                padding: 10px;
-                spacing: 4px;
+                padding: 8px;
+                spacing: 2px;
                 Text {
                     text: root.audio-plugin-mode
                         ? @tr("Audio Object / Plugin Settings")

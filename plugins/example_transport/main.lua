@@ -8,13 +8,19 @@
 local frame_counter = 0
 local is_monitoring = true
 
+local function safe_log(message)
+    if aviqtl.has_permission("log.output") then
+        aviqtl.log(message)
+    end
+end
+
 -- Log level names for display
 local log_levels = {[0]="DEBUG", [1]="INFO", [2]="WARNING", [3]="ERROR"}
 
 -- Helper function to log with level
 function log_with_level(level, msg)
     if log_level >= level then
-        aviqtl.log("[" .. log_levels[level] .. "] " .. msg)
+        safe_log("[" .. log_levels[level] .. "] " .. msg)
     end
 end
 
@@ -25,7 +31,7 @@ function AviQtlOnLoad()
     log_with_level(1, "Auto play: " .. tostring(auto_play))
     log_with_level(1, "Log level: " .. log_levels[log_level])
 
-    if auto_play then
+    if auto_play and aviqtl.has_permission("transport.control") then
         aviqtl.transport.play()
         log_with_level(1, "Auto-play enabled, starting playback")
     end
@@ -37,11 +43,11 @@ function AviQtlUpdateHook()
 
     -- Monitor based on user-defined interval
     if is_monitoring and frame_counter % monitor_interval == 0 then
-        local ok_frame, current_frame = pcall(aviqtl.transport.get_frame)
-        local ok_playing, is_playing = pcall(aviqtl.transport.is_playing)
-        if not ok_frame or not ok_playing then
+        if not aviqtl.has_permission("transport.control") then
             return
         end
+        local current_frame = aviqtl.transport.get_frame()
+        local is_playing = aviqtl.transport.is_playing()
         log_with_level(0, string.format("Frame: %d, Playing: %s", current_frame, is_playing and "yes" or "no"))
     end
 end

@@ -27,13 +27,19 @@
 
 local time = 0
 
+local function safe_log(message)
+    if aviqtl.has_permission("log.output") then
+        aviqtl.log(message)
+    end
+end
+
 function AviQtlOnLoad()
-    aviqtl.log("[Animation Example] Loaded with parameters:")
-    aviqtl.log("  Position: (" .. pos_x .. ", " .. pos_y .. ", " .. pos_z .. ")")
-    aviqtl.log("  Rotation: (" .. rot_x .. ", " .. rot_y .. ", " .. rot_z .. ")")
-    aviqtl.log("  Scale: (" .. scale_x .. ", " .. scale_y .. ")")
-    aviqtl.log("  Visible: " .. tostring(visible))
-    aviqtl.log("  Tint: 0x" .. string.format("%06x", tint))
+    safe_log("[Animation Example] Loaded with parameters:")
+    safe_log("  Position: (" .. pos_x .. ", " .. pos_y .. ", " .. pos_z .. ")")
+    safe_log("  Rotation: (" .. rot_x .. ", " .. rot_y .. ", " .. rot_z .. ")")
+    safe_log("  Scale: (" .. scale_x .. ", " .. scale_y .. ")")
+    safe_log("  Visible: " .. tostring(visible))
+    safe_log("  Tint: 0x" .. string.format("%06x", tint))
 end
 
 function AviQtlUpdateHook()
@@ -61,7 +67,7 @@ function AviQtlUpdateHook()
         -- Apply animation to rotation
         local current_rot_z = rot_z + anim_value * 30
         -- In a real implementation, this would update the object
-        aviqtl.log("[Animation] rot_z: " .. string.format("%.1f", current_rot_z))
+        safe_log("[Animation] rot_z: " .. string.format("%.1f", current_rot_z))
     end
 end
 
@@ -70,14 +76,14 @@ function set_position(x, y, z)
     pos_x = x or pos_x
     pos_y = y or pos_y
     pos_z = z or pos_z
-    aviqtl.log("[Animation] Position set to: (" .. pos_x .. ", " .. pos_y .. ", " .. pos_z .. ")")
+    safe_log("[Animation] Position set to: (" .. pos_x .. ", " .. pos_y .. ", " .. pos_z .. ")")
 end
 
 function set_tint_color(hex)
     tint = hex
-    aviqtl.log("[Animation] Tint set to: 0x" .. string.format("%06x", tint))
+    safe_log("[Animation] Tint set to: 0x" .. string.format("%06x", tint))
 end
 
-aviqtl.log("[Animation Example] Commands:")
-aviqtl.log("  set_position(x, y, z)  - Set position")
-aviqtl.log("  set_tint_color(hex)    - Set tint color (hex)")
+safe_log("[Animation Example] Commands:")
+safe_log("  set_position(x, y, z)  - Set position")
+safe_log("  set_tint_color(hex)    - Set tint color (hex)")

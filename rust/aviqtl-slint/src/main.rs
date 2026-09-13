@@ -1567,6 +1567,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     timeline.set_layers(ModelRc::new(VecModel::<LayerData>::default()));
     timeline.set_object_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     timeline.set_object_catalog_categories(ModelRc::new(VecModel::<SharedString>::default()));
+    timeline.set_object_catalog_menu_categories(ModelRc::new(VecModel::<
+        ObjectCatalogMenuCategoryData,
+    >::default()));
     timeline.set_context_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     initialize_timeline_object_catalog(&timeline, &effect_catalog.borrow());
     object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
@@ -6674,6 +6677,45 @@ fn initialize_timeline_object_catalog(window: &TimelineWindow, catalog: &EffectC
     )
     .collect::<Vec<_>>();
     update_vec_model(&window.get_object_catalog_categories(), categories);
+    let all_items = catalog
+        .query("object", "", "")
+        .into_iter()
+        .map(|metadata| EffectCatalogItemData {
+            header: false,
+            id: SharedString::from(metadata.id.clone()),
+            name: SharedString::from(localized_effect_metadata(&metadata.name).into_owned()),
+            categories: SharedString::from(localized_effect_categories(&metadata.categories)),
+        })
+        .collect::<Vec<_>>();
+    let mut menu_categories = vec![ObjectCatalogMenuCategoryData {
+        name: SharedString::from(localized("All categories", "所有分类", "すべてのカテゴリ")),
+        items: ModelRc::new(VecModel::from(all_items.clone())),
+    }];
+    menu_categories.extend(catalog.categories("object").into_iter().map(|category| {
+        ObjectCatalogMenuCategoryData {
+            name: SharedString::from(localized_effect_metadata(&category).into_owned()),
+            items: ModelRc::new(VecModel::from(
+                catalog
+                    .query("object", "", &category)
+                    .into_iter()
+                    .map(|metadata| EffectCatalogItemData {
+                        header: false,
+                        id: SharedString::from(metadata.id.clone()),
+                        name: SharedString::from(
+                            localized_effect_metadata(&metadata.name).into_owned(),
+                        ),
+                        categories: SharedString::from(localized_effect_categories(
+                            &metadata.categories,
+                        )),
+                    })
+                    .collect::<Vec<_>>(),
+            )),
+        }
+    }));
+    update_vec_model(
+        &window.get_object_catalog_menu_categories(),
+        menu_categories,
+    );
     sync_timeline_object_catalog(window, catalog, "", 0);
 }
 
@@ -7486,6 +7528,14 @@ fn sync_transport(main: &MainWindow, timeline: &TimelineWindow, model: &Applicat
     timeline.set_duration(workspace.timeline_view_duration());
     timeline.set_selected_layer(workspace.selected_layer());
     timeline.set_action_status(SharedString::from(workspace.status()));
+    if let Some(scene) = workspace.scene_settings(workspace.selected_scene()) {
+        timeline.set_grid_mode(SharedString::from(scene.grid_mode));
+        timeline.set_grid_fps(finite_f32(scene.fps, 60.0));
+        timeline.set_grid_bpm(finite_f32(scene.grid_bpm, 120.0));
+        timeline.set_grid_offset(finite_f32(scene.grid_offset, 0.0));
+        timeline.set_grid_interval(scene.grid_interval.max(1));
+        timeline.set_grid_subdivision(scene.grid_subdivision.max(1));
+    }
 }
 
 fn parse_required_i32(value: &str, label: &str, minimum: i32, maximum: i32) -> Result<i32, String> {
