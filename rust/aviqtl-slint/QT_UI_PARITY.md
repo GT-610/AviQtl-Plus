@@ -51,6 +51,7 @@ still require the separately scheduled Computer Use suite.
 | File drop | Insert media at indicated frame/layer with Qt import rules | foundation |
 | Timeline navigation | Qt wheel axes, anchored zoom, and both draggable scrollbars | foundation |
 | Playback controls | Seek, frame counter, previous/play/next, speed, and end-frame behavior | foundation |
+| Audio playback feedback | Default-device monitoring, speed/seek synchronization, clip waveforms and playhead, and peak/RMS meters | foundation |
 | Object settings | Metadata order, pickers, keyframes, easing, and sidebar placement | foundation |
 | Effect selection | Ctrl/Shift selection, single/multi reorder, enable, and scoped Delete | foundation |
 | Effect menus and presets | Search/category insertion and preset save/apply/delete | foundation |
@@ -77,9 +78,11 @@ still require the separately scheduled Computer Use suite.
   archive hashes, limits downloads to 256 MiB, rejects encrypted, ZIP64, traversal, duplicate, and
   symbolic-link archive entries, caps extraction at 10,000 entries and 1 GiB, and uses same-volume
   staging, backup, atomic `installed.json` replacement, and rollback. Removal uses the inverse
-  transaction, Upgrade All continues after individual failures, application updates retain Qt's
-  restart notification, and effect/object completion reloads the shared catalog and menus without a
-  restart. The MOD permission window preserves Qt's 13 permission rows, All Allow/All Deny,
+  transaction, Upgrade All continues after individual failures, and application updates retain Qt's
+  restart notification. Effect and Object QML package installation is explicitly marked Coming Soon,
+  and installed user QML packages are excluded from Slint catalogs so they cannot appear usable before
+  a renderer exists. MOD package lifecycle remains active. The MOD permission window preserves Qt's
+  13 permission rows, All Allow/All Deny,
   Cancel/OK behavior, and shared-settings persistence. Automated tests cover partial repository
   synchronization, install/remove, unsafe archives, rollback, and preservation of other plugins'
   grants. Native macOS CUA covers the responsive six-tab layout, search editing and clearing,
@@ -108,6 +111,10 @@ still require the separately scheduled Computer Use suite.
   cancellation, and removal of partial outputs. Native modality, chooser behavior, close interception,
   and a user-observed output comparison remain in the deferred GUI suite.
 - Real project, scene, configured 1-512-layer, clip, selection, and transport models reach Slint.
+- The launcher reads and writes Qt's `recentProjects` setting, displays name, path, resolution, and
+  frame rate, opens entries directly, deduplicates successful opens/saves, and enforces the persisted
+  `recentProjectMaxCount`. New-project width, height, frame rate, and sample rate are validated before
+  creation instead of silently accepting values outside the Qt ranges.
 - Main and timeline `FocusScope`s resolve all 34 configurable Qt shortcut actions from the live
   settings store. Editor shortcuts remain window-scoped and use the active timeline skimmer only
   when the timeline window receives the key. Static Slint menu accelerators were removed so they
@@ -142,7 +149,10 @@ still require the separately scheduled Computer Use suite.
   right-click action does not deliver the separate right-button release used to distinguish a click
   from Qt-compatible right-drag box selection.
 - Primary/additive selection, right-button box selection, multi-clip move, and multi-clip resize have
-  framework-neutral tests and Slint MCP interaction checks.
+  framework-neutral tests and Slint MCP interaction checks. Locked-layer clips retain selection and
+  context access but reject move/resize initiation with the forbidden cursor. Built-in clip types use
+  stable Qt-shaped colors and readable foreground contrast, and camera/group control clips visualize
+  the complete layer range they affect.
 - Open replaces only a clean pathless placeholder; Save, Save As, tab close, and application quit
   share a tested framework-neutral lifecycle state machine. Dirty projects are visited in tab order,
   and save failure or chooser cancellation stops the deferred close action.
@@ -239,8 +249,17 @@ still require the separately scheduled Computer Use suite.
   Plugin insertion, single-item drag reorder, Ctrl/Shift selection, grouped enable/delete,
   right-click presets, current-playhead parameter values, the Qt two-endpoint `K` action,
   double-click insertion, and protected non-draggable endpoints are wired through the existing Rust
-  timeline commands. A bypassed plugin remains parameter-editable like Qt. Native plugin scanning,
-  menu behavior, pointer feel, and hosted audio output remain in the deferred GUI suite.
+  timeline commands. A bypassed plugin remains parameter-editable like Qt.
+- Slint playback now mixes the active scene through the production Rust audio and plugin path and
+  streams it to the default CPAL output device. It follows the 10%-400% transport rate, resets queued
+  audio after pauses, seeks, document changes, project-tab changes, and scene changes, and reports an
+  unavailable device without aborting the UI. The main transport displays stereo peak/RMS feedback,
+  while the audio-object settings window displays the selected clip's levels. A background worker
+  builds audio-clip waveforms without blocking the Slint event loop; the timeline keeps the Qt click-
+  to-seek behavior and shows the playhead inside each audio clip. Unit tests cover output-channel
+  mapping, underrun silence, playback-rate frame sizing, and meter calculations. Native plugin
+  scanning, menu behavior, pointer feel, device latency, and hardware-output verification remain in
+  the deferred GUI suite.
 
 ## Deferred native GUI suite
 
@@ -248,4 +267,4 @@ Run this only in the later user-requested task on an unlocked desktop. Cover pro
 ordering, F3/F4 focus and raise behavior, all native menu items, file chooser cancellation, export
 and its close interception, recovery-window interaction, settings persistence, drag-and-drop, zoom/wheel behavior,
 IME and shortcut scope, application close confirmation, object/effect/audio-plugin workflows,
-keyframes and easing, Package Manager, About links, and VoiceOver output.
+keyframes and easing, Package Manager, About links, audio-device latency/output, and VoiceOver output.
