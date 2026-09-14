@@ -278,6 +278,25 @@ pub(crate) fn validate_native_package_directory(
     package_id: &str,
     package_type: &str,
 ) -> Result<(), String> {
+    for path in wgsl_files(package_directory) {
+        let metadata = fs::metadata(&path)
+            .map_err(|error| format!("Could not inspect {}: {error}", path.display()))?;
+        if metadata.len() > MAX_NATIVE_SHADER_BYTES {
+            return Err(format!(
+                "Native package WGSL shader exceeds the size limit at {}.",
+                path.display()
+            ));
+        }
+        let source = fs::read_to_string(&path)
+            .map_err(|error| format!("Could not read {}: {error}", path.display()))?;
+        validate_native_shader(&source).map_err(|error| {
+            format!(
+                "Native package contains invalid WGSL shader at {}: {error}",
+                path.display()
+            )
+        })?;
+    }
+
     let mut definitions = 0usize;
     let mut ids = BTreeSet::new();
     for path in json_files(package_directory) {
@@ -368,6 +387,31 @@ fn json_files(root: &Path) -> Vec<PathBuf> {
             if path.is_dir() {
                 directories.push(path);
             } else if path.extension().and_then(|extension| extension.to_str()) == Some("json") {
+                files.push(path);
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+fn wgsl_files(root: &Path) -> Vec<PathBuf> {
+    let mut directories = vec![root.to_path_buf()];
+    let mut visited = BTreeSet::new();
+    let mut files = Vec::new();
+    while let Some(directory) = directories.pop() {
+        let canonical = directory.canonicalize().unwrap_or(directory.clone());
+        if !visited.insert(canonical) {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                directories.push(path);
+            } else if path.extension().and_then(|extension| extension.to_str()) == Some("wgsl") {
                 files.push(path);
             }
         }
@@ -526,6 +570,51 @@ fn aviqtl_effect(
         );
 
         fs::remove_dir_all(effect_root).expect("temporary package removes");
+    }
+
+    #[test]
+    fn native_package_validation_rejects_unreferenced_invalid_and_oversized_shaders() {
+        let root = temporary_directory();
+        let package = root.join("org.example.native");
+        let definitions = package.join("definitions");
+        let shaders = definitions.join("shaders");
+        fs::create_dir_all(&shaders).expect("package directories create");
+        fs::write(shaders.join("main.wgsl"), PASSTHROUGH_SHADER).expect("shader writes");
+        fs::write(
+            definitions.join("main.json"),
+            serde_json::to_vec(&json!({
+                "id": "effect.native",
+                "name": "Native",
+                "version": "1.0.0",
+                "kind": "effect",
+                "categories": ["Native"],
+                "params": {"amount": 0.5},
+                "ui": {"controls": []},
+                "runtime": {
+                    "engine": "aviqtl-wgsl-v1",
+                    "shader": "shaders/main.wgsl",
+                    "uniforms": ["amount"]
+                }
+            }))
+            .expect("metadata serializes"),
+        )
+        .expect("metadata writes");
+
+        fs::write(shaders.join("unreferenced.wgsl"), "fn forbidden() {}").expect("shader writes");
+        assert!(
+            validate_native_package_directory(&package, "org.example.native", "effect").is_err()
+        );
+
+        fs::write(
+            shaders.join("unreferenced.wgsl"),
+            vec![b' '; MAX_NATIVE_SHADER_BYTES as usize + 1],
+        )
+        .expect("oversized shader writes");
+        assert!(
+            validate_native_package_directory(&package, "org.example.native", "effect").is_err()
+        );
+
+        fs::remove_dir_all(root).expect("temporary package removes");
     }
 
     #[test]

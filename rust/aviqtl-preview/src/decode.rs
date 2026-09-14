@@ -305,7 +305,7 @@ struct DecodeResult {
 }
 
 pub enum DecodedContent {
-    Frame(VideoFrame),
+    Frame(Arc<VideoFrame>),
     Scene(Box<DecodedScene>),
 }
 
@@ -479,11 +479,19 @@ fn run_worker(
     wake: Arc<dyn Fn() + Send + Sync>,
 ) {
     let mut videos = HashMap::<PathBuf, VideoDecoder>::new();
-    let mut images = HashMap::<PathBuf, VideoFrame>::new();
+    let mut images = HashMap::<PathBuf, Arc<VideoFrame>>::new();
+    let mut native_canvases = HashMap::<(u32, u32), Arc<VideoFrame>>::new();
     let text = TextRasterizer::new();
     while let Some(request) = queue.take() {
         let mut errors = Vec::new();
-        let scene = decode_scene(request.scene, &mut videos, &mut images, &text, &mut errors);
+        let scene = decode_scene(
+            request.scene,
+            &mut videos,
+            &mut images,
+            &mut native_canvases,
+            &text,
+            &mut errors,
+        );
         let batch = PreviewBatch {
             generation: request.generation,
             scene,
@@ -505,7 +513,8 @@ fn run_worker(
 fn decode_scene(
     scene: PreviewScene,
     videos: &mut HashMap<PathBuf, VideoDecoder>,
-    images: &mut HashMap<PathBuf, VideoFrame>,
+    images: &mut HashMap<PathBuf, Arc<VideoFrame>>,
+    native_canvases: &mut HashMap<(u32, u32), Arc<VideoFrame>>,
     text: &TextRasterizer,
     errors: &mut Vec<String>,
 ) -> DecodedScene {
@@ -524,10 +533,15 @@ fn decode_scene(
             effects,
         } = source;
         let decoded = match content {
-            PreviewContent::Scene { scene } => {
-                DecodedContent::Scene(Box::new(decode_scene(*scene, videos, images, text, errors)))
-            }
-            content => match decode_source(&content, videos, images, text) {
+            PreviewContent::Scene { scene } => DecodedContent::Scene(Box::new(decode_scene(
+                *scene,
+                videos,
+                images,
+                native_canvases,
+                text,
+                errors,
+            ))),
+            content => match decode_source(&content, videos, images, native_canvases, text) {
                 Ok(frame) => DecodedContent::Frame(frame),
                 Err(error) => {
                     errors.push(format!("clip #{clip_id} ({label}): {error}"));
@@ -541,7 +555,16 @@ fn decode_scene(
             transform,
             blend_mode,
             crop,
-            mask: mask.map(|scene| Box::new(decode_scene(*scene, videos, images, text, errors))),
+            mask: mask.map(|scene| {
+                Box::new(decode_scene(
+                    *scene,
+                    videos,
+                    images,
+                    native_canvases,
+                    text,
+                    errors,
+                ))
+            }),
             effects,
             content: decoded,
         });
@@ -559,9 +582,10 @@ fn decode_scene(
 fn decode_source(
     content: &PreviewContent,
     videos: &mut HashMap<PathBuf, VideoDecoder>,
-    images: &mut HashMap<PathBuf, VideoFrame>,
+    images: &mut HashMap<PathBuf, Arc<VideoFrame>>,
+    native_canvases: &mut HashMap<(u32, u32), Arc<VideoFrame>>,
     text: &TextRasterizer,
-) -> Result<VideoFrame, String> {
+) -> Result<Arc<VideoFrame>, String> {
     match content {
         PreviewContent::Media {
             path,
@@ -569,10 +593,10 @@ fn decode_source(
             ..
         } => {
             if let Some(frame) = images.get(path) {
-                return Ok(frame.clone());
+                return Ok(Arc::clone(frame));
             }
-            let frame = decode_image(path).map_err(|error| error.to_string())?;
-            images.insert(path.clone(), frame.clone());
+            let frame = Arc::new(decode_image(path).map_err(|error| error.to_string())?);
+            images.insert(path.clone(), Arc::clone(&frame));
             Ok(frame)
         }
         PreviewContent::Media {
@@ -588,24 +612,34 @@ fn decode_source(
                 .get_mut(path)
                 .expect("video decoder was inserted above");
             let timestamp_seconds = playback.timestamp_seconds(decoder.source_fps());
-            decoder
-                .decode_at(timestamp_seconds)
-                .map_err(|error| error.to_string())
+            Ok(Arc::new(
+                decoder
+                    .decode_at(timestamp_seconds)
+                    .map_err(|error| error.to_string())?,
+            ))
         }
         PreviewContent::Shape {
             plan,
             timestamp_seconds,
-        } => rasterize_shape(plan, *timestamp_seconds).map_err(|error| error.to_string()),
-        PreviewContent::Text { plan } => {
-            text.rasterize(plan, 0.0).map_err(|error| error.to_string())
-        }
+        } => Ok(Arc::new(
+            rasterize_shape(plan, *timestamp_seconds).map_err(|error| error.to_string())?,
+        )),
+        PreviewContent::Text { plan } => Ok(Arc::new(
+            text.rasterize(plan, 0.0)
+                .map_err(|error| error.to_string())?,
+        )),
         PreviewContent::Procedural {
             plan,
             timestamp_seconds,
-        } => {
-            rasterize_procedural_object(plan, *timestamp_seconds).map_err(|error| error.to_string())
-        }
+        } => Ok(Arc::new(
+            rasterize_procedural_object(plan, *timestamp_seconds)
+                .map_err(|error| error.to_string())?,
+        )),
         PreviewContent::NativeCanvas { width, height } => {
+            let key = (*width, *height);
+            if let Some(frame) = native_canvases.get(&key) {
+                return Ok(Arc::clone(frame));
+            }
             let pixel_count = usize::try_from(*width)
                 .ok()
                 .and_then(|width| {
@@ -618,12 +652,14 @@ fn decode_source(
             if pixel_count > 512 * 1024 * 1024 {
                 return Err("native canvas dimensions are too large".to_owned());
             }
-            Ok(VideoFrame {
+            let frame = Arc::new(VideoFrame {
                 width: *width,
                 height: *height,
                 rgba: vec![0; pixel_count],
                 timestamp_seconds: 0.0,
-            })
+            });
+            native_canvases.insert(key, Arc::clone(&frame));
+            Ok(frame)
         }
         PreviewContent::Scene { .. } => unreachable!("nested scenes are decoded recursively"),
     }
@@ -888,6 +924,7 @@ mod tests {
             root,
             &mut HashMap::new(),
             &mut HashMap::new(),
+            &mut HashMap::new(),
             &TextRasterizer::new(),
             &mut errors,
         );
@@ -900,6 +937,49 @@ mod tests {
         assert_eq!(nested.instance_key, 22);
         assert_eq!(nested.layers.len(), 1);
         assert!(matches!(nested.layers[0].content, DecodedContent::Frame(_)));
+    }
+
+    #[test]
+    fn native_canvas_frames_are_cached_by_dimensions() {
+        let content = PreviewContent::NativeCanvas {
+            width: 64,
+            height: 32,
+        };
+        let mut videos = HashMap::new();
+        let mut images = HashMap::new();
+        let mut native_canvases = HashMap::new();
+        let text = TextRasterizer::new();
+        let first = decode_source(
+            &content,
+            &mut videos,
+            &mut images,
+            &mut native_canvases,
+            &text,
+        )
+        .expect("native canvas decodes");
+        let second = decode_source(
+            &content,
+            &mut videos,
+            &mut images,
+            &mut native_canvases,
+            &text,
+        )
+        .expect("native canvas reuses its frame");
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(first.rgba.len(), 64 * 32 * 4);
+
+        let different = decode_source(
+            &PreviewContent::NativeCanvas {
+                width: 32,
+                height: 64,
+            },
+            &mut videos,
+            &mut images,
+            &mut native_canvases,
+            &text,
+        )
+        .expect("different native canvas decodes");
+        assert!(!Arc::ptr_eq(&first, &different));
     }
 
     #[test]

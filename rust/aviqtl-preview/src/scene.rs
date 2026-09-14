@@ -422,7 +422,12 @@ fn layer_visual_effects(
             id if native_definitions.contains_key(id) => {
                 let definition = &native_definitions[id];
                 let mut parameters = [[0.0; 4]; 16];
-                for (index, name) in definition.uniforms.iter().enumerate() {
+                for (index, name) in definition
+                    .uniforms
+                    .iter()
+                    .enumerate()
+                    .take(parameters.len())
+                {
                     parameters[index] = native_parameter(effect, name);
                 }
                 Some(VisualEffect::Native {
@@ -1018,7 +1023,14 @@ mod tests {
         planner.set_native_definitions([NativeRenderDefinition {
             id: "object.native".to_owned(),
             kind: "object".to_owned(),
-            uniforms: vec!["amount".to_owned(), "tint".to_owned()],
+            uniforms: [
+                "amount", "tint", "extra0", "extra1", "extra2", "extra3", "extra4", "extra5",
+                "extra6", "extra7", "extra8", "extra9", "extra10", "extra11", "extra12", "extra13",
+                "extra14",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
             shader_source: std::sync::Arc::from("fn aviqtl_effect() {}"),
         }]);
 

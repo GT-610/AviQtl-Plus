@@ -3449,11 +3449,11 @@ fn aviqtl_effect(
     assert!(validate_native_shader(shader).is_ok());
     assert!(validate_native_shader("@fragment fn aviqtl_effect() {}").is_err());
     assert!(
-            validate_native_shader(
-                "@ group(2) @ binding(0) var extra: texture_2d<f32>; fn aviqtl_effect(input_color: vec4<f32>, uv: vec2<f32>, canvas_size: vec2<f32>, time_seconds: f32) -> vec4<f32> { return input_color; }"
-            )
-            .is_err()
-        );
+        validate_native_shader(
+            "@ group(2) @ binding(0) var extra: texture_2d<f32>; fn aviqtl_effect(input_color: vec4<f32>, uv: vec2<f32>, canvas_size: vec2<f32>, time_seconds: f32) -> vec4<f32> { return input_color; }"
+        )
+        .is_err()
+    );
     assert!(validate_native_shader("fn other() {}").is_err());
     assert!(
         validate_native_shader(

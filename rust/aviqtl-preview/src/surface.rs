@@ -182,7 +182,7 @@ impl PreviewSurface {
             .iter()
             .map(|layer| {
                 let source = match &layer.content {
-                    DecodedContent::Frame(frame) => PreparedSource::Frame(frame),
+                    DecodedContent::Frame(frame) => PreparedSource::Frame(frame.as_ref()),
                     DecodedContent::Scene(scene) => {
                         active_nested.insert(scene.instance_key);
                         PreparedSource::Texture {
@@ -481,7 +481,7 @@ mod tests {
                     crop: LayerCrop::default(),
                     mask: None,
                     effects: Vec::new(),
-                    content: DecodedContent::Frame(frame([255, 0, 0, 255])),
+                    content: DecodedContent::Frame(Arc::new(frame([255, 0, 0, 255]))),
                 },
                 crate::decode::DecodedLayer {
                     cache_key: 2,
@@ -491,7 +491,7 @@ mod tests {
                     crop: LayerCrop::default(),
                     mask: None,
                     effects: Vec::new(),
-                    content: DecodedContent::Frame(frame([0, 0, 255, 128])),
+                    content: DecodedContent::Frame(Arc::new(frame([0, 0, 255, 128]))),
                 },
             ],
         };
