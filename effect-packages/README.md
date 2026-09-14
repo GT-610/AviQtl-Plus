@@ -6,6 +6,7 @@ This directory contains installable Effect and Object packages for the Slint/wgp
 
 | Package | Type | Contents | Description |
 | --- | --- | --- | --- |
+| [color-effects](color-effects/) | Effect | 1 effect | Native WGSL color tint |
 | [weather-objects](weather-objects/) | Object | 2 objects | Native WGSL rain and snow animations |
 
 ## Package model

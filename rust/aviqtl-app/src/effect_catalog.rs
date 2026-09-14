@@ -534,4 +534,14 @@ fn aviqtl_effect(
         validate_native_package_directory(&package, "com.aviqtl.objects.weather", "object")
             .expect("weather object package is valid");
     }
+
+    #[test]
+    fn repository_color_effects_satisfy_the_native_package_contract() {
+        let package = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("effect-packages/color-effects");
+
+        validate_native_package_directory(&package, "com.aviqtl.effects.color", "effect")
+            .expect("color effect package is valid");
+    }
 }
