@@ -2026,6 +2026,60 @@ fn aviqtl_effect(
     }
 
     #[test]
+    fn native_object_packages_deploy_and_legacy_qml_packages_are_rejected() {
+        let root = temporary_root();
+        let native_metadata = br#"{
+            "id":"object.demo",
+            "name":"Demo object",
+            "version":"1.0.0",
+            "kind":"object",
+            "categories":["Native"],
+            "params":{"amount":0.5},
+            "ui":{"controls":[]},
+            "runtime":{"engine":"aviqtl-wgsl-v1","shader":"main.wgsl","uniforms":["amount"]}
+        }"#;
+        let native = stored_zip(&[
+            ("main.json", native_metadata, 0o100644_u32 << 16),
+            ("main.wgsl", NATIVE_SHADER, 0o100644_u32 << 16),
+        ]);
+
+        deploy_package_archive(&root, "object.demo", "object", &native, || Ok(()))
+            .expect("native object deploys");
+        let deployed = root
+            .parent()
+            .expect("root has parent")
+            .join("objects/object.demo/main.wgsl");
+        assert!(deployed.is_file());
+
+        let legacy_metadata = br#"{
+            "id":"object.legacy",
+            "name":"Legacy object",
+            "qml":"Legacy.qml",
+            "version":"1.0.0",
+            "kind":"object",
+            "categories":["Legacy"],
+            "ui":{"controls":[]}
+        }"#;
+        let legacy = stored_zip(&[
+            ("main.json", legacy_metadata, 0o100644_u32 << 16),
+            ("Legacy.qml", b"import QtQuick", 0o100644_u32 << 16),
+        ]);
+        let error = deploy_package_archive(&root, "object.legacy", "object", &legacy, || Ok(()))
+            .expect_err("legacy QML package is rejected");
+        assert!(error.contains("does not declare aviqtl-wgsl-v1"));
+        assert!(
+            !root
+                .parent()
+                .expect("root has parent")
+                .join("objects/object.legacy")
+                .exists()
+        );
+
+        fs::remove_dir_all(root.parent().expect("root has parent"))
+            .expect("temporary package root removes");
+    }
+
+    #[test]
     fn package_deployment_rejects_unsafe_zip_entries_and_restores_on_state_failure() {
         let root = temporary_root();
         let base = root.parent().expect("root has parent");

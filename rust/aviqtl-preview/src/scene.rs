@@ -1004,7 +1004,13 @@ mod tests {
                     "id": "object.native",
                     "name": "Native object",
                     "enabled": true,
-                    "params": {"amount": 0.75, "tint": "#80402010", "opacity": 0.5}
+                    "params": {"amount": 0.75, "tint": "#80402010", "opacity": 0.5},
+                    "keyframes": {
+                        "amount": [
+                            {"frame": 0, "value": 0.0},
+                            {"frame": 50, "value": 1.0}
+                        ]
+                    }
                 }]
             }]
         }));
@@ -1036,12 +1042,64 @@ mod tests {
         else {
             panic!("native object uses its package shader");
         };
-        assert_eq!(parameters[0], [0.75, 0.0, 0.0, 0.0]);
+        assert_eq!(parameters[0], [0.5, 0.0, 0.0, 0.0]);
         assert_eq!(
             parameters[1],
             [64.0 / 255.0, 32.0 / 255.0, 16.0 / 255.0, 128.0 / 255.0]
         );
         assert_eq!(*time_seconds, 0.5);
+    }
+
+    #[test]
+    fn native_effects_process_existing_layer_content() {
+        let document = document(json!({
+            "version": 3,
+            "settings": {"width": 320, "height": 180, "fps": 25.0, "sampleRate": 48000},
+            "scenes": [{"id": 1, "name": "Root", "duration": 100, "width": 320, "height": 180, "fps": 25.0}],
+            "clips": [{
+                "id": 1,
+                "sceneId": 1,
+                "type": "rect",
+                "start": 0,
+                "duration": 100,
+                "layer": 0,
+                "effects": [
+                    {"id": "rect", "name": "Rectangle", "enabled": true, "params": {}},
+                    {"id": "effect.native", "name": "Native effect", "enabled": true, "params": {"enabled": true}}
+                ]
+            }]
+        }));
+        let mut planner = PreviewPlanner::new(&document, None);
+        planner.set_native_definitions([NativeRenderDefinition {
+            id: "effect.native".to_owned(),
+            kind: "effect".to_owned(),
+            uniforms: vec!["enabled".to_owned()],
+            shader_source: std::sync::Arc::from("fn aviqtl_effect() {}"),
+        }]);
+
+        let planned = planner
+            .build(&document, 1, 25)
+            .expect("native effect plans");
+
+        assert!(matches!(
+            planned.scene.layers[0].content,
+            PreviewContent::Shape { .. }
+        ));
+        let native = planned.scene.layers[0]
+            .effects
+            .iter()
+            .find(|effect| matches!(effect, VisualEffect::Native { .. }))
+            .expect("native effect is attached to the shape");
+        let VisualEffect::Native {
+            parameters,
+            time_seconds,
+            ..
+        } = native
+        else {
+            unreachable!();
+        };
+        assert_eq!(parameters[0], [1.0, 0.0, 0.0, 0.0]);
+        assert_eq!(*time_seconds, 1.0);
     }
 
     #[test]
