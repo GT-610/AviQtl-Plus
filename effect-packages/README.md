@@ -1,180 +1,99 @@
-# AviQtl-Plus Effect Packages
+# AviQtl-Plus native render packages
 
-This directory contains effect packages that demonstrate the extensibility of AviQtl-Plus's effect system.
+This directory contains installable Effect and Object packages for the Slint/wgpu application.
 
-## Purpose
-
-1. **User Value**: Provide additional effects that can be installed via the package manager
-2. **Developer Reference**: Serve as examples for creating custom effects
-3. **Modularity**: Show how effects can be organized into independent packages
-
-## Available Packages
+## Available packages
 
 | Package | Type | Contents | Description |
-|---------|------|----------|-------------|
-| [weather-objects](weather-objects/) | Object | 2 objects | Weather animations (rain, snow) |
+| --- | --- | --- | --- |
+| [weather-objects](weather-objects/) | Object | 2 objects | Native WGSL rain and snow animations |
 
-## Quick Start
+## Package model
 
-### For Users
+The package manager continues to own repository synchronization, downloads, SHA-256 verification, safe ZIP extraction, installation, upgrades, rollback, and removal. Effect and Object packages use the `aviqtl-wgsl-v1` runtime; QML files are not loaded.
 
-1. Download a package folder
-2. Open AviQtl-Plus → Settings → Package Manager
-3. Click "Install from Local" and select the folder
-4. Restart AviQtl
-
-### For Developers
-
-1. Study the package structure
-2. Read the package's README.md
-3. Create your own effect following the same pattern
-4. See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for the extension model
-
-## Package Structure
-
-Each package follows this structure:
-
-```text
-package-name/
-├── manifest.json          # Package metadata
-├── README.md              # Package documentation
-├── effect_id_1/           # Each effect in its own directory
-│   ├── effect_id_1.json   # Effect definition
-│   ├── EffectName.qml     # QML component
-│   └── effect_id_1.frag   # GLSL shader
-├── effect_id_2/
-│   ├── effect_id_2.json
-│   ├── EffectName.qml
-│   └── effect_id_2.comp
-└── ...
-```
-
-**Important**: Each effect or object should be placed in a subdirectory named after its ID. The ID in the directory name should match the `id` field in the JSON file for consistency, though the registry loads definitions by scanning for JSON files regardless of directory name.
-
-## Effect Types
-
-| Type | Kind | Location | Base Class | Runtime |
-|------|------|----------|-----------|---------|
-| Effect | `"effect"` | `effects/` | `BaseEffect` / `BaseComputeEffect` | QML + QRhi |
-| Object | `"object"` | `objects/` | `BaseObject` | QML + QtQuick3D |
-
-## Creating Your Own Package
-
-### 1. Choose a Type
-
-- **Effect**: Visual filter applied to layers (blur, color correction, etc.)
-- **Object**: Self-contained visual entity (text, shape, particle, etc.)
-
-### 2. Create the Structure
+Each render definition contains JSON metadata and one WGSL source file:
 
 ```text
 my-package/
 ├── manifest.json
-├── README.md
-└── my_effect/
-    ├── my_effect.json
-    ├── MyEffect.qml
-    └── my_effect.frag
+└── my-effect/
+    ├── MyEffect.json
+    └── MyEffect.wgsl
 ```
-
-### 3. Define the Effect
-
-Create a JSON file with:
 
 ```json
 {
   "id": "my_effect",
   "name": "My Effect",
-  "qml": "MyEffect.qml",
   "version": "1.0.0",
   "kind": "effect",
-  "categories": ["My Category"],
+  "categories": ["Custom"],
   "params": {
-    "intensity": 0.5
+    "amount": 0.5,
+    "tint": "#ffffffff"
   },
   "ui": {
     "controls": [
       {
         "type": "slider",
-        "param": "intensity",
-        "label": "Intensity",
+        "param": "amount",
+        "label": "Amount",
         "min": 0.0,
         "max": 1.0,
         "step": 0.01
+      },
+      {
+        "type": "color",
+        "param": "tint",
+        "label": "Tint"
       }
     ]
+  },
+  "runtime": {
+    "engine": "aviqtl-wgsl-v1",
+    "shader": "MyEffect.wgsl",
+    "uniforms": ["amount", "tint"]
   }
 }
 ```
 
-### 4. Create the QML
+The `uniforms` array may contain at most 16 unique parameter names. Each entry is available as one `vec4<f32>` through `aviqtl_parameter(index)`:
 
-For effects:
+- numbers and booleans use `.x`;
+- colors use RGBA in `.rgba`, normalized to 0–1;
+- numeric arrays fill up to four components.
 
-```qml
-import QtQuick
-import "qrc:/qt/qml/AviQtl/ui/qml/common" as Common
+## WGSL contract
 
-Common.BaseEffect {
-    id: root
-    property real intensity: root.evalNumber("intensity", 0.5)
+Package shaders provide one function and may define private helper functions:
 
-    ShaderEffect {
-        property variant source: root.sourceProxy
-        property real intensity: root.intensity
-        property real targetWidth: root.width
-        property real targetHeight: root.height
-        anchors.fill: parent
-        fragmentShader: "my_effect.frag.qsb"
-    }
+```wgsl
+fn aviqtl_effect(
+    input_color: vec4<f32>,
+    uv: vec2<f32>,
+    canvas_size: vec2<f32>,
+    time_seconds: f32,
+) -> vec4<f32> {
+    let amount = aviqtl_parameter(0u).x;
+    let tint = aviqtl_parameter(1u);
+    return mix(input_color, vec4<f32>(tint.rgb, input_color.a), amount);
 }
 ```
 
-### 5. Write the Shader
+The host also provides `aviqtl_sample(uv)` for neighboring source samples. Package shaders cannot declare bindings, shader stages, or entry points; those resources remain host-owned and are validated before installation.
 
-Fragment shader:
+- An Effect processes the existing layer texture.
+- An Object receives a transparent canvas matching the scene size.
+- Preview and export execute the same wgpu pipeline.
 
-```glsl
-#version 440
-layout(location=0) in vec2 qt_TexCoord0;
-layout(location=0) out vec4 fragColor;
-layout(std140, binding=0) uniform buf {
-    mat4 qt_Matrix;
-    float qt_Opacity;
-    float intensity;
-    float targetWidth;
-    float targetHeight;
-};
-layout(binding=1) uniform sampler2D source;
+## Testing a package
 
-void main() {
-    vec4 color = texture(source, qt_TexCoord0);
-    // Apply your effect here
-    fragColor = color * qt_Opacity;
-}
-```
-
-### 6. Test
-
-1. Place your package in the AviQtl effects directory
-2. Restart AviQtl
-3. Verify the effect appears in the effects list
-4. Test all parameters and edge cases
-
-## Documentation
-
-- [Effects and objects](https://aviqtl.gt610.dpdns.org/developer/effects) - extension model and JSON metadata
-- [Plugin development](https://aviqtl.gt610.dpdns.org/developer/plugins) - LuaJIT automation and permissions
-
-## Contributing
-
-Want to contribute your effect package?
-
-1. Fork the repository
-2. Create your package in `effect-packages/`
-3. Add documentation in README.md
-4. Submit a pull request
+1. Put the package under `<AviQtl Data>/effects/<package-id>/` or `<AviQtl Data>/objects/<package-id>/`.
+2. Restart AviQtl-Plus so the catalog is reloaded.
+3. Add the Effect or Object and test its controls, keyframes, resolutions, and timeline positions.
+4. Package the directory as a ZIP and publish its SHA-256 in the repository metadata.
 
 ## License
 
-All effect packages in this directory are licensed under AGPL-3.0, same as AviQtl-Plus.
+Packages in this directory use AGPL-3.0 unless their manifest states otherwise.
