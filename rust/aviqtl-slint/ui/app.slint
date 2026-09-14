@@ -1495,7 +1495,9 @@ component TimelineClipItem inherits Rectangle {
                     );
                 }
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                    if !root.clip-data.locked {
+                    if root.clip-data.locked {
+                        root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                    } else {
                         root.active-drag = "move";
                         root.drag-x = 0px;
                         root.drag-y = 0px;
@@ -1567,7 +1569,9 @@ component TimelineClipItem inherits Rectangle {
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                if !root.clip-data.locked {
+                if root.clip-data.locked {
+                    root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                } else {
                     root.active-drag = "trim-start";
                     root.drag-x = 0px;
                     root.drag-y = 0px;
@@ -1615,7 +1619,9 @@ component TimelineClipItem inherits Rectangle {
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                if !root.clip-data.locked {
+                if root.clip-data.locked {
+                    root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                } else {
                     root.active-drag = "trim-end";
                     root.drag-x = 0px;
                     root.drag-y = 0px;

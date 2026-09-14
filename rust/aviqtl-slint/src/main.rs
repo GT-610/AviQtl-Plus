@@ -806,20 +806,22 @@ impl AudioPlaybackRuntime {
             self.reset_queue();
         }
 
-        let current_frame = workspace.playhead();
-        if self.next_frame.is_none_or(|next_frame| {
-            next_frame < current_frame || next_frame > current_frame.saturating_add(16)
-        }) {
-            self.reset_queue();
-            self.next_frame = Some(current_frame);
-        }
         let sample_rate = self
             .output
             .as_ref()
             .map_or(48_000, AudioOutput::sample_rate);
-        let fps = workspace.project_settings().fps.max(1.0);
+        let fps = scene_fps(workspace.document(), workspace.selected_scene());
         let timeline_rate = workspace.playback_speed().clamp(0.1, 4.0);
         let target_frames = (sample_rate as usize / 8).max(1);
+        let permitted_lead =
+            audio_queue_lead_frames(fps, timeline_rate, target_frames, sample_rate);
+        let current_frame = workspace.playhead();
+        if self.next_frame.is_none_or(|next_frame| {
+            next_frame < current_frame || next_frame > current_frame.saturating_add(permitted_lead)
+        }) {
+            self.reset_queue();
+            self.next_frame = Some(current_frame);
+        }
         let timeline_end = workspace.timeline_duration();
         let max_plugin_block_size = settings
             .i32_value("audioPluginMaxBlockSize", 1024)
@@ -878,7 +880,7 @@ impl AudioPlaybackRuntime {
                             )
                         })
                         .collect();
-                    if let Some(output) = self.output.as_ref() {
+                    if let Some(output) = self.output.as_mut() {
                         output.enqueue_stereo(&block.samples);
                     }
                 }
@@ -933,7 +935,7 @@ impl AudioPlaybackRuntime {
     }
 
     fn reset_queue(&mut self) {
-        if let Some(output) = self.output.as_ref() {
+        if let Some(output) = self.output.as_mut() {
             output.clear();
         }
         self.mixer = TimelineAudioMixer::default();
@@ -1066,6 +1068,38 @@ impl TimelineWaveformRuntime {
     }
 }
 
+fn scene_fps(document: &ProjectDocument, scene_id: i32) -> f64 {
+    document
+        .scenes
+        .iter()
+        .find(|scene| scene.id == scene_id)
+        .map_or(document.settings.fps, |scene| scene.fps)
+        .max(1.0)
+}
+
+fn audio_queue_lead_frames(
+    fps: f64,
+    timeline_rate: f64,
+    target_frames: usize,
+    sample_rate: u32,
+) -> i32 {
+    if !fps.is_finite()
+        || fps <= 0.0
+        || !timeline_rate.is_finite()
+        || timeline_rate <= 0.0
+        || sample_rate == 0
+    {
+        return 1;
+    }
+    let timeline_frames =
+        (target_frames as f64 * fps * timeline_rate / f64::from(sample_rate)).ceil();
+    if timeline_frames.is_finite() {
+        timeline_frames.clamp(1.0, f64::from(i32::MAX)) as i32
+    } else {
+        i32::MAX
+    }
+}
+
 fn samples_for_timeline_frame(
     frame: i32,
     fps: f64,
@@ -1138,7 +1172,7 @@ fn build_timeline_waveforms(
     project_path: Option<&Path>,
 ) -> HashMap<i32, Vec<f32>> {
     const POINTS: usize = 96;
-    let fps = document.settings.fps.max(1.0);
+    let fps = scene_fps(document, scene_id);
     let sample_rate = document.settings.sample_rate.max(1) as u32;
     let mut planner = PreviewPlanner::new(document, project_path);
     let mut mixer = TimelineAudioMixer::default();
@@ -8602,6 +8636,29 @@ mod tests {
         assert_eq!(samples_for_timeline_frame(0, 0.0, 48_000, 1.0), None);
         assert_eq!(samples_for_timeline_frame(0, 60.0, 0, 1.0), None);
         assert_eq!(samples_for_timeline_frame(0, 60.0, 48_000, 0.0), None);
+    }
+
+    #[test]
+    fn audio_queue_lead_matches_the_buffered_transport_duration() {
+        assert_eq!(audio_queue_lead_frames(60.0, 1.0, 6_000, 48_000), 8);
+        assert_eq!(audio_queue_lead_frames(60.0, 2.0, 6_000, 48_000), 15);
+        assert_eq!(audio_queue_lead_frames(240.0, 4.0, 6_000, 48_000), 120);
+        assert_eq!(audio_queue_lead_frames(60.0, 1.0, 6_000, 0), 1);
+    }
+
+    #[test]
+    fn audio_timing_uses_scene_fps_with_a_project_fallback() {
+        let mut project = ProjectSession::blank_with(ProjectDefaults {
+            fps: 24.0,
+            ..ProjectDefaults::default()
+        });
+        project.document.scenes[0].fps = 120.0;
+
+        assert_eq!(scene_fps(&project.document, 1), 120.0);
+        assert_eq!(scene_fps(&project.document, 999), 24.0);
+
+        project.document.scenes[0].fps = 0.0;
+        assert_eq!(scene_fps(&project.document, 1), 1.0);
     }
 
     #[test]
