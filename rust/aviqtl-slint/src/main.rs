@@ -363,6 +363,15 @@ struct ObjectSettingsSyncKey {
     effect_selection: Vec<bool>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct RecentProject {
+    name: String,
+    path: String,
+    width: i32,
+    height: i32,
+    fps: f64,
+}
+
 struct PreviewRuntime {
     surface: PreviewSurface,
     decoder: MediaPreview,
@@ -1111,7 +1120,8 @@ impl LifecycleUi {
                     let path = choose_project_save_path(&suggested_path);
                     step = self.model.borrow_mut().complete_save_path(path.as_deref());
                 }
-                LifecycleStep::ProjectSaved { .. } => {
+                LifecycleStep::ProjectSaved { project_index } => {
+                    self.record_recent_project(project_index);
                     self.sync();
                     return;
                 }
@@ -1122,7 +1132,7 @@ impl LifecycleUi {
                             let _ = main.hide();
                         }
                         if let Some(launcher) = self.launcher.upgrade() {
-                            sync_launcher_defaults(&launcher, &self.settings.borrow());
+                            sync_launcher(&launcher, &self.settings.borrow());
                             let _ = show_and_redraw(&launcher);
                         }
                         self.show_recoveries_if_available();
@@ -1150,9 +1160,14 @@ impl LifecycleUi {
         let Some(path) = choose_project_to_open() else {
             return;
         };
+        self.open_project_path(&path, from_launcher);
+    }
+
+    fn open_project_path(&self, path: &Path, from_launcher: bool) {
         let result = self.model.borrow_mut().open_project(&path);
         match result {
-            Ok(_) => {
+            Ok(project_index) => {
+                self.record_recent_project(project_index);
                 self.hydrate_audio_plugins();
                 self.sync();
                 if let Some(main) = self.main.upgrade() {
@@ -1169,6 +1184,20 @@ impl LifecycleUi {
                 }
             }
             Err(message) => show_error_dialog(&message),
+        }
+    }
+
+    fn record_recent_project(&self, project_index: usize) {
+        let result = self
+            .model
+            .borrow()
+            .workspace(project_index)
+            .map(|workspace| add_recent_project(&mut self.settings.borrow_mut(), workspace));
+        if let Some(Err(error)) = result {
+            eprintln!("Failed to update recent projects: {error}");
+        }
+        if let Some(launcher) = self.launcher.upgrade() {
+            sync_launcher(&launcher, &self.settings.borrow());
         }
     }
 
@@ -1551,7 +1580,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )));
     let export_codecs = Rc::new(RefCell::new(ExportCodecState::default()));
     let export_planner = Rc::new(RefCell::new(ExportPlannerRuntime::default()));
-    sync_launcher_defaults(&launcher, &settings.borrow());
+    launcher.set_recent_projects(ModelRc::new(VecModel::<RecentProjectData>::default()));
+    sync_launcher(&launcher, &settings.borrow());
     system_settings
         .set_plugin_settings(ModelRc::new(VecModel::<SystemPluginSettingData>::default()));
     system_settings.set_shortcut_settings(ModelRc::new(
@@ -2765,6 +2795,10 @@ fn install_callbacks(
 
     let launcher_open_ui = lifecycle_ui.clone();
     launcher.on_open_project(move || launcher_open_ui.open_project_dialog(true));
+    let launcher_recent_ui = lifecycle_ui.clone();
+    launcher.on_open_recent_project(move |path| {
+        launcher_recent_ui.open_project_path(Path::new(path.as_str()), true);
+    });
 
     let new_launcher = launcher.as_weak();
     let new_ui = lifecycle_ui.clone();
@@ -3679,7 +3713,7 @@ fn install_callbacks(
             Ok(()) => {
                 sync_system_settings(&window, &system_apply_store.borrow());
                 if let Some(launcher) = system_apply_launcher.upgrade() {
-                    sync_launcher_defaults(&launcher, &system_apply_store.borrow());
+                    sync_launcher(&launcher, &system_apply_store.borrow());
                 }
                 if let Some(timeline) = system_apply_timeline.upgrade() {
                     sync_timeline_zoom_settings(&timeline, &system_apply_store.borrow());
@@ -5694,12 +5728,128 @@ fn project_defaults(settings: &SettingsStore) -> ProjectDefaults {
     }
 }
 
-fn sync_launcher_defaults(window: &ProjectLauncherWindow, settings: &SettingsStore) {
+fn sync_launcher(window: &ProjectLauncherWindow, settings: &SettingsStore) {
     let defaults = project_defaults(settings);
     window.set_default_width(SharedString::from(defaults.width.to_string()));
     window.set_default_height(SharedString::from(defaults.height.to_string()));
     window.set_default_fps(SharedString::from(defaults.fps.to_string()));
     window.set_default_sample_rate(SharedString::from(defaults.sample_rate.to_string()));
+    let rows = recent_projects(settings)
+        .into_iter()
+        .map(|project| RecentProjectData {
+            name: SharedString::from(project.name),
+            path: SharedString::from(project.path),
+            details: SharedString::from(format!(
+                "{} × {} @ {} fps",
+                project.width, project.height, project.fps
+            )),
+        })
+        .collect();
+    update_vec_model(&window.get_recent_projects(), rows);
+}
+
+fn recent_projects(settings: &SettingsStore) -> Vec<RecentProject> {
+    let maximum = settings.i32_value("recentProjectMaxCount", 10).clamp(1, 50) as usize;
+    recent_projects_from_value(settings.value("recentProjects"), maximum)
+}
+
+fn recent_projects_from_value(
+    value: Option<&serde_json::Value>,
+    maximum: usize,
+) -> Vec<RecentProject> {
+    value
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|value| {
+            let object = value.as_object()?;
+            let path = object.get("path")?.as_str()?.trim();
+            if path.is_empty() {
+                return None;
+            }
+            let name = object
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .filter(|name| !name.trim().is_empty())
+                .map(str::to_owned)
+                .or_else(|| {
+                    Path::new(path)
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                })
+                .unwrap_or_else(|| {
+                    localized("Untitled Project", "未命名项目", "無題のプロジェクト").to_owned()
+                });
+            let fps = object
+                .get("fps")
+                .and_then(serde_json::Value::as_f64)
+                .filter(|fps| fps.is_finite() && *fps > 0.0)
+                .unwrap_or(60.0);
+            Some(RecentProject {
+                name,
+                path: path.to_owned(),
+                width: json_i32(object.get("width"), 1_920).max(1),
+                height: json_i32(object.get("height"), 1_080).max(1),
+                fps,
+            })
+        })
+        .take(maximum)
+        .collect()
+}
+
+fn add_recent_project(
+    settings: &mut SettingsStore,
+    workspace: &WorkspaceModel,
+) -> Result<(), String> {
+    let Some(path) = workspace.project().path.as_ref() else {
+        return Ok(());
+    };
+    let path = path.display().to_string();
+    if path.is_empty() {
+        return Ok(());
+    }
+    let project_settings = workspace.project_settings();
+    let name = Path::new(&path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.clone());
+    let recent = merge_recent_project(
+        recent_projects(settings),
+        RecentProject {
+            name,
+            path,
+            width: project_settings.width,
+            height: project_settings.height,
+            fps: project_settings.fps,
+        },
+        settings.i32_value("recentProjectMaxCount", 10).clamp(1, 50) as usize,
+    );
+    let value = recent
+        .into_iter()
+        .map(|entry| {
+            serde_json::json!({
+                "name": entry.name,
+                "path": entry.path,
+                "width": entry.width,
+                "height": entry.height,
+                "fps": entry.fps,
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut replacement = settings.snapshot();
+    replacement.insert("recentProjects".to_owned(), serde_json::Value::Array(value));
+    settings.apply(replacement)
+}
+
+fn merge_recent_project(
+    mut recent: Vec<RecentProject>,
+    project: RecentProject,
+    maximum: usize,
+) -> Vec<RecentProject> {
+    recent.retain(|entry| entry.path != project.path);
+    recent.insert(0, project);
+    recent.truncate(maximum);
+    recent
 }
 
 fn sync_project_settings(window: &ProjectSettingsWindow, input: &ProjectSettingsInput) {
@@ -7842,6 +7992,42 @@ mod tests {
         AudioPluginSettings, KeyframePoint, ObjectControlKind, ObjectControlOption, ObjectEffect,
     };
     use serde_json::json;
+
+    #[test]
+    fn recent_projects_parse_qt_entries_and_respect_the_configured_limit() {
+        let value = json!([
+            {"name":"One","path":"C:/projects/one.aviqtl","width":1920,"height":1080,"fps":60.0},
+            {"name":"","path":"C:/projects/two.aviqtl","width":1280,"height":720,"fps":30.0},
+            {"name":"Invalid","path":""}
+        ]);
+
+        let recent = recent_projects_from_value(Some(&value), 2);
+        assert_eq!(recent.len(), 2);
+        assert_eq!(recent[0].name, "One");
+        assert_eq!(recent[1].name, "two.aviqtl");
+        assert_eq!(recent[1].fps, 30.0);
+    }
+
+    #[test]
+    fn recent_project_updates_move_duplicates_to_the_front_atomically() {
+        let one = RecentProject {
+            name: "One".to_owned(),
+            path: "one.aviqtl".to_owned(),
+            width: 1920,
+            height: 1080,
+            fps: 60.0,
+        };
+        let two = RecentProject {
+            name: "Two".to_owned(),
+            path: "two.aviqtl".to_owned(),
+            width: 1280,
+            height: 720,
+            fps: 30.0,
+        };
+        let updated = merge_recent_project(vec![one.clone(), two.clone()], two.clone(), 2);
+
+        assert_eq!(updated, [two, one]);
+    }
 
     #[test]
     fn window_geometry_uses_qt_keys_and_clamps_invalid_sizes() {

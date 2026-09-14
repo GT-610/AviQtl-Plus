@@ -89,6 +89,12 @@ export struct RecoveryEntryData {
     error: string,
 }
 
+export struct RecentProjectData {
+    name: string,
+    path: string,
+    details: string,
+}
+
 export struct SceneTabData {
     id: int,
     name: string,
@@ -1782,8 +1788,23 @@ export component ProjectLauncherWindow inherits Window {
     in-out property <string> default-height: "1080";
     in-out property <string> default-fps: "60";
     in-out property <string> default-sample-rate: "48000";
+    in property <[RecentProjectData]> recent-projects;
     callback create-project(string, string, string, string);
     callback open-project();
+    callback open-recent-project(string);
+
+    function valid-integer(value: string, minimum: float, maximum: float) -> bool {
+        return value.is-float()
+            && value.to-float() == round(value.to-float())
+            && value.to-float() >= minimum
+            && value.to-float() <= maximum;
+    }
+
+    function valid-number(value: string, minimum: float, maximum: float) -> bool {
+        return value.is-float()
+            && value.to-float() >= minimum
+            && value.to-float() <= maximum;
+    }
 
     HorizontalLayout {
         padding: AppTheme.spacing-xl;
@@ -1816,6 +1837,10 @@ export component ProjectLauncherWindow inherits Window {
                 text: @tr("Create New Project");
                 primary: true;
                 accessible-label: @tr("Create New Project");
+                enabled: root.valid-integer(width-field.text, 1, 8000)
+                    && root.valid-integer(height-field.text, 1, 8000)
+                    && root.valid-number(fps-field.text, 1, 240)
+                    && root.valid-integer(sample-rate-field.text, 8000, 192000);
                 clicked => {
                     root.create-project(width-field.text, height-field.text, fps-field.text, sample-rate-field.text);
                 }
@@ -1839,11 +1864,57 @@ export component ProjectLauncherWindow inherits Window {
                 border-width: 1px;
                 border-color: AppTheme.subtle-border;
                 border-radius: AppTheme.surface-radius;
-                Text {
+                if root.recent-projects.length == 0 : Text {
                     text: @tr("No recent projects");
                     color: AppTheme.muted-foreground;
                     horizontal-alignment: center;
                     vertical-alignment: center;
+                }
+                if root.recent-projects.length > 0 : ScrollView {
+                    VerticalLayout {
+                        padding: AppTheme.spacing-sm;
+                        spacing: AppTheme.spacing-xs;
+                        for project in root.recent-projects : Rectangle {
+                            height: 62px;
+                            background: recent-touch.has-hover
+                                ? AppTheme.hover-background
+                                : transparent;
+                            border-radius: AppTheme.control-radius;
+                            VerticalLayout {
+                                padding-left: AppTheme.spacing-sm;
+                                padding-right: AppTheme.spacing-sm;
+                                padding-top: 6px;
+                                padding-bottom: 6px;
+                                spacing: 2px;
+                                Text {
+                                    text: project.name;
+                                    color: AppTheme.foreground;
+                                    font-weight: 600;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: project.path;
+                                    color: AppTheme.muted-foreground;
+                                    font-size: 0.72rem;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: project.details;
+                                    color: AppTheme.muted-foreground;
+                                    font-size: 0.72rem;
+                                    overflow: elide;
+                                }
+                            }
+                            recent-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                accessible-role: list-item;
+                                accessible-label: project.name;
+                                accessible-description: project.path + ", " + project.details;
+                                accessible-action-default => { root.open-recent-project(project.path); }
+                                clicked => { root.open-recent-project(project.path); }
+                            }
+                        }
+                    }
                 }
             }
             Button {
