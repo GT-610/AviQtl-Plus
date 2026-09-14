@@ -26,6 +26,7 @@ use aviqtl_export::{
     nearest_audio_bitrate, valid_export_path,
 };
 use aviqtl_preview::{MediaPreview, PlannedPreview, PreviewPlanner, PreviewSurface};
+use aviqtl_rust_core::api::{MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS};
 use slint::platform::Key;
 use slint::wgpu_29::wgpu;
 use slint::winit_030::{EventResult, WinitWindowAccessor, winit};
@@ -3356,7 +3357,7 @@ fn install_callbacks(
             "undo" | "redo" | "paste" => {
                 let (pixels_per_frame, last_layer) = timeline_action_window
                     .upgrade()
-                    .map_or((1.0, 127), |window| {
+                    .map_or((1.0, MAX_TIMELINE_LAYER), |window| {
                         (window.get_pixels_per_frame(), timeline_last_layer(&window))
                     });
                 if let Some(workspace) = timeline_action_model.borrow_mut().current_workspace_mut()
@@ -3484,8 +3485,9 @@ fn install_callbacks(
     let object_add_main = main.as_weak();
     let object_add_timeline = timeline.as_weak();
     timeline.on_add_catalog_object(move |object_id, frame, layer| {
-        let (pixels_per_frame, last_layer) =
-            object_add_timeline.upgrade().map_or((1.0, 127), |window| {
+        let (pixels_per_frame, last_layer) = object_add_timeline
+            .upgrade()
+            .map_or((1.0, MAX_TIMELINE_LAYER), |window| {
                 (window.get_pixels_per_frame(), timeline_last_layer(&window))
             });
         let default_duration = object_add_settings
@@ -3748,7 +3750,7 @@ fn install_callbacks(
     timeline.on_clip_command(move |action, clip_id, frame, layer| {
         let maximum_layers = clip_command_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         let open_effect_picker = action.as_str() == "browse-effect";
         let extension_id = action
             .as_str()
@@ -3807,7 +3809,7 @@ fn install_callbacks(
         let (pixels_per_frame, layer_height, minimum_duration_frames, maximum_layers) =
             clip_drag_timeline
                 .upgrade()
-                .map_or((1.0, 30.0, 5, 128), |window| {
+                .map_or((1.0, 30.0, 5, MAX_TIMELINE_LAYERS), |window| {
                     (
                         window.get_pixels_per_frame(),
                         window.get_timeline_track_height() as f32,
@@ -3847,7 +3849,7 @@ fn install_callbacks(
     timeline.on_layer_command(move |action, layer| {
         let maximum_layers = layer_command_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         if let Some(workspace) = layer_command_model.borrow_mut().current_workspace_mut() {
             match action.as_str() {
                 "insert-above" => {
@@ -3890,7 +3892,7 @@ fn install_callbacks(
     timeline.on_insert_layers(move |layer, count, above| {
         let maximum_layers = insert_layers_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         let _ = insert_layers_model
             .borrow_mut()
             .current_workspace_mut()
@@ -3908,7 +3910,7 @@ fn install_callbacks(
     timeline.on_shift_layers(move |start, end, delta| {
         let maximum_layers = shift_layers_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         let _ = shift_layers_model
             .borrow_mut()
             .current_workspace_mut()
@@ -4739,11 +4741,13 @@ fn system_theme_index(settings: &SettingsStore) -> i32 {
 }
 
 fn timeline_maximum_layers(settings: &SettingsStore) -> i32 {
-    settings.i32_value("timelineMaxLayers", 128).clamp(1, 128)
+    settings
+        .i32_value("timelineMaxLayers", 128)
+        .clamp(1, MAX_TIMELINE_LAYERS)
 }
 
 fn timeline_last_layer(window: &TimelineWindow) -> i32 {
-    window.get_maximum_layers().clamp(1, 128) - 1
+    window.get_maximum_layers().clamp(1, MAX_TIMELINE_LAYERS) - 1
 }
 
 fn sync_timeline_runtime_settings(
@@ -5777,7 +5781,11 @@ fn sync_system_settings(window: &SystemSettingsWindow, settings: &SettingsStore)
     window
         .set_setting_dialog_sidebar_right(settings.bool_value("settingDialogSidebarRight", false));
     window.set_timeline_ruler_height(settings.i32_value("timelineRulerHeight", 32).clamp(16, 100));
-    window.set_timeline_max_layers(settings.i32_value("timelineMaxLayers", 128).clamp(1, 128));
+    window.set_timeline_max_layers(
+        settings
+            .i32_value("timelineMaxLayers", 128)
+            .clamp(1, MAX_TIMELINE_LAYERS),
+    );
     window.set_timeline_layer_header_width(
         settings
             .i32_value("timelineLayerHeaderWidth", 60)
@@ -6210,7 +6218,11 @@ fn system_settings_replacement(
         ),
         (
             "timelineMaxLayers",
-            serde_json::json!(window.get_timeline_max_layers().clamp(1, 128)),
+            serde_json::json!(
+                window
+                    .get_timeline_max_layers()
+                    .clamp(1, MAX_TIMELINE_LAYERS)
+            ),
         ),
         (
             "timelineLayerHeaderWidth",
@@ -6501,7 +6513,7 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
     update_vec_model(&timeline.get_clips(), clips);
     let selected_layer = workspace.selected_layer();
     let scene = workspace.selected_scene_document();
-    let layers = (0..timeline.get_maximum_layers().clamp(1, 128))
+    let layers = (0..timeline.get_maximum_layers().clamp(1, MAX_TIMELINE_LAYERS))
         .map(|index| LayerData {
             index,
             visible: scene.is_none_or(|scene| !scene.hidden_layers.contains(&index)),
