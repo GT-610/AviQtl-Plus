@@ -109,6 +109,7 @@ export struct TimelineClipData {
     clip-color: color,
     has-clip-color: bool,
     dark-text: bool,
+    waveform: [float],
     start: int,
     duration: int,
     layer: int,
@@ -1181,6 +1182,54 @@ component TransportButton inherits Rectangle {
     }
 }
 
+component StereoAudioMeter inherits Rectangle {
+    in property <float> peak-left;
+    in property <float> peak-right;
+    in property <float> rms-left;
+    in property <float> rms-right;
+    border-width: 1px;
+    border-color: AppTheme.subtle-border;
+    border-radius: 3px;
+    background: AppTheme.control-background;
+
+    VerticalLayout {
+        padding: 3px;
+        spacing: 2px;
+        for channel[index] in [0, 1] : HorizontalLayout {
+            spacing: 3px;
+            Text {
+                text: index == 0 ? "L" : "R";
+                width: 9px;
+                color: AppTheme.muted-foreground;
+                font-size: 9px;
+                vertical-alignment: center;
+            }
+            meter-track := Rectangle {
+                height: 7px;
+                horizontal-stretch: 1;
+                background: AppTheme.window-background;
+                border-radius: 2px;
+                private property <float> peak: clamp(index == 0 ? root.peak-left : root.peak-right, 0, 1);
+                private property <float> rms: clamp(index == 0 ? root.rms-left : root.rms-right, 0, 1);
+                Rectangle {
+                    width: parent.width * meter-track.rms;
+                    height: 100%;
+                    border-radius: parent.border-radius;
+                    background: meter-track.rms > 0.9
+                        ? AppTheme.danger
+                        : meter-track.rms > 0.7 ? #eab308 : #22c55e;
+                }
+                Rectangle {
+                    x: min(parent.width - 1px, parent.width * meter-track.peak);
+                    width: 1px;
+                    height: 100%;
+                    background: meter-track.peak > 0.9 ? AppTheme.danger : white;
+                }
+            }
+        }
+    }
+}
+
 component SceneTab inherits Rectangle {
     in property <SceneTabData> scene;
     callback activate(int);
@@ -1313,6 +1362,7 @@ component LayerHeaderItem inherits Rectangle {
 
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
+    in property <int> playhead;
     in property <float> pixels-per-frame: 1;
     in property <length> track-height: 30px;
     in property <length> resize-handle-width: 10px;
@@ -1374,6 +1424,31 @@ component TimelineClipItem inherits Rectangle {
             background: root.clip-data.selected
                 ? AppTheme.accent.transparentize(0.72)
                 : AppTheme.hover-background;
+        }
+        if root.clip-data.audio : Rectangle {
+            x: root.resize-handle-width;
+            width: max(parent.width - 2 * root.resize-handle-width, 1px);
+            height: 100%;
+            background: transparent;
+            for peak[index] in root.clip-data.waveform : Rectangle {
+                private property <float> magnitude: clamp(peak, 0, 1);
+                x: index * parent.width / max(root.clip-data.waveform.length, 1);
+                y: parent.height * (1 - self.magnitude) / 2;
+                width: max(parent.width / max(root.clip-data.waveform.length, 1), 1px);
+                height: max(parent.height * self.magnitude, 1px);
+                background: white.transparentize(0.28);
+            }
+        }
+        if root.clip-data.audio
+            && root.playhead >= root.clip-data.start
+            && root.playhead <= root.clip-data.start + root.clip-data.duration : Rectangle {
+            x: min(
+                parent.width - 1px,
+                (root.playhead - root.clip-data.start) * root.pixels-per-frame * 1px
+            );
+            width: 1px;
+            height: 100%;
+            background: AppTheme.accent;
         }
         HorizontalLayout {
             padding-left: 7px;
@@ -1943,6 +2018,11 @@ export component MainWindow inherits Window {
     in property <bool> playing: false;
     in-out property <int> playback-speed-percent: 100;
     in property <string> status-text: "Ready";
+    in property <float> audio-peak-left: 0;
+    in property <float> audio-peak-right: 0;
+    in property <float> audio-rms-left: 0;
+    in property <float> audio-rms-right: 0;
+    in property <string> audio-output-status: "";
     in property <bool> save-confirmation-visible: false;
     in property <string> save-confirmation-project: "";
     in-out property <bool> missing-media-dialog-visible: false;
@@ -2097,6 +2177,22 @@ export component MainWindow inherits Window {
                     TransportButton { icon: "previous"; accessible-name: @tr("Back 1 Frame"); help-text: @tr("Move playback position 1 frame back"); clicked => { root.previous-frame(); } }
                     TransportButton { icon: root.playing ? "pause" : "play"; active: root.playing; accessible-name: root.playing ? @tr("Pause") : @tr("Play"); help-text: @tr("Start or pause playback"); clicked => { root.toggle-playback(); } }
                     TransportButton { icon: "next"; accessible-name: @tr("Forward 1 Frame"); help-text: @tr("Move playback position 1 frame forward"); clicked => { root.next-frame(); } }
+                }
+                StereoAudioMeter {
+                    width: 74px;
+                    height: 28px;
+                    peak-left: root.audio-peak-left;
+                    peak-right: root.audio-peak-right;
+                    rms-left: root.audio-rms-left;
+                    rms-right: root.audio-rms-right;
+                }
+                Text {
+                    text: @tr("Audio unavailable");
+                    visible: root.audio-output-status != "";
+                    color: AppTheme.danger;
+                    font-size: 0.72rem;
+                    vertical-alignment: center;
+                    accessible-description: root.audio-output-status;
                 }
                 HorizontalLayout {
                     min-width: 130px;
@@ -2998,6 +3094,7 @@ export component TimelineWindow inherits Window {
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
                     height: max(root.timeline-track-height * 1px - 6px, 1px);
                     clip-data: clip;
+                    playhead: root.playhead;
                     pixels-per-frame: root.timeline-scale;
                     track-height: root.timeline-track-height * 1px;
                     resize-handle-width: root.clip-resize-handle-width * 1px;
@@ -4549,6 +4646,10 @@ export component ObjectSettingsWindow inherits Window {
     in property <bool> audio-plugin-mode: false;
     in property <bool> sidebar-on-right: false;
     in property <string> plugin-scan-status: "Audio plugins · scanning…";
+    in property <float> audio-peak-left: 0;
+    in property <float> audio-peak-right: 0;
+    in property <float> audio-rms-left: 0;
+    in property <float> audio-rms-right: 0;
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
     in property <[EffectCatalogItemData]> effect-catalog-items;
@@ -4707,6 +4808,21 @@ export component ObjectSettingsWindow inherits Window {
                         : @tr("Selected Object Settings");
                     font-size: 1.15rem;
                     font-weight: 700;
+                }
+                if root.audio-plugin-mode : GroupBox {
+                    title: @tr("Audio Level");
+                    height: 64px;
+                    HorizontalLayout {
+                        padding: 8px;
+                        StereoAudioMeter {
+                            height: 36px;
+                            horizontal-stretch: 1;
+                            peak-left: root.audio-peak-left;
+                            peak-right: root.audio-peak-right;
+                            rms-left: root.audio-rms-left;
+                            rms-right: root.audio-rms-right;
+                        }
+                    }
                 }
                 for row in root.setting-rows : ObjectSettingRow {
                     row-data: row;

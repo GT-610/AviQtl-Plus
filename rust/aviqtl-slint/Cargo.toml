@@ -8,6 +8,7 @@ build = "build.rs"
 
 [dependencies]
 aviqtl-app = { path = "../aviqtl-app" }
+aviqtl-audio = { path = "../aviqtl-audio" }
 aviqtl-export = { path = "../aviqtl-export" }
 aviqtl-preview = { path = "../aviqtl-preview" }
 fontdb = "0.23.0"

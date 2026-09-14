@@ -25,7 +25,7 @@ jobs:
           pacman-key --populate archlinux
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
-            base-devel clang python pkgconf ffmpeg mesa vulkan-devel \
+            alsa-lib base-devel clang python pkgconf ffmpeg mesa vulkan-devel \
             libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
       - name: Validate
         run: |
@@ -67,7 +67,7 @@ jobs:
           pacman-key --populate archlinux
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
-            base-devel clang python pkgconf zip ffmpeg mesa vulkan-devel \
+            alsa-lib base-devel clang python pkgconf zip ffmpeg mesa vulkan-devel \
             libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
 
       - name: Install macOS dependencies
