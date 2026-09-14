@@ -41,7 +41,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -1048,29 +1048,23 @@ impl TimelineWaveformRuntime {
     }
 
     fn poll(&mut self) {
-        let result = match self.receiver.as_ref().map(Receiver::try_recv) {
-            Some(Ok(result)) => result,
-            Some(Err(TryRecvError::Empty)) | None => return,
-            Some(Err(TryRecvError::Disconnected)) => {
-                if let Some(worker) = self.worker.take() {
-                    let _ = worker.join();
-                }
-                self.worker_stop = None;
-                self.receiver = None;
-                if let Some(failed_key) = self.pending_key.take()
-                    && self.source_key.as_ref() == Some(&failed_key)
-                {
-                    self.completed_key = Some(failed_key);
-                }
-                return;
-            }
+        let Some(worker) = self.worker.as_ref() else {
+            return;
         };
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
+        if !worker.is_finished() {
+            return;
         }
+        let worker = self.worker.take().expect("waveform worker remains present");
+        let _ = worker.join();
         self.worker_stop = None;
-        self.receiver = None;
+        let result = self
+            .receiver
+            .take()
+            .and_then(|receiver| receiver.try_recv().ok());
         self.pending_key = None;
+        let Some(result) = result else {
+            return;
+        };
         if self.source_key.as_ref() == Some(&result.source_key) {
             self.completed_key = Some(result.source_key);
             self.peaks = result.peaks;
@@ -1078,12 +1072,9 @@ impl TimelineWaveformRuntime {
     }
 
     fn cancel_pending(&mut self) {
-        if let Some(stop) = self.worker_stop.take() {
+        if let Some(stop) = self.worker_stop.as_ref() {
             stop.store(true, Ordering::Release);
         }
-        self.pending_key = None;
-        self.receiver = None;
-        self.worker = None;
     }
 
     fn clear(&mut self, timeline: &TimelineWindow) {
