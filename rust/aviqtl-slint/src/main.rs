@@ -408,6 +408,7 @@ struct AudioPlaybackRuntime {
     planner: Option<PreviewPlanner>,
     mixer: TimelineAudioMixer,
     source_key: Option<PreviewSceneKey>,
+    timeline_rate: Option<f64>,
     next_frame: Option<i32>,
     was_playing: bool,
     master_levels: [f32; 4],
@@ -757,6 +758,7 @@ impl AudioPlaybackRuntime {
             planner: None,
             mixer: TimelineAudioMixer::default(),
             source_key: None,
+            timeline_rate: None,
             next_frame: None,
             was_playing: false,
             master_levels: [0.0; 4],
@@ -816,6 +818,11 @@ impl AudioPlaybackRuntime {
         let permitted_lead =
             audio_queue_lead_frames(fps, timeline_rate, target_frames, sample_rate);
         let current_frame = workspace.playhead();
+        if self.timeline_rate != Some(timeline_rate) {
+            self.reset_queue();
+            self.next_frame = Some(current_frame);
+            self.timeline_rate = Some(timeline_rate);
+        }
         if self.next_frame.is_none_or(|next_frame| {
             next_frame < current_frame || next_frame > current_frame.saturating_add(permitted_lead)
         }) {
