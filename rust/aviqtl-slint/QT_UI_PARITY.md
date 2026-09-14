@@ -79,9 +79,11 @@ still require the separately scheduled Computer Use suite.
   symbolic-link archive entries, caps extraction at 10,000 entries and 1 GiB, and uses same-volume
   staging, backup, atomic `installed.json` replacement, and rollback. Removal uses the inverse
   transaction, Upgrade All continues after individual failures, and application updates retain Qt's
-  restart notification. Effect and Object QML package installation is explicitly marked Coming Soon,
-  and installed user QML packages are excluded from Slint catalogs so they cannot appear usable before
-  a renderer exists. MOD package lifecycle remains active. The MOD permission window preserves Qt's
+  restart notification. Effect and Object packages are validated against the native
+  `aviqtl-wgsl-v1` contract before deployment, loaded into the Slint catalog, rendered through the
+  same wgpu path in preview and export, and removed through the existing inverse transaction. Legacy
+  QML packages are rejected rather than presented as usable. MOD package lifecycle remains active.
+  The MOD permission window preserves Qt's
   13 permission rows, All Allow/All Deny,
   Cancel/OK behavior, and shared-settings persistence. Automated tests cover partial repository
   synchronization, install/remove, unsafe archives, rollback, and preservation of other plugins'
