@@ -605,6 +605,7 @@ dependencies = [
  "aviqtl-audio",
  "aviqtl-carla",
  "aviqtl-media",
+ "aviqtl-render",
  "aviqtl-rust-core",
  "crc32fast",
  "flate2",

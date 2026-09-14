@@ -9,6 +9,7 @@ publish.workspace = true
 aviqtl-audio = { path = "../aviqtl-audio" }
 aviqtl-carla = { path = "../aviqtl-carla" }
 aviqtl-media = { path = "../aviqtl-media" }
+aviqtl-render = { path = "../aviqtl-render" }
 aviqtl-rust-core = { path = "../aviqtl-core" }
 crc32fast = "1.5"
 flate2 = "1.1"

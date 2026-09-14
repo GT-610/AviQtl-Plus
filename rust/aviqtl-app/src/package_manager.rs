@@ -1,3 +1,4 @@
+use crate::effect_catalog::validate_native_package_directory;
 use crate::project_io::write_atomic;
 use crate::settings::{SettingsStore, package_paths};
 use aviqtl_rust_core::api::{
@@ -874,6 +875,13 @@ where
         return Err(error);
     }
     let source = deployment_source(&extraction_root)?;
+    if matches!(package_type, "effect" | "object")
+        && let Err(error) = validate_native_package_directory(&source, package_id, package_type)
+    {
+        let _ = fs::remove_dir_all(&extraction_root);
+        let _ = fs::remove_dir(&workspace);
+        return Err(error);
+    }
     let target = deploy_base.join(package_id);
     let backup = workspace.join(format!(".backup_{package_id}"));
     if path_exists(&backup) {
@@ -1567,6 +1575,29 @@ mod tests {
 
     static PATH_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
+    const NATIVE_SHADER: &[u8] = br#"
+fn aviqtl_effect(
+    input_color: vec4<f32>,
+    uv: vec2<f32>,
+    canvas_size: vec2<f32>,
+    time_seconds: f32,
+) -> vec4<f32> {
+    let amount = aviqtl_parameter(0u).x;
+    return input_color + vec4<f32>(uv / max(canvas_size, vec2<f32>(1.0)), time_seconds, amount) * 0.0;
+}
+"#;
+
+    const NATIVE_EFFECT_METADATA: &[u8] = br#"{
+        "id":"effect.demo",
+        "name":"Demo",
+        "version":"2.0.0",
+        "kind":"effect",
+        "categories":["Native"],
+        "params":{"amount":0.5},
+        "ui":{"controls":[]},
+        "runtime":{"engine":"aviqtl-wgsl-v1","shader":"main.wgsl","uniforms":["amount"]}
+    }"#;
+
     fn temporary_root() -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1704,68 +1735,6 @@ mod tests {
             &mut bytes,
             u16::try_from(central.len()).expect("fixture entry count fits u16"),
         );
-        push_u32(&mut bytes, central_size);
-        push_u32(&mut bytes, central_offset);
-        push_u16(&mut bytes, 0);
-        bytes
-    }
-
-    fn deflated_zip(name: &str, data: &[u8], external_attributes: u32) -> Vec<u8> {
-        let mut encoder =
-            flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::default());
-        encoder.write_all(data).expect("fixture deflates");
-        let compressed = encoder.finish().expect("fixture deflate finishes");
-        let name = name.as_bytes();
-        let crc32 = crc32fast::hash(data);
-        let compressed_size = u32::try_from(compressed.len()).expect("fixture data fits u32");
-        let uncompressed_size = u32::try_from(data.len()).expect("fixture data fits u32");
-        let mut bytes = Vec::new();
-        push_u32(&mut bytes, 0x0403_4b50);
-        push_u16(&mut bytes, 20);
-        push_u16(&mut bytes, 0x0800);
-        push_u16(&mut bytes, 8);
-        push_u16(&mut bytes, 0);
-        push_u16(&mut bytes, 0);
-        push_u32(&mut bytes, crc32);
-        push_u32(&mut bytes, compressed_size);
-        push_u32(&mut bytes, uncompressed_size);
-        push_u16(
-            &mut bytes,
-            u16::try_from(name.len()).expect("fixture name fits u16"),
-        );
-        push_u16(&mut bytes, 0);
-        bytes.extend_from_slice(name);
-        bytes.extend_from_slice(&compressed);
-        let central_offset = u32::try_from(bytes.len()).expect("fixture offset fits u32");
-        push_u32(&mut bytes, 0x0201_4b50);
-        push_u16(&mut bytes, 0x0314);
-        push_u16(&mut bytes, 20);
-        push_u16(&mut bytes, 0x0800);
-        push_u16(&mut bytes, 8);
-        push_u16(&mut bytes, 0);
-        push_u16(&mut bytes, 0);
-        push_u32(&mut bytes, crc32);
-        push_u32(&mut bytes, compressed_size);
-        push_u32(&mut bytes, uncompressed_size);
-        push_u16(
-            &mut bytes,
-            u16::try_from(name.len()).expect("fixture name fits u16"),
-        );
-        push_u16(&mut bytes, 0);
-        push_u16(&mut bytes, 0);
-        push_u16(&mut bytes, 0);
-        push_u16(&mut bytes, 0);
-        push_u32(&mut bytes, external_attributes);
-        push_u32(&mut bytes, 0);
-        bytes.extend_from_slice(name);
-        let central_size = u32::try_from(bytes.len())
-            .expect("fixture size fits u32")
-            .saturating_sub(central_offset);
-        push_u32(&mut bytes, 0x0605_4b50);
-        push_u16(&mut bytes, 0);
-        push_u16(&mut bytes, 0);
-        push_u16(&mut bytes, 1);
-        push_u16(&mut bytes, 1);
         push_u32(&mut bytes, central_size);
         push_u32(&mut bytes, central_offset);
         push_u16(&mut bytes, 0);
@@ -1958,11 +1927,14 @@ mod tests {
     fn package_install_and_remove_use_verified_atomic_deployment() {
         let root = temporary_root();
         fs::create_dir_all(&root).expect("package root creates");
-        let archive = deflated_zip(
-            "wrapper/main.json",
-            br#"{"id":"effect.demo"}"#,
-            0o100644_u32 << 16,
-        );
+        let archive = stored_zip(&[
+            (
+                "wrapper/main.json",
+                NATIVE_EFFECT_METADATA,
+                0o100644_u32 << 16,
+            ),
+            ("wrapper/main.wgsl", NATIVE_SHADER, 0o100644_u32 << 16),
+        ]);
         let metadata = serde_json::to_vec(&json!({
             "type":"effect",
             "version":"2.0.0",
@@ -2023,7 +1995,7 @@ mod tests {
             .join("effects/effect.demo/main.json");
         assert_eq!(
             fs::read_to_string(&deployed).expect("deployed file reads"),
-            r#"{"id":"effect.demo"}"#
+            std::str::from_utf8(NATIVE_EFFECT_METADATA).expect("fixture is UTF-8")
         );
         let installed = read_json_object(&root.join("installed.json"), MAX_INSTALLED_STATE_BYTES)
             .expect("installed state reads");
@@ -2068,7 +2040,20 @@ mod tests {
         let package_dir = base.join("effects/effect.rollback");
         fs::create_dir_all(&package_dir).expect("existing package creates");
         fs::write(package_dir.join("old.txt"), "old").expect("existing package writes");
-        let replacement = stored_zip(&[("new.txt", b"new", 0o100644_u32 << 16)]);
+        let rollback_metadata = br#"{
+            "id":"effect.rollback",
+            "name":"Rollback",
+            "version":"1.0.0",
+            "kind":"effect",
+            "categories":["Native"],
+            "params":{"amount":0.5},
+            "ui":{"controls":[]},
+            "runtime":{"engine":"aviqtl-wgsl-v1","shader":"new.wgsl","uniforms":["amount"]}
+        }"#;
+        let replacement = stored_zip(&[
+            ("new.json", rollback_metadata, 0o100644_u32 << 16),
+            ("new.wgsl", NATIVE_SHADER, 0o100644_u32 << 16),
+        ]);
         let error =
             deploy_package_archive(&root, "effect.rollback", "effect", &replacement, || {
                 Err("simulated state failure".to_owned())
@@ -2079,7 +2064,7 @@ mod tests {
             fs::read_to_string(package_dir.join("old.txt")).expect("backup restores"),
             "old"
         );
-        assert!(!package_dir.join("new.txt").exists());
+        assert!(!package_dir.join("new.wgsl").exists());
 
         fs::remove_dir_all(base).expect("temporary package root removes");
     }
