@@ -99,6 +99,7 @@ fn public_api_owns_effect_metadata_and_preset_documents() {
         .expect("built-in effect metadata parses");
     assert_eq!(metadata.id, "blur");
     assert_eq!(metadata.kind, "effect");
+    assert!(metadata.runtime.is_none());
     assert_eq!(metadata.params["size"], 5);
 
     let bytes = build_effect_preset(

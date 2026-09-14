@@ -215,6 +215,7 @@ mod tests {
             source: "built-in".to_owned(),
             package_id: String::new(),
             source_path: String::new(),
+            runtime: None,
         }
     }
 
