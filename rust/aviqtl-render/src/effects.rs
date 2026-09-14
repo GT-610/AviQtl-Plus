@@ -259,18 +259,11 @@ impl Hash for VisualEffect {
         if let Self::Native {
             package_id,
             shader_source,
-            parameters,
-            time_seconds,
+            ..
         } = self
         {
             package_id.hash(state);
             shader_source.hash(state);
-            time_seconds.to_bits().hash(state);
-            for parameter in parameters.iter() {
-                for value in parameter {
-                    value.to_bits().hash(state);
-                }
-            }
             return;
         }
         for value in self.encoded()[1..].iter().copied() {
@@ -868,6 +861,36 @@ mod tests {
         assert_eq!(&values[4..8], &[0.25, 0.5, 0.75, 1.0]);
         assert_eq!(&values[64..68], &[16.0, 0.0, 0.0, 0.0]);
         assert!(effect.requires_sequential_passes());
+    }
+
+    #[test]
+    fn native_effect_hash_keeps_pipeline_identity_stable_across_frames() {
+        let effect = |amount: f32, time_seconds: f32| {
+            let mut parameters = [[0.0; 4]; 16];
+            parameters[0][0] = amount;
+            VisualEffect::Native {
+                package_id: "effect.native".to_owned(),
+                shader_source: Arc::from("fn aviqtl_effect() {}"),
+                parameters: Box::new(parameters),
+                time_seconds,
+            }
+        };
+        let hash = |effect: &VisualEffect| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            effect.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        assert_eq!(hash(&effect(0.25, 0.0)), hash(&effect(0.75, 2.0)));
+        assert_ne!(
+            hash(&effect(0.25, 0.0)),
+            hash(&VisualEffect::Native {
+                package_id: "effect.native".to_owned(),
+                shader_source: Arc::from("fn aviqtl_effect() { let changed = 1; }"),
+                parameters: Box::new([[0.0; 4]; 16]),
+                time_seconds: 0.0,
+            })
+        );
     }
 
     #[test]
