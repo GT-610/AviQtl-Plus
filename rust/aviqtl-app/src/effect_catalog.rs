@@ -284,7 +284,10 @@ pub(crate) fn validate_native_package_directory(
         let metadata = fs::metadata(&path)
             .map_err(|error| format!("Could not inspect {}: {error}", path.display()))?;
         if metadata.len() > MAX_EFFECT_DEFINITION_BYTES {
-            continue;
+            return Err(format!(
+                "Native package JSON exceeds the size limit at {}.",
+                path.display()
+            ));
         }
         let bytes = fs::read(&path)
             .map_err(|error| format!("Could not read {}: {error}", path.display()))?;
@@ -523,6 +526,24 @@ fn aviqtl_effect(
         );
 
         fs::remove_dir_all(effect_root).expect("temporary package removes");
+    }
+
+    #[test]
+    fn native_package_validation_rejects_oversized_json() {
+        let root = temporary_directory();
+        let package = root.join("org.example.native");
+        fs::create_dir_all(&package).expect("package directory creates");
+        fs::write(
+            package.join("oversized.json"),
+            vec![b' '; MAX_EFFECT_DEFINITION_BYTES as usize + 1],
+        )
+        .expect("oversized metadata writes");
+
+        assert!(
+            validate_native_package_directory(&package, "org.example.native", "effect").is_err()
+        );
+
+        fs::remove_dir_all(root).expect("temporary package removes");
     }
 
     #[test]
