@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 const QUEUE_GENERATION_SHIFT: u32 = 32;
 const QUEUED_FRAMES_MASK: u64 = u32::MAX as u64;
+const QUEUE_SWITCH_CAPACITY: usize = 16;
 
 #[derive(Debug, Clone, Copy)]
 struct QueuedStereoFrame {
@@ -69,7 +70,9 @@ impl QueueStatus {
 /// A default-device output stream fed with interleaved stereo floating-point samples.
 pub struct AudioOutput {
     producer: Producer<QueuedStereoFrame>,
+    consumer_switch: Producer<Consumer<QueuedStereoFrame>>,
     queue_status: Arc<QueueStatus>,
+    queue_capacity: usize,
     _stream: cpal::Stream,
     sample_rate: u32,
 }
@@ -92,41 +95,97 @@ impl AudioOutput {
             .min(u32::MAX as usize)
             .max(1);
         let (producer, consumer) = RingBuffer::new(queue_capacity);
+        let (consumer_switch, consumer_switch_reader) = RingBuffer::new(QUEUE_SWITCH_CAPACITY);
         let queue_status = Arc::new(QueueStatus::default());
         let stream = match sample_format {
-            cpal::SampleFormat::I8 => {
-                build_stream::<i8>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::I16 => {
-                build_stream::<i16>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::I24 => {
-                build_stream::<cpal::I24>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::I32 => {
-                build_stream::<i32>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::I64 => {
-                build_stream::<i64>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::U8 => {
-                build_stream::<u8>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::U16 => {
-                build_stream::<u16>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::U32 => {
-                build_stream::<u32>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::U64 => {
-                build_stream::<u64>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::F32 => {
-                build_stream::<f32>(&device, &config, channels, consumer, &queue_status)
-            }
-            cpal::SampleFormat::F64 => {
-                build_stream::<f64>(&device, &config, channels, consumer, &queue_status)
-            }
+            cpal::SampleFormat::I8 => build_stream::<i8>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::I16 => build_stream::<i16>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::I24 => build_stream::<cpal::I24>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::I32 => build_stream::<i32>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::I64 => build_stream::<i64>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::U8 => build_stream::<u8>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::U16 => build_stream::<u16>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::U32 => build_stream::<u32>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::U64 => build_stream::<u64>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::F32 => build_stream::<f32>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
+            cpal::SampleFormat::F64 => build_stream::<f64>(
+                &device,
+                &config,
+                channels,
+                consumer,
+                consumer_switch_reader,
+                &queue_status,
+            ),
             format => Err(format!("Unsupported audio output sample format: {format}")),
         }?;
         stream
@@ -134,7 +193,9 @@ impl AudioOutput {
             .map_err(|error| format!("Could not start audio output: {error}"))?;
         Ok(Self {
             producer,
+            consumer_switch,
             queue_status,
+            queue_capacity,
             _stream: stream,
             sample_rate,
         })
@@ -154,6 +215,10 @@ impl AudioOutput {
 
     pub fn clear(&mut self) {
         self.queue_status.clear();
+        let (producer, consumer) = RingBuffer::new(self.queue_capacity);
+        if self.consumer_switch.push(consumer).is_ok() {
+            self.producer = producer;
+        }
     }
 }
 
@@ -187,6 +252,7 @@ fn build_stream<T>(
     config: &cpal::StreamConfig,
     channels: usize,
     mut consumer: Consumer<QueuedStereoFrame>,
+    mut consumer_switch: Consumer<Consumer<QueuedStereoFrame>>,
     queue_status: &Arc<QueueStatus>,
 ) -> Result<cpal::Stream, String>
 where
@@ -196,7 +262,15 @@ where
     device
         .build_output_stream(
             config,
-            move |output: &mut [T], _| write_output(output, channels, &mut consumer, &queue_status),
+            move |output: &mut [T], _| {
+                write_output(
+                    output,
+                    channels,
+                    &mut consumer,
+                    &mut consumer_switch,
+                    &queue_status,
+                )
+            },
             |error| eprintln!("Audio output error: {error}"),
             None,
         )
@@ -207,10 +281,14 @@ fn write_output<T>(
     output: &mut [T],
     channels: usize,
     consumer: &mut Consumer<QueuedStereoFrame>,
+    consumer_switch: &mut Consumer<Consumer<QueuedStereoFrame>>,
     queue_status: &QueueStatus,
 ) where
     T: Sample + FromSample<f32>,
 {
+    while let Ok(next_consumer) = consumer_switch.pop() {
+        *consumer = next_consumer;
+    }
     for frame in output.chunks_mut(channels.max(1)) {
         let (left, right) = loop {
             match consumer.pop() {
@@ -240,10 +318,17 @@ mod tests {
     #[test]
     fn output_callback_maps_stereo_to_the_device_channel_count() {
         let (mut producer, mut consumer) = RingBuffer::new(2);
+        let (_, mut consumer_switch) = RingBuffer::new(QUEUE_SWITCH_CAPACITY);
         let queue_status = QueueStatus::default();
         enqueue_stereo_frames(&mut producer, &queue_status, &[0.25, -0.5, 0.75, 1.0]);
         let mut output = [0.0_f32; 8];
-        write_output(&mut output, 4, &mut consumer, &queue_status);
+        write_output(
+            &mut output,
+            4,
+            &mut consumer,
+            &mut consumer_switch,
+            &queue_status,
+        );
         assert_eq!(
             output,
             [0.25, -0.5, -0.125, -0.125, 0.75, 1.0, 0.875, 0.875]
@@ -254,33 +339,54 @@ mod tests {
     #[test]
     fn output_callback_fills_underruns_with_silence() {
         let (mut producer, mut consumer) = RingBuffer::new(1);
+        let (_, mut consumer_switch) = RingBuffer::new(QUEUE_SWITCH_CAPACITY);
         let queue_status = QueueStatus::default();
         enqueue_stereo_frames(&mut producer, &queue_status, &[0.5, -0.5]);
         let mut output = [1.0_f32; 4];
-        write_output(&mut output, 2, &mut consumer, &queue_status);
+        write_output(
+            &mut output,
+            2,
+            &mut consumer,
+            &mut consumer_switch,
+            &queue_status,
+        );
         assert_eq!(output, [0.5, -0.5, 0.0, 0.0]);
     }
 
     #[test]
     fn output_callback_downmixes_stereo_for_a_mono_device() {
         let (mut producer, mut consumer) = RingBuffer::new(2);
+        let (_, mut consumer_switch) = RingBuffer::new(QUEUE_SWITCH_CAPACITY);
         let queue_status = QueueStatus::default();
         enqueue_stereo_frames(&mut producer, &queue_status, &[0.5, -0.25, -1.0, 0.5]);
         let mut output = [0.0_f32; 2];
-        write_output(&mut output, 1, &mut consumer, &queue_status);
+        write_output(
+            &mut output,
+            1,
+            &mut consumer,
+            &mut consumer_switch,
+            &queue_status,
+        );
         assert_eq!(output, [0.125, -0.25]);
     }
 
     #[test]
     fn cleared_frames_are_skipped_without_splitting_stereo_pairs() {
         let (mut producer, mut consumer) = RingBuffer::new(2);
+        let (_, mut consumer_switch) = RingBuffer::new(QUEUE_SWITCH_CAPACITY);
         let queue_status = QueueStatus::default();
         enqueue_stereo_frames(&mut producer, &queue_status, &[0.25, -0.25]);
         queue_status.clear();
         enqueue_stereo_frames(&mut producer, &queue_status, &[0.75, -0.5]);
 
         let mut output = [0.0_f32; 2];
-        write_output(&mut output, 2, &mut consumer, &queue_status);
+        write_output(
+            &mut output,
+            2,
+            &mut consumer,
+            &mut consumer_switch,
+            &queue_status,
+        );
 
         assert_eq!(output, [0.75, -0.5]);
         assert_eq!(queue_status.queued_frames(), 0);
@@ -289,13 +395,48 @@ mod tests {
     #[test]
     fn bounded_queue_drops_only_complete_stereo_frames() {
         let (mut producer, mut consumer) = RingBuffer::new(1);
+        let (_, mut consumer_switch) = RingBuffer::new(QUEUE_SWITCH_CAPACITY);
         let queue_status = QueueStatus::default();
         enqueue_stereo_frames(&mut producer, &queue_status, &[0.25, -0.5, 0.75, 1.0]);
 
         let mut output = [0.0_f32; 4];
-        write_output(&mut output, 2, &mut consumer, &queue_status);
+        write_output(
+            &mut output,
+            2,
+            &mut consumer,
+            &mut consumer_switch,
+            &queue_status,
+        );
 
         assert_eq!(output, [0.25, -0.5, 0.0, 0.0]);
+        assert_eq!(queue_status.queued_frames(), 0);
+    }
+
+    #[test]
+    fn consumer_switch_discards_old_ring_without_draining_it() {
+        let (mut producer, mut consumer) = RingBuffer::new(1);
+        let (mut switch_producer, mut switch_consumer) = RingBuffer::new(QUEUE_SWITCH_CAPACITY);
+        let queue_status = QueueStatus::default();
+        enqueue_stereo_frames(&mut producer, &queue_status, &[0.25, -0.5]);
+
+        let (mut replacement_producer, replacement_consumer) = RingBuffer::new(1);
+        switch_producer
+            .push(replacement_consumer)
+            .expect("consumer switch has capacity");
+        queue_status.clear();
+        std::mem::swap(&mut producer, &mut replacement_producer);
+        enqueue_stereo_frames(&mut producer, &queue_status, &[0.75, -1.0]);
+
+        let mut output = [0.0_f32; 2];
+        write_output(
+            &mut output,
+            2,
+            &mut consumer,
+            &mut switch_consumer,
+            &queue_status,
+        );
+
+        assert_eq!(output, [0.75, -1.0]);
         assert_eq!(queue_status.queued_frames(), 0);
     }
 }

@@ -427,6 +427,7 @@ struct TimelineWaveformRuntime {
     peaks: HashMap<i32, Vec<f32>>,
     receiver: Option<Receiver<TimelineWaveformResult>>,
     worker: Option<JoinHandle<()>>,
+    worker_stop: Option<Arc<AtomicBool>>,
 }
 
 #[derive(Default)]
@@ -968,6 +969,7 @@ impl TimelineWaveformRuntime {
             peaks: HashMap::new(),
             receiver: None,
             worker: None,
+            worker_stop: None,
         }
     }
 
@@ -990,6 +992,7 @@ impl TimelineWaveformRuntime {
             scene_id: workspace.selected_scene(),
         };
         if self.source_key.as_ref() != Some(&source_key) {
+            self.cancel_pending();
             self.source_key = Some(source_key.clone());
             self.completed_key = None;
             self.peaks.clear();
@@ -1013,14 +1016,19 @@ impl TimelineWaveformRuntime {
     ) {
         let (sender, receiver) = mpsc::channel();
         let worker_key = source_key.clone();
+        let worker_stop = Arc::new(AtomicBool::new(false));
+        let worker_stop_flag = Arc::clone(&worker_stop);
         match thread::Builder::new()
             .name("aviqtl-waveform-builder".to_owned())
             .spawn(move || {
-                let peaks = build_timeline_waveforms(
+                let Some(peaks) = build_timeline_waveforms(
                     &document,
                     worker_key.scene_id,
                     project_path.as_deref(),
-                );
+                    &worker_stop_flag,
+                ) else {
+                    return;
+                };
                 let _ = sender.send(TimelineWaveformResult {
                     source_key: worker_key,
                     peaks,
@@ -1030,6 +1038,7 @@ impl TimelineWaveformRuntime {
                 self.pending_key = Some(source_key);
                 self.receiver = Some(receiver);
                 self.worker = Some(worker);
+                self.worker_stop = Some(worker_stop);
             }
             Err(error) => {
                 eprintln!("Failed to start waveform builder: {error}");
@@ -1046,6 +1055,7 @@ impl TimelineWaveformRuntime {
                 if let Some(worker) = self.worker.take() {
                     let _ = worker.join();
                 }
+                self.worker_stop = None;
                 self.receiver = None;
                 if let Some(failed_key) = self.pending_key.take()
                     && self.source_key.as_ref() == Some(&failed_key)
@@ -1058,6 +1068,7 @@ impl TimelineWaveformRuntime {
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
+        self.worker_stop = None;
         self.receiver = None;
         self.pending_key = None;
         if self.source_key.as_ref() == Some(&result.source_key) {
@@ -1066,7 +1077,17 @@ impl TimelineWaveformRuntime {
         }
     }
 
+    fn cancel_pending(&mut self) {
+        if let Some(stop) = self.worker_stop.take() {
+            stop.store(true, Ordering::Release);
+        }
+        self.pending_key = None;
+        self.receiver = None;
+        self.worker = None;
+    }
+
     fn clear(&mut self, timeline: &TimelineWindow) {
+        self.cancel_pending();
         if self.source_key.take().is_some() || !self.peaks.is_empty() {
             self.completed_key = None;
             self.peaks.clear();
@@ -1177,63 +1198,73 @@ fn build_timeline_waveforms(
     document: &ProjectDocument,
     scene_id: i32,
     project_path: Option<&Path>,
-) -> HashMap<i32, Vec<f32>> {
+    stop: &AtomicBool,
+) -> Option<HashMap<i32, Vec<f32>>> {
     const POINTS: usize = 96;
+    if stop.load(Ordering::Acquire) {
+        return None;
+    }
     let fps = scene_fps(document, scene_id);
     let sample_rate = document.settings.sample_rate.max(1) as u32;
     let mut planner = PreviewPlanner::new(document, project_path);
     let mut mixer = TimelineAudioMixer::default();
-    document
+    let mut waveforms = HashMap::new();
+    for clip in document
         .clips
         .iter()
         .filter(|clip| clip.scene_id == scene_id && clip.clip_type == "audio")
-        .map(|clip| {
-            let peaks = (0..POINTS)
-                .map(|point| {
-                    let relative_frame = ((point as i64 * i64::from(clip.duration.max(1)))
-                        / POINTS as i64)
-                        .clamp(0, i64::from(clip.duration.saturating_sub(1).max(0)))
-                        as i32;
-                    let frame = clip.start.saturating_add(relative_frame);
-                    let Some(mut plan) =
-                        planner
-                            .build(document, scene_id, frame)
-                            .and_then(|planned| {
-                                planned
-                                    .audio
-                                    .into_iter()
-                                    .find(|plan| plan.clip_id == clip.id)
-                            })
-                    else {
-                        return 0.0;
-                    };
-                    plan.plugins.clear();
-                    let sources = resolve_timeline_audio_sources(vec![plan], project_path);
-                    let sample_frames =
-                        (f64::from(sample_rate) / fps).ceil().clamp(1.0, 8_192.0) as usize;
-                    mixer
-                        .mix_frame_with_sample_count_and_plugin_block_size(
-                            frame,
-                            fps,
-                            sample_rate,
-                            sample_frames,
-                            8_192,
-                            &sources,
-                        )
-                        .ok()
-                        .map(|block| {
-                            block
-                                .samples
-                                .iter()
-                                .fold(0.0_f32, |peak, sample| peak.max(sample.abs()))
-                                .clamp(0.0, 1.0)
-                        })
-                        .unwrap_or_default()
-                })
-                .collect();
-            (clip.id, peaks)
-        })
-        .collect()
+    {
+        if stop.load(Ordering::Acquire) {
+            return None;
+        }
+        let mut peaks = Vec::with_capacity(POINTS);
+        for point in 0..POINTS {
+            if stop.load(Ordering::Acquire) {
+                return None;
+            }
+            let relative_frame = ((point as i64 * i64::from(clip.duration.max(1))) / POINTS as i64)
+                .clamp(0, i64::from(clip.duration.saturating_sub(1).max(0)))
+                as i32;
+            let frame = clip.start.saturating_add(relative_frame);
+            let peak = if let Some(mut plan) =
+                planner
+                    .build(document, scene_id, frame)
+                    .and_then(|planned| {
+                        planned
+                            .audio
+                            .into_iter()
+                            .find(|plan| plan.clip_id == clip.id)
+                    }) {
+                plan.plugins.clear();
+                let sources = resolve_timeline_audio_sources(vec![plan], project_path);
+                let sample_frames =
+                    (f64::from(sample_rate) / fps).ceil().clamp(1.0, 8_192.0) as usize;
+                mixer
+                    .mix_frame_with_sample_count_and_plugin_block_size(
+                        frame,
+                        fps,
+                        sample_rate,
+                        sample_frames,
+                        8_192,
+                        &sources,
+                    )
+                    .ok()
+                    .map(|block| {
+                        block
+                            .samples
+                            .iter()
+                            .fold(0.0_f32, |peak, sample| peak.max(sample.abs()))
+                            .clamp(0.0, 1.0)
+                    })
+                    .unwrap_or_default()
+            } else {
+                0.0
+            };
+            peaks.push(peak);
+        }
+        waveforms.insert(clip.id, peaks);
+    }
+    Some(waveforms)
 }
 
 fn clear_timeline_waveforms(timeline: &TimelineWindow) {
@@ -6400,8 +6431,8 @@ fn recent_projects_from_value(
         .flatten()
         .filter_map(|value| {
             let object = value.as_object()?;
-            let path = object.get("path")?.as_str()?.trim();
-            if path.is_empty() {
+            let path = object.get("path")?.as_str()?;
+            if path.trim().is_empty() {
                 return None;
             }
             let name = object
@@ -6442,7 +6473,7 @@ fn add_recent_project(
         return Ok(());
     };
     let path = path.display().to_string();
-    if path.is_empty() {
+    if path.trim().is_empty() {
         return Ok(());
     }
     let project_settings = workspace.project_settings();
@@ -8691,6 +8722,19 @@ mod tests {
         assert_eq!(recent[0].name, "One");
         assert_eq!(recent[1].name, "two.aviqtl");
         assert_eq!(recent[1].fps, 30.0);
+    }
+
+    #[test]
+    fn recent_project_paths_preserve_surrounding_whitespace() {
+        let value = json!([
+            {"path":"  C:/projects/with-space.aviqtl  "},
+            {"path":" \t "}
+        ]);
+
+        let recent = recent_projects_from_value(Some(&value), 10);
+
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].path, "  C:/projects/with-space.aviqtl  ");
     }
 
     #[test]
