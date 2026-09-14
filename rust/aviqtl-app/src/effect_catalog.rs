@@ -19,6 +19,13 @@ pub struct EffectCatalog {
 impl EffectCatalog {
     pub fn load() -> (Self, String) {
         let (roots, user_package_roots) = metadata_roots();
+        Self::load_from_roots(roots, user_package_roots)
+    }
+
+    fn load_from_roots(
+        roots: Vec<PathBuf>,
+        user_package_roots: Vec<(PathBuf, &'static str)>,
+    ) -> (Self, String) {
         let mut catalog = Self::default();
         let mut loaded_files = BTreeSet::new();
         for root in roots {
@@ -469,7 +476,8 @@ fn aviqtl_effect(
 
     #[test]
     fn native_package_validation_requires_matching_metadata_and_shader() {
-        let package = temporary_directory();
+        let effect_root = temporary_directory();
+        let package = effect_root.join("org.example.native");
         let definitions = package.join("definitions");
         let shaders = definitions.join("shaders");
         fs::create_dir_all(&shaders).expect("package directories create");
@@ -497,6 +505,14 @@ fn aviqtl_effect(
         assert!(
             validate_native_package_directory(&package, "org.example.native", "effect").is_ok()
         );
+        let (catalog, _) = EffectCatalog::load_from_roots(
+            vec![effect_root.clone()],
+            vec![(effect_root.clone(), "effect")],
+        );
+        let loaded = catalog.find("effect.native").expect("native effect loads");
+        assert_eq!(loaded.package_id, "org.example.native");
+        assert_eq!(loaded.source, "package");
+        assert_eq!(catalog.native_definitions().len(), 1);
         assert!(
             validate_native_package_directory(&package, "org.example.native", "object").is_err()
         );
@@ -506,6 +522,16 @@ fn aviqtl_effect(
             validate_native_package_directory(&package, "org.example.native", "effect").is_err()
         );
 
-        fs::remove_dir_all(package).expect("temporary package removes");
+        fs::remove_dir_all(effect_root).expect("temporary package removes");
+    }
+
+    #[test]
+    fn repository_weather_objects_satisfy_the_native_package_contract() {
+        let package = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("effect-packages/weather-objects");
+
+        validate_native_package_directory(&package, "com.aviqtl.objects.weather", "object")
+            .expect("weather object package is valid");
     }
 }

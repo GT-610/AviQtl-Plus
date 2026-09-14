@@ -3,7 +3,7 @@
   "name": "Weather Objects Pack",
   "version": "1.0.0",
   "author": "AviQtl Team",
-  "description": "Weather animation objects including rain and snow effects",
+  "description": "Native WGSL weather objects for the Slint edition",
   "min_app_version": "0.4.0",
   "type": "object",
   "objects": [

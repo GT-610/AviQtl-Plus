@@ -1,110 +1,59 @@
 # Weather Objects Pack
 
-Weather animation objects for AviQtl-Plus.
+Native WGSL rain and snow objects for the AviQtl-Plus Slint edition.
 
-## Objects Included
+## Included objects
 
 | Object | Description |
-|--------|-------------|
-| `rain` | Animated rain particles with customizable intensity and angle |
-| `snow` | Animated snow particles with wind and density controls |
+| --- | --- |
+| `rain` | Animated rain streaks with configurable density, speed, size, spread, seed, color, and opacity |
+| `snow` | Animated snow particles with configurable density, speed, size, spread, seed, color, and opacity |
 
 ## Installation
 
-### Method 1: Package Manager (Recommended)
+Package repositories distribute this directory as a ZIP archive. The package manager verifies the archive hash, validates every metadata and WGSL file, and installs it under `<AviQtl Data>/objects/com.aviqtl.objects.weather/`.
 
-1. Open AviQtl-Plus
-2. Go to Settings → Package Manager
-3. Click "Install from Local" and select this folder
-4. Restart AviQtl
+For development, copy the whole directory to that location and restart AviQtl-Plus.
 
-### Method 2: Manual Installation
+## Directory structure
 
-1. Copy the entire `weather-objects/` folder to `<AviQtl Data>/objects/`
-2. Restart AviQtl
-
-## Directory Structure
-
-Each object is contained in its own subdirectory named after the object ID:
-
-```
+```text
 weather-objects/
-├── manifest.json          # Package metadata
-├── README.md              # This file
-├── ParticleFieldObject.qml # Shared particle renderer
-├── rain/                  # Object ID: "rain"
-│   ├── RainObject.json    # Object definition
-│   └── RainObject.qml     # QML component
-└── snow/                  # Object ID: "snow"
-    ├── SnowObject.json    # Object definition
-    └── SnowObject.qml     # QML component
+├── manifest.json
+├── README.md
+├── rain/
+│   ├── RainObject.json
+│   └── RainObject.wgsl
+└── snow/
+    ├── SnowObject.json
+    └── SnowObject.wgsl
 ```
 
-## Object Parameters
+Each JSON document declares `runtime.engine` as `aviqtl-wgsl-v1`, names its shader relative to the JSON file, and lists the parameter order exposed through `aviqtl_parameter(index)`.
 
-### Rain Object
-- `sizeW` - Area width (1-4000)
-- `sizeH` - Area height (1-4000)
-- `count` - Particle count (1-2000)
-- `speed` - Fall speed (-20 to 20)
-- `particleSize` - Particle size (0.1-100)
-- `spread` - Horizontal spread (0-4)
-- `seed` - Random seed (0-999999)
-- `color` - Particle color (#RRGGBB)
-- `opacity` - Overall opacity (0-1)
+The host supplies the WGSL entry contract:
 
-### Snow Object
-- `sizeW` - Area width (1-4000)
-- `sizeH` - Area height (1-4000)
-- `count` - Particle count (1-2000)
-- `speed` - Fall speed (-20 to 20)
-- `particleSize` - Particle size (0.1-100)
-- `spread` - Horizontal spread (0-4)
-- `seed` - Random seed (0-999999)
-- `color` - Particle color (#RRGGBB)
-- `opacity` - Overall opacity (0-1)
-
-## Object JSON Format
-
-Objects are defined similarly to effects but with `kind: "object"`:
-
-```json
-{
-  "id": "my_object",
-  "name": "My Object",
-  "qml": "MyObject.qml",
-  "version": "1.0.0",
-  "kind": "object",
-  "categories": ["Category1"],
-  "params": {
-    "param1": 50
-  },
-  "ui": {
-    "group": "object",
-    "controls": [
-      {
-        "type": "slider",
-        "param": "param1",
-        "label": "Parameter 1",
-        "min": 0,
-        "max": 100
-      }
-    ]
-  }
-}
+```wgsl
+fn aviqtl_effect(
+    input_color: vec4<f32>,
+    uv: vec2<f32>,
+    canvas_size: vec2<f32>,
+    time_seconds: f32,
+) -> vec4<f32>
 ```
 
-## Creating Custom Objects
+Objects receive a transparent input canvas. Effects receive the previous layer result. Both use the same function and are rendered identically in preview and export.
 
-1. **Create directory**: Create a new folder named after your object ID
-2. **Define JSON**: Create `<ObjectID>.json` with `kind: "object"`
-3. **Create QML**: Extend `BaseObject` for scene graph integration
-4. **Add Properties**: Define visual properties in QML
-5. **Connect Parameters**: Bind JSON params to QML properties
-6. **Test**: Place in objects directory and restart AviQtl
+## Parameters
 
-See the [effects and objects documentation](https://aviqtl.gt610.dpdns.org/developer/effects) for complete reference.
+- `count`: approximate particle density, from 1 to 2000
+- `speed`: animation direction and speed, from -20 to 20
+- `particleSize`: particle or streak size
+- `spread`: wind or streak spread
+- `seed`: deterministic layout seed
+- `color`: RGBA particle color
+- `opacity`: object opacity applied by the compositor
 
 ## License
 
-AGPL-3.0 - Same as AviQtl-Plus
+AGPL-3.0, the same license as AviQtl-Plus.
