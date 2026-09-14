@@ -1,5 +1,5 @@
 use crate::settings::package_paths;
-use aviqtl_render::validate_native_shader;
+use aviqtl_render::{NativeRenderDefinition, validate_native_shader};
 use aviqtl_rust_core::api::{EffectDocument, EffectMetadata, parse_effect_metadata};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -8,14 +8,6 @@ use std::sync::Arc;
 
 const MAX_EFFECT_DEFINITION_BYTES: u64 = 1024 * 1024;
 const MAX_NATIVE_SHADER_BYTES: u64 = 1024 * 1024;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct NativeRenderDefinition {
-    pub id: String,
-    pub kind: String,
-    pub uniforms: Vec<String>,
-    pub shader_source: Arc<str>,
-}
 
 #[derive(Debug, Default)]
 pub struct EffectCatalog {

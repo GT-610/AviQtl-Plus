@@ -5,7 +5,7 @@ mod procedural;
 mod shape;
 mod text;
 
-pub use effects::VisualEffect;
+pub use effects::{NativeRenderDefinition, VisualEffect};
 pub use procedural::{ProceduralRasterError, rasterize_procedural_object};
 pub use shape::{ShapeRasterError, rasterize_shape};
 pub use text::{TextRasterError, TextRasterizer};

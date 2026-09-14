@@ -38,6 +38,10 @@ pub enum PreviewContent {
         plan: ProceduralObjectRenderPlan,
         timestamp_seconds: f64,
     },
+    NativeCanvas {
+        width: u32,
+        height: u32,
+    },
     Scene {
         scene: Box<PreviewScene>,
     },
@@ -124,6 +128,11 @@ impl PreviewSource {
                 "procedural".hash(&mut hasher);
                 hash_procedural_plan(plan, &mut hasher);
             }
+            PreviewContent::NativeCanvas { width, height } => {
+                "native-canvas".hash(&mut hasher);
+                width.hash(&mut hasher);
+                height.hash(&mut hasher);
+            }
             PreviewContent::Scene { scene } => {
                 "scene".hash(&mut hasher);
                 scene.instance_key.hash(&mut hasher);
@@ -144,6 +153,7 @@ impl PreviewSource {
                 ProceduralObjectRenderPlan::RadialLines(_) => "radial lines object".to_owned(),
                 ProceduralObjectRenderPlan::LensFlare(_) => "lens flare object".to_owned(),
             },
+            PreviewContent::NativeCanvas { .. } => "native package object".to_owned(),
             PreviewContent::Scene { scene } => format!("nested scene {}", scene.instance_key),
         }
     }
@@ -594,6 +604,26 @@ fn decode_source(
             timestamp_seconds,
         } => {
             rasterize_procedural_object(plan, *timestamp_seconds).map_err(|error| error.to_string())
+        }
+        PreviewContent::NativeCanvas { width, height } => {
+            let pixel_count = usize::try_from(*width)
+                .ok()
+                .and_then(|width| {
+                    usize::try_from(*height)
+                        .ok()
+                        .and_then(|height| width.checked_mul(height))
+                })
+                .and_then(|pixels| pixels.checked_mul(4))
+                .ok_or_else(|| "native canvas dimensions are too large".to_owned())?;
+            if pixel_count > 512 * 1024 * 1024 {
+                return Err("native canvas dimensions are too large".to_owned());
+            }
+            Ok(VideoFrame {
+                width: *width,
+                height: *height,
+                rgba: vec![0; pixel_count],
+                timestamp_seconds: 0.0,
+            })
         }
         PreviewContent::Scene { .. } => unreachable!("nested scenes are decoded recursively"),
     }

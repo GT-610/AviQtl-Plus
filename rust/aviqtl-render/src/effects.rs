@@ -2,6 +2,14 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct NativeRenderDefinition {
+    pub id: String,
+    pub kind: String,
+    pub uniforms: Vec<String>,
+    pub shader_source: Arc<str>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum VisualEffect {
     Fade {
         opacity: f32,

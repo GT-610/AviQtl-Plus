@@ -2,7 +2,7 @@ use crate::decode::{
     DecodeKind, PreviewContent, PreviewScene, PreviewSource, frame_buffer_scene,
     upper_object_mask_scene,
 };
-use aviqtl_render::{BlendMode, LayerCrop, LayerTransform, VisualEffect};
+use aviqtl_render::{BlendMode, LayerCrop, LayerTransform, NativeRenderDefinition, VisualEffect};
 use aviqtl_rust_core::api::{
     AudioLayerPlan, EvaluatedEffect, MediaKind, ProjectDocument, RenderLayerPlan, SceneRenderPlan,
 };
@@ -20,6 +20,7 @@ pub struct PlannedPreview {
 pub struct PreviewPlanner {
     plans: BTreeMap<i32, SceneRenderPlan>,
     project_directory: Option<PathBuf>,
+    native_definitions: BTreeMap<String, NativeRenderDefinition>,
 }
 
 impl PreviewPlanner {
@@ -27,7 +28,18 @@ impl PreviewPlanner {
         Self {
             plans: build_render_plans(document),
             project_directory: project_path.and_then(Path::parent).map(Path::to_path_buf),
+            native_definitions: BTreeMap::new(),
         }
+    }
+
+    pub fn set_native_definitions(
+        &mut self,
+        definitions: impl IntoIterator<Item = NativeRenderDefinition>,
+    ) {
+        self.native_definitions = definitions
+            .into_iter()
+            .map(|definition| (definition.id.clone(), definition))
+            .collect();
     }
 
     pub fn rebuild(&mut self, document: &ProjectDocument, project_path: Option<&Path>) {
@@ -101,8 +113,13 @@ impl PreviewPlanner {
             let pivot_y = effect_number(&layer, "transform", "cy");
             let pivot_z = effect_number(&layer, "transform", "cz");
             let backface_visible = effect_bool_or(&layer, "transform", "backfaceVisible", true);
-            let effects =
-                layer_visual_effects(&layer.effects, layer.relative_frame, layer.duration_frames);
+            let effects = layer_visual_effects(
+                &layer.effects,
+                layer.relative_frame,
+                layer.duration_frames,
+                fps,
+                &self.native_definitions,
+            );
             let (content, content_opacity) = if layer.clip_type == "frame_buffer" {
                 let capture_key =
                     auxiliary_scene_instance_key(instance_key, layer.clip_id, "frame-buffer");
@@ -198,6 +215,19 @@ impl PreviewPlanner {
                     },
                     nested.opacity,
                 )
+            } else if self
+                .native_definitions
+                .get(&layer.clip_type)
+                .is_some_and(|definition| definition.kind == "object")
+            {
+                let opacity = layer
+                    .effects
+                    .iter()
+                    .find(|effect| effect.id == layer.clip_type)
+                    .map(|effect| evaluated_effect_number(effect, "opacity", 1.0))
+                    .unwrap_or(1.0)
+                    .clamp(0.0, 1.0);
+                (PreviewContent::NativeCanvas { width, height }, opacity)
             } else {
                 if layer.clip_type == "scene" {
                     warnings.push(format!("clip #{} has no valid target scene", layer.clip_id));
@@ -383,10 +413,25 @@ fn layer_visual_effects(
     effects: &[EvaluatedEffect],
     relative_frame: i32,
     duration_frames: i32,
+    fps: f64,
+    native_definitions: &BTreeMap<String, NativeRenderDefinition>,
 ) -> Vec<VisualEffect> {
     effects
         .iter()
         .filter_map(|effect| match effect.id.as_str() {
+            id if native_definitions.contains_key(id) => {
+                let definition = &native_definitions[id];
+                let mut parameters = [[0.0; 4]; 16];
+                for (index, name) in definition.uniforms.iter().enumerate() {
+                    parameters[index] = native_parameter(effect, name);
+                }
+                Some(VisualEffect::Native {
+                    package_id: definition.id.clone(),
+                    shader_source: definition.shader_source.clone(),
+                    parameters: Box::new(parameters),
+                    time_seconds: relative_frame as f32 / fps.max(1.0) as f32,
+                })
+            }
             "fade" => {
                 let fade_in = evaluated_effect_number(effect, "fadeIn", 0.0).clamp(0.0, 100.0);
                 let fade_out = evaluated_effect_number(effect, "fadeOut", 0.0).clamp(0.0, 100.0);
@@ -740,6 +785,38 @@ fn layer_visual_effects(
         .collect()
 }
 
+fn native_parameter(effect: &EvaluatedEffect, name: &str) -> [f32; 4] {
+    let Some(value) = evaluated_effect_value(effect, name).map(value_payload) else {
+        return [0.0; 4];
+    };
+    if let Some(value) = value.as_f64().filter(|value| value.is_finite()) {
+        return [value as f32, 0.0, 0.0, 0.0];
+    }
+    if let Some(value) = value.as_bool() {
+        return [f32::from(u8::from(value)), 0.0, 0.0, 0.0];
+    }
+    if let Some(color) = value.as_str().and_then(parse_qt_color) {
+        let [red, green, blue, alpha] = color.to_srgba_unmultiplied();
+        return [
+            f32::from(red) / 255.0,
+            f32::from(green) / 255.0,
+            f32::from(blue) / 255.0,
+            f32::from(alpha) / 255.0,
+        ];
+    }
+    if let Some(values) = value.as_array() {
+        let mut parameter = [0.0; 4];
+        for (target, value) in parameter.iter_mut().zip(values) {
+            *target = value
+                .as_f64()
+                .filter(|value| value.is_finite())
+                .unwrap_or_default() as f32;
+        }
+        return parameter;
+    }
+    [0.0; 4]
+}
+
 fn value_payload(value: &serde_json::Value) -> &serde_json::Value {
     value
         .as_object()
@@ -854,6 +931,8 @@ mod tests {
                 }],
                 12,
                 120,
+                60.0,
+                &BTreeMap::new(),
             );
             if special_routes.contains(id.as_str()) {
                 assert!(
@@ -906,6 +985,63 @@ mod tests {
             layer.effects.is_empty(),
             "blend_layer is compositor-owned by design"
         );
+    }
+
+    #[test]
+    fn native_objects_plan_a_transparent_canvas_and_evaluated_shader_parameters() {
+        let document = document(json!({
+            "version": 3,
+            "settings": {"width": 640, "height": 360, "fps": 50.0, "sampleRate": 48000},
+            "scenes": [{"id": 1, "name": "Root", "duration": 100, "width": 640, "height": 360, "fps": 50.0}],
+            "clips": [{
+                "id": 1,
+                "sceneId": 1,
+                "type": "object.native",
+                "start": 0,
+                "duration": 100,
+                "layer": 0,
+                "effects": [{
+                    "id": "object.native",
+                    "name": "Native object",
+                    "enabled": true,
+                    "params": {"amount": 0.75, "tint": "#80402010", "opacity": 0.5}
+                }]
+            }]
+        }));
+        let mut planner = PreviewPlanner::new(&document, None);
+        planner.set_native_definitions([NativeRenderDefinition {
+            id: "object.native".to_owned(),
+            kind: "object".to_owned(),
+            uniforms: vec!["amount".to_owned(), "tint".to_owned()],
+            shader_source: std::sync::Arc::from("fn aviqtl_effect() {}"),
+        }]);
+
+        let planned = planner
+            .build(&document, 1, 25)
+            .expect("native object plans");
+
+        assert!(matches!(
+            planned.scene.layers[0].content,
+            PreviewContent::NativeCanvas {
+                width: 640,
+                height: 360
+            }
+        ));
+        assert_eq!(planned.scene.layers[0].transform.opacity, 0.5);
+        let VisualEffect::Native {
+            parameters,
+            time_seconds,
+            ..
+        } = &planned.scene.layers[0].effects[0]
+        else {
+            panic!("native object uses its package shader");
+        };
+        assert_eq!(parameters[0], [0.75, 0.0, 0.0, 0.0]);
+        assert_eq!(
+            parameters[1],
+            [64.0 / 255.0, 32.0 / 255.0, 16.0 / 255.0, 128.0 / 255.0]
+        );
+        assert_eq!(*time_seconds, 0.5);
     }
 
     #[test]
