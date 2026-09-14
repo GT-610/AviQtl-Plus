@@ -6,7 +6,7 @@ use crate::missing_media::{MissingMediaEntry, find_missing_media, plan_media_rel
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
 use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
-use crate::selection::{ClipSelection, SelectionBox};
+use crate::selection::{ClipSelection, SelectionBox, control_layer_count};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
@@ -38,10 +38,13 @@ pub struct SceneTab {
 pub struct TimelineClip {
     pub id: i32,
     pub label: String,
+    pub clip_type: String,
     pub start: i32,
     pub duration: i32,
     pub layer: i32,
     pub audio: bool,
+    pub locked: bool,
+    pub control_layer_count: i32,
     pub clip_by_upper_object: bool,
     pub selected: bool,
     pub primary: bool,
@@ -152,6 +155,10 @@ impl WorkspaceModel {
     }
 
     pub fn timeline_clips(&self) -> Vec<TimelineClip> {
+        let locked_layers = self
+            .selected_scene_document()
+            .map(|scene| scene.locked_layers.as_slice())
+            .unwrap_or_default();
         self.project
             .document
             .clips
@@ -165,10 +172,13 @@ impl WorkspaceModel {
                     .map(|effect| effect.name.clone())
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| clip.clip_type.clone()),
+                clip_type: clip.clip_type.clone(),
                 start: clip.start,
                 duration: clip.duration,
                 layer: clip.layer,
                 audio: clip.clip_type == "audio",
+                locked: locked_layers.contains(&clip.layer),
+                control_layer_count: control_layer_count(clip),
                 clip_by_upper_object: clip.clip_by_upper_object,
                 selected: self.selection.is_visually_selected(clip.id),
                 primary: self.selection.primary() == Some(clip.id),
@@ -1750,12 +1760,36 @@ impl WorkspaceModel {
         self.selection.cancel_preview();
     }
 
-    pub fn remove_selected_clips(&mut self) -> bool {
-        let commands = self
-            .selection
+    fn is_clip_locked(&self, clip: &ClipDocument) -> bool {
+        self.project
+            .document
+            .scenes
+            .iter()
+            .find(|scene| scene.id == clip.scene_id)
+            .is_some_and(|scene| scene.locked_layers.contains(&clip.layer))
+    }
+
+    fn selected_editable_clips(&self) -> Vec<ClipDocument> {
+        self.selection
             .ids()
             .iter()
-            .copied()
+            .filter_map(|clip_id| {
+                self.project
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == *clip_id && clip.scene_id == self.selected_scene)
+            })
+            .filter(|clip| !self.is_clip_locked(clip))
+            .cloned()
+            .collect()
+    }
+
+    pub fn remove_selected_clips(&mut self) -> bool {
+        let commands = self
+            .selected_editable_clips()
+            .into_iter()
+            .map(|clip| clip.id)
             .map(|clip_id| TimelineCommand::RemoveClip { clip_id })
             .collect::<Vec<_>>();
         if self.execute_batch(commands) {
@@ -1776,6 +1810,7 @@ impl WorkspaceModel {
                 self.project.document.clips.iter().find(|clip| {
                     clip.id == *clip_id
                         && clip.scene_id == self.selected_scene
+                        && !self.is_clip_locked(clip)
                         && frame > clip.start
                         && frame < clip.start.saturating_add(clip.duration)
                 })
@@ -1830,20 +1865,21 @@ impl WorkspaceModel {
     }
 
     pub fn cut_selected_clips(&mut self) -> bool {
-        if !self.copy_selected_clips() {
+        let copied = self.selected_editable_clips();
+        if copied.is_empty() {
             return false;
         }
-        let commands = self
-            .selection
-            .ids()
-            .iter()
-            .copied()
+        let copied_count = copied.len();
+        self.clip_clipboard = copied.clone();
+        let commands = copied
+            .into_iter()
+            .map(|clip| clip.id)
             .map(|clip_id| TimelineCommand::RemoveClip { clip_id })
             .collect();
         if self.execute_batch(commands) {
             self.selection.clear();
             self.effect_selection.clear();
-            self.status = format!("Cut {} clip(s)", self.clip_clipboard.len());
+            self.status = format!("Cut {copied_count} clip(s)");
             true
         } else {
             false
@@ -1860,8 +1896,12 @@ impl WorkspaceModel {
     }
 
     pub fn remove_clip(&mut self, clip_id: i32) -> bool {
-        if self.find_clip_in_selected_scene(clip_id).is_none() {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
             self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        };
+        if self.is_clip_locked(&clip) {
+            self.status = format!("Layer {} is locked", clip.layer + 1);
             return false;
         }
         self.execute(TimelineCommand::RemoveClip { clip_id })
@@ -1891,6 +1931,10 @@ impl WorkspaceModel {
             self.status = format!("Clip {clip_id} does not exist");
             return false;
         };
+        if self.is_clip_locked(&clip) {
+            self.status = format!("Layer {} is locked", clip.layer + 1);
+            return false;
+        }
         if frame <= clip.start || frame >= clip.start.saturating_add(clip.duration) {
             self.status = "Split frame is outside the clip".to_owned();
             return false;
@@ -1919,9 +1963,15 @@ impl WorkspaceModel {
     }
 
     pub fn cut_clip(&mut self, clip_id: i32) -> bool {
-        if !self.copy_clip(clip_id) {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            return false;
+        };
+        if self.is_clip_locked(&clip) {
+            self.status = format!("Layer {} is locked", clip.layer + 1);
             return false;
         }
+        self.clip_clipboard = vec![clip];
+        self.status = "Copied 1 clip(s)".to_owned();
         if self.execute(TimelineCommand::RemoveClip { clip_id }) {
             self.status = "Cut 1 clip(s)".to_owned();
             true
@@ -3143,6 +3193,34 @@ mod tests {
     }
 
     #[test]
+    fn timeline_clip_snapshots_expose_lock_and_control_range_feedback() {
+        let state = TimelineState::from_json(
+            br#"{
+                "version":3,
+                "settings":{"width":1920,"height":1080,"fps":60,"sampleRate":48000},
+                "scenes":[{"id":1,"name":"Root","duration":300,"lockedLayers":[2]}],
+                "clips":[{
+                    "id":7,"sceneId":1,"type":"GroupControl","start":10,"duration":40,"layer":2,
+                    "effects":[{"id":"GroupControl","name":"Group","params":{"layerCount":3}}]
+                }]
+            }"#,
+        )
+        .expect("timeline feedback fixture loads");
+        let document = state.snapshot();
+        let workspace = WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        });
+
+        let clip = &workspace.timeline_clips()[0];
+        assert_eq!(clip.clip_type, "GroupControl");
+        assert!(clip.locked);
+        assert_eq!(clip.control_layer_count, 3);
+    }
+
+    #[test]
     fn empty_scene_timeline_duration_matches_qt() {
         let mut workspace = workspace();
         workspace.project_mut().document.clips.clear();
@@ -3428,6 +3506,18 @@ mod tests {
         assert!(workspace.split_selected_clips_at(10));
         assert_eq!(workspace.document().clips.len(), 4);
         assert!(workspace.undo());
+        assert_eq!(workspace.document().clips.len(), 3);
+    }
+
+    #[test]
+    fn structural_selected_clip_edits_skip_locked_layers() {
+        let mut workspace = workspace();
+        assert!(workspace.toggle_layer_lock(0));
+        workspace.click_clip(1, false);
+
+        assert!(!workspace.remove_selected_clips());
+        assert!(!workspace.split_selected_clips_at(10));
+        assert!(!workspace.cut_selected_clips());
         assert_eq!(workspace.document().clips.len(), 3);
     }
 

@@ -148,7 +148,7 @@ fn unique_non_negative(ids: impl IntoIterator<Item = i32>) -> Vec<i32> {
         .collect()
 }
 
-fn control_layer_count(clip: &ClipDocument) -> i32 {
+pub(crate) fn control_layer_count(clip: &ClipDocument) -> i32 {
     clip.effects
         .iter()
         .find(|effect| {

@@ -89,6 +89,12 @@ export struct RecoveryEntryData {
     error: string,
 }
 
+export struct RecentProjectData {
+    name: string,
+    path: string,
+    details: string,
+}
+
 export struct SceneTabData {
     id: int,
     name: string,
@@ -99,10 +105,17 @@ export struct SceneTabData {
 export struct TimelineClipData {
     id: int,
     label: string,
+    clip-type: string,
+    clip-color: color,
+    has-clip-color: bool,
+    dark-text: bool,
+    waveform: [float],
     start: int,
     duration: int,
     layer: int,
     audio: bool,
+    locked: bool,
+    control-layer-count: int,
     clip-by-upper-object: bool,
     selected: bool,
     primary: bool,
@@ -1169,6 +1182,54 @@ component TransportButton inherits Rectangle {
     }
 }
 
+component StereoAudioMeter inherits Rectangle {
+    in property <float> peak-left;
+    in property <float> peak-right;
+    in property <float> rms-left;
+    in property <float> rms-right;
+    border-width: 1px;
+    border-color: AppTheme.subtle-border;
+    border-radius: 3px;
+    background: AppTheme.control-background;
+
+    VerticalLayout {
+        padding: 3px;
+        spacing: 2px;
+        for channel[index] in [0, 1] : HorizontalLayout {
+            spacing: 3px;
+            Text {
+                text: index == 0 ? "L" : "R";
+                width: 9px;
+                color: AppTheme.muted-foreground;
+                font-size: 9px;
+                vertical-alignment: center;
+            }
+            meter-track := Rectangle {
+                height: 7px;
+                horizontal-stretch: 1;
+                background: AppTheme.window-background;
+                border-radius: 2px;
+                private property <float> peak: clamp(index == 0 ? root.peak-left : root.peak-right, 0, 1);
+                private property <float> rms: clamp(index == 0 ? root.rms-left : root.rms-right, 0, 1);
+                Rectangle {
+                    width: parent.width * meter-track.rms;
+                    height: 100%;
+                    border-radius: parent.border-radius;
+                    background: meter-track.rms > 0.9
+                        ? AppTheme.danger
+                        : meter-track.rms > 0.7 ? #eab308 : #22c55e;
+                }
+                Rectangle {
+                    x: min(parent.width - 1px, parent.width * meter-track.peak);
+                    width: 1px;
+                    height: 100%;
+                    background: meter-track.peak > 0.9 ? AppTheme.danger : white;
+                }
+            }
+        }
+    }
+}
+
 component SceneTab inherits Rectangle {
     in property <SceneTabData> scene;
     callback activate(int);
@@ -1301,6 +1362,7 @@ component LayerHeaderItem inherits Rectangle {
 
 component TimelineClipItem inherits Rectangle {
     in property <TimelineClipData> clip-data;
+    in property <int> playhead;
     in property <float> pixels-per-frame: 1;
     in property <length> track-height: 30px;
     in property <length> resize-handle-width: 10px;
@@ -1332,6 +1394,15 @@ component TimelineClipItem inherits Rectangle {
         return round(delta / max(root.track-height, 1px)) * max(root.track-height, 1px);
     }
 
+    if root.clip-data.control-layer-count > 0 : Rectangle {
+        y: root.height;
+        width: root.width;
+        height: root.clip-data.control-layer-count * root.track-height;
+        background: AppTheme.accent.transparentize(0.82);
+        border-width: 1px;
+        border-color: AppTheme.accent.transparentize(0.45);
+    }
+
     clip-visual := Rectangle {
         x: root.active-drag == "move" ? root.drag-x : root.active-drag == "trim-start" ? root.drag-x : 0px;
         y: root.active-drag == "move" ? root.drag-y : 0px;
@@ -1342,16 +1413,49 @@ component TimelineClipItem inherits Rectangle {
                 : root.width;
         height: root.height;
         border-radius: AppTheme.control-radius;
-        background: root.clip-data.primary ? AppTheme.clip-selected : root.clip-data.selected ? AppTheme.clip-selected : clip-touch.has-hover ? AppTheme.clip-hover : AppTheme.clip;
+        background: root.clip-data.has-clip-color ? root.clip-data.clip-color : AppTheme.clip;
         border-width: root.clip-data.primary ? 2px : root.clip-data.selected ? 1px : 0px;
         border-color: AppTheme.accent-foreground;
         animate background { duration: 120ms; }
+        if root.clip-data.selected || clip-touch.has-hover : Rectangle {
+            width: 100%;
+            height: 100%;
+            border-radius: parent.border-radius;
+            background: root.clip-data.selected
+                ? AppTheme.accent.transparentize(0.72)
+                : AppTheme.hover-background;
+        }
+        if root.clip-data.audio : Rectangle {
+            x: root.resize-handle-width;
+            width: max(parent.width - 2 * root.resize-handle-width, 1px);
+            height: 100%;
+            background: transparent;
+            for peak[index] in root.clip-data.waveform : Rectangle {
+                private property <float> magnitude: clamp(peak, 0, 1);
+                x: index * parent.width / max(root.clip-data.waveform.length, 1);
+                y: parent.height * (1 - self.magnitude) / 2;
+                width: max(parent.width / max(root.clip-data.waveform.length, 1), 1px);
+                height: max(parent.height * self.magnitude, 1px);
+                background: white.transparentize(0.28);
+            }
+        }
+        if root.clip-data.audio
+            && root.playhead >= root.clip-data.start
+            && root.playhead <= root.clip-data.start + root.clip-data.duration : Rectangle {
+            x: min(
+                parent.width - 1px,
+                (root.playhead - root.clip-data.start) * root.pixels-per-frame * 1px
+            );
+            width: 1px;
+            height: 100%;
+            background: AppTheme.accent;
+        }
         HorizontalLayout {
             padding-left: 7px;
             padding-right: 7px;
             Text {
                 text: root.clip-data.label;
-                color: white;
+                color: root.clip-data.dark-text ? black : white;
                 overflow: elide;
                 vertical-alignment: center;
             }
@@ -1360,7 +1464,7 @@ component TimelineClipItem inherits Rectangle {
     clip-touch := TouchArea {
             x: min(root.resize-handle-width, parent.width / 2);
             width: max(parent.width - 2 * root.resize-handle-width, 1px);
-            mouse-cursor: move;
+            mouse-cursor: root.clip-data.locked ? not-allowed : move;
             accessible-role: list-item;
             accessible-label: root.clip-data.label;
             accessible-description: @tr("Clip: {}, layer {}, starts at frame {} for {} frames",
@@ -1391,13 +1495,17 @@ component TimelineClipItem inherits Rectangle {
                     );
                 }
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                    root.active-drag = "move";
-                    root.drag-x = 0px;
-                    root.drag-y = 0px;
-                    root.threshold-crossed = false;
-                    root.drag-additive = event.modifiers.control || event.modifiers.meta;
-                    if root.clip-data.audio {
-                        root.seek-audio-frame(root.clip-data.id, round((root.x + self.mouse-x) / (1px * root.pixels-per-frame)));
+                    if root.clip-data.locked {
+                        root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                    } else {
+                        root.active-drag = "move";
+                        root.drag-x = 0px;
+                        root.drag-y = 0px;
+                        root.threshold-crossed = false;
+                        root.drag-additive = event.modifiers.control || event.modifiers.meta;
+                        if root.clip-data.audio {
+                            root.seek-audio-frame(root.clip-data.id, round((root.x + self.mouse-x) / (1px * root.pixels-per-frame)));
+                        }
                     }
                 }
                 if event.kind == PointerEventKind.move && root.active-drag == "move" {
@@ -1441,7 +1549,7 @@ component TimelineClipItem inherits Rectangle {
     trim-start-touch := TouchArea {
         x: 0px;
         width: min(root.resize-handle-width, parent.width / 2);
-        mouse-cursor: ew-resize;
+        mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
         scroll-event(event) => {
             if root.scroll-requested(
                 event.delta-x,
@@ -1461,11 +1569,15 @@ component TimelineClipItem inherits Rectangle {
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                root.active-drag = "trim-start";
-                root.drag-x = 0px;
-                root.drag-y = 0px;
-                root.threshold-crossed = true;
-                root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                if root.clip-data.locked {
+                    root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                } else {
+                    root.active-drag = "trim-start";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = true;
+                    root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                }
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
@@ -1487,7 +1599,7 @@ component TimelineClipItem inherits Rectangle {
     trim-end-touch := TouchArea {
         x: parent.width - self.width;
         width: min(root.resize-handle-width, parent.width / 2);
-        mouse-cursor: ew-resize;
+        mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
         scroll-event(event) => {
             if root.scroll-requested(
                 event.delta-x,
@@ -1507,11 +1619,15 @@ component TimelineClipItem inherits Rectangle {
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                root.active-drag = "trim-end";
-                root.drag-x = 0px;
-                root.drag-y = 0px;
-                root.threshold-crossed = true;
-                root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                if root.clip-data.locked {
+                    root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                } else {
+                    root.active-drag = "trim-end";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = true;
+                    root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                }
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
@@ -1753,8 +1869,23 @@ export component ProjectLauncherWindow inherits Window {
     in-out property <string> default-height: "1080";
     in-out property <string> default-fps: "60";
     in-out property <string> default-sample-rate: "48000";
+    in property <[RecentProjectData]> recent-projects;
     callback create-project(string, string, string, string);
     callback open-project();
+    callback open-recent-project(string);
+
+    function valid-integer(value: string, minimum: float, maximum: float) -> bool {
+        return value.is-float()
+            && value.to-float() == round(value.to-float())
+            && value.to-float() >= minimum
+            && value.to-float() <= maximum;
+    }
+
+    function valid-number(value: string, minimum: float, maximum: float) -> bool {
+        return value.is-float()
+            && value.to-float() >= minimum
+            && value.to-float() <= maximum;
+    }
 
     HorizontalLayout {
         padding: AppTheme.spacing-xl;
@@ -1787,6 +1918,10 @@ export component ProjectLauncherWindow inherits Window {
                 text: @tr("Create New Project");
                 primary: true;
                 accessible-label: @tr("Create New Project");
+                enabled: root.valid-integer(width-field.text, 1, 8000)
+                    && root.valid-integer(height-field.text, 1, 8000)
+                    && root.valid-number(fps-field.text, 1, 240)
+                    && root.valid-integer(sample-rate-field.text, 8000, 192000);
                 clicked => {
                     root.create-project(width-field.text, height-field.text, fps-field.text, sample-rate-field.text);
                 }
@@ -1810,11 +1945,57 @@ export component ProjectLauncherWindow inherits Window {
                 border-width: 1px;
                 border-color: AppTheme.subtle-border;
                 border-radius: AppTheme.surface-radius;
-                Text {
+                if root.recent-projects.length == 0 : Text {
                     text: @tr("No recent projects");
                     color: AppTheme.muted-foreground;
                     horizontal-alignment: center;
                     vertical-alignment: center;
+                }
+                if root.recent-projects.length > 0 : ScrollView {
+                    VerticalLayout {
+                        padding: AppTheme.spacing-sm;
+                        spacing: AppTheme.spacing-xs;
+                        for project in root.recent-projects : Rectangle {
+                            height: 62px;
+                            background: recent-touch.has-hover
+                                ? AppTheme.hover-background
+                                : transparent;
+                            border-radius: AppTheme.control-radius;
+                            VerticalLayout {
+                                padding-left: AppTheme.spacing-sm;
+                                padding-right: AppTheme.spacing-sm;
+                                padding-top: 6px;
+                                padding-bottom: 6px;
+                                spacing: 2px;
+                                Text {
+                                    text: project.name;
+                                    color: AppTheme.foreground;
+                                    font-weight: 600;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: project.path;
+                                    color: AppTheme.muted-foreground;
+                                    font-size: 0.72rem;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: project.details;
+                                    color: AppTheme.muted-foreground;
+                                    font-size: 0.72rem;
+                                    overflow: elide;
+                                }
+                            }
+                            recent-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                accessible-role: list-item;
+                                accessible-label: project.name;
+                                accessible-description: project.path + ", " + project.details;
+                                accessible-action-default => { root.open-recent-project(project.path); }
+                                clicked => { root.open-recent-project(project.path); }
+                            }
+                        }
+                    }
                 }
             }
             Button {
@@ -1843,6 +2024,11 @@ export component MainWindow inherits Window {
     in property <bool> playing: false;
     in-out property <int> playback-speed-percent: 100;
     in property <string> status-text: "Ready";
+    in property <float> audio-peak-left: 0;
+    in property <float> audio-peak-right: 0;
+    in property <float> audio-rms-left: 0;
+    in property <float> audio-rms-right: 0;
+    in property <string> audio-output-status: "";
     in property <bool> save-confirmation-visible: false;
     in property <string> save-confirmation-project: "";
     in-out property <bool> missing-media-dialog-visible: false;
@@ -1997,6 +2183,22 @@ export component MainWindow inherits Window {
                     TransportButton { icon: "previous"; accessible-name: @tr("Back 1 Frame"); help-text: @tr("Move playback position 1 frame back"); clicked => { root.previous-frame(); } }
                     TransportButton { icon: root.playing ? "pause" : "play"; active: root.playing; accessible-name: root.playing ? @tr("Pause") : @tr("Play"); help-text: @tr("Start or pause playback"); clicked => { root.toggle-playback(); } }
                     TransportButton { icon: "next"; accessible-name: @tr("Forward 1 Frame"); help-text: @tr("Move playback position 1 frame forward"); clicked => { root.next-frame(); } }
+                }
+                StereoAudioMeter {
+                    width: 74px;
+                    height: 28px;
+                    peak-left: root.audio-peak-left;
+                    peak-right: root.audio-peak-right;
+                    rms-left: root.audio-rms-left;
+                    rms-right: root.audio-rms-right;
+                }
+                Text {
+                    text: @tr("Audio unavailable");
+                    visible: root.audio-output-status != "";
+                    color: AppTheme.danger;
+                    font-size: 0.72rem;
+                    vertical-alignment: center;
+                    accessible-description: root.audio-output-status;
                 }
                 HorizontalLayout {
                     min-width: 130px;
@@ -2898,6 +3100,7 @@ export component TimelineWindow inherits Window {
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
                     height: max(root.timeline-track-height * 1px - 6px, 1px);
                     clip-data: clip;
+                    playhead: root.playhead;
                     pixels-per-frame: root.timeline-scale;
                     track-height: root.timeline-track-height * 1px;
                     resize-handle-width: root.clip-resize-handle-width * 1px;
@@ -4449,6 +4652,10 @@ export component ObjectSettingsWindow inherits Window {
     in property <bool> audio-plugin-mode: false;
     in property <bool> sidebar-on-right: false;
     in property <string> plugin-scan-status: "Audio plugins · scanning…";
+    in property <float> audio-peak-left: 0;
+    in property <float> audio-peak-right: 0;
+    in property <float> audio-rms-left: 0;
+    in property <float> audio-rms-right: 0;
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
     in property <[EffectCatalogItemData]> effect-catalog-items;
@@ -4607,6 +4814,21 @@ export component ObjectSettingsWindow inherits Window {
                         : @tr("Selected Object Settings");
                     font-size: 1.15rem;
                     font-weight: 700;
+                }
+                if root.audio-plugin-mode : GroupBox {
+                    title: @tr("Audio Level");
+                    height: 64px;
+                    HorizontalLayout {
+                        padding: 8px;
+                        StereoAudioMeter {
+                            height: 36px;
+                            horizontal-stretch: 1;
+                            peak-left: root.audio-peak-left;
+                            peak-right: root.audio-peak-right;
+                            rms-left: root.audio-rms-left;
+                            rms-right: root.audio-rms-right;
+                        }
+                    }
                 }
                 for row in root.setting-rows : ObjectSettingRow {
                     row-data: row;
@@ -5499,6 +5721,7 @@ component PackageListRow inherits Rectangle {
     in property <PackageData> package-data;
     in property <bool> busy;
     in property <bool> show-install-button;
+    in property <bool> qml-coming-soon;
     callback install(string, string);
     callback remove(string);
     callback permissions(string, string);
@@ -5570,14 +5793,18 @@ component PackageListRow inherits Rectangle {
                 clicked => { root.remove(root.package-data.id); }
             }
             Button {
-                text: root.package-data.has-update ? @tr("Update") : @tr("Install");
+                text: root.qml-coming-soon
+                    ? @tr("Coming Soon")
+                    : root.package-data.has-update ? @tr("Update") : @tr("Install");
                 primary: true;
                 visible: root.show-install-button
                     && (!root.package-data.can-remove || root.package-data.has-update)
                     && root.package-data.latest-version != "";
-                enabled: !root.busy;
+                enabled: !root.busy && !root.qml-coming-soon;
                 clicked => {
-                    root.install(root.package-data.id, root.package-data.source-repository);
+                    if !root.qml-coming-soon {
+                        root.install(root.package-data.id, root.package-data.source-repository);
+                    }
                 }
             }
         }
@@ -5634,6 +5861,23 @@ export component PackageManagerWindow inherits Window {
                 }
             }
         }
+        if root.tab-index < 2 : Rectangle {
+            height: 58px;
+            background: AppTheme.accent.transparentize(0.88);
+            border-width: 1px;
+            border-color: AppTheme.accent.transparentize(0.55);
+            border-radius: AppTheme.surface-radius;
+            Text {
+                x: AppTheme.spacing-md;
+                y: AppTheme.spacing-sm;
+                width: parent.width - 2 * AppTheme.spacing-md;
+                height: parent.height - 2 * AppTheme.spacing-sm;
+                text: @tr("Third-party QML effect and object packages are coming soon in the Slint edition.");
+                color: AppTheme.foreground;
+                wrap: word-wrap;
+                vertical-alignment: center;
+            }
+        }
         if root.tab-index < 5 : HorizontalLayout {
             spacing: AppTheme.spacing-sm;
             LineEdit {
@@ -5657,6 +5901,7 @@ export component PackageManagerWindow inherits Window {
                     package-data: package;
                     busy: root.busy;
                     show-install-button: root.tab-index < 3;
+                    qml-coming-soon: root.tab-index < 2;
                     install(id, repository) => { root.install-package(id, repository); }
                     remove(id) => { root.remove-package(id); }
                     permissions(id, name) => { root.show-permissions(id, name); }

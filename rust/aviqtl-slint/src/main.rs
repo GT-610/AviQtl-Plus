@@ -1,8 +1,9 @@
 #![deny(unsafe_code)]
 
 use aviqtl_app::{
-    ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
-    SaveDecision, SceneSettingsInput, WorkspaceModel,
+    ApplicationModel, LifecycleStep, MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectDefaults,
+    ProjectDocument, ProjectSession, ProjectSettingsInput, SaveDecision, SceneSettingsInput,
+    WorkspaceModel,
     audio_plugin::{AudioPluginCatalog, AudioPluginScanOutcome, AudioPluginScanner},
     easing::{BezierCurve, sample_easing_curve},
     effect_catalog::EffectCatalog,
@@ -20,6 +21,7 @@ use aviqtl_app::{
     settings::SettingsStore,
     timeline_interaction::{TimelineDragKind, TimelineDragRequest},
 };
+use aviqtl_audio::{AudioLayerPlan, AudioOutput, TimelineAudioMixer, TimelineAudioSource};
 use aviqtl_export::{
     ExportEvent, ExportImageFormat, ExportManager, ExportMode, ExportProject, ExportRequest,
     ExportRuntimeSettings, available_audio_encoders, available_video_encoders, is_software_codec,
@@ -35,6 +37,7 @@ use slint::{
 };
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -354,6 +357,12 @@ struct PreviewFrameKey {
     frame: i32,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+struct PreviewSceneKey {
+    source: PreviewSourceKey,
+    scene_id: i32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ObjectSettingsSyncKey {
     project_instance_id: u64,
@@ -363,12 +372,62 @@ struct ObjectSettingsSyncKey {
     effect_selection: Vec<bool>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct RecentProject {
+    name: String,
+    path: String,
+    width: i32,
+    height: i32,
+    fps: f64,
+}
+
 struct PreviewRuntime {
     surface: PreviewSurface,
     decoder: MediaPreview,
     planner: Option<PreviewPlanner>,
     source_key: Option<PreviewSourceKey>,
     requested_frame: Option<PreviewFrameKey>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct AudioMeterSnapshot {
+    master_peak_left: f32,
+    master_peak_right: f32,
+    master_rms_left: f32,
+    master_rms_right: f32,
+    selected_peak_left: f32,
+    selected_peak_right: f32,
+    selected_rms_left: f32,
+    selected_rms_right: f32,
+}
+
+struct AudioPlaybackRuntime {
+    output: Option<AudioOutput>,
+    last_output_attempt: Option<Instant>,
+    output_error: String,
+    planner: Option<PreviewPlanner>,
+    mixer: TimelineAudioMixer,
+    source_key: Option<PreviewSceneKey>,
+    timeline_rate: Option<f64>,
+    next_frame: Option<i32>,
+    was_playing: bool,
+    master_levels: [f32; 4],
+    track_levels: HashMap<i32, [f32; 4]>,
+}
+
+struct TimelineWaveformResult {
+    source_key: PreviewSceneKey,
+    peaks: HashMap<i32, Vec<f32>>,
+}
+
+struct TimelineWaveformRuntime {
+    source_key: Option<PreviewSceneKey>,
+    pending_key: Option<PreviewSceneKey>,
+    completed_key: Option<PreviewSceneKey>,
+    peaks: HashMap<i32, Vec<f32>>,
+    receiver: Option<Receiver<TimelineWaveformResult>>,
+    worker: Option<JoinHandle<()>>,
+    worker_stop: Option<Arc<AtomicBool>>,
 }
 
 #[derive(Default)]
@@ -688,6 +747,543 @@ impl PreviewRuntime {
             }
         }
         true
+    }
+}
+
+impl AudioPlaybackRuntime {
+    fn new() -> Self {
+        Self {
+            output: None,
+            last_output_attempt: None,
+            output_error: String::new(),
+            planner: None,
+            mixer: TimelineAudioMixer::default(),
+            source_key: None,
+            timeline_rate: None,
+            next_frame: None,
+            was_playing: false,
+            master_levels: [0.0; 4],
+            track_levels: HashMap::new(),
+        }
+    }
+
+    fn output_error(&self) -> &str {
+        &self.output_error
+    }
+
+    fn update(&mut self, model: &ApplicationModel, settings: &SettingsStore) -> AudioMeterSnapshot {
+        let Some(project_instance_id) = model.current_project_instance_id() else {
+            self.stop();
+            return AudioMeterSnapshot::default();
+        };
+        let Some(workspace) = model.current_workspace() else {
+            self.stop();
+            return AudioMeterSnapshot::default();
+        };
+        if !workspace.is_playing() {
+            self.stop();
+            return AudioMeterSnapshot::default();
+        }
+        if !self.ensure_output() {
+            return AudioMeterSnapshot::default();
+        }
+
+        let source_key = PreviewSceneKey {
+            source: PreviewSourceKey {
+                project_instance_id,
+                document_revision: workspace.document_revision(),
+                project_path: workspace.project().path.clone(),
+            },
+            scene_id: workspace.selected_scene(),
+        };
+        if self.source_key.as_ref() != Some(&source_key) {
+            if let Some(planner) = self.planner.as_mut() {
+                planner.rebuild(workspace.document(), workspace.project().path.as_deref());
+            } else {
+                self.planner = Some(PreviewPlanner::new(
+                    workspace.document(),
+                    workspace.project().path.as_deref(),
+                ));
+            }
+            self.source_key = Some(source_key);
+            self.reset_queue();
+        }
+
+        let sample_rate = self
+            .output
+            .as_ref()
+            .map_or(48_000, AudioOutput::sample_rate);
+        let fps = scene_fps(workspace.document(), workspace.selected_scene());
+        let timeline_rate = workspace.playback_speed().clamp(0.1, 4.0);
+        let target_frames = (sample_rate as usize / 8).max(1);
+        let permitted_lead =
+            audio_queue_lead_frames(fps, timeline_rate, target_frames, sample_rate);
+        let current_frame = workspace.playhead();
+        if self.timeline_rate != Some(timeline_rate) {
+            self.reset_queue();
+            self.next_frame = Some(current_frame);
+            self.timeline_rate = Some(timeline_rate);
+        }
+        if self.next_frame.is_none_or(|next_frame| {
+            next_frame < current_frame || next_frame > current_frame.saturating_add(permitted_lead)
+        }) {
+            self.reset_queue();
+            self.next_frame = Some(current_frame);
+        }
+        let timeline_end = workspace.timeline_duration();
+        let max_plugin_block_size = settings
+            .i32_value("audioPluginMaxBlockSize", 1024)
+            .clamp(1, 8_192) as usize;
+
+        while self
+            .output
+            .as_ref()
+            .is_some_and(|output| output.queued_frames() < target_frames)
+        {
+            let frame = self.next_frame.unwrap_or(current_frame);
+            if frame >= timeline_end {
+                break;
+            }
+            let Some(output_frames) =
+                samples_for_timeline_frame(frame, fps, sample_rate, timeline_rate)
+            else {
+                break;
+            };
+            let Some(planned) = self.planner.as_mut().and_then(|planner| {
+                planner.build(workspace.document(), workspace.selected_scene(), frame)
+            }) else {
+                break;
+            };
+            for warning in planned.warnings {
+                eprintln!("Audio preview planning warning: {warning}");
+            }
+            let sources =
+                resolve_timeline_audio_sources(planned.audio, workspace.project().path.as_deref());
+            match self.mixer.mix_frame_with_timeline_rate(
+                frame,
+                fps,
+                sample_rate,
+                output_frames,
+                max_plugin_block_size,
+                timeline_rate,
+                &sources,
+            ) {
+                Ok(block) => {
+                    for error in block.errors {
+                        eprintln!("Audio preview warning: {error}");
+                    }
+                    self.master_levels = stereo_levels(&block.samples);
+                    self.track_levels = block
+                        .meters
+                        .into_iter()
+                        .map(|meter| {
+                            (
+                                meter.clip_id,
+                                [
+                                    meter.peak_left,
+                                    meter.peak_right,
+                                    meter.rms_left,
+                                    meter.rms_right,
+                                ],
+                            )
+                        })
+                        .collect();
+                    if let Some(output) = self.output.as_mut() {
+                        output.enqueue_stereo(&block.samples);
+                    }
+                }
+                Err(error) => eprintln!("Audio preview timing warning: {error:?}"),
+            }
+            self.next_frame = Some(frame.saturating_add(1));
+        }
+        self.was_playing = true;
+
+        let selected = workspace
+            .selected_clip_document()
+            .and_then(|clip| self.track_levels.get(&clip.id).copied())
+            .unwrap_or([0.0; 4]);
+        AudioMeterSnapshot {
+            master_peak_left: self.master_levels[0],
+            master_peak_right: self.master_levels[1],
+            master_rms_left: self.master_levels[2],
+            master_rms_right: self.master_levels[3],
+            selected_peak_left: selected[0],
+            selected_peak_right: selected[1],
+            selected_rms_left: selected[2],
+            selected_rms_right: selected[3],
+        }
+    }
+
+    fn ensure_output(&mut self) -> bool {
+        if self.output.is_some() {
+            return true;
+        }
+        let now = Instant::now();
+        if self
+            .last_output_attempt
+            .is_some_and(|attempt| now.duration_since(attempt) < Duration::from_secs(5))
+        {
+            return false;
+        }
+        self.last_output_attempt = Some(now);
+        match AudioOutput::open_default() {
+            Ok(output) => {
+                self.output = Some(output);
+                self.output_error.clear();
+                true
+            }
+            Err(error) => {
+                if self.output_error != error {
+                    eprintln!("Audio preview unavailable: {error}");
+                }
+                self.output_error = error;
+                false
+            }
+        }
+    }
+
+    fn reset_queue(&mut self) {
+        if let Some(output) = self.output.as_mut() {
+            output.clear();
+        }
+        self.mixer = TimelineAudioMixer::default();
+        self.next_frame = None;
+        self.master_levels = [0.0; 4];
+        self.track_levels.clear();
+    }
+
+    fn stop(&mut self) {
+        if self.was_playing || self.next_frame.is_some() {
+            self.reset_queue();
+        }
+        self.was_playing = false;
+    }
+}
+
+impl TimelineWaveformRuntime {
+    fn new() -> Self {
+        Self {
+            source_key: None,
+            pending_key: None,
+            completed_key: None,
+            peaks: HashMap::new(),
+            receiver: None,
+            worker: None,
+            worker_stop: None,
+        }
+    }
+
+    fn update(&mut self, timeline: &TimelineWindow, model: &ApplicationModel) {
+        self.poll();
+        let Some(project_instance_id) = model.current_project_instance_id() else {
+            self.clear(timeline);
+            return;
+        };
+        let Some(workspace) = model.current_workspace() else {
+            self.clear(timeline);
+            return;
+        };
+        let source_key = PreviewSceneKey {
+            source: PreviewSourceKey {
+                project_instance_id,
+                document_revision: workspace.document_revision(),
+                project_path: workspace.project().path.clone(),
+            },
+            scene_id: workspace.selected_scene(),
+        };
+        if self.source_key.as_ref() != Some(&source_key) {
+            self.cancel_pending();
+            self.source_key = Some(source_key.clone());
+            self.completed_key = None;
+            self.peaks.clear();
+            clear_timeline_waveforms(timeline);
+        }
+        if self.pending_key.is_none() && self.completed_key.as_ref() != Some(&source_key) {
+            self.start(
+                source_key,
+                workspace.document().clone(),
+                workspace.project().path.clone(),
+            );
+        }
+        apply_timeline_waveforms(timeline, &self.peaks);
+    }
+
+    fn start(
+        &mut self,
+        source_key: PreviewSceneKey,
+        document: ProjectDocument,
+        project_path: Option<PathBuf>,
+    ) {
+        let (sender, receiver) = mpsc::channel();
+        let worker_key = source_key.clone();
+        let worker_stop = Arc::new(AtomicBool::new(false));
+        let worker_stop_flag = Arc::clone(&worker_stop);
+        match thread::Builder::new()
+            .name("aviqtl-waveform-builder".to_owned())
+            .spawn(move || {
+                let Some(peaks) = build_timeline_waveforms(
+                    &document,
+                    worker_key.scene_id,
+                    project_path.as_deref(),
+                    &worker_stop_flag,
+                ) else {
+                    return;
+                };
+                let _ = sender.send(TimelineWaveformResult {
+                    source_key: worker_key,
+                    peaks,
+                });
+            }) {
+            Ok(worker) => {
+                self.pending_key = Some(source_key);
+                self.receiver = Some(receiver);
+                self.worker = Some(worker);
+                self.worker_stop = Some(worker_stop);
+            }
+            Err(error) => {
+                eprintln!("Failed to start waveform builder: {error}");
+                self.completed_key = Some(source_key);
+            }
+        }
+    }
+
+    fn poll(&mut self) {
+        let Some(worker) = self.worker.as_ref() else {
+            return;
+        };
+        if !worker.is_finished() {
+            return;
+        }
+        let worker = self.worker.take().expect("waveform worker remains present");
+        let _ = worker.join();
+        self.worker_stop = None;
+        let result = self
+            .receiver
+            .take()
+            .and_then(|receiver| receiver.try_recv().ok());
+        self.pending_key = None;
+        let Some(result) = result else {
+            return;
+        };
+        if self.source_key.as_ref() == Some(&result.source_key) {
+            self.completed_key = Some(result.source_key);
+            self.peaks = result.peaks;
+        }
+    }
+
+    fn cancel_pending(&mut self) {
+        if let Some(stop) = self.worker_stop.as_ref() {
+            stop.store(true, Ordering::Release);
+        }
+    }
+
+    fn clear(&mut self, timeline: &TimelineWindow) {
+        self.cancel_pending();
+        if self.source_key.take().is_some() || !self.peaks.is_empty() {
+            self.completed_key = None;
+            self.peaks.clear();
+            clear_timeline_waveforms(timeline);
+        }
+    }
+}
+
+fn scene_fps(document: &ProjectDocument, scene_id: i32) -> f64 {
+    document
+        .scenes
+        .iter()
+        .find(|scene| scene.id == scene_id)
+        .map_or(document.settings.fps, |scene| scene.fps)
+        .max(1.0)
+}
+
+fn audio_queue_lead_frames(
+    fps: f64,
+    timeline_rate: f64,
+    target_frames: usize,
+    sample_rate: u32,
+) -> i32 {
+    if !fps.is_finite()
+        || fps <= 0.0
+        || !timeline_rate.is_finite()
+        || timeline_rate <= 0.0
+        || sample_rate == 0
+    {
+        return 1;
+    }
+    let timeline_frames =
+        (target_frames as f64 * fps * timeline_rate / f64::from(sample_rate)).ceil();
+    if timeline_frames.is_finite() {
+        timeline_frames.clamp(1.0, f64::from(i32::MAX)) as i32
+    } else {
+        i32::MAX
+    }
+}
+
+fn samples_for_timeline_frame(
+    frame: i32,
+    fps: f64,
+    sample_rate: u32,
+    timeline_rate: f64,
+) -> Option<usize> {
+    if frame < 0
+        || !fps.is_finite()
+        || fps <= 0.0
+        || sample_rate == 0
+        || !timeline_rate.is_finite()
+        || timeline_rate <= 0.0
+    {
+        return None;
+    }
+    let output_fps = fps * timeline_rate;
+    let start = (f64::from(frame) * f64::from(sample_rate) / output_fps).floor();
+    let end = (f64::from(frame.saturating_add(1)) * f64::from(sample_rate) / output_fps).floor();
+    usize::try_from((end - start).max(1.0) as u64).ok()
+}
+
+fn resolve_timeline_audio_sources(
+    plans: Vec<AudioLayerPlan>,
+    project_path: Option<&Path>,
+) -> Vec<TimelineAudioSource> {
+    plans
+        .into_iter()
+        .filter_map(|plan| {
+            let source = plan.source_path.as_deref()?;
+            let source = PathBuf::from(source);
+            let path = if source.is_absolute() {
+                source
+            } else {
+                project_path
+                    .and_then(Path::parent)
+                    .map_or(source.clone(), |directory| directory.join(source))
+            };
+            Some(TimelineAudioSource { path, plan })
+        })
+        .collect()
+}
+
+fn stereo_levels(samples: &[f32]) -> [f32; 4] {
+    let mut peak_left = 0.0_f32;
+    let mut peak_right = 0.0_f32;
+    let mut square_left = 0.0_f64;
+    let mut square_right = 0.0_f64;
+    let mut frames = 0_usize;
+    for frame in samples.chunks_exact(2) {
+        peak_left = peak_left.max(frame[0].abs());
+        peak_right = peak_right.max(frame[1].abs());
+        square_left += f64::from(frame[0]) * f64::from(frame[0]);
+        square_right += f64::from(frame[1]) * f64::from(frame[1]);
+        frames += 1;
+    }
+    if frames == 0 {
+        return [0.0; 4];
+    }
+    [
+        peak_left,
+        peak_right,
+        (square_left / frames as f64).sqrt() as f32,
+        (square_right / frames as f64).sqrt() as f32,
+    ]
+}
+
+fn build_timeline_waveforms(
+    document: &ProjectDocument,
+    scene_id: i32,
+    project_path: Option<&Path>,
+    stop: &AtomicBool,
+) -> Option<HashMap<i32, Vec<f32>>> {
+    const POINTS: usize = 96;
+    if stop.load(Ordering::Acquire) {
+        return None;
+    }
+    let fps = scene_fps(document, scene_id);
+    let sample_rate = document.settings.sample_rate.max(1) as u32;
+    let mut planner = PreviewPlanner::new(document, project_path);
+    let mut mixer = TimelineAudioMixer::default();
+    let mut waveforms = HashMap::new();
+    for clip in document
+        .clips
+        .iter()
+        .filter(|clip| clip.scene_id == scene_id && clip.clip_type == "audio")
+    {
+        if stop.load(Ordering::Acquire) {
+            return None;
+        }
+        let mut peaks = Vec::with_capacity(POINTS);
+        for point in 0..POINTS {
+            if stop.load(Ordering::Acquire) {
+                return None;
+            }
+            let relative_frame = ((point as i64 * i64::from(clip.duration.max(1))) / POINTS as i64)
+                .clamp(0, i64::from(clip.duration.saturating_sub(1).max(0)))
+                as i32;
+            let frame = clip.start.saturating_add(relative_frame);
+            let peak = if let Some(mut plan) =
+                planner
+                    .build(document, scene_id, frame)
+                    .and_then(|planned| {
+                        planned
+                            .audio
+                            .into_iter()
+                            .find(|plan| plan.clip_id == clip.id)
+                    }) {
+                plan.plugins.clear();
+                let sources = resolve_timeline_audio_sources(vec![plan], project_path);
+                let sample_frames =
+                    (f64::from(sample_rate) / fps).ceil().clamp(1.0, 8_192.0) as usize;
+                mixer
+                    .mix_frame_with_sample_count_and_plugin_block_size(
+                        frame,
+                        fps,
+                        sample_rate,
+                        sample_frames,
+                        8_192,
+                        &sources,
+                    )
+                    .ok()
+                    .map(|block| {
+                        block
+                            .samples
+                            .iter()
+                            .fold(0.0_f32, |peak, sample| peak.max(sample.abs()))
+                            .clamp(0.0, 1.0)
+                    })
+                    .unwrap_or_default()
+            } else {
+                0.0
+            };
+            peaks.push(peak);
+        }
+        waveforms.insert(clip.id, peaks);
+    }
+    Some(waveforms)
+}
+
+fn clear_timeline_waveforms(timeline: &TimelineWindow) {
+    let clips = timeline.get_clips();
+    for index in 0..clips.row_count() {
+        let Some(mut clip) = clips.row_data(index) else {
+            continue;
+        };
+        if clip.waveform.row_count() > 0 {
+            clip.waveform = ModelRc::new(VecModel::<f32>::default());
+            clips.set_row_data(index, clip);
+        }
+    }
+}
+
+fn apply_timeline_waveforms(timeline: &TimelineWindow, peaks: &HashMap<i32, Vec<f32>>) {
+    let clips = timeline.get_clips();
+    for index in 0..clips.row_count() {
+        let Some(mut clip) = clips.row_data(index) else {
+            continue;
+        };
+        let Some(waveform) = peaks.get(&clip.id) else {
+            continue;
+        };
+        if clip.waveform.row_count() != waveform.len() {
+            clip.waveform = ModelRc::new(VecModel::from(waveform.clone()));
+            clips.set_row_data(index, clip);
+        }
     }
 }
 
@@ -1111,7 +1707,8 @@ impl LifecycleUi {
                     let path = choose_project_save_path(&suggested_path);
                     step = self.model.borrow_mut().complete_save_path(path.as_deref());
                 }
-                LifecycleStep::ProjectSaved { .. } => {
+                LifecycleStep::ProjectSaved { project_index } => {
+                    self.record_recent_project(project_index);
                     self.sync();
                     return;
                 }
@@ -1122,7 +1719,7 @@ impl LifecycleUi {
                             let _ = main.hide();
                         }
                         if let Some(launcher) = self.launcher.upgrade() {
-                            sync_launcher_defaults(&launcher, &self.settings.borrow());
+                            sync_launcher(&launcher, &self.settings.borrow());
                             let _ = show_and_redraw(&launcher);
                         }
                         self.show_recoveries_if_available();
@@ -1150,9 +1747,14 @@ impl LifecycleUi {
         let Some(path) = choose_project_to_open() else {
             return;
         };
-        let result = self.model.borrow_mut().open_project(&path);
+        self.open_project_path(&path, from_launcher);
+    }
+
+    fn open_project_path(&self, path: &Path, from_launcher: bool) {
+        let result = self.model.borrow_mut().open_project(path);
         match result {
-            Ok(_) => {
+            Ok(project_index) => {
+                self.record_recent_project(project_index);
                 self.hydrate_audio_plugins();
                 self.sync();
                 if let Some(main) = self.main.upgrade() {
@@ -1169,6 +1771,20 @@ impl LifecycleUi {
                 }
             }
             Err(message) => show_error_dialog(&message),
+        }
+    }
+
+    fn record_recent_project(&self, project_index: usize) {
+        let result = self
+            .model
+            .borrow()
+            .workspace(project_index)
+            .map(|workspace| add_recent_project(&mut self.settings.borrow_mut(), workspace));
+        if let Some(Err(error)) = result {
+            eprintln!("Failed to update recent projects: {error}");
+        }
+        if let Some(launcher) = self.launcher.upgrade() {
+            sync_launcher(&launcher, &self.settings.borrow());
         }
     }
 
@@ -1551,7 +2167,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )));
     let export_codecs = Rc::new(RefCell::new(ExportCodecState::default()));
     let export_planner = Rc::new(RefCell::new(ExportPlannerRuntime::default()));
-    sync_launcher_defaults(&launcher, &settings.borrow());
+    launcher.set_recent_projects(ModelRc::new(VecModel::<RecentProjectData>::default()));
+    sync_launcher(&launcher, &settings.borrow());
     system_settings
         .set_plugin_settings(ModelRc::new(VecModel::<SystemPluginSettingData>::default()));
     system_settings.set_shortcut_settings(ModelRc::new(
@@ -1604,6 +2221,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     ));
     install_render_probe(&main, stats.clone(), WindowKind::Main)?;
     install_render_probe(&timeline, stats.clone(), WindowKind::Timeline)?;
+    let audio_playback = Rc::new(RefCell::new(AudioPlaybackRuntime::new()));
     let lifecycle_ui = Rc::new(LifecycleUi {
         launcher: launcher.as_weak(),
         recovery: recovery.as_weak(),
@@ -1646,6 +2264,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         preset_store,
         font_families,
         lifecycle_ui,
+        audio_playback.clone(),
     );
     install_window_geometry_close_handler(timeline.as_weak(), settings.clone(), "timeline");
     install_window_geometry_close_handler(
@@ -1682,7 +2301,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         settings.clone(),
         effect_catalog.clone(),
     );
-    install_keyboard_shortcuts(&main, &timeline, model.clone(), settings.clone());
+    install_keyboard_shortcuts(
+        &main,
+        &timeline,
+        model.clone(),
+        settings.clone(),
+        audio_playback.clone(),
+    );
     let mod_host_for_timer = mod_host.clone();
     let mod_settings_for_timer = settings.clone();
     let mod_model_for_timer = model.clone();
@@ -1736,6 +2361,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let rendered_ticks = Rc::new(Cell::new(0_u64));
+    let timeline_waveforms = Rc::new(RefCell::new(TimelineWaveformRuntime::new()));
     let animation_timer = Timer::default();
     let animation_preview = preview.clone();
     let animation_main = main.as_weak();
@@ -1764,6 +2390,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_export_planner = export_planner;
     let animation_stats = stats.clone();
     let animation_model = model.clone();
+    let animation_audio_playback = audio_playback;
+    let animation_waveforms = timeline_waveforms;
     let timer_ticks = rendered_ticks.clone();
     animation_timer.start(TimerMode::Repeated, Duration::from_millis(16), move || {
         let ticks = timer_ticks.get() + 1;
@@ -1939,6 +2567,29 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 sync_windows(&main, &timeline, &animation_mod_model.borrow());
                 sync_transport(&main, &timeline, &animation_mod_model.borrow());
             }
+        }
+        let meters = animation_audio_playback
+            .borrow_mut()
+            .update(&animation_model.borrow(), &animation_mod_settings.borrow());
+        if let Some(window) = animation_main.upgrade() {
+            window.set_audio_peak_left(meters.master_peak_left);
+            window.set_audio_peak_right(meters.master_peak_right);
+            window.set_audio_rms_left(meters.master_rms_left);
+            window.set_audio_rms_right(meters.master_rms_right);
+            window.set_audio_output_status(SharedString::from(
+                animation_audio_playback.borrow().output_error(),
+            ));
+        }
+        if let Some(window) = animation_settings.upgrade() {
+            window.set_audio_peak_left(meters.selected_peak_left);
+            window.set_audio_peak_right(meters.selected_peak_right);
+            window.set_audio_rms_left(meters.selected_rms_left);
+            window.set_audio_rms_right(meters.selected_rms_right);
+        }
+        if let Some(window) = animation_timeline.upgrade() {
+            animation_waveforms
+                .borrow_mut()
+                .update(&window, &animation_model.borrow());
         }
         if let Some(main) = animation_main.upgrade() {
             let preview_updated = {
@@ -2158,6 +2809,7 @@ fn install_callbacks(
     preset_store: Rc<PresetStore>,
     font_families: Rc<Vec<String>>,
     lifecycle_ui: Rc<LifecycleUi>,
+    audio_playback: Rc<RefCell<AudioPlaybackRuntime>>,
 ) {
     let system_apply_ui = lifecycle_ui.clone();
     let model = lifecycle_ui.model.clone();
@@ -2398,6 +3050,7 @@ fn install_callbacks(
         );
     });
     let object_seek_keyframe_ui = object_settings_ui.clone();
+    let object_seek_audio = audio_playback.clone();
     object_settings.on_seek_effect_frame(move |frame| {
         if let Some(workspace) = object_seek_keyframe_ui
             .model
@@ -2405,6 +3058,7 @@ fn install_callbacks(
             .current_workspace_mut()
         {
             workspace.seek_effect_frame(frame.max(0));
+            object_seek_audio.borrow_mut().reset_queue();
         }
         object_seek_keyframe_ui.sync();
     });
@@ -2765,6 +3419,10 @@ fn install_callbacks(
 
     let launcher_open_ui = lifecycle_ui.clone();
     launcher.on_open_project(move || launcher_open_ui.open_project_dialog(true));
+    let launcher_recent_ui = lifecycle_ui.clone();
+    launcher.on_open_recent_project(move |path| {
+        launcher_recent_ui.open_project_path(Path::new(path.as_str()), true);
+    });
 
     let new_launcher = launcher.as_weak();
     let new_ui = lifecycle_ui.clone();
@@ -3356,7 +4014,7 @@ fn install_callbacks(
             "undo" | "redo" | "paste" => {
                 let (pixels_per_frame, last_layer) = timeline_action_window
                     .upgrade()
-                    .map_or((1.0, 127), |window| {
+                    .map_or((1.0, MAX_TIMELINE_LAYER), |window| {
                         (window.get_pixels_per_frame(), timeline_last_layer(&window))
                     });
                 if let Some(workspace) = timeline_action_model.borrow_mut().current_workspace_mut()
@@ -3432,6 +4090,7 @@ fn install_callbacks(
     let seek_audio_model = model.clone();
     let seek_audio_main = main.as_weak();
     let seek_audio_timeline = timeline.as_weak();
+    let seek_audio_playback = audio_playback.clone();
     timeline.on_seek_audio_frame(move |clip_id, frame| {
         if let Some(workspace) = seek_audio_model.borrow_mut().current_workspace_mut()
             && let Some(clip) = workspace
@@ -3445,6 +4104,7 @@ fn install_callbacks(
             if clip.clip_type == "audio" && duration > 0 {
                 workspace
                     .seek(start.saturating_add(frame.saturating_sub(start).clamp(0, duration)));
+                seek_audio_playback.borrow_mut().reset_queue();
             }
         }
         sync_weak_windows(&seek_audio_main, &seek_audio_timeline, &seek_audio_model);
@@ -3484,8 +4144,9 @@ fn install_callbacks(
     let object_add_main = main.as_weak();
     let object_add_timeline = timeline.as_weak();
     timeline.on_add_catalog_object(move |object_id, frame, layer| {
-        let (pixels_per_frame, last_layer) =
-            object_add_timeline.upgrade().map_or((1.0, 127), |window| {
+        let (pixels_per_frame, last_layer) = object_add_timeline
+            .upgrade()
+            .map_or((1.0, MAX_TIMELINE_LAYER), |window| {
                 (window.get_pixels_per_frame(), timeline_last_layer(&window))
             });
         let default_duration = object_add_settings
@@ -3678,7 +4339,7 @@ fn install_callbacks(
             Ok(()) => {
                 sync_system_settings(&window, &system_apply_store.borrow());
                 if let Some(launcher) = system_apply_launcher.upgrade() {
-                    sync_launcher_defaults(&launcher, &system_apply_store.borrow());
+                    sync_launcher(&launcher, &system_apply_store.borrow());
                 }
                 if let Some(timeline) = system_apply_timeline.upgrade() {
                     sync_timeline_zoom_settings(&timeline, &system_apply_store.borrow());
@@ -3748,7 +4409,7 @@ fn install_callbacks(
     timeline.on_clip_command(move |action, clip_id, frame, layer| {
         let maximum_layers = clip_command_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         let open_effect_picker = action.as_str() == "browse-effect";
         let extension_id = action
             .as_str()
@@ -3807,7 +4468,7 @@ fn install_callbacks(
         let (pixels_per_frame, layer_height, minimum_duration_frames, maximum_layers) =
             clip_drag_timeline
                 .upgrade()
-                .map_or((1.0, 30.0, 5, 128), |window| {
+                .map_or((1.0, 30.0, 5, MAX_TIMELINE_LAYERS), |window| {
                     (
                         window.get_pixels_per_frame(),
                         window.get_timeline_track_height() as f32,
@@ -3847,7 +4508,7 @@ fn install_callbacks(
     timeline.on_layer_command(move |action, layer| {
         let maximum_layers = layer_command_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         if let Some(workspace) = layer_command_model.borrow_mut().current_workspace_mut() {
             match action.as_str() {
                 "insert-above" => {
@@ -3890,7 +4551,7 @@ fn install_callbacks(
     timeline.on_insert_layers(move |layer, count, above| {
         let maximum_layers = insert_layers_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         let _ = insert_layers_model
             .borrow_mut()
             .current_workspace_mut()
@@ -3908,7 +4569,7 @@ fn install_callbacks(
     timeline.on_shift_layers(move |start, end, delta| {
         let maximum_layers = shift_layers_timeline
             .upgrade()
-            .map_or(128, |window| window.get_maximum_layers());
+            .map_or(MAX_TIMELINE_LAYERS, |window| window.get_maximum_layers());
         let _ = shift_layers_model
             .borrow_mut()
             .current_workspace_mut()
@@ -3923,10 +4584,12 @@ fn install_callbacks(
     let empty_model = model.clone();
     let empty_main = main.as_weak();
     let empty_timeline = timeline.as_weak();
+    let empty_audio = audio_playback.clone();
     timeline.on_empty_clicked(move |frame, layer| {
         if let Some(workspace) = empty_model.borrow_mut().current_workspace_mut() {
             workspace.select_layer(layer);
             workspace.seek(frame);
+            empty_audio.borrow_mut().reset_queue();
         }
         sync_weak_windows(&empty_main, &empty_timeline, &empty_model);
     });
@@ -4033,9 +4696,11 @@ fn install_callbacks(
     let seek_model = model.clone();
     let seek_main = main.as_weak();
     let seek_timeline = timeline.as_weak();
+    let seek_audio = audio_playback.clone();
     main.on_seek(move |frame| {
         if let Some(workspace) = seek_model.borrow_mut().current_workspace_mut() {
             workspace.seek(frame.round() as i32);
+            seek_audio.borrow_mut().reset_queue();
         }
         sync_transport_weak(&seek_main, &seek_timeline, &seek_model);
     });
@@ -4051,18 +4716,22 @@ fn install_callbacks(
     let previous_model = model.clone();
     let previous_main = main.as_weak();
     let previous_timeline = timeline.as_weak();
+    let previous_audio = audio_playback.clone();
     main.on_previous_frame(move || {
         if let Some(workspace) = previous_model.borrow_mut().current_workspace_mut() {
             workspace.step_playhead(-1);
+            previous_audio.borrow_mut().reset_queue();
         }
         sync_transport_weak(&previous_main, &previous_timeline, &previous_model);
     });
     let next_model = model.clone();
     let next_main = main.as_weak();
     let next_timeline = timeline.as_weak();
+    let next_audio = audio_playback.clone();
     main.on_next_frame(move || {
         if let Some(workspace) = next_model.borrow_mut().current_workspace_mut() {
             workspace.step_playhead(1);
+            next_audio.borrow_mut().reset_queue();
         }
         sync_transport_weak(&next_main, &next_timeline, &next_model);
     });
@@ -4077,17 +4746,21 @@ fn install_callbacks(
     });
 
     let scrub_begin_model = model.clone();
+    let scrub_begin_audio = audio_playback.clone();
     timeline.on_begin_scrub(move || {
         if let Some(workspace) = scrub_begin_model.borrow_mut().current_workspace_mut() {
             workspace.begin_scrub();
+            scrub_begin_audio.borrow_mut().reset_queue();
         }
     });
     let scrub_model = model.clone();
     let scrub_main = main.as_weak();
     let scrub_timeline = timeline.as_weak();
+    let scrub_audio = audio_playback;
     timeline.on_scrub_to(move |frame| {
         if let Some(workspace) = scrub_model.borrow_mut().current_workspace_mut() {
             workspace.scrub_to(frame.round() as i32);
+            scrub_audio.borrow_mut().reset_queue();
         }
         sync_transport_weak(&scrub_main, &scrub_timeline, &scrub_model);
     });
@@ -4107,11 +4780,13 @@ fn install_keyboard_shortcuts(
     timeline: &TimelineWindow,
     model: Rc<RefCell<ApplicationModel>>,
     settings: Rc<RefCell<SettingsStore>>,
+    audio_playback: Rc<RefCell<AudioPlaybackRuntime>>,
 ) {
     let main_window = main.as_weak();
     let main_timeline = timeline.as_weak();
     let main_model = model.clone();
     let main_settings = settings.clone();
+    let main_audio = audio_playback.clone();
     main.on_keyboard_shortcut(move |text, alt, control, shift, meta| {
         handle_keyboard_shortcut(
             ShortcutInput {
@@ -4127,6 +4802,7 @@ fn install_keyboard_shortcuts(
             &main_timeline,
             &main_model,
             &main_settings,
+            &main_audio,
         )
     });
 
@@ -4134,6 +4810,7 @@ fn install_keyboard_shortcuts(
     let timeline_window = timeline.as_weak();
     let timeline_model = model.clone();
     let timeline_settings = settings.clone();
+    let timeline_audio = audio_playback;
     timeline.on_keyboard_shortcut(move |text, alt, control, shift, meta| {
         handle_keyboard_shortcut(
             ShortcutInput {
@@ -4149,6 +4826,7 @@ fn install_keyboard_shortcuts(
             &timeline_window,
             &timeline_model,
             &timeline_settings,
+            &timeline_audio,
         )
     });
 
@@ -4201,6 +4879,7 @@ fn install_keyboard_shortcuts(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_keyboard_shortcut(
     input: ShortcutInput,
     editor_window: bool,
@@ -4209,6 +4888,7 @@ fn handle_keyboard_shortcut(
     timeline: &slint::Weak<TimelineWindow>,
     model: &Rc<RefCell<ApplicationModel>>,
     settings: &Rc<RefCell<SettingsStore>>,
+    audio_playback: &Rc<RefCell<AudioPlaybackRuntime>>,
 ) -> bool {
     let action = {
         let settings = settings.borrow();
@@ -4217,7 +4897,15 @@ fn handle_keyboard_shortcut(
     let Some(action) = action else {
         return false;
     };
-    dispatch_shortcut(action, use_skimmer, main, timeline, model, settings);
+    dispatch_shortcut(
+        action,
+        use_skimmer,
+        main,
+        timeline,
+        model,
+        settings,
+        audio_playback,
+    );
     true
 }
 
@@ -4465,6 +5153,7 @@ fn shortcut_key_text(value: &str) -> Option<String> {
     (text.chars().count() == 1).then_some(text)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn dispatch_shortcut(
     action: ShortcutAction,
     use_skimmer: bool,
@@ -4472,6 +5161,7 @@ fn dispatch_shortcut(
     timeline: &slint::Weak<TimelineWindow>,
     model: &Rc<RefCell<ApplicationModel>>,
     settings: &Rc<RefCell<SettingsStore>>,
+    audio_playback: &Rc<RefCell<AudioPlaybackRuntime>>,
 ) {
     let Some(main_window) = main.upgrade() else {
         return;
@@ -4578,10 +5268,14 @@ fn dispatch_shortcut(
                             );
                         }
                     }
-                    ShortcutAction::JumpStart => workspace.seek(0),
+                    ShortcutAction::JumpStart => {
+                        workspace.seek(0);
+                        audio_playback.borrow_mut().reset_queue();
+                    }
                     ShortcutAction::JumpEnd => {
                         let end_frame = workspace.timeline_duration();
                         workspace.seek(end_frame);
+                        audio_playback.borrow_mut().reset_queue();
                     }
                     ShortcutAction::Split => {
                         workspace.split_selected_clips_at(frame);
@@ -4739,11 +5433,13 @@ fn system_theme_index(settings: &SettingsStore) -> i32 {
 }
 
 fn timeline_maximum_layers(settings: &SettingsStore) -> i32 {
-    settings.i32_value("timelineMaxLayers", 128).clamp(1, 128)
+    settings
+        .i32_value("timelineMaxLayers", 128)
+        .clamp(1, MAX_TIMELINE_LAYERS)
 }
 
 fn timeline_last_layer(window: &TimelineWindow) -> i32 {
-    window.get_maximum_layers().clamp(1, 128) - 1
+    window.get_maximum_layers().clamp(1, MAX_TIMELINE_LAYERS) - 1
 }
 
 fn sync_timeline_runtime_settings(
@@ -5691,12 +6387,128 @@ fn project_defaults(settings: &SettingsStore) -> ProjectDefaults {
     }
 }
 
-fn sync_launcher_defaults(window: &ProjectLauncherWindow, settings: &SettingsStore) {
+fn sync_launcher(window: &ProjectLauncherWindow, settings: &SettingsStore) {
     let defaults = project_defaults(settings);
     window.set_default_width(SharedString::from(defaults.width.to_string()));
     window.set_default_height(SharedString::from(defaults.height.to_string()));
     window.set_default_fps(SharedString::from(defaults.fps.to_string()));
     window.set_default_sample_rate(SharedString::from(defaults.sample_rate.to_string()));
+    let rows = recent_projects(settings)
+        .into_iter()
+        .map(|project| RecentProjectData {
+            name: SharedString::from(project.name),
+            path: SharedString::from(project.path),
+            details: SharedString::from(format!(
+                "{} × {} @ {} fps",
+                project.width, project.height, project.fps
+            )),
+        })
+        .collect();
+    update_vec_model(&window.get_recent_projects(), rows);
+}
+
+fn recent_projects(settings: &SettingsStore) -> Vec<RecentProject> {
+    let maximum = settings.i32_value("recentProjectMaxCount", 10).clamp(1, 50) as usize;
+    recent_projects_from_value(settings.value("recentProjects"), maximum)
+}
+
+fn recent_projects_from_value(
+    value: Option<&serde_json::Value>,
+    maximum: usize,
+) -> Vec<RecentProject> {
+    value
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|value| {
+            let object = value.as_object()?;
+            let path = object.get("path")?.as_str()?;
+            if path.trim().is_empty() {
+                return None;
+            }
+            let name = object
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .filter(|name| !name.trim().is_empty())
+                .map(str::to_owned)
+                .or_else(|| {
+                    Path::new(path)
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                })
+                .unwrap_or_else(|| {
+                    localized("Untitled Project", "未命名项目", "無題のプロジェクト").to_owned()
+                });
+            let fps = object
+                .get("fps")
+                .and_then(serde_json::Value::as_f64)
+                .filter(|fps| fps.is_finite() && *fps > 0.0)
+                .unwrap_or(60.0);
+            Some(RecentProject {
+                name,
+                path: path.to_owned(),
+                width: json_i32(object.get("width"), 1_920).max(1),
+                height: json_i32(object.get("height"), 1_080).max(1),
+                fps,
+            })
+        })
+        .take(maximum)
+        .collect()
+}
+
+fn add_recent_project(
+    settings: &mut SettingsStore,
+    workspace: &WorkspaceModel,
+) -> Result<(), String> {
+    let Some(path) = workspace.project().path.as_ref() else {
+        return Ok(());
+    };
+    let path = path.display().to_string();
+    if path.trim().is_empty() {
+        return Ok(());
+    }
+    let project_settings = workspace.project_settings();
+    let name = Path::new(&path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.clone());
+    let recent = merge_recent_project(
+        recent_projects(settings),
+        RecentProject {
+            name,
+            path,
+            width: project_settings.width,
+            height: project_settings.height,
+            fps: project_settings.fps,
+        },
+        settings.i32_value("recentProjectMaxCount", 10).clamp(1, 50) as usize,
+    );
+    let value = recent
+        .into_iter()
+        .map(|entry| {
+            serde_json::json!({
+                "name": entry.name,
+                "path": entry.path,
+                "width": entry.width,
+                "height": entry.height,
+                "fps": entry.fps,
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut replacement = settings.snapshot();
+    replacement.insert("recentProjects".to_owned(), serde_json::Value::Array(value));
+    settings.apply(replacement)
+}
+
+fn merge_recent_project(
+    mut recent: Vec<RecentProject>,
+    project: RecentProject,
+    maximum: usize,
+) -> Vec<RecentProject> {
+    recent.retain(|entry| entry.path != project.path);
+    recent.insert(0, project);
+    recent.truncate(maximum);
+    recent
 }
 
 fn sync_project_settings(window: &ProjectSettingsWindow, input: &ProjectSettingsInput) {
@@ -5777,7 +6589,11 @@ fn sync_system_settings(window: &SystemSettingsWindow, settings: &SettingsStore)
     window
         .set_setting_dialog_sidebar_right(settings.bool_value("settingDialogSidebarRight", false));
     window.set_timeline_ruler_height(settings.i32_value("timelineRulerHeight", 32).clamp(16, 100));
-    window.set_timeline_max_layers(settings.i32_value("timelineMaxLayers", 128).clamp(1, 128));
+    window.set_timeline_max_layers(
+        settings
+            .i32_value("timelineMaxLayers", 128)
+            .clamp(1, MAX_TIMELINE_LAYERS),
+    );
     window.set_timeline_layer_header_width(
         settings
             .i32_value("timelineLayerHeaderWidth", 60)
@@ -6210,7 +7026,11 @@ fn system_settings_replacement(
         ),
         (
             "timelineMaxLayers",
-            serde_json::json!(window.get_timeline_max_layers().clamp(1, 128)),
+            serde_json::json!(
+                window
+                    .get_timeline_max_layers()
+                    .clamp(1, MAX_TIMELINE_LAYERS)
+            ),
         ),
         (
             "timelineLayerHeaderWidth",
@@ -6486,22 +7306,34 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
     let clips = workspace
         .timeline_clips()
         .into_iter()
-        .map(|clip| TimelineClipData {
-            id: clip.id,
-            label: SharedString::from(localized_effect_metadata(&clip.label).into_owned()),
-            start: clip.start,
-            duration: clip.duration,
-            layer: clip.layer,
-            audio: clip.audio,
-            clip_by_upper_object: clip.clip_by_upper_object,
-            selected: clip.selected,
-            primary: clip.primary,
+        .map(|clip| {
+            let style = timeline_clip_style(&clip.clip_type);
+            let has_clip_color = style.is_some();
+            let (clip_color, dark_text) = style.unwrap_or_default();
+            TimelineClipData {
+                id: clip.id,
+                label: SharedString::from(localized_effect_metadata(&clip.label).into_owned()),
+                clip_type: SharedString::from(clip.clip_type),
+                clip_color,
+                has_clip_color,
+                dark_text,
+                waveform: ModelRc::new(VecModel::<f32>::default()),
+                start: clip.start,
+                duration: clip.duration,
+                layer: clip.layer,
+                audio: clip.audio,
+                locked: clip.locked,
+                control_layer_count: clip.control_layer_count,
+                clip_by_upper_object: clip.clip_by_upper_object,
+                selected: clip.selected,
+                primary: clip.primary,
+            }
         })
         .collect::<Vec<_>>();
     update_vec_model(&timeline.get_clips(), clips);
     let selected_layer = workspace.selected_layer();
     let scene = workspace.selected_scene_document();
-    let layers = (0..timeline.get_maximum_layers().clamp(1, 128))
+    let layers = (0..timeline.get_maximum_layers().clamp(1, MAX_TIMELINE_LAYERS))
         .map(|index| LayerData {
             index,
             visible: scene.is_none_or(|scene| !scene.hidden_layers.contains(&index)),
@@ -6511,6 +7343,17 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
         .collect::<Vec<_>>();
     update_vec_model(&timeline.get_layers(), layers);
     sync_transport(main, timeline, model);
+}
+
+fn timeline_clip_style(clip_type: &str) -> Option<(Color, bool)> {
+    let [red, green, blue] = match clip_type {
+        "audio" => [0xd0, 0x30, 0x30],
+        "counter" | "flare" | "lens_flare_object" | "pie_shape" | "polygon_shape"
+        | "radial_lines" | "star" | "track_line" => [0x3b, 0x82, 0xf6],
+        _ => return None,
+    };
+    let luma = 0.299 * f32::from(red) + 0.587 * f32::from(green) + 0.114 * f32::from(blue);
+    Some((Color::from_rgb_u8(red, green, blue), luma > 0.6 * 255.0))
 }
 
 fn sync_project_tabs(main: &MainWindow, model: &ApplicationModel) {
@@ -7809,6 +8652,102 @@ mod tests {
         AudioPluginSettings, KeyframePoint, ObjectControlKind, ObjectControlOption, ObjectEffect,
     };
     use serde_json::json;
+
+    #[test]
+    fn playback_audio_frame_sizes_follow_the_timeline_rate() {
+        assert_eq!(samples_for_timeline_frame(0, 60.0, 48_000, 1.0), Some(800));
+        assert_eq!(samples_for_timeline_frame(0, 60.0, 48_000, 2.0), Some(400));
+        assert_eq!(
+            samples_for_timeline_frame(0, 60.0, 48_000, 0.5),
+            Some(1_600)
+        );
+        assert_eq!(samples_for_timeline_frame(-1, 60.0, 48_000, 1.0), None);
+        assert_eq!(samples_for_timeline_frame(0, 0.0, 48_000, 1.0), None);
+        assert_eq!(samples_for_timeline_frame(0, 60.0, 0, 1.0), None);
+        assert_eq!(samples_for_timeline_frame(0, 60.0, 48_000, 0.0), None);
+    }
+
+    #[test]
+    fn audio_queue_lead_matches_the_buffered_transport_duration() {
+        assert_eq!(audio_queue_lead_frames(60.0, 1.0, 6_000, 48_000), 8);
+        assert_eq!(audio_queue_lead_frames(60.0, 2.0, 6_000, 48_000), 15);
+        assert_eq!(audio_queue_lead_frames(240.0, 4.0, 6_000, 48_000), 120);
+        assert_eq!(audio_queue_lead_frames(60.0, 1.0, 6_000, 0), 1);
+    }
+
+    #[test]
+    fn audio_timing_uses_scene_fps_with_a_project_fallback() {
+        let mut project = ProjectSession::blank_with(ProjectDefaults {
+            fps: 24.0,
+            ..ProjectDefaults::default()
+        });
+        project.document.scenes[0].fps = 120.0;
+
+        assert_eq!(scene_fps(&project.document, 1), 120.0);
+        assert_eq!(scene_fps(&project.document, 999), 24.0);
+
+        project.document.scenes[0].fps = 0.0;
+        assert_eq!(scene_fps(&project.document, 1), 1.0);
+    }
+
+    #[test]
+    fn stereo_meter_reports_independent_peak_and_rms_levels() {
+        let levels = stereo_levels(&[0.5, -1.0, -0.5, 0.0, 0.75]);
+        assert_eq!(levels[0], 0.5);
+        assert_eq!(levels[1], 1.0);
+        assert!((levels[2] - 0.5).abs() < f32::EPSILON);
+        assert!((levels[3] - (0.5_f32).sqrt()).abs() < f32::EPSILON);
+        assert_eq!(stereo_levels(&[]), [0.0; 4]);
+    }
+
+    #[test]
+    fn recent_projects_parse_qt_entries_and_respect_the_configured_limit() {
+        let value = json!([
+            {"name":"One","path":"C:/projects/one.aviqtl","width":1920,"height":1080,"fps":60.0},
+            {"name":"","path":"C:/projects/two.aviqtl","width":1280,"height":720,"fps":30.0},
+            {"name":"Invalid","path":""}
+        ]);
+
+        let recent = recent_projects_from_value(Some(&value), 2);
+        assert_eq!(recent.len(), 2);
+        assert_eq!(recent[0].name, "One");
+        assert_eq!(recent[1].name, "two.aviqtl");
+        assert_eq!(recent[1].fps, 30.0);
+    }
+
+    #[test]
+    fn recent_project_paths_preserve_surrounding_whitespace() {
+        let value = json!([
+            {"path":"  C:/projects/with-space.aviqtl  "},
+            {"path":" \t "}
+        ]);
+
+        let recent = recent_projects_from_value(Some(&value), 10);
+
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].path, "  C:/projects/with-space.aviqtl  ");
+    }
+
+    #[test]
+    fn recent_project_updates_move_duplicates_to_the_front_atomically() {
+        let one = RecentProject {
+            name: "One".to_owned(),
+            path: "one.aviqtl".to_owned(),
+            width: 1920,
+            height: 1080,
+            fps: 60.0,
+        };
+        let two = RecentProject {
+            name: "Two".to_owned(),
+            path: "two.aviqtl".to_owned(),
+            width: 1280,
+            height: 720,
+            fps: 30.0,
+        };
+        let updated = merge_recent_project(vec![one.clone(), two.clone()], two.clone(), 2);
+
+        assert_eq!(updated, [two, one]);
+    }
 
     #[test]
     fn window_geometry_uses_qt_keys_and_clamps_invalid_sizes() {

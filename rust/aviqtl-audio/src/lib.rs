@@ -1,15 +1,17 @@
 //! Timeline-synchronous audio decoding and mixing independent of an output device.
 
+mod output;
 mod plugin_host;
 
 use aviqtl_media::AudioDecoder;
+pub use aviqtl_rust_core::api::{AudioLayerPlan, StereoTrackMeter};
 use aviqtl_rust_core::api::{
-    AudioLayerPlan, StereoMixParameters, StereoMixTrack, StereoTrackMeter, mix_stereo_tracks,
-    resample_stereo,
+    StereoMixParameters, StereoMixTrack, mix_stereo_tracks, resample_stereo,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+pub use output::AudioOutput;
 use plugin_host::{AudioPluginChain, AudioPluginProcessContext};
 pub use plugin_host::{
     AudioPluginDescription, AudioPluginParameterInfo, ModernAudioPluginFormat,
@@ -62,9 +64,34 @@ impl TimelineAudioMixer {
         max_plugin_block_size: usize,
         sources: &[TimelineAudioSource],
     ) -> Result<TimelineAudioBlock, TimelineAudioError> {
+        self.mix_frame_with_timeline_rate(
+            timeline_frame,
+            fps,
+            sample_rate,
+            output_frames,
+            max_plugin_block_size,
+            1.0,
+            sources,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn mix_frame_with_timeline_rate(
+        &mut self,
+        timeline_frame: i32,
+        fps: f64,
+        sample_rate: u32,
+        output_frames: usize,
+        max_plugin_block_size: usize,
+        timeline_rate: f64,
+        sources: &[TimelineAudioSource],
+    ) -> Result<TimelineAudioBlock, TimelineAudioError> {
         let Some(start_sample) = cumulative_samples(timeline_frame, fps, sample_rate) else {
             return Err(TimelineAudioError::InvalidTiming);
         };
+        if !timeline_rate.is_finite() || timeline_rate <= 0.0 {
+            return Err(TimelineAudioError::InvalidTiming);
+        }
         self.mix_planned_frame(
             timeline_frame,
             fps,
@@ -72,6 +99,7 @@ impl TimelineAudioMixer {
             start_sample,
             output_frames,
             max_plugin_block_size,
+            timeline_rate,
             sources,
         )
     }
@@ -85,16 +113,13 @@ impl TimelineAudioMixer {
         start_sample: i64,
         output_frames: usize,
         max_plugin_block_size: usize,
+        timeline_rate: f64,
         sources: &[TimelineAudioSource],
     ) -> Result<TimelineAudioBlock, TimelineAudioError> {
         let mut decoded_tracks = Vec::with_capacity(sources.len());
         let mut errors = Vec::new();
         for source in sources {
-            let source_rate = if source.plan.direct_mode {
-                1.0
-            } else {
-                f64::from(source.plan.playback_speed)
-            };
+            let source_rate = playback_source_rate(&source.plan, timeline_rate);
             let resample = (source_rate - 1.0).abs() > 0.01;
             let source_frames = if resample {
                 ((output_frames as f64 * source_rate).ceil() as usize)
@@ -203,6 +228,14 @@ impl TimelineAudioMixer {
     }
 }
 
+fn playback_source_rate(plan: &AudioLayerPlan, timeline_rate: f64) -> f64 {
+    if plan.direct_mode {
+        timeline_rate
+    } else {
+        f64::from(plan.playback_speed) * timeline_rate
+    }
+}
+
 #[cfg(test)]
 fn frame_sample_range(timeline_frame: i32, fps: f64, sample_rate: u32) -> Option<(i64, usize)> {
     // Test-only helper: production mixes through
@@ -281,6 +314,16 @@ mod tests {
         let fps = 30_000.0 / 1_001.0;
         let (start, count) = frame_sample_range(29_999, fps, 48_000).expect("timing is valid");
         assert_eq!(start + count as i64, 48_048_000);
+    }
+
+    #[test]
+    fn preview_timeline_rate_changes_resampling_without_moving_direct_time() {
+        let normal = plan(1);
+        assert_eq!(playback_source_rate(&normal, 2.0), 4.0);
+        let mut direct = normal;
+        direct.direct_mode = true;
+        assert_eq!(playback_source_rate(&direct, 2.0), 2.0);
+        assert_eq!(source_time_seconds(&direct, 30, 60.0), 3.0);
     }
 
     #[test]

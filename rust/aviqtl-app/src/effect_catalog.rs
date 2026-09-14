@@ -14,11 +14,17 @@ pub struct EffectCatalog {
 
 impl EffectCatalog {
     pub fn load() -> (Self, String) {
-        let roots = metadata_roots();
+        let (roots, user_package_roots) = metadata_roots();
         let mut catalog = Self::default();
         let mut loaded_files = BTreeSet::new();
         for root in roots {
             for path in json_files(&root) {
+                if user_package_roots
+                    .iter()
+                    .any(|package_root| qml_package_metadata(&path, package_root))
+                {
+                    continue;
+                }
                 let identity = fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
                 if !loaded_files.insert(identity) {
                     continue;
@@ -146,13 +152,25 @@ fn category_matches(categories: &[String], category: &str) -> bool {
     })
 }
 
-fn metadata_roots() -> Vec<PathBuf> {
+fn metadata_roots() -> (Vec<PathBuf>, Vec<PathBuf>) {
     let paths = package_paths();
-    paths
+    let user_package_roots = paths
+        .package_root
+        .parent()
+        .map(|root| vec![root.join("effects"), root.join("objects")])
+        .unwrap_or_default();
+    let roots = paths
         .effect_roots
         .into_iter()
         .chain(paths.object_roots)
-        .collect()
+        .collect();
+    (roots, user_package_roots)
+}
+
+fn qml_package_metadata(path: &Path, package_root: &Path) -> bool {
+    path.strip_prefix(package_root)
+        .ok()
+        .is_some_and(|relative| relative.components().count() > 1)
 }
 
 fn json_files(root: &Path) -> Vec<PathBuf> {
@@ -234,5 +252,18 @@ mod tests {
             1
         );
         assert!(catalog.effect_document("rect").is_none());
+    }
+
+    #[test]
+    fn user_qml_packages_are_distinguished_from_bundled_metadata() {
+        let root = Path::new("C:/AviQtl/effects");
+        assert!(!qml_package_metadata(
+            Path::new("C:/AviQtl/effects/blur.json"),
+            root
+        ));
+        assert!(qml_package_metadata(
+            Path::new("C:/AviQtl/effects/org.example.blur/blur.json"),
+            root
+        ));
     }
 }

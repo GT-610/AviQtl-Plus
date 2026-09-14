@@ -254,6 +254,15 @@ impl TimelineState {
                     .position(|clip| clip.id == clip_id)
                     .ok_or(StateError::InvalidArgument)?;
                 let clip = self.document.clips[index].clone();
+                if self
+                    .document
+                    .scenes
+                    .iter()
+                    .find(|scene| scene.id == clip.scene_id)
+                    .is_some_and(|scene| scene.locked_layers.contains(&clip.layer))
+                {
+                    return Err(StateError::InvalidArgument);
+                }
                 Ok(transaction(
                     vec![PatchOperation::RemoveClip {
                         index,
@@ -826,6 +835,15 @@ impl TimelineState {
             .position(|clip| clip.id == clip_id)
             .ok_or(StateError::InvalidArgument)?;
         let before = self.document.clips[index].clone();
+        if self
+            .document
+            .scenes
+            .iter()
+            .find(|scene| scene.id == before.scene_id)
+            .is_some_and(|scene| scene.locked_layers.contains(&before.layer))
+        {
+            return Err(StateError::InvalidArgument);
+        }
         let end = i64::from(before.start) + i64::from(before.duration);
         if i64::from(frame) <= i64::from(before.start) || i64::from(frame) >= end {
             return Err(StateError::InvalidArgument);
@@ -3146,6 +3164,26 @@ mod tests {
             .apply_patch(&transaction.inverse)
             .expect("split inverse applies");
         assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn structural_clip_edits_reject_locked_layers() {
+        let mut before = document();
+        before.scenes[0].locked_layers = vec![0];
+        let state = TimelineState::new(before, 2, 1).expect("valid state");
+
+        assert_eq!(
+            state.plan(EditRequest::RemoveClip { clip_id: 1 }),
+            Err(StateError::InvalidArgument)
+        );
+        assert_eq!(
+            state.plan(EditRequest::SplitClip {
+                clip_id: 1,
+                frame: 10,
+                new_clip_id: 2,
+            }),
+            Err(StateError::InvalidArgument)
+        );
     }
 
     #[test]
