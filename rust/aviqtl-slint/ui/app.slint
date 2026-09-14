@@ -5599,6 +5599,7 @@ component PackageListRow inherits Rectangle {
     in property <PackageData> package-data;
     in property <bool> busy;
     in property <bool> show-install-button;
+    in property <bool> qml-coming-soon;
     callback install(string, string);
     callback remove(string);
     callback permissions(string, string);
@@ -5670,14 +5671,18 @@ component PackageListRow inherits Rectangle {
                 clicked => { root.remove(root.package-data.id); }
             }
             Button {
-                text: root.package-data.has-update ? @tr("Update") : @tr("Install");
+                text: root.qml-coming-soon
+                    ? @tr("Coming Soon")
+                    : root.package-data.has-update ? @tr("Update") : @tr("Install");
                 primary: true;
                 visible: root.show-install-button
                     && (!root.package-data.can-remove || root.package-data.has-update)
                     && root.package-data.latest-version != "";
-                enabled: !root.busy;
+                enabled: !root.busy && !root.qml-coming-soon;
                 clicked => {
-                    root.install(root.package-data.id, root.package-data.source-repository);
+                    if !root.qml-coming-soon {
+                        root.install(root.package-data.id, root.package-data.source-repository);
+                    }
                 }
             }
         }
@@ -5734,6 +5739,23 @@ export component PackageManagerWindow inherits Window {
                 }
             }
         }
+        if root.tab-index < 2 : Rectangle {
+            height: 58px;
+            background: AppTheme.accent.transparentize(0.88);
+            border-width: 1px;
+            border-color: AppTheme.accent.transparentize(0.55);
+            border-radius: AppTheme.surface-radius;
+            Text {
+                x: AppTheme.spacing-md;
+                y: AppTheme.spacing-sm;
+                width: parent.width - 2 * AppTheme.spacing-md;
+                height: parent.height - 2 * AppTheme.spacing-sm;
+                text: @tr("Third-party QML effect and object packages are coming soon in the Slint edition.");
+                color: AppTheme.foreground;
+                wrap: word-wrap;
+                vertical-alignment: center;
+            }
+        }
         if root.tab-index < 5 : HorizontalLayout {
             spacing: AppTheme.spacing-sm;
             LineEdit {
@@ -5757,6 +5779,7 @@ export component PackageManagerWindow inherits Window {
                     package-data: package;
                     busy: root.busy;
                     show-install-button: root.tab-index < 3;
+                    qml-coming-soon: root.tab-index < 2;
                     install(id, repository) => { root.install-package(id, repository); }
                     remove(id) => { root.remove-package(id); }
                     permissions(id, name) => { root.show-permissions(id, name); }
