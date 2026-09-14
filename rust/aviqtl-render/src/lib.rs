@@ -100,6 +100,27 @@ pub fn validate_native_shader(source: &str) -> Result<(), String> {
         let _ = write!(message, "{}", error.emit_to_string(&combined));
         message
     })?;
+    for (_, variable) in module.global_variables.iter() {
+        if let Some(binding) = &variable.binding
+            && !matches!((binding.group, binding.binding), (0, 0 | 1 | 4))
+        {
+            return Err(format!(
+                "package shader declares unsupported resource binding @group({}) @binding({})",
+                binding.group, binding.binding
+            ));
+        }
+    }
+    if module.entry_points.len() != 2
+        || !module
+            .entry_points
+            .iter()
+            .any(|entry| entry.name == "aviqtl_vertex" && entry.stage == naga::ShaderStage::Vertex)
+        || !module.entry_points.iter().any(|entry| {
+            entry.name == "aviqtl_fragment" && entry.stage == naga::ShaderStage::Fragment
+        })
+    {
+        return Err("package shader may not declare additional entry points".to_owned());
+    }
     naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
         naga::valid::Capabilities::empty(),
@@ -3427,6 +3448,12 @@ fn aviqtl_effect(
 "#;
     assert!(validate_native_shader(shader).is_ok());
     assert!(validate_native_shader("@fragment fn aviqtl_effect() {}").is_err());
+    assert!(
+            validate_native_shader(
+                "@ group(2) @ binding(0) var extra: texture_2d<f32>; fn aviqtl_effect(input_color: vec4<f32>, uv: vec2<f32>, canvas_size: vec2<f32>, time_seconds: f32) -> vec4<f32> { return input_color; }"
+            )
+            .is_err()
+        );
     assert!(validate_native_shader("fn other() {}").is_err());
     assert!(
         validate_native_shader(
