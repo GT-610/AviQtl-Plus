@@ -1,8 +1,8 @@
 #![deny(unsafe_code)]
 
 use aviqtl_app::{
-    ApplicationModel, LifecycleStep, ProjectDefaults, ProjectSession, ProjectSettingsInput,
-    SaveDecision, SceneSettingsInput, WorkspaceModel,
+    ApplicationModel, LifecycleStep, MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectDefaults,
+    ProjectSession, ProjectSettingsInput, SaveDecision, SceneSettingsInput, WorkspaceModel,
     audio_plugin::{AudioPluginCatalog, AudioPluginScanOutcome, AudioPluginScanner},
     easing::{BezierCurve, sample_easing_curve},
     effect_catalog::EffectCatalog,
@@ -26,7 +26,6 @@ use aviqtl_export::{
     nearest_audio_bitrate, valid_export_path,
 };
 use aviqtl_preview::{MediaPreview, PlannedPreview, PreviewPlanner, PreviewSurface};
-use aviqtl_rust_core::api::{MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS};
 use slint::platform::Key;
 use slint::wgpu_29::wgpu;
 use slint::winit_030::{EventResult, WinitWindowAccessor, winit};
@@ -6498,16 +6497,27 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
     let clips = workspace
         .timeline_clips()
         .into_iter()
-        .map(|clip| TimelineClipData {
-            id: clip.id,
-            label: SharedString::from(localized_effect_metadata(&clip.label).into_owned()),
-            start: clip.start,
-            duration: clip.duration,
-            layer: clip.layer,
-            audio: clip.audio,
-            clip_by_upper_object: clip.clip_by_upper_object,
-            selected: clip.selected,
-            primary: clip.primary,
+        .map(|clip| {
+            let style = timeline_clip_style(&clip.clip_type);
+            let has_clip_color = style.is_some();
+            let (clip_color, dark_text) = style.unwrap_or_default();
+            TimelineClipData {
+                id: clip.id,
+                label: SharedString::from(localized_effect_metadata(&clip.label).into_owned()),
+                clip_type: SharedString::from(clip.clip_type),
+                clip_color,
+                has_clip_color,
+                dark_text,
+                start: clip.start,
+                duration: clip.duration,
+                layer: clip.layer,
+                audio: clip.audio,
+                locked: clip.locked,
+                control_layer_count: clip.control_layer_count,
+                clip_by_upper_object: clip.clip_by_upper_object,
+                selected: clip.selected,
+                primary: clip.primary,
+            }
         })
         .collect::<Vec<_>>();
     update_vec_model(&timeline.get_clips(), clips);
@@ -6523,6 +6533,17 @@ fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: &Applicatio
         .collect::<Vec<_>>();
     update_vec_model(&timeline.get_layers(), layers);
     sync_transport(main, timeline, model);
+}
+
+fn timeline_clip_style(clip_type: &str) -> Option<(Color, bool)> {
+    let [red, green, blue] = match clip_type {
+        "audio" => [0xd0, 0x30, 0x30],
+        "counter" | "flare" | "lens_flare_object" | "pie_shape" | "polygon_shape"
+        | "radial_lines" | "star" | "track_line" => [0x3b, 0x82, 0xf6],
+        _ => return None,
+    };
+    let luma = 0.299 * f32::from(red) + 0.587 * f32::from(green) + 0.114 * f32::from(blue);
+    Some((Color::from_rgb_u8(red, green, blue), luma > 0.6 * 255.0))
 }
 
 fn sync_project_tabs(main: &MainWindow, model: &ApplicationModel) {

@@ -6,7 +6,7 @@ use crate::missing_media::{MissingMediaEntry, find_missing_media, plan_media_rel
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
 use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
-use crate::selection::{ClipSelection, SelectionBox};
+use crate::selection::{ClipSelection, SelectionBox, control_layer_count};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
@@ -38,10 +38,13 @@ pub struct SceneTab {
 pub struct TimelineClip {
     pub id: i32,
     pub label: String,
+    pub clip_type: String,
     pub start: i32,
     pub duration: i32,
     pub layer: i32,
     pub audio: bool,
+    pub locked: bool,
+    pub control_layer_count: i32,
     pub clip_by_upper_object: bool,
     pub selected: bool,
     pub primary: bool,
@@ -152,6 +155,10 @@ impl WorkspaceModel {
     }
 
     pub fn timeline_clips(&self) -> Vec<TimelineClip> {
+        let locked_layers = self
+            .selected_scene_document()
+            .map(|scene| scene.locked_layers.as_slice())
+            .unwrap_or_default();
         self.project
             .document
             .clips
@@ -165,10 +172,13 @@ impl WorkspaceModel {
                     .map(|effect| effect.name.clone())
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| clip.clip_type.clone()),
+                clip_type: clip.clip_type.clone(),
                 start: clip.start,
                 duration: clip.duration,
                 layer: clip.layer,
                 audio: clip.clip_type == "audio",
+                locked: locked_layers.contains(&clip.layer),
+                control_layer_count: control_layer_count(clip),
                 clip_by_upper_object: clip.clip_by_upper_object,
                 selected: self.selection.is_visually_selected(clip.id),
                 primary: self.selection.primary() == Some(clip.id),
@@ -3140,6 +3150,34 @@ mod tests {
 
         let audio_workspace = workspace_with_audio_plugins();
         assert!(audio_workspace.timeline_clips()[0].audio);
+    }
+
+    #[test]
+    fn timeline_clip_snapshots_expose_lock_and_control_range_feedback() {
+        let state = TimelineState::from_json(
+            br#"{
+                "version":3,
+                "settings":{"width":1920,"height":1080,"fps":60,"sampleRate":48000},
+                "scenes":[{"id":1,"name":"Root","duration":300,"lockedLayers":[2]}],
+                "clips":[{
+                    "id":7,"sceneId":1,"type":"GroupControl","start":10,"duration":40,"layer":2,
+                    "effects":[{"id":"GroupControl","name":"Group","params":{"layerCount":3}}]
+                }]
+            }"#,
+        )
+        .expect("timeline feedback fixture loads");
+        let document = state.snapshot();
+        let workspace = WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        });
+
+        let clip = &workspace.timeline_clips()[0];
+        assert_eq!(clip.clip_type, "GroupControl");
+        assert!(clip.locked);
+        assert_eq!(clip.control_layer_count, 3);
     }
 
     #[test]

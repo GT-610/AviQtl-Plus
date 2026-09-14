@@ -99,10 +99,16 @@ export struct SceneTabData {
 export struct TimelineClipData {
     id: int,
     label: string,
+    clip-type: string,
+    clip-color: color,
+    has-clip-color: bool,
+    dark-text: bool,
     start: int,
     duration: int,
     layer: int,
     audio: bool,
+    locked: bool,
+    control-layer-count: int,
     clip-by-upper-object: bool,
     selected: bool,
     primary: bool,
@@ -1332,6 +1338,15 @@ component TimelineClipItem inherits Rectangle {
         return round(delta / max(root.track-height, 1px)) * max(root.track-height, 1px);
     }
 
+    if root.clip-data.control-layer-count > 0 : Rectangle {
+        y: root.height;
+        width: root.width;
+        height: root.clip-data.control-layer-count * root.track-height;
+        background: AppTheme.accent.transparentize(0.82);
+        border-width: 1px;
+        border-color: AppTheme.accent.transparentize(0.45);
+    }
+
     clip-visual := Rectangle {
         x: root.active-drag == "move" ? root.drag-x : root.active-drag == "trim-start" ? root.drag-x : 0px;
         y: root.active-drag == "move" ? root.drag-y : 0px;
@@ -1342,16 +1357,24 @@ component TimelineClipItem inherits Rectangle {
                 : root.width;
         height: root.height;
         border-radius: AppTheme.control-radius;
-        background: root.clip-data.primary ? AppTheme.clip-selected : root.clip-data.selected ? AppTheme.clip-selected : clip-touch.has-hover ? AppTheme.clip-hover : AppTheme.clip;
+        background: root.clip-data.has-clip-color ? root.clip-data.clip-color : AppTheme.clip;
         border-width: root.clip-data.primary ? 2px : root.clip-data.selected ? 1px : 0px;
         border-color: AppTheme.accent-foreground;
         animate background { duration: 120ms; }
+        if root.clip-data.selected || clip-touch.has-hover : Rectangle {
+            width: 100%;
+            height: 100%;
+            border-radius: parent.border-radius;
+            background: root.clip-data.selected
+                ? AppTheme.accent.transparentize(0.72)
+                : AppTheme.hover-background;
+        }
         HorizontalLayout {
             padding-left: 7px;
             padding-right: 7px;
             Text {
                 text: root.clip-data.label;
-                color: white;
+                color: root.clip-data.dark-text ? black : white;
                 overflow: elide;
                 vertical-alignment: center;
             }
@@ -1360,7 +1383,7 @@ component TimelineClipItem inherits Rectangle {
     clip-touch := TouchArea {
             x: min(root.resize-handle-width, parent.width / 2);
             width: max(parent.width - 2 * root.resize-handle-width, 1px);
-            mouse-cursor: move;
+            mouse-cursor: root.clip-data.locked ? not-allowed : move;
             accessible-role: list-item;
             accessible-label: root.clip-data.label;
             accessible-description: @tr("Clip: {}, layer {}, starts at frame {} for {} frames",
@@ -1391,13 +1414,15 @@ component TimelineClipItem inherits Rectangle {
                     );
                 }
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                    root.active-drag = "move";
-                    root.drag-x = 0px;
-                    root.drag-y = 0px;
-                    root.threshold-crossed = false;
-                    root.drag-additive = event.modifiers.control || event.modifiers.meta;
-                    if root.clip-data.audio {
-                        root.seek-audio-frame(root.clip-data.id, round((root.x + self.mouse-x) / (1px * root.pixels-per-frame)));
+                    if !root.clip-data.locked {
+                        root.active-drag = "move";
+                        root.drag-x = 0px;
+                        root.drag-y = 0px;
+                        root.threshold-crossed = false;
+                        root.drag-additive = event.modifiers.control || event.modifiers.meta;
+                        if root.clip-data.audio {
+                            root.seek-audio-frame(root.clip-data.id, round((root.x + self.mouse-x) / (1px * root.pixels-per-frame)));
+                        }
                     }
                 }
                 if event.kind == PointerEventKind.move && root.active-drag == "move" {
@@ -1441,7 +1466,7 @@ component TimelineClipItem inherits Rectangle {
     trim-start-touch := TouchArea {
         x: 0px;
         width: min(root.resize-handle-width, parent.width / 2);
-        mouse-cursor: ew-resize;
+        mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
         scroll-event(event) => {
             if root.scroll-requested(
                 event.delta-x,
@@ -1461,11 +1486,13 @@ component TimelineClipItem inherits Rectangle {
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                root.active-drag = "trim-start";
-                root.drag-x = 0px;
-                root.drag-y = 0px;
-                root.threshold-crossed = true;
-                root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                if !root.clip-data.locked {
+                    root.active-drag = "trim-start";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = true;
+                    root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                }
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
@@ -1487,7 +1514,7 @@ component TimelineClipItem inherits Rectangle {
     trim-end-touch := TouchArea {
         x: parent.width - self.width;
         width: min(root.resize-handle-width, parent.width / 2);
-        mouse-cursor: ew-resize;
+        mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
         scroll-event(event) => {
             if root.scroll-requested(
                 event.delta-x,
@@ -1507,11 +1534,13 @@ component TimelineClipItem inherits Rectangle {
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                root.active-drag = "trim-end";
-                root.drag-x = 0px;
-                root.drag-y = 0px;
-                root.threshold-crossed = true;
-                root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                if !root.clip-data.locked {
+                    root.active-drag = "trim-end";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = true;
+                    root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                }
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
