@@ -1,4 +1,5 @@
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VisualEffect {
@@ -236,11 +237,34 @@ pub enum VisualEffect {
         direction: i32,
         reverse: bool,
     },
+    Native {
+        package_id: String,
+        shader_source: Arc<str>,
+        parameters: Box<[[f32; 4]; 16]>,
+        time_seconds: f32,
+    },
 }
 
 impl Hash for VisualEffect {
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
+        if let Self::Native {
+            package_id,
+            shader_source,
+            parameters,
+            time_seconds,
+        } = self
+        {
+            package_id.hash(state);
+            shader_source.hash(state);
+            time_seconds.to_bits().hash(state);
+            for parameter in parameters.iter() {
+                for value in parameter {
+                    value.to_bits().hash(state);
+                }
+            }
+            return;
+        }
         for value in self.encoded()[1..].iter().copied() {
             value.to_bits().hash(state);
         }
@@ -276,6 +300,7 @@ impl VisualEffect {
                 | Self::DisplacementMap { .. }
                 | Self::Glitch { .. }
                 | Self::PixelSorter { .. }
+                | Self::Native { .. }
         )
     }
 
@@ -290,7 +315,7 @@ impl VisualEffect {
 
     pub(crate) fn encoded(&self) -> [f32; 16] {
         let mut values = [0.0; 16];
-        match *self {
+        match self.clone() {
             Self::Fade { opacity } => {
                 values[0] = 1.0;
                 values[1] = opacity;
@@ -743,12 +768,40 @@ impl VisualEffect {
                 values[5] = direction as f32;
                 values[6] = f32::from(u8::from(reverse));
             }
+            Self::Native { .. } => {}
         }
         values
+    }
+
+    pub(crate) fn native_shader(&self) -> Option<&str> {
+        match self {
+            Self::Native { shader_source, .. } => Some(shader_source),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn native_shader_hash(&self) -> Option<u64> {
+        let source = self.native_shader()?;
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        source.hash(&mut hasher);
+        Some(hasher.finish())
     }
 }
 
 pub(crate) fn encode_effect_pass(effect: &VisualEffect, pass_index: usize) -> Vec<f32> {
+    if let VisualEffect::Native {
+        parameters,
+        time_seconds,
+        ..
+    } = effect
+    {
+        let mut values = Vec::with_capacity(68);
+        values.extend_from_slice(&[*time_seconds, 0.0, 0.0, 0.0]);
+        for parameter in parameters.iter() {
+            values.extend_from_slice(parameter);
+        }
+        return values;
+    }
     let mut values = Vec::with_capacity(20);
     values.extend_from_slice(&[1.0, 0.0, 0.0, 0.0]);
     let mut encoded = effect.encoded();
@@ -786,6 +839,27 @@ mod tests {
         let values = encode_effect_chain(&[]);
 
         assert_eq!(values, vec![0.0; 8]);
+    }
+
+    #[test]
+    fn native_effect_pass_preserves_time_and_vec4_parameters() {
+        let mut parameters = [[0.0; 4]; 16];
+        parameters[0] = [0.25, 0.5, 0.75, 1.0];
+        parameters[15] = [16.0, 0.0, 0.0, 0.0];
+        let effect = VisualEffect::Native {
+            package_id: "effect.native".to_owned(),
+            shader_source: Arc::from("fn aviqtl_effect() {}"),
+            parameters: Box::new(parameters),
+            time_seconds: 1.5,
+        };
+
+        let values = encode_effect_pass(&effect, 0);
+
+        assert_eq!(values.len(), 68);
+        assert_eq!(&values[..4], &[1.5, 0.0, 0.0, 0.0]);
+        assert_eq!(&values[4..8], &[0.25, 0.5, 0.75, 1.0]);
+        assert_eq!(&values[64..68], &[16.0, 0.0, 0.0, 0.0]);
+        assert!(effect.requires_sequential_passes());
     }
 
     #[test]
