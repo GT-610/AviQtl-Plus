@@ -5,7 +5,7 @@ mod procedural;
 mod shape;
 mod text;
 
-pub use effects::VisualEffect;
+pub use effects::{NativeRenderDefinition, VisualEffect};
 pub use procedural::{ProceduralRasterError, rasterize_procedural_object};
 pub use shape::{ShapeRasterError, rasterize_shape};
 pub use text::{TextRasterError, TextRasterizer};
@@ -16,7 +16,119 @@ use effects::{encode_effect_chain, encode_effect_pass};
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use wgpu::util::DeviceExt;
+
+const NATIVE_SHADER_PREFIX: &str = r#"
+struct NativeParameters {
+    header: vec4<f32>,
+    values: array<vec4<f32>>,
+};
+
+@group(0) @binding(0) var aviqtl_input_texture: texture_2d<f32>;
+@group(0) @binding(1) var aviqtl_input_sampler: sampler;
+@group(0) @binding(4) var<storage, read> aviqtl_parameters: NativeParameters;
+
+struct NativeVertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+};
+
+fn aviqtl_sample(uv: vec2<f32>) -> vec4<f32> {
+    return textureSample(aviqtl_input_texture, aviqtl_input_sampler, uv);
+}
+
+fn aviqtl_parameter(index: u32) -> vec4<f32> {
+    if index >= arrayLength(&aviqtl_parameters.values) {
+        return vec4<f32>(0.0);
+    }
+    return aviqtl_parameters.values[index];
+}
+
+@vertex
+fn aviqtl_vertex(@builtin(vertex_index) index: u32) -> NativeVertexOutput {
+    let positions = array<vec2<f32>, 6>(
+        vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0),
+        vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0)
+    );
+    let uvs = array<vec2<f32>, 6>(
+        vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 1.0), vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(1.0, 0.0)
+    );
+    var output: NativeVertexOutput;
+    output.position = vec4<f32>(positions[index], 0.0, 1.0);
+    output.uv = uvs[index];
+    return output;
+}
+"#;
+
+const NATIVE_SHADER_SUFFIX: &str = r#"
+@fragment
+fn aviqtl_fragment(input: NativeVertexOutput) -> @location(0) vec4<f32> {
+    let canvas_size = vec2<f32>(textureDimensions(aviqtl_input_texture));
+    let input_color = aviqtl_sample(input.uv);
+    return clamp(
+        aviqtl_effect(input_color, input.uv, canvas_size, aviqtl_parameters.header.x),
+        vec4<f32>(0.0),
+        vec4<f32>(1.0)
+    );
+}
+"#;
+
+fn native_shader_module_source(source: &str) -> String {
+    let mut combined = String::with_capacity(
+        NATIVE_SHADER_PREFIX.len() + source.len() + NATIVE_SHADER_SUFFIX.len() + 2,
+    );
+    combined.push_str(NATIVE_SHADER_PREFIX);
+    combined.push('\n');
+    combined.push_str(source);
+    combined.push('\n');
+    combined.push_str(NATIVE_SHADER_SUFFIX);
+    combined
+}
+
+/// Validates a package shader against the host-owned `aviqtl-wgsl-v1` contract.
+pub fn validate_native_shader(source: &str) -> Result<(), String> {
+    for forbidden in ["@group", "@binding", "@vertex", "@fragment", "@compute"] {
+        if source.contains(forbidden) {
+            return Err(format!("package shader may not declare {forbidden}"));
+        }
+    }
+    let combined = native_shader_module_source(source);
+    let module = naga::front::wgsl::parse_str(&combined).map_err(|error| {
+        let mut message = String::from("invalid WGSL: ");
+        let _ = write!(message, "{}", error.emit_to_string(&combined));
+        message
+    })?;
+    for (_, variable) in module.global_variables.iter() {
+        if let Some(binding) = &variable.binding
+            && !matches!((binding.group, binding.binding), (0, 0 | 1 | 4))
+        {
+            return Err(format!(
+                "package shader declares unsupported resource binding @group({}) @binding({})",
+                binding.group, binding.binding
+            ));
+        }
+    }
+    if module.entry_points.len() != 2
+        || !module
+            .entry_points
+            .iter()
+            .any(|entry| entry.name == "aviqtl_vertex" && entry.stage == naga::ShaderStage::Vertex)
+        || !module.entry_points.iter().any(|entry| {
+            entry.name == "aviqtl_fragment" && entry.stage == naga::ShaderStage::Fragment
+        })
+    {
+        return Err("package shader may not declare additional entry points".to_owned());
+    }
+    naga::valid::Validator::new(
+        naga::valid::ValidationFlags::all(),
+        naga::valid::Capabilities::empty(),
+    )
+    .validate(&module)
+    .map_err(|error| format!("invalid WGSL interface: {error}"))?;
+    Ok(())
+}
 
 const SHADER: &str = r#"
 struct LayerUniform {
@@ -2228,9 +2340,54 @@ struct GpuEffectPasses {
     views: [wgpu::TextureView; 3],
     uniforms: Vec<wgpu::Buffer>,
     bind_groups: Vec<wgpu::BindGroup>,
+    native_pipelines: Vec<Option<wgpu::RenderPipeline>>,
     destinations: Vec<usize>,
     effect_pass_counts: Vec<usize>,
+    native_shader_hashes: Vec<Option<u64>>,
     output_index: usize,
+}
+
+fn create_native_effect_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    target_format: wgpu::TextureFormat,
+    source: &str,
+) -> wgpu::RenderPipeline {
+    let shader_source = native_shader_module_source(source);
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("aviqtl-native-package-shader"),
+        source: wgpu::ShaderSource::Wgsl(Cow::Owned(shader_source)),
+    });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("aviqtl-native-package-pipeline-layout"),
+        bind_group_layouts: &[Some(layout)],
+        immediate_size: 0,
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("aviqtl-native-package-pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("aviqtl_vertex"),
+            compilation_options: Default::default(),
+            buffers: &[],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("aviqtl_fragment"),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: target_format,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: wgpu::PrimitiveState::default(),
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview_mask: None,
+        cache: None,
+    })
 }
 
 impl GpuEffectPasses {
@@ -2255,6 +2412,7 @@ impl GpuEffectPasses {
         let plan = effect_pass_plan(effects);
         let mut uniforms = Vec::with_capacity(plan.len());
         let mut bind_groups = Vec::with_capacity(plan.len());
+        let mut native_pipelines = Vec::with_capacity(plan.len());
         let mut destinations = Vec::with_capacity(plan.len());
         let effect_pass_counts = effects
             .iter()
@@ -2305,6 +2463,18 @@ impl GpuEffectPasses {
                     ],
                 }),
             );
+            native_pipelines.push(
+                effects[pass_plan.effect_index]
+                    .native_shader()
+                    .map(|source| {
+                        create_native_effect_pipeline(
+                            gpu.device,
+                            gpu.layer_layout,
+                            gpu.target_format,
+                            source,
+                        )
+                    }),
+            );
             destinations.push(pass_plan.destination);
         }
         Self {
@@ -2312,8 +2482,13 @@ impl GpuEffectPasses {
             views,
             uniforms,
             bind_groups,
+            native_pipelines,
             destinations,
             effect_pass_counts,
+            native_shader_hashes: effects
+                .iter()
+                .map(VisualEffect::native_shader_hash)
+                .collect(),
             output_index: plan
                 .last()
                 .expect("a sequential chain contains at least one pass")
@@ -2338,6 +2513,11 @@ impl GpuEffectPasses {
             .iter()
             .copied()
             .eq(effects.iter().map(VisualEffect::pass_count))
+            && self
+                .native_shader_hashes
+                .iter()
+                .copied()
+                .eq(effects.iter().map(VisualEffect::native_shader_hash))
     }
 
     fn output_view(&self) -> &wgpu::TextureView {
@@ -2345,7 +2525,12 @@ impl GpuEffectPasses {
     }
 
     fn encode(&self, encoder: &mut wgpu::CommandEncoder, pipeline: &wgpu::RenderPipeline) {
-        for (bind_group, destination) in self.bind_groups.iter().zip(&self.destinations) {
+        for ((bind_group, destination), native_pipeline) in self
+            .bind_groups
+            .iter()
+            .zip(&self.destinations)
+            .zip(&self.native_pipelines)
+        {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("aviqtl-single-effect-pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -2362,7 +2547,7 @@ impl GpuEffectPasses {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            pass.set_pipeline(pipeline);
+            pass.set_pipeline(native_pipeline.as_ref().unwrap_or(pipeline));
             pass.set_bind_group(0, bind_group, &[]);
             pass.draw(0..6, 0..1);
         }
@@ -3246,4 +3431,34 @@ mod tests {
         assert_ne!(FrameStamp::from(&first), FrameStamp::from(&next_frame));
         assert_ne!(FrameStamp::from(&first), FrameStamp::from(&frame(200, 50)));
     }
+}
+#[test]
+fn native_shader_validation_enforces_the_host_contract() {
+    let shader = r#"
+fn aviqtl_effect(
+    input_color: vec4<f32>,
+    uv: vec2<f32>,
+    canvas_size: vec2<f32>,
+    time_seconds: f32,
+) -> vec4<f32> {
+    let amount = aviqtl_parameter(0u).x;
+    let shifted = aviqtl_sample(uv + vec2<f32>(time_seconds / max(canvas_size.x, 1.0), 0.0));
+    return mix(input_color, shifted, amount);
+}
+"#;
+    assert!(validate_native_shader(shader).is_ok());
+    assert!(validate_native_shader("@fragment fn aviqtl_effect() {}").is_err());
+    assert!(
+        validate_native_shader(
+            "@ group(2) @ binding(0) var extra: texture_2d<f32>; fn aviqtl_effect(input_color: vec4<f32>, uv: vec2<f32>, canvas_size: vec2<f32>, time_seconds: f32) -> vec4<f32> { return input_color; }"
+        )
+        .is_err()
+    );
+    assert!(validate_native_shader("fn other() {}").is_err());
+    assert!(
+        validate_native_shader(
+            "fn aviqtl_effect(input_color: vec4<f32>) -> vec4<f32> { return input_color; }"
+        )
+        .is_err()
+    );
 }

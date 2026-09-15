@@ -101,6 +101,15 @@ pub struct EffectMetadata {
     pub source: String,
     pub package_id: String,
     pub source_path: String,
+    pub runtime: Option<NativeEffectRuntime>,
+}
+
+/// Slint/wgpu-native runtime entry declared by an effect or object package.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeEffectRuntime {
+    pub engine: String,
+    pub shader: String,
+    pub uniforms: Vec<String>,
 }
 
 /// Rust-owned package catalog projection shared by native front ends.
@@ -288,6 +297,29 @@ pub fn parse_effect_metadata(input: &[u8]) -> Option<EffectMetadata> {
             .unwrap_or_default()
             .to_owned()
     };
+    let runtime = metadata
+        .get("runtime")
+        .and_then(Value::as_object)
+        .map(|runtime| NativeEffectRuntime {
+            engine: runtime
+                .get("engine")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
+            shader: runtime
+                .get("shader")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
+            uniforms: runtime
+                .get("uniforms")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect(),
+        });
     Some(EffectMetadata {
         id: string("id"),
         name: string("name"),
@@ -314,6 +346,7 @@ pub fn parse_effect_metadata(input: &[u8]) -> Option<EffectMetadata> {
         source: string("source"),
         package_id: string("packageId"),
         source_path: string("sourcePath"),
+        runtime,
     })
 }
 

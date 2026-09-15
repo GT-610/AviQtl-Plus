@@ -1,0 +1,39 @@
+{
+  "id": "color_tint",
+  "name": "Color Tint",
+  "color": "#8b5cf6",
+  "params": {
+    "amount": 0.5,
+    "color": "#ff8b5cf6"
+  },
+  "ui": {
+    "controls": [
+      {
+        "type": "slider",
+        "param": "amount",
+        "label": "Amount",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      },
+      {
+        "type": "color",
+        "param": "color",
+        "label": "Color"
+      }
+    ]
+  },
+  "version": "1.0.0",
+  "kind": "effect",
+  "categories": [
+    "Color"
+  ],
+  "runtime": {
+    "engine": "aviqtl-wgsl-v1",
+    "shader": "ColorTint.wgsl",
+    "uniforms": [
+      "amount",
+      "color"
+    ]
+  }
+}

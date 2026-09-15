@@ -1,0 +1,13 @@
+{
+  "id": "com.aviqtl.effects.color",
+  "name": "Native Color Effects",
+  "version": "1.0.0",
+  "author": "AviQtl Team",
+  "description": "Color effects implemented with the native WGSL runtime",
+  "min_app_version": "0.6.2",
+  "type": "effect",
+  "effects": [
+    "color_tint"
+  ],
+  "license": "AGPL-3.0"
+}

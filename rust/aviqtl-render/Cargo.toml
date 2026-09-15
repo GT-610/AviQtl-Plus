@@ -9,6 +9,7 @@ publish.workspace = true
 aviqtl-media = { path = "../aviqtl-media" }
 aviqtl-rust-core = { path = "../aviqtl-core" }
 fontdb = { version = "0.23.0", default-features = false, features = ["fs"] }
+naga = { version = "29.0.4", features = ["wgsl-in"] }
 rustybuzz = "0.20.1"
 tiny-skia = { version = "0.12.0", default-features = false, features = ["simd", "std"] }
 wgpu = { version = "29.0.1", default-features = false, features = ["std", "wgsl"] }

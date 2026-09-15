@@ -638,6 +638,7 @@ impl ExportPlannerRuntime {
         project_instance_id: u64,
         workspace: &WorkspaceModel,
         frame: i32,
+        effect_catalog: &EffectCatalog,
     ) -> Option<PlannedPreview> {
         let source_key = PreviewSourceKey {
             project_instance_id,
@@ -647,11 +648,12 @@ impl ExportPlannerRuntime {
         if self.source_key.as_ref() != Some(&source_key) {
             if let Some(planner) = self.planner.as_mut() {
                 planner.rebuild(workspace.document(), workspace.project().path.as_deref());
+                planner.set_native_definitions(effect_catalog.native_definitions());
             } else {
-                self.planner = Some(PreviewPlanner::new(
-                    workspace.document(),
-                    workspace.project().path.as_deref(),
-                ));
+                let mut planner =
+                    PreviewPlanner::new(workspace.document(), workspace.project().path.as_deref());
+                planner.set_native_definitions(effect_catalog.native_definitions());
+                self.planner = Some(planner);
             }
             self.source_key = Some(source_key);
         }
@@ -681,7 +683,19 @@ impl PreviewRuntime {
         }
     }
 
-    fn update(&mut self, model: &ApplicationModel, main: &MainWindow) -> bool {
+    fn invalidate_native_catalog(&mut self) {
+        self.decoder.reset();
+        self.planner = None;
+        self.source_key = None;
+        self.requested_frame = None;
+    }
+
+    fn update(
+        &mut self,
+        model: &ApplicationModel,
+        main: &MainWindow,
+        effect_catalog: &EffectCatalog,
+    ) -> bool {
         let Some(project_instance_id) = model.current_project_instance_id() else {
             if self.source_key.is_some() || self.requested_frame.is_some() || self.planner.is_some()
             {
@@ -704,11 +718,12 @@ impl PreviewRuntime {
             self.decoder.reset();
             if let Some(planner) = self.planner.as_mut() {
                 planner.rebuild(workspace.document(), workspace.project().path.as_deref());
+                planner.set_native_definitions(effect_catalog.native_definitions());
             } else {
-                self.planner = Some(PreviewPlanner::new(
-                    workspace.document(),
-                    workspace.project().path.as_deref(),
-                ));
+                let mut planner =
+                    PreviewPlanner::new(workspace.document(), workspace.project().path.as_deref());
+                planner.set_native_definitions(effect_catalog.native_definitions());
+                self.planner = Some(planner);
             }
             self.source_key = Some(source_key.clone());
             self.requested_frame = None;
@@ -2435,6 +2450,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         let (catalog, status) = EffectCatalog::load();
                         eprintln!("{status}");
                         *animation_effect_catalog.borrow_mut() = catalog;
+                        animation_preview.borrow_mut().invalidate_native_catalog();
+                        animation_export_planner.borrow_mut().reset();
                         if let Some(window) = animation_timeline.upgrade() {
                             let catalog = animation_effect_catalog.borrow();
                             initialize_timeline_object_catalog(&window, &catalog);
@@ -2594,7 +2611,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(main) = animation_main.upgrade() {
             let preview_updated = {
                 let model = animation_model.borrow();
-                animation_preview.borrow_mut().update(&model, &main)
+                let effect_catalog = animation_effect_catalog.borrow();
+                animation_preview
+                    .borrow_mut()
+                    .update(&model, &main, &effect_catalog)
             };
             if preview_updated {
                 animation_stats
@@ -2610,6 +2630,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             &animation_model,
             &animation_export_manager,
             &animation_export_planner,
+            &animation_effect_catalog,
         );
         if validation_frames.is_some_and(|frames| ticks >= frames) {
             if let Some(window) = animation_timeline.upgrade() {
@@ -5862,6 +5883,7 @@ fn update_export(
     model: &Rc<RefCell<ApplicationModel>>,
     manager: &Rc<RefCell<ExportManager>>,
     planner: &Rc<RefCell<ExportPlannerRuntime>>,
+    effect_catalog: &Rc<RefCell<EffectCatalog>>,
 ) {
     let Some(window) = export.upgrade() else {
         return;
@@ -5894,7 +5916,12 @@ fn update_export(
                 let project_path = workspace.project().path.clone();
                 planner
                     .borrow_mut()
-                    .build(request.project_instance_id, workspace, request.frame)
+                    .build(
+                        request.project_instance_id,
+                        workspace,
+                        request.frame,
+                        &effect_catalog.borrow(),
+                    )
                     .map(|planned| (planned, project_path))
                     .ok_or_else(|| {
                         format!("Frame render error: failed to plan frame {}", request.frame)
