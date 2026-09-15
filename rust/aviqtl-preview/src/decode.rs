@@ -14,6 +14,8 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 
+const MAX_NATIVE_CANVAS_CACHE_BYTES: usize = 64 * 1024 * 1024;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DecodeKind {
     Image,
@@ -658,7 +660,16 @@ fn decode_source(
                 rgba: vec![0; pixel_count],
                 timestamp_seconds: 0.0,
             });
-            native_canvases.insert(key, Arc::clone(&frame));
+            if pixel_count <= MAX_NATIVE_CANVAS_CACHE_BYTES {
+                let cached_bytes = native_canvases
+                    .values()
+                    .map(|cached| cached.rgba.len())
+                    .sum::<usize>();
+                if cached_bytes.saturating_add(pixel_count) > MAX_NATIVE_CANVAS_CACHE_BYTES {
+                    native_canvases.clear();
+                }
+                native_canvases.insert(key, Arc::clone(&frame));
+            }
             Ok(frame)
         }
         PreviewContent::Scene { .. } => unreachable!("nested scenes are decoded recursively"),
@@ -980,6 +991,22 @@ mod tests {
         )
         .expect("different native canvas decodes");
         assert!(!Arc::ptr_eq(&first, &different));
+
+        for width in 1..=32 {
+            decode_source(
+                &PreviewContent::NativeCanvas { width, height: 1 },
+                &mut videos,
+                &mut images,
+                &mut native_canvases,
+                &text,
+            )
+            .expect("native canvas dimension change decodes");
+        }
+        let cached_bytes = native_canvases
+            .values()
+            .map(|cached| cached.rgba.len())
+            .sum::<usize>();
+        assert!(cached_bytes <= MAX_NATIVE_CANVAS_CACHE_BYTES);
     }
 
     #[test]
