@@ -7,10 +7,9 @@ use aviqtl_rust_core::api::{
     CameraRenderPlan, MediaPlaybackPlan, ProceduralObjectRenderPlan, ShapeRenderPlan,
     TextRenderPlan,
 };
-use std::collections::{HashMap, hash_map::DefaultHasher};
+use std::collections::{HashMap, HashSet, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 
@@ -255,6 +254,13 @@ struct DecodeQueue {
 struct DecodeQueueState {
     request: Option<DecodeRequest>,
     stopped: bool,
+    reset: bool,
+    image_budget: usize,
+}
+
+enum DecodeWork {
+    Reset,
+    Frame(DecodeRequest, usize),
 }
 
 impl DecodeQueue {
@@ -263,6 +269,8 @@ impl DecodeQueue {
             state: Mutex::new(DecodeQueueState {
                 request: None,
                 stopped: false,
+                reset: false,
+                image_budget: 512 * 1024 * 1024,
             }),
             ready: Condvar::new(),
         }
@@ -276,21 +284,36 @@ impl DecodeQueue {
         }
     }
 
-    fn take(&self) -> Option<DecodeRequest> {
+    fn take(&self) -> Option<DecodeWork> {
         let mut state = self.state.lock().expect("decode queue lock");
         loop {
-            if let Some(request) = state.request.take() {
-                return Some(request);
-            }
             if state.stopped {
                 return None;
+            }
+            if std::mem::take(&mut state.reset) {
+                return Some(DecodeWork::Reset);
+            }
+            if let Some(request) = state.request.take() {
+                return Some(DecodeWork::Frame(request, state.image_budget));
             }
             state = self.ready.wait(state).expect("decode queue wait");
         }
     }
 
     fn clear(&self) {
-        self.state.lock().expect("decode queue lock").request = None;
+        let mut state = self.state.lock().expect("decode queue lock");
+        state.request = None;
+        state.reset = true;
+        self.ready.notify_one();
+    }
+
+    fn set_image_budget(&self, bytes: usize) {
+        let mut state = self.state.lock().expect("decode queue lock");
+        if state.image_budget != bytes {
+            state.image_budget = bytes;
+            state.reset = true;
+            self.ready.notify_one();
+        }
     }
 
     fn stop(&self) {
@@ -394,7 +417,7 @@ pub struct PreviewBatch {
 
 pub struct MediaPreview {
     request_queue: Arc<DecodeQueue>,
-    result_receiver: Receiver<DecodeResult>,
+    completed: Arc<Mutex<Option<DecodeResult>>>,
     worker: Option<JoinHandle<()>>,
     requested: Option<PreviewScene>,
     generation: u64,
@@ -405,15 +428,16 @@ pub struct MediaPreview {
 impl MediaPreview {
     pub fn new(wake: Arc<dyn Fn() + Send + Sync>) -> Self {
         let request_queue = Arc::new(DecodeQueue::new());
-        let (result_sender, result_receiver) = mpsc::channel::<DecodeResult>();
+        let completed = Arc::new(Mutex::new(None));
+        let worker_completed = Arc::clone(&completed);
         let worker_queue = Arc::clone(&request_queue);
         let worker = thread::Builder::new()
             .name("aviqtl-media-preview".to_owned())
-            .spawn(move || run_worker(worker_queue, result_sender, wake))
+            .spawn(move || run_worker(worker_queue, worker_completed, wake))
             .expect("media preview worker must start");
         Self {
             request_queue,
-            result_receiver,
+            completed,
             worker: Some(worker),
             requested: None,
             generation: 0,
@@ -439,13 +463,18 @@ impl MediaPreview {
     }
 
     pub fn poll(&mut self) -> Option<PreviewBatch> {
-        let mut newest = None;
-        while let Ok(result) = self.result_receiver.try_recv() {
-            if self.accepts_completed_generation(result.generation) {
-                newest = Some(result.batch);
-            }
-        }
-        newest
+        let result = self
+            .completed
+            .lock()
+            .expect("completed preview lock")
+            .take()?;
+        self.accepts_completed_generation(result.generation)
+            .then_some(result.batch)
+    }
+
+    pub fn set_cache_size_mb(&mut self, megabytes: usize) {
+        self.request_queue
+            .set_image_budget(megabytes.saturating_mul(1024 * 1024));
     }
 
     fn accepts_completed_generation(&mut self, generation: u64) -> bool {
@@ -462,7 +491,10 @@ impl MediaPreview {
         self.minimum_valid_generation = self.generation;
         self.displayed_generation = self.generation;
         self.request_queue.clear();
-        while self.result_receiver.try_recv().is_ok() {}
+        self.completed
+            .lock()
+            .expect("completed preview lock")
+            .take();
     }
 }
 
@@ -477,14 +509,27 @@ impl Drop for MediaPreview {
 
 fn run_worker(
     queue: Arc<DecodeQueue>,
-    sender: Sender<DecodeResult>,
+    completed: Arc<Mutex<Option<DecodeResult>>>,
     wake: Arc<dyn Fn() + Send + Sync>,
 ) {
     let mut videos = HashMap::<PathBuf, VideoDecoder>::new();
-    let mut images = HashMap::<PathBuf, Arc<VideoFrame>>::new();
+    let mut images = ImageCache::default();
     let mut native_canvases = HashMap::<(u32, u32), Arc<VideoFrame>>::new();
     let text = TextRasterizer::new();
-    while let Some(request) = queue.take() {
+    while let Some(work) = queue.take() {
+        let (request, image_budget) = match work {
+            DecodeWork::Reset => {
+                videos.clear();
+                images.clear();
+                native_canvases.clear();
+                continue;
+            }
+            DecodeWork::Frame(request, budget) => (request, budget),
+        };
+        let mut active_videos = HashSet::new();
+        collect_video_paths(&request.scene, &mut active_videos);
+        videos.retain(|path, _| active_videos.contains(path));
+        images.set_budget(image_budget);
         let mut errors = Vec::new();
         let scene = decode_scene(
             request.scene,
@@ -499,23 +544,95 @@ fn run_worker(
             scene,
             errors,
         };
-        if sender
-            .send(DecodeResult {
-                generation: request.generation,
-                batch,
-            })
-            .is_err()
-        {
-            break;
-        }
+        *completed.lock().expect("completed preview lock") = Some(DecodeResult {
+            generation: request.generation,
+            batch,
+        });
         (wake)();
+    }
+}
+
+fn collect_video_paths(scene: &PreviewScene, paths: &mut HashSet<PathBuf>) {
+    for source in &scene.layers {
+        match &source.content {
+            PreviewContent::Media {
+                path,
+                kind: DecodeKind::Video,
+                ..
+            } => {
+                paths.insert(path.clone());
+            }
+            PreviewContent::Scene { scene } => collect_video_paths(scene, paths),
+            _ => {}
+        }
+        if let Some(mask) = &source.mask {
+            collect_video_paths(mask, paths);
+        }
+    }
+}
+
+#[derive(Default)]
+struct ImageCache {
+    frames: HashMap<PathBuf, (Arc<VideoFrame>, u64)>,
+    bytes: usize,
+    budget: usize,
+    access: u64,
+}
+
+impl ImageCache {
+    fn clear(&mut self) {
+        self.frames.clear();
+        self.bytes = 0;
+        self.access = 0;
+    }
+
+    fn set_budget(&mut self, budget: usize) {
+        self.budget = budget;
+        self.evict_to(budget);
+    }
+
+    fn evict_to(&mut self, bytes: usize) {
+        while self.bytes > bytes {
+            let Some(path) = self
+                .frames
+                .iter()
+                .min_by_key(|(_, (_, access))| *access)
+                .map(|(path, _)| path.clone())
+            else {
+                break;
+            };
+            if let Some((frame, _)) = self.frames.remove(&path) {
+                self.bytes -= frame.rgba.len();
+            }
+        }
+    }
+
+    fn get(&mut self, path: &PathBuf) -> Option<Arc<VideoFrame>> {
+        let (frame, access) = self.frames.get_mut(path)?;
+        self.access = self.access.saturating_add(1);
+        *access = self.access;
+        Some(Arc::clone(frame))
+    }
+
+    fn insert(&mut self, path: PathBuf, frame: Arc<VideoFrame>) {
+        let bytes = frame.rgba.len();
+        if bytes > self.budget {
+            return;
+        }
+        if let Some((old, _)) = self.frames.remove(&path) {
+            self.bytes -= old.rgba.len();
+        }
+        self.evict_to(self.budget - bytes);
+        self.access = self.access.saturating_add(1);
+        self.frames.insert(path, (frame, self.access));
+        self.bytes += bytes;
     }
 }
 
 fn decode_scene(
     scene: PreviewScene,
     videos: &mut HashMap<PathBuf, VideoDecoder>,
-    images: &mut HashMap<PathBuf, Arc<VideoFrame>>,
+    images: &mut ImageCache,
     native_canvases: &mut HashMap<(u32, u32), Arc<VideoFrame>>,
     text: &TextRasterizer,
     errors: &mut Vec<String>,
@@ -584,7 +701,7 @@ fn decode_scene(
 fn decode_source(
     content: &PreviewContent,
     videos: &mut HashMap<PathBuf, VideoDecoder>,
-    images: &mut HashMap<PathBuf, Arc<VideoFrame>>,
+    images: &mut ImageCache,
     native_canvases: &mut HashMap<(u32, u32), Arc<VideoFrame>>,
     text: &TextRasterizer,
 ) -> Result<Arc<VideoFrame>, String> {
@@ -595,7 +712,7 @@ fn decode_source(
             ..
         } => {
             if let Some(frame) = images.get(path) {
-                return Ok(Arc::clone(frame));
+                return Ok(frame);
             }
             let frame = Arc::new(decode_image(path).map_err(|error| error.to_string())?);
             images.insert(path.clone(), Arc::clone(&frame));
@@ -682,6 +799,162 @@ mod tests {
     use aviqtl_rust_core::api::{
         RgbaColor, ShapeGradientKind, ShapeKind, TextAlignment, TextRenderPlan,
     };
+
+    fn empty_scene() -> PreviewScene {
+        PreviewScene {
+            instance_key: 1,
+            width: 1,
+            height: 1,
+            camera: None,
+            opaque_background: false,
+            layers: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn stalled_consumer_retains_only_the_latest_completed_frame_and_export_can_repeat() {
+        let (ready, received) = std::sync::mpsc::channel();
+        let mut preview = MediaPreview::new(Arc::new(move || {
+            let _ = ready.send(());
+        }));
+        let mut scene = empty_scene();
+        scene.layers.push(shape_source(10));
+        preview.request_fresh(scene.clone());
+        received
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .unwrap();
+        let old_frame = {
+            let completed = preview.completed.lock().unwrap();
+            let DecodedContent::Frame(frame) =
+                &completed.as_ref().unwrap().batch.scene.layers[0].content
+            else {
+                panic!("expected frame")
+            };
+            Arc::downgrade(frame)
+        };
+        for _ in 0..8 {
+            preview.request_fresh(scene.clone());
+            received
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap();
+        }
+        assert!(old_frame.upgrade().is_none());
+        assert_eq!(preview.poll().unwrap().generation, preview.generation);
+        assert!(preview.poll().is_none());
+        for _ in 0..8 {
+            preview.request_fresh(scene.clone());
+            received
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap();
+            assert_eq!(preview.poll().unwrap().generation, preview.generation);
+        }
+        preview.reset();
+        assert!(preview.poll().is_none());
+    }
+
+    #[test]
+    fn reset_and_budget_changes_reach_an_idle_worker_before_the_next_frame() {
+        let queue = DecodeQueue::new();
+        queue.submit(DecodeRequest {
+            generation: 1,
+            scene: empty_scene(),
+        });
+        queue.clear();
+        queue.submit(DecodeRequest {
+            generation: 2,
+            scene: empty_scene(),
+        });
+        assert!(matches!(queue.take(), Some(DecodeWork::Reset)));
+        assert!(matches!(
+            queue.take(),
+            Some(DecodeWork::Frame(DecodeRequest { generation: 2, .. }, _))
+        ));
+        queue.set_image_budget(1234);
+        assert!(matches!(queue.take(), Some(DecodeWork::Reset)));
+        queue.submit(DecodeRequest {
+            generation: 3,
+            scene: empty_scene(),
+        });
+        assert!(matches!(queue.take(), Some(DecodeWork::Frame(_, 1234))));
+        queue.stop();
+        assert!(queue.take().is_none());
+    }
+
+    #[test]
+    fn image_cache_evicts_lru_entries_and_never_keeps_oversized_frames() {
+        let frame = |bytes: u32| {
+            Arc::new(VideoFrame {
+                width: bytes / 4,
+                height: 1,
+                rgba: vec![0; bytes as usize],
+                timestamp_seconds: 0.0,
+            })
+        };
+        let mut cache = ImageCache::default();
+        cache.set_budget(8);
+        cache.insert("a".into(), frame(4));
+        cache.insert("b".into(), frame(4));
+        assert!(cache.get(&"a".into()).is_some());
+        cache.insert("c".into(), frame(4));
+        assert!(cache.get(&"b".into()).is_none());
+        assert!(cache.get(&"a".into()).is_some());
+        let oversized = frame(12);
+        cache.insert("large".into(), Arc::clone(&oversized));
+        assert_eq!(oversized.rgba.len(), 12);
+        assert!(!cache.frames.contains_key(&PathBuf::from("large")));
+        assert_eq!(cache.bytes, 8);
+        cache.set_budget(4);
+        assert_eq!(cache.bytes, 4);
+        cache.clear();
+        assert_eq!(cache.bytes, 0);
+        assert!(cache.frames.is_empty());
+    }
+
+    #[test]
+    fn active_video_paths_include_nested_scenes_and_masks() {
+        use aviqtl_rust_core::api::{SceneRenderPlan, TimelineState};
+        let document = TimelineState::from_json(br#"{
+            "version":3,"settings":{"width":64,"height":64,"fps":30,"sampleRate":48000},
+            "scenes":[{"id":1,"name":"Root","duration":30}],
+            "clips":[{"id":1,"sceneId":1,"type":"video","start":0,"duration":30,"layer":0,
+            "effects":[{"id":"video","name":"Video","enabled":true,"params":{"path":"source.mkv"}}]}]
+        }"#).unwrap().snapshot();
+        let playback = SceneRenderPlan::from_document(&document, 1)
+            .unwrap()
+            .evaluate(0)
+            .layers[0]
+            .media
+            .clone()
+            .unwrap();
+        let mut source = shape_source(10);
+        source.content = PreviewContent::Media {
+            path: "nested.mkv".into(),
+            kind: DecodeKind::Video,
+            playback: playback.clone(),
+        };
+        let mut nested = empty_scene();
+        nested.layers.push(source.clone());
+        let mut mask = empty_scene();
+        source.content = PreviewContent::Media {
+            path: "mask.mkv".into(),
+            kind: DecodeKind::Video,
+            playback,
+        };
+        mask.layers.push(source);
+        let mut root_source = shape_source(20);
+        root_source.content = PreviewContent::Scene {
+            scene: Box::new(nested),
+        };
+        root_source.mask = Some(Box::new(mask));
+        let mut root = empty_scene();
+        root.layers.push(root_source);
+        let mut paths = HashSet::new();
+        collect_video_paths(&root, &mut paths);
+        assert_eq!(
+            paths,
+            HashSet::from([PathBuf::from("nested.mkv"), PathBuf::from("mask.mkv")])
+        );
+    }
 
     fn shape_source(red: u8) -> PreviewSource {
         PreviewSource {
@@ -789,7 +1062,10 @@ mod tests {
             },
         });
 
-        let request = queue.take().expect("latest request is available");
+        let DecodeWork::Frame(request, _) = queue.take().expect("latest request is available")
+        else {
+            panic!("expected frame");
+        };
         assert_eq!(request.generation, 2);
         assert_eq!(request.scene.instance_key, 2);
     }
@@ -934,7 +1210,7 @@ mod tests {
         let decoded = decode_scene(
             root,
             &mut HashMap::new(),
-            &mut HashMap::new(),
+            &mut ImageCache::default(),
             &mut HashMap::new(),
             &TextRasterizer::new(),
             &mut errors,
@@ -957,7 +1233,7 @@ mod tests {
             height: 32,
         };
         let mut videos = HashMap::new();
-        let mut images = HashMap::new();
+        let mut images = ImageCache::default();
         let mut native_canvases = HashMap::new();
         let text = TextRasterizer::new();
         let first = decode_source(

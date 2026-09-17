@@ -1834,6 +1834,10 @@ impl LifecycleUi {
                 false
             }
         };
+        self.preview
+            .borrow_mut()
+            .decoder
+            .set_cache_size_mb(settings.i32_value("cacheSize", 512).clamp(64, 8_192) as usize);
         self.preview.borrow_mut().set_render_settings(
             settings
                 .f64_value("previewRenderScale", 1.0)
