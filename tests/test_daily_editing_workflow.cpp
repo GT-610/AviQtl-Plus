@@ -658,8 +658,6 @@ void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
     QCOMPARE(timeline.getAllScenes().first().clips.size(),
              previousScenes.first().clips.size());
     QCOMPARE(clipsChangedSpy.count(), 0);
-
-
 }
 
 void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
@@ -697,6 +695,7 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
     ClipData second = first;
     second.id = 902;
     second.startFrame = 140;
+    const QVariantMap beforeBatch = timeline.timelineStateSnapshot();
     TimelineEditTransaction transaction;
     timeline.beginTimelineProjectionTransaction();
     QVERIFY(timeline.addClipDirectInternal(first, false));
@@ -704,6 +703,11 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
     QVERIFY(timeline.endTimelineProjectionTransaction(&transaction));
     QVERIFY(transaction.isValid());
     QCOMPARE(clipsChangedSpy.count(), 0);
+    const QVariantMap afterBatch = timeline.timelineStateSnapshot();
+    QVERIFY(timeline.applyTimelineEditTransaction(transaction, false));
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeBatch);
+    QVERIFY(timeline.applyTimelineEditTransaction(transaction, true));
+    QCOMPARE(timeline.timelineStateSnapshot(), afterBatch);
     QCOMPARE(timeline.clips().at(timeline.clips().size() - 2).id, first.id);
     QCOMPARE(timeline.clips().last().id, second.id);
 
