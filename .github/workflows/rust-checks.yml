@@ -1,0 +1,39 @@
+name: Rust checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: rustfmt, clippy
+      - name: Install native dependencies
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Syu --noconfirm archlinux-keyring
+          pacman -S --needed --noconfirm \
+            alsa-lib base-devel clang python pkgconf ffmpeg mesa vulkan-devel \
+            libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
+      - name: Validate build helpers and C ABI
+        run: |
+          python -m unittest tests.test_build_version
+          python tests/test_rust_abi_contract.py
+          python tests/check_rust_abi.py --rust-src rust/aviqtl-core/src --header core/include/rust_core_abi.hpp
+      - name: Format, lint, and test workspace
+        run: |
+          cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+          cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets --all-features -- -D warnings
+          cargo test --manifest-path rust/Cargo.toml --locked --workspace --all-features
+      - name: Test actual FFmpeg decoding, mixing, and encoding
+        run: cargo test --manifest-path rust/Cargo.toml --locked -p aviqtl-media -p aviqtl-audio -- --ignored
