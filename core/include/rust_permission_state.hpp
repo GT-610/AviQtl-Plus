@@ -33,7 +33,6 @@ class PermissionState final {
     [[nodiscard]] PermissionStateStatus grantAll(const QString &pluginId);
     [[nodiscard]] PermissionStateStatus revokeAll(const QString &pluginId);
     [[nodiscard]] std::uint64_t mask(const QString &pluginId) const;
-    [[nodiscard]] bool isAuthorized(const QString &pluginId) const;
 
   private:
     AviQtlPermissionState *m_handle = nullptr;

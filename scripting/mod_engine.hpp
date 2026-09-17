@@ -80,13 +80,10 @@ class ModEngine {
 
     // Plugin management
     PluginManifest loadManifest(const QString &pluginDir);
-    QList<PluginManifest> loadedPlugins() const;
     QList<PluginInfo> pluginInfos() const;
     void unloadPlugins();
 
     // Script parameters
-    Q_INVOKABLE QVariantMap getPluginParams(const QString &pluginId) const;
-    Q_INVOKABLE void setPluginParam(const QString &pluginId, const QString &key, const QVariant &value);
     void injectPluginParams(lua_State *L, const PluginInfo &info);
 
     // Hot reload
