@@ -503,15 +503,6 @@ auto ModEngine::instance() -> ModEngine & {
     return inst;
 }
 
-QList<PluginManifest> ModEngine::loadedPlugins() const {
-    QList<PluginManifest> manifests;
-    const QList<PluginInfo> infos = pluginInfos();
-    manifests.reserve(infos.size());
-    for (const PluginInfo &info : infos)
-        manifests.append(info.manifest);
-    return manifests;
-}
-
 QList<PluginInfo> ModEngine::pluginInfos() const {
     QVariantList catalog;
     if (m_pluginCatalogState.snapshot(catalog) != AviQtl::RustCore::Plugin::Status::Ok)
@@ -1097,41 +1088,6 @@ void ModEngine::callHooks(const char *hookName, const QString *argument) {
         }
         m_currentPluginId = previousPluginId;
     }
-}
-
-ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {
-    const auto script = AviQtl::Core::Internal::readFileBounded(
-        scriptPath, AviQtl::Core::Internal::FileSizeLimit::PluginScript);
-    if (!script.has_value()) {
-        return ScriptMetadata();
-    }
-    return ScriptParamParser::parse(QString::fromUtf8(*script));
-}
-
-QVariantMap ModEngine::getPluginParams(const QString &pluginId) const {
-    QVariantMap plugin;
-    if (m_pluginCatalogState.find(pluginId, plugin) !=
-        AviQtl::RustCore::Plugin::Status::Ok)
-        return {};
-    return plugin.value(QStringLiteral("paramValues")).toMap();
-}
-
-void ModEngine::setPluginParam(const QString &pluginId, const QString &key, const QVariant &value) {
-    QVariantMap plugin;
-    if (m_pluginCatalogState.find(pluginId, plugin) !=
-            AviQtl::RustCore::Plugin::Status::Ok ||
-        plugin.isEmpty())
-        return;
-
-    QVariantMap paramValues = plugin.value(QStringLiteral("paramValues")).toMap();
-    paramValues.insert(key, value);
-    plugin.insert(QStringLiteral("paramValues"), paramValues);
-    if (m_pluginCatalogState.store(plugin) != AviQtl::RustCore::Plugin::Status::Ok)
-        return;
-
-    // Save to settings for persistence.
-    const QString settingsKey = QStringLiteral("plugin_param.%1.%2").arg(pluginId, key);
-    AviQtl::Core::SettingsManager::instance().setValue(settingsKey, value);
 }
 
 void ModEngine::injectPluginParams(lua_State *L, const PluginInfo &info) {

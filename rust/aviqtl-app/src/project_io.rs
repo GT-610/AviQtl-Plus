@@ -1,6 +1,6 @@
 use aviqtl_rust_core::api::{ProjectDocument, TimelineState};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 pub struct ProjectSession {
@@ -162,19 +162,28 @@ impl ProjectSession {
 }
 
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("project");
-    let temporary = path.with_file_name(format!(".{file_name}.{}.tmp", std::process::id()));
-    fs::write(&temporary, bytes)?;
-    match fs::rename(&temporary, path) {
-        Ok(()) => Ok(()),
-        Err(error) => {
-            let _ = fs::remove_file(&temporary);
-            Err(error)
-        }
-    }
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut temporary = tempfile::Builder::new()
+        .prefix(".aviqtl-save-")
+        .tempfile_in(parent)?;
+    temporary.write_all(bytes)?;
+    temporary.as_file().sync_all()?;
+    // Windows can reject simultaneous replace operations on the same target.
+    // Serialize only publication; encoding and disk writes remain concurrent.
+    static PUBLICATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _publication = PUBLICATION
+        .lock()
+        .map_err(|_| io::Error::other("save publication lock poisoned"))?;
+    // Close the source handle before replacement, including on Windows where
+    // a still-open replaced file can remain delete-pending during another save.
+    temporary
+        .into_temp_path()
+        .persist(path)
+        .map_err(|error| error.error)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -182,6 +191,52 @@ mod tests {
     use super::*;
     use aviqtl_rust_core::api::TimelineCommand;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn concurrent_saves_publish_complete_files_and_remove_temporary_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let target = directory.path().join("project.aviqtl");
+        write_atomic(&target, b"old project").unwrap();
+        let barrier = std::sync::Barrier::new(8);
+        std::thread::scope(|scope| {
+            for byte in 1..=8_u8 {
+                let target = &target;
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    barrier.wait();
+                    write_atomic(target, &vec![byte; 64 * 1024]).unwrap();
+                });
+            }
+        });
+        let bytes = fs::read(&target).unwrap();
+        assert_eq!(bytes.len(), 64 * 1024);
+        assert!((1..=8).contains(&bytes[0]));
+        assert!(bytes.iter().all(|byte| *byte == bytes[0]));
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn failed_save_as_keeps_the_old_project_and_dirty_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let target = directory.path().join("project.aviqtl");
+        let blocked = directory.path().join("directory.aviqtl");
+        fs::create_dir(&blocked).unwrap();
+        let mut project = ProjectSession::blank();
+        project.save_as(&target).unwrap();
+        let original = fs::read(&target).unwrap();
+        project.dirty = true;
+        assert!(project.save_as(&blocked).is_err());
+        assert!(
+            project
+                .save_as(&directory.path().join("missing/project.aviqtl"))
+                .is_err()
+        );
+        assert!(project.dirty);
+        assert_eq!(project.path.as_deref(), Some(target.as_path()));
+        assert_eq!(fs::read(&target).unwrap(), original);
+        assert!(blocked.is_dir());
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 2);
+    }
 
     #[test]
     fn blank_project_uses_configured_defaults() {

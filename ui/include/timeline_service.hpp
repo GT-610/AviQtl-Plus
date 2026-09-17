@@ -47,8 +47,7 @@ class TimelineService : public QObject {
     bool resetTimelineState(const QVariantMap &document, int nextClipHint = 1,
                             int nextSceneHint = 1);
     void beginTimelineProjectionTransaction();
-    bool endTimelineProjectionTransaction();
-    bool endTimelineProjectionTransaction(TimelineEditTransaction *transaction);
+    bool endTimelineProjectionTransaction(TimelineEditTransaction *transaction = nullptr);
     bool applyTimelineEditTransaction(const TimelineEditTransaction &transaction, bool forward);
     bool applyTimelineEditTransaction(const TimelineEditTransaction &transaction, bool forward,
                                       std::function<bool()> applyProjection,
@@ -150,25 +149,18 @@ class TimelineService : public QObject {
     void setClipByUpperObjectInternal(int clipId, bool enabled, bool emitSignal = true,
                                       bool commitState = true);
     void addEffectInternal(int clipId, const QString &effectId);
-    bool addClipsDirectInternal(const QList<ClipData> &clips);
     bool addClipDirectInternal(const ClipData &clip, bool emitSignal = true,
                                bool commitState = true);
     bool restoreClipProjectionsInternal(const QList<ClipProjectionRestore> &restores);
     bool removeClipProjectionsInternal(const QList<int> &clipIds);
     bool replaceClipProjectionsInternal(const QList<int> &removeIds,
                                         const QList<ClipProjectionRestore> &restores);
-    bool restoreSceneProjectionsInternal(const QList<SceneProjectionRestore> &restores);
-    bool removeSceneProjectionsInternal(const QList<int> &sceneIds);
     bool replaceSceneProjectionsInternal(const QList<int> &removeIds,
                                          const QList<SceneProjectionRestore> &restores);
-    void restoreEffectInternal(int clipId, const QVariantMap &data);
     void removeEffectInternal(int clipId, int effectIndex);
     void removeMultipleEffectsInternal(int clipId, const QList<int> &sortedDescIndices, QList<QVariantMap> *outData);
-    void restoreMultipleEffectsInternal(int clipId, const QList<QVariantMap> &ascData);
     int addAudioPluginStateInternal(int clipId, const AudioPluginState &state);
     void removeAudioPluginStateInternal(int clipId, int index);
-    void restoreAudioPluginStateInternal(int clipId, int index, const AudioPluginState &state,
-                                         const QVariantMap &document = {});
     void setEffectEnabledInternal(int clipId, int effectIndex, bool enabled);
     void setAudioPluginParamInternal(int clipId, int index, int paramIndex, float value);
     void pasteEffectInternal(int clipId, int targetIndex, EffectModel *effect);
@@ -220,7 +212,6 @@ class TimelineService : public QObject {
     const SceneData *currentScene() const;
     QList<ClipData> &clipsMutable();
     void invalidateCurrentSceneCache() { m_currentSceneCache = nullptr; }
-    void abortTimelineProjectionTransaction();
     bool commitTimelineProjection();
     bool commitTimelineStateMutation(const QVariantMap &request,
                                      std::function<void()> commitAction = {});

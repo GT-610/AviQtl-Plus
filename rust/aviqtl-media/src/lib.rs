@@ -769,6 +769,7 @@ mod tests {
             later
         );
 
+        drop(decoder);
         std::fs::remove_file(path).expect("generated video removes");
     }
 
@@ -832,6 +833,7 @@ mod tests {
         );
         assert!(tail.samples[6_000..].iter().all(|sample| *sample == 0.0));
 
+        drop(decoder);
         std::fs::remove_file(path).expect("generated audio removes");
     }
 }

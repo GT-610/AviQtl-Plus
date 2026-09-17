@@ -56,7 +56,6 @@ class PermissionManager : public QObject {
     void savePermissions();
 
     // Check if plugin has any permissions granted
-    bool isPluginAuthorized(const QString &pluginId) const;
 
   signals:
     void permissionsChanged(const QString &pluginId);

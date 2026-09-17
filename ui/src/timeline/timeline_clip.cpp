@@ -248,24 +248,6 @@ void TimelineService::createClipInternal(int clipId, const QString &type, int st
     }
 }
 
-bool TimelineService::addClipsDirectInternal(const QList<ClipData> &clips) {
-    beginTimelineProjectionTransaction();
-    for (const auto &clip : std::as_const(clips)) {
-        if (!addClipDirectInternal(clip, false)) {
-            abortTimelineProjectionTransaction();
-            static_cast<void>(endTimelineProjectionTransaction());
-            qWarning() << "Rejected clip in batch restoration" << clip.id;
-            return false;
-        }
-    }
-    if (!endTimelineProjectionTransaction()) {
-        qWarning() << "Rust rejected batch clip restoration";
-        return false;
-    }
-    emit clipsChanged();
-    return true;
-}
-
 void TimelineService::updateClip(int id, int layer, int startFrame, int duration) {
     const auto *clip = findClipById(id);
     if (clip == nullptr) {

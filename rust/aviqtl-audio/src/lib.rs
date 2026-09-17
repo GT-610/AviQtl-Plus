@@ -236,20 +236,6 @@ fn playback_source_rate(plan: &AudioLayerPlan, timeline_rate: f64) -> f64 {
     }
 }
 
-#[cfg(test)]
-fn frame_sample_range(timeline_frame: i32, fps: f64, sample_rate: u32) -> Option<(i64, usize)> {
-    // Test-only helper: production mixes through
-    // mix_frame_with_sample_count_and_plugin_block_size with an explicit
-    // frame count, so the implicit range lookup survives only for tests.
-    if timeline_frame < 0 || !fps.is_finite() || fps <= 0.0 || sample_rate == 0 {
-        return None;
-    }
-    let start = cumulative_samples(timeline_frame, fps, sample_rate)?;
-    let end = cumulative_samples(timeline_frame.checked_add(1)?, fps, sample_rate)?;
-    let length = usize::try_from(end.checked_sub(start)?).ok()?;
-    Some((start, length))
-}
-
 fn cumulative_samples(frame: i32, fps: f64, sample_rate: u32) -> Option<i64> {
     let samples = f64::from(frame) * f64::from(sample_rate) / fps;
     if !samples.is_finite() || samples < 0.0 || samples > i64::MAX as f64 {
@@ -311,9 +297,13 @@ mod tests {
 
     #[test]
     fn cumulative_frame_ranges_do_not_drift_at_fractional_fps() {
-        let fps = 30_000.0 / 1_001.0;
-        let (start, count) = frame_sample_range(29_999, fps, 48_000).expect("timing is valid");
-        assert_eq!(start + count as i64, 48_048_000);
+        let mut total = 0_i64;
+        for frame in 0..30_000 {
+            let plan = aviqtl_rust_core::api::plan_export_audio_frame(frame, 48_000, 30_000, 1_001)
+                .expect("timing is valid");
+            total += i64::from(plan.samples_for_frame);
+        }
+        assert_eq!(total, 48_048_000);
     }
 
     #[test]
@@ -330,7 +320,7 @@ mod tests {
     fn export_sample_count_can_start_at_an_arbitrary_timeline_frame() {
         let fps = 60_000.0 / 1_001.0;
         let mut mixer = TimelineAudioMixer::default();
-        let (_, preview_frames) = frame_sample_range(1, fps, 48_000).expect("timing is valid");
+        let preview_frames = 801; // Preview requests a frame-aligned block at 60000/1001 fps.
         let preview = mixer
             .mix_frame_with_sample_count_and_plugin_block_size(
                 1,
@@ -457,6 +447,7 @@ mod tests {
         assert!(first.samples.iter().any(|sample| sample.abs() > 0.01));
         assert!(second.samples.iter().any(|sample| sample.abs() > 0.01));
 
+        drop(mixer);
         std::fs::remove_file(path).expect("generated audio removes");
     }
 }

@@ -157,8 +157,4 @@ void PermissionManager::savePermissions() {
     sm.setValue(QStringLiteral("pluginPermissions"), permData);
 }
 
-bool PermissionManager::isPluginAuthorized(const QString &pluginId) const {
-    return m_state.isAuthorized(pluginId);
-}
-
 } // namespace AviQtl::Core

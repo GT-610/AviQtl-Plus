@@ -709,18 +709,6 @@ void TimelineService::beginTimelineProjectionTransaction() {
     ++m_timelineProjectionTransactionDepth;
 }
 
-void TimelineService::abortTimelineProjectionTransaction() {
-    if (m_timelineProjectionTransactionDepth <= 0) {
-        qWarning() << "Cannot abort an inactive timeline projection transaction";
-        return;
-    }
-    m_timelineProjectionTransactionAborted = true;
-}
-
-bool TimelineService::endTimelineProjectionTransaction() {
-    return endTimelineProjectionTransaction(nullptr);
-}
-
 bool TimelineService::endTimelineProjectionTransaction(
     TimelineEditTransaction *committedTransaction) {
     if (committedTransaction != nullptr) {

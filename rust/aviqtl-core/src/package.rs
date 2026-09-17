@@ -1,6 +1,6 @@
 use crate::abi::{
     STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_ARGUMENT, STATUS_INVALID_JSON, STATUS_OK,
-    STATUS_OVERLAPPING_BUFFERS, ranges_overlap, slice_is_valid,
+    STATUS_OVERLAPPING_BUFFERS, output_ranges_valid, ranges_overlap, slice_is_valid, write_json,
 };
 use crate::policy::valid_package_id;
 use semver::Version;
@@ -559,57 +559,6 @@ unsafe fn input_bytes<'a>(input: *const u8, input_length: usize) -> &'a [u8] {
         // SAFETY: Callers validate the full input range before invoking this helper.
         unsafe { std::slice::from_raw_parts(input, input_length) }
     }
-}
-
-fn output_ranges_valid(
-    inputs: &[(*const u8, usize)],
-    output: *mut u8,
-    output_capacity: usize,
-    output_length: *mut usize,
-) -> Result<(), u32> {
-    if !slice_is_valid(output, output_capacity) || !slice_is_valid(output_length, 1) {
-        return Err(STATUS_INVALID_ARGUMENT);
-    }
-    let mut overlaps = Vec::with_capacity(inputs.len() * 2 + 1);
-    overlaps.push(ranges_overlap(output, output_capacity, output_length, 1));
-    for (input, input_length) in inputs {
-        overlaps.push(ranges_overlap(
-            *input,
-            *input_length,
-            output,
-            output_capacity,
-        ));
-        overlaps.push(ranges_overlap(*input, *input_length, output_length, 1));
-    }
-    if overlaps.iter().any(Option::is_none) {
-        return Err(STATUS_INVALID_ARGUMENT);
-    }
-    if overlaps.into_iter().flatten().any(|overlap| overlap) {
-        return Err(STATUS_OVERLAPPING_BUFFERS);
-    }
-    Ok(())
-}
-
-unsafe fn write_json(
-    value: &impl serde::Serialize,
-    output: *mut u8,
-    output_capacity: usize,
-    output_length: *mut usize,
-) -> u32 {
-    let Ok(json) = serde_json::to_vec(value) else {
-        return STATUS_INVALID_JSON;
-    };
-    // SAFETY: The caller validates and de-overlaps the output-length range.
-    unsafe { output_length.write(json.len()) };
-    if output_capacity < json.len() {
-        return STATUS_BUFFER_TOO_SMALL;
-    }
-    if !json.is_empty() {
-        // SAFETY: The caller validates the output range and capacity.
-        let output = unsafe { std::slice::from_raw_parts_mut(output, output_capacity) };
-        output[..json.len()].copy_from_slice(&json);
-    }
-    STATUS_OK
 }
 
 /// Creates an empty Rust-owned package catalog.

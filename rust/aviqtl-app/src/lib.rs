@@ -4,6 +4,7 @@ pub mod audio_plugin;
 pub mod easing;
 pub mod effect_catalog;
 pub mod effect_selection;
+mod file_io;
 pub mod lifecycle;
 pub mod media_import;
 pub mod missing_media;

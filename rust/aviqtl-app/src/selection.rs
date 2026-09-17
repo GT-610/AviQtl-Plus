@@ -1,5 +1,5 @@
 use aviqtl_rust_core::api::{ClipDocument, MAX_TIMELINE_LAYER, ProjectDocument};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ClipSelection {
@@ -95,6 +95,7 @@ impl ClipSelection {
         } else {
             Vec::new()
         };
+        let mut seen: HashSet<i32> = ids.iter().copied().collect();
         for clip in document
             .clips
             .iter()
@@ -106,7 +107,7 @@ impl ClipSelection {
                 && min_frame < clip_end
                 && clip_last_layer >= min_layer
                 && clip.layer <= max_layer
-                && !ids.contains(&clip.id)
+                && seen.insert(clip.id)
             {
                 ids.push(clip.id);
             }
@@ -272,5 +273,46 @@ mod tests {
         selection.reconcile(&document, 1);
         assert_eq!(selection.ids(), [1]);
         assert_eq!(selection.primary(), Some(1));
+    }
+
+    #[test]
+    fn large_additive_box_deduplicates_hits_without_reordering() {
+        let mut document = document();
+        let template = document.clips[0].clone();
+        document.clips = (1..=20_000)
+            .map(|id| ClipDocument {
+                id,
+                ..template.clone()
+            })
+            .collect();
+        document.clips.push(document.clips[0].clone());
+        let mut selection = ClipSelection::default();
+        selection.replace([20_000, 1]);
+        let area = SelectionBox {
+            frame_a: 0,
+            frame_b: 30,
+            layer_a: 0,
+            layer_b: 0,
+            additive: true,
+        };
+        selection.preview_box(&document, 1, area);
+        selection.finish_preview();
+        assert_eq!(
+            selection.ids(),
+            [vec![20_000, 1], (2..20_000).collect()].concat()
+        );
+        assert_eq!(selection.primary(), Some(20_000));
+        document.clips.clear();
+        selection.preview_box(
+            &document,
+            1,
+            SelectionBox {
+                additive: false,
+                ..area
+            },
+        );
+        selection.finish_preview();
+        assert!(selection.ids().is_empty());
+        assert_eq!(selection.primary(), None);
     }
 }

@@ -75,7 +75,8 @@ void TestPermissionManager::permissionPersistence() {
     QCOMPARE(persistedPluginPermissions.size(), 2);
 
     pm.revokeAllPermissions(pluginId);
-    QVERIFY(!pm.isPluginAuthorized(pluginId));
+    QVERIFY(!pm.hasPermission(pluginId, PluginPermission::TransportControl));
+    QVERIFY(!pm.hasPermission(pluginId, PluginPermission::ClipRead));
 
     QVERIFY(persistedFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
     QCOMPARE(persistedFile.write(persistedPayload), persistedPayload.size());

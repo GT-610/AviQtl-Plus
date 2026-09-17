@@ -11,32 +11,15 @@ permissions:
 jobs:
   test:
     name: Test Rust + Slint
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.97.1
-        with:
-          components: rustfmt, clippy
-      - name: Install native dependencies
-        run: |
-          pacman-key --init
-          pacman-key --populate archlinux
-          pacman -Syu --noconfirm archlinux-keyring
-          pacman -S --needed --noconfirm \
-            alsa-lib base-devel clang python pkgconf ffmpeg mesa vulkan-devel \
-            libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
-      - name: Validate
-        run: |
-          python -m unittest tests.test_build_version
-          cargo fmt --manifest-path rust/Cargo.toml --all -- --check
-          cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets --all-features -- -D warnings
-          cargo test --manifest-path rust/Cargo.toml --locked --workspace --all-features
+    uses: ./.github/workflows/rust-checks.yml
+
+  qt:
+    name: Test Qt compatibility
+    uses: ./.github/workflows/qt-checks.yml
 
   build:
     name: Build ${{ matrix.platform }}
-    needs: test
+    needs: [test, qt]
     strategy:
       fail-fast: false
       matrix:

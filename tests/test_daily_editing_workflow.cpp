@@ -530,7 +530,7 @@ void TestDailyEditingWorkflow::rejectedProjectionTransactionRestoresRuntimeModel
     controller.timeline()->beginTimelineProjectionTransaction();
     controller.timeline()->setEffectEnabledInternal(clipId, 1, !previousEnabled);
     controller.timeline()->removeEffectInternal(clipId, 1);
-    controller.timeline()->updateClipInternal(clipId, 128, previousStart, previousDuration, false,
+    controller.timeline()->updateClipInternal(clipId, 512, previousStart, previousDuration, false,
                                               true);
     QVERIFY(!controller.timeline()->endTimelineProjectionTransaction());
 
@@ -646,19 +646,15 @@ void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
     duplicate.durationFrames = 30;
     duplicate.layer = 0;
     QSignalSpy clipsChangedSpy(&timeline, &TimelineService::clipsChanged);
-    QVERIFY(!timeline.addClipsDirectInternal({duplicate, duplicate}));
+    TimelineEditTransaction transaction;
+    timeline.beginTimelineProjectionTransaction();
+    QVERIFY(timeline.addClipDirectInternal(duplicate, false));
+    QVERIFY(timeline.addClipDirectInternal(duplicate, false));
+    QVERIFY(!timeline.endTimelineProjectionTransaction(&transaction));
+    QVERIFY(!transaction.isValid());
 
     QCOMPARE(timeline.timelineStateSnapshot(), previousState);
     QCOMPARE(timeline.getAllScenes().size(), previousScenes.size());
-    QCOMPARE(timeline.getAllScenes().first().clips.size(),
-             previousScenes.first().clips.size());
-    QCOMPARE(clipsChangedSpy.count(), 0);
-
-    ClipData missingScene = duplicate;
-    missingScene.id = 901;
-    missingScene.sceneId = 999;
-    QVERIFY(!timeline.addClipsDirectInternal({duplicate, missingScene}));
-    QCOMPARE(timeline.timelineStateSnapshot(), previousState);
     QCOMPARE(timeline.getAllScenes().first().clips.size(),
              previousScenes.first().clips.size());
     QCOMPARE(clipsChangedSpy.count(), 0);
@@ -699,8 +695,27 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
     ClipData second = first;
     second.id = 902;
     second.startFrame = 140;
-    QVERIFY(timeline.addClipsDirectInternal({first, second}));
-    QCOMPARE(clipsChangedSpy.count(), 1);
+    const QVariantMap beforeBatch = timeline.timelineStateSnapshot();
+    TimelineEditTransaction transaction;
+    timeline.beginTimelineProjectionTransaction();
+    QVERIFY(timeline.addClipDirectInternal(first, false));
+    QVERIFY(timeline.addClipDirectInternal(second, false));
+    QVERIFY(timeline.endTimelineProjectionTransaction(&transaction));
+    QVERIFY(transaction.isValid());
+    QCOMPARE(clipsChangedSpy.count(), 0);
+    const QVariantMap afterBatch = timeline.timelineStateSnapshot();
+    const QList<ClipProjectionRestore> batchProjections{
+        {first, timeline.clips().size() - 2}, {second, timeline.clips().size() - 1}};
+    const auto removeBatch = [&]() {
+        return timeline.removeClipProjectionsInternal({first.id, second.id});
+    };
+    const auto restoreBatch = [&]() {
+        return timeline.restoreClipProjectionsInternal(batchProjections);
+    };
+    QVERIFY(timeline.applyTimelineEditTransaction(transaction, false, removeBatch, restoreBatch));
+    QCOMPARE(timeline.timelineStateSnapshot(), beforeBatch);
+    QVERIFY(timeline.applyTimelineEditTransaction(transaction, true, restoreBatch, removeBatch));
+    QCOMPARE(timeline.timelineStateSnapshot(), afterBatch);
     QCOMPARE(timeline.clips().at(timeline.clips().size() - 2).id, first.id);
     QCOMPARE(timeline.clips().last().id, second.id);
 

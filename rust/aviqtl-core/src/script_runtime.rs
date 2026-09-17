@@ -227,10 +227,6 @@ impl ScriptRuntime {
         inject_parameters(&mut self.vm, parameters)
     }
 
-    pub fn has_hook(&mut self, hook: &ScriptHook) -> bool {
-        lua_function(global(&mut self.vm, hook.function_name()))
-    }
-
     pub fn dispatch(
         &mut self,
         hook: ScriptHook,
@@ -961,7 +957,6 @@ mod tests {
             initial.commands,
             vec![ScriptHostCommand::Log("top-level".to_owned())]
         );
-        assert!(runtime.has_hook(&ScriptHook::Load));
         assert_eq!(
             runtime
                 .dispatch(ScriptHook::Load, &permissions, snapshot.clone())

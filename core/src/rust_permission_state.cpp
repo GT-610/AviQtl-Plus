@@ -152,13 +152,4 @@ std::uint64_t PermissionState::mask(const QString &pluginId) const {
     });
 }
 
-bool PermissionState::isAuthorized(const QString &pluginId) const {
-    if (m_handle == nullptr) {
-        return false;
-    }
-    return withPluginId(pluginId, [this](const std::uint8_t *plugin, std::size_t length) {
-               return aviqtl_permission_state_is_authorized(m_handle, plugin, length);
-           }) != 0;
-}
-
 } // namespace AviQtl::RustCore

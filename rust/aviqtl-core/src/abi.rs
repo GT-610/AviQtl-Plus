@@ -516,6 +516,58 @@ pub fn ranges_overlap<T, U>(
     Some(first_start < second_end && second_start < first_end)
 }
 
+/// Validate every range before reporting aliasing, so invalid arguments retain
+/// precedence even when an earlier input overlaps the output.
+pub(crate) fn output_ranges_valid(
+    inputs: &[(*const u8, usize)],
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> Result<(), u32> {
+    if !slice_is_valid(output, output_capacity) || !slice_is_valid(output_length, 1) {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+    let mut overlap =
+        ranges_overlap(output, output_capacity, output_length, 1).ok_or(STATUS_INVALID_ARGUMENT)?;
+    for &(input, length) in inputs {
+        if !slice_is_valid(input, length) {
+            return Err(STATUS_INVALID_ARGUMENT);
+        }
+        overlap |= ranges_overlap(input, length, output, output_capacity)
+            .ok_or(STATUS_INVALID_ARGUMENT)?;
+        overlap |=
+            ranges_overlap(input, length, output_length, 1).ok_or(STATUS_INVALID_ARGUMENT)?;
+    }
+    if overlap {
+        Err(STATUS_OVERLAPPING_BUFFERS)
+    } else {
+        Ok(())
+    }
+}
+
+/// Write a JSON result after the caller validates writable, disjoint ranges.
+/// Capacity queries update the required length without touching the output.
+pub(crate) unsafe fn write_json(
+    value: &impl serde::Serialize,
+    output: *mut u8,
+    output_capacity: usize,
+    output_length: *mut usize,
+) -> u32 {
+    let Ok(bytes) = serde_json::to_vec(value) else {
+        return STATUS_INVALID_JSON;
+    };
+    // SAFETY: The caller validates the output-length storage and output range.
+    unsafe { output_length.write(bytes.len()) };
+    if output_capacity < bytes.len() {
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+    if !bytes.is_empty() {
+        // SAFETY: Capacity and the caller's writable range cover the full result.
+        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), output, bytes.len()) };
+    }
+    STATUS_OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn aviqtl_core_abi_version() -> u32 {
     ABI_VERSION
@@ -528,6 +580,62 @@ pub extern "C" fn aviqtl_core_capabilities() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn json_ranges_prioritize_invalid_inputs_and_preserve_capacity_queries() {
+        use super::*;
+        let mut output = [0xa5_u8; 16];
+        let mut length = 99;
+        let pointer = output.as_mut_ptr();
+        assert_eq!(
+            output_ranges_valid(
+                &[(pointer, 1), (std::ptr::null(), 1)],
+                pointer,
+                16,
+                &mut length
+            ),
+            Err(STATUS_INVALID_ARGUMENT)
+        );
+        assert_eq!(
+            output_ranges_valid(
+                &[(pointer, 1), (pointer, usize::MAX)],
+                pointer,
+                16,
+                &mut length
+            ),
+            Err(STATUS_INVALID_ARGUMENT)
+        );
+        assert_eq!(
+            output_ranges_valid(&[(pointer, 1)], pointer, 16, &mut length),
+            Err(STATUS_OVERLAPPING_BUFFERS)
+        );
+        assert_eq!(
+            output_ranges_valid(&[], pointer, 16, std::ptr::null_mut()),
+            Err(STATUS_INVALID_ARGUMENT)
+        );
+        assert_eq!(
+            output_ranges_valid(&[], std::ptr::null_mut(), 0, &mut length),
+            Ok(())
+        );
+        // SAFETY: Zero-capacity queries never dereference output; length is writable.
+        assert_eq!(
+            unsafe { write_json(&"hello", std::ptr::null_mut(), 0, &mut length) },
+            STATUS_BUFFER_TOO_SMALL
+        );
+        assert_eq!(length, 7);
+        // SAFETY: The output array and length are valid disjoint storage.
+        assert_eq!(
+            unsafe { write_json(&"hello", pointer, 2, &mut length) },
+            STATUS_BUFFER_TOO_SMALL
+        );
+        assert_eq!(output, [0xa5; 16]);
+        // SAFETY: As above, with enough capacity for the complete JSON value.
+        assert_eq!(
+            unsafe { write_json(&"hello", pointer, 16, &mut length) },
+            STATUS_OK
+        );
+        assert_eq!(&output[..length], b"\"hello\"");
+        assert_eq!(&output[length..], &[0xa5; 9]);
+    }
     use super::*;
     use std::mem::{align_of, offset_of, size_of};
 

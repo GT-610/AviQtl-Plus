@@ -32,6 +32,7 @@ class TestPackageDeploy : public QObject {
     void deploysPackageFiles();
     void extractsSafeArchive();
     void rejectsTraversalArchive();
+    void rejectsConflictingArchivePaths();
     void rejectsSymlinkArchive();
     void rollsBackWhenStateCommitFails();
     void removesPackageTransactionally();
@@ -411,6 +412,36 @@ void TestPackageDeploy::rejectsSymlinkArchive() {
     QCOMPARE(writer.status(), QZipWriter::NoError);
 
     QVERIFY(!PackageDeployment::extractArchive(archivePath, dir.filePath(QStringLiteral("symlink-output"))));
+}
+
+void TestPackageDeploy::rejectsConflictingArchivePaths() {
+    QList<QPair<QString, QString>> conflicts{
+        {QStringLiteral("a.txt"), QStringLiteral("folder/../a.txt")},
+        {QStringLiteral("parent"), QStringLiteral("parent/child")},
+        {QStringLiteral("parent/child"), QStringLiteral("parent")},
+    };
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+    conflicts.append({QStringLiteral("a.txt"), QStringLiteral("A.TXT")});
+#endif
+#ifdef Q_OS_WIN
+    for (const QString &path : {QStringLiteral("nested/NUL.txt"), QStringLiteral("nested/file:stream"),
+                               QStringLiteral("nested/name."), QStringLiteral("nested/name ")}) {
+        QVERIFY(!PackageDeployment::isSafeArchivePath(path));
+    }
+#endif
+    for (const auto &conflict : std::as_const(conflicts)) {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString archive = directory.filePath(QStringLiteral("conflict.zip"));
+        QZipWriter writer(archive);
+        writer.addFile(conflict.first, QByteArrayLiteral("first"));
+        writer.addFile(conflict.second, QByteArrayLiteral("second"));
+        writer.close();
+        QCOMPARE(writer.status(), QZipWriter::NoError);
+        const QString destination = directory.filePath(QStringLiteral("output"));
+        QVERIFY(!PackageDeployment::extractArchive(archive, destination));
+        QVERIFY(!QFileInfo::exists(destination));
+    }
 }
 
 void TestPackageDeploy::rollsBackWhenStateCommitFails() {

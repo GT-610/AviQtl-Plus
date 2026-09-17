@@ -233,6 +233,7 @@ function AviQtlOnLoad()
 end
 )")));
 
+    settings.setValue(QStringLiteral("plugin_param.%1.amount").arg(pluginId), 7.0);
     engine.loadPlugins();
     const QList<PluginInfo> infos = engine.pluginInfos();
     const auto infoIt = std::find_if(infos.cbegin(), infos.cend(), [&pluginId](const PluginInfo &info) {
@@ -242,16 +243,7 @@ end
     QCOMPARE(infoIt->scriptMeta.params.size(), 1);
     QCOMPARE(infoIt->scriptMeta.params.constFirst().varName, QStringLiteral("amount"));
     QCOMPARE(infoIt->scriptMeta.params.constFirst().defaultValue.toDouble(), 3.0);
-    QCOMPARE(engine.getPluginParams(pluginId).value(QStringLiteral("amount")).toDouble(), 3.0);
-    engine.setPluginParam(pluginId, QStringLiteral("amount"), 7.0);
-    QCOMPARE(engine.getPluginParams(pluginId).value(QStringLiteral("amount")).toDouble(), 7.0);
-    const QList<PluginInfo> updatedInfos = engine.pluginInfos();
-    const auto updatedInfoIt =
-        std::find_if(updatedInfos.cbegin(), updatedInfos.cend(), [&pluginId](const PluginInfo &info) {
-            return info.manifest.id == pluginId;
-        });
-    QVERIFY(updatedInfoIt != updatedInfos.cend());
-    QCOMPARE(updatedInfoIt->paramValues.value(QStringLiteral("amount")).toDouble(), 7.0);
+    QCOMPARE(infoIt->paramValues.value(QStringLiteral("amount")).toDouble(), 7.0);
     const QVariantList installedPackages = PackageManager::instance().getPackagesByType(QStringLiteral("installed"));
     const auto packageIt = std::find_if(installedPackages.cbegin(), installedPackages.cend(), [&pluginId](const QVariant &entry) {
         return entry.toMap().value(QStringLiteral("id")).toString() == pluginId;
@@ -313,12 +305,8 @@ void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
     }
 
     engine.loadPlugins();
-    const QList<PluginManifest> loadedPlugins = engine.loadedPlugins();
     const QList<PluginInfo> pluginInfos = engine.pluginInfos();
     for (const QString &pluginId : pluginIds) {
-        QVERIFY(std::any_of(loadedPlugins.cbegin(), loadedPlugins.cend(), [&pluginId](const PluginManifest &plugin) {
-            return plugin.id == pluginId;
-        }));
         QVERIFY(std::any_of(pluginInfos.cbegin(), pluginInfos.cend(), [&pluginId](const PluginInfo &info) {
             return info.manifest.id == pluginId;
         }));
@@ -349,12 +337,8 @@ void TestModEngine::loadsAndDispatchesEachPluginLifecycle() {
     QVERIFY(!settings.settings().contains(QStringLiteral("should_not_run")));
 
     engine.unloadPlugins();
-    const QList<PluginManifest> remainingPlugins = engine.loadedPlugins();
     const QList<PluginInfo> remainingInfos = engine.pluginInfos();
     for (const QString &pluginId : pluginIds) {
-        QVERIFY(std::none_of(remainingPlugins.cbegin(), remainingPlugins.cend(), [&pluginId](const PluginManifest &plugin) {
-            return plugin.id == pluginId;
-        }));
         QVERIFY(std::none_of(remainingInfos.cbegin(), remainingInfos.cend(), [&pluginId](const PluginInfo &info) {
             return info.manifest.id == pluginId;
         }));

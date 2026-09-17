@@ -18,5 +18,11 @@ pollster = "0.4"
 [target.'cfg(target_os = "macos")'.dev-dependencies]
 wgpu = { version = "29.0.1", default-features = false, features = ["std", "wgsl", "metal"] }
 
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wgpu = { version = "29.0.1", default-features = false, features = ["std", "wgsl", "dx12"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+wgpu = { version = "29.0.1", default-features = false, features = ["std", "wgsl", "vulkan"] }
+
 [lints.rust]
 unsafe_code = "forbid"

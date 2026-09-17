@@ -331,15 +331,6 @@ void TimelineService::removeSceneInternal(int sceneId) {
     }
 }
 
-bool TimelineService::restoreSceneProjectionsInternal(
-    const QList<SceneProjectionRestore> &restores) {
-    return replaceSceneProjectionsInternal({}, restores);
-}
-
-bool TimelineService::removeSceneProjectionsInternal(const QList<int> &sceneIds) {
-    return replaceSceneProjectionsInternal(sceneIds, {});
-}
-
 bool TimelineService::replaceSceneProjectionsInternal(
     const QList<int> &removeIds, const QList<SceneProjectionRestore> &restores) {
     QSet<int> removedIds;

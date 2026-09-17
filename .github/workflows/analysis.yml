@@ -1,41 +1,19 @@
 name: Analysis
 
 on:
+  workflow_dispatch:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test Rust + Slint
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    container:
-      image: archlinux:latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.97.1
-        with:
-          components: rustfmt, clippy
-
-      - name: Install native dependencies
-        run: |
-          pacman-key --init
-          pacman-key --populate archlinux
-          pacman -Syu --noconfirm archlinux-keyring
-          pacman -S --needed --noconfirm \
-            base-devel clang python pkgconf ffmpeg mesa vulkan-devel \
-            libx11 libxcursor libxi libxrandr libxkbcommon wayland wayland-protocols
-
-      - name: Validate build script
-        run: python -m unittest tests.test_build_version
-
-      - name: Format, lint, and test workspace
-        run: |
-          cargo fmt --manifest-path rust/Cargo.toml --all -- --check
-          cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets --all-features -- -D warnings
-          cargo test --manifest-path rust/Cargo.toml --locked --workspace --all-features
+    uses: ./.github/workflows/rust-checks.yml
+  qt:
+    name: Test Qt compatibility
+    uses: ./.github/workflows/qt-checks.yml

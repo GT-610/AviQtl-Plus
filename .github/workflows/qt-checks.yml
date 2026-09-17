@@ -1,0 +1,45 @@
+name: Qt compatibility checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  qt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: archlinux:latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+      QSG_RHI_BACKEND: opengl
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Install Qt and media dependencies
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Syu --noconfirm archlinux-keyring
+          pacman -S --needed --noconfirm \
+            base-devel clang cmake ninja python pkgconf extra-cmake-modules \
+            qt6-base qt6-declarative qt6-quick3d qt6-svg qt6-multimedia qt6-5compat \
+            qt6-shadertools qt6-tools qt6-wayland vulkan-devel mesa \
+            ffmpeg luajit carla
+      - name: Configure and build application and all tests
+        run: |
+          cmake -S . -B .build_tmp/qt-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake --build .build_tmp/qt-ci --parallel 2
+      - name: Run Qt, workflow, and ABI regression tests
+        run: ctest --test-dir .build_tmp/qt-ci --output-on-failure --output-junit qt-tests.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qt-test-results
+          path: |
+            .build_tmp/qt-ci/qt-tests.xml
+            .build_tmp/qt-ci/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
