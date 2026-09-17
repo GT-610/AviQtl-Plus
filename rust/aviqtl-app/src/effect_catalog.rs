@@ -1,3 +1,4 @@
+use crate::file_io::read_bounded;
 use crate::settings::package_paths;
 use aviqtl_render::{NativeRenderDefinition, validate_native_shader};
 use aviqtl_rust_core::api::{EffectDocument, EffectMetadata, parse_effect_metadata};
@@ -42,13 +43,7 @@ impl EffectCatalog {
                 if !loaded_files.insert(identity) {
                     continue;
                 }
-                let Ok(metadata) = fs::metadata(&path) else {
-                    continue;
-                };
-                if metadata.len() > MAX_EFFECT_DEFINITION_BYTES {
-                    continue;
-                }
-                let Ok(bytes) = fs::read(&path) else {
+                let Ok(bytes) = read_bounded(&path, MAX_EFFECT_DEFINITION_BYTES) else {
                     continue;
                 };
                 let Some(mut entry) = parse_effect_metadata(&bytes) else {
@@ -259,11 +254,8 @@ fn load_native_definition(
     if !shader_path.starts_with(&package_directory) {
         return None;
     }
-    let file_metadata = fs::metadata(&shader_path).ok()?;
-    if !file_metadata.is_file() || file_metadata.len() > MAX_NATIVE_SHADER_BYTES {
-        return None;
-    }
-    let shader_source = fs::read_to_string(shader_path).ok()?;
+    let shader_source =
+        String::from_utf8(read_bounded(&shader_path, MAX_NATIVE_SHADER_BYTES).ok()?).ok()?;
     validate_native_shader(&shader_source).ok()?;
     Some(NativeRenderDefinition {
         id: metadata.id.clone(),
@@ -287,7 +279,11 @@ pub(crate) fn validate_native_package_directory(
                 path.display()
             ));
         }
-        let source = fs::read_to_string(&path)
+        let source = read_bounded(&path, MAX_NATIVE_SHADER_BYTES)
+            .and_then(|bytes| {
+                String::from_utf8(bytes)
+                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
+            })
             .map_err(|error| format!("Could not read {}: {error}", path.display()))?;
         validate_native_shader(&source).map_err(|error| {
             format!(
@@ -308,7 +304,7 @@ pub(crate) fn validate_native_package_directory(
                 path.display()
             ));
         }
-        let bytes = fs::read(&path)
+        let bytes = read_bounded(&path, MAX_EFFECT_DEFINITION_BYTES)
             .map_err(|error| format!("Could not read {}: {error}", path.display()))?;
         let document = serde_json::from_slice::<serde_json::Value>(&bytes).ok();
         let declares_render_entry = document
