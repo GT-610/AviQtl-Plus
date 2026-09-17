@@ -447,6 +447,7 @@ mod tests {
         assert!(first.samples.iter().any(|sample| sample.abs() > 0.01));
         assert!(second.samples.iter().any(|sample| sample.abs() > 0.01));
 
+        drop(mixer);
         std::fs::remove_file(path).expect("generated audio removes");
     }
 }
