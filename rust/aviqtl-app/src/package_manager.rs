@@ -16,6 +16,7 @@ use std::fs::{self, File};
 use std::io::{Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use unicode_casefold::UnicodeCaseFold;
 use url::Url;
 
 const MAX_REPOSITORY_METADATA_BYTES: u64 = 16 * 1024 * 1024;
@@ -1254,11 +1255,7 @@ fn parse_zip_entries(archive: &[u8]) -> Result<Vec<ZipEntry>, String> {
         }
         let path = normalize_archive_path(name)
             .ok_or_else(|| format!("Unsafe package archive entry: {name}"))?;
-        let key = if cfg!(any(windows, target_os = "macos")) {
-            PathBuf::from(path.to_string_lossy().to_lowercase())
-        } else {
-            path.clone()
-        };
+        let key = archive_collision_key(&path);
         if !paths.insert(key.clone()) {
             return Err(format!(
                 "Duplicate package archive entry: {}",
@@ -1353,6 +1350,14 @@ fn normalize_archive_path(value: &str) -> Option<PathBuf> {
         }
     }
     (!components.is_empty()).then(|| components.into_iter().collect())
+}
+
+fn archive_collision_key(path: &Path) -> PathBuf {
+    if cfg!(any(windows, target_os = "macos")) {
+        PathBuf::from(path.to_string_lossy().case_fold().collect::<String>())
+    } else {
+        path.to_path_buf()
+    }
 }
 
 fn required_u16(bytes: &[u8], offset: usize) -> Result<u16, String> {
@@ -1623,6 +1628,27 @@ mod tests {
                 assert!(!destination.exists());
             }
         }
+    }
+
+    #[test]
+    fn unicode_case_folding_merges_final_sigma() {
+        let regular_sigma = "σ.txt".case_fold().collect::<String>();
+        let final_sigma = "ς.txt".case_fold().collect::<String>();
+        assert_eq!(regular_sigma, final_sigma);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_rejects_unicode_casefold_collisions_before_extraction() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("extract");
+        fs::create_dir(&destination).unwrap();
+        let existing = destination.join("σ.txt");
+        fs::write(&existing, b"existing").unwrap();
+        let archive = stored_zip(&[("σ.txt", b"first", 0), ("ς.txt", b"second", 0)]);
+
+        assert!(super::extract_zip_archive(&archive, &destination).is_err());
+        assert_eq!(fs::read(existing).unwrap(), b"existing");
     }
     use super::*;
     use serde_json::json;
