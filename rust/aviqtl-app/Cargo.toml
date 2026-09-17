@@ -15,6 +15,7 @@ crc32fast = "1.5"
 flate2 = "1.1"
 serde_json = "1.0"
 sha2 = "0.11"
+tempfile = "3.27"
 ureq = { version = "2.12", default-features = false, features = ["tls"] }
 url = "2.5"
 
