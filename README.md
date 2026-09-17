@@ -48,6 +48,7 @@ AviQtl-Plus features a modular effect system. The `effect-packages/` directory c
 | Package | Type | Contents |
 |---------|------|----------|
 | [weather-objects](effect-packages/weather-objects/) | Object | Rain, snow animations |
+| [color-effects](effect-packages/color-effects/) | Effect | Color tint effect |
 
 These packages serve as both useful additions and developer references for creating custom effects. See [effect-packages/README.md](effect-packages/README.md) for details.
 
