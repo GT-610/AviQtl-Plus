@@ -26,7 +26,7 @@ jobs:
           pacman -Syu --noconfirm archlinux-keyring
           pacman -S --needed --noconfirm \
             base-devel clang cmake ninja python pkgconf extra-cmake-modules \
-            qt6-base qt6-declarative qt6-quick3d qt6-svg qt6-multimedia \
+            qt6-base qt6-declarative qt6-quick3d qt6-svg qt6-multimedia qt6-5compat \
             qt6-shadertools qt6-tools qt6-wayland vulkan-devel mesa \
             ffmpeg luajit carla
       - name: Configure and build application and all tests
