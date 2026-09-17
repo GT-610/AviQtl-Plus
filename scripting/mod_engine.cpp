@@ -1099,15 +1099,6 @@ void ModEngine::callHooks(const char *hookName, const QString *argument) {
     }
 }
 
-ScriptMetadata ModEngine::loadScriptParams(const QString &scriptPath) {
-    const auto script = AviQtl::Core::Internal::readFileBounded(
-        scriptPath, AviQtl::Core::Internal::FileSizeLimit::PluginScript);
-    if (!script.has_value()) {
-        return ScriptMetadata();
-    }
-    return ScriptParamParser::parse(QString::fromUtf8(*script));
-}
-
 QVariantMap ModEngine::getPluginParams(const QString &pluginId) const {
     QVariantMap plugin;
     if (m_pluginCatalogState.find(pluginId, plugin) !=

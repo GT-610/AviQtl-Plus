@@ -80,7 +80,6 @@ class ModEngine {
 
     // Plugin management
     PluginManifest loadManifest(const QString &pluginDir);
-    ScriptMetadata loadScriptParams(const QString &scriptPath);
     QList<PluginManifest> loadedPlugins() const;
     QList<PluginInfo> pluginInfos() const;
     void unloadPlugins();

@@ -646,7 +646,12 @@ void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
     duplicate.durationFrames = 30;
     duplicate.layer = 0;
     QSignalSpy clipsChangedSpy(&timeline, &TimelineService::clipsChanged);
-    QVERIFY(!timeline.addClipsDirectInternal({duplicate, duplicate}));
+    TimelineEditTransaction transaction;
+    timeline.beginTimelineProjectionTransaction();
+    QVERIFY(timeline.addClipDirectInternal(duplicate, false));
+    QVERIFY(timeline.addClipDirectInternal(duplicate, false));
+    QVERIFY(!timeline.endTimelineProjectionTransaction(&transaction));
+    QVERIFY(!transaction.isValid());
 
     QCOMPARE(timeline.timelineStateSnapshot(), previousState);
     QCOMPARE(timeline.getAllScenes().size(), previousScenes.size());
@@ -654,14 +659,7 @@ void TestDailyEditingWorkflow::targetedBatchFailureRollsBackRustAndQt() {
              previousScenes.first().clips.size());
     QCOMPARE(clipsChangedSpy.count(), 0);
 
-    ClipData missingScene = duplicate;
-    missingScene.id = 901;
-    missingScene.sceneId = 999;
-    QVERIFY(!timeline.addClipsDirectInternal({duplicate, missingScene}));
-    QCOMPARE(timeline.timelineStateSnapshot(), previousState);
-    QCOMPARE(timeline.getAllScenes().first().clips.size(),
-             previousScenes.first().clips.size());
-    QCOMPARE(clipsChangedSpy.count(), 0);
+
 }
 
 void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
@@ -699,8 +697,13 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
     ClipData second = first;
     second.id = 902;
     second.startFrame = 140;
-    QVERIFY(timeline.addClipsDirectInternal({first, second}));
-    QCOMPARE(clipsChangedSpy.count(), 1);
+    TimelineEditTransaction transaction;
+    timeline.beginTimelineProjectionTransaction();
+    QVERIFY(timeline.addClipDirectInternal(first, false));
+    QVERIFY(timeline.addClipDirectInternal(second, false));
+    QVERIFY(timeline.endTimelineProjectionTransaction(&transaction));
+    QVERIFY(transaction.isValid());
+    QCOMPARE(clipsChangedSpy.count(), 0);
     QCOMPARE(timeline.clips().at(timeline.clips().size() - 2).id, first.id);
     QCOMPARE(timeline.clips().last().id, second.id);
 

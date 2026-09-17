@@ -38,7 +38,14 @@ void populateLargeTimeline(TimelineController &controller) {
         clips.append(std::move(clip));
     }
 
-    controller.timeline()->addClipsDirectInternal(clips);
+    auto *timeline = controller.timeline();
+    TimelineEditTransaction transaction;
+    timeline->beginTimelineProjectionTransaction();
+    for (const auto &clip : std::as_const(clips)) {
+        QVERIFY(timeline->addClipDirectInternal(clip, false));
+    }
+    QVERIFY(timeline->endTimelineProjectionTransaction(&transaction));
+    emit timeline->clipsChanged();
     controller.timeline()->setNextClipId(kClipCount + 1);
     QCoreApplication::processEvents();
 }

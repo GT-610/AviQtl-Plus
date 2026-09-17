@@ -82,8 +82,8 @@ local loaded = true
 )";
     scriptFile.close();
 
-    ModEngine &engine = ModEngine::instance();
-    ScriptMetadata meta = engine.loadScriptParams(scriptFile.fileName());
+    QVERIFY(scriptFile.open(QIODevice::ReadOnly));
+    const ScriptMetadata meta = ScriptParamParser::parse(QString::fromUtf8(scriptFile.readAll()));
 
     QCOMPARE(meta.params.size(), 3);
     QCOMPARE(meta.params.at(0).varName, QStringLiteral("monitor_interval"));

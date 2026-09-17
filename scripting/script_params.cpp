@@ -154,8 +154,6 @@ ScriptMetadata ScriptParamParser::parse(const QString &scriptContent) {
     return metadata.has_value() ? fromVariantMap(*metadata) : ScriptMetadata{};
 }
 
-ScriptMetadata ScriptParamParser::parseHeader(const QStringList &lines) { return parse(lines.join(QLatin1Char('\n'))); }
-
 QVariantMap ScriptParamParser::toVariantMap(const ScriptMetadata &metadata) {
     return metadataToMap(metadata);
 }
