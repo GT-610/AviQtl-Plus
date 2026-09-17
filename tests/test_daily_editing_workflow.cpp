@@ -704,9 +704,17 @@ void TestDailyEditingWorkflow::rustFirstStructuralMutationsStayAtomic() {
     QVERIFY(transaction.isValid());
     QCOMPARE(clipsChangedSpy.count(), 0);
     const QVariantMap afterBatch = timeline.timelineStateSnapshot();
-    QVERIFY(timeline.applyTimelineEditTransaction(transaction, false));
+    const QList<ClipProjectionRestore> batchProjections{
+        {first, timeline.clips().size() - 2}, {second, timeline.clips().size() - 1}};
+    const auto removeBatch = [&]() {
+        return timeline.removeClipProjectionsInternal({first.id, second.id});
+    };
+    const auto restoreBatch = [&]() {
+        return timeline.restoreClipProjectionsInternal(batchProjections);
+    };
+    QVERIFY(timeline.applyTimelineEditTransaction(transaction, false, removeBatch, restoreBatch));
     QCOMPARE(timeline.timelineStateSnapshot(), beforeBatch);
-    QVERIFY(timeline.applyTimelineEditTransaction(transaction, true));
+    QVERIFY(timeline.applyTimelineEditTransaction(transaction, true, restoreBatch, removeBatch));
     QCOMPARE(timeline.timelineStateSnapshot(), afterBatch);
     QCOMPARE(timeline.clips().at(timeline.clips().size() - 2).id, first.id);
     QCOMPARE(timeline.clips().last().id, second.id);
