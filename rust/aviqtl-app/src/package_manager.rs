@@ -1207,6 +1207,7 @@ fn parse_zip_entries(archive: &[u8]) -> Result<Vec<ZipEntry>, String> {
     let mut cursor = central_start;
     let mut extracted_bytes = 0_u64;
     let mut paths = BTreeSet::new();
+    let mut files = BTreeSet::new();
     let mut entries = Vec::with_capacity(total_entries as usize);
     for _ in 0..total_entries {
         if read_u32(archive, cursor) != Some(CENTRAL_SIGNATURE) {
@@ -1253,7 +1254,12 @@ fn parse_zip_entries(archive: &[u8]) -> Result<Vec<ZipEntry>, String> {
         }
         let path = normalize_archive_path(name)
             .ok_or_else(|| format!("Unsafe package archive entry: {name}"))?;
-        if !paths.insert(path.clone()) {
+        let key = if cfg!(windows) {
+            PathBuf::from(path.to_string_lossy().to_lowercase())
+        } else {
+            path.clone()
+        };
+        if !paths.insert(key.clone()) {
             return Err(format!(
                 "Duplicate package archive entry: {}",
                 path.display()
@@ -1267,6 +1273,9 @@ fn parse_zip_entries(archive: &[u8]) -> Result<Vec<ZipEntry>, String> {
             ));
         }
         let directory = name.ends_with('/') || file_type == 0o040000;
+        if !directory {
+            files.insert(key);
+        }
         if directory && (compressed_size != 0 || uncompressed_size != 0) {
             return Err(format!("Invalid package directory entry: {name}"));
         }
@@ -1321,6 +1330,13 @@ fn parse_zip_entries(archive: &[u8]) -> Result<Vec<ZipEntry>, String> {
     }
     if cursor != central_end {
         return Err("Package archive central directory has trailing data.".to_owned());
+    }
+    if paths.iter().any(|path| {
+        path.ancestors()
+            .skip(1)
+            .any(|parent| files.contains(parent))
+    }) {
+        return Err("Package archive uses a file as a directory.".to_owned());
     }
     Ok(entries)
 }
@@ -1567,6 +1583,44 @@ fn text(value: Option<&Value>) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn archive_collisions_are_rejected_before_creating_the_destination() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("extract");
+        for entries in [
+            vec![
+                ("a.txt", b"a".as_slice(), 0),
+                ("folder/../a.txt", b"b".as_slice(), 0),
+            ],
+            vec![
+                ("parent", b"a".as_slice(), 0),
+                ("parent/child", b"b".as_slice(), 0),
+            ],
+            vec![
+                ("parent/child", b"a".as_slice(), 0),
+                ("parent", b"b".as_slice(), 0),
+            ],
+        ] {
+            assert!(super::extract_zip_archive(&stored_zip(&entries), &destination).is_err());
+            assert!(!destination.exists());
+        }
+        let archive = stored_zip(&[("a.txt", b"a", 0), ("A.TXT", b"b", 0)]);
+        assert_eq!(super::parse_zip_entries(&archive).is_ok(), !cfg!(windows));
+        if cfg!(windows) {
+            for name in [
+                "nested/NUL.txt",
+                "nested/file:stream",
+                "nested/file.",
+                "nested/file ",
+            ] {
+                assert!(
+                    super::extract_zip_archive(&stored_zip(&[(name, b"data", 0)]), &destination)
+                        .is_err()
+                );
+                assert!(!destination.exists());
+            }
+        }
+    }
     use super::*;
     use serde_json::json;
     use std::collections::BTreeMap;

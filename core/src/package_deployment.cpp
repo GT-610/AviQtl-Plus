@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QScopeGuard>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QDebug>
 #include <QtCore/private/qzipreader_p.h>
@@ -159,13 +160,37 @@ bool PackageDeployment::extractArchive(const QString &archivePath, const QString
         return false;
 
     qint64 extractedBytes = 0;
+    QSet<QString> paths;
+    QSet<QString> files;
     for (const QZipReader::FileInfo &entry : entries) {
         if (!entry.isValid() || entry.isSymLink || !isSafeArchivePath(entry.filePath) || entry.size < 0 ||
             extractedBytes > kMaxPackageExtractedBytes - entry.size) {
             qWarning() << "[PackageDeployment] Unsafe package archive entry:" << entry.filePath;
             return false;
         }
+        QString key = QDir::cleanPath(entry.filePath);
+#ifdef Q_OS_WIN
+        key = key.toLower();
+#endif
+        if (paths.contains(key)) {
+            qWarning() << "[PackageDeployment] Duplicate package archive entry:" << entry.filePath;
+            return false;
+        }
+        paths.insert(key);
+        if (entry.isFile)
+            files.insert(key);
         extractedBytes += entry.size;
+    }
+
+    for (const QString &path : std::as_const(paths)) {
+        QString parent = path;
+        for (auto slash = parent.lastIndexOf('/'); slash >= 0; slash = parent.lastIndexOf('/')) {
+            parent.truncate(slash);
+            if (files.contains(parent)) {
+                qWarning() << "[PackageDeployment] Archive uses a file as a directory:" << path;
+                return false;
+            }
+        }
     }
 
     return QDir().mkpath(destDir) && reader.extractAll(destDir);

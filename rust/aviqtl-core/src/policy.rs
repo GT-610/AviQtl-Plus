@@ -300,9 +300,40 @@ pub(crate) fn valid_package_id(value: &str) -> bool {
     !value.is_empty()
         && value != "."
         && value != ".."
+        && (!cfg!(windows) || windows_file_component_is_safe(value))
         && value
             .chars()
             .all(|character| character.is_alphanumeric() || matches!(character, '.' | '-' | '_'))
+}
+
+fn windows_file_component_is_safe(value: &str) -> bool {
+    if value.ends_with(['.', ' '])
+        || value
+            .chars()
+            .any(|c| c < ' ' || matches!(c, ':' | '<' | '>' | '"' | '|' | '?' | '*'))
+    {
+        return false;
+    }
+    let stem = value
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(' ')
+        .to_uppercase();
+    if matches!(
+        stem.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+    ) {
+        return false;
+    }
+    !["COM", "LPT"].iter().any(|prefix| {
+        stem.strip_prefix(prefix).is_some_and(|suffix| {
+            matches!(
+                suffix,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+            )
+        })
+    })
 }
 
 fn package_type(value: &str) -> i32 {
@@ -339,7 +370,12 @@ pub(crate) fn safe_archive_path(value: &str) -> bool {
                 };
                 depth = next_depth;
             }
-            _ => depth += 1,
+            _ => {
+                if cfg!(windows) && !windows_file_component_is_safe(component) {
+                    return false;
+                }
+                depth += 1;
+            }
         }
     }
     true
@@ -584,6 +620,24 @@ pub extern "C" fn aviqtl_recovery_snapshot_name_is_valid(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn archive_paths_follow_platform_filename_rules() {
+        for path in [
+            "effect/file:stream",
+            "effect/NUL.txt",
+            "effect/com1",
+            "effect/LPT².dat",
+            "effect/name.",
+            "effect/name ",
+            "effect/a?b",
+        ] {
+            assert_eq!(super::safe_archive_path(path), !cfg!(windows), "{path}");
+        }
+        assert!(super::safe_archive_path("wrapper/../effect/main.qml"));
+        assert!(super::valid_package_id("org.example.effect"));
+        assert_eq!(super::valid_package_id("NUL"), !cfg!(windows));
+        assert_eq!(super::valid_package_id("effect."), !cfg!(windows));
+    }
     use super::*;
 
     #[test]
