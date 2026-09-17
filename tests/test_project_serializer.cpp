@@ -89,7 +89,7 @@ void TestProjectSerializer::saveSnapshotIsCanonicalizedByRust() {
     QCOMPARE(scene.value(QStringLiteral("duration")).toInt(), AviQtl::kDefaultTotalFrames);
     const QJsonObject clip = root.value(QStringLiteral("clips")).toArray().first().toObject();
     QCOMPARE(clip.value(QStringLiteral("type")).toString(), QStringLiteral("camera_control"));
-    QCOMPARE(clip.value(QStringLiteral("layer")).toInt(), 127);
+    QCOMPARE(clip.value(QStringLiteral("layer")).toInt(), 500);
 }
 
 void TestProjectSerializer::transactionSnapshotUsesCommittedRustState() {
@@ -408,7 +408,7 @@ void TestProjectSerializer::legacyProjectValuesAreNormalizedByRust() {
     QVERIFY(scene.enableSnap);
     QCOMPARE(scene.clips.size(), 1);
     QCOMPARE(scene.clips.first().type, QStringLiteral("camera_control"));
-    QCOMPARE(scene.clips.first().layer, 127);
+    QCOMPARE(scene.clips.first().layer, 500);
 }
 
 void TestProjectSerializer::unsupportedVersionDoesNotReplaceProjectState() {

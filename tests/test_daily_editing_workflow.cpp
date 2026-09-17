@@ -530,7 +530,7 @@ void TestDailyEditingWorkflow::rejectedProjectionTransactionRestoresRuntimeModel
     controller.timeline()->beginTimelineProjectionTransaction();
     controller.timeline()->setEffectEnabledInternal(clipId, 1, !previousEnabled);
     controller.timeline()->removeEffectInternal(clipId, 1);
-    controller.timeline()->updateClipInternal(clipId, 128, previousStart, previousDuration, false,
+    controller.timeline()->updateClipInternal(clipId, 512, previousStart, previousDuration, false,
                                               true);
     QVERIFY(!controller.timeline()->endTimelineProjectionTransaction());
 
