@@ -67,6 +67,12 @@ now release those handles first. Preview GPU tests now enable a native backend
 on Windows/Linux, as they already did on macOS; this affects test dependencies,
 not the production graphics selection.
 
+The first Linux Qt run compiled the application and all test targets, then
+exposed stale 128-layer expectations in serializer/rollback fixtures. These now
+respect the existing 512-layer production contract. Structural transaction tests
+also replay their projection callbacks, matching production undo/redo, and the
+CI image installs the Qt5Compat graphical-effects module used by deployed QML.
+
 PR and release workflows reuse Rust checks, explicitly execute real FFmpeg
 decoding/mixing/encoding tests, and build the Qt application and all CTest targets.
 Python ABI checks run independently of Qt availability. Carla/GPU checks have
@@ -91,6 +97,19 @@ Local Windows validation:
   GPU-backed adapter. Forcing software rendering exited with `0xc0000005`, also
   reproduced using the pre-existing package in `.build_tmp/msvc/archive-check`.
   Neither attempt is counted as successful GUI validation.
+
+Linux validation on commit `93e85f6`:
+
+- [Both CI jobs passed](https://github.com/GT-610/AviQtl-Plus/actions/runs/35184755656).
+  Rust/Slint formatting, Clippy, workspace tests, Python/ABI checks, and explicit
+  FFmpeg decoding/mixing/encoding all passed.
+- The Qt Release application and all test targets compiled; all 54 CTest targets
+  passed in 62.30 seconds. This includes project serialization, editing workflows,
+  undo/redo, package deployment, script/plugin loading, and QML asset loading.
+- Three individual Qt cases were skipped: the preset directory-permission test
+  cannot simulate denied access as root; animated text/effect capture and deployed
+  rectangle video export require an RHI graphics API unavailable under offscreen.
+  These cases remain unverified in this run despite the successful CTest status.
 
 This is a call-site and behavioral audit, not an instrumented coverage report.
 No line/branch coverage percentage or measured rendering speedup is claimed.
