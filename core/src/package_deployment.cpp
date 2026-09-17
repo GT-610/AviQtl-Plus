@@ -169,8 +169,8 @@ bool PackageDeployment::extractArchive(const QString &archivePath, const QString
             return false;
         }
         QString key = QDir::cleanPath(entry.filePath);
-#ifdef Q_OS_WIN
-        key = key.toLower();
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+        key = key.toCaseFolded();
 #endif
         if (paths.contains(key)) {
             qWarning() << "[PackageDeployment] Duplicate package archive entry:" << entry.filePath;

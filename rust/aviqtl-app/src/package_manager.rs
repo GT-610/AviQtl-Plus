@@ -1254,7 +1254,7 @@ fn parse_zip_entries(archive: &[u8]) -> Result<Vec<ZipEntry>, String> {
         }
         let path = normalize_archive_path(name)
             .ok_or_else(|| format!("Unsafe package archive entry: {name}"))?;
-        let key = if cfg!(windows) {
+        let key = if cfg!(any(windows, target_os = "macos")) {
             PathBuf::from(path.to_string_lossy().to_lowercase())
         } else {
             path.clone()
@@ -1605,7 +1605,10 @@ mod tests {
             assert!(!destination.exists());
         }
         let archive = stored_zip(&[("a.txt", b"a", 0), ("A.TXT", b"b", 0)]);
-        assert_eq!(super::parse_zip_entries(&archive).is_ok(), !cfg!(windows));
+        assert_eq!(
+            super::parse_zip_entries(&archive).is_ok(),
+            !cfg!(any(windows, target_os = "macos"))
+        );
         if cfg!(windows) {
             for name in [
                 "nested/NUL.txt",

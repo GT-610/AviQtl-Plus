@@ -420,8 +420,10 @@ void TestPackageDeploy::rejectsConflictingArchivePaths() {
         {QStringLiteral("parent"), QStringLiteral("parent/child")},
         {QStringLiteral("parent/child"), QStringLiteral("parent")},
     };
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     conflicts.append({QStringLiteral("a.txt"), QStringLiteral("A.TXT")});
+#endif
+#ifdef Q_OS_WIN
     for (const QString &path : {QStringLiteral("nested/NUL.txt"), QStringLiteral("nested/file:stream"),
                                QStringLiteral("nested/name."), QStringLiteral("nested/name ")}) {
         QVERIFY(!PackageDeployment::isSafeArchivePath(path));
