@@ -467,8 +467,7 @@ export component TimelineWindow inherits Window {
                 viewport-height: self.visible-height;
                 viewport-x <=> root.shared-viewport-x;
                 mouse-drag-pan-enabled: false;
-                for tick in 61: Rectangle {
-                    visible: tick * 60 <= root.duration;
+                for tick in min(floor(root.duration / 60) + 1, 2048): Rectangle {
                     x: tick * 60 * root.pixels-per-frame * 1px;
                     width: 1px;
                     height: 100%;
