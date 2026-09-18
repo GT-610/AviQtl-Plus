@@ -140,16 +140,16 @@ impl AudioPluginDiscoveryRuntime {
     pub(super) fn poll(&mut self) -> Result<Option<AudioPluginScanOutcome>, String> {
         match self.receiver.try_recv() {
             Ok(result) => {
-                if let Some(worker) = self.worker.take() {
-                    let _ = worker.join();
-                }
+                // Detach the finished worker instead of joining it: this runs
+                // on the UI timer, so blocking on the thread exit would stall
+                // the interface. The result has already been consumed, so the
+                // thread can exit alone.
+                drop(self.worker.take());
                 Ok(Some(result))
             }
             Err(TryRecvError::Empty) => Ok(None),
             Err(TryRecvError::Disconnected) => {
-                if let Some(worker) = self.worker.take() {
-                    let _ = worker.join();
-                }
+                drop(self.worker.take());
                 Err("Audio plugin discovery worker disconnected".to_owned())
             }
         }
