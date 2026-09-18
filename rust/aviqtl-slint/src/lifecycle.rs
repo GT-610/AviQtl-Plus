@@ -563,7 +563,12 @@ fn sync_recovery_entries(window: &ProjectRecoveryWindow, entries: Vec<aviqtl_app
             RecoveryEntryData {
                 id: SharedString::from(entry.id),
                 name: SharedString::from(if entry.display_name.is_empty() {
-                    "Recovered project".to_owned()
+                    localized(
+                        "Recovered project",
+                        "已恢复的项目",
+                        "復元されたプロジェクト",
+                    )
+                    .to_owned()
                 } else {
                     entry.display_name
                 }),
