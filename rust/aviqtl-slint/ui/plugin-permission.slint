@@ -3,7 +3,7 @@ import { Button, CheckBox, ScrollView } from "std-widgets.slint";
 import { AppTheme } from "theme.slint";
 
 export component PluginPermissionWindow inherits Window {
-    title: @tr("Permissions: {}", root.plugin-name);
+    title: @tr("Permissions: ") + root.plugin-name;
     preferred-width: 500px;
     preferred-height: 600px;
     min-width: 420px;
