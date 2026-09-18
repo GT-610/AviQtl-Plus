@@ -4,8 +4,8 @@ The Slint GUI is accepted only when an existing Qt user can operate it without r
 editor. Colors, typography, and widget decoration may differ. Commands, mouse buttons, modifier
 keys, selection rules, window ownership, dialog order, and confirmation behavior may not.
 
-This is a behavior gate, not a pixel-parity specification. After behavior parity was established,
-the Slint presentation deliberately moved to the active platform palette and spacing metrics.
+This is a behavior gate, not a pixel-parity specification. While acceptance remains in progress,
+the Slint presentation uses the active platform palette and spacing metrics.
 Content-sized tabs, roomier toolbars and forms, softer card hierarchy, and responsive window sizes
 are expected differences when they do not change command meaning or interaction ownership.
 
@@ -18,6 +18,11 @@ behavior, `foundation` has a tested framework-neutral model or an incomplete pre
 `parity` matches Qt in automated tests plus the available Slint MCP interaction checks. Native
 macOS menu-item operation, focus ownership, IME, accessibility, file choosers, and close handling
 still require the separately scheduled Computer Use suite.
+
+As of 2026-09-18, this table contains 6 `parity`, 33 `foundation`, and 1 `partial` entries.
+These are acceptance statuses, not percentages of implemented functionality. Module refactoring
+and successful compilation do not promote an entry. Desktop operation is deferred to a separate
+session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement gates.
 
 | Area | Qt behavior contract | Slint status |
 | --- | --- | --- |

@@ -5,7 +5,7 @@ existing operation model, not an AviUtl2-inspired redesign. An experienced AviQt
 to keep the same window, menu, mouse-button, modifier-key, selection, dialog, and close-confirmation
 workflow. Theme styling may change independently.
 
-The completed behavior migration is followed by a native-presentation pass. Qt remains the source
+Behavior acceptance is still in progress alongside native-presentation work. Qt remains the source
 of truth for commands, ownership, selection, editing, and confirmation semantics, but it is no
 longer a pixel-layout template. Custom Slint surfaces derive their colors and spacing from the
 active standard-widget style, use platform selection and focus colors, keep tabs content-sized,
@@ -22,12 +22,12 @@ The Slint frontend is intentionally thin:
 - `aviqtl-app` owns framework-neutral application and workspace state: open projects, scene and clip
   selection, clipboard commands, undo/redo, transport, media import, missing media, presets, and
   settings persistence.
-- `aviqtl-preview` reuses the egui migration's production frame planner, asynchronous media
+- `aviqtl-preview` owns the production frame planner, asynchronous media
   decoding, nested-scene handling, and wgpu compositor without depending on a GUI framework.
 - `aviqtl-export` owns GUI-neutral export jobs, decoded-frame handoff, wgpu composition/readback,
   image-sequence output, video/audio encoding, progress, cancellation, and partial-output cleanup.
-- `aviqtl-render`, `aviqtl-media`, `aviqtl-audio`, and `aviqtl-carla` retain the lower-level
-  renderer, media, audio, and plugin work produced during the egui migration.
+- `aviqtl-render`, `aviqtl-media`, `aviqtl-audio`, and `aviqtl-carla` own the lower-level
+  renderer, media, audio, and plugin integration.
 - `aviqtl-slint` owns native windows, declarative layout, input hit regions, menus, accessibility,
   and translation between Slint models/callbacks and `aviqtl-app` commands.
 
@@ -90,10 +90,9 @@ value state, and supported actions explicitly. Standard Slint widgets keep their
 and form controls receive labels instead of relying on adjacent visual text. Native VoiceOver
 traversal remains part of the deferred unlocked-desktop suite.
 
-The egui work is therefore not discarded. Domain and application crates are reused directly, while
-production preview and export code have been extracted into GUI-neutral crates for Slint. The
-remaining egui implementation and its tests stay a behavior reference for interaction details that
-are specific to a retained-mode Slint UI.
+Domain, application, production preview, and export code live in GUI-neutral crates. This workspace
+has no egui frontend; the retained Qt implementation and the behavior tests provide the comparison
+baseline for Slint acceptance.
 
 The export window keeps the Qt draft and close workflow: it refreshes available codecs when opened,
 uses project settings and the active scene range, pauses playback before rendering, rejects project
@@ -103,6 +102,28 @@ the preview path, so exported frames are composed by the production renderer bef
 encoding.
 
 ## UI rules
+
+### Source layout
+
+`src/main.rs` creates the windows, shared runtimes, and event-loop timers. Host behavior is split
+into modules with explicit imports:
+
+| Module | Responsibility |
+| --- | --- |
+| `callbacks` | Editor callback registration and file-drop integration |
+| `lifecycle`, `dialogs` | Window ownership, save/close/recovery flows, native pickers, and geometry |
+| `playback`, `gpu`, `export` | Preview/audio/waveform coordination, shared GPU setup, and export UI |
+| `object_settings`, `easing` | Metadata projection and object/easing editor commands |
+| `settings`, `shortcuts`, `localization` | Settings drafts, input routing, and language selection |
+| `packages`, `projection` | Background package/plugin discovery and stable shared UI models |
+| `tests` | Existing frontend behavior regressions |
+
+`ui/app.slint` is the Rust-facing export surface. `theme.slint` and `models.slint` own shared globals
+and data types. Window files own their layouts; `widgets.slint`, `timeline-items.slint`, and
+`object-controls.slint` hold reusable controls. Keep component names and the root exports stable
+when moving presentation code so callbacks and translation contexts retain their identities.
+
+### Ownership and behavior
 
 - Qt/QML is the behavioral source of truth until a separate product change is approved.
 - Keep preview, timeline, object settings, launcher, settings, recovery, package manager, and export
@@ -128,14 +149,15 @@ From the `rust` directory:
 cargo run -p aviqtl-slint
 ```
 
-The Rust + Slint executable is validated with Cargo directly; repository-level
-packaging for it is not part of this change (`BUILD.py` on this branch still
-targets the Qt/CMake application — the `--frontend` switch arrives in the
-stacked build-system change):
+From the repository root, `BUILD.py` builds and packages Slint by default. On Windows with
+Visual Studio 2022 and the configured dependencies:
 
 ```sh
-cargo run -p aviqtl-slint
+python BUILD.py --msvc
 ```
+
+`--frontend qt` selects the retained Qt/CMake development build. See
+[`../MIGRATION_STATUS.md`](../MIGRATION_STATUS.md) for acceptance and retirement criteria.
 
 Runtime effects, objects, plugins, effect packages, and repository metadata
 are resolved from the shared resource directories during development.
