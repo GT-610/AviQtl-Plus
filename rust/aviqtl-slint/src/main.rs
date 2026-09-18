@@ -450,12 +450,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 *object_sync_key.borrow_mut() = key;
             }
         }
-        let package_event = animation_package_operation
+        let package_poll = animation_package_operation
             .borrow_mut()
             .as_mut()
-            .and_then(PackageOperationRuntime::poll);
-        if let Some(event) = package_event {
-            match event {
+            .map(PackageOperationRuntime::poll);
+        match package_poll {
+            Some(Ok(Some(event))) => match event {
                 PackageOperationEvent::Progress { status, progress } => {
                     if let Some(window) = animation_package_manager.upgrade() {
                         window.set_status_text(SharedString::from(status));
@@ -527,13 +527,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         sync_package_manager(&window, &animation_package_model.borrow());
                     }
                 }
+            },
+            Some(Err(error)) => {
+                eprintln!("Package operation failed: {error}");
+                *animation_package_operation.borrow_mut() = None;
+                if let Some(window) = animation_package_manager.upgrade() {
+                    window.set_busy(false);
+                    window.set_error_message(SharedString::from(error));
+                }
             }
+            _ => {}
         }
-        let audio_plugin_scan = animation_audio_discovery
+        let audio_plugin_poll = animation_audio_discovery
             .borrow_mut()
             .as_mut()
-            .and_then(AudioPluginDiscoveryRuntime::poll);
-        if let Some(outcome) = audio_plugin_scan {
+            .map(AudioPluginDiscoveryRuntime::poll);
+        match audio_plugin_poll {
+            Some(Ok(Some(outcome))) => {
             let mut status = outcome.status();
             for diagnostic in &outcome.diagnostics {
                 eprintln!("Audio plugin discovery warning: {diagnostic}");
@@ -577,6 +587,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     window.get_effect_filter().as_str(),
                 );
             }
+            }
+            Some(Err(error)) => {
+                eprintln!("Audio plugin discovery failed: {error}");
+                *animation_audio_discovery.borrow_mut() = None;
+                if let Some(window) = animation_settings.upgrade() {
+                    window.set_plugin_scan_status(SharedString::from(error));
+                }
+            }
+            _ => {}
         }
         {
             let defaults = project_defaults(&animation_mod_settings.borrow());
