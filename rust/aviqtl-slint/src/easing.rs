@@ -153,7 +153,7 @@ pub(super) fn easing_catalog_rows(
                 (query.is_empty()
                     || normalized_easing_filter(name).contains(&query)
                     || normalized_easing_filter(&easing_label(name)).contains(&query))
-                    .then_some((index, *name))
+                .then_some((index, *name))
             })
             .collect::<Vec<_>>();
         if matching.is_empty() {

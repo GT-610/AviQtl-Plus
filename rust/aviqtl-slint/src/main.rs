@@ -544,49 +544,49 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .map(AudioPluginDiscoveryRuntime::poll);
         match audio_plugin_poll {
             Some(Ok(Some(outcome))) => {
-            let mut status = outcome.status();
-            for diagnostic in &outcome.diagnostics {
-                eprintln!("Audio plugin discovery warning: {diagnostic}");
-            }
-            *animation_audio_catalog.borrow_mut() = outcome.catalog;
-            let hydration = {
-                let catalog = animation_audio_catalog.borrow();
-                animation_model.borrow_mut().hydrate_audio_plugins(&catalog)
-            };
-            if hydration.hydrated > 0 {
-                status.push_str(&format!(
-                    " · restored {} project plugin(s)",
-                    hydration.hydrated
-                ));
-            }
-            if hydration.deferred > 0 {
-                status.push_str(&format!(
-                    " · deferred {} project plugin(s) to preserve undo",
-                    hydration.deferred
-                ));
-            }
-            if !hydration.errors.is_empty() {
-                status.push_str(&format!(
-                    " · {} project plugin(s) unavailable",
-                    hydration.errors.len()
-                ));
-                for error in &hydration.errors {
-                    eprintln!("Audio plugin restore warning: {error}");
+                let mut status = outcome.status();
+                for diagnostic in &outcome.diagnostics {
+                    eprintln!("Audio plugin discovery warning: {diagnostic}");
                 }
-            }
-            *animation_audio_discovery.borrow_mut() = None;
-            if let Some(window) = animation_settings.upgrade() {
-                let effect_catalog = animation_effect_catalog.borrow();
-                window.set_plugin_scan_status(SharedString::from(status));
-                sync_object_settings(&window, &animation_model.borrow(), &effect_catalog);
-                sync_object_catalog(
-                    &window,
-                    &animation_model.borrow(),
-                    &effect_catalog,
-                    &animation_audio_catalog.borrow(),
-                    window.get_effect_filter().as_str(),
-                );
-            }
+                *animation_audio_catalog.borrow_mut() = outcome.catalog;
+                let hydration = {
+                    let catalog = animation_audio_catalog.borrow();
+                    animation_model.borrow_mut().hydrate_audio_plugins(&catalog)
+                };
+                if hydration.hydrated > 0 {
+                    status.push_str(&format!(
+                        " · restored {} project plugin(s)",
+                        hydration.hydrated
+                    ));
+                }
+                if hydration.deferred > 0 {
+                    status.push_str(&format!(
+                        " · deferred {} project plugin(s) to preserve undo",
+                        hydration.deferred
+                    ));
+                }
+                if !hydration.errors.is_empty() {
+                    status.push_str(&format!(
+                        " · {} project plugin(s) unavailable",
+                        hydration.errors.len()
+                    ));
+                    for error in &hydration.errors {
+                        eprintln!("Audio plugin restore warning: {error}");
+                    }
+                }
+                *animation_audio_discovery.borrow_mut() = None;
+                if let Some(window) = animation_settings.upgrade() {
+                    let effect_catalog = animation_effect_catalog.borrow();
+                    window.set_plugin_scan_status(SharedString::from(status));
+                    sync_object_settings(&window, &animation_model.borrow(), &effect_catalog);
+                    sync_object_catalog(
+                        &window,
+                        &animation_model.borrow(),
+                        &effect_catalog,
+                        &animation_audio_catalog.borrow(),
+                        window.get_effect_filter().as_str(),
+                    );
+                }
             }
             Some(Err(error)) => {
                 eprintln!("Audio plugin discovery failed: {error}");
