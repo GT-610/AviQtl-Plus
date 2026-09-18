@@ -1,0 +1,200 @@
+
+
+export struct ProjectTabData {
+    name: string,
+    dirty: bool,
+}
+
+export struct MissingMediaData {
+    clip-id: int,
+    scene-id: int,
+    layer: int,
+    clip-type: string,
+    path: string,
+    name: string,
+}
+
+export struct SystemPluginSettingData {
+    format-name: string,
+    enabled: bool,
+    paths: string,
+}
+
+export struct SystemShortcutSettingData {
+    action-id: string,
+    value: string,
+}
+
+export struct RecoveryEntryData {
+    id: string,
+    name: string,
+    saved-at: string,
+    original-project-url: string,
+    valid: bool,
+    error: string,
+}
+
+export struct RecentProjectData {
+    name: string,
+    path: string,
+    details: string,
+}
+
+export struct SceneTabData {
+    id: int,
+    name: string,
+    selected: bool,
+    root: bool,
+}
+
+export struct TimelineClipData {
+    id: int,
+    label: string,
+    clip-type: string,
+    clip-color: color,
+    has-clip-color: bool,
+    dark-text: bool,
+    waveform: [float],
+    start: int,
+    duration: int,
+    layer: int,
+    audio: bool,
+    locked: bool,
+    control-layer-count: int,
+    clip-by-upper-object: bool,
+    selected: bool,
+    primary: bool,
+}
+
+export struct LayerData {
+    index: int,
+    visible: bool,
+    locked: bool,
+    selected: bool,
+}
+
+export struct TimelineViewportData {
+    pixels-per-frame: float,
+    viewport-x: float,
+    viewport-y: float,
+}
+
+export struct TimelineMediaDropResult {
+    imported: bool,
+    next-frame: int,
+    layer: int,
+}
+
+export struct ObjectEffectData {
+    index: int,
+    id: string,
+    name: string,
+    enabled: bool,
+    selected: bool,
+    removable: bool,
+}
+
+export struct EffectCatalogItemData {
+    header: bool,
+    id: string,
+    name: string,
+    categories: string,
+}
+
+export struct ObjectCatalogMenuCategoryData {
+    name: string,
+    items: [EffectCatalogItemData],
+}
+
+export struct PackageData {
+    id: string,
+    package-type: string,
+    display-name: string,
+    description: string,
+    author: string,
+    version: string,
+    installed-version: string,
+    latest-version: string,
+    source-repository: string,
+    local-file-plugin: bool,
+    has-update: bool,
+    can-manage-permissions: bool,
+    can-remove: bool,
+}
+
+export struct PackageRepositoryData {
+    name: string,
+    url: string,
+    enabled: bool,
+    priority: int,
+}
+
+export struct PluginPermissionData {
+    name: string,
+    title: string,
+    description: string,
+    granted: bool,
+}
+
+export struct KeyframeMarkerData {
+    frame: int,
+    minimum-frame: int,
+    maximum-frame: int,
+    virtual-end: bool,
+    removable: bool,
+    draggable: bool,
+}
+
+export struct CurveHandleData {
+    index: int,
+    x: float,
+    y: float,
+    anchor: bool,
+    removable: bool,
+}
+
+export struct EasingCatalogRowData {
+    header: bool,
+    easing-index: int,
+    name: string,
+    label: string,
+    preview-path: string,
+}
+
+export struct ObjectSettingRowData {
+    row-kind: string,
+    source-kind: string,
+    audio-plugin: bool,
+    effect-index: int,
+    param-name: string,
+    label: string,
+    effect-enabled: bool,
+    header-toggle-visible: bool,
+    selected: bool,
+    removable: bool,
+    interactive: bool,
+    checked: bool,
+    keyframed: bool,
+    range-mode: bool,
+    right-interactive: bool,
+    start-frame: int,
+    end-frame: int,
+    current-frame: int,
+    clip-duration: int,
+    interpolation: string,
+    parameter-button-label: string,
+    number-value: float,
+    end-number-value: float,
+    minimum: float,
+    maximum: float,
+    step: float,
+    text-value: string,
+    end-text-value: string,
+    filter: string,
+    color-value: color,
+    end-color-value: color,
+    unit: string,
+    keyframe-markers: [KeyframeMarkerData],
+    option-labels: [string],
+    selected-option: int,
+}

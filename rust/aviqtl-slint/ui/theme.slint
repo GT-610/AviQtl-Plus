@@ -1,0 +1,56 @@
+import { Palette, StyleMetrics } from "std-widgets.slint";
+
+export global AppTheme {
+    // 0 = dark, 1 = light, 2 = follow the operating system.
+    in-out property <int> preference-index: 2;
+    out property <bool> dark: preference-index == 0
+        ? true
+        : preference-index == 1
+            ? false
+            : Palette.color-scheme == ColorScheme.dark;
+    // Follow Slint's platform style instead of maintaining a second, Qt-shaped
+    // palette. Custom editor surfaces use the same colors as native widgets.
+    out property <brush> window-background: Palette.background;
+    out property <brush> panel-background: Palette.alternate-background;
+    out property <brush> raised-background: Palette.control-background;
+    out property <brush> control-background: Palette.control-background;
+    out property <brush> hover-background: Palette.accent-background.transparentize(dark ? 0.82 : 0.9);
+    out property <brush> selection-background: Palette.selection-background;
+    out property <brush> foreground: Palette.foreground;
+    out property <brush> muted-foreground: Palette.foreground.transparentize(0.42);
+    out property <brush> border: Palette.border;
+    out property <brush> subtle-border: Palette.border.transparentize(0.38);
+    out property <brush> accent: Palette.accent-background;
+    out property <brush> accent-foreground: Palette.accent-foreground;
+    out property <brush> canvas-background: dark ? #08090c : #111317;
+    out property <brush> scrim: #00000073;
+    out property <brush> warning: dark ? #f3c56f : #9b5b00;
+    out property <brush> danger: dark ? #ff8a92 : #c42b35;
+    out property <brush> success: dark ? #7fd49a : #218739;
+    out property <brush> clip: dark ? #477fbd : #3d78b6;
+    out property <brush> clip-hover: dark ? #548dca : #4b86c3;
+    out property <brush> clip-selected: Palette.accent-background;
+
+    out property <length> spacing-xs: max(4px, StyleMetrics.layout-spacing / 2);
+    out property <length> spacing-sm: StyleMetrics.layout-spacing;
+    out property <length> spacing-md: StyleMetrics.layout-padding;
+    out property <length> spacing-lg: StyleMetrics.layout-padding + StyleMetrics.layout-spacing / 2;
+    out property <length> spacing-xl: StyleMetrics.layout-padding * 2;
+    out property <length> control-radius: 6px;
+    out property <length> surface-radius: 10px;
+    out property <length> compact-control-height: 30px;
+    out property <length> toolbar-height: 38px;
+    out property <length> status-height: 24px;
+
+    changed preference-index => {
+        Palette.color-scheme = preference-index == 0
+            ? ColorScheme.dark
+            : preference-index == 1
+                ? ColorScheme.light
+                : ColorScheme.unknown;
+    }
+}
+
+export global TimelineMetrics {
+    out property <float> minimum-scale: 0.0001;
+}

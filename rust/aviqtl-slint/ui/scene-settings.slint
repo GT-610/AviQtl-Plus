@@ -1,0 +1,110 @@
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ScrollView, SpinBox } from "std-widgets.slint";
+
+export component SceneSettingsWindow inherits Window {
+    title: root.creation-mode ? @tr("Create New Scene") : @tr("Scene Settings");
+    preferred-width: 450px;
+    preferred-height: 550px;
+    min-width: 410px;
+    min-height: 460px;
+
+    in-out property <bool> creation-mode: false;
+    in-out property <int> target-scene-id: -1;
+    in-out property <string> scene-name: "";
+    in-out property <int> scene-width: 1920;
+    in-out property <int> scene-height: 1080;
+    in-out property <string> scene-fps: "60";
+    in-out property <int> scene-duration: 3600;
+    in-out property <int> grid-mode-index: 0;
+    in-out property <string> grid-bpm: "120";
+    in-out property <string> grid-offset: "0";
+    in-out property <string> grid-interval: "10";
+    in-out property <string> grid-subdivision: "4";
+    in-out property <bool> enable-snap: true;
+    in-out property <int> magnetic-snap-range: 10;
+    callback apply-settings() -> bool;
+    callback close-window();
+
+    ScrollView {
+        VerticalLayout {
+            padding: 15px;
+            spacing: 14px;
+            GroupBox {
+                title: @tr("Basic Settings");
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row {
+                        Text { text: @tr("Scene Name:"); vertical-alignment: center; }
+                        LineEdit { text <=> root.scene-name; }
+                    }
+                    Row {
+                        Text { text: @tr("settings-width" => "Width:"); vertical-alignment: center; }
+                        SpinBox { value <=> root.scene-width; minimum: 1; maximum: 8000; }
+                    }
+                    Row {
+                        Text { text: @tr("settings-height" => "Height:"); vertical-alignment: center; }
+                        SpinBox { value <=> root.scene-height; minimum: 1; maximum: 8000; }
+                    }
+                    Row {
+                        Text { text: "FPS:"; vertical-alignment: center; }
+                        LineEdit { text <=> root.scene-fps; }
+                    }
+                }
+            }
+            GroupBox {
+                title: @tr("Editing and Snap");
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row {
+                        Text { text: @tr("Enable Snap:"); vertical-alignment: center; }
+                        CheckBox { checked <=> root.enable-snap; }
+                    }
+                    Row {
+                        Text { text: @tr("Magnetic Snap Range:"); vertical-alignment: center; }
+                        SpinBox { value <=> root.magnetic-snap-range; minimum: 1; maximum: 100; }
+                    }
+                    Row {
+                        Text { text: @tr("Grid Mode:"); vertical-alignment: center; }
+                        ComboBox {
+                            model: [@tr("Auto (Seconds/Frames)"), @tr("BPM (Music)"), @tr("Fixed Frame Count")];
+                            current-index <=> root.grid-mode-index;
+                        }
+                    }
+                }
+            }
+            if root.grid-mode-index == 1 : GroupBox {
+                title: @tr("BPM Settings");
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row { Text { text: "BPM:"; vertical-alignment: center; } LineEdit { text <=> root.grid-bpm; } }
+                    Row { Text { text: @tr("Time Signature (Subdivisions):"); vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; } }
+                    Row { Text { text: @tr("Offset (Seconds):"); vertical-alignment: center; } LineEdit { text <=> root.grid-offset; } }
+                }
+            }
+            if root.grid-mode-index == 2 : GroupBox {
+                title: @tr("Frame Settings");
+                GridLayout {
+                    padding: 10px;
+                    spacing: 9px;
+                    Row { Text { text: @tr("Interval (Frames):"); vertical-alignment: center; } LineEdit { text <=> root.grid-interval; } }
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                Button { text: @tr("Cancel"); clicked => { root.close-window(); } }
+                Button {
+                    text: "OK";
+                    clicked => {
+                        if root.apply-settings() {
+                            root.close-window();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

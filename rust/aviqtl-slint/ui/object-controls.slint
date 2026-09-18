@@ -1,0 +1,811 @@
+import { ObjectEffectData, ObjectSettingRowData } from "models.slint";
+import { Button, CheckBox, ComboBox, LineEdit, Slider, TextEdit } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component KeyframeTrack inherits Rectangle {
+    in property <ObjectSettingRowData> row-data;
+    callback seek(int);
+    callback snap(float) -> int;
+    callback add(int, string, int);
+    callback remove(int, string, int);
+    callback move-keyframe(int, string, int, int);
+    height: 24px;
+    background: transparent;
+    private property <length> inset: 12px;
+
+    track-line := Rectangle {
+        x: root.inset;
+        y: 11px;
+        width: max(parent.width - root.inset * 2, 1px);
+        height: 2px;
+        background: AppTheme.border;
+    }
+    track-touch := TouchArea {
+        x: track-line.x;
+        width: track-line.width;
+        mouse-cursor: pointer;
+        accessible-role: slider;
+        accessible-label: root.row-data.label + @tr(" Keyframes");
+        accessible-value: "\{root.row-data.current-frame}";
+        accessible-value-minimum: 0;
+        accessible-value-maximum: root.row-data.clip-duration;
+        accessible-value-step: 1;
+        accessible-action-increment => { root.seek(min(root.row-data.clip-duration, root.row-data.current-frame + 1)); }
+        accessible-action-decrement => { root.seek(max(0, root.row-data.current-frame - 1)); }
+        accessible-action-set-value(value) => {
+            if value.is-float() {
+                root.seek(round(value.to-float()).clamp(0, root.row-data.clip-duration));
+            }
+        }
+        clicked => {
+            if root.row-data.clip-duration > 0 {
+                root.seek(round(self.mouse-x / self.width * root.row-data.clip-duration));
+            }
+        }
+        double-clicked => {
+            if root.row-data.clip-duration > 0 {
+                root.add(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.snap(self.mouse-x / self.width * root.row-data.clip-duration)
+                );
+            }
+        }
+    }
+    for marker in root.row-data.keyframe-markers : Rectangle {
+        private property <int> current-frame: marker.frame;
+        private property <bool> dragging: false;
+        private property <bool> threshold-crossed: false;
+        private property <length> pointer-start-x: 0px;
+        width: 16px;
+        height: 16px;
+        x: track-line.x
+            + (root.row-data.clip-duration > 0
+                ? self.current-frame / root.row-data.clip-duration * track-line.width
+                : 0px)
+            - self.width / 2;
+        y: 4px;
+        Rectangle {
+            width: 8px;
+            height: 8px;
+            x: 4px;
+            y: 4px;
+            background: marker.virtual-end ? AppTheme.muted-foreground : AppTheme.foreground;
+            transform-rotation: 45deg;
+        }
+        marker-touch := TouchArea {
+            mouse-cursor: marker.draggable ? move : marker.removable ? pointer : default;
+            accessible-role: button;
+            accessible-label: @tr("Keyframe {}", marker.frame);
+            accessible-description: marker.draggable
+                ? @tr("Drag to move the keyframe")
+                : marker.removable ? @tr("Keyframe") : @tr("Fixed keyframe");
+            accessible-action-default => { root.seek(marker.frame); }
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    parent.dragging = marker.draggable;
+                    parent.threshold-crossed = false;
+                    parent.pointer-start-x = self.absolute-position.x + self.mouse-x;
+                }
+                if event.kind == PointerEventKind.move && parent.dragging {
+                    let delta = self.absolute-position.x + self.mouse-x - parent.pointer-start-x;
+                    if abs(delta) >= 3px {
+                        parent.threshold-crossed = true;
+                    }
+                    let raw-frame = marker.frame
+                        + delta / max(track-line.width, 1px) * root.row-data.clip-duration;
+                    parent.current-frame = root.snap(raw-frame).clamp(
+                        marker.minimum-frame,
+                        marker.maximum-frame
+                    );
+                }
+                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                    if parent.dragging && parent.threshold-crossed
+                        && parent.current-frame != marker.frame {
+                        root.move-keyframe(
+                            root.row-data.effect-index,
+                            root.row-data.param-name,
+                            marker.frame,
+                            parent.current-frame
+                        );
+                    } else {
+                        root.seek(parent.current-frame);
+                    }
+                    parent.dragging = false;
+                    parent.threshold-crossed = false;
+                }
+                if event.kind == PointerEventKind.down
+                    && event.button == PointerEventButton.right
+                    && marker.removable {
+                    root.remove(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        marker.frame
+                    );
+                }
+                if event.kind == PointerEventKind.cancel {
+                    parent.current-frame = marker.frame;
+                    parent.dragging = false;
+                    parent.threshold-crossed = false;
+                }
+            }
+        }
+    }
+    if root.row-data.clip-duration > 0 : Rectangle {
+        x: track-line.x
+            + root.row-data.current-frame / root.row-data.clip-duration * track-line.width;
+        y: 2px;
+        width: 1px;
+        height: 20px;
+        background: AppTheme.accent;
+    }
+}
+
+export component CommitLineEdit inherits LineEdit {
+    in property <string> source-text;
+    callback commit(string);
+    text: root.source-text;
+    accepted(value) => {
+        if value != root.source-text {
+            root.commit(value);
+        }
+        self.text = root.source-text;
+        self.clear-focus();
+    }
+    changed has-focus => {
+        if !self.has-focus && self.text != root.source-text {
+            root.commit(self.text);
+        }
+    }
+    changed source-text => {
+        if !self.has-focus && self.text != root.source-text {
+            self.text = root.source-text;
+        }
+    }
+}
+
+export component CommitTextEdit inherits TextEdit {
+    in property <string> source-text;
+    callback commit(string);
+    text: root.source-text;
+    changed has-focus => {
+        if !self.has-focus && self.text != root.source-text {
+            root.commit(self.text);
+        }
+    }
+    changed source-text => {
+        if !self.has-focus && self.text != root.source-text {
+            self.text = root.source-text;
+        }
+    }
+}
+
+export component EffectSidebarEntry inherits Rectangle {
+    in property <ObjectEffectData> effect;
+    in property <int> selected-count: 0;
+    in property <bool> selected-removable: false;
+    callback activate(int, bool, bool);
+    callback context-activate(int);
+    callback set-enabled(int, bool);
+    callback remove-selection(int);
+    callback reorder(int, float);
+    callback save-preset(int, string);
+    callback load-preset(int, string);
+    callback delete-preset(int, string);
+    callback query-presets(int) -> [string];
+    in-out property <[string]> preset-names;
+    private property <bool> drag-active: false;
+    private property <bool> drag-threshold-crossed: false;
+    private property <length> drag-y: 0px;
+    height: 34px;
+    background: root.effect.selected ? AppTheme.selection-background : effect-touch.has-hover ? AppTheme.hover-background : transparent;
+    border-width: root.effect.selected ? 1px : 0px;
+    border-color: AppTheme.accent;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 120ms; }
+
+    effect-menu := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: root.selected-count > 1
+                    ? @tr("Delete {} selected items", root.selected-count)
+                    : @tr("Delete");
+                enabled: root.selected-removable;
+                activated => { root.remove-selection(root.effect.index); }
+            }
+            MenuSeparator { }
+            MenuItem {
+                title: @tr("Save Preset...");
+                activated => { root.save-preset(root.effect.index, root.effect.name); }
+            }
+            Menu {
+                title: @tr("Load Preset");
+                enabled: root.preset-names.length > 0;
+                for preset in root.preset-names : MenuItem {
+                    title: preset;
+                    activated => { root.load-preset(root.effect.index, preset); }
+                }
+            }
+            Menu {
+                title: @tr("Delete Preset");
+                enabled: root.preset-names.length > 0;
+                for preset in root.preset-names : MenuItem {
+                    title: preset;
+                    activated => { root.delete-preset(root.effect.index, preset); }
+                }
+            }
+        }
+        HorizontalLayout {
+            padding-left: 7px;
+            padding-right: 5px;
+            spacing: 6px;
+            Text {
+                text: "☷";
+                color: AppTheme.muted-foreground;
+                vertical-alignment: center;
+            }
+            CheckBox {
+                checked: root.effect.enabled;
+                accessible-label: root.effect.name + @tr(": enabled");
+                toggled => { root.set-enabled(root.effect.index, self.checked); }
+            }
+            Text {
+                text: root.effect.name;
+                color: AppTheme.foreground;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+        }
+        effect-touch := TouchArea {
+            x: 53px;
+            width: max(parent.width - self.x, 1px);
+            mouse-cursor: pointer;
+            accessible-role: list-item;
+            accessible-label: root.effect.name;
+            accessible-item-selectable: true;
+            accessible-item-selected: root.effect.selected;
+            accessible-action-default => { root.activate(root.effect.index, false, false); }
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.activate(
+                        root.effect.index,
+                        event.modifiers.control || event.modifiers.meta,
+                        event.modifiers.shift
+                    );
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                    root.context-activate(root.effect.index);
+                    root.preset-names = root.query-presets(root.effect.index);
+                    effect-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+            }
+        }
+    }
+    drag-touch := TouchArea {
+        width: 27px;
+        mouse-cursor: move;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.drag-active = true;
+                root.drag-threshold-crossed = false;
+                root.drag-y = 0px;
+            }
+            if event.kind == PointerEventKind.move && root.drag-active {
+                root.drag-y = self.mouse-y - self.pressed-y;
+                if abs(root.drag-y) >= 3px {
+                    root.drag-threshold-crossed = true;
+                }
+            }
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.drag-active {
+                if root.drag-threshold-crossed {
+                    root.reorder(root.effect.index, root.drag-y / 1px);
+                }
+                root.drag-active = false;
+                root.drag-threshold-crossed = false;
+                root.drag-y = 0px;
+            }
+            if event.kind == PointerEventKind.cancel {
+                root.drag-active = false;
+                root.drag-threshold-crossed = false;
+                root.drag-y = 0px;
+            }
+        }
+    }
+}
+
+export component ObjectSettingRow inherits Rectangle {
+    in property <ObjectSettingRowData> row-data;
+    callback activate-effect(bool, int);
+    callback set-effect-enabled(bool, int, bool);
+    callback remove-effect(bool, int);
+    callback set-text(bool, int, string, int, string);
+    callback set-number(bool, int, string, int, float);
+    callback set-start-number(int, string, int, int, float);
+    callback set-bool(bool, int, string, int, bool);
+    callback set-option(bool, int, string, int, int);
+    callback pick-path(bool, int, string, int, string, string, string);
+    callback pick-color(bool, int, string, int, string);
+    callback pick-font(bool, int, string, int, string);
+    callback seek-keyframe(int);
+    callback snap-keyframe(float) -> int;
+    callback seed-keyframes(bool, int, string);
+    callback add-keyframe(bool, int, string, int);
+    callback remove-keyframe(bool, int, string, int);
+    callback move-keyframe(bool, int, string, int, int);
+    callback open-easing(int, string, int, int);
+    height: root.row-data.row-kind == "effect" ? 34px
+        : root.row-data.row-kind == "header" ? 28px
+        : root.row-data.row-kind == "text" ? 68px
+        : root.row-data.row-kind == "keyframes" ? 20px
+        : 34px;
+    background: root.row-data.row-kind == "effect"
+        ? (root.row-data.selected ? AppTheme.selection-background : AppTheme.raised-background)
+        : transparent;
+    border-width: root.row-data.row-kind == "effect" ? 1px : 0px;
+    border-color: root.row-data.selected ? AppTheme.accent : AppTheme.border;
+
+    if root.row-data.row-kind == "effect" : Rectangle {
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            background: AppTheme.border;
+        }
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 6px;
+            spacing: 7px;
+            Text {
+                text: root.row-data.label;
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Button {
+                height: 26px;
+                text: @tr("Delete");
+                visible: root.row-data.removable;
+                enabled: root.row-data.removable;
+                clicked => {
+                    root.remove-effect(root.row-data.audio-plugin, root.row-data.effect-index);
+                }
+            }
+        }
+        TouchArea {
+            x: 8px;
+            width: max(parent.width - 82px, 1px);
+            mouse-cursor: pointer;
+            accessible-role: list-item;
+            accessible-label: root.row-data.label;
+            accessible-item-selectable: true;
+            accessible-item-selected: root.row-data.selected;
+            accessible-action-default => {
+                root.activate-effect(root.row-data.audio-plugin, root.row-data.effect-index);
+            }
+            clicked => {
+                root.activate-effect(root.row-data.audio-plugin, root.row-data.effect-index);
+            }
+        }
+    }
+
+    if root.row-data.row-kind == "header" : HorizontalLayout {
+        padding-left: 5px;
+        padding-top: 7px;
+        Text {
+            text: root.row-data.label;
+            font-weight: 700;
+            color: AppTheme.muted-foreground;
+            vertical-alignment: center;
+        }
+        Rectangle { horizontal-stretch: 1; height: 1px; background: AppTheme.border; }
+    }
+
+    if root.row-data.row-kind == "boolean" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        CheckBox {
+            text: root.row-data.label;
+            checked: root.row-data.checked;
+            enabled: root.row-data.interactive;
+            toggled => {
+                root.set-bool(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    self.checked
+                );
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Slider {
+            height: 26px;
+            horizontal-stretch: 1;
+            value: root.row-data.number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            enabled: root.row-data.interactive;
+            changed(value) => {
+                if root.row-data.audio-plugin {
+                    root.set-number(
+                        true,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        value
+                    );
+                } else {
+                    root.set-start-number(
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        root.row-data.end-frame,
+                        value
+                    );
+                }
+            }
+        }
+        CommitLineEdit {
+            width: 76px;
+            height: 26px;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            horizontal-alignment: right;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        Button {
+            visible: !root.row-data.audio-plugin;
+            width: 150px;
+            height: 26px;
+            text: root.row-data.parameter-button-label;
+            enabled: root.row-data.interactive;
+            clicked => {
+                root.open-easing(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.end-frame
+                );
+            }
+        }
+        Button {
+            visible: root.row-data.audio-plugin;
+            height: 26px;
+            text: "K";
+            enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label + @tr(": create keyframes at the start and end");
+            clicked => {
+                root.seed-keyframes(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name
+                );
+            }
+        }
+        if !root.row-data.audio-plugin : CommitLineEdit {
+            width: 76px;
+            height: 26px;
+            source-text: root.row-data.right-interactive
+                ? root.row-data.end-text-value
+                : root.row-data.text-value;
+            enabled: root.row-data.interactive && root.row-data.right-interactive;
+            opacity: root.row-data.right-interactive ? 1 : 0.45;
+            horizontal-alignment: right;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
+        }
+        if !root.row-data.audio-plugin : Slider {
+            height: 26px;
+            horizontal-stretch: 1;
+            value: root.row-data.right-interactive
+                ? root.row-data.end-number-value
+                : root.row-data.number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            enabled: root.row-data.interactive && root.row-data.right-interactive;
+            opacity: root.row-data.right-interactive ? 1 : 0.45;
+            changed(value) => {
+                root.set-number(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
+        }
+        Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "choice" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        ComboBox {
+            width: 220px;
+            height: 26px;
+            model: root.row-data.option-labels;
+            current-index: root.row-data.selected-option;
+            enabled: root.row-data.interactive;
+            selected(value) => {
+                root.set-option(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    self.current-index
+                );
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "text" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: top; }
+        CommitTextEdit {
+            height: 62px;
+            horizontal-stretch: 1;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: top; }
+    }
+
+    if root.row-data.row-kind == "path" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        CommitLineEdit {
+            height: 26px;
+            horizontal-stretch: 1;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        Button {
+            height: 26px;
+            text: "...";
+            enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label + @tr(": select");
+            clicked => {
+                root.pick-path(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.text-value,
+                    root.row-data.filter,
+                    root.row-data.label
+                );
+            }
+        }
+    }
+
+    if root.row-data.row-kind == "font" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Button {
+            horizontal-stretch: 1;
+            height: 26px;
+            text: root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label + ": " + self.text;
+            clicked => {
+                root.pick-font(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.text-value
+                );
+            }
+        }
+        Text {
+            text: "Aa";
+            width: 36px;
+            font-family: root.row-data.text-value;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    if root.row-data.row-kind == "color" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Rectangle {
+            width: 52px;
+            height: 26px;
+            background: root.row-data.color-value;
+            border-width: 1px;
+            border-color: start-color-touch.has-hover ? AppTheme.accent : AppTheme.border;
+            border-radius: 3px;
+            start-color-touch := TouchArea {
+                enabled: root.row-data.interactive;
+                mouse-cursor: pointer;
+                accessible-role: button;
+                accessible-label: root.row-data.label + @tr(": select start color");
+                accessible-action-default => {
+                    root.pick-color(
+                        root.row-data.audio-plugin,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        root.row-data.text-value
+                    );
+                }
+                clicked => {
+                    root.pick-color(
+                        root.row-data.audio-plugin,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        root.row-data.text-value
+                    );
+                }
+            }
+        }
+        CommitLineEdit {
+            width: 82px;
+            height: 26px;
+            source-text: root.row-data.text-value;
+            enabled: root.row-data.interactive;
+            horizontal-alignment: center;
+            commit(value) => {
+                root.set-text(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    value
+                );
+            }
+        }
+        Button {
+            visible: !root.row-data.audio-plugin;
+            height: 26px;
+            text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
+            enabled: root.row-data.interactive;
+            clicked => {
+                root.open-easing(
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.start-frame,
+                    root.row-data.end-frame
+                );
+            }
+        }
+        if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
+        if root.row-data.range-mode : CommitLineEdit {
+            width: 82px;
+            height: 26px;
+            source-text: root.row-data.end-text-value;
+            enabled: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant";
+            commit(value) => {
+                root.set-text(
+                    root.row-data.audio-plugin,
+                    root.row-data.effect-index,
+                    root.row-data.param-name,
+                    root.row-data.end-frame,
+                    value
+                );
+            }
+        }
+        if root.row-data.range-mode : Rectangle {
+            width: 52px;
+            height: 26px;
+            background: root.row-data.end-color-value;
+            opacity: root.row-data.interactive
+                && root.row-data.interpolation != ""
+                && root.row-data.interpolation != "constant" ? 1 : 0.45;
+            border-width: 1px;
+            border-color: end-color-touch.has-hover ? AppTheme.accent : AppTheme.border;
+            border-radius: 3px;
+            end-color-touch := TouchArea {
+                enabled: root.row-data.interactive
+                    && root.row-data.interpolation != ""
+                    && root.row-data.interpolation != "constant";
+                mouse-cursor: pointer;
+                accessible-role: button;
+                accessible-label: root.row-data.label + @tr(": select end color");
+                accessible-action-default => {
+                    root.pick-color(
+                        root.row-data.audio-plugin,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.end-frame,
+                        root.row-data.end-text-value
+                    );
+                }
+                clicked => {
+                    root.pick-color(
+                        root.row-data.audio-plugin,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.end-frame,
+                        root.row-data.end-text-value
+                    );
+                }
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
+    }
+
+    if root.row-data.row-kind == "keyframes" : KeyframeTrack {
+        row-data: root.row-data;
+        seek(frame) => { root.seek-keyframe(frame); }
+        snap(frame) => { root.snap-keyframe(frame) }
+        add(index, param, frame) => {
+            root.add-keyframe(root.row-data.audio-plugin, index, param, frame);
+        }
+        remove(index, param, frame) => {
+            root.remove-keyframe(root.row-data.audio-plugin, index, param, frame);
+        }
+        move-keyframe(index, param, old-frame, new-frame) => {
+            root.move-keyframe(root.row-data.audio-plugin, index, param, old-frame, new-frame);
+        }
+    }
+
+    if root.row-data.row-kind == "unsupported" : HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 7px;
+        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        Text { text: root.row-data.text-value; color: AppTheme.muted-foreground; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+    }
+}

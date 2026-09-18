@@ -1,0 +1,93 @@
+import { PluginPermissionData } from "models.slint";
+import { Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component PluginPermissionWindow inherits Window {
+    title: @tr("Permissions: ") + root.plugin-name;
+    preferred-width: 500px;
+    preferred-height: 600px;
+    min-width: 420px;
+    min-height: 420px;
+    background: AppTheme.window-background;
+
+    in property <string> plugin-id;
+    in property <string> plugin-name;
+    in property <[PluginPermissionData]> permissions;
+
+    callback toggle-permission(int, bool);
+    callback set-all(bool);
+    callback accept();
+    callback close-window();
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+        Text {
+            text: @tr("Select the permissions to grant to this plugin:");
+            color: AppTheme.foreground;
+            wrap: word-wrap;
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                spacing: 4px;
+                for permission[index] in root.permissions : Rectangle {
+                    height: 60px;
+                    background: permission-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
+                    border-width: 1px;
+                    border-color: AppTheme.subtle-border;
+                    border-radius: AppTheme.control-radius;
+                    animate background { duration: 120ms; }
+                    permission-touch := TouchArea {
+                        enabled: true;
+                        mouse-cursor: pointer;
+                        accessible-role: checkbox;
+                        accessible-label: permission.title;
+                        accessible-description: permission.description;
+                        accessible-checked: permission.granted;
+                        accessible-action-default => {
+                            root.toggle-permission(index, !permission.granted);
+                        }
+                        clicked => {
+                            root.toggle-permission(index, !permission.granted);
+                        }
+                    }
+                    HorizontalLayout {
+                        padding: 8px;
+                        spacing: 12px;
+                        CheckBox {
+                            checked: permission.granted;
+                            toggled => {
+                                root.toggle-permission(index, self.checked);
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: permission.title == "" ? permission.name : permission.title;
+                                color: AppTheme.foreground;
+                                font-weight: 700;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: permission.description == "" ? permission.name : permission.description;
+                                color: AppTheme.muted-foreground;
+                                font-size: 11px;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: @tr("Allow All"); clicked => { root.set-all(true); } }
+            Button { text: @tr("Deny All"); clicked => { root.set-all(false); } }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: @tr("Cancel"); clicked => { root.close-window(); } }
+            Button { text: "OK"; primary: true; clicked => { root.accept(); } }
+        }
+    }
+}
