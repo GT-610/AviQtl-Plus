@@ -150,7 +150,9 @@ pub(super) fn easing_catalog_rows(
             .iter()
             .filter_map(|name| {
                 let index = names.iter().position(|candidate| candidate == name)?;
-                (query.is_empty() || normalized_easing_filter(name).contains(&query))
+                (query.is_empty()
+                    || normalized_easing_filter(name).contains(&query)
+                    || normalized_easing_filter(&easing_label(name)).contains(&query))
                     .then_some((index, *name))
             })
             .collect::<Vec<_>>();
