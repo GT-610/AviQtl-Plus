@@ -1,0 +1,54 @@
+import { Button, LineEdit, SpinBox } from "std-widgets.slint";
+
+export component ProjectSettingsWindow inherits Window {
+    title: @tr("Project Settings");
+    preferred-width: 450px;
+    preferred-height: 240px;
+    min-width: 390px;
+    min-height: 220px;
+
+    in-out property <int> project-width: 1920;
+    in-out property <int> project-height: 1080;
+    in-out property <string> project-fps: "60";
+    in-out property <int> project-sample-rate: 48000;
+    callback apply-settings() -> bool;
+    callback close-window();
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 14px;
+        GridLayout {
+            spacing: 10px;
+            Row {
+                Text { text: @tr("settings-width" => "Width:"); vertical-alignment: center; }
+                SpinBox { value <=> root.project-width; minimum: 1; maximum: 8000; }
+            }
+            Row {
+                Text { text: @tr("settings-height" => "Height:"); vertical-alignment: center; }
+                SpinBox { value <=> root.project-height; minimum: 1; maximum: 8000; }
+            }
+            Row {
+                Text { text: "FPS:"; vertical-alignment: center; }
+                LineEdit { text <=> root.project-fps; }
+            }
+            Row {
+                Text { text: @tr("Sample Rate:"); vertical-alignment: center; }
+                SpinBox { value <=> root.project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+            }
+        }
+        Rectangle { vertical-stretch: 1; }
+        HorizontalLayout {
+            alignment: center;
+            spacing: 8px;
+            Button {
+                text: @tr("Apply");
+                clicked => {
+                    if root.apply-settings() {
+                        root.close-window();
+                    }
+                }
+            }
+            Button { text: @tr("Cancel"); clicked => { root.close-window(); } }
+        }
+    }
+}

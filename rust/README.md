@@ -1,6 +1,26 @@
-# AviQtl Rust core
+# AviQtl Rust workspace
 
-The Rust workspace is the portable domain foundation of AviQtl. New validation, normalization,
+Rust + Slint is the default application built by `BUILD.py`. The workspace contains nine crates:
+
+| Crate | Responsibility |
+| --- | --- |
+| `aviqtl-core` (`aviqtl-rust-core`) | Domain rules, authoritative timeline state, documents, script runtime, and Qt C ABI |
+| `aviqtl-app` | Application/workspace commands, history, persistence, recovery, catalogs, MOD hosting, and packages |
+| `aviqtl-slint` | Desktop windows, callbacks, and presentation models |
+| `aviqtl-preview` | GUI-neutral frame planning and asynchronous preview decoding |
+| `aviqtl-export` | Export jobs, progress, cancellation, rendering handoff, and output cleanup |
+| `aviqtl-render` | wgpu composition, visual effects, text, and generated objects |
+| `aviqtl-media` | Media decoding and encoding through FFmpeg |
+| `aviqtl-audio` | Mixing, output, and plugin processing |
+| `aviqtl-carla` | External Carla library and plugin ABI integration |
+
+The Qt/C++ frontend is retained through `BUILD.py --frontend qt` as a behavior reference while
+desktop acceptance is pending. It is not compiled into the default executable. Native FFmpeg,
+Carla, graphics, and audio dependencies are separate from migration of the application's own code.
+See [migration status and Qt retirement criteria](MIGRATION_STATUS.md) and the
+[dependency inventory](../audits/2026-09-rust-dependency-boundary.md).
+
+The Rust core is the portable domain foundation of AviQtl. New validation, normalization,
 planning, interpolation, serialization, catalog, and DSP rules belong here unless they require a
 native framework object to perform their work. C++ must not keep a second implementation of a
 Rust-owned rule.
@@ -19,8 +39,9 @@ Rust owns the behavior that can be expressed with platform-neutral data:
 - media time/duration calculations, permission lookup, recovery identifier validation, package
   safety decisions, and catalog ordering/filtering.
 
-Qt/C++ is an adapter layer. It converts `QString`, `QVariant`, `QJson*`, and QObject state to the
-fixed-layout or JSON inputs accepted by Rust, then publishes the result to QML and native
+Within the retained Qt frontend, C++ is an adapter layer. It converts `QString`, `QVariant`,
+`QJson*`, and QObject state to the fixed-layout or JSON inputs accepted by Rust, then publishes
+the result to QML and native
 subsystems. It also retains operations that inherently require native framework handles:
 
 - QML, QObject ownership, signals, `QUndoStack`, translations, dialogs, and window lifecycle;
@@ -76,4 +97,6 @@ rustup run 1.97.1 cargo test --workspace
 rustup run 1.97.1 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-The C++ adapters and consumers must then pass the normal CMake build and complete CTest suite.
+Changes to the C++ adapters, shared core contracts, or their consumers must also pass the normal
+CMake build and complete CTest suite. Slint-only presentation changes use the Cargo checks and
+the frontend's [behavior acceptance gate](aviqtl-slint/QT_UI_PARITY.md).

@@ -1,0 +1,245 @@
+import { PackageData, PackageRepositoryData } from "models.slint";
+import { PackageListRow } from "package-list-row.slint";
+import { Button, CheckBox, GroupBox, LineEdit, ProgressIndicator, ScrollView } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component PackageManagerWindow inherits Window {
+    title: @tr("Package Manager");
+    preferred-width: 760px;
+    preferred-height: 520px;
+    min-width: 660px;
+    min-height: 450px;
+    background: AppTheme.window-background;
+
+    in-out property <int> tab-index: 0;
+    in-out property <string> search-query;
+    in-out property <string> repository-url;
+    in property <[PackageData]> packages;
+    in property <[PackageRepositoryData]> repositories;
+    in property <bool> busy;
+    in property <bool> has-updates;
+    in property <float> progress;
+    in property <string> status-text: "Idle";
+    in property <string> error-message;
+    in property <string> update-message;
+
+    callback select-tab(int);
+    callback filter-packages(string);
+    callback sync-repositories();
+    callback add-repository(string);
+    callback set-repository-enabled(string, bool);
+    callback remove-repository(string);
+    callback upgrade-all();
+    callback install-package(string, string);
+    callback remove-package(string);
+    callback show-permissions(string, string);
+    callback dismiss-error();
+    callback dismiss-update();
+
+    VerticalLayout {
+        padding: AppTheme.spacing-lg;
+        spacing: AppTheme.spacing-md;
+        HorizontalLayout {
+            spacing: AppTheme.spacing-xs;
+            for tab[index] in [@tr("Effects"), @tr("Objects"), "MOD", @tr("Installed"), @tr("Application"), @tr("Repositories")] : Button {
+                text: tab;
+                min-width: 0px;
+                horizontal-stretch: 1;
+                primary: root.tab-index == index;
+                clicked => {
+                    root.tab-index = index;
+                    root.search-query = "";
+                    root.select-tab(index);
+                }
+            }
+        }
+        if root.tab-index < 5 : HorizontalLayout {
+            spacing: AppTheme.spacing-sm;
+            LineEdit {
+                text <=> root.search-query;
+                placeholder-text: @tr("Search...");
+                horizontal-stretch: 1;
+                edited(value) => { root.filter-packages(value); }
+            }
+            Button {
+                text: @tr("Sync Repository");
+                visible: root.tab-index < 3;
+                enabled: !root.busy;
+                clicked => { root.sync-repositories(); }
+            }
+        }
+        if root.tab-index < 5 : ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                spacing: AppTheme.spacing-sm;
+                for package in root.packages : PackageListRow {
+                    package-data: package;
+                    busy: root.busy;
+                    show-install-button: root.tab-index < 3;
+                    install(id, repository) => { root.install-package(id, repository); }
+                    remove(id) => { root.remove-package(id); }
+                    permissions(id, name) => { root.show-permissions(id, name); }
+                }
+                if root.packages.length == 0 && !root.busy : Text {
+                    text: @tr("No packages in this category.");
+                    color: AppTheme.muted-foreground;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+        if root.tab-index == 5 : VerticalLayout {
+            spacing: 12px;
+            GroupBox {
+                title: @tr("Add Repository");
+                height: 72px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    LineEdit {
+                        text <=> root.repository-url;
+                        placeholder-text: "https://example.com/repo.json";
+                        horizontal-stretch: 1;
+                        accepted(value) => {
+                            if value != "" { root.add-repository(value); }
+                        }
+                    }
+                    Button {
+                        text: @tr("Add");
+                        enabled: root.repository-url != "" && !root.busy;
+                        clicked => { root.add-repository(root.repository-url); }
+                    }
+                }
+            }
+            GroupBox {
+                title: @tr("Configured Repositories");
+                vertical-stretch: 1;
+                ScrollView {
+                    VerticalLayout {
+                        spacing: 5px;
+                        for repository in root.repositories : Rectangle {
+                            height: 48px;
+                            background: AppTheme.panel-background;
+                            border-width: 1px;
+                            border-color: AppTheme.subtle-border;
+                            border-radius: AppTheme.control-radius;
+                            HorizontalLayout {
+                                padding: 6px;
+                                spacing: 8px;
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: repository.name == "" ? repository.url : repository.name;
+                                        color: AppTheme.foreground;
+                                        font-size: 13px;
+                                        font-weight: 700;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: repository.url;
+                                        color: AppTheme.muted-foreground;
+                                        font-size: 11px;
+                                        overflow: elide;
+                                    }
+                                }
+                                CheckBox {
+                                    text: @tr("Enabled");
+                                    checked: repository.enabled;
+                                    enabled: !root.busy;
+                                    toggled => {
+                                        root.set-repository-enabled(repository.url, self.checked);
+                                    }
+                                }
+                                Button {
+                                    text: @tr("Delete");
+                                    enabled: !root.busy;
+                                    clicked => { root.remove-repository(repository.url); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    text: @tr("Sync Repository");
+                    enabled: !root.busy;
+                    clicked => { root.sync-repositories(); }
+                }
+                Button {
+                    text: @tr("Upgrade All");
+                    primary: true;
+                    enabled: !root.busy && root.has-updates;
+                    clicked => { root.upgrade-all(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+        if root.busy : ProgressIndicator {
+            progress: root.progress;
+            indeterminate: root.progress <= 0;
+        }
+        Text {
+            text: root.status-text;
+            color: AppTheme.muted-foreground;
+            font-size: 11px;
+            overflow: elide;
+        }
+    }
+
+    if root.error-message != "" : Rectangle {
+        background: AppTheme.scrim;
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: min(460px, root.width - 40px);
+                    height: error-content.preferred-height + 28px;
+                    background: AppTheme.panel-background;
+                    border-width: 1px;
+                    border-color: AppTheme.danger;
+                    border-radius: 6px;
+                    error-content := VerticalLayout {
+                        padding: 14px;
+                        spacing: 12px;
+                        Text { text: @tr("Package Manager Error"); color: AppTheme.foreground; font-weight: 700; }
+                        Text { text: root.error-message; color: AppTheme.muted-foreground; wrap: word-wrap; }
+                        HorizontalLayout {
+                            alignment: end;
+                            Button { text: "OK"; primary: true; clicked => { root.dismiss-error(); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.update-message != "" : Rectangle {
+        background: AppTheme.scrim;
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: min(480px, root.width - 40px);
+                    height: update-content.preferred-height + 28px;
+                    background: AppTheme.panel-background;
+                    border-width: 1px;
+                    border-color: AppTheme.accent;
+                    border-radius: 6px;
+                    update-content := VerticalLayout {
+                        padding: 14px;
+                        spacing: 12px;
+                        Text { text: @tr("AviQtl Plus Update"); color: AppTheme.foreground; font-weight: 700; }
+                        Text { text: root.update-message; color: AppTheme.muted-foreground; wrap: word-wrap; }
+                        HorizontalLayout {
+                            alignment: end;
+                            Button { text: "OK"; primary: true; clicked => { root.dismiss-update(); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,90 @@
+import { PackageData } from "models.slint";
+import { Button } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component PackageListRow inherits Rectangle {
+    in property <PackageData> package-data;
+    in property <bool> busy;
+    in property <bool> show-install-button;
+    callback install(string, string);
+    callback remove(string);
+    callback permissions(string, string);
+
+    height: max(content.preferred-height + 20px, 86px);
+    background: AppTheme.panel-background;
+    border-width: 1px;
+    border-color: AppTheme.subtle-border;
+    border-radius: AppTheme.surface-radius;
+    content := VerticalLayout {
+        padding: AppTheme.spacing-md;
+        spacing: AppTheme.spacing-xs;
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.package-data.display-name == ""
+                    ? root.package-data.id
+                    : root.package-data.display-name;
+                color: AppTheme.foreground;
+                font-size: 1rem;
+                font-weight: 600;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            Text {
+                text: root.package-data.version == ""
+                    ? root.package-data.latest-version
+                    : root.package-data.version;
+                color: AppTheme.muted-foreground;
+                font-size: 0.75rem;
+                vertical-alignment: center;
+            }
+        }
+        if root.package-data.description != "" : Text {
+            text: root.package-data.description;
+            color: AppTheme.muted-foreground;
+            font-size: 0.85rem;
+            wrap: word-wrap;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.package-data.author == "" ? "" : "Author: " + root.package-data.author;
+                color: AppTheme.muted-foreground;
+                font-size: 0.78rem;
+                visible: root.package-data.author != "";
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.package-data.has-update
+                    ? @tr("Update available: ") + root.package-data.latest-version
+                    : @tr("Installed: ") + root.package-data.installed-version;
+                color: root.package-data.has-update ? AppTheme.accent : AppTheme.muted-foreground;
+                font-size: 0.78rem;
+                visible: root.package-data.installed-version != "";
+                vertical-alignment: center;
+            }
+            Button {
+                text: @tr("Permissions");
+                visible: root.package-data.can-manage-permissions;
+                enabled: !root.busy;
+                clicked => { root.permissions(root.package-data.id, root.package-data.display-name); }
+            }
+            Button {
+                text: @tr("Delete");
+                visible: root.package-data.can-remove;
+                enabled: !root.busy;
+                clicked => { root.remove(root.package-data.id); }
+            }
+            Button {
+                text: root.package-data.has-update ? @tr("Update") : @tr("Install");
+                primary: true;
+                visible: root.show-install-button
+                    && (!root.package-data.can-remove || root.package-data.has-update)
+                    && root.package-data.latest-version != "";
+                enabled: !root.busy;
+                clicked => { root.install(root.package-data.id, root.package-data.source-repository); }
+            }
+        }
+    }
+}

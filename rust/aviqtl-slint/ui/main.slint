@@ -1,0 +1,393 @@
+import { ProjectTabData, MissingMediaData } from "models.slint";
+import { Button, ScrollView, Slider, SpinBox } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+import { ProjectTab } from "timeline-items.slint";
+import { TabAddButton, TransportButton, StereoAudioMeter } from "widgets.slint";
+
+export component MainWindow inherits Window {
+    title: @tr("AviQtl Plus - Preview");
+    preferred-width: 640px;
+    preferred-height: 360px;
+    min-width: 480px;
+    min-height: 300px;
+    background: AppTheme.window-background;
+    forward-focus: main-shortcuts;
+
+    in property <[ProjectTabData]> project-tabs;
+    in property <[MissingMediaData]> missing-media;
+    in property <int> current-project: -1;
+    in property <image> preview-image;
+    in-out property <float> playhead: 0;
+    in property <float> duration: 3600;
+    in property <bool> playing: false;
+    in-out property <int> playback-speed-percent: 100;
+    in property <string> status-text: "Ready";
+    in property <float> audio-peak-left: 0;
+    in property <float> audio-peak-right: 0;
+    in property <float> audio-rms-left: 0;
+    in property <float> audio-rms-right: 0;
+    in property <string> audio-output-status: "";
+    in property <bool> save-confirmation-visible: false;
+    in property <string> save-confirmation-project: "";
+    in-out property <bool> missing-media-dialog-visible: false;
+    in property <int> project-tab-height: 28;
+
+    callback new-project();
+    callback open-project();
+    callback save-project();
+    callback save-project-as();
+    callback export-media();
+    callback quit-requested();
+    callback undo();
+    callback redo();
+    callback show-project-settings();
+    callback show-system-settings();
+    callback show-timeline();
+    callback show-object-settings();
+    callback show-package-manager();
+    callback show-about();
+    callback relink-missing-media(int);
+    callback select-project(int);
+    callback close-project(int);
+    callback confirm-save();
+    callback confirm-discard();
+    callback confirm-cancel();
+    callback seek(float);
+    callback previous-frame();
+    callback toggle-playback();
+    callback next-frame();
+    callback playback-speed-changed(int);
+    callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
+
+    MenuBar {
+        Menu {
+            title: @tr("File");
+            MenuItem { title: @tr("New Project"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
+            MenuItem { title: @tr("Open Project"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Save Project"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
+            MenuItem { title: @tr("Save Project As..."); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
+            MenuItem {
+                title: @tr("Manage Missing Media");
+                enabled: !root.save-confirmation-visible && root.missing-media.length > 0;
+                activated => { root.missing-media-dialog-visible = true; }
+            }
+            MenuSeparator { }
+            MenuItem { title: @tr("Export Media..."); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Exit"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
+        }
+        Menu {
+            title: @tr("Edit");
+            MenuItem { title: @tr("Undo"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
+            MenuItem { title: @tr("Redo"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+        }
+        Menu {
+            title: @tr("Settings");
+            MenuItem { title: @tr("Project Settings"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Preferences"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
+        }
+        Menu {
+            title: @tr("View");
+            MenuItem { title: @tr("Show Timeline"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
+            MenuItem { title: @tr("Show Settings Dialog"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
+        }
+        Menu {
+            title: @tr("Tools");
+            MenuItem { title: @tr("Package Manager"); enabled: !root.save-confirmation-visible; activated => { root.show-package-manager(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("About"); enabled: !root.save-confirmation-visible; activated => { root.show-about(); } }
+        }
+    }
+
+    main-shortcuts := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(event) => {
+            if !root.save-confirmation-visible && root.keyboard-shortcut(
+                event.text,
+                event.modifiers.alt,
+                event.modifiers.control,
+                event.modifiers.shift,
+                event.modifiers.meta
+            ) {
+                accept
+            } else {
+                reject
+            }
+        }
+
+        VerticalLayout {
+            spacing: 0px;
+            Rectangle {
+            height: root.project-tab-height * 1px;
+            background: AppTheme.raised-background;
+            HorizontalLayout {
+                spacing: 0px;
+                accessible-role: tab-list;
+                accessible-label: @tr("Project");
+                for tab[index] in root.project-tabs: ProjectTab {
+                    label: tab.name + (tab.dirty ? " *" : "");
+                    selected: root.current-project == index;
+                    tab-height: root.project-tab-height * 1px;
+                    activate => { root.select-project(index); }
+                    close => { root.close-project(index); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                TabAddButton { accessible-name: @tr("New Project"); clicked => { root.new-project(); } }
+            }
+        }
+            Rectangle {
+            vertical-stretch: 1;
+            background: AppTheme.canvas-background;
+            Image {
+                source: root.preview-image;
+                image-fit: contain;
+                width: 100%;
+                height: 100%;
+            }
+        }
+            Rectangle {
+            height: AppTheme.toolbar-height;
+            background: AppTheme.panel-background;
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-top: 3px;
+                padding-bottom: 3px;
+                spacing: 10px;
+                seek-slider := Slider {
+                    value: root.playhead;
+                    minimum: 0;
+                    maximum: root.duration;
+                    horizontal-stretch: 1;
+                    accessible-label: @tr("Seek Bar");
+                    accessible-description: @tr("Drag to change playback position on the timeline");
+                    changed => { root.seek(self.value); }
+                }
+                Text {
+                    text: round(root.playhead) + " / " + round(root.duration);
+                    width: 40px;
+                    font-family: "Monospace";
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                HorizontalLayout {
+                    min-width: 96px;
+                    max-width: 96px;
+                    horizontal-stretch: 0;
+                    spacing: 0px;
+                    TransportButton { icon: "previous"; accessible-name: @tr("Back 1 Frame"); help-text: @tr("Move playback position 1 frame back"); clicked => { root.previous-frame(); } }
+                    TransportButton { icon: root.playing ? "pause" : "play"; active: root.playing; accessible-name: root.playing ? @tr("Pause") : @tr("Play"); help-text: @tr("Start or pause playback"); clicked => { root.toggle-playback(); } }
+                    TransportButton { icon: "next"; accessible-name: @tr("Forward 1 Frame"); help-text: @tr("Move playback position 1 frame forward"); clicked => { root.next-frame(); } }
+                }
+                StereoAudioMeter {
+                    width: 74px;
+                    height: 28px;
+                    peak-left: root.audio-peak-left;
+                    peak-right: root.audio-peak-right;
+                    rms-left: root.audio-rms-left;
+                    rms-right: root.audio-rms-right;
+                }
+                Text {
+                    text: @tr("Audio unavailable");
+                    visible: root.audio-output-status != "";
+                    color: AppTheme.danger;
+                    font-size: 0.72rem;
+                    vertical-alignment: center;
+                    accessible-description: root.audio-output-status;
+                }
+                HorizontalLayout {
+                    min-width: 130px;
+                    max-width: 130px;
+                    horizontal-stretch: 0;
+                    spacing: 5px;
+                    Text { text: @tr("Speed"); vertical-alignment: center; }
+                    SpinBox {
+                        width: 80px;
+                        height: 28px;
+                        value <=> root.playback-speed-percent;
+                        minimum: 10;
+                        maximum: 400;
+                        step-size: 10;
+                        enabled: !root.playing;
+                        accessible-label: @tr("Playback speed (percent)");
+                        edited(value) => { root.playback-speed-changed(value); }
+                    }
+                    Text { text: "%"; vertical-alignment: center; }
+                }
+            }
+        }
+        }
+    }
+
+    if root.missing-media.length > 0 : Rectangle {
+        z: 100;
+        width: min(430px, root.width - 24px);
+        height: 42px;
+        x: root.width - self.width - 12px;
+        y: root.height - self.height - 12px;
+        background: AppTheme.control-background;
+        border-width: 1px;
+        border-color: AppTheme.border;
+        border-radius: 5px;
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 6px;
+            spacing: 8px;
+            Text {
+                text: @tr("{} missing media files", root.missing-media.length);
+                color: AppTheme.foreground;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: @tr("Manage");
+                accessible-label: @tr("Manage Missing Media");
+                clicked => { root.missing-media-dialog-visible = true; }
+            }
+        }
+    }
+
+    if root.missing-media-dialog-visible : missing-media-focus := FocusScope {
+        z: 900;
+        width: min(root.width - 32px, 560px);
+        height: min(root.height - 32px, 360px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        init => { self.focus(); }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.missing-media-dialog-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+
+        Rectangle {
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 6px;
+            VerticalLayout {
+                padding: 12px;
+                spacing: 10px;
+                Text {
+                    text: @tr("Missing Media");
+                    color: AppTheme.foreground;
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    viewport-width: self.visible-width;
+                    viewport-height: missing-media-list.preferred-height;
+                    missing-media-list := VerticalLayout {
+                        width: parent.width;
+                        spacing: 6px;
+                        for media in root.missing-media : Rectangle {
+                            height: 64px;
+                            background: AppTheme.panel-background;
+                            border-width: 1px;
+                            border-color: AppTheme.border;
+                            border-radius: 4px;
+                            HorizontalLayout {
+                                padding: 8px;
+                                spacing: 8px;
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: media.clip-type + ": " + media.name;
+                                        color: AppTheme.foreground;
+                                        font-weight: 700;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: media.path;
+                                        color: AppTheme.muted-foreground;
+                                        font-size: 0.78rem;
+                                        overflow: elide;
+                                    }
+                                }
+                                Button {
+                                    text: @tr("Replace");
+                                    accessible-label: @tr("Replace Missing Media");
+                                    clicked => { root.relink-missing-media(media.clip-id); }
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    Button {
+                        text: @tr("Close");
+                        clicked => { root.missing-media-dialog-visible = false; }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.save-confirmation-visible : Rectangle {
+        z: 1000;
+        width: 100%;
+        height: 100%;
+        background: AppTheme.scrim;
+
+        TouchArea { }
+
+        Rectangle {
+            width: min(parent.width - 32px, 460px);
+            height: 174px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 6px;
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+
+                Text {
+                    text: @tr("Confirm Save");
+                    color: AppTheme.foreground;
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                Text {
+                    text: root.save-confirmation-project + @tr(" has unsaved changes.\nSave before continuing?");
+                    color: AppTheme.muted-foreground;
+                    wrap: word-wrap;
+                    vertical-stretch: 1;
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button {
+                        text: @tr("confirm-save" => "Save");
+                        accessible-label: @tr("confirm-save" => "Save");
+                        clicked => { root.confirm-save(); }
+                    }
+                    Button {
+                        text: @tr("Discard");
+                        accessible-label: @tr("Discard");
+                        clicked => { root.confirm-discard(); }
+                    }
+                    Button {
+                        text: @tr("Cancel");
+                        accessible-label: @tr("Cancel");
+                        clicked => { root.confirm-cancel(); }
+                    }
+                }
+            }
+        }
+    }
+}

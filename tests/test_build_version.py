@@ -71,6 +71,8 @@ class TestBuildScript(unittest.TestCase):
             values = {**defaults, target: True}
             self.assertEqual(determine_target(argparse.Namespace(**values), "unknown"), target)
         self.assertEqual(determine_target(argparse.Namespace(**defaults), "Darwin"), "xcode")
+        self.assertEqual(determine_target(argparse.Namespace(**defaults), "Windows"), "msvc")
+        self.assertEqual(determine_target(argparse.Namespace(**defaults), "linux"), "arch")
 
     def test_cargo_command_builds_only_slint_frontend(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,0 +1,72 @@
+import { AppTheme } from "theme.slint";
+
+export component AboutWindow inherits Window {
+    title: @tr("About AviQtl Plus");
+    preferred-width: 420px;
+    preferred-height: 260px;
+    min-width: 420px;
+    max-width: 420px;
+    min-height: 260px;
+    max-height: 260px;
+    background: AppTheme.window-background;
+
+    in property <string> version;
+    in property <string> codename: "Rolling Release";
+    callback open-project-page();
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        HorizontalLayout {
+            spacing: 20px;
+            Image {
+                source: @image-url("../../../assets/icon.svg");
+                width: 64px;
+                height: 64px;
+                image-fit: contain;
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 4px;
+                Text {
+                    text: "AviQtl Plus " + root.version;
+                    color: AppTheme.foreground;
+                    font-size: 28px;
+                    font-weight: 700;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.codename;
+                    color: AppTheme.accent;
+                    font-size: 14px;
+                    font-weight: 700;
+                }
+            }
+        }
+        Rectangle { height: 1px; background: AppTheme.border; }
+        Text {
+            text: @tr("AviQtl Plus is not AviUtl.\n\nThis software is released under the GNU Affero General Public License Version 3.");
+            color: AppTheme.muted-foreground;
+            font-size: 13px;
+            wrap: word-wrap;
+        }
+        Rectangle {
+            height: 24px;
+            link-text := Text {
+                text: "https://codeberg.org/taisho-guy/AviQtl";
+                color: AppTheme.accent;
+                font-size: 13px;
+                vertical-alignment: center;
+            }
+            link-touch := TouchArea {
+                mouse-cursor: pointer;
+                accessible-role: button;
+                accessible-label: @tr("AviQtl Plus project page");
+                accessible-description: link-text.text;
+                accessible-action-default => { root.open-project-page(); }
+                clicked => { root.open-project-page(); }
+            }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}

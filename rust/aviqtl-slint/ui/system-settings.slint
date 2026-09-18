@@ -1,0 +1,608 @@
+import { SystemPluginSettingData, SystemShortcutSettingData } from "models.slint";
+import { CommitLineEdit, CommitTextEdit } from "object-controls.slint";
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ScrollView, SpinBox } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component SystemSettingSpinRow inherits HorizontalLayout {
+    in property <string> label;
+    in-out property <int> value;
+    in property <int> minimum: 0;
+    in property <int> maximum: 100;
+    in property <int> step-size: 1;
+    in property <bool> interactive: true;
+    spacing: AppTheme.spacing-md;
+    opacity: root.interactive ? 1 : 0.5;
+    Text {
+        text: root.label;
+        width: 240px;
+        color: AppTheme.muted-foreground;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    SpinBox {
+        value <=> root.value;
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step-size: root.step-size;
+        enabled: root.interactive;
+        accessible-label: root.label;
+        horizontal-stretch: 1;
+    }
+}
+
+export component SystemSettingComboRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <[string]> choices;
+    in-out property <int> current-index;
+    spacing: AppTheme.spacing-md;
+    Text {
+        text: root.label;
+        width: 240px;
+        color: AppTheme.muted-foreground;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    ComboBox {
+        model: root.choices;
+        current-index <=> root.current-index;
+        accessible-label: root.label;
+        horizontal-stretch: 1;
+    }
+}
+
+export component SystemSettingLineRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <string> placeholder;
+    callback commit(string);
+    spacing: AppTheme.spacing-md;
+    Text {
+        text: root.label;
+        width: 240px;
+        color: AppTheme.muted-foreground;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    CommitLineEdit {
+        source-text: root.value;
+        placeholder-text: root.placeholder;
+        accessible-label: root.label;
+        horizontal-stretch: 1;
+        commit(value) => { root.commit(value); }
+    }
+}
+
+export component SystemSettingsNavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback activated();
+    height: 38px;
+    background: root.selected ? AppTheme.selection-background : nav-touch.has-hover ? AppTheme.hover-background : transparent;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 150ms; }
+
+    if root.selected : Rectangle {
+        x: 3px;
+        y: (parent.height - self.height) / 2;
+        width: 3px;
+        height: 20px;
+        background: AppTheme.accent;
+        border-radius: 2px;
+    }
+    Text {
+        x: AppTheme.spacing-lg;
+        width: parent.width - self.x - AppTheme.spacing-sm;
+        text: root.label;
+        color: AppTheme.foreground;
+        font-weight: root.selected ? 600 : 400;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    nav-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: tab;
+        accessible-label: root.label;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.selected;
+        accessible-action-default => { root.activated(); }
+        clicked => { root.activated(); }
+    }
+}
+
+export component SystemSettingsWindow inherits Window {
+    title: @tr("Preferences");
+    preferred-width: 960px;
+    preferred-height: 680px;
+    min-width: 760px;
+    min-height: 520px;
+
+    in-out property <int> tab-index: 0;
+    in-out property <bool> confirm-unsaved: true;
+    in-out property <bool> auto-backup: true;
+    in-out property <int> backup-interval: 5;
+    in-out property <int> recent-project-max-count: 10;
+    in-out property <int> undo-count: 32;
+    in-out property <int> splash-size: 512;
+    in-out property <int> max-image-size: 8192;
+    in-out property <int> cache-size: 512;
+    in-out property <int> preview-render-scale-index: 0;
+    in-out property <int> preview-msaa-index: 0;
+    in-out property <int> bake-strategy-index: 0;
+    in-out property <int> on-demand-prefetch-frames: 30;
+    in-out property <bool> enable-timeline-skimming: true;
+    in-out property <int> timeline-track-height: 30;
+    in-out property <int> timeline-header-height: 28;
+    in-out property <bool> setting-dialog-sidebar-right: false;
+    in-out property <int> timeline-ruler-height: 32;
+    in-out property <int> timeline-max-layers: 128;
+    in-out property <int> timeline-layer-header-width: 60;
+    in-out property <int> timeline-clip-resize-handle-width: 10;
+    in-out property <int> min-clip-duration-frames: 5;
+    in-out property <int> timeline-zoom-min: 10;
+    in-out property <int> timeline-zoom-max: 400;
+    in-out property <int> timeline-zoom-step: 10;
+    in-out property <int> theme-index: 0;
+    in-out property <int> language-index: 0;
+    in-out property <int> default-project-width: 1920;
+    in-out property <int> default-project-height: 1080;
+    in-out property <string> default-project-fps: "60";
+    in-out property <int> default-project-frames: 3600;
+    in-out property <int> default-project-sample-rate: 48000;
+    in-out property <int> default-clip-duration: 100;
+    in-out property <int> export-video-codec-index: 2;
+    in-out property <int> export-default-bitrate-mbps: 15;
+    in-out property <int> export-default-crf: 20;
+    in-out property <int> export-image-quality: 95;
+    in-out property <int> export-sequence-padding: 6;
+    in-out property <int> export-audio-codec-index: 0;
+    in-out property <int> export-default-audio-bitrate-kbps: 192;
+    in-out property <int> export-frame-grab-timeout-ms: 2000;
+    in-out property <int> export-progress-interval: 5;
+    in-out property <int> export-encoder-queue-mb: 128;
+    in-out property <int> video-decoder-index-reserve: 108000;
+    in-out property <int> video-decoder-min-cache-mb: 64;
+    in-out property <int> hw-frame-pool-size: 32;
+    in-out property <int> audio-plugin-block-size-index: 4;
+    in-out property <int> lua-hook-interval-ms: 16;
+    in-out property <bool> lua-hot-reload: false;
+    in property <[SystemPluginSettingData]> plugin-settings;
+    in property <[SystemShortcutSettingData]> shortcut-settings;
+    callback plugin-enabled-changed(int, bool);
+    callback plugin-paths-changed(int, string);
+    callback shortcut-value-changed(int, string);
+    callback reload-settings();
+    callback apply-settings() -> bool;
+    callback close-window();
+
+    pure function shortcut-name(action-id: string) -> string {
+        if action-id == "project.new" { return @tr("New Project"); }
+        if action-id == "project.open" { return @tr("Open Project"); }
+        if action-id == "project.save" { return @tr("save-project" => "Save"); }
+        if action-id == "project.saveAs" { return @tr("Save As"); }
+        if action-id == "project.export" { return @tr("Export Media"); }
+        if action-id == "app.quit" { return @tr("Exit"); }
+        if action-id == "app.settings" { return @tr("Preferences"); }
+        if action-id == "edit.undo" { return @tr("Undo"); }
+        if action-id == "edit.redo" { return @tr("Redo"); }
+        if action-id == "edit.cut" { return @tr("edit-menu-cut" => "Cut"); }
+        if action-id == "edit.copy" { return @tr("Copy"); }
+        if action-id == "edit.paste" { return @tr("Paste"); }
+        if action-id == "edit.delete" { return @tr("Delete"); }
+        if action-id == "edit.duplicate" { return @tr("Duplicate"); }
+        if action-id == "transport.playPause" { return @tr("Play / Pause"); }
+        if action-id == "transport.nextFrame" { return @tr("Forward 1 Frame"); }
+        if action-id == "transport.prevFrame" { return @tr("Back 1 Frame"); }
+        if action-id == "transport.jumpStart" { return @tr("Go to Start"); }
+        if action-id == "transport.jumpEnd" { return @tr("Go to End"); }
+        if action-id == "view.zoomIn" { return @tr("Zoom In"); }
+        if action-id == "view.zoomOut" { return @tr("Zoom Out"); }
+        if action-id == "view.timeline" { return @tr("Show Timeline"); }
+        if action-id == "view.objectSettings" { return @tr("Show Settings Dialog"); }
+        if action-id == "project.settings" { return @tr("Project Settings"); }
+        if action-id == "timeline.split" { return @tr("Split Clip"); }
+        if action-id == "timeline.moveUp" { return @tr("Move Layer Up"); }
+        if action-id == "timeline.moveDown" { return @tr("Move Layer Down"); }
+        if action-id == "timeline.nudgeLeft" { return @tr("Move Left 1 Frame"); }
+        if action-id == "timeline.nudgeRight" { return @tr("Move Right 1 Frame"); }
+        if action-id == "timeline.addScene" { return @tr("Create New Scene"); }
+        if action-id == "timeline.sceneSettings" { return @tr("Current Scene Settings"); }
+        if action-id == "timeline.removeScene" { return @tr("Delete Current Scene"); }
+        if action-id == "timeline.layerLock" { return @tr("Lock/Unlock Current Layer"); }
+        if action-id == "timeline.layerHide" { return @tr("Show/Hide Current Layer"); }
+        return action-id;
+    }
+
+    VerticalLayout {
+        padding: AppTheme.spacing-md;
+        spacing: AppTheme.spacing-md;
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: AppTheme.spacing-md;
+
+            Rectangle {
+                width: 180px;
+                background: AppTheme.panel-background;
+                border-width: 1px;
+                border-color: AppTheme.subtle-border;
+                border-radius: AppTheme.surface-radius;
+                VerticalLayout {
+                    padding: AppTheme.spacing-sm;
+                    spacing: AppTheme.spacing-xs;
+                    accessible-role: tab-list;
+                    accessible-label: @tr("Preferences");
+                    for tab-label[index] in [
+                        @tr("General"), @tr("Performance"), @tr("Timeline"), @tr("Appearance"),
+                        @tr("New Project"), @tr("Export"), @tr("Decode and Audio"),
+                        @tr("Plugins"), @tr("Shortcuts")
+                    ] : SystemSettingsNavItem {
+                        label: tab-label;
+                        selected: root.tab-index == index;
+                        activated => { root.tab-index = index; }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+
+        if root.tab-index == 0 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("General");
+            viewport-width: self.visible-width;
+            viewport-height: general-page.preferred-height;
+            general-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("File");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        CheckBox { text: @tr("Check for unsaved projects when exiting"); checked <=> root.confirm-unsaved; }
+                        CheckBox { text: @tr("Enable automatic backups"); checked <=> root.auto-backup; }
+                        SystemSettingSpinRow {
+                            label: @tr("Backup interval");
+                            value <=> root.backup-interval;
+                            minimum: 1;
+                            maximum: 60;
+                            interactive: root.auto-backup;
+                        }
+                        SystemSettingSpinRow {
+                            label: @tr("Number of recent projects to keep");
+                            value <=> root.recent-project-max-count;
+                            minimum: 1;
+                            maximum: 50;
+                        }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Edit");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        SystemSettingSpinRow { label: @tr("Undo count"); value <=> root.undo-count; minimum: 1; maximum: 1000; }
+                        Text { text: @tr("Increasing this count increases memory usage"); color: AppTheme.muted-foreground; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Startup");
+                    VerticalLayout {
+                        padding: 10px;
+                        SystemSettingSpinRow { label: @tr("Splash image size"); value <=> root.splash-size; minimum: 128; maximum: 2048; step-size: 64; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 1 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("Performance");
+            viewport-width: self.visible-width;
+            viewport-height: performance-page.preferred-height;
+            performance-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("Memory and Cache");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("Maximum image size"); value <=> root.max-image-size; minimum: 1024; maximum: 16384; step-size: 512; }
+                        SystemSettingSpinRow { label: @tr("Cache capacity"); value <=> root.cache-size; minimum: 64; maximum: 8192; step-size: 64; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Preview rendering");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("Render scale"); choices: ["100%", "75%", "50%", "25%"]; current-index <=> root.preview-render-scale-index; }
+                        SystemSettingComboRow { label: @tr("Preview antialiasing"); choices: [@tr("Disabled"), "2x MSAA", "4x MSAA", "8x MSAA"]; current-index <=> root.preview-msaa-index; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Timeline baking");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("Strategy"); choices: [@tr("On demand"), @tr("Bake all clips")]; current-index <=> root.bake-strategy-index; }
+                        SystemSettingSpinRow {
+                            label: @tr("Prefetch frames");
+                            value <=> root.on-demand-prefetch-frames;
+                            minimum: 0;
+                            maximum: 600;
+                            step-size: 10;
+                            interactive: root.bake-strategy-index == 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 2 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("Timeline");
+            viewport-width: self.visible-width;
+            viewport-height: timeline-settings-page.preferred-height;
+            timeline-settings-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("Controls");
+                    VerticalLayout {
+                        padding: 10px;
+                        CheckBox { text: @tr("Enable timeline skimming"); checked <=> root.enable-timeline-skimming; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Appearance and Dimensions");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("Track height"); value <=> root.timeline-track-height; minimum: 16; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Header height"); value <=> root.timeline-header-height; minimum: 16; maximum: 100; }
+                        CheckBox { text: @tr("Place settings sidebar on the right"); checked <=> root.setting-dialog-sidebar-right; }
+                        SystemSettingSpinRow { label: @tr("Ruler height"); value <=> root.timeline-ruler-height; minimum: 16; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Maximum layer count"); value <=> root.timeline-max-layers; minimum: 1; maximum: 512; }
+                        SystemSettingSpinRow { label: @tr("Layer header width"); value <=> root.timeline-layer-header-width; minimum: 40; maximum: 300; }
+                        SystemSettingSpinRow { label: @tr("Clip edge handle width"); value <=> root.timeline-clip-resize-handle-width; minimum: 4; maximum: 40; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Editing Constraints and Zoom");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("Minimum clip length"); value <=> root.min-clip-duration-frames; minimum: 1; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Minimum zoom value"); value <=> root.timeline-zoom-min; minimum: 1; maximum: 1000; }
+                        SystemSettingSpinRow { label: @tr("Maximum zoom value"); value <=> root.timeline-zoom-max; minimum: 1; maximum: 4000; }
+                        SystemSettingSpinRow { label: @tr("Zoom step"); value <=> root.timeline-zoom-step; minimum: 1; maximum: 100; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 3 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("Appearance");
+            viewport-width: self.visible-width;
+            viewport-height: appearance-page.preferred-height;
+            appearance-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("Theme");
+                    VerticalLayout {
+                        padding: 10px;
+                        SystemSettingComboRow { label: @tr("Color theme"); choices: [@tr("Dark"), @tr("Light"), @tr("Follow system")]; current-index <=> root.theme-index; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Language");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow {
+                            label: @tr("Interface language");
+                            choices: [@tr("Follow system"), "English", "简体中文", "日本語"];
+                            current-index <=> root.language-index;
+                        }
+                        Text {
+                            text: @tr("Language changes are applied immediately after pressing Apply or OK.");
+                            color: AppTheme.muted-foreground;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+                Text { text: @tr("Theme changes take effect immediately after you click Apply or OK."); color: AppTheme.muted-foreground; wrap: word-wrap; }
+            }
+        }
+
+        if root.tab-index == 4 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("New Project");
+            viewport-width: self.visible-width;
+            viewport-height: project-defaults-page.preferred-height;
+            project-defaults-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("Defaults");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("Width"); value <=> root.default-project-width; minimum: 1; maximum: 16000; }
+                        SystemSettingSpinRow { label: @tr("Height"); value <=> root.default-project-height; minimum: 1; maximum: 16000; }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            Text { text: @tr("Frame rate"); width: 260px; vertical-alignment: center; }
+                            LineEdit { text <=> root.default-project-fps; accessible-label: @tr("Frame rate"); horizontal-stretch: 1; }
+                        }
+                        SystemSettingSpinRow { label: @tr("Total frames"); value <=> root.default-project-frames; minimum: 1; maximum: 1000000; }
+                        SystemSettingSpinRow { label: @tr("Sample rate"); value <=> root.default-project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+                        SystemSettingSpinRow { label: @tr("Default clip length"); value <=> root.default-clip-duration; minimum: 1; maximum: 100000; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 5 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("Export");
+            viewport-width: self.visible-width;
+            viewport-height: export-settings-page.preferred-height;
+            export-settings-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("Video");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("Default video codec"); choices: [@tr("H.264 (VAAPI)"), @tr("HEVC (VAAPI)"), @tr("H.264 (CPU)")]; current-index <=> root.export-video-codec-index; }
+                        SystemSettingSpinRow { label: @tr("Default bitrate"); value <=> root.export-default-bitrate-mbps; minimum: 1; maximum: 500; }
+                        SystemSettingSpinRow { label: @tr("Default CRF"); value <=> root.export-default-crf; minimum: 0; maximum: 51; }
+                        SystemSettingSpinRow { label: @tr("Still image quality"); value <=> root.export-image-quality; minimum: 0; maximum: 100; }
+                        SystemSettingSpinRow { label: @tr("Sequence number digits"); value <=> root.export-sequence-padding; minimum: 2; maximum: 10; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Audio and Progress Display");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("Default audio codec"); choices: ["AAC", "Opus", "FLAC", "PCM 16bit"]; current-index <=> root.export-audio-codec-index; }
+                        SystemSettingSpinRow { label: @tr("Audio bitrate"); value <=> root.export-default-audio-bitrate-kbps; minimum: 32; maximum: 1536; step-size: 32; }
+                        SystemSettingSpinRow { label: @tr("Frame fetch wait time"); value <=> root.export-frame-grab-timeout-ms; minimum: 100; maximum: 10000; step-size: 100; }
+                        SystemSettingSpinRow { label: @tr("Progress update interval"); value <=> root.export-progress-interval; minimum: 1; maximum: 60; }
+                        SystemSettingSpinRow { label: @tr("Encoder queue memory (MB)"); value <=> root.export-encoder-queue-mb; minimum: 16; maximum: 1024; step-size: 16; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 6 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("Decode and Audio");
+            viewport-width: self.visible-width;
+            viewport-height: decode-audio-page.preferred-height;
+            decode-audio-page := VerticalLayout {
+                spacing: 14px;
+                GroupBox {
+                    title: @tr("Video Decoding");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingSpinRow { label: @tr("Reserved index count"); value <=> root.video-decoder-index-reserve; minimum: 1000; maximum: 1000000; step-size: 1000; }
+                        SystemSettingSpinRow { label: @tr("Minimum cache amount"); value <=> root.video-decoder-min-cache-mb; minimum: 16; maximum: 4096; step-size: 16; }
+                        SystemSettingSpinRow { label: @tr("Hardware frame pool count"); value <=> root.hw-frame-pool-size; minimum: 1; maximum: 256; }
+                    }
+                }
+                GroupBox {
+                    title: @tr("Audio");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 9px;
+                        SystemSettingComboRow { label: @tr("Maximum plugin block size"); choices: ["256", "512", "1024", "2048", "4096", "8192"]; current-index <=> root.audio-plugin-block-size-index; }
+                        SystemSettingSpinRow { label: @tr("Lua hook interval"); value <=> root.lua-hook-interval-ms; minimum: 1; maximum: 1000; }
+                    }
+                }
+                Text { text: @tr("Decode and audio settings take effect after restart"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+            }
+        }
+
+        if root.tab-index == 7 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("Plugins");
+            viewport-width: self.visible-width;
+            viewport-height: plugin-page.preferred-height;
+            plugin-page := VerticalLayout {
+                spacing: 14px;
+                Text { text: @tr("You can configure enablement and search paths for each format"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                GroupBox {
+                    title: @tr("Lua Plugins");
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        CheckBox { text: @tr("Enable Hot Reload"); checked <=> root.lua-hot-reload; }
+                        Text { text: @tr("When enabled, automatically reloads plugins when changes to the plugins folder are detected"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                    }
+                }
+                for plugin[index] in root.plugin-settings : GroupBox {
+                    title: plugin.format-name;
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 7px;
+                        CheckBox {
+                            text: @tr("Load {}", plugin.format-name);
+                            checked: plugin.enabled;
+                            toggled => { root.plugin-enabled-changed(index, self.checked); }
+                        }
+                        Text { text: @tr("Search Paths"); color: AppTheme.muted-foreground; }
+                        CommitTextEdit {
+                            source-text: plugin.paths;
+                            preferred-height: 90px;
+                            accessible-label: plugin.format-name + ": " + @tr("Search Paths");
+                            commit(value) => { root.plugin-paths-changed(index, value); }
+                        }
+                        Text { text: @tr("Enter one path per line"); color: AppTheme.muted-foreground; }
+                    }
+                }
+            }
+        }
+
+        if root.tab-index == 8 : ScrollView {
+            vertical-stretch: 1;
+            accessible-role: tab-panel;
+            accessible-label: @tr("Shortcuts");
+            viewport-width: self.visible-width;
+            viewport-height: shortcut-page.preferred-height;
+            shortcut-page := VerticalLayout {
+                spacing: 10px;
+                Text { text: @tr("Keyboard Shortcuts"); font-size: 1.2rem; font-weight: 700; }
+                Text { text: @tr("Enter shortcuts in a format such as “Ctrl+S” or “Alt+Shift+N”"); color: AppTheme.muted-foreground; wrap: word-wrap; }
+                for shortcut[index] in root.shortcut-settings : SystemSettingLineRow {
+                    label: root.shortcut-name(shortcut.action-id);
+                    value: shortcut.value;
+                    placeholder: @tr("Not set");
+                    commit(value) => { root.shortcut-value-changed(index, value); }
+                }
+            }
+        }
+            }
+        }
+
+        Rectangle {
+            height: 54px;
+            background: AppTheme.panel-background;
+            Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: AppTheme.subtle-border; }
+            HorizontalLayout {
+                padding: AppTheme.spacing-sm;
+                spacing: AppTheme.spacing-sm;
+                Text {
+                    text: @tr("Settings are saved with “Apply” or “OK”");
+                    color: AppTheme.muted-foreground;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                Button { text: @tr("Reload"); clicked => { root.reload-settings(); } }
+                Button { text: @tr("Apply"); clicked => { root.apply-settings(); } }
+                Button {
+                    text: "OK";
+                    primary: true;
+                    clicked => {
+                        if root.apply-settings() {
+                            root.close-window();
+                        }
+                    }
+                }
+                Button { text: @tr("Close"); clicked => { root.close-window(); } }
+            }
+        }
+    }
+}

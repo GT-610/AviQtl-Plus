@@ -1,0 +1,169 @@
+import { AppTheme } from "theme.slint";
+
+export component TabCloseButton inherits Rectangle {
+    in property <string> accessible-name;
+    callback clicked();
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background: close-touch.has-hover ? AppTheme.hover-background : transparent;
+    animate background { duration: 150ms; }
+
+    Text {
+        text: "×";
+        color: close-touch.has-hover ? AppTheme.foreground : AppTheme.muted-foreground;
+        font-size: 1rem;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    close-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.accessible-name;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+    }
+}
+
+export component TabAddButton inherits Rectangle {
+    in property <string> accessible-name;
+    callback clicked();
+    width: 40px;
+    height: 100%;
+    background: add-touch.has-hover ? AppTheme.hover-background : transparent;
+    animate background { duration: 150ms; }
+
+    Text {
+        text: "+";
+        color: add-touch.has-hover ? AppTheme.accent : AppTheme.foreground;
+        font-size: 1.15rem;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    add-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.accessible-name;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+    }
+}
+
+export component TransportButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> accessible-name;
+    in property <string> help-text;
+    in property <bool> active: false;
+    private property <brush> icon-color: transport-touch.has-hover || root.active ? AppTheme.accent : AppTheme.foreground;
+    callback clicked();
+    width: 32px;
+    height: 32px;
+    border-radius: AppTheme.control-radius;
+    background: root.active
+        ? AppTheme.selection-background
+        : transport-touch.has-hover
+            ? AppTheme.hover-background
+            : transparent;
+    animate background { duration: 120ms; }
+
+    if root.icon == "previous" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 11 3 L 5 8 L 11 13";
+        stroke: root.icon-color;
+        stroke-width: 2px;
+    }
+    if root.icon == "play" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 5 3 L 13 8 L 5 13 Z";
+        fill: root.icon-color;
+    }
+    if root.icon == "pause" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 4 3 L 7 3 L 7 13 L 4 13 Z M 9 3 L 12 3 L 12 13 L 9 13 Z";
+        fill: root.icon-color;
+    }
+    if root.icon == "next" : Path {
+        x: 8px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: "M 5 3 L 11 8 L 5 13";
+        stroke: root.icon-color;
+        stroke-width: 2px;
+    }
+    transport-touch := TouchArea {
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.accessible-name;
+        accessible-description: root.help-text;
+        accessible-action-default => { root.clicked(); }
+        clicked => { root.clicked(); }
+    }
+}
+
+export component StereoAudioMeter inherits Rectangle {
+    in property <float> peak-left;
+    in property <float> peak-right;
+    in property <float> rms-left;
+    in property <float> rms-right;
+    border-width: 1px;
+    border-color: AppTheme.subtle-border;
+    border-radius: 3px;
+    background: AppTheme.control-background;
+
+    VerticalLayout {
+        padding: 3px;
+        spacing: 2px;
+        for channel[index] in [0, 1] : HorizontalLayout {
+            spacing: 3px;
+            Text {
+                text: index == 0 ? "L" : "R";
+                width: 9px;
+                color: AppTheme.muted-foreground;
+                font-size: 9px;
+                vertical-alignment: center;
+            }
+            meter-track := Rectangle {
+                height: 7px;
+                horizontal-stretch: 1;
+                background: AppTheme.window-background;
+                border-radius: 2px;
+                private property <float> peak: clamp(index == 0 ? root.peak-left : root.peak-right, 0, 1);
+                private property <float> rms: clamp(index == 0 ? root.rms-left : root.rms-right, 0, 1);
+                Rectangle {
+                    width: parent.width * meter-track.rms;
+                    height: 100%;
+                    border-radius: parent.border-radius;
+                    background: meter-track.rms > 0.9
+                        ? AppTheme.danger
+                        : meter-track.rms > 0.7 ? #eab308 : #22c55e;
+                }
+                Rectangle {
+                    x: min(parent.width - 1px, parent.width * meter-track.peak);
+                    width: 1px;
+                    height: 100%;
+                    background: meter-track.peak > 0.9 ? AppTheme.danger : white;
+                }
+            }
+        }
+    }
+}

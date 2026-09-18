@@ -999,8 +999,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="BUILD.py", description="Build and package the AviQtl desktop application",
         formatter_class=argparse.RawTextHelpFormatter,
-        epilog=("Examples:\n  python BUILD.py --arch\n  python BUILD.py --msys2 --debug\n"
-                "  python BUILD.py --msvc\n  python BUILD.py --xcode --offline\n"
+        epilog=("Examples:\n  python BUILD.py --arch\n  python BUILD.py --msvc --debug\n"
+                "  python BUILD.py --msys2\n  python BUILD.py --xcode --offline\n"
                 "  python BUILD.py --xcode --frontend qt --debug\n"),
     )
     targets = parser.add_mutually_exclusive_group()
@@ -1025,7 +1025,7 @@ def determine_target(args: argparse.Namespace, system_name: str | None = None) -
     for name in ("arch", "msys2", "msvc", "xcode"):
         if getattr(args, name):
             return name
-    return {"linux": "arch", "windows": "msys2", "darwin": "xcode"}.get(
+    return {"linux": "arch", "windows": "msvc", "darwin": "xcode"}.get(
         (system_name or platform.system()).lower()
     )
 

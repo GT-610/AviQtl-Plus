@@ -1,0 +1,569 @@
+import { ObjectEffectData, EffectCatalogItemData, ObjectSettingRowData } from "models.slint";
+import { EffectSidebarEntry, ObjectSettingRow } from "object-controls.slint";
+import { Button, GroupBox, LineEdit, ScrollView, Slider, SpinBox } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+import { StereoAudioMeter } from "widgets.slint";
+
+export component ObjectSettingsWindow inherits Window {
+    title: root.has-selection ? @tr("Settings Dialog - ") + root.clip-title : @tr("Settings Dialog");
+    forward-focus: object-settings-shortcuts;
+    preferred-width: 900px;
+    preferred-height: 650px;
+    min-width: 680px;
+    min-height: 480px;
+    in property <bool> has-selection: false;
+    in property <string> clip-title: "";
+    in property <bool> audio-plugin-mode: false;
+    in property <bool> sidebar-on-right: false;
+    in property <string> plugin-scan-status: "Audio plugins · scanning…";
+    in property <float> audio-peak-left: 0;
+    in property <float> audio-peak-right: 0;
+    in property <float> audio-rms-left: 0;
+    in property <float> audio-rms-right: 0;
+    in property <[ObjectEffectData]> effects;
+    in property <[ObjectSettingRowData]> setting-rows;
+    in property <[EffectCatalogItemData]> effect-catalog-items;
+    in property <[string]> font-families;
+    in property <int> selected-effect-count: 0;
+    in property <bool> selected-effects-removable: false;
+    in-out property <bool> effect-picker-visible: false;
+    in-out property <string> effect-filter: "";
+    in-out property <bool> preset-save-visible: false;
+    in-out property <int> preset-effect-index: -1;
+    in-out property <string> preset-effect-name: "";
+    in-out property <string> preset-name: "";
+    in-out property <bool> color-picker-visible: false;
+    in-out property <bool> font-picker-visible: false;
+    in-out property <int> picker-effect-index: -1;
+    in-out property <string> picker-param-name: "";
+    in-out property <int> picker-frame: 0;
+    in-out property <int> picker-red: 255;
+    in-out property <int> picker-green: 255;
+    in-out property <int> picker-blue: 255;
+    in-out property <int> picker-alpha: 255;
+    in-out property <string> font-filter: "";
+    in-out property <string> current-font-family: "";
+    callback select-effect(int, bool, bool);
+    callback context-select-effect(int);
+    callback reorder-effect(int, float);
+    callback set-effect-enabled(int, bool);
+    callback remove-effect(int);
+    callback remove-effect-selection(int);
+    callback delete-selected-effects();
+    callback filter-effects(string);
+    callback add-effect(string);
+    callback save-effect-preset(int, string);
+    callback load-effect-preset(int, string);
+    callback delete-effect-preset(int, string);
+    callback preset-names(int) -> [string];
+    callback set-parameter-text(bool, int, string, int, string);
+    callback set-parameter-number(bool, int, string, int, float);
+    callback set-parameter-start-number(int, string, int, int, float);
+    callback set-parameter-bool(bool, int, string, int, bool);
+    callback set-parameter-option(bool, int, string, int, int);
+    callback choose-parameter-path(bool, int, string, int, string, string, string);
+    callback show-color-picker(bool, int, string, int, string);
+    callback apply-picked-color(int, string, int, int, int, int, int);
+    callback show-font-picker(bool, int, string, int, string);
+    callback filter-fonts(string);
+    callback apply-picked-font(int, string, int, string);
+    callback seek-effect-frame(int);
+    callback snap-effect-frame(float) -> int;
+    callback seed-audio-plugin-keyframes(int, string);
+    callback add-effect-keyframe(bool, int, string, int);
+    callback remove-effect-keyframe(bool, int, string, int);
+    callback move-effect-keyframe(bool, int, string, int, int);
+    callback open-effect-easing(int, string, int, int);
+
+    object-settings-shortcuts := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(event) => {
+            if root.has-selection
+                && !root.effect-picker-visible
+                && !root.preset-save-visible
+                && !root.color-picker-visible
+                && !root.font-picker-visible
+                && event.text == Key.Delete
+                && !event.modifiers.alt
+                && !event.modifiers.control
+                && !event.modifiers.shift
+                && !event.modifiers.meta {
+                root.delete-selected-effects();
+                accept
+            } else {
+                reject
+            }
+        }
+
+    if !root.has-selection : VerticalLayout {
+        alignment: center;
+        Text {
+            text: @tr("Select an object on the timeline");
+            color: AppTheme.muted-foreground;
+            horizontal-alignment: center;
+        }
+    }
+
+    if root.has-selection : Rectangle {
+        sidebar := Rectangle {
+            x: root.sidebar-on-right ? parent.width - 250px : 0px;
+            width: 250px;
+            height: 100%;
+            background: AppTheme.panel-background;
+            VerticalLayout {
+                padding: 8px;
+                spacing: 6px;
+                Text { text: root.clip-title; font-weight: 700; color: AppTheme.foreground; overflow: elide; }
+                Text {
+                    text: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Object / Effect");
+                    color: AppTheme.muted-foreground;
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Object / Effect");
+                    VerticalLayout {
+                        spacing: 2px;
+                        for effect in root.effects : EffectSidebarEntry {
+                            effect: effect;
+                            selected-count: root.selected-effect-count;
+                            selected-removable: root.selected-effects-removable;
+                            activate(index, control, shift) => { root.select-effect(index, control, shift); }
+                            context-activate(index) => { root.context-select-effect(index); }
+                            set-enabled(index, enabled) => { root.set-effect-enabled(index, enabled); }
+                            remove-selection(index) => { root.remove-effect-selection(index); }
+                            reorder(index, delta-y) => { root.reorder-effect(index, delta-y); }
+                            save-preset(index, effect-name) => {
+                                root.preset-effect-index = index;
+                                root.preset-effect-name = effect-name;
+                                root.preset-name = "";
+                                root.preset-save-visible = true;
+                            }
+                            load-preset(index, name) => { root.load-effect-preset(index, name); }
+                            delete-preset(index, name) => { root.delete-effect-preset(index, name); }
+                            query-presets(index) => { root.preset-names(index) }
+                        }
+                        if root.effects.length == 0 : Text {
+                            text: root.audio-plugin-mode
+                                ? @tr("No audio plugins")
+                                : @tr("No settings available");
+                            color: AppTheme.muted-foreground;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+                Button {
+                    text: root.audio-plugin-mode
+                        ? @tr("+ Add Audio Plugin")
+                        : @tr("+ Add Effect");
+                    clicked => {
+                        root.effect-filter = "";
+                        root.filter-effects("");
+                        root.effect-picker-visible = true;
+                    }
+                }
+            }
+        }
+        settings-content := ScrollView {
+            x: root.sidebar-on-right ? 0px : 250px;
+            width: parent.width - 250px;
+            height: 100%;
+            VerticalLayout {
+                padding: 8px;
+                spacing: 2px;
+                Text {
+                    text: root.audio-plugin-mode
+                        ? @tr("Audio Object / Plugin Settings")
+                        : @tr("Selected Object Settings");
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                if root.audio-plugin-mode : GroupBox {
+                    title: @tr("Audio Level");
+                    height: 64px;
+                    HorizontalLayout {
+                        padding: 8px;
+                        StereoAudioMeter {
+                            height: 36px;
+                            horizontal-stretch: 1;
+                            peak-left: root.audio-peak-left;
+                            peak-right: root.audio-peak-right;
+                            rms-left: root.audio-rms-left;
+                            rms-right: root.audio-rms-right;
+                        }
+                    }
+                }
+                for row in root.setting-rows : ObjectSettingRow {
+                    row-data: row;
+                    activate-effect(audio-plugin, index) => {
+                        if audio-plugin {
+                            root.select-effect(index, false, false);
+                        }
+                    }
+                    set-effect-enabled(audio-plugin, index, enabled) => {
+                        if audio-plugin || !root.audio-plugin-mode {
+                            root.set-effect-enabled(index, enabled);
+                        }
+                    }
+                    remove-effect(audio-plugin, index) => {
+                        if audio-plugin || !root.audio-plugin-mode {
+                            root.remove-effect(index);
+                        }
+                    }
+                    set-text(audio-plugin, index, param, frame, value) => {
+                        root.set-parameter-text(audio-plugin, index, param, frame, value);
+                    }
+                    set-number(audio-plugin, index, param, frame, value) => {
+                        root.set-parameter-number(audio-plugin, index, param, frame, value);
+                    }
+                    set-start-number(index, param, start-frame, end-frame, value) => {
+                        root.set-parameter-start-number(index, param, start-frame, end-frame, value);
+                    }
+                    set-bool(audio-plugin, index, param, frame, value) => {
+                        root.set-parameter-bool(audio-plugin, index, param, frame, value);
+                    }
+                    set-option(audio-plugin, index, param, frame, option) => {
+                        root.set-parameter-option(audio-plugin, index, param, frame, option);
+                    }
+                    pick-path(audio-plugin, index, param, frame, value, filter, label) => {
+                        root.choose-parameter-path(audio-plugin, index, param, frame, value, filter, label);
+                    }
+                    pick-color(audio-plugin, index, param, frame, value) => {
+                        root.show-color-picker(audio-plugin, index, param, frame, value);
+                    }
+                    pick-font(audio-plugin, index, param, frame, value) => {
+                        root.show-font-picker(audio-plugin, index, param, frame, value);
+                    }
+                    seek-keyframe(frame) => { root.seek-effect-frame(frame); }
+                    snap-keyframe(frame) => { root.snap-effect-frame(frame) }
+                    seed-keyframes(audio-plugin, index, param) => {
+                        if audio-plugin {
+                            root.seed-audio-plugin-keyframes(index, param);
+                        }
+                    }
+                    add-keyframe(audio-plugin, index, param, frame) => {
+                        root.add-effect-keyframe(audio-plugin, index, param, frame);
+                    }
+                    remove-keyframe(audio-plugin, index, param, frame) => {
+                        root.remove-effect-keyframe(audio-plugin, index, param, frame);
+                    }
+                    move-keyframe(audio-plugin, index, param, old-frame, new-frame) => {
+                        root.move-effect-keyframe(audio-plugin, index, param, old-frame, new-frame);
+                    }
+                    open-easing(index, param, start-frame, end-frame) => {
+                        root.open-effect-easing(index, param, start-frame, end-frame);
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+    }
+
+    if root.effect-picker-visible : Rectangle {
+        z: 100;
+        background: AppTheme.scrim;
+        TouchArea { clicked => { root.effect-picker-visible = false; } }
+        picker-panel := Rectangle {
+            width: min(parent.width - 48px, 560px);
+            height: min(parent.height - 48px, 520px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+                Text {
+                    text: root.audio-plugin-mode
+                        ? @tr("Add Audio Plugin")
+                        : @tr("Add Filter Effect");
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                }
+                LineEdit {
+                    text <=> root.effect-filter;
+                    placeholder-text: root.audio-plugin-mode
+                        ? @tr("Search name, ID, category, or format...")
+                        : @tr("Search name, ID, or category...");
+                    edited(value) => { root.filter-effects(value); }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Effects");
+                    VerticalLayout {
+                        spacing: 4px;
+                        for item in root.effect-catalog-items : Rectangle {
+                            height: item.header ? 28px : 34px;
+                            if item.header : Text {
+                                text: item.name;
+                                color: AppTheme.muted-foreground;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            if !item.header : Button {
+                                text: item.categories == ""
+                                    ? item.name
+                                    : item.name + "  [" + item.categories + "]";
+                                accessible-description: item.id;
+                                clicked => {
+                                    root.add-effect(item.id);
+                                    root.effect-picker-visible = false;
+                                }
+                            }
+                        }
+                        if root.effect-catalog-items.length == 0 : Text {
+                            text: root.audio-plugin-mode
+                                ? root.plugin-scan-status
+                                : @tr("No matching effects");
+                            color: AppTheme.muted-foreground;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: @tr("Close"); clicked => { root.effect-picker-visible = false; } }
+                }
+            }
+        }
+    }
+
+    if root.preset-save-visible : Rectangle {
+        z: 110;
+        background: AppTheme.scrim;
+        TouchArea { clicked => { root.preset-save-visible = false; } }
+        Rectangle {
+            width: min(parent.width - 48px, 420px);
+            height: 190px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                Text { text: @tr("Save Preset"); font-size: 1.15rem; font-weight: 700; }
+                Text { text: root.preset-effect-name; color: AppTheme.muted-foreground; overflow: elide; }
+                LineEdit {
+                    text <=> root.preset-name;
+                    placeholder-text: @tr("Enter preset name...");
+                    accepted(value) => {
+                        if value != "" {
+                            root.save-effect-preset(root.preset-effect-index, value);
+                            root.preset-save-visible = false;
+                        }
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: @tr("Cancel"); clicked => { root.preset-save-visible = false; } }
+                    Button {
+                        text: @tr("confirm-save" => "Save");
+                        enabled: root.preset-name != "";
+                        clicked => {
+                            root.save-effect-preset(root.preset-effect-index, root.preset-name);
+                            root.preset-save-visible = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if root.color-picker-visible : Rectangle {
+        z: 120;
+        background: AppTheme.scrim;
+        TouchArea { clicked => { root.color-picker-visible = false; } }
+        Rectangle {
+            width: min(parent.width - 48px, 460px);
+            height: min(parent.height - 48px, 430px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                Text { text: @tr("Select Color"); font-size: 1.15rem; font-weight: 700; }
+                Rectangle {
+                    height: 72px;
+                    background: rgba(
+                        root.picker-red,
+                        root.picker-green,
+                        root.picker-blue,
+                        root.picker-alpha / 255
+                    );
+                    border-width: 1px;
+                    border-color: AppTheme.border;
+                    border-radius: 4px;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "R"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-red;
+                        changed(value) => { root.picker-red = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-red; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "G"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-green;
+                        changed(value) => { root.picker-green = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-green; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "B"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-blue;
+                        changed(value) => { root.picker-blue = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-blue; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "A"; width: 20px; vertical-alignment: center; }
+                    Slider {
+                        horizontal-stretch: 1;
+                        minimum: 0;
+                        maximum: 255;
+                        value: root.picker-alpha;
+                        changed(value) => { root.picker-alpha = round(value); }
+                    }
+                    SpinBox { width: 84px; minimum: 0; maximum: 255; value <=> root.picker-alpha; }
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: @tr("Cancel"); clicked => { root.color-picker-visible = false; } }
+                    Button {
+                        text: "OK";
+                        primary: true;
+                        clicked => {
+                            root.apply-picked-color(
+                                root.picker-effect-index,
+                                root.picker-param-name,
+                                root.picker-frame,
+                                root.picker-red,
+                                root.picker-green,
+                                root.picker-blue,
+                                root.picker-alpha
+                            );
+                            root.color-picker-visible = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if root.font-picker-visible : Rectangle {
+        z: 130;
+        background: AppTheme.scrim;
+        TouchArea { clicked => { root.font-picker-visible = false; } }
+        Rectangle {
+            width: min(parent.width - 48px, 540px);
+            height: min(parent.height - 48px, 540px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 4px;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 8px;
+                Text { text: @tr("Select Font"); font-size: 1.15rem; font-weight: 700; }
+                Text {
+                    text: root.current-font-family == ""
+                        ? @tr("Current: Default")
+                        : @tr("Current: ") + root.current-font-family;
+                    font-family: root.current-font-family;
+                    color: AppTheme.muted-foreground;
+                    overflow: elide;
+                }
+                LineEdit {
+                    text <=> root.font-filter;
+                    placeholder-text: @tr("Search font names...");
+                    edited(value) => { root.filter-fonts(value); }
+                }
+                Button {
+                    text: @tr("Default");
+                    checkable: true;
+                    checked: root.current-font-family == "";
+                    clicked => {
+                        root.apply-picked-font(
+                            root.picker-effect-index,
+                            root.picker-param-name,
+                            root.picker-frame,
+                            ""
+                        );
+                        root.font-picker-visible = false;
+                    }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    accessible-role: list;
+                    accessible-label: @tr("Select Font");
+                    VerticalLayout {
+                        spacing: 4px;
+                        for family in root.font-families : HorizontalLayout {
+                            spacing: 6px;
+                            Button {
+                                width: 190px;
+                                text: family;
+                                checkable: true;
+                                checked: family == root.current-font-family;
+                                accessible-label: family;
+                                clicked => {
+                                    root.apply-picked-font(
+                                        root.picker-effect-index,
+                                        root.picker-param-name,
+                                        root.picker-frame,
+                                        family
+                                    );
+                                    root.font-picker-visible = false;
+                                }
+                            }
+                            Text {
+                                text: @tr("Sample 123");
+                                font-family: family;
+                                overflow: elide;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                        }
+                        if root.font-families.length == 0 : Text {
+                            text: @tr("No matching fonts");
+                            color: AppTheme.muted-foreground;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: @tr("Close"); clicked => { root.font-picker-visible = false; } }
+                }
+            }
+        }
+    }
+    }
+}

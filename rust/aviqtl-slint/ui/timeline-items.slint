@@ -1,0 +1,466 @@
+import { SceneTabData, TimelineClipData, LayerData } from "models.slint";
+import { AppTheme, TimelineMetrics } from "theme.slint";
+import { TabCloseButton } from "widgets.slint";
+
+export component SceneTab inherits Rectangle {
+    in property <SceneTabData> scene;
+    callback activate(int);
+    callback close(int);
+    callback settings(int);
+    preferred-width: 100px;
+    min-width: 100px;
+    max-width: 220px;
+    horizontal-stretch: 0;
+    height: 28px;
+    background: root.scene.selected ? AppTheme.panel-background : scene-touch.has-hover ? AppTheme.hover-background : transparent;
+    border-width: root.scene.selected ? 1px : 0px;
+    border-color: AppTheme.subtle-border;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 150ms; }
+
+    HorizontalLayout {
+        padding-left: AppTheme.spacing-md;
+        padding-right: AppTheme.spacing-xs;
+        spacing: AppTheme.spacing-xs;
+        Text {
+            text: root.scene.name;
+            color: AppTheme.foreground;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        if !root.scene.root : TabCloseButton {
+            accessible-name: @tr("Close scene");
+            clicked => { root.close(root.scene.id); }
+        }
+    }
+    scene-touch := TouchArea {
+        width: root.scene.root ? parent.width : parent.width - 28px;
+        mouse-cursor: pointer;
+        accessible-role: tab;
+        accessible-label: root.scene.name;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.scene.selected;
+        accessible-action-default => { root.activate(root.scene.id); }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.activate(root.scene.id);
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                root.settings(root.scene.id);
+            }
+        }
+    }
+}
+
+export component LayerHeaderItem inherits Rectangle {
+    in property <LayerData> layer;
+    callback activate(int);
+    callback command(string, int);
+    callback scroll-requested(length) -> bool;
+    height: 30px;
+    background: root.layer.selected ? AppTheme.selection-background : header-touch.has-hover ? AppTheme.hover-background : AppTheme.panel-background;
+    border-width: 0px;
+    animate background { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 5px;
+        padding-right: 5px;
+        spacing: 4px;
+        Text {
+            text: root.layer.visible ? "●" : "○";
+            color: root.layer.visible ? AppTheme.success : AppTheme.muted-foreground;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.layer.index + 1;
+            color: AppTheme.foreground;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: root.layer.locked ? "L" : "";
+            color: AppTheme.warning;
+            vertical-alignment: center;
+        }
+    }
+    layer-menu := ContextMenuArea {
+        Menu {
+            MenuItem { title: @tr("Insert Layer Above (1 row)"); activated => { root.command("insert-above", root.layer.index); } }
+            MenuItem { title: @tr("Insert Layer Below (1 row)"); activated => { root.command("insert-below", root.layer.index); } }
+            MenuItem { title: @tr("Insert multiple layers..."); activated => { root.command("insert-many", root.layer.index); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Move layer contents down by 1"); activated => { root.command("shift-down", root.layer.index); } }
+            MenuItem { title: @tr("Move layer contents up by 1"); activated => { root.command("shift-up", root.layer.index); } }
+            MenuItem { title: @tr("Move layers by range..."); activated => { root.command("shift-range", root.layer.index); } }
+            MenuSeparator { }
+            MenuItem { title: root.layer.visible ? @tr("Hide this layer") : @tr("Show this layer"); activated => { root.command("toggle-visible", root.layer.index); } }
+            MenuItem { title: root.layer.locked ? @tr("Unlock this layer") : @tr("Lock this layer"); activated => { root.command("toggle-lock", root.layer.index); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Show all layers"); activated => { root.command("show-all", root.layer.index); } }
+            MenuItem { title: @tr("Hide all layers"); activated => { root.command("hide-all", root.layer.index); } }
+        }
+        header-touch := TouchArea {
+            mouse-cursor: pointer;
+            accessible-role: list-item;
+            accessible-label: @tr("Layer {}", root.layer.index + 1);
+            accessible-description: root.layer.visible
+                ? (root.layer.locked ? @tr("Visible, locked") : @tr("Visible, unlocked"))
+                : (root.layer.locked ? @tr("Hidden, locked") : @tr("Hidden, unlocked"));
+            accessible-item-selectable: true;
+            accessible-item-selected: root.layer.selected;
+            accessible-action-default => { root.activate(root.layer.index); }
+            scroll-event(event) => {
+                if root.scroll-requested(event.delta-y) { accept } else { reject }
+            }
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.activate(root.layer.index);
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                    layer-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+            }
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        width: 100%;
+        height: 1px;
+        background: AppTheme.subtle-border;
+    }
+}
+
+export component TimelineClipItem inherits Rectangle {
+    in property <TimelineClipData> clip-data;
+    in property <int> playhead;
+    in property <float> pixels-per-frame: 1;
+    in property <length> track-height: 30px;
+    in property <length> resize-handle-width: 10px;
+    callback activate(int, bool);
+    callback prepare-drag(int, bool);
+    callback context-activate(int, float, float);
+    callback open-settings(int);
+    callback command(string, int, int, int);
+    callback seek-audio-frame(int, int);
+    callback drag-finished(string, int, float, float, bool);
+    callback pointer-hovered(float, float, bool);
+    callback pointer-left();
+    callback scroll-requested(length, length, length, bool, bool, bool) -> bool;
+    private property <string> active-drag: "";
+    private property <length> drag-x: 0px;
+    private property <length> drag-y: 0px;
+    private property <bool> threshold-crossed: false;
+    private property <bool> drag-additive: false;
+    min-width: 8px;
+    height: 24px;
+    background: transparent;
+
+    function frame-delta(delta: length) -> length {
+        let frame-width = max(root.pixels-per-frame, TimelineMetrics.minimum-scale) * 1px;
+        return round(delta / frame-width) * frame-width;
+    }
+
+    function layer-delta(delta: length) -> length {
+        return round(delta / max(root.track-height, 1px)) * max(root.track-height, 1px);
+    }
+
+    if root.clip-data.control-layer-count > 0 : Rectangle {
+        y: root.height;
+        width: root.width;
+        height: root.clip-data.control-layer-count * root.track-height;
+        background: AppTheme.accent.transparentize(0.82);
+        border-width: 1px;
+        border-color: AppTheme.accent.transparentize(0.45);
+    }
+
+    clip-visual := Rectangle {
+        x: root.active-drag == "move" ? root.drag-x : root.active-drag == "trim-start" ? root.drag-x : 0px;
+        y: root.active-drag == "move" ? root.drag-y : 0px;
+        width: root.active-drag == "trim-start"
+            ? max(root.width - root.drag-x, 8px)
+            : root.active-drag == "trim-end"
+                ? max(root.width + root.drag-x, 8px)
+                : root.width;
+        height: root.height;
+        border-radius: AppTheme.control-radius;
+        background: root.clip-data.has-clip-color ? root.clip-data.clip-color : AppTheme.clip;
+        border-width: root.clip-data.primary ? 2px : root.clip-data.selected ? 1px : 0px;
+        border-color: AppTheme.accent-foreground;
+        animate background { duration: 120ms; }
+        if root.clip-data.selected || clip-touch.has-hover : Rectangle {
+            width: 100%;
+            height: 100%;
+            border-radius: parent.border-radius;
+            background: root.clip-data.selected
+                ? AppTheme.accent.transparentize(0.72)
+                : AppTheme.hover-background;
+        }
+        if root.clip-data.audio : Rectangle {
+            x: root.resize-handle-width;
+            width: max(parent.width - 2 * root.resize-handle-width, 1px);
+            height: 100%;
+            background: transparent;
+            for peak[index] in root.clip-data.waveform : Rectangle {
+                private property <float> magnitude: clamp(peak, 0, 1);
+                x: index * parent.width / max(root.clip-data.waveform.length, 1);
+                y: parent.height * (1 - self.magnitude) / 2;
+                width: max(parent.width / max(root.clip-data.waveform.length, 1), 1px);
+                height: max(parent.height * self.magnitude, 1px);
+                background: white.transparentize(0.28);
+            }
+        }
+        if root.clip-data.audio
+            && root.playhead >= root.clip-data.start
+            && root.playhead <= root.clip-data.start + root.clip-data.duration : Rectangle {
+            x: min(
+                parent.width - 1px,
+                (root.playhead - root.clip-data.start) * root.pixels-per-frame * 1px
+            );
+            width: 1px;
+            height: 100%;
+            background: AppTheme.accent;
+        }
+        HorizontalLayout {
+            padding-left: 7px;
+            padding-right: 7px;
+            Text {
+                text: root.clip-data.label;
+                color: root.clip-data.dark-text ? black : white;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+        }
+    }
+    clip-touch := TouchArea {
+            x: min(root.resize-handle-width, parent.width / 2);
+            width: max(parent.width - 2 * root.resize-handle-width, 1px);
+            mouse-cursor: root.clip-data.locked ? not-allowed : move;
+            accessible-role: list-item;
+            accessible-label: root.clip-data.label;
+            accessible-description: @tr("Clip: {}, layer {}, starts at frame {} for {} frames",
+                root.clip-data.label,
+                root.clip-data.layer + 1,
+                root.clip-data.start,
+                root.clip-data.duration
+            );
+            accessible-item-selectable: true;
+            accessible-item-selected: root.clip-data.selected;
+            accessible-action-default => { root.activate(root.clip-data.id, false); }
+            scroll-event(event) => {
+                if root.scroll-requested(
+                    event.delta-x,
+                    event.delta-y,
+                    root.x + self.mouse-x,
+                    event.modifiers.alt,
+                    event.modifiers.control,
+                    event.modifiers.shift
+                ) { accept } else { reject }
+            }
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.move {
+                    root.pointer-hovered(
+                        (root.x + self.mouse-x) / 1px,
+                        (root.y + self.mouse-y) / 1px,
+                        event.modifiers.shift
+                    );
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    if root.clip-data.locked {
+                        root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                    } else {
+                        root.active-drag = "move";
+                        root.drag-x = 0px;
+                        root.drag-y = 0px;
+                        root.threshold-crossed = false;
+                        root.drag-additive = event.modifiers.control || event.modifiers.meta;
+                        if root.clip-data.audio {
+                            root.seek-audio-frame(root.clip-data.id, round((root.x + self.mouse-x) / (1px * root.pixels-per-frame)));
+                        }
+                    }
+                }
+                if event.kind == PointerEventKind.move && root.active-drag == "move" {
+                    root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                    root.drag-y = root.layer-delta(self.mouse-y - self.pressed-y);
+                    if !root.threshold-crossed && (abs(root.drag-x) >= 3px || abs(root.drag-y) >= 3px) {
+                        root.threshold-crossed = true;
+                        root.prepare-drag(root.clip-data.id, root.drag-additive);
+                    }
+                }
+                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "move" {
+                    if root.threshold-crossed {
+                        root.drag-finished("move", root.clip-data.id, root.drag-x / 1px, root.drag-y / 1px, event.modifiers.shift);
+                    } else {
+                        root.activate(root.clip-data.id, root.drag-additive);
+                    }
+                    root.active-drag = "";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = false;
+                    root.drag-additive = false;
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                    root.context-activate(
+                        root.clip-data.id,
+                        (root.absolute-position.x + self.mouse-x) / 1px,
+                        (root.absolute-position.y + self.mouse-y) / 1px
+                    );
+                }
+                if event.kind == PointerEventKind.cancel {
+                    root.active-drag = "";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = false;
+                    root.drag-additive = false;
+                }
+            }
+            changed has-hover => { if !self.has-hover { root.pointer-left(); } }
+            double-clicked => { root.open-settings(root.clip-data.id); }
+    }
+    trim-start-touch := TouchArea {
+        x: 0px;
+        width: min(root.resize-handle-width, parent.width / 2);
+        mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
+        scroll-event(event) => {
+            if root.scroll-requested(
+                event.delta-x,
+                event.delta-y,
+                root.x + self.mouse-x,
+                event.modifiers.alt,
+                event.modifiers.control,
+                event.modifiers.shift
+            ) { accept } else { reject }
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.move {
+                root.pointer-hovered(
+                    (root.x + self.mouse-x) / 1px,
+                    (root.y + self.mouse-y) / 1px,
+                    event.modifiers.shift
+                );
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                if root.clip-data.locked {
+                    root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                } else {
+                    root.active-drag = "trim-start";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = true;
+                    root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                }
+            }
+            if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+            }
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-start" {
+                root.drag-finished("trim-start", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+            if event.kind == PointerEventKind.cancel {
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+        }
+        changed has-hover => { if !self.has-hover { root.pointer-left(); } }
+    }
+    trim-end-touch := TouchArea {
+        x: parent.width - self.width;
+        width: min(root.resize-handle-width, parent.width / 2);
+        mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
+        scroll-event(event) => {
+            if root.scroll-requested(
+                event.delta-x,
+                event.delta-y,
+                root.x + self.mouse-x,
+                event.modifiers.alt,
+                event.modifiers.control,
+                event.modifiers.shift
+            ) { accept } else { reject }
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.move {
+                root.pointer-hovered(
+                    (root.x + self.mouse-x) / 1px,
+                    (root.y + self.mouse-y) / 1px,
+                    event.modifiers.shift
+                );
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                if root.clip-data.locked {
+                    root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                } else {
+                    root.active-drag = "trim-end";
+                    root.drag-x = 0px;
+                    root.drag-y = 0px;
+                    root.threshold-crossed = true;
+                    root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
+                }
+            }
+            if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+            }
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-end" {
+                root.drag-finished("trim-end", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+            if event.kind == PointerEventKind.cancel {
+                root.active-drag = "";
+                root.drag-x = 0px;
+                root.threshold-crossed = false;
+            }
+        }
+        changed has-hover => { if !self.has-hover { root.pointer-left(); } }
+    }
+}
+
+export component ProjectTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    in property <length> tab-height: 28px;
+    callback activate();
+    callback close();
+    preferred-width: 120px;
+    min-width: 120px;
+    max-width: 240px;
+    horizontal-stretch: 0;
+    height: root.tab-height;
+    background: root.selected ? AppTheme.panel-background : tab-touch.has-hover ? AppTheme.hover-background : transparent;
+    border-width: root.selected ? 1px : 0px;
+    border-color: AppTheme.subtle-border;
+    border-radius: AppTheme.control-radius;
+    animate background { duration: 150ms; }
+
+    HorizontalLayout {
+        padding-left: AppTheme.spacing-md;
+        padding-right: AppTheme.spacing-xs;
+        spacing: AppTheme.spacing-xs;
+        Text {
+            text: root.label;
+            color: AppTheme.foreground;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        close-button := TabCloseButton {
+            accessible-name: @tr("Close project");
+            clicked => { root.close(); }
+        }
+    }
+    tab-touch := TouchArea {
+        width: parent.width - close-button.width - 4px;
+        mouse-cursor: pointer;
+        accessible-role: tab;
+        accessible-label: root.label;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.selected;
+        accessible-action-default => { root.activate(); }
+        clicked => { root.activate(); }
+    }
+}
