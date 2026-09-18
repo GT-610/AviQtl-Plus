@@ -78,18 +78,18 @@ impl PackageOperationRuntime {
     pub(super) fn poll(&mut self) -> Result<Option<PackageOperationEvent>, String> {
         match self.receiver.try_recv() {
             Ok(event) => {
-                if matches!(event, PackageOperationEvent::Finished { .. })
-                    && let Some(worker) = self.worker.take()
-                {
-                    let _ = worker.join();
+                if matches!(event, PackageOperationEvent::Finished { .. }) {
+                    // Detach the finished worker instead of joining it: this
+                    // runs on the UI timer, so blocking on the thread exit
+                    // would stall the interface. The terminal event has
+                    // already been consumed, so the thread can exit alone.
+                    drop(self.worker.take());
                 }
                 Ok(Some(event))
             }
             Err(TryRecvError::Empty) => Ok(None),
             Err(TryRecvError::Disconnected) => {
-                if let Some(worker) = self.worker.take() {
-                    let _ = worker.join();
-                }
+                drop(self.worker.take());
                 Err("Package operation worker disconnected".to_owned())
             }
         }
