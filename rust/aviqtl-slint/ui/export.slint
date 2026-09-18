@@ -62,7 +62,8 @@ export component ExportWindow inherits Window {
     callback dismiss-result();
 
     changed timeline-duration => {
-        root.end-frame = min(max(root.end-frame, root.start-frame + 1), max(root.timeline-duration, root.start-frame + 1));
+        root.start-frame = min(max(root.start-frame, 0), max(root.timeline-duration - 1, 0));
+        root.end-frame = root.timeline-duration <= 0 ? 0 : min(max(root.end-frame, root.start-frame + 1), root.timeline-duration);
     }
 
     ScrollView {
