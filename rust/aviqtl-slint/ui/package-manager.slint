@@ -99,7 +99,7 @@ export component PackageManagerWindow inherits Window {
                         placeholder-text: "https://example.com/repo.json";
                         horizontal-stretch: 1;
                         accepted(value) => {
-                            if value != "" { root.add-repository(value); }
+                            if value != "" && !root.busy { root.add-repository(value); }
                         }
                     }
                     Button {
@@ -189,6 +189,7 @@ export component PackageManagerWindow inherits Window {
 
     if root.error-message != "" : Rectangle {
         background: AppTheme.scrim;
+        TouchArea { }
         VerticalLayout {
             alignment: center;
             HorizontalLayout {
@@ -217,6 +218,7 @@ export component PackageManagerWindow inherits Window {
 
     if root.update-message != "" : Rectangle {
         background: AppTheme.scrim;
+        TouchArea { }
         VerticalLayout {
             alignment: center;
             HorizontalLayout {

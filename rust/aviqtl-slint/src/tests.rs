@@ -407,6 +407,7 @@ fn easing_options_match_the_qt_parameter_contracts() {
 
 #[test]
 fn easing_catalog_matches_the_qt_categories_and_filtering() {
+    CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::English));
     let curve = BezierCurve::default();
     let rows = easing_catalog_rows("", 1, 1.0, 0.3, curve.points());
     assert_eq!(
@@ -449,7 +450,21 @@ fn easing_catalog_matches_the_qt_categories_and_filtering() {
             .iter()
             .all(|row| row.name.as_str().contains("bounce"))
     );
-    assert!(easing_catalog_rows("跳ね返り", 1, 1.0, 0.3, curve.points()).is_empty());
+    CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::Japanese));
+    let localized_bounce = easing_catalog_rows("跳ね返り", 1, 1.0, 0.3, curve.points());
+    assert!(!localized_bounce.is_empty());
+    assert!(
+        localized_bounce
+            .iter()
+            .filter(|row| !row.header)
+            .all(|row| row.name.as_str().contains("bounce"))
+    );
+    assert!(
+        localized_bounce
+            .iter()
+            .any(|row| row.name.as_str() == "ease_in_bounce")
+    );
+    CURRENT_UI_LANGUAGE.with(|language| language.set(UiLanguage::English));
 }
 
 #[test]

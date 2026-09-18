@@ -1875,7 +1875,6 @@ pub(super) fn install_callbacks(
     timeline.on_layer_activated(move |layer| {
         if let Some(workspace) = layer_model.borrow_mut().current_workspace_mut() {
             workspace.select_layer(layer);
-            workspace.toggle_layer_visibility(layer);
         }
         sync_weak_windows(&layer_main, &layer_timeline, &layer_model);
     });

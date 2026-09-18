@@ -49,6 +49,8 @@ pub(super) fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: 
         update_vec_model(&timeline.get_scene_tabs(), Vec::new());
         update_vec_model(&timeline.get_clips(), Vec::new());
         update_vec_model(&timeline.get_layers(), Vec::new());
+        timeline.set_playhead(0);
+        timeline.set_duration(0);
         return;
     };
     let missing_media = workspace

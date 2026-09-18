@@ -17,6 +17,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
+use std::sync::mpsc::TryRecvError;
 use std::sync::{Arc, mpsc};
 use std::thread;
 use std::thread::JoinHandle;
@@ -74,14 +75,24 @@ impl PackageOperationRuntime {
         })
     }
 
-    pub(super) fn poll(&mut self) -> Option<PackageOperationEvent> {
-        let event = self.receiver.try_recv().ok()?;
-        if matches!(event, PackageOperationEvent::Finished { .. })
-            && let Some(worker) = self.worker.take()
-        {
-            let _ = worker.join();
+    pub(super) fn poll(&mut self) -> Result<Option<PackageOperationEvent>, String> {
+        match self.receiver.try_recv() {
+            Ok(event) => {
+                if matches!(event, PackageOperationEvent::Finished { .. }) {
+                    // Detach the finished worker instead of joining it: this
+                    // runs on the UI timer, so blocking on the thread exit
+                    // would stall the interface. The terminal event has
+                    // already been consumed, so the thread can exit alone.
+                    drop(self.worker.take());
+                }
+                Ok(Some(event))
+            }
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Disconnected) => {
+                drop(self.worker.take());
+                Err("Package operation worker disconnected".to_owned())
+            }
         }
-        Some(event)
     }
 }
 
@@ -126,12 +137,22 @@ impl AudioPluginDiscoveryRuntime {
         })
     }
 
-    pub(super) fn poll(&mut self) -> Option<AudioPluginScanOutcome> {
-        let result = self.receiver.try_recv().ok()?;
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
+    pub(super) fn poll(&mut self) -> Result<Option<AudioPluginScanOutcome>, String> {
+        match self.receiver.try_recv() {
+            Ok(result) => {
+                // Detach the finished worker instead of joining it: this runs
+                // on the UI timer, so blocking on the thread exit would stall
+                // the interface. The result has already been consumed, so the
+                // thread can exit alone.
+                drop(self.worker.take());
+                Ok(Some(result))
+            }
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Disconnected) => {
+                drop(self.worker.take());
+                Err("Audio plugin discovery worker disconnected".to_owned())
+            }
         }
-        Some(result)
     }
 }
 

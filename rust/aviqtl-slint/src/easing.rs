@@ -150,8 +150,10 @@ pub(super) fn easing_catalog_rows(
             .iter()
             .filter_map(|name| {
                 let index = names.iter().position(|candidate| candidate == name)?;
-                (query.is_empty() || normalized_easing_filter(name).contains(&query))
-                    .then_some((index, *name))
+                (query.is_empty()
+                    || normalized_easing_filter(name).contains(&query)
+                    || normalized_easing_filter(&easing_label(name)).contains(&query))
+                .then_some((index, *name))
             })
             .collect::<Vec<_>>();
         if matching.is_empty() {
@@ -209,19 +211,36 @@ pub(super) fn refresh_easing_translations(window: &EasingConfigWindow) {
         .map(|name| SharedString::from(easing_label(name.as_str())))
         .collect();
     update_vec_model(&window.get_easing_labels(), labels);
+    // Rebuild through the same filtering logic as the search query: labels are
+    // language-sensitive, so rows filtered under the previous language may no
+    // longer match (and vice versa). Relabeling in place would keep stale rows.
     let rows = window.get_easing_catalog_rows();
-    let translated_rows = (0..rows.row_count())
+    let previous = (0..rows.row_count())
         .filter_map(|index| rows.row_data(index))
-        .map(|mut row| {
-            row.label = if row.header {
-                SharedString::from(easing_category_label(row.name.as_str()))
-            } else {
-                SharedString::from(easing_label(row.name.as_str()))
-            };
-            row
-        })
-        .collect();
-    update_vec_model(&rows, translated_rows);
+        .collect::<Vec<_>>();
+    let fallback_curve = BezierCurve::default();
+    let rebuilt = easing_catalog_rows(
+        window.get_easing_filter().as_str(),
+        window.get_step_frames(),
+        window.get_elastic_amplitude(),
+        window.get_elastic_period(),
+        fallback_curve.points(),
+    )
+    .into_iter()
+    .map(|mut row| {
+        // Previews for the live custom curve live outside the window; keep the
+        // existing thumbnail for surviving rows instead of resetting it.
+        if !row.header
+            && let Some(existing) = previous
+                .iter()
+                .find(|other| !other.header && other.easing_index == row.easing_index)
+        {
+            row.preview_path = existing.preview_path.clone();
+        }
+        row
+    })
+    .collect();
+    update_vec_model(&rows, rebuilt);
 }
 
 pub(super) fn sync_easing_window(

@@ -61,6 +61,11 @@ export component ExportWindow inherits Window {
     callback dismiss-cancel();
     callback dismiss-result();
 
+    changed timeline-duration => {
+        root.start-frame = min(max(root.start-frame, 0), max(root.timeline-duration - 1, 0));
+        root.end-frame = root.timeline-duration <= 0 ? 0 : min(max(root.end-frame, root.start-frame + 1), root.timeline-duration);
+    }
+
     ScrollView {
         VerticalLayout {
             padding: 16px;
@@ -196,7 +201,7 @@ export component ExportWindow inherits Window {
                     SpinBox {
                         value <=> root.end-frame;
                         minimum: root.start-frame + 1;
-                        maximum: 999999;
+                        maximum: max(root.timeline-duration, root.start-frame + 1);
                         enabled: !root.full-range;
                     }
                     Text {

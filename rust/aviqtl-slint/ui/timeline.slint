@@ -101,6 +101,8 @@ export component TimelineWindow inherits Window {
         ) + 3,
         512
     );
+    private property <int> ruler-tick-count: min(floor(root.duration / 60) + 1, 2048);
+    private property <float> ruler-tick-interval: 1.0 * root.duration / max(root.ruler-tick-count - 1, 1);
     callback timeline-action(string, int, int);
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
@@ -467,15 +469,14 @@ export component TimelineWindow inherits Window {
                 viewport-height: self.visible-height;
                 viewport-x <=> root.shared-viewport-x;
                 mouse-drag-pan-enabled: false;
-                for tick in 61: Rectangle {
-                    visible: tick * 60 <= root.duration;
-                    x: tick * 60 * root.pixels-per-frame * 1px;
+                for tick in root.ruler-tick-count: Rectangle {
+                    x: tick * root.ruler-tick-interval * root.pixels-per-frame * 1px;
                     width: 1px;
                     height: 100%;
                     background: AppTheme.subtle-border;
                     Text {
                         x: 4px;
-                        text: tick * 60;
+                        text: round(tick * root.ruler-tick-interval);
                         color: AppTheme.foreground;
                         font-family: "Monospace";
                         font-size: 0.78rem;
