@@ -983,12 +983,13 @@ export component TimelineWindow inherits Window {
         height: 1px;
         Menu {
             if root.context-target-kind == 0 : MenuItem {
-                title: @tr("Browse object catalog...");
-                activated => { root.browse-context-catalog(); }
-            }
-            if root.context-target-kind == 0 : MenuItem {
                 title: @tr("Search catalog...");
                 activated => { root.open-context-search(); }
+            }
+            if root.context-target-kind == 0 : MenuSeparator { }
+            if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Browse object catalog...");
+                activated => { root.browse-context-catalog(); }
             }
             if root.context-target-kind == 0 : Menu {
                 title: @tr("Add Object");
@@ -1027,6 +1028,11 @@ export component TimelineWindow inherits Window {
                 activated => { root.activate-context-command("system-settings"); }
             }
             if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Search catalog...");
+                activated => { root.open-context-search(); }
+            }
+            if root.context-target-kind > 0 : MenuSeparator { }
+            if root.context-target-kind > 0 : MenuItem {
                 title: @tr("Delete");
                 activated => { root.activate-context-command("delete"); }
             }
@@ -1047,6 +1053,8 @@ export component TimelineWindow inherits Window {
                 title: @tr("Copy");
                 activated => { root.activate-context-command("copy"); }
             }
+            // Qt shows the clipping and catalog actions for visual clips only
+            // (TimelineView.qml:1205); audio clips offer plugins instead.
             if root.context-target-kind == 1 : MenuSeparator { }
             if root.context-target-kind == 1 : MenuItem {
                 title: @tr("Clip by Upper Object");
@@ -1054,11 +1062,8 @@ export component TimelineWindow inherits Window {
                 checked: root.context-clip-by-upper-object;
                 activated => { root.activate-context-command("clipping"); }
             }
-            if root.context-target-kind > 0 : MenuItem {
-                title: @tr("Search catalog...");
-                activated => { root.open-context-search(); }
-            }
-            if root.context-target-kind > 0 : MenuItem {
+            if root.context-target-kind == 1 : MenuSeparator { }
+            if root.context-target-kind == 1 : MenuItem {
                 title: @tr("Browse effect catalog...");
                 activated => { root.browse-context-catalog(); }
             }
