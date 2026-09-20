@@ -63,11 +63,17 @@ msgstr "追加"
 msgid "Add Audio Plugin"
 msgstr "オーディオプラグインを追加"
 
+msgid "Add Effect"
+msgstr "エフェクトを追加"
+
 msgid "Add Effect  ›"
 msgstr "エフェクトを追加  ›"
 
 msgid "Add Filter Effect"
 msgstr "フィルタ効果を追加"
+
+msgid "Add Object"
+msgstr "オブジェクトを追加"
 
 msgid "Add Object  ›"
 msgstr "オブジェクトを追加  ›"
@@ -99,6 +105,9 @@ msgstr "適用"
 msgid "Audio"
 msgstr "音声"
 
+msgid "Audio Level"
+msgstr "メーター"
+
 msgid "Audio Object / Plugin Settings"
 msgstr "音声オブジェクト / プラグイン設定"
 
@@ -110,6 +119,9 @@ msgstr "音声と進行表示"
 
 msgid "Audio bitrate"
 msgstr "音声ビットレート"
+
+msgid "Audio unavailable"
+msgstr "音声を利用できません"
 
 msgid "Auto"
 msgstr "自動"
@@ -831,6 +843,9 @@ msgstr "ルーラーの高さ"
 msgid "Sample 123"
 msgstr "サンプル Sample 123"
 
+msgid "Search catalog..."
+msgstr "カタログを検索..."
+
 msgid "Sample Rate:"
 msgstr "サンプリングレート:"
 
@@ -1016,6 +1031,9 @@ msgstr "トラックの高さ"
 
 msgid "Type"
 msgstr "種類"
+
+msgid "Type to search the catalog"
+msgstr "入力してカタログを検索"
 
 msgid "Undo"
 msgstr "元に戻す"
