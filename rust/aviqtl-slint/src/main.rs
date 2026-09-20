@@ -222,9 +222,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         ObjectCatalogMenuCategoryData,
     >::default()));
     timeline.set_context_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
-    timeline.set_context_catalog_categories(ModelRc::new(VecModel::<
-        ObjectCatalogMenuCategoryData,
-    >::default()));
+    timeline.set_context_catalog_categories(ModelRc::new(
+        VecModel::<ObjectCatalogMenuCategoryData>::default(),
+    ));
     initialize_timeline_object_catalog(&timeline, &effect_catalog.borrow());
     object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
     object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));

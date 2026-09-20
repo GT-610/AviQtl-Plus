@@ -274,28 +274,18 @@ fn context_effect_menu_groups_into_qt_category_submenus() {
     // Qt's buildEffectMenu nests one submenu per category; the Slint port used to
     // flatten the same items into a single list with slash-prefixed labels.
     let (catalog, _) = EffectCatalog::load();
-    let categories = timeline_context_catalog_categories(
-        &catalog,
-        &AudioPluginCatalog::default(),
-        1,
-    );
+    let categories =
+        timeline_context_catalog_categories(&catalog, &AudioPluginCatalog::default(), 1);
     assert!(!categories.is_empty(), "effect categories exist");
     let total: usize = categories.iter().map(|group| group.items.row_count()).sum();
-    let flat = timeline_context_catalog_items(
-        &catalog,
-        &AudioPluginCatalog::default(),
-        "",
-        1,
-    );
+    let flat = timeline_context_catalog_items(&catalog, &AudioPluginCatalog::default(), "", 1);
     assert_eq!(
         total,
         flat.len(),
         "category groups partition the flat catalog"
     );
     assert!(
-        categories
-            .iter()
-            .all(|group| group.items.row_count() > 0),
+        categories.iter().all(|group| group.items.row_count() > 0),
         "no empty submenu is emitted"
     );
 
@@ -305,12 +295,14 @@ fn context_effect_menu_groups_into_qt_category_submenus() {
         &AudioPluginCatalog::default(),
         2,
     );
-    assert!(audio.is_empty(), "no plugins are discovered in a clean scan");
+    assert!(
+        audio.is_empty(),
+        "no plugins are discovered in a clean scan"
+    );
 
     // The timeline-background menu keeps its own object categories untouched.
     assert!(
-        timeline_context_catalog_categories(&catalog, &AudioPluginCatalog::default(), 0)
-            .is_empty(),
+        timeline_context_catalog_categories(&catalog, &AudioPluginCatalog::default(), 0).is_empty(),
         "object insertion stays on the nested object model"
     );
 }

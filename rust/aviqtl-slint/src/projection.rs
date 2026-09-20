@@ -173,7 +173,8 @@ pub(super) fn sync_transport(
     main: &MainWindow,
     timeline: &TimelineWindow,
     model: &ApplicationModel,
-) {    let Some(workspace) = model.current_workspace() else {
+) {
+    let Some(workspace) = model.current_workspace() else {
         return;
     };
     let duration = workspace.timeline_duration();
