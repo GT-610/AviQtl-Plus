@@ -1879,6 +1879,20 @@ pub(super) fn install_callbacks(
         sync_weak_windows(&layer_main, &layer_timeline, &layer_model);
     });
 
+    let layer_visibility_model = model.clone();
+    let layer_visibility_main = main.as_weak();
+    let layer_visibility_timeline = timeline.as_weak();
+    timeline.on_layer_visibility_toggled(move |layer| {
+        if let Some(workspace) = layer_visibility_model.borrow_mut().current_workspace_mut() {
+            workspace.toggle_layer_visibility(layer);
+        }
+        sync_weak_windows(
+            &layer_visibility_main,
+            &layer_visibility_timeline,
+            &layer_visibility_model,
+        );
+    });
+
     let layer_command_model = model.clone();
     let layer_command_main = main.as_weak();
     let layer_command_timeline = timeline.as_weak();

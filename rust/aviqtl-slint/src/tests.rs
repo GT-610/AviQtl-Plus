@@ -811,3 +811,62 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
     assert!(!markers.row_data(1).unwrap().draggable);
     assert!(!markers.row_data(2).unwrap().removable);
 }
+
+#[test]
+fn layer_header_click_toggles_visibility_and_selects_like_qt() {
+    // Qt's LayerHeader.qml:95 sets visibility and selectedLayer on one left click.
+    // The Slint port exposes these as two separate callbacks so an accessibility
+    // activation can select without mutating visibility.
+    let mut model = ApplicationModel::default();
+    model.add_project_session(
+        ProjectSession::from_json(
+            br#"{"version":3,"settings":{"width":640,"height":360,"fps":60,"sampleRate":48000},
+                "scenes":[{"id":1,"name":"Root","duration":100}],
+                "clips":[{"id":1,"sceneId":1,"type":"video","start":0,"duration":50,"layer":0}]}"#,
+        )
+        .expect("validation project parses"),
+    );
+    let Some(workspace) = model.current_workspace_mut() else {
+        panic!("project tab exists");
+    };
+    assert!(
+        !workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .contains(&0),
+        "layer zero starts visible"
+    );
+
+    // One header click hides the layer; a second restores it.
+    assert!(workspace.toggle_layer_visibility(0));
+    assert!(
+        workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .contains(&0),
+        "first click hides the layer"
+    );
+    assert!(workspace.toggle_layer_visibility(0));
+    assert!(
+        !workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .contains(&0),
+        "second click shows the layer again"
+    );
+
+    // Selection is independent so an accessibility activation can select only.
+    workspace.select_layer(3);
+    assert_eq!(workspace.selected_layer(), 3);
+    assert!(
+        workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .is_empty(),
+        "selecting never mutates visibility"
+    );
+}

@@ -120,6 +120,7 @@ export component TimelineWindow inherits Window {
     callback clip-command(string, int, int, int);
     callback clip-drag-finished(string, int, float, float, bool);
     callback layer-activated(int);
+    callback layer-visibility-toggled(int);
     callback layer-command(string, int);
     callback insert-layers(int, int, bool);
     callback shift-layers(int, int, int);
@@ -585,6 +586,7 @@ export component TimelineWindow inherits Window {
                     height: root.timeline-track-height * 1px;
                     layer: layer;
                     activate(layer-index) => { root.layer-activated(layer-index); }
+                    visibility-toggled(layer-index) => { root.layer-visibility-toggled(layer-index); }
                     command(action, layer-index) => {
                         if action == "insert-many" {
                             root.insert-layers-target = layer-index;
