@@ -11,6 +11,7 @@
 /.build_tmp/
 /dist/
 /rust/target/
+/rust/target-*/
 
 # Exports
 /project_context.json
