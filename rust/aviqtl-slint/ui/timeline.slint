@@ -76,6 +76,7 @@ export component TimelineWindow inherits Window {
     private property <bool> context-clip-by-upper-object: false;
     private property <string> context-search-query: "";
     private property <bool> context-search-visible: false;
+    in-out property <int> context-search-selected-index: -1;
     private property <length> context-popup-x: 0px;
     private property <length> context-popup-y: 0px;
     private property <bool> insert-layers-visible: false;
@@ -109,6 +110,7 @@ export component TimelineWindow inherits Window {
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
     callback filter-context-catalog(string, int);
+    callback move-context-search-selection(int) -> int;
     callback add-catalog-object(string, int, int) -> bool;
     callback show-object-settings();
     callback show-scene-settings();
@@ -233,6 +235,7 @@ export component TimelineWindow inherits Window {
 
     function open-context-search() {
         root.context-search-query = "";
+        root.context-search-selected-index = -1;
         root.filter-context-catalog("", root.context-target-kind);
         root.context-search-visible = true;
     }
@@ -240,6 +243,29 @@ export component TimelineWindow inherits Window {
     function close-context-search() {
         root.context-search-visible = false;
         root.context-search-query = "";
+        root.context-search-selected-index = -1;
+    }
+
+    // Move the highlighted result. The index rule lives in Rust so it stays testable.
+    function move-search-selection(step: int) {
+        root.context-search-selected-index = root.move-context-search-selection(step);
+    }
+
+    function activate-context-search-selection() {
+        let count = root.context-catalog-items.length;
+        let index = root.context-search-selected-index;
+        // With nothing highlighted, Enter accepts a lone match, matching the
+        // previous single-result shortcut; otherwise it activates the highlight.
+        if index < 0 {
+            if count != 1 {
+                return;
+            }
+            root.activate-context-catalog-item(root.context-catalog-items[0].id);
+            root.close-context-search();
+            return;
+        }
+        root.activate-context-catalog-item(root.context-catalog-items[index].id);
+        root.close-context-search();
     }
 
     function activate-context-catalog-item(id: string) {
@@ -1103,7 +1129,19 @@ export component TimelineWindow inherits Window {
             if event.text == Key.Escape {
                 root.close-context-search();
                 accept
+            } else if event.text == Key.DownArrow {
+                root.move-search-selection(1);
+                accept
+            } else if event.text == Key.UpArrow {
+                root.move-search-selection(-1);
+                accept
+            } else if event.text == Key.Return {
+                root.activate-context-search-selection();
+                accept
             } else {
+                // Space is deliberately not captured: this handler runs before the
+                // focused search field receives the key, so consuming it would make
+                // multi-word queries such as "color key" impossible to type.
                 reject
             }
         }
@@ -1132,13 +1170,12 @@ export component TimelineWindow inherits Window {
                 context-search := LineEdit {
                     text <=> root.context-search-query;
                     placeholder-text: @tr("Search effects/objects...");
-                    edited(value) => { root.filter-context-catalog(value, root.context-target-kind); }
-                    accepted(value) => {
-                        if root.context-catalog-items.length == 1 {
-                            root.activate-context-catalog-item(root.context-catalog-items[0].id);
-                            root.close-context-search();
-                        }
+                    edited(value) => {
+                        // A fresh result set invalidates the previous highlight.
+                        root.context-search-selected-index = -1;
+                        root.filter-context-catalog(value, root.context-target-kind);
                     }
+                    accepted(value) => { root.activate-context-search-selection(); }
                 }
                 ScrollView {
                     vertical-stretch: 1;
@@ -1161,9 +1198,11 @@ export component TimelineWindow inherits Window {
                             horizontal-alignment: center;
                             vertical-alignment: center;
                         }
-                        for item in root.context-catalog-items : Rectangle {
+                        for item[index] in root.context-catalog-items : Rectangle {
                             height: 30px;
-                            background: context-item-touch.has-hover ? AppTheme.hover-background : transparent;
+                            background: index == root.context-search-selected-index
+                                ? AppTheme.selection-background
+                                : (context-item-touch.has-hover ? AppTheme.hover-background : transparent);
                             border-radius: AppTheme.control-radius;
                             animate background { duration: 120ms; }
                             HorizontalLayout {
@@ -1175,12 +1214,29 @@ export component TimelineWindow inherits Window {
                                     vertical-alignment: center;
                                     overflow: elide;
                                 }
-                                context-item-touch := TouchArea {
-                                    mouse-cursor: pointer;
-                                    clicked => {
-                                        root.activate-context-catalog-item(item.id);
-                                        root.close-context-search();
-                                    }
+                            }
+                            // Cover the whole row so the entire result is clickable,
+                            // and give it keyboard/assistive activation to match the
+                            // highlight the arrow keys move.
+                            context-item-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                accessible-role: list-item;
+                                accessible-id: "context-catalog-" + item.id;
+                                accessible-label: item.name;
+                                accessible-description: item.categories == "" ? item.id : item.categories;
+                                accessible-item-selectable: true;
+                                accessible-item-selected: index == root.context-search-selected-index;
+                                accessible-item-index: index;
+                                accessible-item-count: root.context-catalog-items.length;
+                                accessible-action-default => {
+                                    root.context-search-selected-index = index;
+                                    root.activate-context-catalog-item(item.id);
+                                    root.close-context-search();
+                                }
+                                clicked => {
+                                    root.context-search-selected-index = index;
+                                    root.activate-context-catalog-item(item.id);
+                                    root.close-context-search();
                                 }
                             }
                         }

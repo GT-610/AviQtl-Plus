@@ -712,6 +712,24 @@ pub(super) fn timeline_context_catalog_categories(
         .collect()
 }
 
+/// Resolve the highlighted result after an Up/Down press in the context-menu search.
+///
+/// `selected` is the current highlight, `-1` when nothing is highlighted yet.
+/// A first press enters the list from the end the movement heads towards, and
+/// every result clamps at both ends. An empty result set clears the highlight.
+pub(super) fn moved_context_search_selection(selected: i32, count: usize, step: i32) -> i32 {
+    if count == 0 {
+        return -1;
+    }
+    let last = count as i32 - 1;
+    let start = if selected < 0 {
+        if step > 0 { -1 } else { count as i32 }
+    } else {
+        selected
+    };
+    (start + step).clamp(0, last)
+}
+
 pub(super) fn timeline_context_catalog_items(
     effect_catalog: &EffectCatalog,
     audio_catalog: &AudioPluginCatalog,

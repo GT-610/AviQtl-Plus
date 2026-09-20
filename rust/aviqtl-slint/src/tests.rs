@@ -854,6 +854,26 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
 }
 
 #[test]
+fn context_search_arrow_keys_clamp_and_enter_from_both_ends() {
+    use crate::object_settings::moved_context_search_selection as moved;
+    // Nothing highlighted: Down enters at the first result, Up at the last.
+    assert_eq!(moved(-1, 3, 1), 0);
+    assert_eq!(moved(-1, 3, -1), 2);
+    // Movement clamps at both ends instead of wrapping past the list.
+    assert_eq!(moved(2, 3, 1), 2);
+    assert_eq!(moved(0, 3, -1), 0);
+    // Ordinary steps move by one.
+    assert_eq!(moved(0, 3, 1), 1);
+    assert_eq!(moved(2, 3, -1), 1);
+    // A single result is reachable and stayable from either direction.
+    assert_eq!(moved(-1, 1, 1), 0);
+    assert_eq!(moved(-1, 1, -1), 0);
+    // An empty result set clears the highlight.
+    assert_eq!(moved(-1, 0, 1), -1);
+    assert_eq!(moved(4, 0, -1), -1);
+}
+
+#[test]
 fn speed_multiplier_matches_the_qt_spinbox_text() {
     // Qt shows the transport speed as a multiplier with one decimal
     // (MainWindow.qml:1143-1145). Slint's SpinBox edits the percent value, so the
