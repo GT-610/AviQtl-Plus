@@ -26,6 +26,7 @@ export component TimelineWindow inherits Window {
     in property <[EffectCatalogItemData]> object-catalog-items;
     in property <[string]> object-catalog-categories;
     in property <[EffectCatalogItemData]> context-catalog-items;
+    in property <[ObjectCatalogMenuCategoryData]> context-catalog-categories;
     in property <[ObjectCatalogMenuCategoryData]> object-catalog-menu-categories;
     in property <int> duration: 3600;
     in property <int> playhead: 0;
@@ -1064,9 +1065,12 @@ export component TimelineWindow inherits Window {
             if root.context-target-kind > 0 : MenuSeparator { }
             if root.context-target-kind > 0 : Menu {
                 title: @tr("Add Effect");
-                for item in root.context-catalog-items : MenuItem {
-                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
-                    activated => { root.activate-context-catalog-item(item.id); }
+                for category in root.context-catalog-categories : Menu {
+                    title: category.name;
+                    for item in category.items : MenuItem {
+                        title: item.categories == "" ? item.name : item.categories + " / " + item.name;
+                        activated => { root.activate-context-catalog-item(item.id); }
+                    }
                 }
             }
         }

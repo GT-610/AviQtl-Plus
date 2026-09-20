@@ -11,7 +11,9 @@ use crate::export::{export_workspace_for_frame, selected_codec, selected_codec_i
 use crate::lifecycle::{RecentProject, merge_recent_project, recent_projects_from_value};
 use crate::localization::{CURRENT_UI_LANGUAGE, UiLanguage};
 use crate::localization::{localized_effect_metadata, ui_language_from_locale};
-use crate::object_settings::{object_settings_rows, timeline_context_catalog_items};
+use crate::object_settings::{
+    object_settings_rows, timeline_context_catalog_categories, timeline_context_catalog_items,
+};
 use crate::playback::{
     audio_queue_lead_frames, samples_for_timeline_frame, scene_fps, stereo_levels,
 };
@@ -264,6 +266,52 @@ fn searchable_context_catalog_preserves_qt_category_paths() {
         .find(|item| item.id.as_str() == "clipping")
         .expect("clipping effect remains searchable by technical id");
     assert!(clipping.categories.as_str().contains("Transform/Crop"));
+}
+
+#[test]
+fn context_effect_menu_groups_into_qt_category_submenus() {
+    // Qt's buildEffectMenu nests one submenu per category; the Slint port used to
+    // flatten the same items into a single list with slash-prefixed labels.
+    let (catalog, _) = EffectCatalog::load();
+    let categories = timeline_context_catalog_categories(
+        &catalog,
+        &AudioPluginCatalog::default(),
+        1,
+    );
+    assert!(!categories.is_empty(), "effect categories exist");
+    let total: usize = categories.iter().map(|group| group.items.row_count()).sum();
+    let flat = timeline_context_catalog_items(
+        &catalog,
+        &AudioPluginCatalog::default(),
+        "",
+        1,
+    );
+    assert_eq!(
+        total,
+        flat.len(),
+        "category groups partition the flat catalog"
+    );
+    assert!(
+        categories
+            .iter()
+            .all(|group| group.items.row_count() > 0),
+        "no empty submenu is emitted"
+    );
+
+    // Audio plugins group by their host category the way buildAudioPluginMenu does.
+    let audio = timeline_context_catalog_categories(
+        &EffectCatalog::load().0,
+        &AudioPluginCatalog::default(),
+        2,
+    );
+    assert!(audio.is_empty(), "no plugins are discovered in a clean scan");
+
+    // The timeline-background menu keeps its own object categories untouched.
+    assert!(
+        timeline_context_catalog_categories(&catalog, &AudioPluginCatalog::default(), 0)
+            .is_empty(),
+        "object insertion stays on the nested object model"
+    );
 }
 
 #[test]

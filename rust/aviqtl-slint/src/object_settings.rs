@@ -639,6 +639,77 @@ pub(super) fn sync_timeline_context_catalog(
         &window.get_context_catalog_items(),
         timeline_context_catalog_items(effect_catalog, audio_catalog, query, target_kind),
     );
+    update_vec_model(
+        &window.get_context_catalog_categories(),
+        timeline_context_catalog_categories(effect_catalog, audio_catalog, target_kind),
+    );
+}
+
+/// Group the unfiltered context catalog into Qt's category submenus.
+///
+/// Qt builds one submenu per category for effects (buildEffectMenu) and for audio
+/// plugins (buildAudioPluginMenu), so insertion walks a tree instead of one flat
+/// list. Only populated when the search query is empty; the search popup projects
+/// its results from the flat model.
+pub(super) fn timeline_context_catalog_categories(
+    effect_catalog: &EffectCatalog,
+    audio_catalog: &AudioPluginCatalog,
+    target_kind: i32,
+) -> Vec<ObjectCatalogMenuCategoryData> {
+    if target_kind == 2 {
+        let mut categories: Vec<(String, Vec<EffectCatalogItemData>)> = Vec::new();
+        for plugin in audio_catalog.entries("") {
+            let entry = EffectCatalogItemData {
+                header: false,
+                id: SharedString::from(plugin.id),
+                name: SharedString::from(plugin.name),
+                categories: SharedString::from(plugin.category.clone()),
+            };
+            match categories
+                .iter_mut()
+                .find(|(name, _)| *name == plugin.category)
+            {
+                Some((_, items)) => items.push(entry),
+                None => categories.push((plugin.category, vec![entry])),
+            }
+        }
+        return categories
+            .into_iter()
+            .map(|(name, items)| ObjectCatalogMenuCategoryData {
+                name: SharedString::from(name),
+                items: ModelRc::new(VecModel::from(items)),
+            })
+            .collect();
+    }
+    if target_kind != 1 {
+        return Vec::new();
+    }
+    let mut categories: Vec<(String, Vec<EffectCatalogItemData>)> = Vec::new();
+    for metadata in effect_catalog.query("effect", "", "") {
+        let category = metadata
+            .categories
+            .first()
+            .map(String::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let entry = EffectCatalogItemData {
+            header: false,
+            id: SharedString::from(metadata.id.clone()),
+            name: SharedString::from(localized_effect_metadata(&metadata.name).into_owned()),
+            categories: SharedString::from(localized_effect_categories(&metadata.categories)),
+        };
+        match categories.iter_mut().find(|(name, _)| *name == category) {
+            Some((_, items)) => items.push(entry),
+            None => categories.push((category, vec![entry])),
+        }
+    }
+    categories
+        .into_iter()
+        .map(|(name, items)| ObjectCatalogMenuCategoryData {
+            name: SharedString::from(localized_effect_metadata(&name).into_owned()),
+            items: ModelRc::new(VecModel::from(items)),
+        })
+        .collect()
 }
 
 pub(super) fn timeline_context_catalog_items(
