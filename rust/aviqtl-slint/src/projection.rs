@@ -173,8 +173,7 @@ pub(super) fn sync_transport(
     main: &MainWindow,
     timeline: &TimelineWindow,
     model: &ApplicationModel,
-) {
-    let Some(workspace) = model.current_workspace() else {
+) {    let Some(workspace) = model.current_workspace() else {
         return;
     };
     let duration = workspace.timeline_duration();
@@ -187,6 +186,10 @@ pub(super) fn sync_transport(
             .clamp(10.0, 400.0) as i32,
     );
     main.set_status_text(SharedString::from(workspace.status()));
+    main.set_frame_counter_text(SharedString::from(frame_counter_text(
+        workspace.playhead(),
+        duration,
+    )));
     timeline.set_playhead(workspace.playhead());
     timeline.set_duration(workspace.timeline_view_duration());
     timeline.set_selected_layer(workspace.selected_layer());
@@ -199,4 +202,16 @@ pub(super) fn sync_transport(
         timeline.set_grid_interval(scene.grid_interval.max(1));
         timeline.set_grid_subdivision(scene.grid_subdivision.max(1));
     }
+}
+
+/// Format the transport frame counter the way Qt does.
+///
+/// Qt pads the current frame to the total's digit count and lets the label size
+/// itself, so the counter never loses leading digits and keeps a stable width
+/// while the numbers change (`MainWindow.qml:1035-1049`).
+pub(super) fn frame_counter_text(playhead: i32, duration: i32) -> String {
+    let total = duration.max(0);
+    let current = playhead.max(0);
+    let width = total.to_string().len();
+    format!("{current:0>width$} / {total}")
 }

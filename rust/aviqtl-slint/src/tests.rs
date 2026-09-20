@@ -17,6 +17,7 @@ use crate::object_settings::{
 use crate::playback::{
     audio_queue_lead_frames, samples_for_timeline_frame, scene_fps, stereo_levels,
 };
+use crate::projection::frame_counter_text;
 use crate::settings::{
     SYSTEM_AUDIO_BLOCK_SIZES, SYSTEM_EXPORT_AUDIO_CODECS, SYSTEM_EXPORT_VIDEO_CODECS,
     SYSTEM_PLUGIN_FORMATS, SYSTEM_PREVIEW_RENDER_SCALES, SYSTEM_SHORTCUT_ROWS, SYSTEM_THEME_VALUES,
@@ -858,6 +859,19 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
     assert!(markers.row_data(1).unwrap().removable);
     assert!(!markers.row_data(1).unwrap().draggable);
     assert!(!markers.row_data(2).unwrap().removable);
+}
+
+#[test]
+fn frame_counter_zero_pads_like_qt() {
+    // Qt pads the current frame to the total's digit count
+    // (MainWindow.qml:1041) so the transport label keeps a stable width.
+    assert_eq!(frame_counter_text(0, 3600), "0000 / 3600");
+    assert_eq!(frame_counter_text(42, 3600), "0042 / 3600");
+    assert_eq!(frame_counter_text(3600, 3600), "3600 / 3600");
+    assert_eq!(frame_counter_text(7, 90), "07 / 90");
+    assert_eq!(frame_counter_text(5, 0), "5 / 0");
+    // A playhead past the duration never renders a negative number.
+    assert_eq!(frame_counter_text(-3, 100), "000 / 100");
 }
 
 #[test]

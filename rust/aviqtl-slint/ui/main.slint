@@ -22,6 +22,7 @@ export component MainWindow inherits Window {
     in property <bool> playing: false;
     in-out property <int> playback-speed-percent: 100;
     in property <string> status-text: "Ready";
+    in property <string> frame-counter-text: "0 / 0";
     in property <float> audio-peak-left: 0;
     in property <float> audio-peak-right: 0;
     in property <float> audio-rms-left: 0;
@@ -167,9 +168,13 @@ export component MainWindow inherits Window {
                     changed => { root.seek(self.value); }
                 }
                 Text {
-                    text: round(root.playhead) + " / " + round(root.duration);
-                    width: 40px;
+                    // Qt zero-pads the current frame to the total's digit count and
+                    // lets the label size itself, so the counter never clips and the
+                    // column keeps a stable width while the numbers change
+                    // (MainWindow.qml:1035-1049).
+                    text: root.frame-counter-text;
                     font-family: "Monospace";
+                    font-size: 12px;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
