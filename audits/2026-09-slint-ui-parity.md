@@ -205,15 +205,20 @@ These four have no entry, so they render in English under Chinese and Japanese:
 | M1 audio-clip browse entry | **Fixed** | `93ddc5dc` |
 | M2 clip menu separators | **Fixed** | `93ddc5dc` |
 | M3 frame counter clipping | **Fixed** | `68d59018` |
-| M4 speed unit (`100 %` vs `1.0x`) | **Open, accepted** | Within the gate's allowance that presentation may differ; a Slint `SpinBox` has no text formatter. |
-| M5 menu icons / shortcut labels | **Open, accepted** | Slint's `MenuItem` exposes neither; needs a custom menu surface. |
-| M6 tab strips cannot scroll | **Open** | Not yet addressed. |
+| M4 speed unit (`100 %` vs `1.0x`) | **Fixed** | Same commit — multiplier projected beside the native percent box |
+| M5 menu icons / shortcut labels | **Open, accepted** | Slint's `MenuItem` exposes neither `icon` nor `shortcut`; matching Qt needs a custom menu surface replacing std-widgets. |
+| M6 tab strips cannot scroll | **Fixed** | Scroll-strip commit on this branch — both strips wrapped in a horizontal `ScrollView` with a pinned add button |
 | M7 four untranslated strings | **Fixed** | `23099b90` — both catalogs now cover all 372 UI strings |
 | Doc drift in `QT_UI_PARITY.md` | **Fixed** | `444f2a5a` |
 
 Verification after the fixes: `cargo fmt --all -- --check` clean,
-`cargo test --workspace` 396 passed / 7 ignored / 0 failed, and the release
+`cargo test --workspace` 397 passed / 7 ignored / 0 failed, and the release
 `--validate-gpu --frames 120` gate passes and prints `SLINT_WGPU_COMPATIBILITY`.
+
+Two findings remain open and are not defects in reach of this branch: the debug-only
+teardown crash sits inside Slint's winit/wgpu event loop (S4), and menu icons plus
+shortcut labels need a custom menu surface because Slint's `MenuItem` exposes
+neither (M5).
 
 ## Suggested order of work
 
@@ -223,4 +228,5 @@ Verification after the fixes: `cargo fmt --all -- --check` clean,
 4. ~~Fix the frame counter width (M3)~~ — done in `68d59018`.
 5. ~~Make the validation teardown explicit (S4)~~ — done in `b0a85b1e`. The residual debug
    crash is in Slint's winit/wgpu teardown; re-check it when the dependency is next updated.
-6. Remaining: tab-strip scrolling (M6). M4 and M5 are currently accepted presentation limits.
+6. Remaining: none actionable in this branch. M5 needs a custom menu surface, and S4's teardown
+   crash is in Slint itself; re-check both when the dependency is next updated.

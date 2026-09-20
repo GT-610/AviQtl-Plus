@@ -17,7 +17,7 @@ use crate::object_settings::{
 use crate::playback::{
     audio_queue_lead_frames, samples_for_timeline_frame, scene_fps, stereo_levels,
 };
-use crate::projection::frame_counter_text;
+use crate::projection::{frame_counter_text, speed_multiplier_text};
 use crate::settings::{
     SYSTEM_AUDIO_BLOCK_SIZES, SYSTEM_EXPORT_AUDIO_CODECS, SYSTEM_EXPORT_VIDEO_CODECS,
     SYSTEM_PLUGIN_FORMATS, SYSTEM_PREVIEW_RENDER_SCALES, SYSTEM_SHORTCUT_ROWS, SYSTEM_THEME_VALUES,
@@ -851,6 +851,17 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
     assert!(markers.row_data(1).unwrap().removable);
     assert!(!markers.row_data(1).unwrap().draggable);
     assert!(!markers.row_data(2).unwrap().removable);
+}
+
+#[test]
+fn speed_multiplier_matches_the_qt_spinbox_text() {
+    // Qt shows the transport speed as a multiplier with one decimal
+    // (MainWindow.qml:1143-1145). Slint's SpinBox edits the percent value, so the
+    // multiplier is projected beside it and must agree.
+    assert_eq!(speed_multiplier_text(100), "1.0x");
+    assert_eq!(speed_multiplier_text(10), "0.1x");
+    assert_eq!(speed_multiplier_text(400), "4.0x");
+    assert_eq!(speed_multiplier_text(150), "1.5x");
 }
 
 #[test]

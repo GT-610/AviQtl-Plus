@@ -21,6 +21,7 @@ export component MainWindow inherits Window {
     in property <float> duration: 3600;
     in property <bool> playing: false;
     in-out property <int> playback-speed-percent: 100;
+    in property <string> playback-speed-multiplier: "1.0x";
     in property <string> status-text: "Ready";
     in property <string> frame-counter-text: "0 / 0";
     in property <float> audio-peak-left: 0;
@@ -126,16 +127,28 @@ export component MainWindow inherits Window {
             background: AppTheme.raised-background;
             HorizontalLayout {
                 spacing: 0px;
-                accessible-role: tab-list;
-                accessible-label: @tr("Project");
-                for tab[index] in root.project-tabs: ProjectTab {
-                    label: tab.name + (tab.dirty ? " *" : "");
-                    selected: root.current-project == index;
-                    tab-height: root.project-tab-height * 1px;
-                    activate => { root.select-project(index); }
-                    close => { root.close-project(index); }
+                // Many open projects overflow the strip, so the tabs scroll
+                // horizontally while the add button stays pinned, as Qt does
+                // with its ScrollView plus trailing button (MainWindow.qml:827-929).
+                project-tab-scroll := ScrollView {
+                    horizontal-stretch: 1;
+                    height: 100%;
+                    viewport-width: max(project-tab-list.preferred-width, self.visible-width);
+                    viewport-height: self.visible-height;
+                    mouse-drag-pan-enabled: false;
+                    project-tab-list := HorizontalLayout {
+                        spacing: 0px;
+                        accessible-role: tab-list;
+                        accessible-label: @tr("Project");
+                        for tab[index] in root.project-tabs: ProjectTab {
+                            label: tab.name + (tab.dirty ? " *" : "");
+                            selected: root.current-project == index;
+                            tab-height: root.project-tab-height * 1px;
+                            activate => { root.select-project(index); }
+                            close => { root.close-project(index); }
+                        }
+                    }
                 }
-                Rectangle { horizontal-stretch: 1; }
                 TabAddButton { accessible-name: @tr("New Project"); clicked => { root.new-project(); } }
             }
         }
@@ -218,9 +231,18 @@ export component MainWindow inherits Window {
                         step-size: 10;
                         enabled: !root.playing;
                         accessible-label: @tr("Playback speed (percent)");
+                        accessible-description: root.playback-speed-multiplier;
                         edited(value) => { root.playback-speed-changed(value); }
                     }
-                    Text { text: "%"; vertical-alignment: center; }
+                    // Qt renders the box as a multiplier, e.g. "1.0x"
+                    // (MainWindow.qml:1143). Slint's SpinBox has no text formatter,
+                    // so the percent value stays native and the matching
+                    // multiplier is shown beside it.
+                    Text {
+                        text: root.playback-speed-multiplier;
+                        vertical-alignment: center;
+                        color: AppTheme.muted-foreground;
+                    }
                 }
             }
         }

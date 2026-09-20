@@ -181,11 +181,11 @@ pub(super) fn sync_transport(
     main.set_playhead(workspace.playhead() as f32);
     main.set_duration(duration as f32);
     main.set_playing(workspace.is_playing());
-    main.set_playback_speed_percent(
-        (workspace.playback_speed() * 100.0)
-            .round()
-            .clamp(10.0, 400.0) as i32,
-    );
+    let speed_percent = (workspace.playback_speed() * 100.0)
+        .round()
+        .clamp(10.0, 400.0) as i32;
+    main.set_playback_speed_percent(speed_percent);
+    main.set_playback_speed_multiplier(SharedString::from(speed_multiplier_text(speed_percent)));
     main.set_status_text(SharedString::from(workspace.status()));
     main.set_frame_counter_text(SharedString::from(frame_counter_text(
         workspace.playhead(),
@@ -203,6 +203,16 @@ pub(super) fn sync_transport(
         timeline.set_grid_interval(scene.grid_interval.max(1));
         timeline.set_grid_subdivision(scene.grid_subdivision.max(1));
     }
+}
+
+/// Format the playback speed the way Qt's SpinBox does.
+///
+/// Qt renders the transport speed as a multiplier with one decimal, e.g. `1.0x`
+/// (`MainWindow.qml:1143-1145`). Slint's `SpinBox` only edits an integer and has
+/// no text formatter, so the box keeps the percent value and this multiplier is
+/// projected alongside it.
+pub(super) fn speed_multiplier_text(percent: i32) -> String {
+    format!("{:.1}x", f64::from(percent) / 100.0)
 }
 
 /// Format the transport frame counter the way Qt does.

@@ -404,16 +404,28 @@ export component TimelineWindow inherits Window {
             background: AppTheme.raised-background;
             HorizontalLayout {
                 spacing: 0px;
-                accessible-role: tab-list;
-                accessible-label: @tr("Scene");
-                for scene in root.scene-tabs: SceneTab {
-                    scene: scene;
-                    height: root.timeline-header-height * 1px;
-                    activate(scene-id) => { root.scene-selected(scene-id); }
-                    settings(scene-id) => { root.scene-settings(scene-id); }
-                    close(scene-id) => { root.scene-closed(scene-id); }
+                // Many scenes overflow the strip, so the tabs scroll horizontally
+                // while the add button stays pinned, matching Qt's ScrollView plus
+                // trailing button (TimelineWindow.qml:129-251).
+                scene-tab-scroll := ScrollView {
+                    horizontal-stretch: 1;
+                    height: 100%;
+                    viewport-width: max(scene-tab-list.preferred-width, self.visible-width);
+                    viewport-height: self.visible-height;
+                    mouse-drag-pan-enabled: false;
+                    scene-tab-list := HorizontalLayout {
+                        spacing: 0px;
+                        accessible-role: tab-list;
+                        accessible-label: @tr("Scene");
+                        for scene in root.scene-tabs: SceneTab {
+                            scene: scene;
+                            height: root.timeline-header-height * 1px;
+                            activate(scene-id) => { root.scene-selected(scene-id); }
+                            settings(scene-id) => { root.scene-settings(scene-id); }
+                            close(scene-id) => { root.scene-closed(scene-id); }
+                        }
+                    }
                 }
-                Rectangle { horizontal-stretch: 1; }
                 TabAddButton { accessible-name: @tr("Create New Scene"); clicked => { root.show-scene-settings(); } }
             }
         }

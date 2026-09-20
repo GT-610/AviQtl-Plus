@@ -118,6 +118,12 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
   cancellation, and removal of partial outputs. Native modality, chooser behavior, close interception,
   and a user-observed output comparison remain in the deferred GUI suite.
 - Real project, scene, configured 1-512-layer, clip, selection, and transport models reach Slint.
+- The project and scene tab strips scroll horizontally once their tabs overflow, with the add button
+  pinned outside the scrolling area, matching Qt's `ScrollView` plus trailing button
+  (`MainWindow.qml:827-929`, `TimelineWindow.qml:129-251`).
+- The transport shows the playback speed as Qt's multiplier (`1.0x`) beside the native percent
+  box. Slint's `SpinBox` edits an integer and exposes no text formatter, so the percent value stays
+  the input and `speed_multiplier_text` projects the matching label.
 - The launcher reads and writes Qt's `recentProjects` setting, displays name, path, resolution, and
   frame rate, opens entries directly, deduplicates successful opens/saves, and enforces the persisted
   `recentProjectMaxCount`. New-project width, height, frame rate, and sample rate are validated before
