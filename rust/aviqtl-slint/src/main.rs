@@ -398,6 +398,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let rendered_ticks = Rc::new(Cell::new(0_u64));
+    let validation_finished = Rc::new(Cell::new(false));
     let timeline_waveforms = Rc::new(RefCell::new(TimelineWaveformRuntime::new()));
     let animation_timer = Timer::default();
     let animation_preview = preview.clone();
@@ -430,6 +431,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let animation_audio_playback = audio_playback;
     let animation_waveforms = timeline_waveforms;
     let timer_ticks = rendered_ticks.clone();
+    let validation_finished = validation_finished.clone();
     animation_timer.start(TimerMode::Repeated, Duration::from_millis(16), move || {
         let ticks = timer_ticks.get() + 1;
         timer_ticks.set(ticks);
@@ -674,6 +676,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             &animation_effect_catalog,
         );
         if validation_frames.is_some_and(|frames| ticks >= frames) {
+            // Finish the run once, on purpose. Ending it by hiding the last window
+            // made teardown depend on a window-count side effect.
+            if validation_finished.replace(true) {
+                return;
+            }
             if let Some(window) = animation_timeline.upgrade() {
                 let _ = window.hide();
             }
@@ -704,6 +711,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(window) = animation_main.upgrade() {
                 let _ = window.hide();
             }
+            let _ = slint::quit_event_loop();
         }
     });
 
