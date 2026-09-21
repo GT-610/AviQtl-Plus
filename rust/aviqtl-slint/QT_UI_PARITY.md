@@ -212,11 +212,12 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
   `LineEdit` feeds the same `filter-context-catalog` callback. Results project Rust-filtered
   object/effect/audio-plugin matches while typing, and each row is a full-width hit region carrying
   the list-item accessibility role. Up and Down move an index-backed highlight that clamps at both
-  ends and enters the list from whichever end the movement heads towards, Enter activates the
-  highlight (or a lone match when nothing is highlighted), and Escape or an outside click dismisses
-  it. Space stays with the focused field so multi-word queries remain typeable. The search entry
-  sits first in both menus, matching Qt's search field, which is item 0 above every command. Layer
-  and effect-stack context menus use `ContextMenuArea`.
+  ends and enters the list from whichever end the movement heads towards, and the result list scrolls
+  the minimum amount needed to keep that highlight visible, so a long result set always acts on a row
+  the user can see. Enter activates the highlight (or a lone match when nothing is highlighted), and
+  Escape or an outside click dismisses it. Space stays with the focused field so multi-word queries
+  remain typeable. The search entry sits first in both menus, matching Qt's search field, which is
+  item 0 above every command. Layer and effect-stack context menus use `ContextMenuArea`.
 - The clip context menu keeps Qt's selection rule and command order for Delete, Split, Duplicate,
   Cut, and Copy, followed by the visual-clip group Qt gates on `isAudioClip`: the checked
   upper-object clipping action, the effect-catalog browser, and the registry's ordered category
