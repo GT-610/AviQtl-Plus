@@ -118,6 +118,12 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
   cancellation, and removal of partial outputs. Native modality, chooser behavior, close interception,
   and a user-observed output comparison remain in the deferred GUI suite.
 - Real project, scene, configured 1-512-layer, clip, selection, and transport models reach Slint.
+- The project and scene tab strips scroll horizontally once their tabs overflow, with the add button
+  pinned outside the scrolling area, matching Qt's `ScrollView` plus trailing button
+  (`MainWindow.qml:827-929`, `TimelineWindow.qml:129-251`).
+- The transport shows the playback speed as Qt's multiplier (`1.0x`) beside the native percent
+  box. Slint's `SpinBox` edits an integer and exposes no text formatter, so the percent value stays
+  the input and `speed_multiplier_text` projects the matching label.
 - The launcher reads and writes Qt's `recentProjects` setting, displays name, path, resolution, and
   frame rate, opens entries directly, deduplicates successful opens/saves, and enforces the persisted
   `recentProjectMaxCount`. New-project width, height, frame rate, and sample rate are validated before
@@ -199,21 +205,30 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
   and maximized state. A hidden window that was never opened does not overwrite its saved geometry.
 - The Slint frontend uses native `rfd` open/save dialogs. Its default Linux backend is the Rust
   XDG portal path rather than GTK, so the chooser does not restore a Qt or GTK build dependency.
-- Timeline and clip mouse context menus use an accessible Slint `PopupWindow`, because Slint 1.17's
-  native `ContextMenuArea` accepts only menu entries and cannot contain Qt's inline search field.
-  The popup focuses the same search field immediately, swaps the command list for Rust-filtered
-  object/effect/audio-plugin results while typing, closes on Escape or an outside click, and keeps
-  the Qt command order. Layer and effect-stack context menus continue to use `ContextMenuArea`.
-- The clip context menu now keeps Qt's selection rule and command order for Delete, Split,
-  Duplicate, Cut, and Copy. Visual clips expose the checked upper-object clipping action, the
-  effect-catalog browser, and the registry's ordered category paths, including nested paths such as
-  `変形/クロップ`. Audio clips omit those visual-only actions and instead expose hostable plugins
-  in the same normalized category order as Qt, including the `Other` fallback. Direct menu
-  insertion reuses the object-settings commands, selection projection, status updates, and one-step
-  Undo. The three object-settings entry points schedule a redraw after showing the previously hidden
-  window to cover the macOS first-surface paint gap. Native macOS CUA now covers audio and visual
-  clip right-click, focused inline search, live effect result projection, Escape dismissal, and the
-  first object-settings paint.
+- Timeline and clip mouse context menus pair a native Slint `ContextMenuArea` with a focused search
+  popup, mirroring Qt, which offers both a category tree and a search field inside the same menu.
+  Because Slint 1.17's `ContextMenuArea` accepts only menu entries, the cascading menu carries the
+  command order and the category trees, and a `Search catalog...` entry opens a popup whose
+  `LineEdit` feeds the same `filter-context-catalog` callback. Results project Rust-filtered
+  object/effect/audio-plugin matches while typing, and each row is a full-width hit region carrying
+  the list-item accessibility role. Up and Down move an index-backed highlight that clamps at both
+  ends and enters the list from whichever end the movement heads towards, and the result list scrolls
+  the minimum amount needed to keep that highlight visible, so a long result set always acts on a row
+  the user can see. Enter activates the highlight (or a lone match when nothing is highlighted), and
+  Escape or an outside click dismisses it. Space stays with the focused field so multi-word queries
+  remain typeable. The search entry sits first in both menus, matching Qt's search field, which is
+  item 0 above every command. Layer and effect-stack context menus use `ContextMenuArea`.
+- The clip context menu keeps Qt's selection rule and command order for Delete, Split, Duplicate,
+  Cut, and Copy, followed by the visual-clip group Qt gates on `isAudioClip`: the checked
+  upper-object clipping action, the effect-catalog browser, and the registry's ordered category
+  paths, including nested paths such as `変形/クロップ`. Insertion uses one submenu per category, as
+  Qt's `buildEffectMenu` and `buildAudioPluginMenu` do; audio clips omit the clipping and catalog
+  actions and instead expose hostable plugins grouped by the same normalized category order,
+  including the `Other` fallback. Direct menu insertion reuses the object-settings commands,
+  selection projection, status updates, and one-step Undo. The three object-settings entry points
+  schedule a redraw after showing the previously hidden window to cover the macOS first-surface
+  paint gap. Native macOS CUA now covers audio and visual clip right-click, focused inline search,
+  live effect result projection, Escape dismissal, and the first object-settings paint.
 - The object-settings window now projects the selected clip's real effect stack and metadata-defined
   controls in source order. Slint forwards Ctrl/Shift selection, right-click selection and deletion,
   enable toggles, bounded numeric edits, booleans, strings, paths, colors, fonts, static choices, and
@@ -267,6 +282,15 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
   mapping, underrun silence, playback-rate frame sizing, and meter calculations. Native plugin
   scanning, menu behavior, pointer feel, device latency, and hardware-output verification remain in
   the deferred GUI suite.
+
+## Known issues
+
+- The `--validate-gpu` gate passes on a release build, which is what `README.md` documents. A
+  **debug** build exits 2173 after `slint::quit_event_loop()` returns and before
+  `slint::run_event_loop()` returns. The run itself completes — the process renders normally and
+  reaches its teardown — and removing the window hides or lowering `--frames` to 1 does not change
+  the outcome, so the fault is inside Slint's winit/wgpu event-loop teardown rather than this crate.
+  Use a release build for validation until the dependency is updated.
 
 ## Deferred native GUI suite
 

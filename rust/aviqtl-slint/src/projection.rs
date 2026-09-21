@@ -181,12 +181,16 @@ pub(super) fn sync_transport(
     main.set_playhead(workspace.playhead() as f32);
     main.set_duration(duration as f32);
     main.set_playing(workspace.is_playing());
-    main.set_playback_speed_percent(
-        (workspace.playback_speed() * 100.0)
-            .round()
-            .clamp(10.0, 400.0) as i32,
-    );
+    let speed_percent = (workspace.playback_speed() * 100.0)
+        .round()
+        .clamp(10.0, 400.0) as i32;
+    main.set_playback_speed_percent(speed_percent);
+    main.set_playback_speed_multiplier(SharedString::from(speed_multiplier_text(speed_percent)));
     main.set_status_text(SharedString::from(workspace.status()));
+    main.set_frame_counter_text(SharedString::from(frame_counter_text(
+        workspace.playhead(),
+        duration,
+    )));
     timeline.set_playhead(workspace.playhead());
     timeline.set_duration(workspace.timeline_view_duration());
     timeline.set_selected_layer(workspace.selected_layer());
@@ -199,4 +203,26 @@ pub(super) fn sync_transport(
         timeline.set_grid_interval(scene.grid_interval.max(1));
         timeline.set_grid_subdivision(scene.grid_subdivision.max(1));
     }
+}
+
+/// Format the playback speed the way Qt's SpinBox does.
+///
+/// Qt renders the transport speed as a multiplier with one decimal, e.g. `1.0x`
+/// (`MainWindow.qml:1143-1145`). Slint's `SpinBox` only edits an integer and has
+/// no text formatter, so the box keeps the percent value and this multiplier is
+/// projected alongside it.
+pub(super) fn speed_multiplier_text(percent: i32) -> String {
+    format!("{:.1}x", f64::from(percent) / 100.0)
+}
+
+/// Format the transport frame counter the way Qt does.
+///
+/// Qt pads the current frame to the total's digit count and lets the label size
+/// itself, so the counter never loses leading digits and keeps a stable width
+/// while the numbers change (`MainWindow.qml:1035-1049`).
+pub(super) fn frame_counter_text(playhead: i32, duration: i32) -> String {
+    let total = duration.max(0);
+    let current = playhead.max(0);
+    let width = total.to_string().len();
+    format!("{current:0>width$} / {total}")
 }

@@ -26,6 +26,7 @@ export component TimelineWindow inherits Window {
     in property <[EffectCatalogItemData]> object-catalog-items;
     in property <[string]> object-catalog-categories;
     in property <[EffectCatalogItemData]> context-catalog-items;
+    in property <[ObjectCatalogMenuCategoryData]> context-catalog-categories;
     in property <[ObjectCatalogMenuCategoryData]> object-catalog-menu-categories;
     in property <int> duration: 3600;
     in property <int> playhead: 0;
@@ -74,6 +75,12 @@ export component TimelineWindow inherits Window {
     private property <int> context-clip-id: -1;
     private property <bool> context-clip-by-upper-object: false;
     private property <string> context-search-query: "";
+    private property <bool> context-search-visible: false;
+    in-out property <int> context-search-selected-index: -1;
+    // Height of one search result row, shared by the row delegate and the
+    // scroll-into-view maths so they cannot drift apart.
+    private property <length> context-search-row-height: 30px;
+    private property <length> context-search-row-spacing: 2px;
     private property <length> context-popup-x: 0px;
     private property <length> context-popup-y: 0px;
     private property <bool> insert-layers-visible: false;
@@ -107,6 +114,7 @@ export component TimelineWindow inherits Window {
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
     callback filter-context-catalog(string, int);
+    callback move-context-search-selection(int) -> int;
     callback add-catalog-object(string, int, int) -> bool;
     callback show-object-settings();
     callback show-scene-settings();
@@ -119,6 +127,7 @@ export component TimelineWindow inherits Window {
     callback clip-command(string, int, int, int);
     callback clip-drag-finished(string, int, float, float, bool);
     callback layer-activated(int);
+    callback layer-visibility-toggled(int);
     callback layer-command(string, int);
     callback insert-layers(int, int, bool);
     callback shift-layers(int, int, int);
@@ -226,6 +235,42 @@ export component TimelineWindow inherits Window {
 
     function close-context-popups() {
         timeline-context-menu.close();
+    }
+
+    function open-context-search() {
+        root.context-search-query = "";
+        root.context-search-selected-index = -1;
+        root.filter-context-catalog("", root.context-target-kind);
+        root.context-search-visible = true;
+    }
+
+    function close-context-search() {
+        root.context-search-visible = false;
+        root.context-search-query = "";
+        root.context-search-selected-index = -1;
+    }
+
+    // Move the highlighted result. The index rule lives in Rust so it stays
+    // testable; the scroll view reveals the highlight by reacting to the change.
+    function move-search-selection(step: int) {
+        root.context-search-selected-index = root.move-context-search-selection(step);
+    }
+
+    function activate-context-search-selection() {
+        let count = root.context-catalog-items.length;
+        let index = root.context-search-selected-index;
+        // With nothing highlighted, Enter accepts a lone match, matching the
+        // previous single-result shortcut; otherwise it activates the highlight.
+        if index < 0 {
+            if count != 1 {
+                return;
+            }
+            root.activate-context-catalog-item(root.context-catalog-items[0].id);
+            root.close-context-search();
+            return;
+        }
+        root.activate-context-catalog-item(root.context-catalog-items[index].id);
+        root.close-context-search();
     }
 
     function activate-context-catalog-item(id: string) {
@@ -390,16 +435,28 @@ export component TimelineWindow inherits Window {
             background: AppTheme.raised-background;
             HorizontalLayout {
                 spacing: 0px;
-                accessible-role: tab-list;
-                accessible-label: @tr("Scene");
-                for scene in root.scene-tabs: SceneTab {
-                    scene: scene;
-                    height: root.timeline-header-height * 1px;
-                    activate(scene-id) => { root.scene-selected(scene-id); }
-                    settings(scene-id) => { root.scene-settings(scene-id); }
-                    close(scene-id) => { root.scene-closed(scene-id); }
+                // Many scenes overflow the strip, so the tabs scroll horizontally
+                // while the add button stays pinned, matching Qt's ScrollView plus
+                // trailing button (TimelineWindow.qml:129-251).
+                scene-tab-scroll := ScrollView {
+                    horizontal-stretch: 1;
+                    height: 100%;
+                    viewport-width: max(scene-tab-list.preferred-width, self.visible-width);
+                    viewport-height: self.visible-height;
+                    mouse-drag-pan-enabled: false;
+                    scene-tab-list := HorizontalLayout {
+                        spacing: 0px;
+                        accessible-role: tab-list;
+                        accessible-label: @tr("Scene");
+                        for scene in root.scene-tabs: SceneTab {
+                            scene: scene;
+                            height: root.timeline-header-height * 1px;
+                            activate(scene-id) => { root.scene-selected(scene-id); }
+                            settings(scene-id) => { root.scene-settings(scene-id); }
+                            close(scene-id) => { root.scene-closed(scene-id); }
+                        }
+                    }
                 }
-                Rectangle { horizontal-stretch: 1; }
                 TabAddButton { accessible-name: @tr("Create New Scene"); clicked => { root.show-scene-settings(); } }
             }
         }
@@ -573,6 +630,7 @@ export component TimelineWindow inherits Window {
                     height: root.timeline-track-height * 1px;
                     layer: layer;
                     activate(layer-index) => { root.layer-activated(layer-index); }
+                    visibility-toggled(layer-index) => { root.layer-visibility-toggled(layer-index); }
                     command(action, layer-index) => {
                         if action == "insert-many" {
                             root.insert-layers-target = layer-index;
@@ -968,6 +1026,11 @@ export component TimelineWindow inherits Window {
         height: 1px;
         Menu {
             if root.context-target-kind == 0 : MenuItem {
+                title: @tr("Search catalog...");
+                activated => { root.open-context-search(); }
+            }
+            if root.context-target-kind == 0 : MenuSeparator { }
+            if root.context-target-kind == 0 : MenuItem {
                 title: @tr("Browse object catalog...");
                 activated => { root.browse-context-catalog(); }
             }
@@ -1008,6 +1071,11 @@ export component TimelineWindow inherits Window {
                 activated => { root.activate-context-command("system-settings"); }
             }
             if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Search catalog...");
+                activated => { root.open-context-search(); }
+            }
+            if root.context-target-kind > 0 : MenuSeparator { }
+            if root.context-target-kind > 0 : MenuItem {
                 title: @tr("Delete");
                 activated => { root.activate-context-command("delete"); }
             }
@@ -1028,6 +1096,8 @@ export component TimelineWindow inherits Window {
                 title: @tr("Copy");
                 activated => { root.activate-context-command("copy"); }
             }
+            // Qt shows the clipping and catalog actions for visual clips only
+            // (TimelineView.qml:1205); audio clips offer plugins instead.
             if root.context-target-kind == 1 : MenuSeparator { }
             if root.context-target-kind == 1 : MenuItem {
                 title: @tr("Clip by Upper Object");
@@ -1035,16 +1105,170 @@ export component TimelineWindow inherits Window {
                 checked: root.context-clip-by-upper-object;
                 activated => { root.activate-context-command("clipping"); }
             }
-            if root.context-target-kind > 0 : MenuItem {
+            if root.context-target-kind == 1 : MenuSeparator { }
+            if root.context-target-kind == 1 : MenuItem {
                 title: @tr("Browse effect catalog...");
                 activated => { root.browse-context-catalog(); }
             }
             if root.context-target-kind > 0 : MenuSeparator { }
             if root.context-target-kind > 0 : Menu {
                 title: @tr("Add Effect");
-                for item in root.context-catalog-items : MenuItem {
-                    title: item.categories == "" ? item.name : item.categories + " / " + item.name;
-                    activated => { root.activate-context-catalog-item(item.id); }
+                for category in root.context-catalog-categories : Menu {
+                    title: category.name;
+                    for item in category.items : MenuItem {
+                        title: item.categories == "" ? item.name : item.categories + " / " + item.name;
+                        activated => { root.activate-context-catalog-item(item.id); }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.context-search-visible : context-search-popup := FocusScope {
+        z: 300;
+        width: 100%;
+        height: 100%;
+        forward-focus: context-search;
+        init => { context-search.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.close-context-search();
+                accept
+            } else if event.text == Key.DownArrow {
+                root.move-search-selection(1);
+                accept
+            } else if event.text == Key.UpArrow {
+                root.move-search-selection(-1);
+                accept
+            } else if event.text == Key.Return {
+                root.activate-context-search-selection();
+                accept
+            } else {
+                // Space is deliberately not captured: this handler runs before the
+                // focused search field receives the key, so consuming it would make
+                // multi-word queries such as "color key" impossible to type.
+                reject
+            }
+        }
+        TouchArea { clicked => { root.close-context-search(); } }
+        Rectangle {
+            width: min(parent.width - 40px, 420px);
+            height: min(parent.height - 40px, 480px);
+            x: clamp(
+                root.context-popup-x - self.width / 2,
+                8px,
+                max(parent.width - self.width - 8px, 8px)
+            );
+            y: clamp(
+                root.context-popup-y,
+                8px,
+                max(parent.height - self.height - 8px, 8px)
+            );
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.border;
+            border-radius: 5px;
+            TouchArea { }
+            VerticalLayout {
+                padding: 8px;
+                spacing: 6px;
+                context-search := LineEdit {
+                    text <=> root.context-search-query;
+                    placeholder-text: @tr("Search effects/objects...");
+                    edited(value) => {
+                        // A fresh result set invalidates the previous highlight.
+                        root.context-search-selected-index = -1;
+                        root.filter-context-catalog(value, root.context-target-kind);
+                    }
+                    accepted(value) => { root.activate-context-search-selection(); }
+                }
+                context-result-scroll := ScrollView {
+                    vertical-stretch: 1;
+                    viewport-width: self.visible-width;
+                    viewport-height: context-result-list.preferred-height;
+                    // Reveal the keyboard highlight. This lives here because the
+                    // viewport is only visible to the scroll view itself, and it
+                    // follows the index rather than Up/Down so pointer and
+                    // assistive selection reveal the row too.
+                    private property <int> reveal-index: root.context-search-selected-index;
+                    changed reveal-index => {
+                        if reveal-index < 0 || self.visible-height <= 0px {
+                            return;
+                        }
+                        let step = root.context-search-row-height + root.context-search-row-spacing;
+                        let top = reveal-index * step;
+                        let bottom = top + root.context-search-row-height;
+                        let maximum = max(self.viewport-height - self.visible-height, 0px);
+                        // Scroll the minimum needed: reveal the row's top when it sits
+                        // above the band, its bottom when below, otherwise keep the
+                        // current offset so an already-visible row does not move.
+                        let wanted = top < -self.viewport-y
+                            ? -top
+                            : bottom > -self.viewport-y + self.visible-height
+                                ? self.visible-height - bottom
+                                : self.viewport-y;
+                        self.viewport-y = clamp(wanted, -maximum, 0px);
+                    }
+                    context-result-list := VerticalLayout {
+                        width: parent.width;
+                        spacing: root.context-search-row-spacing;
+                        if root.context-search-query == "" : Text {
+                            text: @tr("Type to search the catalog");
+                            height: 32px;
+                            color: AppTheme.muted-foreground;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        if root.context-search-query != "" && root.context-catalog-items.length == 0 : Text {
+                            text: @tr("No matching items");
+                            height: 32px;
+                            color: AppTheme.muted-foreground;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        for item[index] in root.context-catalog-items : Rectangle {
+                            height: root.context-search-row-height;
+                            background: index == root.context-search-selected-index
+                                ? AppTheme.selection-background
+                                : (context-item-touch.has-hover ? AppTheme.hover-background : transparent);
+                            border-radius: AppTheme.control-radius;
+                            animate background { duration: 120ms; }
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                Text {
+                                    text: item.categories == "" ? item.name : item.categories + " / " + item.name;
+                                    color: AppTheme.foreground;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                            }
+                            // Cover the whole row so the entire result is clickable,
+                            // and give it keyboard/assistive activation to match the
+                            // highlight the arrow keys move.
+                            context-item-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                accessible-role: list-item;
+                                accessible-id: "context-catalog-" + item.id;
+                                accessible-label: item.name;
+                                accessible-description: item.categories == "" ? item.id : item.categories;
+                                accessible-item-selectable: true;
+                                accessible-item-selected: index == root.context-search-selected-index;
+                                accessible-item-index: index;
+                                accessible-item-count: root.context-catalog-items.length;
+                                accessible-action-default => {
+                                    root.context-search-selected-index = index;
+                                    root.activate-context-catalog-item(item.id);
+                                    root.close-context-search();
+                                }
+                                clicked => {
+                                    root.context-search-selected-index = index;
+                                    root.activate-context-catalog-item(item.id);
+                                    root.close-context-search();
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

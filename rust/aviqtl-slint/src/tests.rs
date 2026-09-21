@@ -11,10 +11,13 @@ use crate::export::{export_workspace_for_frame, selected_codec, selected_codec_i
 use crate::lifecycle::{RecentProject, merge_recent_project, recent_projects_from_value};
 use crate::localization::{CURRENT_UI_LANGUAGE, UiLanguage};
 use crate::localization::{localized_effect_metadata, ui_language_from_locale};
-use crate::object_settings::{object_settings_rows, timeline_context_catalog_items};
+use crate::object_settings::{
+    object_settings_rows, timeline_context_catalog_categories, timeline_context_catalog_items,
+};
 use crate::playback::{
     audio_queue_lead_frames, samples_for_timeline_frame, scene_fps, stereo_levels,
 };
+use crate::projection::{frame_counter_text, speed_multiplier_text};
 use crate::settings::{
     SYSTEM_AUDIO_BLOCK_SIZES, SYSTEM_EXPORT_AUDIO_CODECS, SYSTEM_EXPORT_VIDEO_CODECS,
     SYSTEM_PLUGIN_FORMATS, SYSTEM_PREVIEW_RENDER_SCALES, SYSTEM_SHORTCUT_ROWS, SYSTEM_THEME_VALUES,
@@ -264,6 +267,44 @@ fn searchable_context_catalog_preserves_qt_category_paths() {
         .find(|item| item.id.as_str() == "clipping")
         .expect("clipping effect remains searchable by technical id");
     assert!(clipping.categories.as_str().contains("Transform/Crop"));
+}
+
+#[test]
+fn context_effect_menu_groups_into_qt_category_submenus() {
+    // Qt's buildEffectMenu nests one submenu per category; the Slint port used to
+    // flatten the same items into a single list with slash-prefixed labels.
+    let (catalog, _) = EffectCatalog::load();
+    let categories =
+        timeline_context_catalog_categories(&catalog, &AudioPluginCatalog::default(), 1);
+    assert!(!categories.is_empty(), "effect categories exist");
+    let total: usize = categories.iter().map(|group| group.items.row_count()).sum();
+    let flat = timeline_context_catalog_items(&catalog, &AudioPluginCatalog::default(), "", 1);
+    assert_eq!(
+        total,
+        flat.len(),
+        "category groups partition the flat catalog"
+    );
+    assert!(
+        categories.iter().all(|group| group.items.row_count() > 0),
+        "no empty submenu is emitted"
+    );
+
+    // Audio plugins group by their host category the way buildAudioPluginMenu does.
+    let audio = timeline_context_catalog_categories(
+        &EffectCatalog::load().0,
+        &AudioPluginCatalog::default(),
+        2,
+    );
+    assert!(
+        audio.is_empty(),
+        "no plugins are discovered in a clean scan"
+    );
+
+    // The timeline-background menu keeps its own object categories untouched.
+    assert!(
+        timeline_context_catalog_categories(&catalog, &AudioPluginCatalog::default(), 0).is_empty(),
+        "object insertion stays on the nested object model"
+    );
 }
 
 #[test]
@@ -810,4 +851,107 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
     assert!(markers.row_data(1).unwrap().removable);
     assert!(!markers.row_data(1).unwrap().draggable);
     assert!(!markers.row_data(2).unwrap().removable);
+}
+
+#[test]
+fn context_search_arrow_keys_clamp_and_enter_from_both_ends() {
+    use crate::object_settings::moved_context_search_selection as moved;
+    // Nothing highlighted: Down enters at the first result, Up at the last.
+    assert_eq!(moved(-1, 3, 1), 0);
+    assert_eq!(moved(-1, 3, -1), 2);
+    // Movement clamps at both ends instead of wrapping past the list.
+    assert_eq!(moved(2, 3, 1), 2);
+    assert_eq!(moved(0, 3, -1), 0);
+    // Ordinary steps move by one.
+    assert_eq!(moved(0, 3, 1), 1);
+    assert_eq!(moved(2, 3, -1), 1);
+    // A single result is reachable and stayable from either direction.
+    assert_eq!(moved(-1, 1, 1), 0);
+    assert_eq!(moved(-1, 1, -1), 0);
+    // An empty result set clears the highlight.
+    assert_eq!(moved(-1, 0, 1), -1);
+    assert_eq!(moved(4, 0, -1), -1);
+}
+
+#[test]
+fn speed_multiplier_matches_the_qt_spinbox_text() {
+    // Qt shows the transport speed as a multiplier with one decimal
+    // (MainWindow.qml:1143-1145). Slint's SpinBox edits the percent value, so the
+    // multiplier is projected beside it and must agree.
+    assert_eq!(speed_multiplier_text(100), "1.0x");
+    assert_eq!(speed_multiplier_text(10), "0.1x");
+    assert_eq!(speed_multiplier_text(400), "4.0x");
+    assert_eq!(speed_multiplier_text(150), "1.5x");
+}
+
+#[test]
+fn frame_counter_zero_pads_like_qt() {
+    // Qt pads the current frame to the total's digit count
+    // (MainWindow.qml:1041) so the transport label keeps a stable width.
+    assert_eq!(frame_counter_text(0, 3600), "0000 / 3600");
+    assert_eq!(frame_counter_text(42, 3600), "0042 / 3600");
+    assert_eq!(frame_counter_text(3600, 3600), "3600 / 3600");
+    assert_eq!(frame_counter_text(7, 90), "07 / 90");
+    assert_eq!(frame_counter_text(5, 0), "5 / 0");
+    // A playhead past the duration never renders a negative number.
+    assert_eq!(frame_counter_text(-3, 100), "000 / 100");
+}
+
+#[test]
+fn layer_header_click_toggles_visibility_and_selects_like_qt() {
+    // Qt's LayerHeader.qml:95 sets visibility and selectedLayer on one left click.
+    // The Slint port exposes these as two separate callbacks so an accessibility
+    // activation can select without mutating visibility.
+    let mut model = ApplicationModel::default();
+    model.add_project_session(
+        ProjectSession::from_json(
+            br#"{"version":3,"settings":{"width":640,"height":360,"fps":60,"sampleRate":48000},
+                "scenes":[{"id":1,"name":"Root","duration":100}],
+                "clips":[{"id":1,"sceneId":1,"type":"video","start":0,"duration":50,"layer":0}]}"#,
+        )
+        .expect("validation project parses"),
+    );
+    let Some(workspace) = model.current_workspace_mut() else {
+        panic!("project tab exists");
+    };
+    assert!(
+        !workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .contains(&0),
+        "layer zero starts visible"
+    );
+
+    // One header click hides the layer; a second restores it.
+    assert!(workspace.toggle_layer_visibility(0));
+    assert!(
+        workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .contains(&0),
+        "first click hides the layer"
+    );
+    assert!(workspace.toggle_layer_visibility(0));
+    assert!(
+        !workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .contains(&0),
+        "second click shows the layer again"
+    );
+
+    // Selection is independent so an accessibility activation can select only.
+    workspace.select_layer(3);
+    assert_eq!(workspace.selected_layer(), 3);
+    assert!(
+        workspace
+            .selected_scene_document()
+            .expect("scene exists")
+            .hidden_layers
+            .is_empty(),
+        "selecting never mutates visibility"
+    );
 }

@@ -12,8 +12,8 @@ use crate::easing::{
 use crate::lifecycle::{LifecycleUi, WindowRefs, sync_launcher, sync_recovery_window};
 use crate::localization::localized;
 use crate::object_settings::{
-    ObjectSettingsUi, sync_object_catalog, sync_object_settings, sync_timeline_context_catalog,
-    sync_timeline_object_catalog,
+    ObjectSettingsUi, moved_context_search_selection, sync_object_catalog, sync_object_settings,
+    sync_timeline_context_catalog, sync_timeline_object_catalog,
 };
 use crate::packages::{
     PackageOperationRuntime, start_package_operation, sync_package_manager, sync_plugin_permissions,
@@ -1516,6 +1516,17 @@ pub(super) fn install_callbacks(
         }
     });
 
+    let context_move_window = timeline.as_weak();
+    timeline.on_move_context_search_selection(move |step| {
+        let selected = context_move_window
+            .upgrade()
+            .map_or(-1, |window| window.get_context_search_selected_index());
+        let count = context_move_window
+            .upgrade()
+            .map_or(0, |window| window.get_context_catalog_items().row_count());
+        moved_context_search_selection(selected, count, step)
+    });
+
     let object_add_model = model.clone();
     let object_add_settings = settings.clone();
     let object_add_catalog = effect_catalog.clone();
@@ -1877,6 +1888,20 @@ pub(super) fn install_callbacks(
             workspace.select_layer(layer);
         }
         sync_weak_windows(&layer_main, &layer_timeline, &layer_model);
+    });
+
+    let layer_visibility_model = model.clone();
+    let layer_visibility_main = main.as_weak();
+    let layer_visibility_timeline = timeline.as_weak();
+    timeline.on_layer_visibility_toggled(move |layer| {
+        if let Some(workspace) = layer_visibility_model.borrow_mut().current_workspace_mut() {
+            workspace.toggle_layer_visibility(layer);
+        }
+        sync_weak_windows(
+            &layer_visibility_main,
+            &layer_visibility_timeline,
+            &layer_visibility_model,
+        );
     });
 
     let layer_command_model = model.clone();

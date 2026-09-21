@@ -63,11 +63,17 @@ msgstr "添加"
 msgid "Add Audio Plugin"
 msgstr "添加音频插件"
 
+msgid "Add Effect"
+msgstr "添加效果"
+
 msgid "Add Effect  ›"
 msgstr "添加效果  ›"
 
 msgid "Add Filter Effect"
 msgstr "添加滤镜效果"
+
+msgid "Add Object"
+msgstr "添加对象"
 
 msgid "Add Object  ›"
 msgstr "添加对象  ›"
@@ -99,6 +105,9 @@ msgstr "应用"
 msgid "Audio"
 msgstr "音频"
 
+msgid "Audio Level"
+msgstr "电平表"
+
 msgid "Audio Object / Plugin Settings"
 msgstr "音频对象 / 插件设置"
 
@@ -110,6 +119,9 @@ msgstr "音频与进度显示"
 
 msgid "Audio bitrate"
 msgstr "音频比特率"
+
+msgid "Audio unavailable"
+msgstr "音频不可用"
 
 msgid "Auto"
 msgstr "自动"
@@ -831,6 +843,9 @@ msgstr "标尺高度"
 msgid "Sample 123"
 msgstr "示例 Sample 123"
 
+msgid "Search catalog..."
+msgstr "搜索目录..."
+
 msgid "Sample Rate:"
 msgstr "采样率："
 
@@ -1016,6 +1031,9 @@ msgstr "轨道高度"
 
 msgid "Type"
 msgstr "类型"
+
+msgid "Type to search the catalog"
+msgstr "输入以搜索目录"
 
 msgid "Undo"
 msgstr "撤销"
