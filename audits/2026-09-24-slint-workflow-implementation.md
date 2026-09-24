@@ -68,4 +68,3 @@ Desktop automation was initialized, but editor interaction could not begin becau
 failed. No claim is made for pointer/focus/IME/DPI acceptance, screenshot review, successful GPU
 rendering, or a performance improvement. Re-run the GPU command and the research's desktop task
 matrix on a supported graphics environment before declaring desktop acceptance complete.
-
