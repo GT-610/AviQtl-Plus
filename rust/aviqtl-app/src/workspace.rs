@@ -352,7 +352,9 @@ impl WorkspaceModel {
 
     pub fn hydrate_audio_plugins(&mut self, catalog: &AudioPluginCatalog) -> AudioPluginHydration {
         let pending = catalog.pending_hydration_count(&self.project.document);
-        if pending > 0 && (!self.undo.is_empty() || !self.redo.is_empty()) {
+        if pending > 0
+            && (!self.undo.is_empty() || !self.redo.is_empty() || self.continuous_edit.is_some())
+        {
             self.status = format!(
                 "Deferred restoring {pending} audio plugin(s) until the project is reopened"
             );
