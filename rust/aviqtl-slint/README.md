@@ -1,17 +1,14 @@
 # AviQtl Slint frontend
 
-This crate is the Rust desktop frontend for AviQtl. Its migration target is the Qt application's
-existing operation model, not an AviUtl2-inspired redesign. An experienced AviQtl user must be able
-to keep the same window, menu, mouse-button, modifier-key, selection, dialog, and close-confirmation
-workflow. Theme styling may change independently.
+This crate is the Rust desktop frontend for AviQtl. It preserves the existing layer/object,
+start/end parameter, independent-window, project ownership, and save-confirmation workflows.
+The September 2026 workflow improvements deliberately extend the Qt baseline with AviUtl-style
+numeric scrubbing and layer selection, standard Slint menu shortcuts, compact object settings,
+and optional workspace layouts. See [the implementation status](../../audits/2026-09-24-slint-workflow-implementation.md)
+for the supported behavior, validation, and deferred architecture work.
 
-Behavior acceptance is still in progress alongside native-presentation work. Qt remains the source
-of truth for commands, ownership, selection, editing, and confirmation semantics, but it is no
-longer a pixel-layout template. Custom Slint surfaces derive their colors and spacing from the
-active standard-widget style, use platform selection and focus colors, keep tabs content-sized,
-and give toolbars, status bars, cards, and modal surfaces enough room for the host platform. This
-avoids forcing Qt-specific density and visual hierarchy onto Slint while preserving the workflows
-that existing users rely on.
+Standard widgets use the active platform palette and metrics. Timeline clips, waveforms,
+keyframes, drag grips, and splitter hit regions remain custom Slint editing surfaces.
 
 ## Architecture
 

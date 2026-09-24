@@ -206,7 +206,7 @@ These four have no entry, so they render in English under Chinese and Japanese:
 | M2 clip menu separators | **Fixed** | `93ddc5dc` |
 | M3 frame counter clipping | **Fixed** | `68d59018` |
 | M4 speed unit (`100 %` vs `1.0x`) | **Fixed** | Same commit — multiplier projected beside the native percent box |
-| M5 menu icons / shortcut labels | **Open, accepted** | Slint's `MenuItem` exposes neither `icon` nor `shortcut`; matching Qt needs a custom menu surface replacing std-widgets. |
+| M5 menu icons / shortcut labels | **Superseded (2026-09-24)** | Slint 1.17.1 supports `MenuItem.icon` and MenuBar `shortcut`; see the correction below and the workflow implementation report. |
 | M6 tab strips cannot scroll | **Fixed** | Scroll-strip commit on this branch — both strips wrapped in a horizontal `ScrollView` with a pinned add button |
 | M7 four untranslated strings | **Fixed** | `23099b90` — both catalogs now cover all 372 UI strings |
 | Doc drift in `QT_UI_PARITY.md` | **Fixed** | `444f2a5a` |
@@ -230,3 +230,12 @@ neither (M5).
    crash is in Slint's winit/wgpu teardown; re-check it when the dependency is next updated.
 6. Remaining: none actionable in this branch. M5 needs a custom menu surface, and S4's teardown
    crash is in Slint itself; re-check both when the dependency is next updated.
+
+## Correction: Slint menu capabilities (2026-09-24)
+
+The earlier conclusion that menu icons and shortcut labels require a custom menu surface was
+incorrect for the pinned Slint 1.17.1 dependency. `MenuItem` exposes `icon` and `shortcut`; the
+latter applies to MenuBar items and registers an accelerator as well as displaying it. The
+workflow branch uses those standard APIs and protects text-input focus. The original findings
+above describe the earlier frontend, not limitations of Slint. See
+[the research](2026-09-24-slint-ui-aviutl-research.zh-CN.md) for versioned source references.

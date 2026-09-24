@@ -1,17 +1,15 @@
 # Qt UI behavior parity gate for Slint
 
-The Slint GUI is accepted only when an existing Qt user can operate it without relearning the
-editor. Colors, typography, and widget decoration may differ. Commands, mouse buttons, modifier
-keys, selection rules, window ownership, dialog order, and confirmation behavior may not.
+Qt remains the baseline for project ownership, command meaning, save/close sequencing, and
+existing editing behavior. The user-authorized September 2026 workflow changes deliberately
+extend that baseline: Ctrl/Command-click selects layer contents, continuous parameter edits use
+one undo step, text can preview live, and menus, effect selection, and workspace layouts gain
+new controls. See [the implementation status](../../audits/2026-09-24-slint-workflow-implementation.md).
 
-This is a behavior gate, not a pixel-parity specification. While acceptance remains in progress,
-the Slint presentation uses the active platform palette and spacing metrics.
-Content-sized tabs, roomier toolbars and forms, softer card hierarchy, and responsive window sizes
-are expected differences when they do not change command meaning or interaction ownership.
-
-This checklist is adapted from the egui migration's completed behavior research. Qt/QML remains the
-behavioral source of truth. The status column was reset for the Slint frontend; an egui result is
-evidence and reusable test coverage, not automatic Slint parity.
+This is a behavior gate, not a pixel-parity specification. Slint uses the active platform palette,
+standard widgets, and responsive layouts. The historical checklist below does not automatically
+promote an entry when a new feature compiles or its application-model tests pass. Native desktop
+acceptance must be recorded separately.
 
 Status meanings: `missing` has no Slint path, `partial` has a path with different or incomplete
 behavior, `foundation` has a tested framework-neutral model or an incomplete presentation, and
