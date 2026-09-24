@@ -74,12 +74,18 @@ export component ObjectSettingsWindow inherits Window {
     callback remove-effect-keyframe(bool, int, string, int);
     callback move-effect-keyframe(bool, int, string, int, int);
     callback open-effect-easing(int, string, int, int);
+    callback finish-parameter-edit();
+    callback cancel-parameter-edit();
+    callback preview-parameter-text(bool, int, string, int, string);
 
     object-settings-shortcuts := FocusScope {
         width: 100%;
         height: 100%;
         key-pressed(event) => {
-            if root.has-selection
+            if event.text == Key.Escape {
+                root.cancel-parameter-edit();
+                accept
+            } else if root.has-selection
                 && !root.effect-picker-visible
                 && !root.preset-save-visible
                 && !root.color-picker-visible
@@ -196,6 +202,11 @@ export component ObjectSettingsWindow inherits Window {
                 }
                 for row in root.setting-rows : ObjectSettingRow {
                     row-data: row;
+                    finish-edit => { root.finish-parameter-edit(); }
+                    cancel-edit => { root.cancel-parameter-edit(); }
+                    preview-text(audio, index, param, frame, text) => {
+                        root.preview-parameter-text(audio, index, param, frame, text);
+                    }
                     activate-effect(audio-plugin, index) => {
                         if audio-plugin {
                             root.select-effect(index, false, false);

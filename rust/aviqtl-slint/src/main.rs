@@ -304,11 +304,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         audio_playback.clone(),
     );
     install_window_geometry_close_handler(timeline.as_weak(), settings.clone(), "timeline");
-    install_window_geometry_close_handler(
-        object_settings.as_weak(),
-        settings.clone(),
-        "objectSettings",
-    );
+    let closing_object_settings = object_settings.as_weak();
+    let closing_object_model = model.clone();
+    let closing_object_store = settings.clone();
+    object_settings.window().on_close_requested(move || {
+        if let Some(workspace) = closing_object_model.borrow_mut().current_workspace_mut() {
+            workspace.finish_continuous_edit();
+        }
+        if let Some(window) = closing_object_settings.upgrade() {
+            dialogs::persist_window_geometry(
+                &closing_object_store,
+                "objectSettings",
+                window.window(),
+            );
+        }
+        slint::CloseRequestResponse::HideWindow
+    });
     install_window_geometry_close_handler(easing.as_weak(), settings.clone(), "easingConfig");
     install_window_geometry_close_handler(
         project_settings.as_weak(),

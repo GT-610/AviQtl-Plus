@@ -133,16 +133,26 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                if audio_plugin {
-                    workspace.set_audio_plugin_parameter_at_frame(
-                        effect_index,
-                        param_name,
-                        frame,
-                        value,
-                    )
-                } else {
-                    workspace.set_effect_parameter_at_frame(effect_index, param_name, frame, value)
-                }
+                workspace.edit_continuously(
+                    &format!("{audio_plugin}:{effect_index}:{param_name}:{frame}"),
+                    |workspace| {
+                        if audio_plugin {
+                            workspace.set_audio_plugin_parameter_at_frame(
+                                effect_index,
+                                param_name,
+                                frame,
+                                value,
+                            )
+                        } else {
+                            workspace.set_effect_parameter_at_frame(
+                                effect_index,
+                                param_name,
+                                frame,
+                                value,
+                            )
+                        }
+                    },
+                )
             });
         if changed {
             self.sync_lightweight();
@@ -202,12 +212,17 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.set_effect_interval_start_parameter_at_frame(
-                    effect_index,
-                    param_name,
-                    start_frame,
-                    end_frame,
-                    serde_json::Value::from(f64::from(value)),
+                workspace.edit_continuously(
+                    &format!("start:{effect_index}:{param_name}:{start_frame}:{end_frame}"),
+                    |workspace| {
+                        workspace.set_effect_interval_start_parameter_at_frame(
+                            effect_index,
+                            param_name,
+                            start_frame,
+                            end_frame,
+                            serde_json::Value::from(f64::from(value)),
+                        )
+                    },
                 )
             });
         if changed {

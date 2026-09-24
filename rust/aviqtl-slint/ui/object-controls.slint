@@ -145,6 +145,13 @@ export component CommitLineEdit inherits LineEdit {
     in property <string> source-text;
     callback commit(string);
     text: root.source-text;
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            self.text = root.source-text;
+            self.clear-focus();
+            accept
+        } else { reject }
+    }
     accepted(value) => {
         if value != root.source-text {
             root.commit(value);
@@ -164,13 +171,90 @@ export component CommitLineEdit inherits LineEdit {
     }
 }
 
+export component ScrubNumberEdit inherits Rectangle {
+    in property <string> source-text;
+    in property <string> label;
+    in property <float> value;
+    in property <float> minimum;
+    in property <float> maximum;
+    in property <float> step: 1;
+    in property <bool> enabled: true;
+    callback commit(string);
+    callback preview(float);
+    callback finish-edit();
+    callback cancel-edit();
+    private property <float> drag-value;
+    private property <length> last-x;
+    private property <bool> dragging: false;
+    forward-focus: input;
+    input := CommitLineEdit {
+        x: 12px;
+        width: parent.width - 12px;
+        height: 100%;
+        source-text: root.source-text;
+        enabled: root.enabled;
+        horizontal-alignment: right;
+        accessible-label: root.label;
+        commit(value) => { root.commit(value); }
+    }
+    Text { width: 12px; height: 100%; text: "↔"; color: AppTheme.muted-foreground; vertical-alignment: center; }
+    TouchArea {
+        width: 12px;
+        enabled: root.enabled;
+        mouse-cursor: ew-resize;
+        accessible-role: slider;
+        accessible-label: root.label;
+        accessible-description: @tr("Drag to adjust; hold Shift for fine adjustment");
+        accessible-value: "\{root.value}";
+        accessible-value-minimum: root.minimum;
+        accessible-value-maximum: root.maximum;
+        accessible-action-increment => { root.preview(min(root.maximum, root.value + root.step)); root.finish-edit(); }
+        accessible-action-decrement => { root.preview(max(root.minimum, root.value - root.step)); root.finish-edit(); }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.dragging = true;
+                root.drag-value = root.value;
+                root.last-x = self.mouse-x;
+            } else if event.kind == PointerEventKind.move && root.dragging {
+                root.drag-value = clamp(root.drag-value + (self.mouse-x - root.last-x) / 1px
+                    * root.step * (event.modifiers.shift ? 0.1 : 1), root.minimum, root.maximum);
+                root.last-x = self.mouse-x;
+                root.preview(root.drag-value);
+            } else if event.kind == PointerEventKind.up && root.dragging {
+                root.dragging = false;
+                root.finish-edit();
+            } else if event.kind == PointerEventKind.cancel && root.dragging {
+                root.dragging = false;
+                root.cancel-edit();
+            }
+        }
+    }
+}
+
 export component CommitTextEdit inherits TextEdit {
     in property <string> source-text;
     callback commit(string);
+    callback preview(string);
+    callback finish-edit();
+    callback cancel-edit();
+    private property <bool> cancelling: false;
+    private property <string> initial-text;
     text: root.source-text;
+    edited(value) => { root.preview(value); }
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            root.cancelling = true;
+            root.cancel-edit();
+            self.text = root.initial-text;
+            root.cancelling = false;
+            accept
+        } else { reject }
+    }
     changed has-focus => {
-        if !self.has-focus && self.text != root.source-text {
-            root.commit(self.text);
+        if self.has-focus {
+            root.initial-text = self.text;
+        } else if !root.cancelling {
+            root.finish-edit();
         }
     }
     changed source-text => {
@@ -334,6 +418,9 @@ export component ObjectSettingRow inherits Rectangle {
     callback remove-keyframe(bool, int, string, int);
     callback move-keyframe(bool, int, string, int, int);
     callback open-easing(int, string, int, int);
+    callback finish-edit();
+    callback cancel-edit();
+    callback preview-text(bool, int, string, int, string);
     height: root.row-data.row-kind == "effect" ? 34px
         : root.row-data.row-kind == "header" ? 28px
         : root.row-data.row-kind == "text" ? 68px
@@ -433,6 +520,8 @@ export component ObjectSettingRow inherits Rectangle {
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            released => { root.finish-edit(); }
+            changed has-focus => { if !self.has-focus { root.finish-edit(); } }
             enabled: root.row-data.interactive;
             changed(value) => {
                 if root.row-data.audio-plugin {
@@ -454,12 +543,25 @@ export component ObjectSettingRow inherits Rectangle {
                 }
             }
         }
-        CommitLineEdit {
-            width: 76px;
+        ScrubNumberEdit {
+            width: 92px;
             height: 26px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
-            horizontal-alignment: right;
+            label: root.row-data.label + @tr(" start value");
+            value: root.row-data.number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            preview(value) => {
+                if root.row-data.audio-plugin {
+                    root.set-number(true, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
+                } else {
+                    root.set-start-number(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame, value);
+                }
+            }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,
@@ -499,15 +601,22 @@ export component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        if !root.row-data.audio-plugin : CommitLineEdit {
-            width: 76px;
+        if !root.row-data.audio-plugin : ScrubNumberEdit {
+            width: 92px;
             height: 26px;
             source-text: root.row-data.right-interactive
                 ? root.row-data.end-text-value
                 : root.row-data.text-value;
             enabled: root.row-data.interactive && root.row-data.right-interactive;
             opacity: root.row-data.right-interactive ? 1 : 0.45;
-            horizontal-alignment: right;
+            label: root.row-data.label + @tr(" end value");
+            value: root.row-data.end-number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            preview(value) => { root.set-number(false, root.row-data.effect-index, root.row-data.param-name, root.row-data.end-frame, value); }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,
@@ -527,6 +636,8 @@ export component ObjectSettingRow inherits Rectangle {
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            released => { root.finish-edit(); }
+            changed has-focus => { if !self.has-focus { root.finish-edit(); } }
             enabled: root.row-data.interactive && root.row-data.right-interactive;
             opacity: root.row-data.right-interactive ? 1 : 0.45;
             changed(value) => {
@@ -578,6 +689,13 @@ export component ObjectSettingRow inherits Rectangle {
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label;
+            preview(value) => {
+                root.preview-text(root.row-data.audio-plugin, root.row-data.effect-index,
+                    root.row-data.param-name, root.row-data.start-frame, value);
+            }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,

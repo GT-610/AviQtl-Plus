@@ -310,6 +310,37 @@ pub(super) fn install_callbacks(
         );
     });
     let object_number_ui = object_settings_ui.clone();
+    let preview_text_ui = object_settings_ui.clone();
+    object_settings.on_preview_parameter_text(move |audio, index, param, frame, text| {
+        preview_text_ui.set_value_deferred(
+            audio,
+            index.max(0) as usize,
+            param.as_str(),
+            frame.max(0),
+            serde_json::Value::String(text.to_string()),
+        );
+    });
+    let finish_parameter_ui = object_settings_ui.clone();
+    object_settings.on_finish_parameter_edit(move || {
+        if let Some(workspace) = finish_parameter_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+        {
+            workspace.finish_continuous_edit();
+        }
+    });
+    let cancel_parameter_ui = object_settings_ui.clone();
+    object_settings.on_cancel_parameter_edit(move || {
+        if let Some(workspace) = cancel_parameter_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+        {
+            workspace.cancel_continuous_edit();
+        }
+        cancel_parameter_ui.sync();
+    });
     object_settings.on_set_parameter_number(move |audio_plugin, index, param, frame, value| {
         object_number_ui.set_number(
             audio_plugin,
