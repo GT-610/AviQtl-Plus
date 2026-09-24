@@ -1968,6 +1968,62 @@ pub(super) fn install_callbacks(
         }
     });
 
+    let drag_preview_model = model.clone();
+    let drag_preview_window = timeline.as_weak();
+    timeline.on_preview_clip_drag(move |kind, clip_id, dx, dy, ignore_snap| {
+        let invalid = crate::TimelineDragFeedback {
+            snap_frame: -1,
+            ..Default::default()
+        };
+        let Some(window) = drag_preview_window.upgrade() else {
+            return invalid;
+        };
+        let model = drag_preview_model.borrow();
+        let Some(workspace) = model.current_workspace() else {
+            return invalid;
+        };
+        let kind = match kind.as_str() {
+            "trim-start" => TimelineDragKind::TrimStart,
+            "trim-end" => TimelineDragKind::TrimEnd,
+            _ => TimelineDragKind::Move,
+        };
+        let Ok(plan) = workspace.preview_timeline_drag(TimelineDragRequest {
+            anchor_clip_id: clip_id,
+            kind,
+            delta_pixels: (dx, dy),
+            pixels_per_frame: window.get_pixels_per_frame(),
+            layer_height: window.get_timeline_track_height() as f32,
+            minimum_duration_frames: window.get_minimum_clip_duration_frames(),
+            maximum_layers: window.get_maximum_layers(),
+            ignore_snap,
+        }) else {
+            return invalid;
+        };
+        let Some(update) = plan.updates.iter().find(|update| update.clip_id == clip_id) else {
+            return invalid;
+        };
+        let Some(original) = workspace
+            .project()
+            .document
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+        else {
+            return invalid;
+        };
+        crate::TimelineDragFeedback {
+            valid: true,
+            start: update.start,
+            duration: update.duration,
+            layer: update.layer,
+            delta: if kind == TimelineDragKind::TrimEnd {
+                update.duration - original.duration
+            } else {
+                update.start - original.start
+            },
+            snap_frame: plan.snap_frame.unwrap_or(-1),
+        }
+    });
     let clip_drag_model = model.clone();
     let clip_drag_main = main.as_weak();
     let clip_drag_timeline = timeline.as_weak();

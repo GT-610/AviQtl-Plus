@@ -2547,13 +2547,20 @@ impl WorkspaceModel {
         }
     }
 
-    pub fn drag_selected_clips(&mut self, request: TimelineDragRequest) -> bool {
-        let plan = match plan_timeline_drag(
+    pub fn preview_timeline_drag(
+        &self,
+        request: TimelineDragRequest,
+    ) -> Result<crate::timeline_interaction::TimelineDragPlan, String> {
+        plan_timeline_drag(
             &self.project.document,
             self.selected_scene,
             self.selection.ids(),
             request,
-        ) {
+        )
+    }
+
+    pub fn drag_selected_clips(&mut self, request: TimelineDragRequest) -> bool {
+        let plan = match self.preview_timeline_drag(request) {
             Ok(plan) => plan,
             Err(error) => {
                 self.status = error;
@@ -3348,6 +3355,51 @@ mod tests {
         workspace.select_layer_contents(99);
         assert!(selected_ids(&workspace).is_empty());
         assert!(!workspace.project().dirty);
+    }
+
+    #[test]
+    fn drag_preview_is_read_only_and_matches_commit() {
+        use crate::timeline_interaction::TimelineDragKind;
+        for kind in [
+            TimelineDragKind::Move,
+            TimelineDragKind::TrimStart,
+            TimelineDragKind::TrimEnd,
+        ] {
+            for ignore_snap in [false, true] {
+                let mut workspace = workspace();
+                workspace.click_clip(2, false);
+                let original = workspace.document().clone();
+                let request = TimelineDragRequest {
+                    anchor_clip_id: 2,
+                    kind,
+                    delta_pixels: (8.0, 30.0),
+                    pixels_per_frame: 1.0,
+                    layer_height: 30.0,
+                    minimum_duration_frames: 5,
+                    maximum_layers: 99,
+                    ignore_snap,
+                };
+                let preview = workspace.preview_timeline_drag(request).unwrap();
+                assert_eq!(workspace.document(), &original);
+                assert!(!workspace.project().dirty);
+                assert!(workspace.drag_selected_clips(request));
+                for update in preview.updates {
+                    let clip = workspace
+                        .document()
+                        .clips
+                        .iter()
+                        .find(|clip| clip.id == update.clip_id)
+                        .unwrap();
+                    assert_eq!(
+                        (clip.start, clip.duration, clip.layer),
+                        (update.start, update.duration, update.layer)
+                    );
+                }
+                assert!(workspace.undo());
+                assert_eq!(workspace.document(), &original);
+                assert!(!workspace.undo());
+            }
+        }
     }
 
     fn workspace_with_audio_plugins() -> WorkspaceModel {

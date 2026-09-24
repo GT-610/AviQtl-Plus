@@ -79,6 +79,15 @@ export struct TimelineViewportData {
     viewport-y: float,
 }
 
+export struct TimelineDragFeedback {
+    valid: bool,
+    start: int,
+    duration: int,
+    layer: int,
+    delta: int,
+    snap-frame: int,
+}
+
 export struct TimelineMediaDropResult {
     imported: bool,
     next-frame: int,

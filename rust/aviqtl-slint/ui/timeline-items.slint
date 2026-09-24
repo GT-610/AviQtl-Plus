@@ -1,4 +1,4 @@
-import { SceneTabData, TimelineClipData, LayerData } from "models.slint";
+import { SceneTabData, TimelineClipData, LayerData, TimelineDragFeedback } from "models.slint";
 import { AppTheme, TimelineMetrics } from "theme.slint";
 import { TabCloseButton } from "widgets.slint";
 
@@ -153,6 +153,17 @@ export component TimelineClipItem inherits Rectangle {
     callback command(string, int, int, int);
     callback seek-audio-frame(int, int);
     callback drag-finished(string, int, float, float, bool);
+    callback preview-drag(string, int, float, float, bool) -> TimelineDragFeedback;
+    callback drag-ended();
+    private property <TimelineDragFeedback> feedback;
+    private property <bool> preview-valid: false;
+    function update-preview(ignore-snap: bool) {
+        root.feedback = root.preview-drag(root.active-drag, root.clip-data.id, root.drag-x / 1px, root.drag-y / 1px, ignore-snap);
+        root.preview-valid = root.feedback.valid;
+    }
+    changed active-drag => {
+        if root.active-drag == "" { root.preview-valid = false; root.drag-ended(); }
+    }
     callback pointer-hovered(float, float, bool);
     callback pointer-left();
     callback scroll-requested(length, length, length, bool, bool, bool) -> bool;
@@ -184,9 +195,9 @@ export component TimelineClipItem inherits Rectangle {
     }
 
     clip-visual := Rectangle {
-        x: root.active-drag == "move" ? root.drag-x : root.active-drag == "trim-start" ? root.drag-x : 0px;
-        y: root.active-drag == "move" ? root.drag-y : 0px;
-        width: root.active-drag == "trim-start"
+        x: root.preview-valid ? (root.feedback.start - root.clip-data.start) * root.pixels-per-frame * 1px : 0px;
+        y: root.preview-valid ? (root.feedback.layer - root.clip-data.layer) * root.track-height : 0px;
+        width: root.preview-valid ? max(root.feedback.duration * root.pixels-per-frame * 1px, 8px) : root.active-drag == "trim-start"
             ? max(root.width - root.drag-x, 8px)
             : root.active-drag == "trim-end"
                 ? max(root.width + root.drag-x, 8px)
@@ -295,6 +306,7 @@ export component TimelineClipItem inherits Rectangle {
                         root.threshold-crossed = true;
                         root.prepare-drag(root.clip-data.id, root.drag-additive);
                     }
+                    if root.threshold-crossed { root.update-preview(event.modifiers.shift); }
                 }
                 if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "move" {
                     if root.threshold-crossed {
@@ -361,6 +373,7 @@ export component TimelineClipItem inherits Rectangle {
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                root.update-preview(event.modifiers.shift);
             }
             if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-start" {
                 root.drag-finished("trim-start", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
@@ -411,6 +424,7 @@ export component TimelineClipItem inherits Rectangle {
             }
             if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                root.update-preview(event.modifiers.shift);
             }
             if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-end" {
                 root.drag-finished("trim-end", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);

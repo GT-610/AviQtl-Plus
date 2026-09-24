@@ -3,6 +3,7 @@ import {
     TimelineClipData,
     LayerData,
     TimelineViewportData,
+    TimelineDragFeedback,
     TimelineMediaDropResult,
     EffectCatalogItemData,
     ObjectCatalogMenuCategoryData,
@@ -20,6 +21,9 @@ export component TimelineWindow inherits Window {
     min-height: 220px;
     forward-focus: timeline-shortcuts;
     in-out property <string> action-status: "";
+    private property <bool> drag-active: false;
+    private property <TimelineDragFeedback> drag-feedback;
+    callback preview-clip-drag(string, int, float, float, bool) -> TimelineDragFeedback;
     in property <[SceneTabData]> scene-tabs;
     in property <[TimelineClipData]> clips;
     in property <[LayerData]> layers;
@@ -496,6 +500,17 @@ export component TimelineWindow inherits Window {
                 Rectangle { horizontal-stretch: 1; }
                 Text { text: root.skimmer-visible ? @tr("Target: hover") : @tr("Target: playhead"); vertical-alignment: center; color: AppTheme.muted-foreground; }
             }
+            Text {
+                height: 22px;
+                text: root.drag-active
+                    ? (root.drag-feedback.valid
+                        ? @tr("Start {} · End {} · Duration {} · Change {} frames", root.drag-feedback.start, root.drag-feedback.start + root.drag-feedback.duration, root.drag-feedback.duration, root.drag-feedback.delta)
+                        : @tr("Cannot place the selection here"))
+                    : @tr("Hold Shift while dragging to ignore snapping");
+                color: root.drag-active && !root.drag-feedback.valid ? AppTheme.warning : AppTheme.muted-foreground;
+                overflow: elide;
+                vertical-alignment: center;
+            }
             Rectangle {
             height: root.timeline-ruler-height * 1px;
             background: AppTheme.panel-background;
@@ -820,6 +835,12 @@ export component TimelineWindow inherits Window {
                     resize-handle-width: root.clip-resize-handle-width * 1px;
                     activate(clip-id, additive) => { root.clip-selected(clip-id, additive); }
                     prepare-drag(clip-id, additive) => { root.clip-drag-started(clip-id, additive); }
+                    preview-drag(kind, clip-id, dx, dy, ignore-snap) => {
+                        root.drag-active = true;
+                        root.drag-feedback = root.preview-clip-drag(kind, clip-id, dx, dy, ignore-snap);
+                        return root.drag-feedback;
+                    }
+                    drag-ended => { root.drag-active = false; }
                     context-activate(clip-id, window-x, window-y) => {
                         root.clip-context-selected(clip-id);
                         root.context-frame = root.file-drop-frame(window-x);
@@ -860,6 +881,12 @@ export component TimelineWindow inherits Window {
                     drag-finished(kind, clip-id, delta-x, delta-y, ignore-snap) => {
                         root.clip-drag-finished(kind, clip-id, delta-x, delta-y, ignore-snap);
                     }
+                }
+                if root.drag-active && root.drag-feedback.valid && root.drag-feedback.snap-frame >= 0 : Rectangle {
+                    x: root.drag-feedback.snap-frame * root.pixels-per-frame * 1px;
+                    width: 2px;
+                    height: parent.height;
+                    background: AppTheme.warning;
                 }
                 if root.box-active && root.box-dragging : Rectangle {
                     x: min(root.box-start-frame, root.box-current-frame) * root.pixels-per-frame * 1px;
