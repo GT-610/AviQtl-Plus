@@ -190,6 +190,10 @@ pub(super) fn install_callbacks(
     audio_playback: Rc<RefCell<AudioPlaybackRuntime>>,
 ) {
     let system_apply_ui = lifecycle_ui.clone();
+    let workspace_layout_ui = lifecycle_ui.clone();
+    windows
+        .main
+        .on_workspace_action(move |action| workspace_layout_ui.workspace_action(action.as_str()));
     let model = lifecycle_ui.model.clone();
     let settings = lifecycle_ui.settings.clone();
     let effect_catalog = lifecycle_ui.effect_catalog.clone();

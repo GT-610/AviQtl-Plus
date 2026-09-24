@@ -61,6 +61,7 @@ export component MainWindow inherits Window {
     callback next-frame();
     callback playback-speed-changed(int);
     callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
+    callback workspace-action(string);
 
     MenuBar {
         Menu {
@@ -95,6 +96,16 @@ export component MainWindow inherits Window {
             title: @tr("View");
             MenuItem { title: @tr("Show Timeline"); shortcut: root.menu-shortcuts[21]; icon: @image-url("icons/timeline.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
             MenuItem { title: @tr("Show Settings Dialog"); shortcut: root.menu-shortcuts[22]; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
+            Menu {
+                title: @tr("Workspace");
+                MenuItem { title: @tr("Editing layout"); activated => { root.workspace-action("editing"); } }
+                MenuItem { title: @tr("Animation layout"); activated => { root.workspace-action("animation"); } }
+                MenuItem { title: @tr("Audio layout"); activated => { root.workspace-action("audio"); } }
+                MenuSeparator { }
+                MenuItem { title: @tr("Save current layout"); activated => { root.workspace-action("save"); } }
+                MenuItem { title: @tr("Restore saved layout"); activated => { root.workspace-action("restore"); } }
+                MenuItem { title: @tr("Bring editor windows onto this screen"); activated => { root.workspace-action("editing"); } }
+            }
         }
         Menu {
             title: @tr("Tools");
