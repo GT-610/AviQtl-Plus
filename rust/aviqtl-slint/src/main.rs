@@ -503,6 +503,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                                 &catalog,
                                 &animation_audio_catalog.borrow(),
                                 window.get_effect_filter().as_str(),
+                                &animation_mod_settings.borrow(),
                             );
                         }
                     }
@@ -604,6 +605,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         &effect_catalog,
                         &animation_audio_catalog.borrow(),
                         window.get_effect_filter().as_str(),
+                        &animation_mod_settings.borrow(),
                     );
                 }
             }

@@ -764,14 +764,22 @@ pub(super) fn install_callbacks(
                 &effect_catalog,
                 &object_filter_audio_catalog.borrow(),
                 query.as_str(),
+                &catalog_preferences_ui.settings.borrow(),
             );
-            catalog_preferences_ui.project_catalog_preferences(&window);
         }
     });
     let catalog_favorite_ui = object_settings_ui.clone();
     object_settings.on_toggle_catalog_favorite(move |id| {
         catalog_favorite_ui.remember_catalog_item(id.as_str(), true);
         catalog_favorite_ui.sync();
+        if let Some(window) = catalog_favorite_ui.window.upgrade()
+            && let Some(index) = window
+                .get_effect_catalog_items()
+                .iter()
+                .position(|item| item.id == id)
+        {
+            window.set_effect_picker_current(index as i32);
+        }
     });
     let object_add_ui = object_settings_ui.clone();
     object_settings.on_add_effect(move |effect_id| {

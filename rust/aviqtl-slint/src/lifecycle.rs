@@ -291,6 +291,7 @@ impl LifecycleUi {
                 &effect_catalog,
                 &self.audio_plugin_catalog.borrow(),
                 object_settings.get_effect_filter().as_str(),
+                &self.settings.borrow(),
             );
         }
         if let Some(recovery) = self.recovery.upgrade() {
@@ -363,6 +364,7 @@ impl LifecycleUi {
                     &catalog,
                     &self.audio_plugin_catalog.borrow(),
                     window.get_effect_filter().as_str(),
+                    &self.settings.borrow(),
                 );
             }
         }

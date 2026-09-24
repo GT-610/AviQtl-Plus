@@ -58,23 +58,9 @@ impl ObjectSettingsUi {
                 &catalog,
                 &self.audio_catalog.borrow(),
                 window.get_effect_filter().as_str(),
+                &self.settings.borrow(),
             );
-            self.project_catalog_preferences(&window);
         }
-    }
-
-    pub(super) fn catalog_preferences(&self, key: &str) -> Vec<String> {
-        self.settings
-            .borrow()
-            .value(key)
-            .and_then(serde_json::Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|value| value.as_str().map(str::to_owned))
-                    .collect()
-            })
-            .unwrap_or_default()
     }
 
     pub(super) fn catalog_key(&self, id: &str) -> String {
@@ -82,52 +68,7 @@ impl ObjectSettingsUi {
             .window
             .upgrade()
             .is_some_and(|window| window.get_audio_plugin_mode());
-        format!("{}:{id}", if audio { "audio" } else { "effect" })
-    }
-
-    pub(super) fn project_catalog_preferences(&self, window: &ObjectSettingsWindow) {
-        let favorites = self.catalog_preferences("favoriteEffects");
-        let recent = self.catalog_preferences("recentEffects");
-        let mut items: Vec<_> = window
-            .get_effect_catalog_items()
-            .iter()
-            .filter(|item| !item.header)
-            .filter(|item| match window.get_effect_catalog_mode() {
-                1 => favorites.contains(&self.catalog_key(item.id.as_str())),
-                2 => recent.contains(&self.catalog_key(item.id.as_str())),
-                _ => true,
-            })
-            .collect();
-        if window.get_effect_catalog_mode() == 2 {
-            items.sort_by_key(|item| {
-                recent
-                    .iter()
-                    .position(|id| id == &self.catalog_key(item.id.as_str()))
-                    .unwrap_or(usize::MAX)
-            });
-        }
-        let rows = items
-            .iter()
-            .map(|item| {
-                slint::language::StandardListViewItem::from(slint::SharedString::from(format!(
-                    "{}{}  {}",
-                    if favorites.contains(&self.catalog_key(item.id.as_str())) {
-                        "★ "
-                    } else {
-                        ""
-                    },
-                    item.name,
-                    item.categories
-                )))
-            })
-            .collect();
-        update_vec_model(&window.get_effect_catalog_items(), items);
-        update_vec_model(&window.get_effect_picker_rows(), rows);
-        window.set_effect_picker_current(if window.get_effect_catalog_items().row_count() == 0 {
-            -1
-        } else {
-            0
-        });
+        catalog_key(audio, id)
     }
 
     pub(super) fn remember_catalog_item(&self, id: &str, favorite: bool) {
@@ -137,7 +78,7 @@ impl ObjectSettingsUi {
             "recentEffects"
         };
         let id = self.catalog_key(id);
-        let mut items = self.catalog_preferences(key);
+        let mut items = catalog_preferences(&self.settings.borrow(), key);
         let existed = items.contains(&id);
         items.retain(|item| item != &id);
         if !favorite || !existed {
@@ -931,7 +872,12 @@ pub(super) fn sync_object_catalog(
     effect_catalog: &EffectCatalog,
     audio_catalog: &AudioPluginCatalog,
     query: &str,
+    settings: &aviqtl_app::settings::SettingsStore,
 ) {
+    let selected = window
+        .get_effect_catalog_items()
+        .row_data(window.get_effect_picker_current().max(0) as usize)
+        .map(|item| item.id);
     if model
         .current_workspace()
         .is_some_and(WorkspaceModel::object_settings_uses_audio_plugins)
@@ -939,6 +885,15 @@ pub(super) fn sync_object_catalog(
         sync_audio_plugin_catalog(window, audio_catalog, query);
     } else {
         sync_effect_catalog(window, effect_catalog, query);
+    }
+    project_catalog_preferences(window, settings);
+    if let Some(id) = selected
+        && let Some(index) = window
+            .get_effect_catalog_items()
+            .iter()
+            .position(|item| item.id == id)
+    {
+        window.set_effect_picker_current(index as i32);
     }
 }
 
@@ -1186,4 +1141,77 @@ pub(super) fn finite_f32(value: f64, fallback: f32) -> f32 {
     } else {
         fallback
     }
+}
+
+pub(super) fn project_catalog_preferences(
+    window: &ObjectSettingsWindow,
+    settings: &aviqtl_app::settings::SettingsStore,
+) {
+    let favorites = catalog_preferences(settings, "favoriteEffects");
+    let recent = catalog_preferences(settings, "recentEffects");
+    let mut items: Vec<_> = window
+        .get_effect_catalog_items()
+        .iter()
+        .filter(|item| !item.header)
+        .filter(|item| match window.get_effect_catalog_mode() {
+            1 => favorites.contains(&catalog_key(
+                window.get_audio_plugin_mode(),
+                item.id.as_str(),
+            )),
+            2 => recent.contains(&catalog_key(
+                window.get_audio_plugin_mode(),
+                item.id.as_str(),
+            )),
+            _ => true,
+        })
+        .collect();
+    if window.get_effect_catalog_mode() == 2 {
+        items.sort_by_key(|item| {
+            recent
+                .iter()
+                .position(|id| id == &catalog_key(window.get_audio_plugin_mode(), item.id.as_str()))
+                .unwrap_or(usize::MAX)
+        });
+    }
+    let rows = items
+        .iter()
+        .map(|item| {
+            slint::language::StandardListViewItem::from(slint::SharedString::from(format!(
+                "{}{}  {}",
+                if favorites.contains(&catalog_key(
+                    window.get_audio_plugin_mode(),
+                    item.id.as_str()
+                )) {
+                    "★ "
+                } else {
+                    ""
+                },
+                item.name,
+                item.categories
+            )))
+        })
+        .collect();
+    update_vec_model(&window.get_effect_catalog_items(), items);
+    update_vec_model(&window.get_effect_picker_rows(), rows);
+    window.set_effect_picker_current(if window.get_effect_catalog_items().row_count() == 0 {
+        -1
+    } else {
+        0
+    });
+}
+
+fn catalog_key(audio: bool, id: &str) -> String {
+    format!("{}:{id}", if audio { "audio" } else { "effect" })
+}
+fn catalog_preferences(settings: &aviqtl_app::settings::SettingsStore, key: &str) -> Vec<String> {
+    settings
+        .value(key)
+        .and_then(serde_json::Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
 }
