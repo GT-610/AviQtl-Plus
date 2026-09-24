@@ -26,6 +26,12 @@ const DEFAULT_UNDO_LIMIT: usize = 32;
 const MIN_TIMELINE_VIEW_FRAMES: i32 = 100;
 const TIMELINE_TAIL_PADDING_FRAMES: i32 = 120;
 
+struct ContinuousEdit {
+    key: String,
+    transaction: Option<TimelineTransaction>,
+    dirty_before: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SceneTab {
     pub id: i32,
@@ -87,6 +93,8 @@ pub struct WorkspaceModel {
     clip_clipboard: Vec<ClipDocument>,
     undo_limit: usize,
     undo_group_start: Option<usize>,
+    continuous_edit: Option<ContinuousEdit>,
+    updating_continuous_edit: bool,
     document_revision: u64,
     status: String,
 }
@@ -106,6 +114,8 @@ impl WorkspaceModel {
             clip_clipboard: Vec::new(),
             undo_limit: DEFAULT_UNDO_LIMIT,
             undo_group_start: None,
+            continuous_edit: None,
+            updating_continuous_edit: false,
             document_revision: 0,
             status: "Ready".to_owned(),
         }
@@ -116,6 +126,7 @@ impl WorkspaceModel {
     }
 
     pub fn project_mut(&mut self) -> &mut ProjectSession {
+        self.finish_continuous_edit();
         &mut self.project
     }
 
@@ -293,6 +304,7 @@ impl WorkspaceModel {
     }
 
     pub fn select_effect(&mut self, index: usize, control: bool, shift: bool) -> bool {
+        self.finish_continuous_edit();
         let Some(clip) = self.selected_clip_document() else {
             return false;
         };
@@ -304,6 +316,7 @@ impl WorkspaceModel {
     }
 
     pub fn context_select_effect(&mut self, index: usize) -> bool {
+        self.finish_continuous_edit();
         let Some(clip) = self.selected_clip_document() else {
             return false;
         };
@@ -1361,6 +1374,7 @@ impl WorkspaceModel {
     }
 
     pub fn seek_effect_frame(&mut self, relative_frame: i32) {
+        self.finish_continuous_edit();
         if let Some((start, duration)) = self
             .selected_clip_document()
             .map(|clip| (clip.start, clip.duration.max(0)))
@@ -1554,6 +1568,9 @@ impl WorkspaceModel {
     }
 
     pub fn execute(&mut self, command: TimelineCommand) -> bool {
+        if !self.updating_continuous_edit {
+            self.finish_continuous_edit();
+        }
         match self.project.state.plan(command).and_then(|transaction| {
             self.project.state.apply(&transaction)?;
             Ok(transaction)
@@ -1570,6 +1587,9 @@ impl WorkspaceModel {
     }
 
     pub fn execute_batch(&mut self, commands: Vec<TimelineCommand>) -> bool {
+        if !self.updating_continuous_edit {
+            self.finish_continuous_edit();
+        }
         if commands.is_empty() {
             return false;
         }
@@ -1592,7 +1612,66 @@ impl WorkspaceModel {
         }
     }
 
+    /// Updates a live preview while retaining one reversible gesture in history.
+    /// The caller's key distinguishes the parameter, endpoint, and edit kind.
+    pub fn edit_continuously(&mut self, key: &str, update: impl FnOnce(&mut Self) -> bool) -> bool {
+        let key = format!(
+            "{}:{:?}:{key}",
+            self.selected_scene,
+            self.selection.primary()
+        );
+        if self
+            .continuous_edit
+            .as_ref()
+            .is_some_and(|edit| edit.key != key)
+        {
+            self.finish_continuous_edit();
+        }
+        if self.continuous_edit.is_none() {
+            self.continuous_edit = Some(ContinuousEdit {
+                key,
+                transaction: None,
+                dirty_before: self.project.dirty,
+            });
+        }
+        self.updating_continuous_edit = true;
+        let changed = update(self);
+        self.updating_continuous_edit = false;
+        changed
+    }
+
+    pub fn finish_continuous_edit(&mut self) {
+        if let Some(edit) = self.continuous_edit.take()
+            && let Some(transaction) = edit.transaction
+        {
+            self.undo.push(transaction);
+            self.trim_undo_history();
+            self.redo.clear();
+        }
+    }
+
+    pub fn cancel_continuous_edit(&mut self) -> bool {
+        let Some(edit) = self.continuous_edit.take() else {
+            return false;
+        };
+        let Some(transaction) = edit.transaction else {
+            return false;
+        };
+        if let Err(error) = self.project.state.undo(&transaction) {
+            self.status = error.to_string();
+            self.continuous_edit = Some(ContinuousEdit {
+                transaction: Some(transaction),
+                ..edit
+            });
+            return false;
+        }
+        self.refresh_after_history_change("Parameter edit cancelled");
+        self.project.dirty = edit.dirty_before;
+        true
+    }
+
     pub fn begin_undo_group(&mut self) -> bool {
+        self.finish_continuous_edit();
         if self.undo_group_start.is_some() {
             return false;
         }
@@ -1605,12 +1684,15 @@ impl WorkspaceModel {
             return false;
         };
         if self.undo.len() <= start + 1 {
-            return self.undo.len() > start;
+            let changed = self.undo.len() > start;
+            self.trim_undo_history();
+            return changed;
         }
         let transactions = self.undo.drain(start..).collect();
         match TimelineTransaction::combine(transactions) {
             Ok(transaction) => {
                 self.undo.push(transaction);
+                self.trim_undo_history();
                 true
             }
             Err(error) => {
@@ -1621,6 +1703,7 @@ impl WorkspaceModel {
     }
 
     pub fn undo(&mut self) -> bool {
+        self.finish_continuous_edit();
         let Some(transaction) = self.undo.pop() else {
             return false;
         };
@@ -1639,6 +1722,7 @@ impl WorkspaceModel {
     }
 
     pub fn redo(&mut self) -> bool {
+        self.finish_continuous_edit();
         let Some(transaction) = self.redo.pop() else {
             return false;
         };
@@ -1658,6 +1742,7 @@ impl WorkspaceModel {
     }
 
     pub fn switch_scene(&mut self, scene_id: i32) -> bool {
+        self.finish_continuous_edit();
         if !self
             .project
             .document
@@ -1707,11 +1792,13 @@ impl WorkspaceModel {
     }
 
     pub fn select_layer(&mut self, layer: i32) {
+        self.finish_continuous_edit();
         self.selection.set_selected_layer(layer);
         self.selection.clear();
     }
 
     pub fn click_clip(&mut self, clip_id: i32, control: bool) {
+        self.finish_continuous_edit();
         self.selection.click_clip(clip_id, control);
         self.reconcile_effect_selection();
     }
@@ -2582,6 +2669,7 @@ impl WorkspaceModel {
     }
 
     pub fn seek(&mut self, frame: i32) {
+        self.finish_continuous_edit();
         self.playhead = frame.clamp(0, self.timeline_duration());
         self.transport.seek(Instant::now(), self.playhead);
     }
@@ -2658,9 +2746,21 @@ impl WorkspaceModel {
     }
 
     fn finish_timeline_edit(&mut self, transaction: TimelineTransaction, status: &str) {
-        self.undo.push(transaction);
-        self.trim_undo_history();
-        self.redo.clear();
+        if self.updating_continuous_edit {
+            let edit = self
+                .continuous_edit
+                .as_mut()
+                .expect("continuous edit is active");
+            edit.transaction = Some(match edit.transaction.take() {
+                Some(previous) => TimelineTransaction::combine(vec![previous, transaction])
+                    .expect("applied transactions are nonempty"),
+                None => transaction,
+            });
+        } else {
+            self.undo.push(transaction);
+            self.trim_undo_history();
+            self.redo.clear();
+        }
         self.project.refresh();
         self.reconcile_after_edit();
         self.project.dirty = true;
@@ -2728,6 +2828,9 @@ impl WorkspaceModel {
     }
 
     fn trim_undo_history(&mut self) {
+        if self.undo_group_start.is_some() {
+            return;
+        }
         let remove_count = self.undo.len().saturating_sub(self.undo_limit);
         if remove_count > 0 {
             self.undo.drain(..remove_count);
@@ -3144,6 +3247,80 @@ mod tests {
             path: None,
             dirty: false,
         })
+    }
+
+    #[test]
+    fn continuous_parameter_edits_survive_history_limits_and_separate_gestures() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        workspace.set_undo_limit(1);
+        let original = workspace.document().clone();
+        for value in 1..=200 {
+            assert!(workspace.edit_continuously("size", |workspace| {
+                workspace.set_effect_parameter_at_frame(2, "size", 0, json!(value))
+            }));
+        }
+        let final_document = workspace.document().clone();
+        assert!(workspace.undo());
+        assert_eq!(workspace.document(), &original);
+        assert!(!workspace.undo());
+        assert!(workspace.redo());
+        assert_eq!(workspace.document(), &final_document);
+        assert!(workspace.edit_continuously("size", |workspace| {
+            workspace.set_effect_parameter_at_frame(2, "size", 0, json!(300))
+        }));
+        workspace.finish_continuous_edit();
+        assert!(workspace.undo());
+        assert_eq!(workspace.document(), &final_document);
+    }
+
+    #[test]
+    fn cancelling_parameter_preview_restores_dirty_state_and_redo() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        assert!(workspace.set_effect_parameter_at_frame(2, "size", 0, json!(20)));
+        assert!(workspace.undo());
+        workspace.project.dirty = false;
+        let original = workspace.document().clone();
+        for value in 30..80 {
+            workspace.edit_continuously("size", |workspace| {
+                workspace.set_effect_parameter_at_frame(2, "size", 0, json!(value))
+            });
+        }
+        assert!(workspace.cancel_continuous_edit());
+        assert_eq!(workspace.document(), &original);
+        assert!(!workspace.project().dirty);
+        assert!(workspace.redo());
+        assert_eq!(
+            workspace.document().clips[0].effects[2].params["size"],
+            json!(20)
+        );
+    }
+
+    #[test]
+    fn discrete_edit_and_selection_end_parameter_gestures() {
+        let mut workspace = workspace_with_effects();
+        workspace.click_clip(1, false);
+        workspace.edit_continuously("size", |workspace| {
+            workspace.set_effect_parameter_at_frame(2, "size", 0, json!(20))
+        });
+        workspace.click_clip(1, false);
+        workspace.edit_continuously("size", |workspace| {
+            workspace.set_effect_parameter_at_frame(2, "size", 0, json!(30))
+        });
+        workspace.set_effect_enabled(2, false);
+        assert!(workspace.undo());
+        assert!(workspace.document().clips[0].effects[2].enabled);
+        assert!(workspace.undo());
+        assert_eq!(
+            workspace.document().clips[0].effects[2].params["size"],
+            json!(20)
+        );
+        assert!(workspace.undo());
+        assert_eq!(
+            workspace.document().clips[0].effects[2].params["size"],
+            json!(10)
+        );
     }
 
     fn workspace_with_audio_plugins() -> WorkspaceModel {

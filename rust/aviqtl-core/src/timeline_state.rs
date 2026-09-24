@@ -1203,7 +1203,34 @@ pub(crate) fn combine_transactions(
     for transaction in transactions.into_iter().rev() {
         inverse.extend(transaction.inverse.operations);
     }
-    Ok(transaction(forward, inverse))
+    Ok(transaction(
+        compact_clip_replacements(forward),
+        compact_clip_replacements(inverse),
+    ))
+}
+
+// Parameter gestures repeatedly replace the same clip. Retain the first before
+// and final after without retaining every intermediate preview in history.
+fn compact_clip_replacements(operations: Vec<PatchOperation>) -> Vec<PatchOperation> {
+    let mut compacted = Vec::new();
+    for operation in operations {
+        if let (
+            Some(PatchOperation::ReplaceClip { index, after, .. }),
+            PatchOperation::ReplaceClip {
+                index: next_index,
+                before,
+                after: next_after,
+            },
+        ) = (compacted.last_mut(), &operation)
+            && index == next_index
+            && after == before
+        {
+            *after = next_after.clone();
+            continue;
+        }
+        compacted.push(operation);
+    }
+    compacted
 }
 
 fn replacement_transaction(forward: PatchOperation, inverse: PatchOperation) -> Transaction {
