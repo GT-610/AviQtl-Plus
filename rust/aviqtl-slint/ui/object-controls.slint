@@ -178,6 +178,7 @@ export component ScrubNumberEdit inherits Rectangle {
     in property <float> minimum;
     in property <float> maximum;
     in property <float> step: 1;
+    in property <bool> integer: false;
     in property <bool> enabled: true;
     callback commit(string);
     callback preview(float);
@@ -230,7 +231,7 @@ export component ScrubNumberEdit inherits Rectangle {
                 root.drag-value = clamp(root.drag-value + (self.mouse-x - root.last-x) / 1px
                     * root.step * (event.modifiers.shift ? 0.1 : 1), root.minimum, root.maximum);
                 root.last-x = self.mouse-x;
-                root.preview(root.drag-value);
+                root.preview(root.integer ? round(root.drag-value) : root.drag-value);
             } else if event.kind == PointerEventKind.up && root.dragging {
                 root.dragging = false;
                 root.finish-edit();
@@ -613,6 +614,7 @@ export component ObjectSettingRow inherits Rectangle {
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            integer: root.row-data.row-kind == "integer";
             preview(value) => {
                 if root.row-data.audio-plugin {
                     root.set-number(true, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
@@ -659,6 +661,7 @@ export component ObjectSettingRow inherits Rectangle {
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            integer: root.row-data.row-kind == "integer";
             preview(value) => { root.set-number(false, root.row-data.effect-index, root.row-data.param-name, root.row-data.end-frame, value); }
             finish-edit => { root.finish-edit(); }
             cancel-edit => { root.cancel-edit(); }
