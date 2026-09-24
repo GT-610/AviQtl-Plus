@@ -171,6 +171,11 @@ export component SystemSettingsWindow inherits Window {
     callback plugin-enabled-changed(int, bool);
     callback plugin-paths-changed(int, string);
     callback shortcut-value-changed(int, string);
+    callback record-shortcut(int, string, bool, bool, bool, bool) -> bool;
+    in-out property <string> shortcut-query;
+    pure callback matches-query(string, string) -> bool;
+    in property <string> shortcut-validation-status;
+    private property <int> recording-shortcut-index: -1;
     callback reload-settings();
     callback apply-settings() -> bool;
     callback close-window();
@@ -565,11 +570,20 @@ export component SystemSettingsWindow inherits Window {
                 spacing: 10px;
                 Text { text: @tr("Keyboard Shortcuts"); font-size: 1.2rem; font-weight: 700; }
                 Text { text: @tr("Enter shortcuts in a format such as “Ctrl+S” or “Alt+Shift+N”"); color: AppTheme.muted-foreground; wrap: word-wrap; }
-                for shortcut[index] in root.shortcut-settings : SystemSettingLineRow {
-                    label: root.shortcut-name(shortcut.action-id);
-                    value: shortcut.value;
-                    placeholder: @tr("Not set");
-                    commit(value) => { root.shortcut-value-changed(index, value); }
+                LineEdit { text <=> root.shortcut-query; placeholder-text: @tr("Search commands or shortcuts..."); }
+                Text { text: root.shortcut-validation-status; visible: self.text != ""; color: AppTheme.danger; wrap: word-wrap; }
+                for shortcut[index] in root.shortcut-settings : HorizontalLayout {
+                    visible: root.matches-query(root.shortcut-name(shortcut.action-id) + " " + shortcut.value, root.shortcut-query);
+                    spacing: 8px;
+                    Text { text: root.shortcut-name(shortcut.action-id); width: 220px; overflow: elide; vertical-alignment: center; }
+                    CommitLineEdit {
+                        source-text: shortcut.value;
+                        placeholder-text: @tr("Not set");
+                        accessible-label: root.shortcut-name(shortcut.action-id);
+                        commit(value) => { root.shortcut-value-changed(index, value); }
+                    }
+                    Button { text: @tr("Record"); clicked => { root.recording-shortcut-index = index; } }
+                    Button { text: @tr("Clear"); clicked => { root.shortcut-value-changed(index, ""); } }
                 }
             }
         }
@@ -591,10 +605,11 @@ export component SystemSettingsWindow inherits Window {
                     overflow: elide;
                 }
                 Button { text: @tr("Reload"); clicked => { root.reload-settings(); } }
-                Button { text: @tr("Apply"); clicked => { root.apply-settings(); } }
+                Button { text: @tr("Apply"); enabled: root.shortcut-validation-status == ""; clicked => { root.apply-settings(); } }
                 Button {
                     text: "OK";
                     primary: true;
+                    enabled: root.shortcut-validation-status == "";
                     clicked => {
                         if root.apply-settings() {
                             root.close-window();
@@ -602,6 +617,34 @@ export component SystemSettingsWindow inherits Window {
                     }
                 }
                 Button { text: @tr("Close"); clicked => { root.close-window(); } }
+            }
+        }
+    }
+    if root.recording-shortcut-index >= 0 : capture := FocusScope {
+        z: 200;
+        width: 100%;
+        height: 100%;
+        init => { self.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.recording-shortcut-index = -1;
+            } else if root.record-shortcut(root.recording-shortcut-index, event.text,
+                event.modifiers.alt, event.modifiers.control, event.modifiers.shift, event.modifiers.meta) {
+                root.recording-shortcut-index = -1;
+            }
+            accept
+        }
+        Rectangle { background: AppTheme.scrim; TouchArea { } }
+        Rectangle {
+            width: min(parent.width - 48px, 480px);
+            height: 150px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: AppTheme.raised-background;
+            VerticalLayout {
+                padding: 16px;
+                Text { text: @tr("Press a shortcut. Escape cancels."); wrap: word-wrap; }
+                Button { text: @tr("Cancel"); clicked => { root.recording-shortcut-index = -1; } }
             }
         }
     }

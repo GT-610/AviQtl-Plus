@@ -1,6 +1,32 @@
 //! Frontend behavior regression tests.
 
 #[test]
+fn shortcut_recording_and_conflicts_preserve_special_keys() {
+    use crate::shortcuts::{record_shortcut, validate_shortcuts};
+    let input = ShortcutInput {
+        text: "+".into(),
+        alt: false,
+        control: true,
+        shift: true,
+        meta: false,
+    };
+    assert_eq!(record_shortcut(input).as_deref(), Some("Ctrl++"));
+    assert!(validate_shortcuts(&["Ctrl++".into(), "Ctrl+Shift++".into()]).is_err());
+    assert!(validate_shortcuts(&["Ctrl+Q".into(), "Control+q".into()]).is_err());
+    assert!(validate_shortcuts(&["UnknownModifier+A".into()]).is_err());
+    assert!(validate_shortcuts(&["".into(), "".into(), "Ctrl+A".into()]).is_ok());
+    assert!(
+        validate_shortcuts(
+            &SYSTEM_SHORTCUT_ROWS
+                .iter()
+                .map(|(_, value)| value.to_string())
+                .collect::<Vec<_>>()
+        )
+        .is_ok()
+    );
+}
+
+#[test]
 fn native_menu_shortcuts_match_the_configured_parser() {
     assert_eq!(
         crate::shortcuts::native_shortcut("Ctrl+S"),

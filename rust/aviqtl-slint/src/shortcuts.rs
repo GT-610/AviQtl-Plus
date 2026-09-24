@@ -411,6 +411,83 @@ pub(super) fn native_shortcut(value: &str) -> slint::Keys {
     slint::Keys::from_parts(parts).unwrap_or_default()
 }
 
+pub(super) fn record_shortcut(input: ShortcutInput) -> Option<String> {
+    let named = [
+        (Key::LeftArrow, "Left"),
+        (Key::RightArrow, "Right"),
+        (Key::UpArrow, "Up"),
+        (Key::DownArrow, "Down"),
+        (Key::Tab, "Tab"),
+        (Key::Return, "Enter"),
+        (Key::Space, "Space"),
+        (Key::Backspace, "Backspace"),
+        (Key::Delete, "Delete"),
+        (Key::Home, "Home"),
+        (Key::End, "End"),
+        (Key::PageUp, "PageUp"),
+        (Key::PageDown, "PageDown"),
+        (Key::F1, "F1"),
+        (Key::F2, "F2"),
+        (Key::F3, "F3"),
+        (Key::F4, "F4"),
+        (Key::F5, "F5"),
+        (Key::F6, "F6"),
+        (Key::F7, "F7"),
+        (Key::F8, "F8"),
+        (Key::F9, "F9"),
+        (Key::F10, "F10"),
+        (Key::F11, "F11"),
+        (Key::F12, "F12"),
+    ];
+    let key = named
+        .iter()
+        .find(|(key, _)| slint::SharedString::from(*key).as_str() == input.text)
+        .map(|(_, name)| (*name).to_owned())
+        .or_else(|| {
+            let mut chars = input.text.chars();
+            let ch = chars.next()?;
+            (chars.next().is_none()
+                && !ch.is_control()
+                && !(('\u{e000}'..='\u{f8ff}').contains(&ch)))
+            .then(|| input.text.to_uppercase())
+        })?;
+    let mut parts = Vec::new();
+    if input.control {
+        parts.push("Ctrl".to_owned());
+    }
+    if input.meta {
+        parts.push("Meta".to_owned());
+    }
+    if input.alt {
+        parts.push("Alt".to_owned());
+    }
+    if input.shift && key != "+" {
+        parts.push("Shift".to_owned());
+    }
+    parts.push(key);
+    let value = parts.join("+");
+    parse_shortcut(&value).map(|_| value)
+}
+
+pub(super) fn validate_shortcuts(values: &[String]) -> Result<(), &'static str> {
+    let mut patterns: Vec<ShortcutPattern> = Vec::new();
+    for value in values.iter().filter(|value| !value.trim().is_empty()) {
+        let pattern = parse_shortcut(value)
+            .ok_or("Invalid shortcut. Record a key combination or clear the binding.")?;
+        if patterns.iter().any(|other| {
+            other.text == pattern.text
+                && other.alt == pattern.alt
+                && other.control == pattern.control
+                && other.meta == pattern.meta
+                && (other.ignore_shift || pattern.ignore_shift || other.shift == pattern.shift)
+        }) {
+            return Err("A shortcut is assigned to more than one command.");
+        }
+        patterns.push(pattern);
+    }
+    Ok(())
+}
+
 pub(super) fn parse_shortcut(value: &str) -> Option<ShortcutPattern> {
     let value = value.trim();
     if value.is_empty() {

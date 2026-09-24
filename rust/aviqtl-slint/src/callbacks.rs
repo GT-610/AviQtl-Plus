@@ -1773,6 +1773,8 @@ pub(super) fn install_callbacks(
         }
     });
     let system_shortcut_window = system_settings.as_weak();
+    system_settings
+        .on_matches_query(|text, query| text.to_lowercase().contains(&query.to_lowercase()));
     system_settings.on_shortcut_value_changed(move |index, value| {
         let Some(window) = system_shortcut_window.upgrade() else {
             return;
@@ -1785,6 +1787,30 @@ pub(super) fn install_callbacks(
             row.1.value = value;
             model.set_row_data(row.0, row.1);
         }
+        let validation = crate::shortcuts::validate_shortcuts(
+            &model
+                .iter()
+                .map(|row| row.value.to_string())
+                .collect::<Vec<_>>(),
+        );
+        window.set_shortcut_validation_status(validation.err().unwrap_or_default().into());
+    });
+    let record_shortcut_window = system_settings.as_weak();
+    system_settings.on_record_shortcut(move |index, text, alt, control, shift, meta| {
+        let Some(window) = record_shortcut_window.upgrade() else {
+            return false;
+        };
+        let Some(value) = crate::shortcuts::record_shortcut(crate::shortcuts::ShortcutInput {
+            text: text.to_string(),
+            alt,
+            control,
+            shift,
+            meta,
+        }) else {
+            return false;
+        };
+        window.invoke_shortcut_value_changed(index, value.into());
+        true
     });
     let system_apply_store = settings.clone();
     let system_apply_model = model.clone();
