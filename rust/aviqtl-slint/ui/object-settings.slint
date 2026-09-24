@@ -15,6 +15,9 @@ export component ObjectSettingsWindow inherits Window {
     in property <string> clip-title: "";
     in property <bool> audio-plugin-mode: false;
     in property <bool> sidebar-on-right: false;
+    private property <bool> sidebar-visible: root.width >= 800px;
+    private property <length> sidebar-width: 220px;
+    private property <length> sidebar-space: root.sidebar-visible ? root.sidebar-width : 0px;
     in property <string> plugin-scan-status: "Audio plugins · scanning…";
     in property <float> audio-peak-left: 0;
     in property <float> audio-peak-right: 0;
@@ -74,7 +77,9 @@ export component ObjectSettingsWindow inherits Window {
     callback remove-effect-keyframe(bool, int, string, int);
     callback move-effect-keyframe(bool, int, string, int, int);
     callback open-effect-easing(int, string, int, int);
+    callback quick-effect-easing(int, string, int, int, string);
     callback finish-parameter-edit();
+    callback toggle-effect-fold(bool, int);
     callback cancel-parameter-edit();
     callback preview-parameter-text(bool, int, string, int, string);
 
@@ -112,10 +117,23 @@ export component ObjectSettingsWindow inherits Window {
     }
 
     if root.has-selection : Rectangle {
+        HorizontalLayout {
+            height: 38px;
+            padding: 4px;
+            Button {
+                text: @tr("Effect list");
+                checkable: true;
+                checked: root.sidebar-visible;
+                clicked => { root.sidebar-visible = !root.sidebar-visible; }
+            }
+            Text { text: root.clip-title; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+        }
         sidebar := Rectangle {
-            x: root.sidebar-on-right ? parent.width - 250px : 0px;
-            width: 250px;
-            height: 100%;
+            visible: root.sidebar-visible;
+            x: root.sidebar-on-right ? parent.width - root.sidebar-space : 0px;
+            y: 38px;
+            width: root.sidebar-space;
+            height: parent.height - 38px;
             background: AppTheme.panel-background;
             VerticalLayout {
                 padding: 8px;
@@ -171,10 +189,35 @@ export component ObjectSettingsWindow inherits Window {
                 }
             }
         }
+        if root.sidebar-visible : TouchArea {
+            z: 5;
+            x: (root.sidebar-on-right ? parent.width - root.sidebar-space : root.sidebar-space) - 3px;
+            y: 38px;
+            width: 6px;
+            height: parent.height - 38px;
+            mouse-cursor: ew-resize;
+            private property <length> initial-width;
+            private property <length> initial-x;
+            private property <bool> resizing: false;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    self.initial-width = root.sidebar-width;
+                    self.initial-x = self.absolute-position.x + self.mouse-x;
+                    self.resizing = true;
+                } else if event.kind == PointerEventKind.move && self.resizing {
+                    root.sidebar-width = clamp(self.initial-width
+                        + (self.absolute-position.x + self.mouse-x - self.initial-x) * (root.sidebar-on-right ? -1 : 1),
+                        160px, min(360px, root.width - 400px));
+                } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+                    self.resizing = false;
+                }
+            }
+        }
         settings-content := ScrollView {
-            x: root.sidebar-on-right ? 0px : 250px;
-            width: parent.width - 250px;
-            height: 100%;
+            x: root.sidebar-on-right ? 0px : root.sidebar-space;
+            y: 38px;
+            width: parent.width - root.sidebar-space;
+            height: parent.height - 38px;
             VerticalLayout {
                 padding: 8px;
                 spacing: 2px;
@@ -202,6 +245,8 @@ export component ObjectSettingsWindow inherits Window {
                 }
                 for row in root.setting-rows : ObjectSettingRow {
                     row-data: row;
+                    quick-easing(index, param, start, end, mode) => { root.quick-effect-easing(index, param, start, end, mode); }
+                    toggle-fold(audio, index) => { root.toggle-effect-fold(audio, index); }
                     finish-edit => { root.finish-parameter-edit(); }
                     cancel-edit => { root.cancel-parameter-edit(); }
                     preview-text(audio, index, param, frame, text) => {

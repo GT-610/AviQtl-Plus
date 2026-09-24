@@ -310,6 +310,46 @@ pub(super) fn install_callbacks(
         );
     });
     let object_number_ui = object_settings_ui.clone();
+    let quick_easing_ui = object_settings_ui.clone();
+    object_settings.on_quick_effect_easing(move |index, param, start, end, mode| {
+        if let Some(workspace) = quick_easing_ui.model.borrow_mut().current_workspace_mut() {
+            let grouped = workspace.begin_undo_group();
+            if workspace
+                .prepare_effect_easing(index.max(0) as usize, param.as_str(), start, end)
+                .is_some()
+            {
+                workspace.set_effect_keyframe_options(
+                    index.max(0) as usize,
+                    param.as_str(),
+                    start,
+                    serde_json::json!({"interp": mode.as_str()}),
+                );
+            }
+            if grouped {
+                workspace.end_undo_group();
+            }
+        }
+        quick_easing_ui.sync();
+    });
+    let fold_window = object_settings.as_weak();
+    object_settings.on_toggle_effect_fold(move |audio, index| {
+        if let Some(window) = fold_window.upgrade() {
+            let rows = window.get_setting_rows();
+            let folded = rows
+                .iter()
+                .find(|row| row.audio_plugin == audio && row.effect_index == index)
+                .is_some_and(|row| row.folded);
+            for i in 0..rows.row_count() {
+                if let Some(mut row) = rows.row_data(i)
+                    && row.audio_plugin == audio
+                    && row.effect_index == index
+                {
+                    row.folded = !folded;
+                    rows.set_row_data(i, row);
+                }
+            }
+        }
+    });
     let preview_text_ui = object_settings_ui.clone();
     object_settings.on_preview_parameter_text(move |audio, index, param, frame, text| {
         preview_text_ui.set_value_deferred(

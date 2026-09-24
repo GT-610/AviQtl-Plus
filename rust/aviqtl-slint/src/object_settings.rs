@@ -17,7 +17,7 @@ use aviqtl_app::effect_catalog::EffectCatalog;
 use aviqtl_app::object_settings::{ObjectControl, ObjectControlKind, ObjectSettings};
 use aviqtl_app::preset_store::PresetStore;
 use aviqtl_app::{ApplicationModel, WorkspaceModel};
-use slint::{Color, ModelRc, SharedString, VecModel};
+use slint::{Color, Model, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -508,10 +508,17 @@ pub(super) fn sync_object_settings(
             .collect::<Vec<_>>()
     };
     update_vec_model(&window.get_effects(), effects);
-    update_vec_model(
-        &window.get_setting_rows(),
-        object_settings_rows(&projection),
-    );
+    let current_rows = window.get_setting_rows();
+    let folded: std::collections::BTreeSet<_> = current_rows
+        .iter()
+        .filter(|row| row.row_kind == "effect" && row.folded)
+        .map(|row| (row.audio_plugin, row.effect_index))
+        .collect();
+    let mut rows = object_settings_rows(&projection);
+    for row in &mut rows {
+        row.folded = folded.contains(&(row.audio_plugin, row.effect_index));
+    }
+    update_vec_model(&current_rows, rows);
 }
 
 pub(super) fn sync_effect_catalog(
@@ -887,6 +894,7 @@ fn push_object_settings_rows(
 ) {
     rows.push(ObjectSettingRowData {
         row_kind: SharedString::from("effect"),
+        folded: false,
         source_kind: SharedString::new(),
         audio_plugin,
         effect_index: index as i32,
@@ -955,6 +963,7 @@ fn push_object_settings_rows(
             );
         let parameter_row = ObjectSettingRowData {
             row_kind: SharedString::from(control.kind.as_str()),
+            folded: false,
             source_kind: SharedString::from(control.source_kind.clone()),
             audio_plugin,
             effect_index: index as i32,
