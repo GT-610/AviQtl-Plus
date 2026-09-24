@@ -62,49 +62,51 @@ export component MainWindow inherits Window {
     callback playback-speed-changed(int);
     callback keyboard-shortcut(string, bool, bool, bool, bool) -> bool;
     callback workspace-action(string);
+    private property <keys> no-shortcut;
+    private property <bool> menu-accelerators-enabled: !speed-input.has-focus && !root.missing-media-dialog-visible;
 
     MenuBar {
         Menu {
             title: @tr("File");
-            MenuItem { title: @tr("New Project"); shortcut: root.menu-shortcuts[0]; icon: @image-url("icons/new.svg"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
-            MenuItem { title: @tr("Open Project"); shortcut: root.menu-shortcuts[1]; icon: @image-url("icons/open.svg"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
+            MenuItem { title: @tr("New Project"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[0] : root.no-shortcut; icon: @image-url("icons/new.svg"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
+            MenuItem { title: @tr("Open Project"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[1] : root.no-shortcut; icon: @image-url("icons/open.svg"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("Save Project"); shortcut: root.menu-shortcuts[2]; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
-            MenuItem { title: @tr("Save Project As..."); shortcut: root.menu-shortcuts[3]; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
+            MenuItem { title: @tr("Save Project"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[2] : root.no-shortcut; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
+            MenuItem { title: @tr("Save Project As..."); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[3] : root.no-shortcut; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
             MenuItem {
                 title: @tr("Manage Missing Media");
                 enabled: !root.save-confirmation-visible && root.missing-media.length > 0;
                 activated => { root.missing-media-dialog-visible = true; }
             }
             MenuSeparator { }
-            MenuItem { title: @tr("Export Media..."); shortcut: root.menu-shortcuts[4]; icon: @image-url("icons/export.svg"); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
+            MenuItem { title: @tr("Export Media..."); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[4] : root.no-shortcut; icon: @image-url("icons/export.svg"); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("Exit"); shortcut: root.menu-shortcuts[5]; icon: @image-url("icons/close.svg"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
+            MenuItem { title: @tr("Exit"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[5] : root.no-shortcut; icon: @image-url("icons/close.svg"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
         }
         Menu {
             title: @tr("Edit");
-            MenuItem { title: @tr("Undo"); shortcut: root.menu-shortcuts[7]; icon: @image-url("icons/undo.svg"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
-            MenuItem { title: @tr("Redo"); shortcut: root.menu-shortcuts[8]; icon: @image-url("icons/redo.svg"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+            MenuItem { title: @tr("Undo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[7] : root.no-shortcut; icon: @image-url("icons/undo.svg"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
+            MenuItem { title: @tr("Redo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[8] : root.no-shortcut; icon: @image-url("icons/redo.svg"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
         }
         Menu {
             title: @tr("Settings");
-            MenuItem { title: @tr("Project Settings"); shortcut: root.menu-shortcuts[23]; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
+            MenuItem { title: @tr("Project Settings"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[23] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("Preferences"); shortcut: root.menu-shortcuts[6]; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
+            MenuItem { title: @tr("Preferences"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[6] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
         }
         Menu {
             title: @tr("View");
-            MenuItem { title: @tr("Show Timeline"); shortcut: root.menu-shortcuts[21]; icon: @image-url("icons/timeline.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
-            MenuItem { title: @tr("Show Settings Dialog"); shortcut: root.menu-shortcuts[22]; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
+            MenuItem { title: @tr("Show Timeline"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[21] : root.no-shortcut; icon: @image-url("icons/timeline.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
+            MenuItem { title: @tr("Show Settings Dialog"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[22] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
             Menu {
                 title: @tr("Workspace");
-                MenuItem { title: @tr("Editing layout"); activated => { root.workspace-action("editing"); } }
-                MenuItem { title: @tr("Animation layout"); activated => { root.workspace-action("animation"); } }
-                MenuItem { title: @tr("Audio layout"); activated => { root.workspace-action("audio"); } }
+                MenuItem { title: @tr("Editing layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("editing"); } }
+                MenuItem { title: @tr("Animation layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("animation"); } }
+                MenuItem { title: @tr("Audio layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("audio"); } }
                 MenuSeparator { }
-                MenuItem { title: @tr("Save current layout"); activated => { root.workspace-action("save"); } }
-                MenuItem { title: @tr("Restore saved layout"); activated => { root.workspace-action("restore"); } }
-                MenuItem { title: @tr("Bring editor windows onto this screen"); activated => { root.workspace-action("editing"); } }
+                MenuItem { title: @tr("Save current layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("save"); } }
+                MenuItem { title: @tr("Restore saved layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("restore"); } }
+                MenuItem { title: @tr("Bring editor windows onto this screen"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("editing"); } }
             }
         }
         Menu {
@@ -119,7 +121,7 @@ export component MainWindow inherits Window {
         width: 100%;
         height: 100%;
         key-pressed(event) => {
-            if !root.save-confirmation-visible && root.keyboard-shortcut(
+            if !root.save-confirmation-visible && root.menu-accelerators-enabled && root.keyboard-shortcut(
                 event.text,
                 event.modifiers.alt,
                 event.modifiers.control,
@@ -234,7 +236,7 @@ export component MainWindow inherits Window {
                     horizontal-stretch: 0;
                     spacing: 5px;
                     Text { text: @tr("Speed"); vertical-alignment: center; }
-                    SpinBox {
+                    speed-input := SpinBox {
                         width: 80px;
                         height: 28px;
                         value <=> root.playback-speed-percent;

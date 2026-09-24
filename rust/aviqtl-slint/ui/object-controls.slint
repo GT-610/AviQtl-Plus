@@ -197,6 +197,16 @@ export component ScrubNumberEdit inherits Rectangle {
         accessible-label: root.label;
         commit(value) => { root.commit(value); }
     }
+    drag-scope := FocusScope {
+    width: 12px;
+    height: 100%;
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.dragging {
+            root.dragging = false;
+            root.cancel-edit();
+            accept
+        } else { reject }
+    }
     Text { width: 12px; height: 100%; text: "↔"; color: AppTheme.muted-foreground; vertical-alignment: center; }
     TouchArea {
         width: 12px;
@@ -212,6 +222,7 @@ export component ScrubNumberEdit inherits Rectangle {
         accessible-action-decrement => { root.preview(max(root.minimum, root.value - root.step)); root.finish-edit(); }
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                drag-scope.focus();
                 root.dragging = true;
                 root.drag-value = root.value;
                 root.last-x = self.mouse-x;
@@ -228,6 +239,7 @@ export component ScrubNumberEdit inherits Rectangle {
                 root.cancel-edit();
             }
         }
+    }
     }
 }
 

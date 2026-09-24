@@ -101,6 +101,7 @@ export component ObjectSettingsWindow inherits Window {
     callback preview-parameter-text(bool, int, string, int, string);
 
     object-settings-shortcuts := FocusScope {
+        enabled: !root.effect-picker-visible && !root.preset-save-visible && !root.color-picker-visible && !root.font-picker-visible;
         width: 100%;
         height: 100%;
         key-pressed(event) => {
