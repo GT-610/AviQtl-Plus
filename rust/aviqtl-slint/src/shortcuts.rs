@@ -756,6 +756,21 @@ pub(super) fn zoom_percent_to_scale(percent: f32) -> f32 {
     }
 }
 
+pub(super) fn fit_timeline_range(start: i32, end: i32, width: f32) -> TimelineViewportData {
+    let width = if width.is_finite() {
+        width.max(1.0)
+    } else {
+        1.0
+    };
+    let span = (i64::from(end) - i64::from(start)).max(1) as f64;
+    let scale = ((f64::from(width) - 32.0).max(1.0) / span).clamp(0.0001, 10.0) as f32;
+    TimelineViewportData {
+        pixels_per_frame: scale,
+        viewport_x: -(start.max(0) as f32 * scale - 16.0).max(0.0),
+        viewport_y: 0.0,
+    }
+}
+
 pub(super) fn scale_to_zoom_percent(scale: f32) -> f32 {
     if scale <= 1.0 {
         scale * 100.0

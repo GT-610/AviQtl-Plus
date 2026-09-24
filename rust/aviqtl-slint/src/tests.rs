@@ -1,5 +1,16 @@
 //! Frontend behavior regression tests.
 
+#[test]
+fn fit_timeline_keeps_the_selected_range_visible() {
+    let view = crate::shortcuts::fit_timeline_range(120, 360, 800.0);
+    assert!((120.0 * view.pixels_per_frame + view.viewport_x - 16.0).abs() < 0.01);
+    assert!(360.0 * view.pixels_per_frame + view.viewport_x <= 800.0);
+    let empty = crate::shortcuts::fit_timeline_range(0, 0, 0.0);
+    assert!(empty.pixels_per_frame.is_finite() && empty.pixels_per_frame > 0.0);
+    let long = crate::shortcuts::fit_timeline_range(0, 216_000, 1000.0);
+    assert!(216_000.0 * long.pixels_per_frame <= 1000.0);
+}
+
 use crate::dialogs::{
     WindowGeometry, filtered_font_families, format_qt_color, parse_qt_color, qt_file_filters,
 };

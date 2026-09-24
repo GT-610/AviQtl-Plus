@@ -57,6 +57,7 @@ export component LayerHeaderItem inherits Rectangle {
     in property <LayerData> layer;
     callback activate(int);
     callback visibility-toggled(int);
+    callback select-contents(int);
     callback command(string, int);
     callback scroll-requested(length) -> bool;
     height: 30px;
@@ -118,8 +119,12 @@ export component LayerHeaderItem inherits Rectangle {
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                     // Qt toggles visibility and selects on one left click (LayerHeader.qml:95).
-                    root.visibility-toggled(root.layer.index);
-                    root.activate(root.layer.index);
+                    if event.modifiers.control || event.modifiers.meta {
+                        root.select-contents(root.layer.index);
+                    } else {
+                        root.visibility-toggled(root.layer.index);
+                        root.activate(root.layer.index);
+                    }
                 }
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
                     layer-menu.show({ x: self.mouse-x, y: self.mouse-y });

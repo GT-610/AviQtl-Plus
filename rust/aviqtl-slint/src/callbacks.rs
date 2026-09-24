@@ -1952,6 +1952,78 @@ pub(super) fn install_callbacks(
     });
 
     let layer_model = model.clone();
+    let layer_contents_model = model.clone();
+    let layer_contents_main = main.as_weak();
+    let layer_contents_timeline = timeline.as_weak();
+    timeline.on_layer_select_contents(move |layer| {
+        if let Some(workspace) = layer_contents_model.borrow_mut().current_workspace_mut() {
+            workspace.select_layer_contents(layer);
+        }
+        sync_weak_windows(
+            &layer_contents_main,
+            &layer_contents_timeline,
+            &layer_contents_model,
+        );
+    });
+    let toolbar_model = model.clone();
+    let toolbar_store = settings.clone();
+    let toolbar_main = main.as_weak();
+    let toolbar_timeline = timeline.as_weak();
+    timeline.on_toolbar_action(move |action| {
+        if action == "snap" {
+            if let Some(workspace) = toolbar_model.borrow_mut().current_workspace_mut() {
+                let id = workspace.selected_scene();
+                if let Some(mut scene) = workspace.scene_settings(id) {
+                    scene.enable_snap = !scene.enable_snap;
+                    workspace.update_scene_settings(id, scene);
+                }
+            }
+        } else if action == "skimming" {
+            let mut values = toolbar_store.borrow().snapshot();
+            let enabled = !toolbar_store
+                .borrow()
+                .bool_value("enableTimelineSkimming", true);
+            values.insert(
+                "enableTimelineSkimming".to_owned(),
+                serde_json::json!(enabled),
+            );
+            if let Err(message) = toolbar_store.borrow_mut().apply(values) {
+                show_error_dialog(&message);
+            } else if let Some(window) = toolbar_timeline.upgrade() {
+                window.set_timeline_skimming_enabled(enabled);
+                window.set_skimmer_visible(false);
+            }
+        }
+        sync_weak_windows(&toolbar_main, &toolbar_timeline, &toolbar_model);
+    });
+    let fit_model = model.clone();
+    timeline.on_fit_range(move |selected, width| {
+        let model = fit_model.borrow();
+        let range = model
+            .current_workspace()
+            .map(|workspace| {
+                if selected {
+                    let clips = workspace.timeline_clips();
+                    let start = clips
+                        .iter()
+                        .filter(|clip| clip.selected)
+                        .map(|clip| clip.start)
+                        .min()
+                        .unwrap_or(0);
+                    let end = clips
+                        .iter()
+                        .filter(|clip| clip.selected)
+                        .map(|clip| clip.start.saturating_add(clip.duration))
+                        .max()
+                        .unwrap_or(start + 1);
+                    (start, end)
+                } else {
+                    (0, workspace.timeline_duration())
+                }
+            })
+            .unwrap_or((0, 1));
+        crate::shortcuts::fit_timeline_range(range.0, range.1, width)
+    });
     let layer_main = main.as_weak();
     let layer_timeline = timeline.as_weak();
     timeline.on_layer_activated(move |layer| {

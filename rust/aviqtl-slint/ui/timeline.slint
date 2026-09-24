@@ -35,6 +35,11 @@ export component TimelineWindow inherits Window {
     in property <int> zoom-min: 10;
     in property <int> zoom-max: 400;
     in property <bool> timeline-skimming-enabled: true;
+    in property <bool> snap-enabled: true;
+    in property <bool> can-fit-selection: false;
+    private property <float> previous-scale: 1;
+    private property <length> previous-viewport-x: 0px;
+    private property <bool> previous-zoom-available: false;
     in property <int> timeline-track-height: 30;
     in property <int> timeline-header-height: 28;
     in property <int> timeline-ruler-height: 32;
@@ -127,6 +132,18 @@ export component TimelineWindow inherits Window {
     callback clip-command(string, int, int, int);
     callback clip-drag-finished(string, int, float, float, bool);
     callback layer-activated(int);
+    callback layer-select-contents(int);
+    callback toolbar-action(string);
+    callback fit-range(bool, float) -> TimelineViewportData;
+
+    function fit-timeline(selection: bool) {
+        root.previous-scale = root.pixels-per-frame;
+        root.previous-viewport-x = timeline-scroll.viewport-x;
+        root.previous-zoom-available = true;
+        let view = root.fit-range(selection, timeline-scroll.visible-width / 1px);
+        root.pixels-per-frame = view.pixels-per-frame;
+        timeline-scroll.viewport-x = view.viewport-x * 1px;
+    }
     callback layer-visibility-toggled(int);
     callback layer-command(string, int);
     callback insert-layers(int, int, bool);
@@ -460,6 +477,25 @@ export component TimelineWindow inherits Window {
                 TabAddButton { accessible-name: @tr("Create New Scene"); clicked => { root.show-scene-settings(); } }
             }
         }
+            HorizontalLayout {
+                height: 38px;
+                padding: 4px;
+                spacing: 4px;
+                Button { text: @tr("Snap"); checkable: true; checked: root.snap-enabled; clicked => { root.toolbar-action("snap"); } }
+                Button { text: @tr("Skimming"); checkable: true; checked: root.timeline-skimming-enabled; clicked => { root.toolbar-action("skimming"); } }
+                Button { text: @tr("Fit all"); clicked => { root.fit-timeline(false); } }
+                Button { text: @tr("Fit selection"); enabled: root.can-fit-selection; clicked => { root.fit-timeline(true); } }
+                Button { text: @tr("Previous zoom"); enabled: root.previous-zoom-available; clicked => {
+                    let scale = root.pixels-per-frame;
+                    let offset = timeline-scroll.viewport-x;
+                    root.pixels-per-frame = root.previous-scale;
+                    timeline-scroll.viewport-x = root.previous-viewport-x;
+                    root.previous-scale = scale;
+                    root.previous-viewport-x = offset;
+                } }
+                Rectangle { horizontal-stretch: 1; }
+                Text { text: root.skimmer-visible ? @tr("Target: hover") : @tr("Target: playhead"); vertical-alignment: center; color: AppTheme.muted-foreground; }
+            }
             Rectangle {
             height: root.timeline-ruler-height * 1px;
             background: AppTheme.panel-background;
@@ -625,6 +661,7 @@ export component TimelineWindow inherits Window {
                 viewport-height: root.layers.length * root.timeline-track-height * 1px;
                 viewport-y <=> root.shared-viewport-y;
                 for layer in root.layers: LayerHeaderItem {
+                    select-contents(layer) => { root.layer-select-contents(layer); }
                     y: layer.index * root.timeline-track-height * 1px;
                     width: root.layer-header-width * 1px;
                     height: root.timeline-track-height * 1px;

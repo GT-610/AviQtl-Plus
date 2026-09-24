@@ -1797,6 +1797,20 @@ impl WorkspaceModel {
         self.selection.clear();
     }
 
+    pub fn select_layer_contents(&mut self, layer: i32) {
+        self.finish_continuous_edit();
+        self.selection.set_selected_layer(layer);
+        self.selection.replace(
+            self.project
+                .document
+                .clips
+                .iter()
+                .filter(|clip| clip.scene_id == self.selected_scene && clip.layer == layer)
+                .map(|clip| clip.id),
+        );
+        self.effect_selection.clear();
+    }
+
     pub fn click_clip(&mut self, clip_id: i32, control: bool) {
         self.finish_continuous_edit();
         self.selection.click_clip(clip_id, control);
@@ -3321,6 +3335,19 @@ mod tests {
             workspace.document().clips[0].effects[2].params["size"],
             json!(10)
         );
+    }
+
+    #[test]
+    fn selecting_layer_contents_does_not_change_visibility_or_other_scenes() {
+        let mut workspace = workspace();
+        let original = workspace.document().clone();
+        workspace.select_layer_contents(0);
+        assert_eq!(selected_ids(&workspace), vec![1]);
+        assert_eq!(workspace.selected_layer(), 0);
+        assert_eq!(workspace.document(), &original);
+        workspace.select_layer_contents(99);
+        assert!(selected_ids(&workspace).is_empty());
+        assert!(!workspace.project().dirty);
     }
 
     fn workspace_with_audio_plugins() -> WorkspaceModel {
