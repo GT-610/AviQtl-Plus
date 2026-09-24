@@ -1,3 +1,4 @@
+import { Button } from "std-widgets.slint";
 import { AppTheme } from "theme.slint";
 
 export component TabCloseButton inherits Rectangle {
@@ -51,73 +52,21 @@ export component TabAddButton inherits Rectangle {
     }
 }
 
-export component TransportButton inherits Rectangle {
-    in property <string> icon;
+export component TransportButton inherits Button {
+    in property <string> symbol;
     in property <string> accessible-name;
     in property <string> help-text;
     in property <bool> active: false;
-    private property <brush> icon-color: transport-touch.has-hover || root.active ? AppTheme.accent : AppTheme.foreground;
-    callback clicked();
     width: 32px;
     height: 32px;
-    border-radius: AppTheme.control-radius;
-    background: root.active
-        ? AppTheme.selection-background
-        : transport-touch.has-hover
-            ? AppTheme.hover-background
-            : transparent;
-    animate background { duration: 120ms; }
-
-    if root.icon == "previous" : Path {
-        x: 8px;
-        y: 8px;
-        width: 16px;
-        height: 16px;
-        viewbox-width: 16;
-        viewbox-height: 16;
-        commands: "M 11 3 L 5 8 L 11 13";
-        stroke: root.icon-color;
-        stroke-width: 2px;
-    }
-    if root.icon == "play" : Path {
-        x: 8px;
-        y: 8px;
-        width: 16px;
-        height: 16px;
-        viewbox-width: 16;
-        viewbox-height: 16;
-        commands: "M 5 3 L 13 8 L 5 13 Z";
-        fill: root.icon-color;
-    }
-    if root.icon == "pause" : Path {
-        x: 8px;
-        y: 8px;
-        width: 16px;
-        height: 16px;
-        viewbox-width: 16;
-        viewbox-height: 16;
-        commands: "M 4 3 L 7 3 L 7 13 L 4 13 Z M 9 3 L 12 3 L 12 13 L 9 13 Z";
-        fill: root.icon-color;
-    }
-    if root.icon == "next" : Path {
-        x: 8px;
-        y: 8px;
-        width: 16px;
-        height: 16px;
-        viewbox-width: 16;
-        viewbox-height: 16;
-        commands: "M 5 3 L 11 8 L 5 13";
-        stroke: root.icon-color;
-        stroke-width: 2px;
-    }
-    transport-touch := TouchArea {
-        mouse-cursor: pointer;
-        accessible-role: button;
-        accessible-label: root.accessible-name;
-        accessible-description: root.help-text;
-        accessible-action-default => { root.clicked(); }
-        clicked => { root.clicked(); }
-    }
+    text: "";
+    icon: root.symbol == "previous" ? @image-url("icons/previous.svg")
+        : root.symbol == "next" ? @image-url("icons/next.svg")
+        : root.symbol == "pause" ? @image-url("icons/pause.svg") : @image-url("icons/play.svg");
+    checked: root.active;
+    checkable: root.symbol == "play" || root.symbol == "pause";
+    accessible-label: root.accessible-name;
+    accessible-description: root.help-text;
 }
 
 export component StereoAudioMeter inherits Rectangle {
