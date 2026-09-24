@@ -30,6 +30,29 @@ fn workspace_presets_keep_window_origins_on_the_current_monitor() {
 }
 
 #[test]
+fn screen_recovery_moves_only_fully_off_screen_windows() {
+    let screen = WindowGeometry::new(0, 0, 1000, 800);
+    let fallback = WindowGeometry::new(20, 30, 400, 300);
+    assert!(
+        crate::lifecycle::recover_window_geometry(
+            WindowGeometry::new(900, 100, 300, 300),
+            screen,
+            fallback,
+        )
+        .is_none()
+    );
+    let recovered = crate::lifecycle::recover_window_geometry(
+        WindowGeometry::new(1400, 100, 300, 300),
+        screen,
+        fallback,
+    )
+    .expect("off-screen window should be recovered");
+    assert_eq!(recovered.x, fallback.x);
+    assert_eq!(recovered.y, fallback.y);
+    assert_eq!((recovered.width, recovered.height), (300, 300));
+}
+
+#[test]
 fn shortcut_recording_and_conflicts_preserve_special_keys() {
     use crate::shortcuts::{record_shortcut, validate_shortcuts};
     let input = ShortcutInput {
@@ -41,7 +64,7 @@ fn shortcut_recording_and_conflicts_preserve_special_keys() {
     };
     assert_eq!(record_shortcut(input).as_deref(), Some("Ctrl++"));
     assert!(validate_shortcuts(&["Ctrl++".into(), "Ctrl+Shift++".into()]).is_err());
-    assert!(validate_shortcuts(&["Ctrl+Q".into(), "Control+q".into()]).is_err());
+    assert!(validate_shortcuts(&["Ctrl+Q".into(), "Ctrl+q".into()]).is_err());
     assert!(validate_shortcuts(&["UnknownModifier+A".into()]).is_err());
     assert!(validate_shortcuts(&["".into(), "".into(), "Ctrl+A".into()]).is_ok());
     assert!(

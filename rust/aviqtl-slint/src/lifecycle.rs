@@ -127,6 +127,24 @@ impl LifecycleUi {
             })
             .flatten()
             .unwrap_or(crate::dialogs::WindowGeometry::new(32, 48, 1280, 800));
+        let defaults = editor_layout(screen, "editing");
+        if action == "recover-screen" {
+            for ((_, window), fallback) in windows.iter().zip(defaults) {
+                let current = crate::dialogs::WindowGeometry::capture(window);
+                let Some(geometry) = recover_window_geometry(current, screen, fallback) else {
+                    continue;
+                };
+                window.set_size(slint::LogicalSize::new(
+                    geometry.width as f32,
+                    geometry.height as f32,
+                ));
+                window.set_position(slint::LogicalPosition::new(
+                    geometry.x as f32,
+                    geometry.y as f32,
+                ));
+            }
+            return;
+        }
         let defaults = editor_layout(screen, action);
         let saved = self
             .settings
@@ -559,6 +577,31 @@ pub(super) fn editor_layout(
             upper_height,
         ),
     ]
+}
+
+pub(super) fn recover_window_geometry(
+    current: crate::dialogs::WindowGeometry,
+    screen: crate::dialogs::WindowGeometry,
+    fallback: crate::dialogs::WindowGeometry,
+) -> Option<crate::dialogs::WindowGeometry> {
+    let intersects = current.x < screen.x + screen.width
+        && current.x + current.width > screen.x
+        && current.y < screen.y + screen.height
+        && current.y + current.height > screen.y;
+    if intersects {
+        return None;
+    }
+    let width = current.width.min(screen.width).max(1);
+    let height = current.height.min(screen.height).max(1);
+    Some(crate::dialogs::WindowGeometry {
+        x: fallback.x.clamp(screen.x, screen.x + screen.width - width),
+        y: fallback
+            .y
+            .clamp(screen.y, screen.y + screen.height - height),
+        width,
+        height,
+        maximized: current.maximized,
+    })
 }
 
 pub(super) fn sync_launcher(window: &ProjectLauncherWindow, settings: &SettingsStore) {

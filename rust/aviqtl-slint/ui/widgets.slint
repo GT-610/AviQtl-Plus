@@ -64,7 +64,8 @@ export component TransportButton inherits Button {
         : root.symbol == "next" ? @image-url("icons/next.svg")
         : root.symbol == "pause" ? @image-url("icons/pause.svg") : @image-url("icons/play.svg");
     checked: root.active;
-    checkable: root.symbol == "play" || root.symbol == "pause";
+    // Playback owns this state; Button must not toggle the bound value on click.
+    checkable: false;
     accessible-label: root.accessible-name;
     accessible-description: root.help-text;
 }

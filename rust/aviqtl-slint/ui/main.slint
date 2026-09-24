@@ -106,7 +106,7 @@ export component MainWindow inherits Window {
                 MenuSeparator { }
                 MenuItem { title: @tr("Save current layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("save"); } }
                 MenuItem { title: @tr("Restore saved layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("restore"); } }
-                MenuItem { title: @tr("Bring editor windows onto this screen"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("editing"); } }
+                MenuItem { title: @tr("Bring editor windows onto this screen"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("recover-screen"); } }
             }
         }
         Menu {
