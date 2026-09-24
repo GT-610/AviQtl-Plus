@@ -160,6 +160,7 @@ impl ObjectSettingsUi {
         param_name: &str,
         frame: i32,
         value: serde_json::Value,
+        sync_object_settings: bool,
     ) {
         let changed = self
             .model
@@ -188,7 +189,11 @@ impl ObjectSettingsUi {
                 )
             });
         if changed {
-            self.sync_lightweight();
+            if sync_object_settings {
+                self.sync();
+            } else {
+                self.sync_lightweight();
+            }
         }
     }
 
@@ -226,6 +231,7 @@ impl ObjectSettingsUi {
             param_name,
             frame,
             serde_json::Value::from(f64::from(value)),
+            true,
         );
     }
 
@@ -259,7 +265,7 @@ impl ObjectSettingsUi {
                 )
             });
         if changed {
-            self.sync_lightweight();
+            self.sync();
         }
     }
 

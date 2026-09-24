@@ -363,6 +363,7 @@ pub(super) fn install_callbacks(
             param.as_str(),
             frame.max(0),
             serde_json::Value::String(text.to_string()),
+            false,
         );
     });
     let finish_parameter_ui = object_settings_ui.clone();
