@@ -42,6 +42,7 @@ pub(super) struct ObjectSettingsUi {
     pub(super) audio_catalog: Rc<RefCell<aviqtl_app::audio_plugin::AudioPluginCatalog>>,
     pub(super) presets: Rc<PresetStore>,
     pub(super) font_families: Rc<Vec<String>>,
+    pub(super) settings: Rc<RefCell<aviqtl_app::settings::SettingsStore>>,
 }
 
 impl ObjectSettingsUi {
@@ -58,6 +59,97 @@ impl ObjectSettingsUi {
                 &self.audio_catalog.borrow(),
                 window.get_effect_filter().as_str(),
             );
+            self.project_catalog_preferences(&window);
+        }
+    }
+
+    pub(super) fn catalog_preferences(&self, key: &str) -> Vec<String> {
+        self.settings
+            .borrow()
+            .value(key)
+            .and_then(serde_json::Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|value| value.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub(super) fn catalog_key(&self, id: &str) -> String {
+        let audio = self
+            .window
+            .upgrade()
+            .is_some_and(|window| window.get_audio_plugin_mode());
+        format!("{}:{id}", if audio { "audio" } else { "effect" })
+    }
+
+    pub(super) fn project_catalog_preferences(&self, window: &ObjectSettingsWindow) {
+        let favorites = self.catalog_preferences("favoriteEffects");
+        let recent = self.catalog_preferences("recentEffects");
+        let mut items: Vec<_> = window
+            .get_effect_catalog_items()
+            .iter()
+            .filter(|item| !item.header)
+            .filter(|item| match window.get_effect_catalog_mode() {
+                1 => favorites.contains(&self.catalog_key(item.id.as_str())),
+                2 => recent.contains(&self.catalog_key(item.id.as_str())),
+                _ => true,
+            })
+            .collect();
+        if window.get_effect_catalog_mode() == 2 {
+            items.sort_by_key(|item| {
+                recent
+                    .iter()
+                    .position(|id| id == &self.catalog_key(item.id.as_str()))
+                    .unwrap_or(usize::MAX)
+            });
+        }
+        let rows = items
+            .iter()
+            .map(|item| {
+                slint::language::StandardListViewItem::from(slint::SharedString::from(format!(
+                    "{}{}  {}",
+                    if favorites.contains(&self.catalog_key(item.id.as_str())) {
+                        "★ "
+                    } else {
+                        ""
+                    },
+                    item.name,
+                    item.categories
+                )))
+            })
+            .collect();
+        update_vec_model(&window.get_effect_catalog_items(), items);
+        update_vec_model(&window.get_effect_picker_rows(), rows);
+        window.set_effect_picker_current(if window.get_effect_catalog_items().row_count() == 0 {
+            -1
+        } else {
+            0
+        });
+    }
+
+    pub(super) fn remember_catalog_item(&self, id: &str, favorite: bool) {
+        let key = if favorite {
+            "favoriteEffects"
+        } else {
+            "recentEffects"
+        };
+        let id = self.catalog_key(id);
+        let mut items = self.catalog_preferences(key);
+        let existed = items.contains(&id);
+        items.retain(|item| item != &id);
+        if !favorite || !existed {
+            items.insert(0, id);
+        }
+        if !favorite {
+            items.truncate(24);
+        }
+        let mut settings = self.settings.borrow().snapshot();
+        settings.insert(key.to_owned(), serde_json::json!(items));
+        if let Err(message) = self.settings.borrow_mut().apply(settings) {
+            show_error_dialog(&message);
         }
     }
 
@@ -434,6 +526,12 @@ pub(super) fn sync_object_settings(
     model: &ApplicationModel,
     catalog: &EffectCatalog,
 ) {
+    window.set_selection_key(
+        object_settings_sync_key(model)
+            .map(|key| format!("{}:{}", key.project_instance_id, key.clip_id))
+            .unwrap_or_default()
+            .into(),
+    );
     let projection = model
         .current_workspace()
         .and_then(|workspace| workspace.object_settings(catalog));

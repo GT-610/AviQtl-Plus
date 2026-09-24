@@ -1,6 +1,6 @@
 import { ObjectEffectData, EffectCatalogItemData, ObjectSettingRowData } from "models.slint";
 import { EffectSidebarEntry, ObjectSettingRow } from "object-controls.slint";
-import { Button, GroupBox, LineEdit, ScrollView, Slider, SpinBox } from "std-widgets.slint";
+import { Button, ComboBox, GroupBox, LineEdit, ScrollView, Slider, SpinBox, StandardListView } from "std-widgets.slint";
 import { AppTheme } from "theme.slint";
 import { StereoAudioMeter } from "widgets.slint";
 
@@ -26,6 +26,23 @@ export component ObjectSettingsWindow inherits Window {
     in property <[ObjectEffectData]> effects;
     in property <[ObjectSettingRowData]> setting-rows;
     in property <[EffectCatalogItemData]> effect-catalog-items;
+    in property <[StandardListViewItem]> effect-picker-rows;
+    in-out property <int> effect-picker-current: -1;
+    in-out property <int> effect-catalog-mode: 0;
+    in property <string> selection-key;
+    changed selection-key => { root.effect-picker-visible = false; }
+    callback toggle-catalog-favorite(string);
+    function close-effect-picker() {
+        root.effect-picker-visible = false;
+        object-settings-shortcuts.focus();
+    }
+    function add-picker-selection() {
+        if root.effect-picker-current >= 0 && root.effect-picker-current < root.effect-catalog-items.length {
+            root.add-effect(root.effect-catalog-items[root.effect-picker-current].id);
+            root.close-effect-picker();
+        }
+    }
+
     in property <[string]> font-families;
     in property <int> selected-effect-count: 0;
     in property <bool> selected-effects-removable: false;
@@ -316,10 +333,19 @@ export component ObjectSettingsWindow inherits Window {
         }
     }
 
-    if root.effect-picker-visible : Rectangle {
+    if root.effect-picker-visible : FocusScope {
         z: 100;
-        background: AppTheme.scrim;
-        TouchArea { clicked => { root.effect-picker-visible = false; } }
+        width: 100%;
+        height: 100%;
+        init => { effect-search.focus(); }
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.close-effect-picker(); accept }
+            else if event.text == Key.Return { root.add-picker-selection(); accept }
+            else { reject }
+        }
+        Rectangle { background: AppTheme.scrim; }
+
+        TouchArea { clicked => { root.close-effect-picker(); } }
         picker-panel := Rectangle {
             width: min(parent.width - 48px, 560px);
             height: min(parent.height - 48px, 520px);
@@ -339,49 +365,38 @@ export component ObjectSettingsWindow inherits Window {
                     font-size: 1.15rem;
                     font-weight: 700;
                 }
-                LineEdit {
+                ComboBox {
+                    model: [@tr("All effects"), @tr("Favorites"), @tr("Recently used")];
+                    current-index <=> root.effect-catalog-mode;
+                    selected => { root.filter-effects(root.effect-filter); }
+                }
+                effect-search := LineEdit {
                     text <=> root.effect-filter;
                     placeholder-text: root.audio-plugin-mode
                         ? @tr("Search name, ID, category, or format...")
                         : @tr("Search name, ID, or category...");
                     edited(value) => { root.filter-effects(value); }
-                }
-                ScrollView {
-                    vertical-stretch: 1;
-                    accessible-role: list;
-                    accessible-label: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Effects");
-                    VerticalLayout {
-                        spacing: 4px;
-                        for item in root.effect-catalog-items : Rectangle {
-                            height: item.header ? 28px : 34px;
-                            if item.header : Text {
-                                text: item.name;
-                                color: AppTheme.muted-foreground;
-                                font-weight: 700;
-                                vertical-alignment: center;
-                            }
-                            if !item.header : Button {
-                                text: item.categories == ""
-                                    ? item.name
-                                    : item.name + "  [" + item.categories + "]";
-                                accessible-description: item.id;
-                                clicked => {
-                                    root.add-effect(item.id);
-                                    root.effect-picker-visible = false;
-                                }
-                            }
-                        }
-                        if root.effect-catalog-items.length == 0 : Text {
-                            text: root.audio-plugin-mode
-                                ? root.plugin-scan-status
-                                : @tr("No matching effects");
-                            color: AppTheme.muted-foreground;
-                        }
+                    accepted => { root.add-picker-selection(); }
+                    key-pressed(event) => {
+                        if event.text == Key.DownArrow {
+                            effect-results.focus();
+                            accept
+                        } else { reject }
                     }
                 }
+                effect-results := StandardListView {
+                    vertical-stretch: 1;
+                    model: root.effect-picker-rows;
+                    current-item <=> root.effect-picker-current;
+                }
+                Text { visible: root.effect-catalog-items.length == 0; text: @tr("No matching effects"); color: AppTheme.muted-foreground; }
                 HorizontalLayout {
+                    Button { text: @tr("Toggle favorite"); enabled: root.effect-picker-current >= 0; clicked => {
+                        root.toggle-catalog-favorite(root.effect-catalog-items[root.effect-picker-current].id);
+                    } }
                     Rectangle { horizontal-stretch: 1; }
-                    Button { text: @tr("Close"); clicked => { root.effect-picker-visible = false; } }
+                    Button { text: @tr("Add"); primary: true; enabled: root.effect-picker-current >= 0; clicked => { root.add-picker-selection(); } }
+                    Button { text: @tr("Close"); clicked => { root.close-effect-picker(); } }
                 }
             }
         }

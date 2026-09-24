@@ -218,6 +218,7 @@ pub(super) fn install_callbacks(
         audio_catalog: lifecycle_ui.audio_plugin_catalog.clone(),
         presets: preset_store.clone(),
         font_families,
+        settings: settings.clone(),
     };
     let object_select_ui = object_settings_ui.clone();
     object_settings.on_select_effect(move |index, control, shift| {
@@ -749,6 +750,7 @@ pub(super) fn install_callbacks(
     let object_filter_model = model.clone();
     let object_filter_catalog = effect_catalog.clone();
     let object_filter_audio_catalog = object_settings_ui.audio_catalog.clone();
+    let catalog_preferences_ui = object_settings_ui.clone();
     object_settings.on_filter_effects(move |query| {
         if let Some(window) = object_filter_window.upgrade() {
             let effect_catalog = object_filter_catalog.borrow();
@@ -759,11 +761,31 @@ pub(super) fn install_callbacks(
                 &object_filter_audio_catalog.borrow(),
                 query.as_str(),
             );
+            catalog_preferences_ui.project_catalog_preferences(&window);
         }
+    });
+    let catalog_favorite_ui = object_settings_ui.clone();
+    object_settings.on_toggle_catalog_favorite(move |id| {
+        catalog_favorite_ui.remember_catalog_item(id.as_str(), true);
+        catalog_favorite_ui.sync();
     });
     let object_add_ui = object_settings_ui.clone();
     object_settings.on_add_effect(move |effect_id| {
+        let before = object_add_ui
+            .model
+            .borrow()
+            .current_workspace()
+            .map(WorkspaceModel::document_revision);
         object_add_ui.add_effect(effect_id.as_str());
+        if object_add_ui
+            .model
+            .borrow()
+            .current_workspace()
+            .map(WorkspaceModel::document_revision)
+            != before
+        {
+            object_add_ui.remember_catalog_item(effect_id.as_str(), false);
+        }
     });
     let preset_names_model = model.clone();
     let preset_names_store = preset_store.clone();

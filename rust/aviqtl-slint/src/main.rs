@@ -228,6 +228,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     initialize_timeline_object_catalog(&timeline, &effect_catalog.borrow());
     object_settings.set_effects(ModelRc::new(VecModel::<ObjectEffectData>::default()));
     object_settings.set_setting_rows(ModelRc::new(VecModel::<ObjectSettingRowData>::default()));
+    object_settings.set_effect_picker_rows(ModelRc::new(VecModel::<
+        slint::language::StandardListViewItem,
+    >::default()));
     object_settings
         .set_effect_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     object_settings.set_plugin_scan_status(SharedString::from(audio_plugin_status));
