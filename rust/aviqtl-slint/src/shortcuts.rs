@@ -367,14 +367,19 @@ fn configured_shortcut_action(
 }
 
 pub(super) fn shortcut_setting(settings: &SettingsStore, key: &str, fallback: &str) -> String {
-    settings
-        .value("shortcuts")
-        .and_then(serde_json::Value::as_object)
-        .and_then(|shortcuts| shortcuts.get(key))
+    configured_shortcut(settings.value("shortcuts"), key, fallback).to_owned()
+}
+
+pub(super) fn configured_shortcut<'a>(
+    shortcuts: Option<&'a serde_json::Value>,
+    key: &str,
+    fallback: &'a str,
+) -> &'a str {
+    // An explicit empty string disables the binding; only missing/invalid values use defaults.
+    shortcuts
+        .and_then(|values| values.get(key))
         .and_then(serde_json::Value::as_str)
-        .filter(|shortcut| !shortcut.trim().is_empty())
         .unwrap_or(fallback)
-        .to_owned()
 }
 
 pub(super) fn shortcut_matches(value: &str, input: &ShortcutInput) -> bool {
@@ -472,8 +477,11 @@ pub(super) fn record_shortcut(input: ShortcutInput) -> Option<String> {
 pub(super) fn validate_shortcuts(values: &[String]) -> Result<(), &'static str> {
     let mut patterns: Vec<ShortcutPattern> = Vec::new();
     for value in values.iter().filter(|value| !value.trim().is_empty()) {
-        let pattern = parse_shortcut(value)
-            .ok_or("Invalid shortcut. Record a key combination or clear the binding.")?;
+        let pattern = parse_shortcut(value).ok_or(crate::localization::localized(
+            "Invalid shortcut. Record a key combination or clear the binding.",
+            "快捷键无效。请录入组合键或清除绑定。",
+            "無効なショートカットです。キーを記録するか、割り当てを解除してください。",
+        ))?;
         if patterns.iter().any(|other| {
             other.text == pattern.text
                 && other.alt == pattern.alt
@@ -481,7 +489,11 @@ pub(super) fn validate_shortcuts(values: &[String]) -> Result<(), &'static str> 
                 && other.meta == pattern.meta
                 && (other.ignore_shift || pattern.ignore_shift || other.shift == pattern.shift)
         }) {
-            return Err("A shortcut is assigned to more than one command.");
+            return Err(crate::localization::localized(
+                "A shortcut is assigned to more than one command.",
+                "同一快捷键被分配给了多个命令。",
+                "同じショートカットが複数のコマンドに割り当てられています。",
+            ));
         }
         patterns.push(pattern);
     }

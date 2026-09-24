@@ -1,8 +1,24 @@
 //! Frontend behavior regression tests.
 
 #[test]
+fn clearing_a_shortcut_disables_it_instead_of_restoring_the_default() {
+    let settings = serde_json::json!({"file.save": "", "file.open": "Alt+O"});
+    let resolve = |key| crate::shortcuts::configured_shortcut(Some(&settings), key, "Ctrl+S");
+    assert_eq!(resolve("file.save"), "");
+    assert_eq!(resolve("file.open"), "Alt+O");
+    assert_eq!(resolve("file.new"), "Ctrl+S");
+    assert_eq!(
+        crate::shortcuts::native_shortcut(resolve("file.save")),
+        slint::Keys::default()
+    );
+}
+
+#[test]
 fn workspace_presets_keep_window_origins_on_the_current_monitor() {
-    for screen in [WindowGeometry::new(-1920, 0, 1920, 1000), WindowGeometry::new(20, 40, 800, 600)] {
+    for screen in [
+        WindowGeometry::new(-1920, 0, 1920, 1000),
+        WindowGeometry::new(20, 40, 800, 600),
+    ] {
         for mode in ["editing", "animation", "audio"] {
             for window in crate::lifecycle::editor_layout(screen, mode) {
                 assert!(window.x >= screen.x && window.y >= screen.y);
