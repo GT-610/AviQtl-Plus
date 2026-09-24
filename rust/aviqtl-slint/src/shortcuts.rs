@@ -388,6 +388,29 @@ pub(super) fn shortcut_matches(value: &str, input: &ShortcutInput) -> bool {
         && (pattern.ignore_shift || pattern.shift == input.shift)
 }
 
+pub(super) fn native_shortcut(value: &str) -> slint::Keys {
+    let Some(pattern) = parse_shortcut(value) else {
+        return slint::Keys::default();
+    };
+    let mut parts = Vec::new();
+    if pattern.control {
+        parts.push("Control");
+    }
+    if pattern.meta {
+        parts.push("Meta");
+    }
+    if pattern.alt {
+        parts.push("Alt");
+    }
+    if pattern.ignore_shift {
+        parts.push("Shift?");
+    } else if pattern.shift {
+        parts.push("Shift");
+    }
+    parts.push(&pattern.text);
+    slint::Keys::from_parts(parts).unwrap_or_default()
+}
+
 pub(super) fn parse_shortcut(value: &str) -> Option<ShortcutPattern> {
     let value = value.trim();
     if value.is_empty() {

@@ -1,6 +1,30 @@
 //! Frontend behavior regression tests.
 
 #[test]
+fn native_menu_shortcuts_match_the_configured_parser() {
+    assert_eq!(
+        crate::shortcuts::native_shortcut("Ctrl+S"),
+        slint::Keys::from_parts(["Control", "s"]).unwrap()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut("Ctrl++"),
+        slint::Keys::from_parts(["Control", "Shift?", "+"]).unwrap()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut("F3"),
+        slint::Keys::from_parts(["F3"]).unwrap()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut(""),
+        slint::Keys::default()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut("Ctrl+Unknown"),
+        slint::Keys::default()
+    );
+}
+
+#[test]
 fn fit_timeline_keeps_the_selected_range_visible() {
     let view = crate::shortcuts::fit_timeline_range(120, 360, 800.0);
     assert!((120.0 * view.pixels_per_frame + view.viewport_x - 16.0).abs() < 0.01);

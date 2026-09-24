@@ -98,6 +98,14 @@ pub(super) fn sync_timeline_runtime_settings(
     object_settings: &ObjectSettingsWindow,
     settings: &SettingsStore,
 ) {
+    main.set_menu_shortcuts(slint::ModelRc::new(slint::VecModel::from(
+        SYSTEM_SHORTCUT_ROWS
+            .iter()
+            .map(|(key, fallback)| {
+                crate::shortcuts::native_shortcut(&shortcut_setting(settings, key, fallback))
+            })
+            .collect::<Vec<_>>(),
+    )));
     let header_height = settings
         .i32_value("timelineHeaderHeight", 28)
         .clamp(16, 100);

@@ -14,6 +14,7 @@ export component MainWindow inherits Window {
     forward-focus: main-shortcuts;
 
     in property <[ProjectTabData]> project-tabs;
+    in property <[keys]> menu-shortcuts;
     in property <[MissingMediaData]> missing-media;
     in property <int> current-project: -1;
     in property <image> preview-image;
@@ -64,36 +65,36 @@ export component MainWindow inherits Window {
     MenuBar {
         Menu {
             title: @tr("File");
-            MenuItem { title: @tr("New Project"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
-            MenuItem { title: @tr("Open Project"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
+            MenuItem { title: @tr("New Project"); shortcut: root.menu-shortcuts[0]; icon: @image-url("icons/new.svg"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
+            MenuItem { title: @tr("Open Project"); shortcut: root.menu-shortcuts[1]; icon: @image-url("icons/open.svg"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("Save Project"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
-            MenuItem { title: @tr("Save Project As..."); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
+            MenuItem { title: @tr("Save Project"); shortcut: root.menu-shortcuts[2]; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
+            MenuItem { title: @tr("Save Project As..."); shortcut: root.menu-shortcuts[3]; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
             MenuItem {
                 title: @tr("Manage Missing Media");
                 enabled: !root.save-confirmation-visible && root.missing-media.length > 0;
                 activated => { root.missing-media-dialog-visible = true; }
             }
             MenuSeparator { }
-            MenuItem { title: @tr("Export Media..."); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
+            MenuItem { title: @tr("Export Media..."); shortcut: root.menu-shortcuts[4]; icon: @image-url("icons/export.svg"); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("Exit"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
+            MenuItem { title: @tr("Exit"); shortcut: root.menu-shortcuts[5]; icon: @image-url("icons/close.svg"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
         }
         Menu {
             title: @tr("Edit");
-            MenuItem { title: @tr("Undo"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
-            MenuItem { title: @tr("Redo"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+            MenuItem { title: @tr("Undo"); shortcut: root.menu-shortcuts[7]; icon: @image-url("icons/undo.svg"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
+            MenuItem { title: @tr("Redo"); shortcut: root.menu-shortcuts[8]; icon: @image-url("icons/redo.svg"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
         }
         Menu {
             title: @tr("Settings");
-            MenuItem { title: @tr("Project Settings"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
+            MenuItem { title: @tr("Project Settings"); shortcut: root.menu-shortcuts[23]; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
             MenuSeparator { }
-            MenuItem { title: @tr("Preferences"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
+            MenuItem { title: @tr("Preferences"); shortcut: root.menu-shortcuts[6]; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
         }
         Menu {
             title: @tr("View");
-            MenuItem { title: @tr("Show Timeline"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
-            MenuItem { title: @tr("Show Settings Dialog"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
+            MenuItem { title: @tr("Show Timeline"); shortcut: root.menu-shortcuts[21]; icon: @image-url("icons/timeline.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
+            MenuItem { title: @tr("Show Settings Dialog"); shortcut: root.menu-shortcuts[22]; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
         }
         Menu {
             title: @tr("Tools");
