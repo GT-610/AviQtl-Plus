@@ -1147,3 +1147,114 @@ msgstr "剪切"
 
 msgid "Select All"
 msgstr "全选"
+
+msgid " start value"
+msgstr " 起始值"
+
+msgid " end value"
+msgstr " 结束值"
+
+msgid "Advanced curve..."
+msgstr "高级曲线…"
+
+msgid "All effects"
+msgstr "全部效果"
+
+msgid "Animation layout"
+msgstr "动画布局"
+
+msgid "Audio layout"
+msgstr "音频布局"
+
+msgid "Bring editor windows onto this screen"
+msgstr "将编辑窗口移回当前屏幕"
+
+msgid "Cannot place the selection here"
+msgstr "无法将选区放置在此处"
+
+msgid "Clear"
+msgstr "清除"
+
+msgid "Collapse effect"
+msgstr "折叠效果"
+
+msgid "Drag to adjust; hold Shift for fine adjustment"
+msgstr "拖动调节；按住 Shift 精细调节"
+
+msgid "Ease in"
+msgstr "缓入"
+
+msgid "Ease in and out"
+msgstr "缓入缓出"
+
+msgid "Ease out"
+msgstr "缓出"
+
+msgid "Editing layout"
+msgstr "剪辑布局"
+
+msgid "Effect list"
+msgstr "效果列表"
+
+msgid "Expand effect"
+msgstr "展开效果"
+
+msgid "Favorites"
+msgstr "收藏"
+
+msgid "Fit all"
+msgstr "适合全部"
+
+msgid "Fit selection"
+msgstr "适合选区"
+
+msgid "Hold Shift while dragging to ignore snapping"
+msgstr "拖动时按住 Shift 暂时忽略吸附"
+
+msgid "Linear"
+msgstr "线性"
+
+msgid "No movement"
+msgstr "无移动"
+
+msgid "Press a shortcut. Escape cancels."
+msgstr "请按下快捷键。Esc 取消。"
+
+msgid "Previous zoom"
+msgstr "上次缩放"
+
+msgid "Recently used"
+msgstr "最近使用"
+
+msgid "Record"
+msgstr "录入"
+
+msgid "Restore saved layout"
+msgstr "恢复已保存布局"
+
+msgid "Save current layout"
+msgstr "保存当前布局"
+
+msgid "Search commands or shortcuts..."
+msgstr "搜索命令或快捷键…"
+
+msgid "Skimming"
+msgstr "略读"
+
+msgid "Snap"
+msgstr "吸附"
+
+msgid "Start {} · End {} · Duration {} · Change {} frames"
+msgstr "起点 {} · 终点 {} · 时长 {} · 变化 {} 帧"
+
+msgid "Target: hover"
+msgstr "目标：悬停位置"
+
+msgid "Target: playhead"
+msgstr "目标：播放头"
+
+msgid "Toggle favorite"
+msgstr "切换收藏"
+
+msgid "Workspace"
+msgstr "工作区"
