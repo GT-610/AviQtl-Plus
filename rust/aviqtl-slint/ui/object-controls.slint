@@ -233,6 +233,7 @@ export component ScrubNumberEdit inherits Rectangle {
 
 export component CommitTextEdit inherits TextEdit {
     in property <string> source-text;
+    in property <bool> live-preview: false;
     callback commit(string);
     callback preview(string);
     callback finish-edit();
@@ -240,7 +241,7 @@ export component CommitTextEdit inherits TextEdit {
     private property <bool> cancelling: false;
     private property <string> initial-text;
     text: root.source-text;
-    edited(value) => { root.preview(value); }
+    edited(value) => { if root.live-preview { root.preview(value); } }
     key-pressed(event) => {
         if event.text == Key.Escape {
             root.cancelling = true;
@@ -254,7 +255,8 @@ export component CommitTextEdit inherits TextEdit {
         if self.has-focus {
             root.initial-text = self.text;
         } else if !root.cancelling {
-            root.finish-edit();
+            if root.live-preview { root.finish-edit(); }
+            else if self.text != root.source-text { root.commit(self.text); }
         }
     }
     changed source-text => {
@@ -719,6 +721,7 @@ export component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: top; }
         CommitTextEdit {
             height: 62px;
+            live-preview: true;
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
