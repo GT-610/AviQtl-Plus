@@ -2137,7 +2137,7 @@ pub(super) fn install_callbacks(
                         .unwrap_or(start + 1);
                     (start, end)
                 } else {
-                    (0, workspace.timeline_duration())
+                    (0, workspace.timeline_view_duration())
                 }
             })
             .unwrap_or((0, 1));
