@@ -160,10 +160,8 @@ impl ObjectSettingsUi {
         param_name: &str,
         frame: i32,
         value: serde_json::Value,
-        sync_object_settings: bool,
-    ) {
-        let changed = self
-            .model
+    ) -> bool {
+        self.model
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
@@ -187,14 +185,7 @@ impl ObjectSettingsUi {
                         }
                     },
                 )
-            });
-        if changed {
-            if sync_object_settings {
-                self.sync();
-            } else {
-                self.sync_lightweight();
-            }
-        }
+            })
     }
 
     pub(super) fn set_text(
@@ -225,14 +216,15 @@ impl ObjectSettingsUi {
         if !value.is_finite() {
             return;
         }
-        self.set_value_deferred(
+        if self.set_value_deferred(
             audio_plugin,
             effect_index,
             param_name,
             frame,
             serde_json::Value::from(f64::from(value)),
-            true,
-        );
+        ) {
+            self.sync_parameter_preview(audio_plugin, effect_index, param_name);
+        }
     }
 
     pub(super) fn set_start_number(
@@ -265,7 +257,46 @@ impl ObjectSettingsUi {
                 )
             });
         if changed {
-            self.sync();
+            self.sync_parameter_preview(false, effect_index, param_name);
+        }
+    }
+
+    fn sync_parameter_preview(&self, audio_plugin: bool, effect_index: usize, param_name: &str) {
+        if let Some(window) = self.window.upgrade() {
+            let projection = {
+                let model = self.model.borrow();
+                let catalog = self.catalog.borrow();
+                model
+                    .current_workspace()
+                    .and_then(|workspace| workspace.object_settings(&catalog))
+            };
+            if let Some(projection) = projection {
+                let updated_rows = object_settings_rows(&projection);
+                let setting_rows = window.get_setting_rows();
+                for index in 0..setting_rows.row_count() {
+                    let Some(current) = setting_rows.row_data(index) else {
+                        continue;
+                    };
+                    if current.audio_plugin != audio_plugin
+                        || current.effect_index != effect_index as i32
+                        || current.param_name != param_name
+                    {
+                        continue;
+                    }
+                    if let Some(mut updated) = updated_rows
+                        .iter()
+                        .find(|row| row.row_kind == current.row_kind)
+                        .cloned()
+                    {
+                        updated.folded = current.folded;
+                        setting_rows.set_row_data(index, updated);
+                    }
+                }
+            }
+        }
+        if let (Some(main), Some(timeline)) = (self.main.upgrade(), self.timeline.upgrade()) {
+            let model = self.model.borrow();
+            sync_transport(&main, &timeline, &model);
         }
     }
 

@@ -357,14 +357,15 @@ pub(super) fn install_callbacks(
     });
     let preview_text_ui = object_settings_ui.clone();
     object_settings.on_preview_parameter_text(move |audio, index, param, frame, text| {
-        preview_text_ui.set_value_deferred(
+        if preview_text_ui.set_value_deferred(
             audio,
             index.max(0) as usize,
             param.as_str(),
             frame.max(0),
             serde_json::Value::String(text.to_string()),
-            false,
-        );
+        ) {
+            preview_text_ui.sync_lightweight();
+        }
     });
     let finish_parameter_ui = object_settings_ui.clone();
     object_settings.on_finish_parameter_edit(move || {
@@ -375,6 +376,7 @@ pub(super) fn install_callbacks(
         {
             workspace.finish_continuous_edit();
         }
+        finish_parameter_ui.sync();
     });
     let cancel_parameter_ui = object_settings_ui.clone();
     object_settings.on_cancel_parameter_edit(move || {
