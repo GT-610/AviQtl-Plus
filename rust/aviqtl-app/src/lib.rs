@@ -369,6 +369,9 @@ impl ApplicationModel {
         if index >= self.projects.len() {
             return false;
         }
+        if let Some(workspace) = self.current_workspace_mut() {
+            workspace.finish_continuous_edit();
+        }
         self.current_project = Some(index);
         true
     }

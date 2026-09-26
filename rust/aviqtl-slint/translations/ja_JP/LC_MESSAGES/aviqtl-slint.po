@@ -1147,3 +1147,114 @@ msgstr "カット"
 
 msgid "Select All"
 msgstr "すべて選択"
+
+msgid " start value"
+msgstr " 開始値"
+
+msgid " end value"
+msgstr " 終了値"
+
+msgid "Advanced curve..."
+msgstr "詳細なカーブ…"
+
+msgid "All effects"
+msgstr "すべてのエフェクト"
+
+msgid "Animation layout"
+msgstr "アニメーション用レイアウト"
+
+msgid "Audio layout"
+msgstr "オーディオ用レイアウト"
+
+msgid "Bring editor windows onto this screen"
+msgstr "編集ウィンドウをこの画面に移動"
+
+msgid "Cannot place the selection here"
+msgstr "選択したオブジェクトをここに配置できません"
+
+msgid "Clear"
+msgstr "解除"
+
+msgid "Collapse effect"
+msgstr "エフェクトを折りたたむ"
+
+msgid "Drag to adjust; hold Shift for fine adjustment"
+msgstr "ドラッグで調整、Shift を押しながら微調整"
+
+msgid "Ease in"
+msgstr "加速"
+
+msgid "Ease in and out"
+msgstr "加減速"
+
+msgid "Ease out"
+msgstr "減速"
+
+msgid "Editing layout"
+msgstr "編集用レイアウト"
+
+msgid "Effect list"
+msgstr "エフェクト一覧"
+
+msgid "Expand effect"
+msgstr "エフェクトを展開"
+
+msgid "Favorites"
+msgstr "お気に入り"
+
+msgid "Fit all"
+msgstr "全体を表示"
+
+msgid "Fit selection"
+msgstr "選択範囲を表示"
+
+msgid "Hold Shift while dragging to ignore snapping"
+msgstr "Shift を押しながらドラッグするとスナップを無視"
+
+msgid "Linear"
+msgstr "直線"
+
+msgid "No movement"
+msgstr "移動なし"
+
+msgid "Press a shortcut. Escape cancels."
+msgstr "ショートカットを押してください。Esc でキャンセル。"
+
+msgid "Previous zoom"
+msgstr "前のズーム"
+
+msgid "Recently used"
+msgstr "最近使用した項目"
+
+msgid "Record"
+msgstr "キーを記録"
+
+msgid "Restore saved layout"
+msgstr "保存したレイアウトを復元"
+
+msgid "Save current layout"
+msgstr "現在のレイアウトを保存"
+
+msgid "Search commands or shortcuts..."
+msgstr "コマンドやショートカットを検索…"
+
+msgid "Skimming"
+msgstr "スキミング"
+
+msgid "Snap"
+msgstr "スナップ"
+
+msgid "Start {} · End {} · Duration {} · Change {} frames"
+msgstr "開始 {} · 終了 {} · 長さ {} · 変化 {} フレーム"
+
+msgid "Target: hover"
+msgstr "対象：マウス位置"
+
+msgid "Target: playhead"
+msgstr "対象：再生ヘッド"
+
+msgid "Toggle favorite"
+msgstr "お気に入りを切り替え"
+
+msgid "Workspace"
+msgstr "ワークスペース"

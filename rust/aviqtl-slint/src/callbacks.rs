@@ -190,6 +190,10 @@ pub(super) fn install_callbacks(
     audio_playback: Rc<RefCell<AudioPlaybackRuntime>>,
 ) {
     let system_apply_ui = lifecycle_ui.clone();
+    let workspace_layout_ui = lifecycle_ui.clone();
+    windows
+        .main
+        .on_workspace_action(move |action| workspace_layout_ui.workspace_action(action.as_str()));
     let model = lifecycle_ui.model.clone();
     let settings = lifecycle_ui.settings.clone();
     let effect_catalog = lifecycle_ui.effect_catalog.clone();
@@ -218,6 +222,7 @@ pub(super) fn install_callbacks(
         audio_catalog: lifecycle_ui.audio_plugin_catalog.clone(),
         presets: preset_store.clone(),
         font_families,
+        settings: settings.clone(),
     };
     let object_select_ui = object_settings_ui.clone();
     object_settings.on_select_effect(move |index, control, shift| {
@@ -310,6 +315,80 @@ pub(super) fn install_callbacks(
         );
     });
     let object_number_ui = object_settings_ui.clone();
+    let quick_easing_ui = object_settings_ui.clone();
+    object_settings.on_quick_effect_easing(move |index, param, start, end, mode| {
+        if let Some(workspace) = quick_easing_ui.model.borrow_mut().current_workspace_mut() {
+            let grouped = workspace.begin_undo_group();
+            if workspace
+                .prepare_effect_easing(index.max(0) as usize, param.as_str(), start, end)
+                .is_some()
+            {
+                workspace.set_effect_keyframe_options(
+                    index.max(0) as usize,
+                    param.as_str(),
+                    start,
+                    serde_json::json!({"interp": mode.as_str()}),
+                );
+            }
+            if grouped {
+                workspace.end_undo_group();
+            }
+        }
+        quick_easing_ui.sync();
+    });
+    let fold_window = object_settings.as_weak();
+    object_settings.on_toggle_effect_fold(move |audio, index| {
+        if let Some(window) = fold_window.upgrade() {
+            let rows = window.get_setting_rows();
+            let folded = rows
+                .iter()
+                .find(|row| row.audio_plugin == audio && row.effect_index == index)
+                .is_some_and(|row| row.folded);
+            for i in 0..rows.row_count() {
+                if let Some(mut row) = rows.row_data(i)
+                    && row.audio_plugin == audio
+                    && row.effect_index == index
+                {
+                    row.folded = !folded;
+                    rows.set_row_data(i, row);
+                }
+            }
+        }
+    });
+    let preview_text_ui = object_settings_ui.clone();
+    object_settings.on_preview_parameter_text(move |audio, index, param, frame, text| {
+        if preview_text_ui.set_value_deferred(
+            audio,
+            index.max(0) as usize,
+            param.as_str(),
+            frame.max(0),
+            serde_json::Value::String(text.to_string()),
+        ) {
+            preview_text_ui.sync_lightweight();
+        }
+    });
+    let finish_parameter_ui = object_settings_ui.clone();
+    object_settings.on_finish_parameter_edit(move || {
+        if let Some(workspace) = finish_parameter_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+        {
+            workspace.finish_continuous_edit();
+        }
+        finish_parameter_ui.sync();
+    });
+    let cancel_parameter_ui = object_settings_ui.clone();
+    object_settings.on_cancel_parameter_edit(move || {
+        if let Some(workspace) = cancel_parameter_ui
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+        {
+            workspace.cancel_continuous_edit();
+        }
+        cancel_parameter_ui.sync();
+    });
     object_settings.on_set_parameter_number(move |audio_plugin, index, param, frame, value| {
         object_number_ui.set_number(
             audio_plugin,
@@ -678,6 +757,7 @@ pub(super) fn install_callbacks(
     let object_filter_model = model.clone();
     let object_filter_catalog = effect_catalog.clone();
     let object_filter_audio_catalog = object_settings_ui.audio_catalog.clone();
+    let catalog_preferences_ui = object_settings_ui.clone();
     object_settings.on_filter_effects(move |query| {
         if let Some(window) = object_filter_window.upgrade() {
             let effect_catalog = object_filter_catalog.borrow();
@@ -687,12 +767,40 @@ pub(super) fn install_callbacks(
                 &effect_catalog,
                 &object_filter_audio_catalog.borrow(),
                 query.as_str(),
+                &catalog_preferences_ui.settings.borrow(),
             );
+        }
+    });
+    let catalog_favorite_ui = object_settings_ui.clone();
+    object_settings.on_toggle_catalog_favorite(move |id| {
+        catalog_favorite_ui.remember_catalog_item(id.as_str(), true);
+        catalog_favorite_ui.sync();
+        if let Some(window) = catalog_favorite_ui.window.upgrade()
+            && let Some(index) = window
+                .get_effect_catalog_items()
+                .iter()
+                .position(|item| item.id == id)
+        {
+            window.set_effect_picker_current(index as i32);
         }
     });
     let object_add_ui = object_settings_ui.clone();
     object_settings.on_add_effect(move |effect_id| {
+        let before = object_add_ui
+            .model
+            .borrow()
+            .current_workspace()
+            .map(WorkspaceModel::document_revision);
         object_add_ui.add_effect(effect_id.as_str());
+        if object_add_ui
+            .model
+            .borrow()
+            .current_workspace()
+            .map(WorkspaceModel::document_revision)
+            != before
+        {
+            object_add_ui.remember_catalog_item(effect_id.as_str(), false);
+        }
     });
     let preset_names_model = model.clone();
     let preset_names_store = preset_store.clone();
@@ -1702,6 +1810,8 @@ pub(super) fn install_callbacks(
         }
     });
     let system_shortcut_window = system_settings.as_weak();
+    system_settings
+        .on_matches_query(|text, query| text.to_lowercase().contains(&query.to_lowercase()));
     system_settings.on_shortcut_value_changed(move |index, value| {
         let Some(window) = system_shortcut_window.upgrade() else {
             return;
@@ -1714,6 +1824,30 @@ pub(super) fn install_callbacks(
             row.1.value = value;
             model.set_row_data(row.0, row.1);
         }
+        let validation = crate::shortcuts::validate_shortcuts(
+            &model
+                .iter()
+                .map(|row| row.value.to_string())
+                .collect::<Vec<_>>(),
+        );
+        window.set_shortcut_validation_status(validation.err().unwrap_or_default().into());
+    });
+    let record_shortcut_window = system_settings.as_weak();
+    system_settings.on_record_shortcut(move |index, text, alt, control, shift, meta| {
+        let Some(window) = record_shortcut_window.upgrade() else {
+            return false;
+        };
+        let Some(value) = crate::shortcuts::record_shortcut(crate::shortcuts::ShortcutInput {
+            text: text.to_string(),
+            alt,
+            control,
+            shift,
+            meta,
+        }) else {
+            return false;
+        };
+        window.invoke_shortcut_value_changed(index, value.into());
+        true
     });
     let system_apply_store = settings.clone();
     let system_apply_model = model.clone();
@@ -1845,6 +1979,62 @@ pub(super) fn install_callbacks(
         }
     });
 
+    let drag_preview_model = model.clone();
+    let drag_preview_window = timeline.as_weak();
+    timeline.on_preview_clip_drag(move |kind, clip_id, dx, dy, ignore_snap| {
+        let invalid = crate::TimelineDragFeedback {
+            snap_frame: -1,
+            ..Default::default()
+        };
+        let Some(window) = drag_preview_window.upgrade() else {
+            return invalid;
+        };
+        let model = drag_preview_model.borrow();
+        let Some(workspace) = model.current_workspace() else {
+            return invalid;
+        };
+        let kind = match kind.as_str() {
+            "trim-start" => TimelineDragKind::TrimStart,
+            "trim-end" => TimelineDragKind::TrimEnd,
+            _ => TimelineDragKind::Move,
+        };
+        let Ok(plan) = workspace.preview_timeline_drag(TimelineDragRequest {
+            anchor_clip_id: clip_id,
+            kind,
+            delta_pixels: (dx, dy),
+            pixels_per_frame: window.get_pixels_per_frame(),
+            layer_height: window.get_timeline_track_height() as f32,
+            minimum_duration_frames: window.get_minimum_clip_duration_frames(),
+            maximum_layers: window.get_maximum_layers(),
+            ignore_snap,
+        }) else {
+            return invalid;
+        };
+        let Some(update) = plan.updates.iter().find(|update| update.clip_id == clip_id) else {
+            return invalid;
+        };
+        let Some(original) = workspace
+            .project()
+            .document
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+        else {
+            return invalid;
+        };
+        crate::TimelineDragFeedback {
+            valid: true,
+            start: update.start,
+            duration: update.duration,
+            layer: update.layer,
+            delta: if kind == TimelineDragKind::TrimEnd {
+                update.duration - original.duration
+            } else {
+                update.start - original.start
+            },
+            snap_frame: plan.snap_frame.unwrap_or(-1),
+        }
+    });
     let clip_drag_model = model.clone();
     let clip_drag_main = main.as_weak();
     let clip_drag_timeline = timeline.as_weak();
@@ -1881,6 +2071,78 @@ pub(super) fn install_callbacks(
     });
 
     let layer_model = model.clone();
+    let layer_contents_model = model.clone();
+    let layer_contents_main = main.as_weak();
+    let layer_contents_timeline = timeline.as_weak();
+    timeline.on_layer_select_contents(move |layer| {
+        if let Some(workspace) = layer_contents_model.borrow_mut().current_workspace_mut() {
+            workspace.select_layer_contents(layer);
+        }
+        sync_weak_windows(
+            &layer_contents_main,
+            &layer_contents_timeline,
+            &layer_contents_model,
+        );
+    });
+    let toolbar_model = model.clone();
+    let toolbar_store = settings.clone();
+    let toolbar_main = main.as_weak();
+    let toolbar_timeline = timeline.as_weak();
+    timeline.on_toolbar_action(move |action| {
+        if action == "snap" {
+            if let Some(workspace) = toolbar_model.borrow_mut().current_workspace_mut() {
+                let id = workspace.selected_scene();
+                if let Some(mut scene) = workspace.scene_settings(id) {
+                    scene.enable_snap = !scene.enable_snap;
+                    workspace.update_scene_settings(id, scene);
+                }
+            }
+        } else if action == "skimming" {
+            let mut values = toolbar_store.borrow().snapshot();
+            let enabled = !toolbar_store
+                .borrow()
+                .bool_value("enableTimelineSkimming", true);
+            values.insert(
+                "enableTimelineSkimming".to_owned(),
+                serde_json::json!(enabled),
+            );
+            if let Err(message) = toolbar_store.borrow_mut().apply(values) {
+                show_error_dialog(&message);
+            } else if let Some(window) = toolbar_timeline.upgrade() {
+                window.set_timeline_skimming_enabled(enabled);
+                window.set_skimmer_visible(false);
+            }
+        }
+        sync_weak_windows(&toolbar_main, &toolbar_timeline, &toolbar_model);
+    });
+    let fit_model = model.clone();
+    timeline.on_fit_range(move |selected, width| {
+        let model = fit_model.borrow();
+        let range = model
+            .current_workspace()
+            .map(|workspace| {
+                if selected {
+                    let clips = workspace.timeline_clips();
+                    let start = clips
+                        .iter()
+                        .filter(|clip| clip.selected)
+                        .map(|clip| clip.start)
+                        .min()
+                        .unwrap_or(0);
+                    let end = clips
+                        .iter()
+                        .filter(|clip| clip.selected)
+                        .map(|clip| clip.start.saturating_add(clip.duration))
+                        .max()
+                        .unwrap_or(start + 1);
+                    (start, end)
+                } else {
+                    (0, workspace.timeline_view_duration())
+                }
+            })
+            .unwrap_or((0, 1));
+        crate::shortcuts::fit_timeline_range(range.0, range.1, width)
+    });
     let layer_main = main.as_weak();
     let layer_timeline = timeline.as_weak();
     timeline.on_layer_activated(move |layer| {

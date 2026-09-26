@@ -145,6 +145,13 @@ export component CommitLineEdit inherits LineEdit {
     in property <string> source-text;
     callback commit(string);
     text: root.source-text;
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            self.text = root.source-text;
+            self.clear-focus();
+            accept
+        } else { reject }
+    }
     accepted(value) => {
         if value != root.source-text {
             root.commit(value);
@@ -164,13 +171,105 @@ export component CommitLineEdit inherits LineEdit {
     }
 }
 
+export component ScrubNumberEdit inherits Rectangle {
+    in property <string> source-text;
+    in property <string> label;
+    in property <float> value;
+    in property <float> minimum;
+    in property <float> maximum;
+    in property <float> step: 1;
+    in property <bool> integer: false;
+    in property <bool> enabled: true;
+    callback commit(string);
+    callback preview(float);
+    callback finish-edit();
+    callback cancel-edit();
+    private property <float> drag-value;
+    private property <length> last-x;
+    private property <bool> dragging: false;
+    forward-focus: input;
+    input := CommitLineEdit {
+        x: 12px;
+        width: parent.width - 12px;
+        height: 100%;
+        source-text: root.source-text;
+        enabled: root.enabled;
+        horizontal-alignment: right;
+        accessible-label: root.label;
+        commit(value) => { root.commit(value); }
+    }
+    drag-scope := FocusScope {
+    width: 12px;
+    height: 100%;
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.dragging {
+            root.dragging = false;
+            root.cancel-edit();
+            accept
+        } else { reject }
+    }
+    Text { width: 12px; height: 100%; text: "↔"; color: AppTheme.muted-foreground; vertical-alignment: center; }
+    TouchArea {
+        width: 12px;
+        enabled: root.enabled;
+        mouse-cursor: ew-resize;
+        accessible-role: slider;
+        accessible-label: root.label;
+        accessible-description: @tr("Drag to adjust; hold Shift for fine adjustment");
+        accessible-value: "\{root.value}";
+        accessible-value-minimum: root.minimum;
+        accessible-value-maximum: root.maximum;
+        accessible-action-increment => { root.preview(min(root.maximum, root.value + root.step)); root.finish-edit(); }
+        accessible-action-decrement => { root.preview(max(root.minimum, root.value - root.step)); root.finish-edit(); }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                drag-scope.focus();
+                root.dragging = true;
+                root.drag-value = root.value;
+                root.last-x = self.mouse-x;
+            } else if event.kind == PointerEventKind.move && root.dragging {
+                root.drag-value = clamp(root.drag-value + (self.mouse-x - root.last-x) / 1px
+                    * root.step * (event.modifiers.shift ? 0.1 : 1), root.minimum, root.maximum);
+                root.last-x = self.mouse-x;
+                root.preview(root.integer ? round(root.drag-value) : root.drag-value);
+            } else if event.kind == PointerEventKind.up && root.dragging {
+                root.dragging = false;
+                root.finish-edit();
+            } else if event.kind == PointerEventKind.cancel && root.dragging {
+                root.dragging = false;
+                root.cancel-edit();
+            }
+        }
+    }
+    }
+}
+
 export component CommitTextEdit inherits TextEdit {
     in property <string> source-text;
+    in property <bool> live-preview: false;
     callback commit(string);
+    callback preview(string);
+    callback finish-edit();
+    callback cancel-edit();
+    private property <bool> cancelling: false;
+    private property <string> initial-text;
     text: root.source-text;
+    edited(value) => { if root.live-preview { root.preview(value); } }
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            root.cancelling = true;
+            root.cancel-edit();
+            self.text = root.initial-text;
+            root.cancelling = false;
+            accept
+        } else { reject }
+    }
     changed has-focus => {
-        if !self.has-focus && self.text != root.source-text {
-            root.commit(self.text);
+        if self.has-focus {
+            root.initial-text = self.text;
+        } else if !root.cancelling {
+            if root.live-preview { root.finish-edit(); }
+            else if self.text != root.source-text { root.commit(self.text); }
         }
     }
     changed source-text => {
@@ -334,10 +433,22 @@ export component ObjectSettingRow inherits Rectangle {
     callback remove-keyframe(bool, int, string, int);
     callback move-keyframe(bool, int, string, int, int);
     callback open-easing(int, string, int, int);
-    height: root.row-data.row-kind == "effect" ? 34px
+    callback quick-easing(int, string, int, int, string);
+    callback toggle-fold(bool, int);
+    callback finish-edit();
+    callback cancel-edit();
+    callback preview-text(bool, int, string, int, string);
+    function choose-easing(mode: string) {
+        root.quick-easing(root.row-data.effect-index, root.row-data.param-name,
+            root.row-data.start-frame, root.row-data.end-frame, mode);
+    }
+    visible: !root.row-data.folded || root.row-data.row-kind == "effect";
+    height: root.row-data.folded && root.row-data.row-kind != "effect" ? 0px
+        : root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" ? 64px
+        : root.row-data.row-kind == "effect" ? 34px
         : root.row-data.row-kind == "header" ? 28px
         : root.row-data.row-kind == "text" ? 68px
-        : root.row-data.row-kind == "keyframes" ? 20px
+        : root.row-data.row-kind == "keyframes" ? (root.row-data.keyframed ? 24px : 0px)
         : 34px;
     background: root.row-data.row-kind == "effect"
         ? (root.row-data.selected ? AppTheme.selection-background : AppTheme.raised-background)
@@ -355,6 +466,12 @@ export component ObjectSettingRow inherits Rectangle {
             padding-left: 8px;
             padding-right: 6px;
             spacing: 7px;
+            Button {
+                width: 30px;
+                text: root.row-data.folded ? "▸" : "▾";
+                accessible-label: root.row-data.folded ? @tr("Expand effect") : @tr("Collapse effect");
+                clicked => { root.toggle-fold(root.row-data.audio-plugin, root.row-data.effect-index); }
+            }
             Text {
                 text: root.row-data.label;
                 font-weight: 700;
@@ -373,8 +490,8 @@ export component ObjectSettingRow inherits Rectangle {
             }
         }
         TouchArea {
-            x: 8px;
-            width: max(parent.width - 82px, 1px);
+            x: 45px;
+            width: max(parent.width - 119px, 1px);
             mouse-cursor: pointer;
             accessible-role: list-item;
             accessible-label: root.row-data.label;
@@ -422,17 +539,50 @@ export component ObjectSettingRow inherits Rectangle {
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
-    if root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" : HorizontalLayout {
+    if root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" : VerticalLayout {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
+        HorizontalLayout {
+            if root.row-data.audio-plugin : Text {
+                text: root.row-data.label;
+                color: AppTheme.foreground;
+                overflow: elide;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+        quick-easing-menu := ContextMenuArea {
+            visible: !root.row-data.audio-plugin;
+            horizontal-stretch: 1;
+            height: 30px;
+            Menu {
+                MenuItem { title: @tr("No movement"); activated => { root.choose-easing("none"); } }
+                MenuItem { title: @tr("Linear"); activated => { root.choose-easing("linear"); } }
+                MenuItem { title: @tr("Ease in"); activated => { root.choose-easing("ease_in_quad"); } }
+                MenuItem { title: @tr("Ease out"); activated => { root.choose-easing("ease_out_quad"); } }
+                MenuItem { title: @tr("Ease in and out"); activated => { root.choose-easing("ease_in_out_quad"); } }
+                MenuSeparator { }
+                MenuItem { title: @tr("Advanced curve..."); activated => { root.open-easing(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame); } }
+            }
+        Button {
+            text: root.row-data.parameter-button-label;
+            enabled: root.row-data.interactive;
+            clicked => { quick-easing-menu.show({ x: 0px, y: self.height }); }
+        }
+        }
+        }
+        HorizontalLayout {
+        spacing: 6px;
         Slider {
             height: 26px;
             horizontal-stretch: 1;
+            accessible-label: root.row-data.label + @tr(" start value");
             value: root.row-data.number-value;
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            released => { root.finish-edit(); }
+            changed has-focus => { if !self.has-focus { root.finish-edit(); } }
             enabled: root.row-data.interactive;
             changed(value) => {
                 if root.row-data.audio-plugin {
@@ -454,12 +604,26 @@ export component ObjectSettingRow inherits Rectangle {
                 }
             }
         }
-        CommitLineEdit {
-            width: 76px;
+        ScrubNumberEdit {
+            width: 92px;
             height: 26px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
-            horizontal-alignment: right;
+            label: root.row-data.label + @tr(" start value");
+            value: root.row-data.number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            integer: root.row-data.row-kind == "integer";
+            preview(value) => {
+                if root.row-data.audio-plugin {
+                    root.set-number(true, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
+                } else {
+                    root.set-start-number(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame, value);
+                }
+            }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,
@@ -467,21 +631,6 @@ export component ObjectSettingRow inherits Rectangle {
                     root.row-data.param-name,
                     root.row-data.start-frame,
                     value
-                );
-            }
-        }
-        Button {
-            visible: !root.row-data.audio-plugin;
-            width: 150px;
-            height: 26px;
-            text: root.row-data.parameter-button-label;
-            enabled: root.row-data.interactive;
-            clicked => {
-                root.open-easing(
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    root.row-data.end-frame
                 );
             }
         }
@@ -499,15 +648,23 @@ export component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        if !root.row-data.audio-plugin : CommitLineEdit {
-            width: 76px;
+        if !root.row-data.audio-plugin : ScrubNumberEdit {
+            width: 92px;
             height: 26px;
             source-text: root.row-data.right-interactive
                 ? root.row-data.end-text-value
                 : root.row-data.text-value;
             enabled: root.row-data.interactive && root.row-data.right-interactive;
             opacity: root.row-data.right-interactive ? 1 : 0.45;
-            horizontal-alignment: right;
+            label: root.row-data.label + @tr(" end value");
+            value: root.row-data.end-number-value;
+            minimum: root.row-data.minimum;
+            maximum: root.row-data.maximum;
+            step: root.row-data.step;
+            integer: root.row-data.row-kind == "integer";
+            preview(value) => { root.set-number(false, root.row-data.effect-index, root.row-data.param-name, root.row-data.end-frame, value); }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,
@@ -521,12 +678,15 @@ export component ObjectSettingRow inherits Rectangle {
         if !root.row-data.audio-plugin : Slider {
             height: 26px;
             horizontal-stretch: 1;
+            accessible-label: root.row-data.label + @tr(" end value");
             value: root.row-data.right-interactive
                 ? root.row-data.end-number-value
                 : root.row-data.number-value;
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            released => { root.finish-edit(); }
+            changed has-focus => { if !self.has-focus { root.finish-edit(); } }
             enabled: root.row-data.interactive && root.row-data.right-interactive;
             opacity: root.row-data.right-interactive ? 1 : 0.45;
             changed(value) => {
@@ -541,6 +701,7 @@ export component ObjectSettingRow inherits Rectangle {
         }
         Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
+            }
     }
 
     if root.row-data.row-kind == "choice" : HorizontalLayout {
@@ -575,9 +736,17 @@ export component ObjectSettingRow inherits Rectangle {
         Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: top; }
         CommitTextEdit {
             height: 62px;
+            live-preview: true;
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
+            accessible-label: root.row-data.label;
+            preview(value) => {
+                root.preview-text(root.row-data.audio-plugin, root.row-data.effect-index,
+                    root.row-data.param-name, root.row-data.start-frame, value);
+            }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,
@@ -786,7 +955,7 @@ export component ObjectSettingRow inherits Rectangle {
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
-    if root.row-data.row-kind == "keyframes" : KeyframeTrack {
+    if root.row-data.row-kind == "keyframes" && root.row-data.keyframed : KeyframeTrack {
         row-data: root.row-data;
         seek(frame) => { root.seek-keyframe(frame); }
         snap(frame) => { root.snap-keyframe(frame) }

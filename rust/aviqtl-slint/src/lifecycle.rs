@@ -23,6 +23,7 @@ use aviqtl_app::audio_plugin::AudioPluginCatalog;
 use aviqtl_app::effect_catalog::EffectCatalog;
 use aviqtl_app::settings::SettingsStore;
 use aviqtl_app::{ApplicationModel, LifecycleStep, WorkspaceModel};
+use slint::winit_030::WinitWindowAccessor;
 use slint::{ComponentHandle, SharedString};
 use std::cell::{Cell, RefCell};
 use std::path::Path;
@@ -75,6 +76,121 @@ pub(super) struct WindowRefs<'a> {
 }
 
 impl LifecycleUi {
+    pub(super) fn workspace_action(&self, action: &str) {
+        let (Some(main), Some(timeline), Some(objects)) = (
+            self.main.upgrade(),
+            self.timeline.upgrade(),
+            self.object_settings.upgrade(),
+        ) else {
+            return;
+        };
+        let windows = [
+            ("main", main.window()),
+            ("timeline", timeline.window()),
+            ("objectSettings", objects.window()),
+        ];
+        if action == "save" {
+            let mut layout = serde_json::Map::new();
+            for (id, window) in windows {
+                layout.insert(
+                    id.into(),
+                    serde_json::json!({
+                        "geometry": crate::dialogs::WindowGeometry::capture(window).json(),
+                        "visible": window.is_visible(),
+                    }),
+                );
+            }
+            let mut settings = self.settings.borrow().snapshot();
+            settings.insert(
+                "editorWorkspaceLayout".into(),
+                serde_json::Value::Object(layout),
+            );
+            if let Err(message) = self.settings.borrow_mut().apply(settings) {
+                crate::dialogs::show_error_dialog(&message);
+            }
+            return;
+        }
+        let screen = main
+            .window()
+            .with_winit_window(|window| {
+                window.current_monitor().map(|monitor| {
+                    let scale = monitor.scale_factor();
+                    let position = monitor.position().to_logical::<i32>(scale);
+                    let size = monitor.size().to_logical::<i32>(scale);
+                    crate::dialogs::WindowGeometry::new(
+                        position.x + 12,
+                        position.y + 36,
+                        (size.width - 24).max(1),
+                        (size.height - 100).max(1),
+                    )
+                })
+            })
+            .flatten()
+            .unwrap_or(crate::dialogs::WindowGeometry::new(32, 48, 1280, 800));
+        let defaults = editor_layout(screen, "editing");
+        if action == "recover-screen" {
+            for ((_, window), fallback) in windows.iter().zip(defaults) {
+                let current = crate::dialogs::WindowGeometry::capture(window);
+                let Some(geometry) = recover_window_geometry(current, screen, fallback) else {
+                    continue;
+                };
+                window.set_size(slint::LogicalSize::new(
+                    geometry.width as f32,
+                    geometry.height as f32,
+                ));
+                window.set_position(slint::LogicalPosition::new(
+                    geometry.x as f32,
+                    geometry.y as f32,
+                ));
+            }
+            return;
+        }
+        let defaults = editor_layout(screen, action);
+        let saved = self
+            .settings
+            .borrow()
+            .value("editorWorkspaceLayout")
+            .cloned();
+        for ((id, window), fallback) in windows.into_iter().zip(defaults) {
+            let saved_window = if action == "restore" {
+                saved.as_ref().and_then(|layout| layout.get(id))
+            } else {
+                None
+            };
+            let mut geometry = crate::dialogs::WindowGeometry::from_value(
+                saved_window.and_then(|entry| entry.get("geometry")),
+                fallback,
+            );
+            geometry.width = geometry.width.min(screen.width).max(1);
+            geometry.height = geometry.height.min(screen.height).max(1);
+            geometry.x = geometry
+                .x
+                .clamp(screen.x, screen.x + screen.width - geometry.width);
+            geometry.y = geometry
+                .y
+                .clamp(screen.y, screen.y + screen.height - geometry.height);
+            window.set_maximized(false);
+            window.set_size(slint::LogicalSize::new(
+                geometry.width as f32,
+                geometry.height as f32,
+            ));
+            window.set_position(slint::LogicalPosition::new(
+                geometry.x as f32,
+                geometry.y as f32,
+            ));
+            if saved_window
+                .and_then(|entry| entry.get("visible"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true)
+            {
+                let _ = window.show();
+            } else {
+                let _ = window.hide();
+            }
+            window.set_maximized(geometry.maximized);
+        }
+    }
+
     pub(super) fn handle(&self, mut step: LifecycleStep) {
         loop {
             if !matches!(step, LifecycleStep::ConfirmSave { .. })
@@ -193,6 +309,7 @@ impl LifecycleUi {
                 &effect_catalog,
                 &self.audio_plugin_catalog.borrow(),
                 object_settings.get_effect_filter().as_str(),
+                &self.settings.borrow(),
             );
         }
         if let Some(recovery) = self.recovery.upgrade() {
@@ -265,6 +382,7 @@ impl LifecycleUi {
                     &catalog,
                     &self.audio_plugin_catalog.borrow(),
                     window.get_effect_filter().as_str(),
+                    &self.settings.borrow(),
                 );
             }
         }
@@ -425,6 +543,65 @@ impl LifecycleUi {
             eprintln!("Failed to save window geometries: {error}");
         }
     }
+}
+
+pub(super) fn editor_layout(
+    screen: crate::dialogs::WindowGeometry,
+    mode: &str,
+) -> [crate::dialogs::WindowGeometry; 3] {
+    use crate::dialogs::WindowGeometry;
+    let timeline_height = (screen.height * if mode == "audio" { 45 } else { 32 } / 100)
+        .max(220)
+        .min(screen.height);
+    let upper_height = (screen.height - timeline_height - 36)
+        .max(480)
+        .min(screen.height);
+    let object_width = (screen.width * if mode == "animation" { 55 } else { 45 } / 100)
+        .max(680)
+        .min(screen.width);
+    let preview_width = (screen.width - object_width - 12)
+        .max(480)
+        .min(screen.width);
+    [
+        WindowGeometry::new(screen.x, screen.y, preview_width, upper_height),
+        WindowGeometry::new(
+            screen.x,
+            screen.y + screen.height - timeline_height,
+            screen.width,
+            timeline_height,
+        ),
+        WindowGeometry::new(
+            screen.x + screen.width - object_width,
+            screen.y,
+            object_width,
+            upper_height,
+        ),
+    ]
+}
+
+pub(super) fn recover_window_geometry(
+    current: crate::dialogs::WindowGeometry,
+    screen: crate::dialogs::WindowGeometry,
+    fallback: crate::dialogs::WindowGeometry,
+) -> Option<crate::dialogs::WindowGeometry> {
+    let intersects = current.x < screen.x + screen.width
+        && current.x + current.width > screen.x
+        && current.y < screen.y + screen.height
+        && current.y + current.height > screen.y;
+    if intersects {
+        return None;
+    }
+    let width = current.width.min(screen.width).max(1);
+    let height = current.height.min(screen.height).max(1);
+    Some(crate::dialogs::WindowGeometry {
+        x: fallback.x.clamp(screen.x, screen.x + screen.width - width),
+        y: fallback
+            .y
+            .clamp(screen.y, screen.y + screen.height - height),
+        width,
+        height,
+        maximized: current.maximized,
+    })
 }
 
 pub(super) fn sync_launcher(window: &ProjectLauncherWindow, settings: &SettingsStore) {

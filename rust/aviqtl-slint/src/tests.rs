@@ -1,5 +1,118 @@
 //! Frontend behavior regression tests.
 
+#[test]
+fn clearing_a_shortcut_disables_it_instead_of_restoring_the_default() {
+    let settings = serde_json::json!({"file.save": "", "file.open": "Alt+O"});
+    let resolve = |key| crate::shortcuts::configured_shortcut(Some(&settings), key, "Ctrl+S");
+    assert_eq!(resolve("file.save"), "");
+    assert_eq!(resolve("file.open"), "Alt+O");
+    assert_eq!(resolve("file.new"), "Ctrl+S");
+    assert_eq!(
+        crate::shortcuts::native_shortcut(resolve("file.save")),
+        slint::Keys::default()
+    );
+}
+
+#[test]
+fn workspace_presets_keep_window_origins_on_the_current_monitor() {
+    for screen in [
+        WindowGeometry::new(-1920, 0, 1920, 1000),
+        WindowGeometry::new(20, 40, 800, 600),
+    ] {
+        for mode in ["editing", "animation", "audio"] {
+            for window in crate::lifecycle::editor_layout(screen, mode) {
+                assert!(window.x >= screen.x && window.y >= screen.y);
+                assert!(window.x + window.width <= screen.x + screen.width);
+                assert!(window.y + window.height <= screen.y + screen.height);
+            }
+        }
+    }
+}
+
+#[test]
+fn screen_recovery_moves_only_fully_off_screen_windows() {
+    let screen = WindowGeometry::new(0, 0, 1000, 800);
+    let fallback = WindowGeometry::new(20, 30, 400, 300);
+    assert!(
+        crate::lifecycle::recover_window_geometry(
+            WindowGeometry::new(900, 100, 300, 300),
+            screen,
+            fallback,
+        )
+        .is_none()
+    );
+    let recovered = crate::lifecycle::recover_window_geometry(
+        WindowGeometry::new(1400, 100, 300, 300),
+        screen,
+        fallback,
+    )
+    .expect("off-screen window should be recovered");
+    assert_eq!(recovered.x, fallback.x);
+    assert_eq!(recovered.y, fallback.y);
+    assert_eq!((recovered.width, recovered.height), (300, 300));
+}
+
+#[test]
+fn shortcut_recording_and_conflicts_preserve_special_keys() {
+    use crate::shortcuts::{record_shortcut, validate_shortcuts};
+    let input = ShortcutInput {
+        text: "+".into(),
+        alt: false,
+        control: true,
+        shift: true,
+        meta: false,
+    };
+    assert_eq!(record_shortcut(input).as_deref(), Some("Ctrl++"));
+    assert!(validate_shortcuts(&["Ctrl++".into(), "Ctrl+Shift++".into()]).is_err());
+    assert!(validate_shortcuts(&["Ctrl+Q".into(), "Ctrl+q".into()]).is_err());
+    assert!(validate_shortcuts(&["UnknownModifier+A".into()]).is_err());
+    assert!(validate_shortcuts(&["".into(), "".into(), "Ctrl+A".into()]).is_ok());
+    assert!(
+        validate_shortcuts(
+            &SYSTEM_SHORTCUT_ROWS
+                .iter()
+                .map(|(_, value)| value.to_string())
+                .collect::<Vec<_>>()
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn native_menu_shortcuts_match_the_configured_parser() {
+    assert_eq!(
+        crate::shortcuts::native_shortcut("Ctrl+S"),
+        slint::Keys::from_parts(["Control", "s"]).unwrap()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut("Ctrl++"),
+        slint::Keys::from_parts(["Control", "Shift?", "+"]).unwrap()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut("F3"),
+        slint::Keys::from_parts(["F3"]).unwrap()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut(""),
+        slint::Keys::default()
+    );
+    assert_eq!(
+        crate::shortcuts::native_shortcut("Ctrl+Unknown"),
+        slint::Keys::default()
+    );
+}
+
+#[test]
+fn fit_timeline_keeps_the_selected_range_visible() {
+    let view = crate::shortcuts::fit_timeline_range(120, 360, 800.0);
+    assert!((120.0 * view.pixels_per_frame + view.viewport_x - 16.0).abs() < 0.01);
+    assert!(360.0 * view.pixels_per_frame + view.viewport_x <= 800.0);
+    let empty = crate::shortcuts::fit_timeline_range(0, 0, 0.0);
+    assert!(empty.pixels_per_frame.is_finite() && empty.pixels_per_frame > 0.0);
+    let long = crate::shortcuts::fit_timeline_range(0, 216_000, 1000.0);
+    assert!(216_000.0 * long.pixels_per_frame <= 1000.0);
+}
+
 use crate::dialogs::{
     WindowGeometry, filtered_font_families, format_qt_color, parse_qt_color, qt_file_filters,
 };

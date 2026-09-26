@@ -367,14 +367,19 @@ fn configured_shortcut_action(
 }
 
 pub(super) fn shortcut_setting(settings: &SettingsStore, key: &str, fallback: &str) -> String {
-    settings
-        .value("shortcuts")
-        .and_then(serde_json::Value::as_object)
-        .and_then(|shortcuts| shortcuts.get(key))
+    configured_shortcut(settings.value("shortcuts"), key, fallback).to_owned()
+}
+
+pub(super) fn configured_shortcut<'a>(
+    shortcuts: Option<&'a serde_json::Value>,
+    key: &str,
+    fallback: &'a str,
+) -> &'a str {
+    // An explicit empty string disables the binding; only missing/invalid values use defaults.
+    shortcuts
+        .and_then(|values| values.get(key))
         .and_then(serde_json::Value::as_str)
-        .filter(|shortcut| !shortcut.trim().is_empty())
         .unwrap_or(fallback)
-        .to_owned()
 }
 
 pub(super) fn shortcut_matches(value: &str, input: &ShortcutInput) -> bool {
@@ -386,6 +391,113 @@ pub(super) fn shortcut_matches(value: &str, input: &ShortcutInput) -> bool {
         && pattern.control == input.control
         && pattern.meta == input.meta
         && (pattern.ignore_shift || pattern.shift == input.shift)
+}
+
+pub(super) fn native_shortcut(value: &str) -> slint::Keys {
+    let Some(pattern) = parse_shortcut(value) else {
+        return slint::Keys::default();
+    };
+    let mut parts = Vec::new();
+    if pattern.control {
+        parts.push("Control");
+    }
+    if pattern.meta {
+        parts.push("Meta");
+    }
+    if pattern.alt {
+        parts.push("Alt");
+    }
+    if pattern.ignore_shift {
+        parts.push("Shift?");
+    } else if pattern.shift {
+        parts.push("Shift");
+    }
+    parts.push(&pattern.text);
+    slint::Keys::from_parts(parts).unwrap_or_default()
+}
+
+pub(super) fn record_shortcut(input: ShortcutInput) -> Option<String> {
+    let named = [
+        (Key::LeftArrow, "Left"),
+        (Key::RightArrow, "Right"),
+        (Key::UpArrow, "Up"),
+        (Key::DownArrow, "Down"),
+        (Key::Tab, "Tab"),
+        (Key::Return, "Enter"),
+        (Key::Space, "Space"),
+        (Key::Backspace, "Backspace"),
+        (Key::Delete, "Delete"),
+        (Key::Home, "Home"),
+        (Key::End, "End"),
+        (Key::PageUp, "PageUp"),
+        (Key::PageDown, "PageDown"),
+        (Key::F1, "F1"),
+        (Key::F2, "F2"),
+        (Key::F3, "F3"),
+        (Key::F4, "F4"),
+        (Key::F5, "F5"),
+        (Key::F6, "F6"),
+        (Key::F7, "F7"),
+        (Key::F8, "F8"),
+        (Key::F9, "F9"),
+        (Key::F10, "F10"),
+        (Key::F11, "F11"),
+        (Key::F12, "F12"),
+    ];
+    let key = named
+        .iter()
+        .find(|(key, _)| slint::SharedString::from(*key).as_str() == input.text)
+        .map(|(_, name)| (*name).to_owned())
+        .or_else(|| {
+            let mut chars = input.text.chars();
+            let ch = chars.next()?;
+            (chars.next().is_none()
+                && !ch.is_control()
+                && !(('\u{e000}'..='\u{f8ff}').contains(&ch)))
+            .then(|| input.text.to_uppercase())
+        })?;
+    let mut parts = Vec::new();
+    if input.control {
+        parts.push("Ctrl".to_owned());
+    }
+    if input.meta {
+        parts.push("Meta".to_owned());
+    }
+    if input.alt {
+        parts.push("Alt".to_owned());
+    }
+    if input.shift && key != "+" {
+        parts.push("Shift".to_owned());
+    }
+    parts.push(key);
+    let value = parts.join("+");
+    parse_shortcut(&value).map(|_| value)
+}
+
+pub(super) fn validate_shortcuts(values: &[String]) -> Result<(), &'static str> {
+    let mut patterns: Vec<ShortcutPattern> = Vec::new();
+    for value in values.iter().filter(|value| !value.trim().is_empty()) {
+        let pattern = parse_shortcut(value).ok_or(crate::localization::localized(
+            "Invalid shortcut. Record a key combination or clear the binding.",
+            "快捷键无效。请录入组合键或清除绑定。",
+            "無効なショートカットです。キーを記録するか、割り当てを解除してください。",
+        ))?;
+        if patterns.iter().any(|other| {
+            other.text == pattern.text
+                && other.alt == pattern.alt
+                && other.control == pattern.control
+                && other.meta == pattern.meta
+                && (other.ignore_shift || pattern.ignore_shift || other.shift == pattern.shift)
+        }) {
+            return Err(crate::localization::localized(
+                "A shortcut is assigned to more than one command.",
+                "同一快捷键被分配给了多个命令。",
+                "同じショートカットが複数のコマンドに割り当てられています。",
+            ));
+        }
+        patterns.push(pattern);
+    }
+    Ok(())
 }
 
 pub(super) fn parse_shortcut(value: &str) -> Option<ShortcutPattern> {
@@ -753,6 +865,21 @@ pub(super) fn zoom_percent_to_scale(percent: f32) -> f32 {
         percent / 100.0
     } else {
         1.0 + (percent - 100.0) * 9.0 / 300.0
+    }
+}
+
+pub(super) fn fit_timeline_range(start: i32, end: i32, width: f32) -> TimelineViewportData {
+    let width = if width.is_finite() {
+        width.max(1.0)
+    } else {
+        1.0
+    };
+    let span = (i64::from(end) - i64::from(start)).max(1) as f64;
+    let scale = ((f64::from(width) - 32.0).max(1.0) / span).clamp(0.0001, 10.0) as f32;
+    TimelineViewportData {
+        pixels_per_frame: scale,
+        viewport_x: -(start.max(0) as f32 * scale - 16.0).max(0.0),
+        viewport_y: 0.0,
     }
 }
 

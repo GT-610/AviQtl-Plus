@@ -98,6 +98,14 @@ pub(super) fn sync_timeline_runtime_settings(
     object_settings: &ObjectSettingsWindow,
     settings: &SettingsStore,
 ) {
+    main.set_menu_shortcuts(slint::ModelRc::new(slint::VecModel::from(
+        SYSTEM_SHORTCUT_ROWS
+            .iter()
+            .map(|(key, fallback)| {
+                crate::shortcuts::native_shortcut(&shortcut_setting(settings, key, fallback))
+            })
+            .collect::<Vec<_>>(),
+    )));
     let header_height = settings
         .i32_value("timelineHeaderHeight", 28)
         .clamp(16, 100);
@@ -339,6 +347,7 @@ pub(super) fn sync_system_settings(window: &SystemSettingsWindow, settings: &Set
             })
             .collect(),
     );
+    window.set_shortcut_validation_status(SharedString::new());
     update_vec_model(
         &window.get_shortcut_settings(),
         SYSTEM_SHORTCUT_ROWS
@@ -670,6 +679,13 @@ fn system_settings_replacement(
         .cloned()
         .unwrap_or_default();
     let shortcut_settings = window.get_shortcut_settings();
+    crate::shortcuts::validate_shortcuts(
+        &shortcut_settings
+            .iter()
+            .map(|row| row.value.to_string())
+            .collect::<Vec<_>>(),
+    )
+    .map_err(str::to_owned)?;
     for index in 0..shortcut_settings.row_count() {
         let Some(row) = shortcut_settings.row_data(index) else {
             continue;

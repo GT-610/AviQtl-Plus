@@ -17,7 +17,7 @@ use aviqtl_app::effect_catalog::EffectCatalog;
 use aviqtl_app::object_settings::{ObjectControl, ObjectControlKind, ObjectSettings};
 use aviqtl_app::preset_store::PresetStore;
 use aviqtl_app::{ApplicationModel, WorkspaceModel};
-use slint::{Color, ModelRc, SharedString, VecModel};
+use slint::{Color, Model, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -42,6 +42,7 @@ pub(super) struct ObjectSettingsUi {
     pub(super) audio_catalog: Rc<RefCell<aviqtl_app::audio_plugin::AudioPluginCatalog>>,
     pub(super) presets: Rc<PresetStore>,
     pub(super) font_families: Rc<Vec<String>>,
+    pub(super) settings: Rc<RefCell<aviqtl_app::settings::SettingsStore>>,
 }
 
 impl ObjectSettingsUi {
@@ -57,7 +58,39 @@ impl ObjectSettingsUi {
                 &catalog,
                 &self.audio_catalog.borrow(),
                 window.get_effect_filter().as_str(),
+                &self.settings.borrow(),
             );
+        }
+    }
+
+    pub(super) fn catalog_key(&self, id: &str) -> String {
+        let audio = self
+            .window
+            .upgrade()
+            .is_some_and(|window| window.get_audio_plugin_mode());
+        catalog_key(audio, id)
+    }
+
+    pub(super) fn remember_catalog_item(&self, id: &str, favorite: bool) {
+        let key = if favorite {
+            "favoriteEffects"
+        } else {
+            "recentEffects"
+        };
+        let id = self.catalog_key(id);
+        let mut items = catalog_preferences(&self.settings.borrow(), key);
+        let existed = items.contains(&id);
+        items.retain(|item| item != &id);
+        if !favorite || !existed {
+            items.insert(0, id);
+        }
+        if !favorite {
+            items.truncate(24);
+        }
+        let mut settings = self.settings.borrow().snapshot();
+        settings.insert(key.to_owned(), serde_json::json!(items));
+        if let Err(message) = self.settings.borrow_mut().apply(settings) {
+            show_error_dialog(&message);
         }
     }
 
@@ -127,26 +160,32 @@ impl ObjectSettingsUi {
         param_name: &str,
         frame: i32,
         value: serde_json::Value,
-    ) {
-        let changed = self
-            .model
+    ) -> bool {
+        self.model
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                if audio_plugin {
-                    workspace.set_audio_plugin_parameter_at_frame(
-                        effect_index,
-                        param_name,
-                        frame,
-                        value,
-                    )
-                } else {
-                    workspace.set_effect_parameter_at_frame(effect_index, param_name, frame, value)
-                }
-            });
-        if changed {
-            self.sync_lightweight();
-        }
+                workspace.edit_continuously(
+                    &format!("{audio_plugin}:{effect_index}:{param_name}:{frame}"),
+                    |workspace| {
+                        if audio_plugin {
+                            workspace.set_audio_plugin_parameter_at_frame(
+                                effect_index,
+                                param_name,
+                                frame,
+                                value,
+                            )
+                        } else {
+                            workspace.set_effect_parameter_at_frame(
+                                effect_index,
+                                param_name,
+                                frame,
+                                value,
+                            )
+                        }
+                    },
+                )
+            })
     }
 
     pub(super) fn set_text(
@@ -177,13 +216,15 @@ impl ObjectSettingsUi {
         if !value.is_finite() {
             return;
         }
-        self.set_value_deferred(
+        if self.set_value_deferred(
             audio_plugin,
             effect_index,
             param_name,
             frame,
             serde_json::Value::from(f64::from(value)),
-        );
+        ) {
+            self.sync_parameter_preview(audio_plugin, effect_index, param_name);
+        }
     }
 
     pub(super) fn set_start_number(
@@ -202,16 +243,60 @@ impl ObjectSettingsUi {
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                workspace.set_effect_interval_start_parameter_at_frame(
-                    effect_index,
-                    param_name,
-                    start_frame,
-                    end_frame,
-                    serde_json::Value::from(f64::from(value)),
+                workspace.edit_continuously(
+                    &format!("start:{effect_index}:{param_name}:{start_frame}:{end_frame}"),
+                    |workspace| {
+                        workspace.set_effect_interval_start_parameter_at_frame(
+                            effect_index,
+                            param_name,
+                            start_frame,
+                            end_frame,
+                            serde_json::Value::from(f64::from(value)),
+                        )
+                    },
                 )
             });
         if changed {
-            self.sync_lightweight();
+            self.sync_parameter_preview(false, effect_index, param_name);
+        }
+    }
+
+    fn sync_parameter_preview(&self, audio_plugin: bool, effect_index: usize, param_name: &str) {
+        if let Some(window) = self.window.upgrade() {
+            let projection = {
+                let model = self.model.borrow();
+                let catalog = self.catalog.borrow();
+                model
+                    .current_workspace()
+                    .and_then(|workspace| workspace.object_settings(&catalog))
+            };
+            if let Some(projection) = projection {
+                let updated_rows = object_settings_rows(&projection);
+                let setting_rows = window.get_setting_rows();
+                for index in 0..setting_rows.row_count() {
+                    let Some(current) = setting_rows.row_data(index) else {
+                        continue;
+                    };
+                    if current.audio_plugin != audio_plugin
+                        || current.effect_index != effect_index as i32
+                        || current.param_name != param_name
+                    {
+                        continue;
+                    }
+                    if let Some(mut updated) = updated_rows
+                        .iter()
+                        .find(|row| row.row_kind == current.row_kind)
+                        .cloned()
+                    {
+                        updated.folded = current.folded;
+                        setting_rows.set_row_data(index, updated);
+                    }
+                }
+            }
+        }
+        if let (Some(main), Some(timeline)) = (self.main.upgrade(), self.timeline.upgrade()) {
+            let model = self.model.borrow();
+            sync_transport(&main, &timeline, &model);
         }
     }
 
@@ -419,6 +504,12 @@ pub(super) fn sync_object_settings(
     model: &ApplicationModel,
     catalog: &EffectCatalog,
 ) {
+    window.set_selection_key(
+        object_settings_sync_key(model)
+            .map(|key| format!("{}:{}", key.project_instance_id, key.clip_id))
+            .unwrap_or_default()
+            .into(),
+    );
     let projection = model
         .current_workspace()
         .and_then(|workspace| workspace.object_settings(catalog));
@@ -493,10 +584,17 @@ pub(super) fn sync_object_settings(
             .collect::<Vec<_>>()
     };
     update_vec_model(&window.get_effects(), effects);
-    update_vec_model(
-        &window.get_setting_rows(),
-        object_settings_rows(&projection),
-    );
+    let current_rows = window.get_setting_rows();
+    let folded: std::collections::BTreeSet<_> = current_rows
+        .iter()
+        .filter(|row| row.row_kind == "effect" && row.folded)
+        .map(|row| (row.audio_plugin, row.effect_index))
+        .collect();
+    let mut rows = object_settings_rows(&projection);
+    for row in &mut rows {
+        row.folded = folded.contains(&(row.audio_plugin, row.effect_index));
+    }
+    update_vec_model(&current_rows, rows);
 }
 
 pub(super) fn sync_effect_catalog(
@@ -811,7 +909,12 @@ pub(super) fn sync_object_catalog(
     effect_catalog: &EffectCatalog,
     audio_catalog: &AudioPluginCatalog,
     query: &str,
+    settings: &aviqtl_app::settings::SettingsStore,
 ) {
+    let selected = window
+        .get_effect_catalog_items()
+        .row_data(window.get_effect_picker_current().max(0) as usize)
+        .map(|item| item.id);
     if model
         .current_workspace()
         .is_some_and(WorkspaceModel::object_settings_uses_audio_plugins)
@@ -819,6 +922,15 @@ pub(super) fn sync_object_catalog(
         sync_audio_plugin_catalog(window, audio_catalog, query);
     } else {
         sync_effect_catalog(window, effect_catalog, query);
+    }
+    project_catalog_preferences(window, settings);
+    if let Some(id) = selected
+        && let Some(index) = window
+            .get_effect_catalog_items()
+            .iter()
+            .position(|item| item.id == id)
+    {
+        window.set_effect_picker_current(index as i32);
     }
 }
 
@@ -872,6 +984,7 @@ fn push_object_settings_rows(
 ) {
     rows.push(ObjectSettingRowData {
         row_kind: SharedString::from("effect"),
+        folded: false,
         source_kind: SharedString::new(),
         audio_plugin,
         effect_index: index as i32,
@@ -940,6 +1053,7 @@ fn push_object_settings_rows(
             );
         let parameter_row = ObjectSettingRowData {
             row_kind: SharedString::from(control.kind.as_str()),
+            folded: false,
             source_kind: SharedString::from(control.source_kind.clone()),
             audio_plugin,
             effect_index: index as i32,
@@ -1064,4 +1178,77 @@ pub(super) fn finite_f32(value: f64, fallback: f32) -> f32 {
     } else {
         fallback
     }
+}
+
+pub(super) fn project_catalog_preferences(
+    window: &ObjectSettingsWindow,
+    settings: &aviqtl_app::settings::SettingsStore,
+) {
+    let favorites = catalog_preferences(settings, "favoriteEffects");
+    let recent = catalog_preferences(settings, "recentEffects");
+    let mut items: Vec<_> = window
+        .get_effect_catalog_items()
+        .iter()
+        .filter(|item| !item.header)
+        .filter(|item| match window.get_effect_catalog_mode() {
+            1 => favorites.contains(&catalog_key(
+                window.get_audio_plugin_mode(),
+                item.id.as_str(),
+            )),
+            2 => recent.contains(&catalog_key(
+                window.get_audio_plugin_mode(),
+                item.id.as_str(),
+            )),
+            _ => true,
+        })
+        .collect();
+    if window.get_effect_catalog_mode() == 2 {
+        items.sort_by_key(|item| {
+            recent
+                .iter()
+                .position(|id| id == &catalog_key(window.get_audio_plugin_mode(), item.id.as_str()))
+                .unwrap_or(usize::MAX)
+        });
+    }
+    let rows = items
+        .iter()
+        .map(|item| {
+            slint::language::StandardListViewItem::from(slint::SharedString::from(format!(
+                "{}{}  {}",
+                if favorites.contains(&catalog_key(
+                    window.get_audio_plugin_mode(),
+                    item.id.as_str()
+                )) {
+                    "★ "
+                } else {
+                    ""
+                },
+                item.name,
+                item.categories
+            )))
+        })
+        .collect();
+    update_vec_model(&window.get_effect_catalog_items(), items);
+    update_vec_model(&window.get_effect_picker_rows(), rows);
+    window.set_effect_picker_current(if window.get_effect_catalog_items().row_count() == 0 {
+        -1
+    } else {
+        0
+    });
+}
+
+fn catalog_key(audio: bool, id: &str) -> String {
+    format!("{}:{id}", if audio { "audio" } else { "effect" })
+}
+fn catalog_preferences(settings: &aviqtl_app::settings::SettingsStore, key: &str) -> Vec<String> {
+    settings
+        .value(key)
+        .and_then(serde_json::Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
 }
