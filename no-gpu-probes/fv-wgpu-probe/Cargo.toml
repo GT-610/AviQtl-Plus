@@ -1,0 +1,11 @@
+[package]
+name = "femtovg-wgpu-warp-probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winit = "=0.30.13"
+wgpu = { version = "=29.0.4", default-features = false, features = ["std", "wgsl", "dx12"] }
+pollster = "=0.4.0"
+
+[workspace]

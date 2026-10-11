@@ -1,0 +1,15 @@
+[package]
+name = "slint-wgpu-probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+slint = { version = "1.17.1", default-features = false, features = ["accessibility", "backend-winit", "compat-1-2", "renderer-femtovg-wgpu", "unstable-wgpu-29", "unstable-winit-030"] }
+pollster = "0.4"
+
+[dependencies.wgpu]
+version = "29.0.1"
+default-features = false
+features = ["std", "wgsl", "dx12", "vulkan"]
+
+[workspace]

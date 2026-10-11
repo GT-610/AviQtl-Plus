@@ -1,0 +1,10 @@
+[package]
+name = "wgpu-dx12-probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wgpu = { version = "29.0.1", default-features = false, features = ["std", "wgsl", "dx12", "vulkan"] }
+pollster = "0.4"
+
+[workspace]
