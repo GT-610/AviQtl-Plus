@@ -197,9 +197,13 @@ pub(crate) fn move_midpoint(
     Some(Midpoints { frames })
 }
 
-/// Applies a start-frame trim. A trim moves the clip origin, so every midpoint shifts with it.
-/// The caller clamps the result against the clip's new span; a midpoint pushed onto a fixed
-/// frame is dropped by [`sanitize`].
+/// Shifts every midpoint by the caller-provided origin delta.
+///
+/// The caller computes `delta_start` from the origin move it is compensating for: a start trim
+/// moves the clip origin by `clip.start - before.start`, so the midpoint shifts by the opposite
+/// amount (`before.start - clip.start`) to stay on the same timeline moment. The caller clamps
+/// the result against the clip's new span; a midpoint pushed onto a fixed frame is dropped by
+/// [`sanitize`].
 pub(crate) fn shift_by_start_delta(midpoints: &Midpoints, delta_start: i32) -> Midpoints {
     Midpoints {
         frames: midpoints

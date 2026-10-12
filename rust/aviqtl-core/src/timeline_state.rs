@@ -1548,16 +1548,25 @@ fn sync_clip_tracks(clip: &mut ClipDocument, old_duration: i32) {
     }
 }
 
-/// Keeps object midpoints valid across a frame-domain edit. A start trim moves the clip
-/// origin, so every midpoint shifts with it; a duration change can leave midpoints outside the
-/// new span. Both are clamped back into the open interval, dropping what no longer fits.
+/// Keeps object midpoints valid across a frame-domain edit. A midpoint is a time boundary, so a
+/// start trim keeps it at the same timeline moment: the clip origin moves by `clip.start -
+/// before.start`, and the midpoint shifts by the opposite amount to stay put. A duration change
+/// can leave midpoints outside the new span; both are clamped back into the open interval,
+/// dropping what no longer fits. A pure move changes neither the clip-relative positions nor the
+/// timeline moments, so nothing shifts.
 fn sync_clip_midpoints(clip: &mut ClipDocument, before: &ClipDocument) {
     let existing = crate::midpoint::read_midpoints(&before.extra);
     if existing.frames().is_empty() {
         clip.extra.remove(crate::midpoint::MIDPOINTS_KEY);
         return;
     }
-    let shifted = crate::midpoint::shift_by_start_delta(&existing, clip.start - before.start);
+    let shifted = if clip.duration == before.duration {
+        existing
+    } else {
+        // The clip origin moved to `clip.start`; shifting back by that keeps the midpoint on the
+        // same timeline moment a start trim must preserve.
+        crate::midpoint::shift_by_start_delta(&existing, before.start - clip.start)
+    };
     crate::midpoint::write_midpoints(
         &mut clip.extra,
         &crate::midpoint::sanitize(shifted, clip.duration),
@@ -3555,19 +3564,52 @@ mod tests {
             .expect("resize applies");
         assert_eq!(midpoint_frames(&state.document.clips[0]), [5]);
 
-        // A start trim moves the clip origin, so the midpoint shifts with it.
+        // A pure move keeps every clip-relative position: duration is unchanged, so no shift
+        // happens and the midpoint stays where it was relative to the clip.
         let transaction = state
             .plan(EditRequest::UpdateClipGeometry {
                 clip_id: 1,
                 layer: 0,
-                start: 3,
+                start: 5,
                 duration: 10,
+            })
+            .expect("move plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("move applies");
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5]);
+
+        // A start trim moves the clip origin and changes the duration, so the midpoint shifts
+        // by the opposite amount to stay on the same timeline moment: origin moved 5 to 8 and the
+        // end stayed at 15, so the midpoint moves 5 to 2.
+        let transaction = state
+            .plan(EditRequest::UpdateClipGeometry {
+                clip_id: 1,
+                layer: 0,
+                start: 8,
+                duration: 7,
             })
             .expect("trim plans");
         state
             .apply_patch(&transaction.forward)
             .expect("trim applies");
-        assert_eq!(midpoint_frames(&state.document.clips[0]), [8]);
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [2]);
+
+        // A trim that shrinks the clip pushes a midpoint out of the open interval: the origin
+        // moves 8 to 3 and duration shrinks to 4, so the midpoint at 2 shifts to 7 and is dropped
+        // by sanitize rather than stored on a fixed frame.
+        let transaction = state
+            .plan(EditRequest::UpdateClipGeometry {
+                clip_id: 1,
+                layer: 0,
+                start: 3,
+                duration: 4,
+            })
+            .expect("trim plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("trim applies");
+        assert!(midpoint_frames(&state.document.clips[0]).is_empty());
     }
 
     #[test]
