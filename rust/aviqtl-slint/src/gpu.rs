@@ -20,15 +20,84 @@ pub(super) const VALIDATION_PROJECT: &[u8] = br#"{
     ]
 }"#;
 
-pub(super) fn parse_validation_frames() -> Result<Option<u64>, String> {
+/// Reports whether the host exposes a wgpu adapter backed by real GPU hardware.
+///
+/// A CPU adapter is not merely slow: the compositor's 41-case effect shader
+/// cannot be compiled by the FXC path WARP uses, so the pipeline creation
+/// crashes with an access violation instead of returning an error. A host that
+/// only offers `Microsoft Basic Render Driver` therefore cannot run the
+/// production preview at all, and must be told so instead of crashing.
+pub(super) fn has_gpu_backed_adapter() -> bool {
+    let instance = wgpu::Instance::default();
+    pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()))
+        .into_iter()
+        .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
+}
+
+/// Lists every wgpu adapter the host exposes, so a GPU-less launch can say what
+/// it actually found instead of only what it needs.
+pub(super) fn describe_adapters() -> Vec<String> {
+    let instance = wgpu::Instance::default();
+    pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()))
+        .into_iter()
+        .map(|adapter| {
+            let info = adapter.get_info();
+            format!(
+                "- {} (backend {:?}, device type {:?})",
+                info.name, info.backend, info.device_type
+            )
+        })
+        .collect()
+}
+
+/// The human-readable launch failure used when no GPU-backed wgpu adapter exists.
+///
+/// Adobe documents GPU memory requirements for Premiere rather than shipping a
+/// software renderer, and removed the software-rendering option entirely
+/// because it degraded image quality. AviQtl takes the same stance: the preview
+/// compositor is GPU-only, and a GPU-less host gets an actionable message
+/// instead of an access violation.
+pub(super) fn missing_gpu_message(adapters: &[String]) -> String {
+    let detected = if adapters.is_empty() {
+        "  (none)".to_owned()
+    } else {
+        adapters.join("\n")
+    };
+    format!(
+        "AviQtl requires a GPU-backed wgpu adapter and could not find one.\n\
+         \n\
+         Adapters detected on this host:\n\
+         {detected}\n\
+         \n\
+         Why the detected adapters cannot be used:\n\
+         - No adapter at all: install a graphics driver, then try again.\n\
+         - \"Microsoft Basic Render Driver\" (WARP) or another CPU adapter: it exposes a\n\
+           `DeviceType::Cpu` adapter that appears usable, but its shader compiler\n\
+           cannot build the compositor's effect pipelines. The application would otherwise\n\
+           die with an access violation (0xC0000005) instead of reporting an error.\n\
+         \n\
+         A discrete or integrated GPU from the last decade with current drivers is\n\
+         required. Hardware encoding and decoding also depend on the same GPU."
+    )
+}
+
+/// Launch options parsed from the command line.
+pub(super) struct LaunchOptions {
+    /// Frame budget for the opt-in `--validate-gpu` / `--frames` gate.
+    pub(super) validation_frames: Option<u64>,
+}
+
+pub(super) fn parse_launch_options() -> Result<LaunchOptions, String> {
     let mut args = std::env::args().skip(1);
-    let mut frames = None;
+    let mut options = LaunchOptions {
+        validation_frames: None,
+    };
     while let Some(argument) = args.next() {
         match argument.as_str() {
-            "--validate-gpu" => frames = Some(120),
+            "--validate-gpu" => options.validation_frames = Some(120),
             "--frames" => {
                 let value = args.next().ok_or("--frames requires a value")?;
-                frames = Some(
+                options.validation_frames = Some(
                     value
                         .parse::<u64>()
                         .map_err(|_| "invalid --frames value")?
@@ -38,7 +107,7 @@ pub(super) fn parse_validation_frames() -> Result<Option<u64>, String> {
             _ => return Err(format!("unknown argument: {argument}")),
         }
     }
-    Ok(frames)
+    Ok(options)
 }
 
 pub(super) struct AppGpu {
@@ -80,7 +149,6 @@ impl AppGpu {
         })
     }
 }
-
 pub(super) enum WindowKind {
     Main,
     Timeline,

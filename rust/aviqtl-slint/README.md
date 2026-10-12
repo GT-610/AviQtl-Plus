@@ -140,6 +140,25 @@ when moving presentation code so callbacks and translation contexts retain their
 
 ## Running
 
+### GPU requirement
+
+AviQtl requires a **GPU-backed wgpu adapter**. It does not ship a software or CPU
+renderer, matching how Premiere documents GPU requirements and removed its
+"Mercury Playback Engine Software Only" option, and how DaVinci Resolve requires
+a discrete GPU with sufficient VRAM.
+
+A CPU adapter is not merely slow. On a host whose only adapter is
+`Microsoft Basic Render Driver` (WARP, `DeviceType::Cpu`), the compositor's
+41-case effect shader cannot be compiled by the FXC path that WARP uses, so
+pipeline creation dies with an access violation (`0xC0000005`) instead of
+returning an error. The application therefore checks for a GPU-backed adapter
+before it initializes wgpu and exits with an actionable message naming the
+adapters it found, rather than crashing. See
+[`../../no-gpu-probes/README.md`](../../no-gpu-probes/README.md) for the
+measured evidence.
+
+### Commands
+
 From the `rust` directory:
 
 ```sh

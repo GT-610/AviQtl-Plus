@@ -30,8 +30,8 @@ use crate::export::{
     update_export,
 };
 use crate::gpu::{
-    AppGpu, GpuValidation, VALIDATION_PROJECT, WindowKind, install_render_probe,
-    parse_validation_frames,
+    AppGpu, GpuValidation, LaunchOptions, VALIDATION_PROJECT, WindowKind, describe_adapters,
+    has_gpu_backed_adapter, install_render_probe, missing_gpu_message, parse_launch_options,
 };
 use crate::lifecycle::{LifecycleUi, WindowRefs, sync_launcher, sync_recovery_window};
 use crate::localization::select_bundled_ui_translation;
@@ -74,7 +74,13 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let validation_frames = parse_validation_frames()?;
+    let LaunchOptions { validation_frames } = parse_launch_options()?;
+    // Fail with an explanation instead of an access violation when the host has
+    // no GPU-backed wgpu adapter. The compositor's effect shader cannot be
+    // compiled on a CPU adapter, so the launch cannot proceed at all.
+    if !has_gpu_backed_adapter() {
+        return Err(missing_gpu_message(&describe_adapters()).into());
+    }
     let gpu = AppGpu::new()?;
     slint::BackendSelector::new()
         .require_wgpu_29(slint::wgpu_29::WGPUConfiguration::Manual {

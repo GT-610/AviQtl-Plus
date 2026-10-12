@@ -12,6 +12,9 @@
 /dist/
 /rust/target/
 /rust/target-*/
+# Standalone no-GPU probe crates are separate Cargo workspaces
+/no-gpu-probes/*/target/
+/no-gpu-probes/*/Cargo.lock
 
 # Exports
 /project_context.json

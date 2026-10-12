@@ -1,0 +1,11 @@
+[package]
+name = "backend-order-probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pollster = "0.4"
+wgpu = { version = "29", default-features = false, features = ["std", "wgsl", "dx12"] }
+slint = { version = "1.17.1", default-features = false, features = ["accessibility", "backend-winit", "compat-1-2", "renderer-software"] }
+
+[workspace]

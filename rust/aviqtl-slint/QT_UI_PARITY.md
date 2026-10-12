@@ -289,11 +289,21 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
   reaches its teardown — and removing the window hides or lowering `--frames` to 1 does not change
   the outcome, so the fault is inside Slint's winit/wgpu event-loop teardown rather than this crate.
   Use a release build for validation until the dependency is updated.
+- The frontend requires a GPU-backed wgpu adapter and has no software or CPU renderer. On a host
+  whose only adapter is a CPU device such as the Microsoft Basic Render Driver (WARP), the
+  compositor's 41-case effect shader cannot be compiled by the FXC path WARP uses, and pipeline
+  creation terminates the process with `0xC0000005` instead of returning an error. The application
+  now detects this before wgpu initialization and exits with an explanatory message listing the
+  adapters it found, so the failure is reported rather than crashed. This is a deliberate scope
+  decision consistent with Premiere, which removed its software-rendering option because it
+  degraded image quality; see [`../../no-gpu-probes/README.md`](../../no-gpu-probes/README.md)
+  for the measured evidence behind it.
 
 ## Deferred native GUI suite
 
-Run this only in the later user-requested task on an unlocked desktop. Cover project/scene close
-ordering, F3/F4 focus and raise behavior, all native menu items, file chooser cancellation, export
-and its close interception, recovery-window interaction, settings persistence, drag-and-drop, zoom/wheel behavior,
-IME and shortcut scope, application close confirmation, object/effect/audio-plugin workflows,
-keyframes and easing, Package Manager, About links, audio-device latency/output, and VoiceOver output.
+Run this only in the later user-requested task on an unlocked desktop, on a host with a GPU-backed
+wgpu adapter. Cover project/scene close ordering, F3/F4 focus and raise behavior, all native menu
+items, file chooser cancellation, export and its close interception, recovery-window interaction,
+settings persistence, drag-and-drop, zoom/wheel behavior, IME and shortcut scope, application close
+confirmation, object/effect/audio-plugin workflows, keyframes and easing, Package Manager, About
+links, audio-device latency/output, and VoiceOver output.
