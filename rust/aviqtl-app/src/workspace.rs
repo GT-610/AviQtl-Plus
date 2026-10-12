@@ -11,10 +11,11 @@ use crate::selection::{ClipSelection, SelectionBox, control_layer_count};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
-    ClipDocument, EffectDocument, EffectInsertion, EffectMetadata, EffectPreset,
-    MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, MidpointOperation, ProjectDocument, ProjectSettings,
-    SceneDocument, TimelineCommand, TimelineTransaction, clipboard_duration,
-    evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move,
+    ClipDocument, ClipGeometryUpdate, EffectDocument, EffectInsertion, EffectMetadata,
+    EffectPreset, MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, MidpointOperation, ProjectDocument,
+    ProjectSettings, SceneDocument, TimelineCommand, TimelineTransaction, TrimEdge,
+    clipboard_duration, evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track,
+    plan_clip_delta_move, plan_clip_ripple_trim, plan_clip_roll, plan_clip_slide, plan_clip_slip,
     plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift,
     snap_scene_frame, timeline_duration as core_timeline_duration,
 };
@@ -2731,6 +2732,106 @@ impl WorkspaceModel {
         self.execute_geometry_updates(plan.updates)
     }
 
+    /// Previews a ripple trim without committing it. The preview and the commit call the same
+    /// planner, so the outlined destination is exactly what the edit produces.
+    pub fn preview_ripple_trim(
+        &self,
+        clip_id: i32,
+        edge: TrimEdge,
+        delta_frames: i32,
+        minimum_duration_frames: i32,
+    ) -> Result<Vec<ClipGeometryUpdate>, String> {
+        plan_clip_ripple_trim(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            edge,
+            delta_frames,
+            minimum_duration_frames,
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    /// Trims one edge and closes the gap by shifting everything after the clip on the layer.
+    pub fn ripple_trim_clip(
+        &mut self,
+        clip_id: i32,
+        edge: TrimEdge,
+        delta_frames: i32,
+        minimum_duration_frames: i32,
+    ) -> bool {
+        match self.preview_ripple_trim(clip_id, edge, delta_frames, minimum_duration_frames) {
+            Ok(updates) => self.execute_geometry_updates(updates),
+            Err(error) => {
+                self.status = error;
+                false
+            }
+        }
+    }
+
+    /// Moves the shared cut between two adjacent clips. Both clips must stay at least
+    /// `minimum_duration_frames` long, and the cut must have a neighbour on the dragged edge.
+    pub fn roll_clip_cut(
+        &mut self,
+        clip_id: i32,
+        edge: TrimEdge,
+        delta_frames: i32,
+        minimum_duration_frames: i32,
+    ) -> bool {
+        match plan_clip_roll(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            edge,
+            delta_frames,
+            minimum_duration_frames,
+        ) {
+            Ok(updates) => self.execute_geometry_updates(updates),
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
+    }
+
+    /// Moves a clip in time without changing its source range or duration. The two neighbours
+    /// absorb the change, so the clip stays between them.
+    pub fn slide_clip(&mut self, clip_id: i32, delta_frames: i32) -> bool {
+        match plan_clip_slide(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            delta_frames,
+        ) {
+            Ok(updates) => self.execute_geometry_updates(updates),
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
+    }
+
+    /// Returns the new source in-point a slip would produce, or `None` when the clip has no
+    /// known source range to slip within.
+    pub fn plan_clip_slip_source_start(
+        &self,
+        clip_id: i32,
+        delta_frames: i32,
+        current_source_start_frames: i32,
+        source_duration_frames: Option<i32>,
+    ) -> Option<i32> {
+        plan_clip_slip(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            delta_frames,
+            current_source_start_frames,
+            source_duration_frames,
+        )
+        .ok()
+        .flatten()
+    }
+
     pub fn toggle_layer_visibility(&mut self, layer: i32) -> bool {
         let Some(scene) = self.selected_scene_document() else {
             return false;
@@ -3943,6 +4044,254 @@ mod tests {
         assert!(workspace.drag_selected_clips(trim_end));
         assert_eq!(workspace.document().clips[0].duration, 11);
         assert!(clip_midpoints(&workspace.document().clips[0]).is_empty());
+    }
+
+    /// A three-clip abutting row on one layer of one scene. Roll and slide need neighbours on
+    /// both sides of the anchor, and ripple needs a tail, so no single existing fixture covers
+    /// all four trim tools.
+    fn workspace_with_row() -> WorkspaceModel {
+        let state = TimelineState::from_json(
+            br#"{
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+                "scenes": [{"id": 1, "name": "Root", "duration": 300}],
+                "clips": [
+                    {"id": 1, "sceneId": 1, "type": "rect", "start": 0, "duration": 10, "layer": 0},
+                    {"id": 2, "sceneId": 1, "type": "rect", "start": 10, "duration": 20, "layer": 0},
+                    {"id": 3, "sceneId": 1, "type": "rect", "start": 30, "duration": 10, "layer": 0}
+                ]
+            }"#,
+        )
+        .expect("row workspace fixture loads");
+        let document = state.snapshot();
+        WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        })
+    }
+
+    fn geometry(workspace: &WorkspaceModel, clip_id: i32) -> (i32, i32) {
+        let clip = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+            .expect("clip is present");
+        (clip.start, clip.duration)
+    }
+
+    #[test]
+    fn ripple_trim_shifts_the_tail_and_undoes_in_one_step() {
+        let mut workspace = workspace_with_row();
+
+        // The preview and the commit call the same planner, so the outlined destination is
+        // exactly what the edit produces.
+        let preview = workspace
+            .preview_ripple_trim(2, TrimEdge::End, -5, 1)
+            .expect("ripple previews");
+        assert_eq!(geometry(&workspace, 2), (10, 20), "preview commits nothing");
+        assert_eq!(
+            preview.len(),
+            2,
+            "only the anchor and its tail are reported"
+        );
+        assert_eq!(
+            (preview[0].clip_id, preview[0].start, preview[0].duration),
+            (2, 10, 15)
+        );
+        assert_eq!(
+            (preview[1].clip_id, preview[1].start, preview[1].duration),
+            (3, 25, 10)
+        );
+
+        assert!(workspace.ripple_trim_clip(2, TrimEdge::End, -5, 1));
+        assert_eq!(geometry(&workspace, 2), (10, 15));
+        assert_eq!(geometry(&workspace, 3), (25, 10));
+        assert_eq!(
+            geometry(&workspace, 1),
+            (0, 10),
+            "clips before the anchor keep their geometry"
+        );
+
+        // The anchor and the tail are one transaction, so one undo restores both.
+        assert!(workspace.undo());
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+        assert_eq!(geometry(&workspace, 3), (30, 10));
+        assert!(!workspace.undo(), "one edit means one undo entry");
+    }
+
+    #[test]
+    fn ripple_trim_is_a_no_op_without_a_delta_and_rejects_locked_layers() {
+        let mut workspace = workspace_with_row();
+        let revision = workspace.document_revision();
+
+        assert!(
+            !workspace.ripple_trim_clip(2, TrimEdge::End, 0, 1),
+            "no delta"
+        );
+        assert_eq!(workspace.document_revision(), revision, "no undo entry");
+
+        assert!(workspace.toggle_layer_lock(0));
+        assert!(
+            !workspace.ripple_trim_clip(2, TrimEdge::End, -5, 1),
+            "locked layer"
+        );
+        assert!(workspace.status().contains("invalid timeline operation"));
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+    }
+
+    #[test]
+    fn roll_moves_the_shared_cut_and_keeps_the_outer_edges() {
+        let mut workspace = workspace_with_row();
+
+        assert!(workspace.roll_clip_cut(2, TrimEdge::End, 5, 1));
+        assert_eq!(geometry(&workspace, 1), (0, 10), "outer edge stays put");
+        assert_eq!(geometry(&workspace, 2), (10, 25), "the anchor grows");
+        assert_eq!(geometry(&workspace, 3), (35, 5), "the neighbour shrinks");
+
+        // Moving the cut the other way is the mirror image: the cut at 35 slides back to 30, so
+        // the anchor gives the same five frames to its neighbour and the row is restored.
+        assert!(workspace.roll_clip_cut(2, TrimEdge::End, -5, 1));
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+        assert_eq!(geometry(&workspace, 3), (30, 10));
+        assert_eq!(
+            workspace.document_revision(),
+            2,
+            "each roll is its own undo entry"
+        );
+
+        // Rolling far enough to consume the anchor itself is rejected, not clamped, so the cut
+        // never silently reduces a clip to nothing.
+        let revision = workspace.document_revision();
+        assert!(
+            !workspace.roll_clip_cut(2, TrimEdge::End, -20, 1),
+            "below minimum"
+        );
+        assert_eq!(workspace.document_revision(), revision);
+        assert_eq!(geometry(&workspace, 3), (30, 10));
+        // One frame of the anchor left is still legal, and the neighbour absorbs all of it.
+        assert!(workspace.roll_clip_cut(2, TrimEdge::End, -19, 1));
+        assert_eq!(
+            geometry(&workspace, 2),
+            (10, 1),
+            "the anchor keeps one frame"
+        );
+        assert_eq!(
+            geometry(&workspace, 3),
+            (11, 29),
+            "the neighbour absorbs the rest"
+        );
+
+        // An edge with no neighbour on it is a free end, not a cut.
+        assert!(
+            !workspace.roll_clip_cut(1, TrimEdge::Start, 5, 1),
+            "no neighbour"
+        );
+        assert!(
+            !workspace.roll_clip_cut(99, TrimEdge::End, 5, 1),
+            "unknown clip"
+        );
+    }
+
+    #[test]
+    fn slide_keeps_the_duration_and_stays_between_its_neighbours() {
+        let mut workspace = workspace_with_row();
+
+        assert!(workspace.slide_clip(2, 4));
+        assert_eq!(geometry(&workspace, 1), (0, 14), "the row closes behind");
+        assert_eq!(
+            geometry(&workspace, 2),
+            (14, 20),
+            "duration and source are kept"
+        );
+        assert_eq!(geometry(&workspace, 3), (34, 6), "the row opens ahead");
+
+        assert!(workspace.undo());
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+
+        // The slide is bounded by both neighbours, and neither neighbour may be consumed
+        // entirely, so a move past either end clamps to a range that leaves one frame behind.
+        assert!(workspace.slide_clip(2, 99));
+        assert_eq!(
+            geometry(&workspace, 2),
+            (19, 20),
+            "clamped to the next clip"
+        );
+        assert_eq!(
+            geometry(&workspace, 3),
+            (39, 1),
+            "the neighbour keeps one frame"
+        );
+        assert!(workspace.undo());
+
+        assert!(workspace.slide_clip(2, -99));
+        assert_eq!(
+            geometry(&workspace, 2),
+            (1, 20),
+            "clamped to the previous clip"
+        );
+        assert_eq!(
+            geometry(&workspace, 1),
+            (0, 1),
+            "the neighbour keeps one frame"
+        );
+        assert!(workspace.undo());
+
+        // A clip at either end of the row has no neighbour on one side, so it cannot slide.
+        assert!(!workspace.slide_clip(1, 5), "no previous neighbour");
+        assert!(!workspace.slide_clip(3, -5), "no next neighbour");
+
+        assert!(workspace.toggle_layer_lock(0));
+        assert!(!workspace.slide_clip(2, 5), "locked layer");
+    }
+
+    #[test]
+    fn slip_reports_no_change_without_a_known_source_and_clamps_inside_the_source() {
+        let workspace = workspace_with_row();
+
+        // Clip 2 is 20 frames long on a 40-frame source, so a legal in-point is 0..=20.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 10, 0, Some(40)),
+            Some(10)
+        );
+        // Past the end of the source the in-point clamps to the last legal frame.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 21, 0, Some(40)),
+            Some(20)
+        );
+        // Before the start it clamps to zero.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, -10, 5, Some(40)),
+            Some(0)
+        );
+
+        // Without a source length there is no safe bound, so the tool reports no change instead
+        // of guessing one.
+        assert_eq!(workspace.plan_clip_slip_source_start(2, 10, 0, None), None);
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 10, 0, Some(0)),
+            None
+        );
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 0, 0, Some(40)),
+            None
+        );
+        // Already at the bound, so another step the same way changes nothing.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 5, 20, Some(40)),
+            None
+        );
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(99, 5, 0, Some(40)),
+            None
+        );
+
+        // A slip is a source-only edit: the planner returns a number and never touches the
+        // document, so no transaction and no undo entry exist.
+        assert_eq!(workspace.document_revision(), 0);
+        assert_eq!(geometry(&workspace, 2), (10, 20));
     }
 
     #[test]

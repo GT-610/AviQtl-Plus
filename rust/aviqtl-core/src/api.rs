@@ -60,6 +60,7 @@ pub use crate::script_runtime::{
     ScriptRuntime, ScriptRuntimeError,
 };
 pub use crate::settings::{SettingsError, SettingsMutation, SettingsState};
+pub use crate::timeline_edit::TrimEdge;
 pub use crate::timeline_state::MidpointOperation;
 pub use crate::timeline_state::{
     ClipGeometryUpdate, ClipReplacement, EditRequest as TimelineCommand, EffectInsertion,
@@ -600,6 +601,118 @@ pub fn plan_scene_layer_shift(
     )
     .map(clip_geometry_updates)
     .map_err(|_| TimelineError::InvalidArgument)
+}
+
+/// Reports whether a layer is locked for a clip in a scene, so a planner can reject the edit
+/// with the same `InvalidArgument` the shared clip planners use.
+fn layer_is_locked(document: &ProjectDocument, scene_id: i32, clip_id: i32) -> bool {
+    document
+        .scenes
+        .iter()
+        .find(|scene| scene.id == scene_id)
+        .zip(
+            scene_clip_geometry(document, scene_id)
+                .iter()
+                .find(|clip| clip.clip_id == clip_id),
+        )
+        .is_some_and(|(scene, anchor)| scene.locked_layers.contains(&anchor.layer))
+}
+
+/// Plans a ripple trim: the dragged edge moves and everything after it on the layer closes the
+/// gap. Locked layers reject the edit, matching move and resize.
+pub fn plan_clip_ripple_trim(
+    document: &ProjectDocument,
+    scene_id: i32,
+    clip_id: i32,
+    edge: TrimEdge,
+    delta_frames: i32,
+    minimum_duration_frames: i32,
+) -> Result<Vec<ClipGeometryUpdate>, TimelineError> {
+    if layer_is_locked(document, scene_id, clip_id) {
+        return Err(TimelineError::InvalidArgument);
+    }
+    crate::timeline_edit::plan_ripple_trim(
+        &scene_clip_geometry(document, scene_id),
+        clip_id,
+        edge,
+        delta_frames,
+        minimum_duration_frames,
+    )
+    .map(clip_geometry_updates)
+    .map_err(|_| TimelineError::InvalidArgument)
+}
+
+/// Plans a roll: the shared cut between two adjacent clips moves and both outer edges stay put.
+/// A cut with no adjacent clip on that edge is rejected rather than silently trimming one side.
+pub fn plan_clip_roll(
+    document: &ProjectDocument,
+    scene_id: i32,
+    clip_id: i32,
+    edge: TrimEdge,
+    delta_frames: i32,
+    minimum_duration_frames: i32,
+) -> Result<Vec<ClipGeometryUpdate>, TimelineError> {
+    if layer_is_locked(document, scene_id, clip_id) {
+        return Err(TimelineError::InvalidArgument);
+    }
+    crate::timeline_edit::plan_roll(
+        &scene_clip_geometry(document, scene_id),
+        clip_id,
+        edge,
+        delta_frames,
+        minimum_duration_frames,
+    )
+    .map(clip_geometry_updates)
+    .map_err(|_| TimelineError::InvalidArgument)
+}
+
+/// Plans a slide: the clip keeps its duration and source range but moves in time, and its two
+/// neighbours absorb the change so neither gap changes. Both neighbours must be adjacent.
+pub fn plan_clip_slide(
+    document: &ProjectDocument,
+    scene_id: i32,
+    clip_id: i32,
+    delta_frames: i32,
+) -> Result<Vec<ClipGeometryUpdate>, TimelineError> {
+    if layer_is_locked(document, scene_id, clip_id) {
+        return Err(TimelineError::InvalidArgument);
+    }
+    crate::timeline_edit::plan_slide(
+        &scene_clip_geometry(document, scene_id),
+        clip_id,
+        delta_frames,
+    )
+    .map(clip_geometry_updates)
+    .map_err(|_| TimelineError::InvalidArgument)
+}
+
+/// Returns the new source in-point of a slip, or `None` when the tool cannot move.
+///
+/// `None` means the gesture changes nothing: either the delta is zero, the clip has no video
+/// source, its source length is unknown, or the move is already at the bound. A slip that would
+/// run past an end of the source is clamped to the nearest legal in-point, which is the
+/// behaviour every mainstream trim tool uses.
+pub fn plan_clip_slip(
+    document: &ProjectDocument,
+    scene_id: i32,
+    clip_id: i32,
+    delta_frames: i32,
+    current_source_start_frames: i32,
+    source_duration_frames: Option<i32>,
+) -> Result<Option<i32>, TimelineError> {
+    if !document.scenes.iter().any(|scene| scene.id == scene_id) {
+        return Err(TimelineError::InvalidArgument);
+    }
+    let geometry = scene_clip_geometry(document, scene_id);
+    let Some(anchor) = geometry.iter().find(|clip| clip.clip_id == clip_id) else {
+        return Err(TimelineError::InvalidArgument);
+    };
+    Ok(crate::timeline_edit::plan_slip(
+        current_source_start_frames,
+        delta_frames,
+        anchor.duration_frames,
+        source_duration_frames,
+    ))
 }
 
 /// Returns the frame span preserved by a timeline clipboard operation.
