@@ -1,15 +1,47 @@
 use aviqtl_media::{MediaStreamKind, media_duration_seconds};
 use std::path::{Path, PathBuf};
 
-const AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "aac", "m4a", "flac", "ogg"];
-const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"];
-const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "mkv", "webm", "wmv"];
+/// The single owner of the Qt extension lists. Several call sites used to carry their own copy
+/// of these tables, which meant a format added in one place silently stayed unsupported in
+/// another. Classify through [`classify_extension`] instead of repeating the lists.
+pub const AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "aac", "m4a", "flac", "ogg"];
+pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"];
+pub const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "mkv", "webm", "wmv"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaImportKind {
     Video,
     Audio,
     Image,
+}
+
+/// Reports whether a path's extension is one of the formats the given clip type accepts.
+/// Video is checked first, matching the import order Qt uses.
+pub fn extension_is_supported(clip_type: &str, extension: &str) -> bool {
+    match clip_type {
+        "audio" => AUDIO_EXTENSIONS
+            .iter()
+            .any(|candidate| extension.eq_ignore_ascii_case(candidate)),
+        "image" => IMAGE_EXTENSIONS
+            .iter()
+            .any(|candidate| extension.eq_ignore_ascii_case(candidate)),
+        "video" => VIDEO_EXTENSIONS
+            .iter()
+            .any(|candidate| extension.eq_ignore_ascii_case(candidate)),
+        _ => false,
+    }
+}
+
+fn classify_extension(extension: &str) -> Option<MediaImportKind> {
+    if extension_matches(extension, VIDEO_EXTENSIONS) {
+        Some(MediaImportKind::Video)
+    } else if extension_matches(extension, AUDIO_EXTENSIONS) {
+        Some(MediaImportKind::Audio)
+    } else if extension_matches(extension, IMAGE_EXTENSIONS) {
+        Some(MediaImportKind::Image)
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,15 +66,8 @@ pub fn plan_media_import(
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or_default();
-    let kind = if extension_matches(extension, VIDEO_EXTENSIONS) {
-        MediaImportKind::Video
-    } else if extension_matches(extension, AUDIO_EXTENSIONS) {
-        MediaImportKind::Audio
-    } else if extension_matches(extension, IMAGE_EXTENSIONS) {
-        MediaImportKind::Image
-    } else {
-        return Err(format!("unsupported media format: {extension}"));
-    };
+    let kind = classify_extension(extension)
+        .ok_or_else(|| format!("unsupported media format: {extension}"))?;
     let duration_frames = match kind {
         MediaImportKind::Image => default_duration_frames.max(1),
         MediaImportKind::Video | MediaImportKind::Audio => {

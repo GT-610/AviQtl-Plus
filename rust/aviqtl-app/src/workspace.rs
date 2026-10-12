@@ -1,6 +1,7 @@
 use crate::audio_plugin::{AudioPluginAddition, AudioPluginCatalog, AudioPluginHydration};
 use crate::effect_catalog::EffectCatalog;
 use crate::effect_selection::EffectSelection;
+use crate::media_bin::{MediaBin, entry_from_plan, plan_bin_edit, read_media_bin};
 use crate::media_import::{MediaImportKind, plan_media_import};
 use crate::missing_media::{MissingMediaEntry, find_missing_media, plan_media_relink};
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
@@ -219,6 +220,117 @@ impl WorkspaceModel {
 
     pub fn missing_media(&self) -> Vec<MissingMediaEntry> {
         find_missing_media(&self.project.document, self.project.path.as_deref())
+    }
+
+    /// Returns the project media bin. An absent key reads as an empty bin rather than an error.
+    pub fn media_bin(&self) -> MediaBin {
+        read_media_bin(&self.project.document)
+    }
+
+    /// Adds files to the media bin. The kind and duration of each entry come from the same
+    /// probe the timeline import uses, so a bin row never disagrees with what dropping the file
+    /// on the timeline would produce.
+    pub fn add_media_to_bin(
+        &mut self,
+        paths: &[PathBuf],
+        scene_fps: f64,
+        default_duration_frames: i32,
+    ) -> usize {
+        let mut added = 0;
+        let mut errors = Vec::new();
+        for path in paths {
+            match plan_media_import(path, scene_fps, default_duration_frames.max(1)) {
+                Ok(plan) => {
+                    let id = self.media_bin().next_entry_id();
+                    let entry = entry_from_plan(id, &plan, self.project.path.as_deref());
+                    if self.commit_media_bin(|bin| {
+                        bin.upsert(entry);
+                    }) {
+                        added += 1;
+                    }
+                }
+                Err(error) => errors.push(error),
+            }
+        }
+        self.status = match (added, errors.is_empty()) {
+            (0, true) => "No media files were added to the bin".to_owned(),
+            (0, false) => errors.join("; "),
+            (count, true) => format!("Added {count} media file(s) to the bin"),
+            (count, false) => {
+                format!(
+                    "Added {count} media file(s) to the bin; {}",
+                    errors.join("; ")
+                )
+            }
+        };
+        added
+    }
+
+    pub fn remove_media_from_bin(&mut self, entry_id: i32) -> bool {
+        let removed = self.commit_media_bin(|bin| {
+            bin.remove(entry_id);
+        });
+        if removed {
+            self.status = "Removed 1 media item from the bin".to_owned();
+        }
+        removed
+    }
+
+    /// Sets the source in/out range of one entry. The pair is clamped into
+    /// `0 <= in < out <= duration`, so a request can never produce an invalid range.
+    pub fn set_media_bin_range(
+        &mut self,
+        entry_id: i32,
+        in_frame: Option<i32>,
+        out_frame: Option<i32>,
+    ) -> bool {
+        let changed = self.commit_media_bin(|bin| {
+            bin.set_range(entry_id, in_frame, out_frame);
+        });
+        if !changed {
+            self.status = format!("Media item {entry_id} cannot use that range");
+        }
+        changed
+    }
+
+    pub fn create_media_bin_group(&mut self, name: &str) -> Option<i32> {
+        let mut created = None;
+        self.commit_media_bin(|bin| {
+            created = Some(bin.create_bin(name));
+        });
+        created
+    }
+
+    pub fn remove_media_bin_group(&mut self, bin_id: i32) -> bool {
+        self.commit_media_bin(|bin| {
+            bin.remove_bin(bin_id);
+        })
+    }
+
+    pub fn assign_media_to_bin_group(&mut self, entry_id: i32, bin_id: i32) -> bool {
+        self.commit_media_bin(|bin| {
+            bin.assign_to_bin(entry_id, bin_id);
+        })
+    }
+
+    /// Runs one bin mutation as a single undoable project replacement. Rejected requests
+    /// produce no transaction, so a no-op never reaches the history stack.
+    fn commit_media_bin(&mut self, edit: impl FnOnce(&mut MediaBin)) -> bool {
+        let Some(transaction) = plan_bin_edit(&self.project.state, &self.project.document, edit)
+        else {
+            return false;
+        };
+        let applied = self.project.state.apply(&transaction).map(|()| transaction);
+        match applied {
+            Ok(transaction) => {
+                self.finish_timeline_edit(transaction, "Media bin updated");
+                true
+            }
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
     }
 
     pub fn relink_media(&mut self, clip_id: i32, path: &Path) -> bool {
@@ -3603,6 +3715,107 @@ mod tests {
         assert!(workspace.redo());
         assert_eq!(workspace.document().clips.len(), 5);
         assert_eq!(workspace.document_revision(), 3);
+    }
+
+    #[test]
+    fn media_bin_commands_add_deduplicate_and_undo_one_step() {
+        let mut workspace = workspace();
+        assert!(workspace.media_bin().is_empty(), "absence means never used");
+
+        let video = temporary_media_file("png");
+        let audio = temporary_media_file("wav");
+        // The same file twice plus a different file must yield two entries, not three.
+        let paths = [video.clone(), video.clone(), audio.clone()];
+        assert_eq!(workspace.add_media_to_bin(&paths, 60.0, 15), 2);
+        assert_eq!(workspace.status(), "Added 2 media file(s) to the bin");
+        let bin = workspace.media_bin();
+        assert_eq!(bin.entries().len(), 2, "the duplicate path collapses");
+
+        // Removing is one undo step and does not touch the timeline.
+        let clips = workspace.document().clips.len();
+        assert!(workspace.remove_media_from_bin(bin.entries()[0].id));
+        assert_eq!(workspace.media_bin().entries().len(), 1);
+        assert_eq!(workspace.document().clips.len(), clips);
+        assert!(workspace.undo());
+        assert_eq!(workspace.media_bin().entries().len(), 2);
+        assert!(workspace.redo());
+        assert_eq!(workspace.media_bin().entries().len(), 1);
+
+        for path in [video, audio] {
+            std::fs::remove_file(path).expect("temporary media placeholder is removable");
+        }
+    }
+
+    #[test]
+    fn media_bin_ranges_clamp_and_missing_entries_are_reported() {
+        let mut workspace = workspace();
+        let path = temporary_media_file("png");
+        assert_eq!(
+            workspace.add_media_to_bin(std::slice::from_ref(&path), 60.0, 40),
+            1
+        );
+        let id = workspace.media_bin().entries()[0].id;
+
+        // An in point beyond the out point is pulled back rather than rejected.
+        assert!(workspace.set_media_bin_range(id, None, Some(10)));
+        assert!(workspace.set_media_bin_range(id, Some(30), None));
+        let entry = workspace.media_bin();
+        let entry = entry.entry(id).expect("entry exists");
+        assert_eq!((entry.in_frame, entry.out_frame), (9, 10));
+        assert_eq!(entry.range_frames(), 1);
+
+        assert!(!workspace.set_media_bin_range(999, Some(0), Some(1)));
+        assert!(workspace.status().contains("cannot use that range"));
+
+        // A vanished file is reported, not silently dropped from the bin.
+        std::fs::remove_file(&path).expect("temporary media placeholder is removable");
+        let bin = workspace.media_bin();
+        assert!(
+            bin.entry(id)
+                .expect("a missing entry is kept")
+                .is_missing(None),
+            "the entry is retained so it can be relinked"
+        );
+    }
+
+    #[test]
+    fn media_bin_groups_assign_an_entry_to_at_most_one_group() {
+        let mut workspace = workspace();
+        let path = temporary_media_file("png");
+        workspace.add_media_to_bin(std::slice::from_ref(&path), 60.0, 30);
+        let entry_id = workspace.media_bin().entries()[0].id;
+
+        let first = workspace
+            .create_media_bin_group("Footage")
+            .expect("group created");
+        let second = workspace
+            .create_media_bin_group("Music")
+            .expect("group created");
+        assert!(workspace.assign_media_to_bin_group(entry_id, first));
+        assert!(workspace.assign_media_to_bin_group(entry_id, second));
+
+        let bin = workspace.media_bin();
+        assert_eq!(bin.bins()[0].entry_ids, Vec::<i32>::new());
+        assert_eq!(bin.bins()[1].entry_ids, [entry_id]);
+
+        // Removing one group keeps the entry and leaves the other group intact.
+        assert!(workspace.remove_media_bin_group(second));
+        let bin = workspace.media_bin();
+        assert_eq!(bin.entries().len(), 1);
+        assert_eq!(bin.bins().len(), 1);
+        assert_eq!(bin.bins()[0].id, first);
+
+        std::fs::remove_file(path).expect("temporary media placeholder is removable");
+    }
+
+    #[test]
+    fn a_project_without_a_bin_is_byte_identical_after_loading() {
+        let workspace = workspace();
+        let document = workspace.document();
+        assert!(
+            !document.extra.contains_key("mediaBin"),
+            "loading must not synthesise an empty bin key"
+        );
     }
 
     #[test]

@@ -9,8 +9,9 @@ use crate::policy::{
     playback_mode,
 };
 use crate::project::{
-    AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, MAX_TIMELINE_LAYER,
-    ProjectDocument, ProjectError, ProjectSettings, SceneDocument, parse_project_document,
+    AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, ExtraFields,
+    MAX_TIMELINE_LAYER, ProjectDocument, ProjectError, ProjectSettings, SceneDocument,
+    parse_project_document,
 };
 use crate::timeline_domain::allocate_id;
 use serde::{Deserialize, Serialize};
@@ -818,6 +819,25 @@ impl TimelineState {
                 crate::midpoint::write_midpoints(&mut clip.extra, &updated);
                 plan_clip_replacements(&self.document, vec![(clip_id, clip)])
             }
+            EditRequest::SetProjectExtras { extras } => {
+                if extras == self.document.extra {
+                    // No change means no patch, so a no-op never reaches the history stack.
+                    return Err(StateError::InvalidArgument);
+                }
+                let before = self.document.extra.clone();
+                Ok(transaction(
+                    vec![PatchOperation::ReplaceProjectExtras {
+                        before: before.clone(),
+                        after: extras.clone(),
+                    }],
+                    // The inverse runs against the state the forward patch produces, so its
+                    // precondition is the new extras and it restores the original.
+                    vec![PatchOperation::ReplaceProjectExtras {
+                        before: extras,
+                        after: before,
+                    }],
+                ))
+            }
             EditRequest::ReplaceDocument { document } => {
                 validate_document(&document)?;
                 Ok(plan_document_replacement(&self.document, document))
@@ -1137,6 +1157,11 @@ pub enum EditRequest {
         #[serde(flatten)]
         midpoint: MidpointOperation,
     },
+    /// Replaces the document's flattened extras without touching scenes or clips. The media
+    /// bin persists there, so this is how a bin edit stays atomic and reversible.
+    SetProjectExtras {
+        extras: ExtraFields,
+    },
     ReplaceDocument {
         document: ProjectDocument,
     },
@@ -1191,6 +1216,13 @@ enum PatchOperation {
     ReplaceProjectSettings {
         before: ProjectSettings,
         after: ProjectSettings,
+    },
+    /// Replaces the document's flattened extras. `ReplaceDocument` deliberately carries only
+    /// scenes and clips, so a feature that persists through the extras map — the media bin —
+    /// needs its own operation to stay undoable.
+    ReplaceProjectExtras {
+        before: ExtraFields,
+        after: ExtraFields,
     },
     InsertScene {
         index: usize,
@@ -1714,6 +1746,12 @@ fn apply_operation(
                 return Err(StateError::Conflict);
             }
             document.settings = after.clone();
+        }
+        PatchOperation::ReplaceProjectExtras { before, after } => {
+            if &document.extra != before {
+                return Err(StateError::Conflict);
+            }
+            document.extra = after.clone();
         }
         PatchOperation::InsertScene { index, scene } => {
             if *index > document.scenes.len()
@@ -3327,6 +3365,49 @@ mod tests {
             .apply_patch(&transaction.inverse)
             .expect("inverse restores scene before clips");
         assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn project_extras_replacement_is_reversible_and_conflict_safe() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        let before = state.document.clone();
+        let mut extras = before.extra.clone();
+        extras.insert("mediaBin".to_owned(), json!({"entries": []}));
+
+        let transaction = state
+            .plan(EditRequest::SetProjectExtras {
+                extras: extras.clone(),
+            })
+            .expect("extras replacement plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("forward applies");
+        assert_eq!(state.document.extra, extras);
+        assert_eq!(state.document.clips, before.clips, "clips are untouched");
+        assert_eq!(state.document.scenes, before.scenes, "scenes are untouched");
+
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("inverse applies");
+        assert_eq!(state.document, before);
+
+        // A no-op is rejected so it never produces an undo entry.
+        assert_eq!(
+            state.plan(EditRequest::SetProjectExtras {
+                extras: before.extra.clone()
+            }),
+            Err(StateError::InvalidArgument)
+        );
+
+        // Applying the forward patch twice conflicts rather than silently succeeding.
+        state
+            .apply_patch(&transaction.forward)
+            .expect("first apply");
+        assert_eq!(
+            state.apply_patch(&transaction.forward),
+            Err(StateError::Conflict),
+            "the precondition guard rejects a stale patch"
+        );
     }
 
     #[test]
