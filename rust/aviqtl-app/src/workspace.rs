@@ -8,6 +8,7 @@ use crate::object_settings::{ObjectSettings, project_object_settings, replace_va
 use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
 use crate::selection::{ClipSelection, SelectionBox, control_layer_count};
+use crate::selection_edit::{SelectionApplied, SelectionPlan, SelectionProperty, SelectionValue};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
@@ -2342,6 +2343,117 @@ impl WorkspaceModel {
         self.execute(command)
     }
 
+    /// Resolves one effect parameter across the current selection without editing anything, which
+    /// is the read a sidebar performs to choose between a plain value, a mixed placeholder, and
+    /// nothing at all.
+    pub fn selection_param_state(&self, effect_id: &str, param: &str) -> SelectionValue {
+        let clips = self.selected_clips();
+        crate::selection_edit::selection_value(&clips, effect_id, param, self.playhead)
+    }
+
+    /// Resolves every property of every effect across the current selection, so a sidebar can
+    /// build its whole control tree for a multi-object selection.
+    pub fn selection_properties(&self) -> Vec<SelectionProperty> {
+        let clips = self.selected_clips();
+        crate::selection_edit::selection_properties(&clips, self.playhead)
+    }
+
+    /// The selected clips of the active scene, in document order.
+    ///
+    /// Document order rather than selection order is deliberate: it is what makes the applied set
+    /// independent of the order the user Ctrl-clicked in.
+    fn selected_clips(&self) -> Vec<&ClipDocument> {
+        let selected = self.selection.ids();
+        self.project
+            .document
+            .clips
+            .iter()
+            .filter(|clip| clip.scene_id == self.selected_scene && selected.contains(&clip.id))
+            .collect()
+    }
+
+    /// Applies one parameter value to every selected object that has it, as a single undo step.
+    ///
+    /// The result reports how many objects were edited and how many were skipped, because a
+    /// multi-object edit almost never touches every selected object: an object on a locked layer
+    /// keeps its value, and an object without that effect or that parameter is left alone rather
+    /// than being given one it never had.
+    pub fn set_selection_param(
+        &mut self,
+        effect_id: &str,
+        param: &str,
+        value: Value,
+    ) -> Option<SelectionApplied> {
+        let plan = crate::selection_edit::plan_selection_param_edit(
+            &self.project.document,
+            self.selected_scene,
+            self.selection.ids(),
+            effect_id,
+            param,
+            value,
+            self.playhead,
+        );
+        self.apply_selection_plan(plan)
+    }
+
+    /// Applies one audio plugin parameter to every selected object that has that plugin at that
+    /// index, as a single undo step.
+    ///
+    /// Audio plugins have no id-based identity, so the index is the identity and this cannot share
+    /// the effect-id path above.
+    pub fn set_selection_audio_param(
+        &mut self,
+        plugin_index: usize,
+        param: &str,
+        value: Value,
+    ) -> Option<SelectionApplied> {
+        let plan = crate::selection_edit::plan_selection_audio_param_edit(
+            &self.project.document,
+            self.selected_scene,
+            self.selection.ids(),
+            plugin_index,
+            param,
+            value,
+        );
+        self.apply_selection_plan(plan)
+    }
+
+    /// Applies a planned multi-object edit through the one mutation funnel, so undo, redo, dirty
+    /// tracking and the continuous-edit session behave exactly as they do for a single-object edit.
+    ///
+    /// A plan that changes nothing returns `None` and pushes no undo entry, which is the rule the
+    /// whole edit model shares.
+    fn apply_selection_plan(&mut self, plan: SelectionPlan) -> Option<SelectionApplied> {
+        if plan.is_no_op() {
+            self.status = if plan.selected_objects == 0 {
+                "No object is selected".to_owned()
+            } else {
+                format!(
+                    "No editable object for this parameter ({} selected)",
+                    plan.selected_objects
+                )
+            };
+            return None;
+        }
+        let applied = SelectionApplied {
+            selected_objects: plan.selected_objects,
+            edited_objects: plan.edited_objects,
+            locked_objects: plan.locked_objects,
+            absent_objects: plan.absent_objects,
+        };
+        let edited = applied.edited_objects;
+        let skipped = applied.locked_objects + applied.absent_objects;
+        if !self.execute_batch(plan.commands) {
+            return None;
+        }
+        self.status = if skipped == 0 {
+            format!("Applied to {edited} object(s)")
+        } else {
+            format!("Applied to {edited} object(s), skipped {skipped}")
+        };
+        Some(applied)
+    }
+
     pub fn paste_clips_at(
         &mut self,
         requested_frame: i32,
@@ -3355,6 +3467,18 @@ fn keyframe_options_at(
         )
 }
 
+/// The interpolation options to write with a keyframe inserted at `frame`, taken from the point at
+/// or before it so a new keyframe inherits the segment it extends.
+///
+/// This is shared with the multi-object planner so a keyframe written by a multi-object edit
+/// carries exactly the same options a single-object edit would write.
+pub(crate) fn keyframe_options_for_points(
+    points: &[aviqtl_rust_core::api::KeyframePoint],
+    frame: i32,
+) -> Value {
+    keyframe_options_at(points, frame, "linear")
+}
+
 fn editable_keyframe_options_at(
     points: &[aviqtl_rust_core::api::KeyframePoint],
     frame: i32,
@@ -4292,6 +4416,183 @@ mod tests {
         // document, so no transaction and no undo entry exist.
         assert_eq!(workspace.document_revision(), 0);
         assert_eq!(geometry(&workspace, 2), (10, 20));
+    }
+
+    /// Two objects holding the same effect with different `count` values, so the selection reads
+    /// as mixed, plus a third object on a locked layer.
+    fn workspace_with_selection() -> WorkspaceModel {
+        let state = TimelineState::from_json(
+            br#"{
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+                "scenes": [{"id": 1, "name": "Root", "duration": 300, "lockedLayers": [1]}],
+                "clips": [
+                    {"id": 1, "sceneId": 1, "type": "rect", "start": 0, "duration": 100, "layer": 0,
+                     "effects": [{"id": "rect", "name": "Rectangle", "params": {"count": 5}}]},
+                    {"id": 2, "sceneId": 1, "type": "rect", "start": 0, "duration": 100, "layer": 0,
+                     "effects": [{"id": "rect", "name": "Rectangle", "params": {"count": 9}}]},
+                    {"id": 3, "sceneId": 1, "type": "rect", "start": 0, "duration": 100, "layer": 1,
+                     "effects": [{"id": "rect", "name": "Rectangle", "params": {"count": 2}}]}
+                ]
+            }"#,
+        )
+        .expect("selection workspace fixture loads");
+        let document = state.snapshot();
+        WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        })
+    }
+
+    fn rect_count(workspace: &WorkspaceModel, clip_id: i32) -> i64 {
+        workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+            .and_then(|clip| clip.effects.first())
+            .and_then(|effect| effect.params.get("count"))
+            .and_then(Value::as_i64)
+            .expect("count is a plain integer on this fixture")
+    }
+
+    #[test]
+    fn a_multi_object_edit_is_one_undo_step_that_restores_every_object() {
+        let mut workspace = workspace_with_selection();
+        workspace.selection.replace([2, 1]);
+
+        // The two objects disagree, so the control reads as mixed and shows the first value in
+        // document order rather than the selection's primary.
+        let state = workspace.selection_param_state("rect", "count");
+        assert!(state.is_mixed());
+        assert_eq!(state.display_value().and_then(Value::as_i64), Some(5));
+
+        let applied = workspace
+            .set_selection_param("rect", "count", json!(7))
+            .expect("the selection is editable");
+        assert_eq!(applied.selected_objects, 2);
+        assert_eq!(applied.edited_objects, 2);
+        assert_eq!(applied.skipped_objects(), 0);
+        assert_eq!(rect_count(&workspace, 1), 7);
+        assert_eq!(rect_count(&workspace, 2), 7);
+        assert!(workspace.status().contains("Applied to 2 object(s)"));
+
+        // One gesture, one undo entry, and it restores both objects together.
+        assert!(workspace.undo());
+        assert_eq!(rect_count(&workspace, 1), 5);
+        assert_eq!(rect_count(&workspace, 2), 9);
+        assert!(!workspace.undo(), "history is exhausted");
+    }
+
+    #[test]
+    fn a_multi_object_edit_skips_locked_and_absent_objects_without_failing() {
+        let mut workspace = workspace_with_selection();
+        // Select all three: one is locked, so the other two are still edited.
+        workspace.selection.replace([1, 2, 3]);
+
+        let applied = workspace
+            .set_selection_param("rect", "count", json!(7))
+            .expect("the unlocked objects are still editable");
+        assert_eq!(applied.selected_objects, 3);
+        assert_eq!(applied.edited_objects, 2);
+        assert_eq!(
+            applied.locked_objects, 1,
+            "the locked object keeps its value"
+        );
+        assert_eq!(
+            rect_count(&workspace, 3),
+            2,
+            "the locked object is untouched"
+        );
+        assert!(workspace.status().contains("skipped 1"));
+
+        assert!(workspace.undo());
+        assert_eq!(rect_count(&workspace, 1), 5);
+
+        // A parameter no selected object has edits nothing and pushes no undo entry.
+        workspace.selection.replace([1, 2]);
+        let revision = workspace.document_revision();
+        assert!(
+            workspace
+                .set_selection_param("blur", "size", json!(4))
+                .is_none(),
+            "no object carries this effect"
+        );
+        assert_eq!(workspace.document_revision(), revision);
+        assert!(workspace.status().contains("No editable object"));
+
+        // Writing a value the whole selection already agrees on is not an edit. Clip 2 still
+        // differs at this point, so resolve it first.
+        assert!(
+            workspace
+                .set_selection_param("rect", "count", json!(5))
+                .is_some(),
+            "clip 2 still differs, so this is an edit"
+        );
+        assert!(workspace.undo());
+
+        // Resolve the selection so both objects hold the same value, then write it again.
+        workspace
+            .set_selection_param("rect", "count", json!(9))
+            .expect("both objects move to 9");
+        let revision = workspace.document_revision();
+        assert_eq!(rect_count(&workspace, 1), 9);
+        assert_eq!(rect_count(&workspace, 2), 9);
+        assert!(
+            workspace
+                .set_selection_param("rect", "count", json!(9))
+                .is_none(),
+            "the selection already holds this value, so nothing changes"
+        );
+        assert_eq!(
+            workspace.document_revision(),
+            revision,
+            "a no-op pushes no undo entry"
+        );
+    }
+
+    #[test]
+    fn an_unselected_object_is_never_touched_by_a_selection_edit() {
+        let mut workspace = workspace_with_selection();
+        workspace.selection.replace([1]);
+
+        let applied = workspace
+            .set_selection_param("rect", "count", json!(7))
+            .expect("the single selected object is editable");
+        assert_eq!(applied.selected_objects, 1);
+        assert_eq!(rect_count(&workspace, 1), 7);
+        assert_eq!(
+            rect_count(&workspace, 2),
+            9,
+            "an unselected object is not in scope"
+        );
+        assert_eq!(rect_count(&workspace, 3), 2);
+    }
+
+    #[test]
+    fn a_selection_edit_is_documented_as_identical_to_editing_each_object_alone() {
+        // Multi-object editing is a presentation-layer capability over the existing per-object
+        // commands, so a project edited through it must be byte-identical to the same edits made
+        // one object at a time. This is the compatibility claim the design makes, so it is
+        // asserted rather than assumed.
+        let mut together = workspace_with_selection();
+        together.selection.replace([2, 1]);
+        together
+            .set_selection_param("rect", "count", json!(7))
+            .expect("edited");
+
+        let mut one_at_a_time = workspace_with_selection();
+        one_at_a_time.selection.replace([1]);
+        assert!(one_at_a_time.set_effect_param_for_clip(1, 0, "count", json!(7)));
+        one_at_a_time.selection.replace([2]);
+        assert!(one_at_a_time.set_effect_param_for_clip(2, 0, "count", json!(7)));
+
+        assert_eq!(
+            serde_json::to_string(&together.document()).expect("document serializes"),
+            serde_json::to_string(&one_at_a_time.document()).expect("document serializes"),
+        );
     }
 
     #[test]

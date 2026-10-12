@@ -16,6 +16,7 @@ pub mod preset_store;
 pub mod project_io;
 pub mod recovery;
 pub mod selection;
+pub mod selection_edit;
 pub mod settings;
 pub mod timeline_interaction;
 pub mod transport;
