@@ -11,11 +11,11 @@ use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
     ClipDocument, EffectDocument, EffectInsertion, EffectMetadata, EffectPreset,
-    MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectDocument, ProjectSettings, SceneDocument,
-    TimelineCommand, TimelineTransaction, clipboard_duration, evaluate_keyframe_track,
-    find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move, plan_clipboard_paste,
-    plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
-    timeline_duration as core_timeline_duration,
+    MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, MidpointOperation, ProjectDocument, ProjectSettings,
+    SceneDocument, TimelineCommand, TimelineTransaction, clipboard_duration,
+    evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move,
+    plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift,
+    snap_scene_frame, timeline_duration as core_timeline_duration,
 };
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -2056,6 +2056,53 @@ impl WorkspaceModel {
         })
     }
 
+    /// Adds one object midpoint to a clip. Frame zero and the duration endpoint are fixed, so a
+    /// frame outside the open interval, or one that already has a midpoint, is rejected with a
+    /// status instead of pushing a no-op undo entry.
+    pub fn add_clip_midpoint(&mut self, clip_id: i32, frame: i32) -> bool {
+        self.set_clip_midpoint(clip_id, MidpointOperation::Add { frame })
+    }
+
+    pub fn remove_clip_midpoint(&mut self, clip_id: i32, frame: i32) -> bool {
+        self.set_clip_midpoint(clip_id, MidpointOperation::Remove { frame })
+    }
+
+    /// Moves one object midpoint. Frames stay strictly increasing, so a move that would land on
+    /// or cross a neighbouring midpoint is rejected rather than silently reordered.
+    pub fn move_clip_midpoint(&mut self, clip_id: i32, old_frame: i32, new_frame: i32) -> bool {
+        self.set_clip_midpoint(
+            clip_id,
+            MidpointOperation::Move {
+                old_frame,
+                new_frame,
+            },
+        )
+    }
+
+    fn set_clip_midpoint(&mut self, clip_id: i32, midpoint: MidpointOperation) -> bool {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        };
+        if self.is_clip_locked(&clip) {
+            self.status = format!("Layer {} is locked", clip.layer + 1);
+            return false;
+        }
+        let applied = self.execute(TimelineCommand::SetClipMidpoints { clip_id, midpoint });
+        if !applied {
+            self.status = match midpoint {
+                MidpointOperation::Add { frame } | MidpointOperation::Remove { frame } => {
+                    format!("Frame {frame} cannot be used as a midpoint")
+                }
+                MidpointOperation::Move {
+                    old_frame,
+                    new_frame,
+                } => format!("Midpoint {old_frame} cannot move to {new_frame}"),
+            };
+        }
+        applied
+    }
+
     pub fn copy_clip(&mut self, clip_id: i32) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
             return false;
@@ -3178,7 +3225,8 @@ fn bounded_positive_f64(value: f64, maximum: f64, fallback: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aviqtl_rust_core::api::TimelineState;
+    use crate::timeline_interaction::TimelineDragKind;
+    use aviqtl_rust_core::api::{TimelineState, clip_midpoints};
 
     fn temporary_media_file(extension: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
@@ -3555,6 +3603,133 @@ mod tests {
         assert!(workspace.redo());
         assert_eq!(workspace.document().clips.len(), 5);
         assert_eq!(workspace.document_revision(), 3);
+    }
+
+    #[test]
+    fn object_midpoint_commands_undo_one_step_and_reject_fixed_frames() {
+        let mut workspace = workspace();
+        assert!(workspace.add_clip_midpoint(1, 5));
+        assert!(workspace.add_clip_midpoint(1, 12));
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5, 12]);
+
+        // A rejected request changes nothing and pushes no undo entry.
+        let revision = workspace.document_revision();
+        assert!(!workspace.add_clip_midpoint(1, 12), "duplicate");
+        assert!(!workspace.add_clip_midpoint(1, 0), "frame zero");
+        assert!(!workspace.add_clip_midpoint(1, 20), "duration endpoint");
+        assert!(!workspace.remove_clip_midpoint(1, 9), "absent");
+        assert_eq!(workspace.document_revision(), revision);
+        assert!(workspace.status().contains("cannot be used as a midpoint"));
+
+        assert!(workspace.move_clip_midpoint(1, 12, 15));
+        assert!(!workspace.move_clip_midpoint(1, 5, 20), "onto the endpoint");
+        assert!(workspace.status().contains("cannot move"));
+
+        // Two adds plus one move are three undo entries, each restoring exactly one step.
+        assert!(workspace.undo());
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5, 12]);
+        assert!(workspace.undo());
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5]);
+        assert!(workspace.undo());
+        assert!(clip_midpoints(&workspace.document().clips[0]).is_empty());
+        assert!(!workspace.undo(), "history is exhausted");
+
+        // Removing the last midpoint returns the clip to its pre-feature representation.
+        assert!(workspace.add_clip_midpoint(1, 7));
+        assert!(workspace.remove_clip_midpoint(1, 7));
+        assert!(
+            !workspace.document().clips[0]
+                .extra
+                .contains_key("midpoints")
+        );
+    }
+
+    #[test]
+    fn object_midpoint_commands_reject_other_scenes_and_locked_layers() {
+        let mut workspace = workspace();
+        assert!(
+            !workspace.add_clip_midpoint(3, 5),
+            "clip is in another scene"
+        );
+        assert!(workspace.status().contains("does not exist"));
+        assert!(!workspace.add_clip_midpoint(99, 5), "unknown clip");
+
+        assert!(workspace.toggle_layer_lock(0));
+        assert!(!workspace.add_clip_midpoint(1, 5), "locked layer");
+        assert!(workspace.status().contains("is locked"));
+    }
+
+    #[test]
+    fn object_midpoints_follow_clip_geometry_and_split() {
+        let mut workspace = workspace();
+        workspace.click_clip(1, false);
+        assert!(workspace.add_clip_midpoint(1, 5));
+        assert!(workspace.add_clip_midpoint(1, 15));
+
+        // Trimming the tail to 16 frames keeps both midpoints because 15 still fits.
+        let trim_end = TimelineDragRequest {
+            anchor_clip_id: 1,
+            kind: TimelineDragKind::TrimEnd,
+            delta_pixels: (-4.0, 0.0),
+            pixels_per_frame: 1.0,
+            layer_height: 20.0,
+            minimum_duration_frames: 1,
+            maximum_layers: 128,
+            ignore_snap: true,
+        };
+        assert!(workspace.drag_selected_clips(trim_end));
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5, 15]);
+
+        // A split divides the list between the halves. Splitting at 10 gives the midpoint at 5 to
+        // the first half; the midpoint at 15 opens the second half at its own frame 5.
+        let before_ids: Vec<i32> = workspace
+            .document()
+            .clips
+            .iter()
+            .map(|clip| clip.id)
+            .collect();
+        assert!(workspace.split_clip(1, 10));
+        let first = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == 1)
+            .expect("the first half keeps the original id");
+        let second_id = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| !before_ids.contains(&clip.id))
+            .expect("the split created a new clip")
+            .id;
+        let second = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == second_id)
+            .expect("the second half is present");
+        assert_eq!(clip_midpoints(first), [5]);
+        assert_eq!(clip_midpoints(second), [5]);
+    }
+
+    #[test]
+    fn trimming_below_a_midpoint_drops_it() {
+        let mut workspace = workspace();
+        workspace.click_clip(1, false);
+        assert!(workspace.add_clip_midpoint(1, 15));
+        let trim_end = TimelineDragRequest {
+            anchor_clip_id: 1,
+            kind: TimelineDragKind::TrimEnd,
+            delta_pixels: (-9.0, 0.0),
+            pixels_per_frame: 1.0,
+            layer_height: 20.0,
+            minimum_duration_frames: 1,
+            maximum_layers: 128,
+            ignore_snap: true,
+        };
+        assert!(workspace.drag_selected_clips(trim_end));
+        assert_eq!(workspace.document().clips[0].duration, 11);
+        assert!(clip_midpoints(&workspace.document().clips[0]).is_empty());
     }
 
     #[test]

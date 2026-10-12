@@ -60,6 +60,7 @@ pub use crate::script_runtime::{
     ScriptRuntime, ScriptRuntimeError,
 };
 pub use crate::settings::{SettingsError, SettingsMutation, SettingsState};
+pub use crate::timeline_state::MidpointOperation;
 pub use crate::timeline_state::{
     ClipGeometryUpdate, ClipReplacement, EditRequest as TimelineCommand, EffectInsertion,
 };
@@ -388,6 +389,31 @@ pub fn evaluate_keyframe_track(
             )
         },
     )
+}
+
+/// Returns the object midpoints stored on a clip, in ascending order.
+///
+/// An absent key reads as no midpoints, which is what keeps a project that never used the
+/// feature identical to its Qt form.
+pub fn clip_midpoints(clip: &ClipDocument) -> Vec<i32> {
+    crate::midpoint::read_midpoints(&clip.extra)
+        .frames()
+        .to_vec()
+}
+
+/// Returns how many parameterisation segments a clip is divided into. A clip without midpoints
+/// has one segment; each midpoint adds another.
+pub fn clip_midpoint_segment_count(clip: &ClipDocument) -> usize {
+    crate::midpoint::read_midpoints(&clip.extra).segment_count(clip.duration)
+}
+
+/// Returns the fixed frames bounding the parameterisation segment that contains a clip-relative
+/// frame. The lower bound is a midpoint or frame zero; the upper bound is the next midpoint, or
+/// the clip duration when the frame is in the final segment.
+pub fn clip_midpoint_interval(clip: &ClipDocument, frame: i32) -> (i32, i32) {
+    let midpoints = crate::midpoint::read_midpoints(&clip.extra);
+    let (lower, upper) = midpoints.interval(frame);
+    (lower, upper.min(clip.duration))
 }
 
 /// Lists every interpolation identifier accepted by the Rust keyframe evaluator.
