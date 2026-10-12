@@ -74,8 +74,9 @@ pub struct SelectionProperty {
     pub param: Option<String>,
     /// What the parameter reads across the selection.
     pub value: SelectionValue,
-    /// How many selected objects were actually edited by the last apply, which is the count the
-    /// sidebar uses to report "edited 3 of 5 objects".
+    /// How many selected objects have this parameter, including objects on locked layers. This is
+    /// the denominator the sidebar uses to report an edit, and the count `present_objects()`
+    /// returns for a uniform or mixed value.
     pub editable_objects: usize,
 }
 
