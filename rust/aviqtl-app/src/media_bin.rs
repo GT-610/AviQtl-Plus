@@ -44,10 +44,23 @@ impl MediaBinEntry {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MediaBin {
     entries: Vec<MediaBinEntry>,
     bins: Vec<Bin>,
+    /// Next entry id to hand out. The counter only ever advances, so removing an entry does
+    /// not make its id reusable and a stale reference cannot attach to a different file.
+    next_entry_id: i32,
+}
+
+impl Default for MediaBin {
+    fn default() -> Self {
+        Self {
+            entries: Vec::new(),
+            bins: Vec::new(),
+            next_entry_id: 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,22 +76,40 @@ pub fn read_media_bin(document: &ProjectDocument) -> MediaBin {
     let Some(root) = document.extra.get(MEDIA_BIN_KEY) else {
         return MediaBin::default();
     };
+    let entries: Vec<MediaBinEntry> = array(root.get("entries"))
+        .iter()
+        .filter_map(read_entry)
+        .collect();
+    let next_entry_id = root
+        .get("nextEntryId")
+        .and_then(Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok())
+        .unwrap_or_else(|| {
+            // A document saved before the counter existed must not reuse an id that is still
+            // live, so the counter resumes just past the highest stored id.
+            entries
+                .iter()
+                .map(|entry| entry.id)
+                .max()
+                .unwrap_or(0)
+                .saturating_add(1)
+        });
     MediaBin {
-        entries: array(root.get("entries"))
-            .iter()
-            .filter_map(read_entry)
-            .collect(),
+        entries,
         bins: array(root.get("bins"))
             .iter()
             .filter_map(read_bin)
             .collect(),
+        next_entry_id,
     }
 }
 
 /// Writes the bin back into a document's extras, removing the key when the bin is empty so a
-/// project that never used it stays identical to its pre-feature form.
+/// project that never used it stays identical to its pre-feature form. A bin that handed out
+/// ids keeps its counter, so the no-reuse guarantee survives a save and reload.
 pub fn write_media_bin(document: &mut ProjectDocument, bin: &MediaBin) {
-    if bin.entries.is_empty() && bin.bins.is_empty() {
+    let unused = bin.entries.is_empty() && bin.bins.is_empty() && bin.next_entry_id <= 1;
+    if unused {
         document.extra.remove(MEDIA_BIN_KEY);
         return;
     }
@@ -87,6 +118,7 @@ pub fn write_media_bin(document: &mut ProjectDocument, bin: &MediaBin) {
         json!({
             "entries": bin.entries.iter().map(entry_to_json).collect::<Vec<_>>(),
             "bins": bin.bins.iter().map(bin_to_json).collect::<Vec<_>>(),
+            "nextEntryId": bin.next_entry_id,
         }),
     );
 }
@@ -131,10 +163,10 @@ impl MediaBin {
         self.entries.iter().find(|entry| entry.id == id)
     }
 
-    /// Returns the next free entry id. Ids are never reused after a removal, so a stale
-    /// reference cannot silently attach to a different file.
+    /// Returns the next entry id to hand out. The counter only ever advances, so a removed id
+    /// is never reused and a stale reference cannot silently attach to a different file.
     pub fn next_entry_id(&self) -> i32 {
-        self.entries.iter().map(|entry| entry.id).max().unwrap_or(0) + 1
+        self.next_entry_id
     }
 
     pub fn next_bin_id(&self) -> i32 {
@@ -151,15 +183,22 @@ impl MediaBin {
             .find(|candidate| normalize_key(&candidate.path) == key)
         {
             // A re-add refreshes the probe but keeps the user's in/out range, because that
-            // range is an editing decision rather than a property of the file.
+            // range is an editing decision rather than a property of the file. The kept range
+            // is re-clamped against the freshly probed duration, exactly as set_range clamps,
+            // so a shorter probe cannot leave an out point past the end or an in point past it.
             existing.kind = entry.kind;
             existing.duration_frames = entry.duration_frames;
-            existing.out_frame = entry.out_frame.min(existing.out_frame.max(1));
+            let duration = existing.duration_frames.max(1);
+            existing.out_frame = existing.out_frame.clamp(1, duration);
+            existing.in_frame = existing
+                .in_frame
+                .clamp(0, existing.out_frame.saturating_sub(1));
             return existing.id;
         }
-        let id = entry.id.max(self.next_entry_id());
+        let id = entry.id.max(self.next_entry_id);
         self.entries.push(MediaBinEntry { id, ..entry });
         self.entries.sort_by_key(|entry| entry.id);
+        self.next_entry_id = self.next_entry_id.max(id.saturating_add(1));
         id
     }
 
@@ -526,6 +565,35 @@ mod tests {
     }
 
     #[test]
+    fn an_allocated_id_is_not_reused_after_removal() {
+        let mut bin = MediaBin::default();
+        let first = bin.upsert(entry_from_plan(
+            1,
+            &plan(Path::new("/media/a.mp4"), MediaImportKind::Video, 240),
+            None,
+        ));
+        bin.upsert(entry_from_plan(
+            1,
+            &plan(Path::new("/media/b.mp4"), MediaImportKind::Video, 240),
+            None,
+        ));
+        assert_eq!(bin.next_entry_id(), 3, "the counter advanced past both ids");
+        assert!(bin.remove(first));
+        assert_eq!(
+            bin.next_entry_id(),
+            3,
+            "removing an entry must not pull the counter back"
+        );
+        let new_id = bin.upsert(entry_from_plan(
+            1,
+            &plan(Path::new("/media/c.mp4"), MediaImportKind::Video, 240),
+            None,
+        ));
+        assert_eq!(new_id, 3, "the freed id is not handed out again");
+        assert!(bin.entry(first).is_none());
+    }
+
+    #[test]
     fn adding_the_same_path_twice_updates_one_entry() {
         let mut bin = MediaBin::default();
         let first = bin.upsert(entry_from_plan(
@@ -581,6 +649,42 @@ mod tests {
         assert_eq!(bin.entry(id).expect("entry exists").in_frame, 0);
 
         assert!(!bin.set_range(999, Some(1), Some(2)), "unknown entry");
+    }
+
+    #[test]
+    fn a_re_add_reclamps_the_range_against_the_fresh_duration() {
+        let mut bin = MediaBin::default();
+        let id = bin.upsert(entry_from_plan(
+            1,
+            &plan(Path::new("/media/a.mp4"), MediaImportKind::Video, 240),
+            None,
+        ));
+        bin.set_range(id, Some(30), Some(210));
+
+        // A shorter probe must pull the out point back to the new duration and the in point
+        // below it, exactly as set_range would after the duration shrank.
+        bin.upsert(entry_from_plan(
+            1,
+            &plan(Path::new("/media/a.mp4"), MediaImportKind::Video, 100),
+            None,
+        ));
+        let entry = bin.entry(id).expect("entry exists");
+        assert_eq!(entry.duration_frames, 100);
+        assert_eq!(entry.out_frame, 100, "out clamps against the new duration");
+        assert!(
+            entry.in_frame < entry.out_frame,
+            "in stays below the clamped out"
+        );
+
+        // A longer probe keeps the user's range untouched.
+        bin.upsert(entry_from_plan(
+            1,
+            &plan(Path::new("/media/a.mp4"), MediaImportKind::Video, 500),
+            None,
+        ));
+        let entry = bin.entry(id).expect("entry exists");
+        assert_eq!(entry.out_frame, 100, "the user's out point is kept");
+        assert_eq!(entry.in_frame, 30);
     }
 
     #[test]
