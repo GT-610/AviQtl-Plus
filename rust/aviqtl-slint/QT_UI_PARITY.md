@@ -17,7 +17,7 @@ behavior, `foundation` has a tested framework-neutral model or an incomplete pre
 macOS menu-item operation, focus ownership, IME, accessibility, file choosers, and close handling
 still require the separately scheduled Computer Use suite.
 
-As of 2026-09-18, this table contains 6 `parity`, 33 `foundation`, and 1 `partial` entries.
+As of 2026-09-18, this table contains 6 `parity`, 37 `foundation`, and 1 `partial` entries.
 These are acceptance statuses, not percentages of implemented functionality. Module refactoring
 and successful compilation do not promote an entry. Desktop operation is deferred to a separate
 session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement gates.
@@ -45,6 +45,10 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
 | Clip drag | 3 px threshold; unselected anchor selects first; selected groups move together | parity |
 | Collision and snap | Rust planner resolves collisions; Shift bypasses grid/magnetic snapping | foundation |
 | Clip resize | Both handles resize all selected clips by one delta and preserve opposite edges | parity |
+| Trim tools | Ripple, roll, slide, and slip are opt-in per command; preview and commit share one planner | foundation |
+| Object midpoints | Markers on a clip, shifted by geometry changes and divided by a split | foundation |
+| Media bin | Entries with source ranges and flat groups; the bin never owns the timeline | foundation |
+| Multi-object settings | Uniform/mixed/absent per property, effects matched by id, locked objects skipped | foundation |
 | Clip double click | Raise object settings without changing command meaning | foundation |
 | Clipboard | Qt selection order; Cut one undo step; Paste preserves layout and advances target | foundation |
 | Duplicate / Split | Current edit-target behavior and one grouped transaction | foundation |
@@ -307,3 +311,15 @@ items, file chooser cancellation, export and its close interception, recovery-wi
 settings persistence, drag-and-drop, zoom/wheel behavior, IME and shortcut scope, application close
 confirmation, object/effect/audio-plugin workflows, keyframes and easing, Package Manager, About
 links, audio-device latency/output, and VoiceOver output.
+
+Batch 4 adds four items to that list, because each needs a real window to accept and none could be
+verified on a GPU-less host:
+
+- **Midpoint interaction.** Dragging, adding, and removing markers on the timeline, and the
+  parameter track shear ExEdit performs at a midpoint, which is deliberately not implemented yet.
+- **Trim tool affordances.** The handles, cursors, and numeric readouts that choose between ripple,
+  roll, slide, and slip, plus confirming that a trim is never a persistent timeline mode.
+- **The media bin panel.** Group ordering, drag and drop, the missing-file indicator, and that
+  removing an entry never touches a clip.
+- **Multi-object settings.** The mixed-value placeholder, the skipped-object report, and that
+  selecting objects in a different order produces the same edit.
