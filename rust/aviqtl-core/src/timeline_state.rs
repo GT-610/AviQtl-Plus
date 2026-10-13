@@ -1564,8 +1564,9 @@ fn sync_clip_midpoints(clip: &mut ClipDocument, before: &ClipDocument) {
         existing
     } else {
         // The clip origin moved to `clip.start`; shifting back by that keeps the midpoint on the
-        // same timeline moment a start trim must preserve.
-        crate::midpoint::shift_by_start_delta(&existing, before.start - clip.start)
+        // same timeline moment a start trim must preserve. The subtraction saturates so an
+        // out-of-range pair of starts cannot overflow before the document is validated.
+        crate::midpoint::shift_by_start_delta(&existing, before.start.saturating_sub(clip.start))
     };
     crate::midpoint::write_midpoints(
         &mut clip.extra,
