@@ -374,7 +374,12 @@ pub(crate) fn plan_ripple_trim(
         return Err(STATUS_INVALID_ARGUMENT);
     }
 
-    let change = i64::from(trimmed_duration) - i64::from(anchor.duration_frames);
+    // The tail follows the anchor's trimmed end, not its length change: a start trim keeps the
+    // end in place, so the tail stays put and no gap or overlap opens, while an end trim moves
+    // the end and the tail closes the resulting gap. The collision boundary starts at that same
+    // trimmed end, so a shifted clip cannot run into the anchor or its predecessor.
+    let trimmed_end = i64::from(trimmed_start) + i64::from(trimmed_duration);
+    let change = trimmed_end - anchor_end;
     let mut planned = vec![AviQtlTimelineClipGeometry {
         clip_id: anchor.clip_id,
         layer: anchor.layer,
@@ -397,7 +402,7 @@ pub(crate) fn plan_ripple_trim(
         })
         .collect();
     tail.sort_by_key(|clip| clip.start_frame);
-    let mut boundary = anchor_end + change;
+    let mut boundary = trimmed_end;
     for clip in tail {
         let start = i64::from(clip.start_frame) + change;
         if start < boundary {
@@ -1525,20 +1530,20 @@ mod tests {
     }
 
     #[test]
-    fn ripple_trim_from_the_start_edge_shifts_the_tail_like_the_end_edge() {
+    fn ripple_trim_from_the_start_edge_keeps_the_tail_in_place() {
         let clips = [clip(1, 0, 0, 10), clip(3, 0, 10, 20), clip(4, 0, 30, 10)];
-        // Trimming the start by 4 shrinks the anchor to 16 and its length change of -4 shifts
-        // the tail earlier, which is what a ripple means when the end stays put.
+        // Trimming the start by 4 moves the anchor's start to 14 while its end stays at 30, so the
+        // tail, which already abutted that end, does not move: only the anchor changes.
         assert_eq!(
             planned(&plan_ripple_trim(&clips, 3, TrimEdge::Start, 4, 1).expect("ripple plans")),
-            [(3, 14, 16), (4, 26, 10)]
+            [(3, 14, 16)]
         );
 
         // The start edge is bounded by the anchor's own end, so a trim that would empty the clip
-        // is clamped to the minimum duration, and the tail shifts by the clamp's real length change.
+        // is clamped to the minimum duration; the end stays put and the tail does not move.
         assert_eq!(
             planned(&plan_ripple_trim(&clips, 3, TrimEdge::Start, 19, 1).expect("clamped")),
-            [(3, 29, 1), (4, 11, 10)]
+            [(3, 29, 1)]
         );
         assert!(plan_ripple_trim(&clips, 3, TrimEdge::Start, -40, 1).is_ok());
 
