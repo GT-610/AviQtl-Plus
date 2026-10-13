@@ -9,8 +9,9 @@ use crate::policy::{
     playback_mode,
 };
 use crate::project::{
-    AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, MAX_TIMELINE_LAYER,
-    ProjectDocument, ProjectError, ProjectSettings, SceneDocument, parse_project_document,
+    AudioPluginDocument, ClipDocument, DEFAULT_FPS, EffectDocument, ExtraFields,
+    MAX_TIMELINE_LAYER, ProjectDocument, ProjectError, ProjectSettings, SceneDocument,
+    parse_project_document,
 };
 use crate::timeline_domain::allocate_id;
 use serde::{Deserialize, Serialize};
@@ -792,6 +793,51 @@ impl TimelineState {
                 frame,
                 new_clip_id,
             } => self.plan_split(clip_id, frame, new_clip_id),
+            EditRequest::SetClipMidpoints { clip_id, midpoint } => {
+                let mut clip = self
+                    .document
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == clip_id)
+                    .cloned()
+                    .ok_or(StateError::InvalidArgument)?;
+                let existing = crate::midpoint::read_midpoints(&clip.extra);
+                let duration = clip.duration;
+                let updated = match midpoint {
+                    MidpointOperation::Add { frame } => {
+                        crate::midpoint::add(&existing, frame, duration)
+                    }
+                    MidpointOperation::Remove { frame } => {
+                        crate::midpoint::remove(&existing, frame)
+                    }
+                    MidpointOperation::Move {
+                        old_frame,
+                        new_frame,
+                    } => crate::midpoint::move_midpoint(&existing, old_frame, new_frame, duration),
+                }
+                .ok_or(StateError::InvalidArgument)?;
+                crate::midpoint::write_midpoints(&mut clip.extra, &updated);
+                plan_clip_replacements(&self.document, vec![(clip_id, clip)])
+            }
+            EditRequest::SetProjectExtras { extras } => {
+                if extras == self.document.extra {
+                    // No change means no patch, so a no-op never reaches the history stack.
+                    return Err(StateError::InvalidArgument);
+                }
+                let before = self.document.extra.clone();
+                Ok(transaction(
+                    vec![PatchOperation::ReplaceProjectExtras {
+                        before: before.clone(),
+                        after: extras.clone(),
+                    }],
+                    // The inverse runs against the state the forward patch produces, so its
+                    // precondition is the new extras and it restores the original.
+                    vec![PatchOperation::ReplaceProjectExtras {
+                        before: extras,
+                        after: before,
+                    }],
+                ))
+            }
             EditRequest::ReplaceDocument { document } => {
                 validate_document(&document)?;
                 Ok(plan_document_replacement(&self.document, document))
@@ -857,6 +903,7 @@ impl TimelineState {
         second.start = frame;
         second.duration = second_duration;
         split_clip_tracks(&mut first, &mut second, first_duration, before.duration)?;
+        split_clip_midpoints(&mut first, &mut second, first_duration);
 
         Ok(transaction(
             vec![
@@ -1102,9 +1149,34 @@ pub enum EditRequest {
         frame: i32,
         new_clip_id: i32,
     },
+    /// Adds, removes, or moves one AviUtl object midpoint on a clip. The payload carries the
+    /// existing list so a rejected request can be detected without mutating the document.
+    #[serde(rename = "set_clip_midpoints")]
+    SetClipMidpoints {
+        clip_id: i32,
+        #[serde(flatten)]
+        midpoint: MidpointOperation,
+    },
+    /// Replaces the document's flattened extras without touching scenes or clips. The media
+    /// bin persists there, so this is how a bin edit stays atomic and reversible.
+    SetProjectExtras {
+        extras: ExtraFields,
+    },
     ReplaceDocument {
         document: ProjectDocument,
     },
+}
+
+/// One object-level midpoint change. `Add` and `Move` are rejected when the frame is outside
+/// the clip's open interval or would duplicate or cross a neighbour; `Remove` is rejected when
+/// the frame is absent. A rejected request produces no patch, so no undo entry is pushed for a
+/// no-op.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(tag = "midpoint_action", rename_all = "snake_case")]
+pub enum MidpointOperation {
+    Add { frame: i32 },
+    Remove { frame: i32 },
+    Move { old_frame: i32, new_frame: i32 },
 }
 
 #[derive(Debug, Deserialize)]
@@ -1144,6 +1216,13 @@ enum PatchOperation {
     ReplaceProjectSettings {
         before: ProjectSettings,
         after: ProjectSettings,
+    },
+    /// Replaces the document's flattened extras. `ReplaceDocument` deliberately carries only
+    /// scenes and clips, so a feature that persists through the extras map — the media bin —
+    /// needs its own operation to stay undoable.
+    ReplaceProjectExtras {
+        before: ExtraFields,
+        after: ExtraFields,
     },
     InsertScene {
         index: usize,
@@ -1368,10 +1447,12 @@ fn plan_clip_replacements(
             .iter()
             .position(|item| item.id == clip_id)
             .ok_or(StateError::InvalidArgument)?;
-        if document.clips[index].duration != clip.duration {
-            sync_clip_tracks(&mut clip, document.clips[index].duration);
+        let previous = document.clips[index].clone();
+        if previous.duration != clip.duration || previous.start != clip.start {
+            sync_clip_tracks(&mut clip, previous.duration);
+            sync_clip_midpoints(&mut clip, &previous);
         }
-        indexed.push((index, document.clips[index].clone(), clip));
+        indexed.push((index, previous, clip));
     }
     indexed.sort_by_key(|(index, _, _)| *index);
     let forward = indexed
@@ -1465,6 +1546,65 @@ fn sync_clip_tracks(clip: &mut ClipDocument, old_duration: i32) {
             clip.duration,
         );
     }
+}
+
+/// Keeps object midpoints valid across a frame-domain edit. A midpoint is a time boundary, so a
+/// start trim keeps it at the same timeline moment: the clip origin moves by `clip.start -
+/// before.start`, and the midpoint shifts by the opposite amount to stay put. A duration change
+/// can leave midpoints outside the new span; both are clamped back into the open interval,
+/// dropping what no longer fits. A pure move changes neither the clip-relative positions nor the
+/// timeline moments, so nothing shifts.
+fn sync_clip_midpoints(clip: &mut ClipDocument, before: &ClipDocument) {
+    let existing = crate::midpoint::read_midpoints(&before.extra);
+    if existing.frames().is_empty() {
+        clip.extra.remove(crate::midpoint::MIDPOINTS_KEY);
+        return;
+    }
+    let shifted = if clip.duration == before.duration {
+        existing
+    } else {
+        // The clip origin moved to `clip.start`; shifting back by that keeps the midpoint on the
+        // same timeline moment a start trim must preserve. The subtraction saturates so an
+        // out-of-range pair of starts cannot overflow before the document is validated.
+        crate::midpoint::shift_by_start_delta(&existing, before.start.saturating_sub(clip.start))
+    };
+    crate::midpoint::write_midpoints(
+        &mut clip.extra,
+        &crate::midpoint::sanitize(shifted, clip.duration),
+    );
+}
+
+/// Divides the object's midpoints across a split. Midpoints are clip-relative, so the first
+/// half keeps those below the cut and the second half keeps the rest rebased onto its own
+/// origin. A midpoint exactly at the cut opens the second half.
+fn split_clip_midpoints(first: &mut ClipDocument, second: &mut ClipDocument, first_duration: i32) {
+    let existing = crate::midpoint::read_midpoints(&first.extra);
+    if existing.frames().is_empty() {
+        return;
+    }
+    let (keep, rebase): (Vec<_>, Vec<_>) = existing
+        .frames()
+        .iter()
+        .partition(|frame| **frame < first_duration);
+    crate::midpoint::write_midpoints(
+        &mut first.extra,
+        &crate::midpoint::sanitize(
+            crate::midpoint::Midpoints::from_frames(keep),
+            first.duration,
+        ),
+    );
+    crate::midpoint::write_midpoints(
+        &mut second.extra,
+        &crate::midpoint::sanitize(
+            crate::midpoint::Midpoints::from_frames(
+                rebase
+                    .iter()
+                    .map(|frame| frame.saturating_sub(first_duration))
+                    .collect(),
+            ),
+            second.duration,
+        ),
+    );
 }
 
 fn update_audio_clip_duration(
@@ -1616,6 +1756,12 @@ fn apply_operation(
                 return Err(StateError::Conflict);
             }
             document.settings = after.clone();
+        }
+        PatchOperation::ReplaceProjectExtras { before, after } => {
+            if &document.extra != before {
+                return Err(StateError::Conflict);
+            }
+            document.extra = after.clone();
         }
         PatchOperation::InsertScene { index, scene } => {
             if *index > document.scenes.len()
@@ -3232,10 +3378,263 @@ mod tests {
     }
 
     #[test]
+    fn project_extras_replacement_is_reversible_and_conflict_safe() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        let before = state.document.clone();
+        let mut extras = before.extra.clone();
+        extras.insert("mediaBin".to_owned(), json!({"entries": []}));
+
+        let transaction = state
+            .plan(EditRequest::SetProjectExtras {
+                extras: extras.clone(),
+            })
+            .expect("extras replacement plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("forward applies");
+        assert_eq!(state.document.extra, extras);
+        assert_eq!(state.document.clips, before.clips, "clips are untouched");
+        assert_eq!(state.document.scenes, before.scenes, "scenes are untouched");
+
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("inverse applies");
+        assert_eq!(state.document, before);
+
+        // A no-op is rejected so it never produces an undo entry.
+        assert_eq!(
+            state.plan(EditRequest::SetProjectExtras {
+                extras: before.extra.clone()
+            }),
+            Err(StateError::InvalidArgument)
+        );
+
+        // Applying the forward patch twice conflicts rather than silently succeeding.
+        state
+            .apply_patch(&transaction.forward)
+            .expect("first apply");
+        assert_eq!(
+            state.apply_patch(&transaction.forward),
+            Err(StateError::Conflict),
+            "the precondition guard rejects a stale patch"
+        );
+    }
+
+    #[test]
     fn id_reservation_is_monotonic_and_skips_existing_ids() {
         let mut state = TimelineState::new(document(), 1, 1).expect("valid state");
         assert_eq!(state.reserve_ids(EntityKind::Clip, 3).unwrap(), [2, 3, 4]);
         assert_eq!(state.reserve_ids(EntityKind::Clip, 2).unwrap(), [5, 6]);
         assert_eq!(state.reserve_ids(EntityKind::Scene, 2).unwrap(), [1, 2]);
+    }
+
+    fn midpoint_frames(clip: &ClipDocument) -> Vec<i32> {
+        crate::midpoint::read_midpoints(&clip.extra)
+            .frames()
+            .to_vec()
+    }
+
+    fn apply_midpoint(state: &mut TimelineState, operation: MidpointOperation) {
+        let transaction = state
+            .plan(EditRequest::SetClipMidpoints {
+                clip_id: 1,
+                midpoint: operation,
+            })
+            .expect("midpoint change plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("midpoint change applies");
+    }
+
+    #[test]
+    fn midpoints_are_added_removed_and_moved_within_the_open_interval() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        assert!(
+            midpoint_frames(&state.document.clips[0]).is_empty(),
+            "absence means the feature was never used"
+        );
+
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 5 });
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 12 });
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5, 12]);
+
+        apply_midpoint(
+            &mut state,
+            MidpointOperation::Move {
+                old_frame: 12,
+                new_frame: 15,
+            },
+        );
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5, 15]);
+
+        apply_midpoint(&mut state, MidpointOperation::Remove { frame: 5 });
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [15]);
+    }
+
+    #[test]
+    fn midpoint_changes_are_reversible_and_leave_no_key_when_empty() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        let before = state.document.clone();
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 5 });
+
+        let transaction = state
+            .plan(EditRequest::SetClipMidpoints {
+                clip_id: 1,
+                midpoint: MidpointOperation::Add { frame: 8 },
+            })
+            .expect("second midpoint plans");
+        state.apply_patch(&transaction.forward).expect("applies");
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5, 8]);
+
+        // Undo of the second change returns to the first state, not to the original.
+        state
+            .apply_patch(&transaction.inverse)
+            .expect("undo applies");
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5]);
+
+        // Removing the last midpoint drops the key entirely.
+        apply_midpoint(&mut state, MidpointOperation::Remove { frame: 5 });
+        assert!(
+            !state.document.clips[0]
+                .extra
+                .contains_key(crate::midpoint::MIDPOINTS_KEY)
+        );
+        assert_eq!(state.document, before);
+    }
+
+    #[test]
+    fn invalid_midpoint_changes_are_rejected_without_a_transaction() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 5 });
+
+        for rejected in [
+            MidpointOperation::Add { frame: 0 },
+            MidpointOperation::Add { frame: 20 },
+            MidpointOperation::Add { frame: 5 },
+            MidpointOperation::Remove { frame: 9 },
+            MidpointOperation::Move {
+                old_frame: 5,
+                new_frame: 20,
+            },
+            MidpointOperation::Move {
+                old_frame: 9,
+                new_frame: 12,
+            },
+        ] {
+            assert_eq!(
+                state.plan(EditRequest::SetClipMidpoints {
+                    clip_id: 1,
+                    midpoint: rejected,
+                }),
+                Err(StateError::InvalidArgument),
+                "expected rejection for {rejected:?}"
+            );
+        }
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5]);
+    }
+
+    #[test]
+    fn midpoint_commands_reject_unknown_clips() {
+        let state = TimelineState::new(document(), 2, 1).expect("valid state");
+        assert_eq!(
+            state.plan(EditRequest::SetClipMidpoints {
+                clip_id: 999,
+                midpoint: MidpointOperation::Add { frame: 5 },
+            }),
+            Err(StateError::InvalidArgument)
+        );
+    }
+
+    #[test]
+    fn geometry_changes_keep_midpoints_inside_the_new_span() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 5 });
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 15 });
+
+        // Shrinking to 10 frames drops the midpoint that no longer fits.
+        let transaction = state
+            .plan(EditRequest::UpdateClipGeometry {
+                clip_id: 1,
+                layer: 0,
+                start: 0,
+                duration: 10,
+            })
+            .expect("resize plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("resize applies");
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5]);
+
+        // A pure move keeps every clip-relative position: duration is unchanged, so no shift
+        // happens and the midpoint stays where it was relative to the clip.
+        let transaction = state
+            .plan(EditRequest::UpdateClipGeometry {
+                clip_id: 1,
+                layer: 0,
+                start: 5,
+                duration: 10,
+            })
+            .expect("move plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("move applies");
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [5]);
+
+        // A start trim moves the clip origin and changes the duration, so the midpoint shifts
+        // by the opposite amount to stay on the same timeline moment: origin moved 5 to 8 and the
+        // end stayed at 15, so the midpoint moves 5 to 2.
+        let transaction = state
+            .plan(EditRequest::UpdateClipGeometry {
+                clip_id: 1,
+                layer: 0,
+                start: 8,
+                duration: 7,
+            })
+            .expect("trim plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("trim applies");
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [2]);
+
+        // A trim that shrinks the clip pushes a midpoint out of the open interval: the origin
+        // moves 8 to 3 and duration shrinks to 4, so the midpoint at 2 shifts to 7 and is dropped
+        // by sanitize rather than stored on a fixed frame.
+        let transaction = state
+            .plan(EditRequest::UpdateClipGeometry {
+                clip_id: 1,
+                layer: 0,
+                start: 3,
+                duration: 4,
+            })
+            .expect("trim plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("trim applies");
+        assert!(midpoint_frames(&state.document.clips[0]).is_empty());
+    }
+
+    #[test]
+    fn splitting_divides_midpoints_across_both_halves() {
+        let mut state = TimelineState::new(document(), 2, 1).expect("valid state");
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 4 });
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 10 });
+        apply_midpoint(&mut state, MidpointOperation::Add { frame: 16 });
+
+        // Cut at frame 10: 4 stays in the first half. The midpoint exactly at the cut becomes
+        // frame 0 of the second half, which is a fixed frame and therefore not a midpoint, so it
+        // is dropped; 16 rebases to 6.
+        let transaction = state
+            .plan(EditRequest::SplitClip {
+                clip_id: 1,
+                frame: 10,
+                new_clip_id: 2,
+            })
+            .expect("split plans");
+        state
+            .apply_patch(&transaction.forward)
+            .expect("split applies");
+        assert_eq!(state.document.clips.len(), 2);
+        assert_eq!(midpoint_frames(&state.document.clips[0]), [4]);
+        assert_eq!(midpoint_frames(&state.document.clips[1]), [6]);
     }
 }

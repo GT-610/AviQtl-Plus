@@ -4,28 +4,74 @@ Standalone probes that isolate what a GPU-less Windows host can and cannot run f
 Slint frontend. Each one is a self-contained Cargo crate with its own `[workspace]`, so they
 never join the `rust/` workspace build and never need `cargo build --workspace` to succeed.
 
-They exist because "the Slint frontend crashes on a machine with no GPU" was reported here,
-and the failure is not reproducible from the application build alone. These probes split the
-problem into layers so each claim is measured, not inferred.
+They exist because the Slint frontend died with `0xC0000005` on a host whose only graphics
+adapter is `Microsoft Basic Render Driver` (WARP), and the failure could not be attributed
+from the application build alone. These probes split the problem into layers so each claim is
+measured rather than inferred.
 
-## What was concluded
+## Conclusion
 
-Every layer tested individually **works** on a host that exposes only the Microsoft Basic
-Render Driver (WARP, `DeviceType::Cpu`):
+**AviQtl requires a GPU-backed wgpu adapter. It does not ship a CPU or software renderer.**
 
-| Probe | Layer under test | Result |
+The frontend now detects the absence of a GPU-backed adapter before it initializes wgpu and
+exits with an actionable message naming the adapters it found, instead of crashing. The root
+cause was measured, not guessed:
+
+| Layer | Result on a WARP-only host |
+| --- | --- |
+| Slint software renderer (`slint-software-probe`) | Window and event loop run; no GPU required |
+| wgpu device, texture, shader module, render pipeline, readback (`compositor-cpu-probe`) | All succeed; readback returns matching bytes |
+| Slint's own wgpu backend selection (`slint-wgpu-probe`) | Fails without `SLINT_WGPU_CPU`, per Slint 1.17.1 |
+| **AviQtl's own compositor shader (`app-shader-probe`, `shader-size-probe`, `shader-fragment-probe`)** | **Fails: FXC cannot compile it, and past a size threshold the process dies with `0xC0000005`** |
+
+The last row is the real constraint, and it is specific to AviQtl's renderer rather than to
+Slint or wgpu in general. The compositor shader in `aviqtl-render` is roughly 55 KB and wraps a
+41-case `switch` inside a loop whose trip count is not a compile-time constant. FXC — the
+compiler WARP's DX12 backend falls back to — must fully unroll it and cannot.
+
+Measured, one child process per data point, keeping only the first *N* switch cases:
+
+| Switch cases kept | Shader size | Outcome |
 | --- | --- | --- |
-| `slint-software-probe` | Slint with `renderer-software` | Window created, event loop ran, no GPU needed |
-| `wgpu-dx12-probe` | wgpu 29 texture upload and read-back on WARP | 0 mismatched bytes |
-| `wgpu-shader-probe` | wgpu 29 + WGSL pipeline on WARP | Device, shader module, pipeline all created |
-| `fv-wgpu-probe` | Real winit window + surface + pass + present on WARP | 5 frames presented |
-| `fv-canvas-probe` | femtoVG `Canvas` + `WGPURenderer` + glyph atlas | 5 frames presented |
-| `slint-wgpu-probe` | Slint's own wgpu 29 backend selection | Selection fails without `SLINT_WGPU_CPU` |
+| 1–16 | 15–22 KB | Compiles |
+| 17–19 | 23 KB | FXC error `X3511`: gradient instruction in a loop with varying iteration, unable to unroll |
+| 20–41 (all cases) | 26–55 KB | Hard crash, `0xC0000005` |
 
-The application itself (`rust/aviqtl-slint`) still fails on such a host: it requires a
-GPU-backed wgpu adapter and then exits `0xC0000005`. The failure is in how Slint's
-`Manual` wgpu configuration combines these layers, which none of these probes
-reproduces in isolation. See the companion documentation for the full record.
+Three candidate workarounds were measured and rejected:
+
+- Capping the effect-strip loop with a compile-time bound does not help; a cap of 1 still crashes,
+  so the failure is driven by total shader size, not by loop trip count.
+- Replacing `textureSample` with `textureSampleLevel(..., 0.0)` everywhere removes the gradient
+  instruction and does make cases 17–19 compile, but cases 20+ still crash or hang.
+- Loading a newer DXC alongside FXC changes nothing: with `dxcompiler.dll` 1.8 present the
+  adapter is created successfully and the same crash follows. An older `dxcompiler.dll` shipped
+  with the 10.0.19041 Windows SDK is worse: loading it makes DX12 report no adapter at all.
+
+On a host with real GPU hardware the same shader compiles, because the DX12 backend uses DXC
+rather than FXC. This is why the failure never appeared during earlier GPU-backed validation.
+
+## Why no software renderer
+
+AviQtl deliberately reports an unsupported host instead of degrading. This follows the shipped
+behavior of comparable applications rather than an internal guess:
+
+- Adobe documents GPU memory requirements for Premiere (4 GB minimum on Windows) and removed the
+  "Mercury Playback Engine Software Only" option in 25.2, because "software rendering can cause
+  poor performance and rendering in 8-bit, which can result in image quality issues"
+  (https://helpx.adobe.com/premiere-pro/kb/software-rendering-update.html).
+- DaVinci Resolve requires a discrete GPU with sufficient VRAM
+  (https://www.blackmagicdesign.com/products/davinciresolve).
+- Kdenlive is useful evidence for where a CPU path *can* be honest: it states that "timeline
+  playback uses the CPU" and its official troubleshooting guide recommends disabling OpenGL
+  (https://userbase.kde.org/Archive:Kdenlive/Manual/Troubleshooting_and_Common_Problems,
+  https://docs.kdenlive.org/getting_started/installation.html). That works because Kdenlive
+  limits GPU use to optional render profiles. AviQtl's preview, export, and MSAA compositor are
+  all GPU-only, so a CPU path would be a second implementation of the renderer whose output could
+  diverge from the Qt baseline the project uses for acceptance.
+
+`renderer-software` remains available in the pinned Slint 1.17.1 and the probes keep that
+layer documented, but the application does not expose it, because selecting it still leaves the
+preview compositor unable to produce a frame.
 
 ## Running them
 
@@ -33,12 +79,17 @@ They need network access to fetch their dependencies through the crates.io mirro
 working mirror configured:
 
 ```powershell
-cd no-gpu-probes\wgpu-shader-probe
-cargo run
+cd no-gpu-probes\shader-fragment-probe
+cargo run -- 41
 ```
 
-Each probe prints `STAGE ...` lines as it advances and a final `RESULT ...` line. Read the
-stage list first if you are chasing where a new failure appears.
+Each probe prints `STAGE`/`RESULT` lines as it advances. Read the stage list first if you are
+chasing where a new failure appears. The shader probes read the compositor's WGSL directly out
+of `rust/aviqtl-render/src/lib.rs`, so they need no preparation step.
+
+A hard access violation cannot be caught in-process, so each variant under test must run in its
+own child process — that is why these probes take the case count as an argument rather than
+looping internally.
 
 ## Notes
 

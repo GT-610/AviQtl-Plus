@@ -1,11 +1,8 @@
+use crate::media_import::extension_is_supported;
 use crate::object_settings::value_payload;
 use aviqtl_media::{MediaStreamKind, media_duration_seconds};
 use aviqtl_rust_core::api::{ClipDocument, ProjectDocument};
 use std::path::{Path, PathBuf};
-
-const AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "aac", "m4a", "flac", "ogg"];
-const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"];
-const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "mkv", "webm", "wmv"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MissingMediaEntry {
@@ -81,12 +78,7 @@ pub fn plan_media_relink(
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or_default();
-    let supported = match clip.clip_type.as_str() {
-        "audio" => extension_matches(extension, AUDIO_EXTENSIONS),
-        "image" => extension_matches(extension, IMAGE_EXTENSIONS),
-        "video" => extension_matches(extension, VIDEO_EXTENSIONS),
-        other => return Err(format!("media type cannot be relinked: {other}")),
-    };
+    let supported = extension_is_supported(&clip.clip_type, extension);
     if !supported {
         return Err(format!("unsupported media format: {extension}"));
     }
@@ -120,7 +112,10 @@ fn media_effect_target(clip: &ClipDocument) -> Option<(usize, &'static str)> {
         .map(|index| (index, parameter))
 }
 
-fn resolve_path(project_path: Option<&Path>, source: &str) -> PathBuf {
+/// Resolves a stored media path the way clips resolve theirs: absolute as-is, relative against
+/// the project directory. The media bin shares this so a bin entry and the clip referencing the
+/// same file always agree on where it lives.
+pub fn resolve_path(project_path: Option<&Path>, source: &str) -> PathBuf {
     let path = PathBuf::from(source);
     if path.is_absolute() {
         path
@@ -129,12 +124,6 @@ fn resolve_path(project_path: Option<&Path>, source: &str) -> PathBuf {
             .and_then(Path::parent)
             .map_or(path.clone(), |directory| directory.join(path))
     }
-}
-
-fn extension_matches(extension: &str, supported: &[&str]) -> bool {
-    supported
-        .iter()
-        .any(|candidate| extension.eq_ignore_ascii_case(candidate))
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ mod effect;
 mod export;
 mod keyframe;
 mod keyframe_document;
+mod midpoint;
 mod package;
 mod permission;
 mod plugin;

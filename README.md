@@ -32,6 +32,9 @@ See [AviUtl Operability Targets](https://aviqtl.gt610.dpdns.org/developer/operab
 - **LuaJIT plugin system** with package management, declarative parameters, and permission control
 - Cross-platform: **Linux**, **Windows**, **macOS**
 
+> [!NOTE]
+> AviQtl requires a **GPU-backed graphics adapter**. There is no CPU or software rendering mode: preview compositing, export, and hardware codec acceleration all run on the GPU. Hosts that expose only a software adapter such as the Microsoft Basic Render Driver (WARP) cannot run AviQtl and are reported as unsupported at startup instead of failing later.
+
 ## Documentation
 
 - [Installation](https://aviqtl.gt610.dpdns.org/guide/start-here/installation)

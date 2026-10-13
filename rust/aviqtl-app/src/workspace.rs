@@ -1,21 +1,24 @@
 use crate::audio_plugin::{AudioPluginAddition, AudioPluginCatalog, AudioPluginHydration};
 use crate::effect_catalog::EffectCatalog;
 use crate::effect_selection::EffectSelection;
+use crate::media_bin::{MediaBin, entry_from_plan, plan_bin_edit, read_media_bin};
 use crate::media_import::{MediaImportKind, plan_media_import};
 use crate::missing_media::{MissingMediaEntry, find_missing_media, plan_media_relink};
 use crate::object_settings::{ObjectSettings, project_object_settings, replace_value_payload};
 use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
 use crate::selection::{ClipSelection, SelectionBox, control_layer_count};
+use crate::selection_edit::{SelectionApplied, SelectionPlan, SelectionProperty, SelectionValue};
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
-    ClipDocument, EffectDocument, EffectInsertion, EffectMetadata, EffectPreset,
-    MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectDocument, ProjectSettings, SceneDocument,
-    TimelineCommand, TimelineTransaction, clipboard_duration, evaluate_keyframe_track,
-    find_vacant_scene_frame, inspect_keyframe_track, plan_clip_delta_move, plan_clipboard_paste,
-    plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift, snap_scene_frame,
-    timeline_duration as core_timeline_duration,
+    ClipDocument, ClipGeometryUpdate, EffectDocument, EffectInsertion, EffectMetadata,
+    EffectPreset, MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, MidpointOperation, ProjectDocument,
+    ProjectSettings, SceneDocument, TimelineCommand, TimelineTransaction, TrimEdge,
+    clipboard_duration, evaluate_keyframe_track, find_vacant_scene_frame, inspect_keyframe_track,
+    plan_clip_delta_move, plan_clip_ripple_trim, plan_clip_roll, plan_clip_slide, plan_clip_slip,
+    plan_clipboard_paste, plan_effect_reorder, plan_scene_layer_insertion, plan_scene_layer_shift,
+    snap_scene_frame, timeline_duration as core_timeline_duration,
 };
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -219,6 +222,117 @@ impl WorkspaceModel {
 
     pub fn missing_media(&self) -> Vec<MissingMediaEntry> {
         find_missing_media(&self.project.document, self.project.path.as_deref())
+    }
+
+    /// Returns the project media bin. An absent key reads as an empty bin rather than an error.
+    pub fn media_bin(&self) -> MediaBin {
+        read_media_bin(&self.project.document)
+    }
+
+    /// Adds files to the media bin. The kind and duration of each entry come from the same
+    /// probe the timeline import uses, so a bin row never disagrees with what dropping the file
+    /// on the timeline would produce.
+    pub fn add_media_to_bin(
+        &mut self,
+        paths: &[PathBuf],
+        scene_fps: f64,
+        default_duration_frames: i32,
+    ) -> usize {
+        let mut added = 0;
+        let mut errors = Vec::new();
+        for path in paths {
+            match plan_media_import(path, scene_fps, default_duration_frames.max(1)) {
+                Ok(plan) => {
+                    let id = self.media_bin().next_entry_id();
+                    let entry = entry_from_plan(id, &plan, self.project.path.as_deref());
+                    if self.commit_media_bin(|bin| {
+                        bin.upsert(entry);
+                    }) {
+                        added += 1;
+                    }
+                }
+                Err(error) => errors.push(error),
+            }
+        }
+        self.status = match (added, errors.is_empty()) {
+            (0, true) => "No media files were added to the bin".to_owned(),
+            (0, false) => errors.join("; "),
+            (count, true) => format!("Added {count} media file(s) to the bin"),
+            (count, false) => {
+                format!(
+                    "Added {count} media file(s) to the bin; {}",
+                    errors.join("; ")
+                )
+            }
+        };
+        added
+    }
+
+    pub fn remove_media_from_bin(&mut self, entry_id: i32) -> bool {
+        let removed = self.commit_media_bin(|bin| {
+            bin.remove(entry_id);
+        });
+        if removed {
+            self.status = "Removed 1 media item from the bin".to_owned();
+        }
+        removed
+    }
+
+    /// Sets the source in/out range of one entry. The pair is clamped into
+    /// `0 <= in < out <= duration`, so a request can never produce an invalid range.
+    pub fn set_media_bin_range(
+        &mut self,
+        entry_id: i32,
+        in_frame: Option<i32>,
+        out_frame: Option<i32>,
+    ) -> bool {
+        let changed = self.commit_media_bin(|bin| {
+            bin.set_range(entry_id, in_frame, out_frame);
+        });
+        if !changed {
+            self.status = format!("Media item {entry_id} cannot use that range");
+        }
+        changed
+    }
+
+    pub fn create_media_bin_group(&mut self, name: &str) -> Option<i32> {
+        let mut created = None;
+        self.commit_media_bin(|bin| {
+            created = Some(bin.create_bin(name));
+        });
+        created
+    }
+
+    pub fn remove_media_bin_group(&mut self, bin_id: i32) -> bool {
+        self.commit_media_bin(|bin| {
+            bin.remove_bin(bin_id);
+        })
+    }
+
+    pub fn assign_media_to_bin_group(&mut self, entry_id: i32, bin_id: i32) -> bool {
+        self.commit_media_bin(|bin| {
+            bin.assign_to_bin(entry_id, bin_id);
+        })
+    }
+
+    /// Runs one bin mutation as a single undoable project replacement. Rejected requests
+    /// produce no transaction, so a no-op never reaches the history stack.
+    fn commit_media_bin(&mut self, edit: impl FnOnce(&mut MediaBin)) -> bool {
+        let Some(transaction) = plan_bin_edit(&self.project.state, &self.project.document, edit)
+        else {
+            return false;
+        };
+        let applied = self.project.state.apply(&transaction).map(|()| transaction);
+        match applied {
+            Ok(transaction) => {
+                self.finish_timeline_edit(transaction, "Media bin updated");
+                true
+            }
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
     }
 
     pub fn relink_media(&mut self, clip_id: i32, path: &Path) -> bool {
@@ -2056,6 +2170,53 @@ impl WorkspaceModel {
         })
     }
 
+    /// Adds one object midpoint to a clip. Frame zero and the duration endpoint are fixed, so a
+    /// frame outside the open interval, or one that already has a midpoint, is rejected with a
+    /// status instead of pushing a no-op undo entry.
+    pub fn add_clip_midpoint(&mut self, clip_id: i32, frame: i32) -> bool {
+        self.set_clip_midpoint(clip_id, MidpointOperation::Add { frame })
+    }
+
+    pub fn remove_clip_midpoint(&mut self, clip_id: i32, frame: i32) -> bool {
+        self.set_clip_midpoint(clip_id, MidpointOperation::Remove { frame })
+    }
+
+    /// Moves one object midpoint. Frames stay strictly increasing, so a move that would land on
+    /// or cross a neighbouring midpoint is rejected rather than silently reordered.
+    pub fn move_clip_midpoint(&mut self, clip_id: i32, old_frame: i32, new_frame: i32) -> bool {
+        self.set_clip_midpoint(
+            clip_id,
+            MidpointOperation::Move {
+                old_frame,
+                new_frame,
+            },
+        )
+    }
+
+    fn set_clip_midpoint(&mut self, clip_id: i32, midpoint: MidpointOperation) -> bool {
+        let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
+            self.status = format!("Clip {clip_id} does not exist");
+            return false;
+        };
+        if self.is_clip_locked(&clip) {
+            self.status = format!("Layer {} is locked", clip.layer + 1);
+            return false;
+        }
+        let applied = self.execute(TimelineCommand::SetClipMidpoints { clip_id, midpoint });
+        if !applied {
+            self.status = match midpoint {
+                MidpointOperation::Add { frame } | MidpointOperation::Remove { frame } => {
+                    format!("Frame {frame} cannot be used as a midpoint")
+                }
+                MidpointOperation::Move {
+                    old_frame,
+                    new_frame,
+                } => format!("Midpoint {old_frame} cannot move to {new_frame}"),
+            };
+        }
+        applied
+    }
+
     pub fn copy_clip(&mut self, clip_id: i32) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
             return false;
@@ -2180,6 +2341,117 @@ impl WorkspaceModel {
             }
         };
         self.execute(command)
+    }
+
+    /// Resolves one effect parameter across the current selection without editing anything, which
+    /// is the read a sidebar performs to choose between a plain value, a mixed placeholder, and
+    /// nothing at all.
+    pub fn selection_param_state(&self, effect_id: &str, param: &str) -> SelectionValue {
+        let clips = self.selected_clips();
+        crate::selection_edit::selection_value(&clips, effect_id, param, self.playhead)
+    }
+
+    /// Resolves every property of every effect across the current selection, so a sidebar can
+    /// build its whole control tree for a multi-object selection.
+    pub fn selection_properties(&self) -> Vec<SelectionProperty> {
+        let clips = self.selected_clips();
+        crate::selection_edit::selection_properties(&clips, self.playhead)
+    }
+
+    /// The selected clips of the active scene, in document order.
+    ///
+    /// Document order rather than selection order is deliberate: it is what makes the applied set
+    /// independent of the order the user Ctrl-clicked in.
+    fn selected_clips(&self) -> Vec<&ClipDocument> {
+        let selected = self.selection.ids();
+        self.project
+            .document
+            .clips
+            .iter()
+            .filter(|clip| clip.scene_id == self.selected_scene && selected.contains(&clip.id))
+            .collect()
+    }
+
+    /// Applies one parameter value to every selected object that has it, as a single undo step.
+    ///
+    /// The result reports how many objects were edited and how many were skipped, because a
+    /// multi-object edit almost never touches every selected object: an object on a locked layer
+    /// keeps its value, and an object without that effect or that parameter is left alone rather
+    /// than being given one it never had.
+    pub fn set_selection_param(
+        &mut self,
+        effect_id: &str,
+        param: &str,
+        value: Value,
+    ) -> Option<SelectionApplied> {
+        let plan = crate::selection_edit::plan_selection_param_edit(
+            &self.project.document,
+            self.selected_scene,
+            self.selection.ids(),
+            effect_id,
+            param,
+            value,
+            self.playhead,
+        );
+        self.apply_selection_plan(plan)
+    }
+
+    /// Applies one audio plugin parameter to every selected object that has that plugin at that
+    /// index, as a single undo step.
+    ///
+    /// Audio plugins have no id-based identity, so the index is the identity and this cannot share
+    /// the effect-id path above.
+    pub fn set_selection_audio_param(
+        &mut self,
+        plugin_index: usize,
+        param: &str,
+        value: Value,
+    ) -> Option<SelectionApplied> {
+        let plan = crate::selection_edit::plan_selection_audio_param_edit(
+            &self.project.document,
+            self.selected_scene,
+            self.selection.ids(),
+            plugin_index,
+            param,
+            value,
+        );
+        self.apply_selection_plan(plan)
+    }
+
+    /// Applies a planned multi-object edit through the one mutation funnel, so undo, redo, dirty
+    /// tracking and the continuous-edit session behave exactly as they do for a single-object edit.
+    ///
+    /// A plan that changes nothing returns `None` and pushes no undo entry, which is the rule the
+    /// whole edit model shares.
+    fn apply_selection_plan(&mut self, plan: SelectionPlan) -> Option<SelectionApplied> {
+        if plan.is_no_op() {
+            self.status = if plan.selected_objects == 0 {
+                "No object is selected".to_owned()
+            } else {
+                format!(
+                    "No editable object for this parameter ({} selected)",
+                    plan.selected_objects
+                )
+            };
+            return None;
+        }
+        let applied = SelectionApplied {
+            selected_objects: plan.selected_objects,
+            edited_objects: plan.edited_objects,
+            locked_objects: plan.locked_objects,
+            absent_objects: plan.absent_objects,
+        };
+        let edited = applied.edited_objects;
+        let skipped = applied.locked_objects + applied.absent_objects;
+        if !self.execute_batch(plan.commands) {
+            return None;
+        }
+        self.status = if skipped == 0 {
+            format!("Applied to {edited} object(s)")
+        } else {
+            format!("Applied to {edited} object(s), skipped {skipped}")
+        };
+        Some(applied)
     }
 
     pub fn paste_clips_at(
@@ -2570,6 +2842,106 @@ impl WorkspaceModel {
             }
         };
         self.execute_geometry_updates(plan.updates)
+    }
+
+    /// Previews a ripple trim without committing it. The preview and the commit call the same
+    /// planner, so the outlined destination is exactly what the edit produces.
+    pub fn preview_ripple_trim(
+        &self,
+        clip_id: i32,
+        edge: TrimEdge,
+        delta_frames: i32,
+        minimum_duration_frames: i32,
+    ) -> Result<Vec<ClipGeometryUpdate>, String> {
+        plan_clip_ripple_trim(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            edge,
+            delta_frames,
+            minimum_duration_frames,
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    /// Trims one edge and closes the gap by shifting everything after the clip on the layer.
+    pub fn ripple_trim_clip(
+        &mut self,
+        clip_id: i32,
+        edge: TrimEdge,
+        delta_frames: i32,
+        minimum_duration_frames: i32,
+    ) -> bool {
+        match self.preview_ripple_trim(clip_id, edge, delta_frames, minimum_duration_frames) {
+            Ok(updates) => self.execute_geometry_updates(updates),
+            Err(error) => {
+                self.status = error;
+                false
+            }
+        }
+    }
+
+    /// Moves the shared cut between two adjacent clips. Both clips must stay at least
+    /// `minimum_duration_frames` long, and the cut must have a neighbour on the dragged edge.
+    pub fn roll_clip_cut(
+        &mut self,
+        clip_id: i32,
+        edge: TrimEdge,
+        delta_frames: i32,
+        minimum_duration_frames: i32,
+    ) -> bool {
+        match plan_clip_roll(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            edge,
+            delta_frames,
+            minimum_duration_frames,
+        ) {
+            Ok(updates) => self.execute_geometry_updates(updates),
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
+    }
+
+    /// Moves a clip in time without changing its source range or duration. The two neighbours
+    /// absorb the change, so the clip stays between them.
+    pub fn slide_clip(&mut self, clip_id: i32, delta_frames: i32) -> bool {
+        match plan_clip_slide(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            delta_frames,
+        ) {
+            Ok(updates) => self.execute_geometry_updates(updates),
+            Err(error) => {
+                self.status = error.to_string();
+                false
+            }
+        }
+    }
+
+    /// Returns the new source in-point a slip would produce, or `None` when the clip has no
+    /// known source range to slip within.
+    pub fn plan_clip_slip_source_start(
+        &self,
+        clip_id: i32,
+        delta_frames: i32,
+        current_source_start_frames: i32,
+        source_duration_frames: Option<i32>,
+    ) -> Option<i32> {
+        plan_clip_slip(
+            &self.project.document,
+            self.selected_scene,
+            clip_id,
+            delta_frames,
+            current_source_start_frames,
+            source_duration_frames,
+        )
+        .ok()
+        .flatten()
     }
 
     pub fn toggle_layer_visibility(&mut self, layer: i32) -> bool {
@@ -3095,6 +3467,18 @@ fn keyframe_options_at(
         )
 }
 
+/// The interpolation options to write with a keyframe inserted at `frame`, taken from the point at
+/// or before it so a new keyframe inherits the segment it extends.
+///
+/// This is shared with the multi-object planner so a keyframe written by a multi-object edit
+/// carries exactly the same options a single-object edit would write.
+pub(crate) fn keyframe_options_for_points(
+    points: &[aviqtl_rust_core::api::KeyframePoint],
+    frame: i32,
+) -> Value {
+    keyframe_options_at(points, frame, "linear")
+}
+
 fn editable_keyframe_options_at(
     points: &[aviqtl_rust_core::api::KeyframePoint],
     frame: i32,
@@ -3178,7 +3562,8 @@ fn bounded_positive_f64(value: f64, maximum: f64, fallback: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aviqtl_rust_core::api::TimelineState;
+    use crate::timeline_interaction::TimelineDragKind;
+    use aviqtl_rust_core::api::{TimelineState, clip_midpoints};
 
     fn temporary_media_file(extension: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
@@ -3555,6 +3940,659 @@ mod tests {
         assert!(workspace.redo());
         assert_eq!(workspace.document().clips.len(), 5);
         assert_eq!(workspace.document_revision(), 3);
+    }
+
+    #[test]
+    fn media_bin_commands_add_deduplicate_and_undo_one_step() {
+        let mut workspace = workspace();
+        assert!(workspace.media_bin().is_empty(), "absence means never used");
+
+        let video = temporary_media_file("png");
+        let audio = temporary_media_file("wav");
+        // The same file twice plus a different file must yield two entries, not three.
+        let paths = [video.clone(), video.clone(), audio.clone()];
+        assert_eq!(workspace.add_media_to_bin(&paths, 60.0, 15), 2);
+        assert_eq!(workspace.status(), "Added 2 media file(s) to the bin");
+        let bin = workspace.media_bin();
+        assert_eq!(bin.entries().len(), 2, "the duplicate path collapses");
+
+        // Removing is one undo step and does not touch the timeline.
+        let clips = workspace.document().clips.len();
+        assert!(workspace.remove_media_from_bin(bin.entries()[0].id));
+        assert_eq!(workspace.media_bin().entries().len(), 1);
+        assert_eq!(workspace.document().clips.len(), clips);
+        assert!(workspace.undo());
+        assert_eq!(workspace.media_bin().entries().len(), 2);
+        assert!(workspace.redo());
+        assert_eq!(workspace.media_bin().entries().len(), 1);
+
+        for path in [video, audio] {
+            std::fs::remove_file(path).expect("temporary media placeholder is removable");
+        }
+    }
+
+    #[test]
+    fn media_bin_ranges_clamp_and_missing_entries_are_reported() {
+        let mut workspace = workspace();
+        let path = temporary_media_file("png");
+        assert_eq!(
+            workspace.add_media_to_bin(std::slice::from_ref(&path), 60.0, 40),
+            1
+        );
+        let id = workspace.media_bin().entries()[0].id;
+
+        // An in point beyond the out point is pulled back rather than rejected.
+        assert!(workspace.set_media_bin_range(id, None, Some(10)));
+        assert!(workspace.set_media_bin_range(id, Some(30), None));
+        let entry = workspace.media_bin();
+        let entry = entry.entry(id).expect("entry exists");
+        assert_eq!((entry.in_frame, entry.out_frame), (9, 10));
+        assert_eq!(entry.range_frames(), 1);
+
+        assert!(!workspace.set_media_bin_range(999, Some(0), Some(1)));
+        assert!(workspace.status().contains("cannot use that range"));
+
+        // A vanished file is reported, not silently dropped from the bin.
+        std::fs::remove_file(&path).expect("temporary media placeholder is removable");
+        let bin = workspace.media_bin();
+        assert!(
+            bin.entry(id)
+                .expect("a missing entry is kept")
+                .is_missing(None),
+            "the entry is retained so it can be relinked"
+        );
+    }
+
+    #[test]
+    fn media_bin_groups_assign_an_entry_to_at_most_one_group() {
+        let mut workspace = workspace();
+        let path = temporary_media_file("png");
+        workspace.add_media_to_bin(std::slice::from_ref(&path), 60.0, 30);
+        let entry_id = workspace.media_bin().entries()[0].id;
+
+        let first = workspace
+            .create_media_bin_group("Footage")
+            .expect("group created");
+        let second = workspace
+            .create_media_bin_group("Music")
+            .expect("group created");
+        assert!(workspace.assign_media_to_bin_group(entry_id, first));
+        assert!(workspace.assign_media_to_bin_group(entry_id, second));
+
+        let bin = workspace.media_bin();
+        assert_eq!(bin.bins()[0].entry_ids, Vec::<i32>::new());
+        assert_eq!(bin.bins()[1].entry_ids, [entry_id]);
+
+        // Removing one group keeps the entry and leaves the other group intact.
+        assert!(workspace.remove_media_bin_group(second));
+        let bin = workspace.media_bin();
+        assert_eq!(bin.entries().len(), 1);
+        assert_eq!(bin.bins().len(), 1);
+        assert_eq!(bin.bins()[0].id, first);
+
+        std::fs::remove_file(path).expect("temporary media placeholder is removable");
+    }
+
+    #[test]
+    fn a_project_without_a_bin_is_byte_identical_after_loading() {
+        let workspace = workspace();
+        let document = workspace.document();
+        assert!(
+            !document.extra.contains_key("mediaBin"),
+            "loading must not synthesise an empty bin key"
+        );
+    }
+
+    #[test]
+    fn object_midpoint_commands_undo_one_step_and_reject_fixed_frames() {
+        let mut workspace = workspace();
+        assert!(workspace.add_clip_midpoint(1, 5));
+        assert!(workspace.add_clip_midpoint(1, 12));
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5, 12]);
+
+        // A rejected request changes nothing and pushes no undo entry.
+        let revision = workspace.document_revision();
+        assert!(!workspace.add_clip_midpoint(1, 12), "duplicate");
+        assert!(!workspace.add_clip_midpoint(1, 0), "frame zero");
+        assert!(!workspace.add_clip_midpoint(1, 20), "duration endpoint");
+        assert!(!workspace.remove_clip_midpoint(1, 9), "absent");
+        assert_eq!(workspace.document_revision(), revision);
+        assert!(workspace.status().contains("cannot be used as a midpoint"));
+
+        assert!(workspace.move_clip_midpoint(1, 12, 15));
+        assert!(!workspace.move_clip_midpoint(1, 5, 20), "onto the endpoint");
+        assert!(workspace.status().contains("cannot move"));
+
+        // Two adds plus one move are three undo entries, each restoring exactly one step.
+        assert!(workspace.undo());
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5, 12]);
+        assert!(workspace.undo());
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5]);
+        assert!(workspace.undo());
+        assert!(clip_midpoints(&workspace.document().clips[0]).is_empty());
+        assert!(!workspace.undo(), "history is exhausted");
+
+        // Removing the last midpoint returns the clip to its pre-feature representation.
+        assert!(workspace.add_clip_midpoint(1, 7));
+        assert!(workspace.remove_clip_midpoint(1, 7));
+        assert!(
+            !workspace.document().clips[0]
+                .extra
+                .contains_key("midpoints")
+        );
+    }
+
+    #[test]
+    fn object_midpoint_commands_reject_other_scenes_and_locked_layers() {
+        let mut workspace = workspace();
+        assert!(
+            !workspace.add_clip_midpoint(3, 5),
+            "clip is in another scene"
+        );
+        assert!(workspace.status().contains("does not exist"));
+        assert!(!workspace.add_clip_midpoint(99, 5), "unknown clip");
+
+        assert!(workspace.toggle_layer_lock(0));
+        assert!(!workspace.add_clip_midpoint(1, 5), "locked layer");
+        assert!(workspace.status().contains("is locked"));
+    }
+
+    #[test]
+    fn object_midpoints_follow_clip_geometry_and_split() {
+        let mut workspace = workspace();
+        workspace.click_clip(1, false);
+        assert!(workspace.add_clip_midpoint(1, 5));
+        assert!(workspace.add_clip_midpoint(1, 15));
+
+        // Trimming the tail to 16 frames keeps both midpoints because 15 still fits.
+        let trim_end = TimelineDragRequest {
+            anchor_clip_id: 1,
+            kind: TimelineDragKind::TrimEnd,
+            delta_pixels: (-4.0, 0.0),
+            pixels_per_frame: 1.0,
+            layer_height: 20.0,
+            minimum_duration_frames: 1,
+            maximum_layers: 128,
+            ignore_snap: true,
+        };
+        assert!(workspace.drag_selected_clips(trim_end));
+        assert_eq!(clip_midpoints(&workspace.document().clips[0]), [5, 15]);
+
+        // A split divides the list between the halves. Splitting at 10 gives the midpoint at 5 to
+        // the first half; the midpoint at 15 opens the second half at its own frame 5.
+        let before_ids: Vec<i32> = workspace
+            .document()
+            .clips
+            .iter()
+            .map(|clip| clip.id)
+            .collect();
+        assert!(workspace.split_clip(1, 10));
+        let first = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == 1)
+            .expect("the first half keeps the original id");
+        let second_id = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| !before_ids.contains(&clip.id))
+            .expect("the split created a new clip")
+            .id;
+        let second = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == second_id)
+            .expect("the second half is present");
+        assert_eq!(clip_midpoints(first), [5]);
+        assert_eq!(clip_midpoints(second), [5]);
+    }
+
+    #[test]
+    fn trimming_below_a_midpoint_drops_it() {
+        let mut workspace = workspace();
+        workspace.click_clip(1, false);
+        assert!(workspace.add_clip_midpoint(1, 15));
+        let trim_end = TimelineDragRequest {
+            anchor_clip_id: 1,
+            kind: TimelineDragKind::TrimEnd,
+            delta_pixels: (-9.0, 0.0),
+            pixels_per_frame: 1.0,
+            layer_height: 20.0,
+            minimum_duration_frames: 1,
+            maximum_layers: 128,
+            ignore_snap: true,
+        };
+        assert!(workspace.drag_selected_clips(trim_end));
+        assert_eq!(workspace.document().clips[0].duration, 11);
+        assert!(clip_midpoints(&workspace.document().clips[0]).is_empty());
+    }
+
+    /// A three-clip abutting row on one layer of one scene. Roll and slide need neighbours on
+    /// both sides of the anchor, and ripple needs a tail, so no single existing fixture covers
+    /// all four trim tools.
+    fn workspace_with_row() -> WorkspaceModel {
+        let state = TimelineState::from_json(
+            br#"{
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+                "scenes": [{"id": 1, "name": "Root", "duration": 300}],
+                "clips": [
+                    {"id": 1, "sceneId": 1, "type": "rect", "start": 0, "duration": 10, "layer": 0},
+                    {"id": 2, "sceneId": 1, "type": "rect", "start": 10, "duration": 20, "layer": 0},
+                    {"id": 3, "sceneId": 1, "type": "rect", "start": 30, "duration": 10, "layer": 0}
+                ]
+            }"#,
+        )
+        .expect("row workspace fixture loads");
+        let document = state.snapshot();
+        WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        })
+    }
+
+    fn geometry(workspace: &WorkspaceModel, clip_id: i32) -> (i32, i32) {
+        let clip = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+            .expect("clip is present");
+        (clip.start, clip.duration)
+    }
+
+    #[test]
+    fn ripple_trim_shifts_the_tail_and_undoes_in_one_step() {
+        let mut workspace = workspace_with_row();
+
+        // The preview and the commit call the same planner, so the outlined destination is
+        // exactly what the edit produces.
+        let preview = workspace
+            .preview_ripple_trim(2, TrimEdge::End, -5, 1)
+            .expect("ripple previews");
+        assert_eq!(geometry(&workspace, 2), (10, 20), "preview commits nothing");
+        assert_eq!(
+            preview.len(),
+            2,
+            "only the anchor and its tail are reported"
+        );
+        assert_eq!(
+            (preview[0].clip_id, preview[0].start, preview[0].duration),
+            (2, 10, 15)
+        );
+        assert_eq!(
+            (preview[1].clip_id, preview[1].start, preview[1].duration),
+            (3, 25, 10)
+        );
+
+        assert!(workspace.ripple_trim_clip(2, TrimEdge::End, -5, 1));
+        assert_eq!(geometry(&workspace, 2), (10, 15));
+        assert_eq!(geometry(&workspace, 3), (25, 10));
+        assert_eq!(
+            geometry(&workspace, 1),
+            (0, 10),
+            "clips before the anchor keep their geometry"
+        );
+
+        // The anchor and the tail are one transaction, so one undo restores both.
+        assert!(workspace.undo());
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+        assert_eq!(geometry(&workspace, 3), (30, 10));
+        assert!(!workspace.undo(), "one edit means one undo entry");
+    }
+
+    #[test]
+    fn ripple_trim_is_a_no_op_without_a_delta_and_rejects_locked_layers() {
+        let mut workspace = workspace_with_row();
+        let revision = workspace.document_revision();
+
+        assert!(
+            !workspace.ripple_trim_clip(2, TrimEdge::End, 0, 1),
+            "no delta"
+        );
+        assert_eq!(workspace.document_revision(), revision, "no undo entry");
+
+        assert!(workspace.toggle_layer_lock(0));
+        assert!(
+            !workspace.ripple_trim_clip(2, TrimEdge::End, -5, 1),
+            "locked layer"
+        );
+        assert!(workspace.status().contains("invalid timeline operation"));
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+    }
+
+    #[test]
+    fn roll_moves_the_shared_cut_and_keeps_the_outer_edges() {
+        let mut workspace = workspace_with_row();
+
+        assert!(workspace.roll_clip_cut(2, TrimEdge::End, 5, 1));
+        assert_eq!(geometry(&workspace, 1), (0, 10), "outer edge stays put");
+        assert_eq!(geometry(&workspace, 2), (10, 25), "the anchor grows");
+        assert_eq!(geometry(&workspace, 3), (35, 5), "the neighbour shrinks");
+
+        // Moving the cut the other way is the mirror image: the cut at 35 slides back to 30, so
+        // the anchor gives the same five frames to its neighbour and the row is restored.
+        assert!(workspace.roll_clip_cut(2, TrimEdge::End, -5, 1));
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+        assert_eq!(geometry(&workspace, 3), (30, 10));
+        assert_eq!(
+            workspace.document_revision(),
+            2,
+            "each roll is its own undo entry"
+        );
+
+        // Rolling far enough to consume the anchor itself is rejected, not clamped, so the cut
+        // never silently reduces a clip to nothing.
+        let revision = workspace.document_revision();
+        assert!(
+            !workspace.roll_clip_cut(2, TrimEdge::End, -20, 1),
+            "below minimum"
+        );
+        assert_eq!(workspace.document_revision(), revision);
+        assert_eq!(geometry(&workspace, 3), (30, 10));
+        // One frame of the anchor left is still legal, and the neighbour absorbs all of it.
+        assert!(workspace.roll_clip_cut(2, TrimEdge::End, -19, 1));
+        assert_eq!(
+            geometry(&workspace, 2),
+            (10, 1),
+            "the anchor keeps one frame"
+        );
+        assert_eq!(
+            geometry(&workspace, 3),
+            (11, 29),
+            "the neighbour absorbs the rest"
+        );
+
+        // An edge with no neighbour on it is a free end, not a cut.
+        assert!(
+            !workspace.roll_clip_cut(1, TrimEdge::Start, 5, 1),
+            "no neighbour"
+        );
+        assert!(
+            !workspace.roll_clip_cut(99, TrimEdge::End, 5, 1),
+            "unknown clip"
+        );
+    }
+
+    #[test]
+    fn slide_keeps_the_duration_and_stays_between_its_neighbours() {
+        let mut workspace = workspace_with_row();
+
+        assert!(workspace.slide_clip(2, 4));
+        assert_eq!(geometry(&workspace, 1), (0, 14), "the row closes behind");
+        assert_eq!(
+            geometry(&workspace, 2),
+            (14, 20),
+            "duration and source are kept"
+        );
+        assert_eq!(geometry(&workspace, 3), (34, 6), "the row opens ahead");
+
+        assert!(workspace.undo());
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+
+        // The slide is bounded by both neighbours, and neither neighbour may be consumed
+        // entirely, so a move past either end clamps to a range that leaves one frame behind.
+        assert!(workspace.slide_clip(2, 99));
+        assert_eq!(
+            geometry(&workspace, 2),
+            (19, 20),
+            "clamped to the next clip"
+        );
+        assert_eq!(
+            geometry(&workspace, 3),
+            (39, 1),
+            "the neighbour keeps one frame"
+        );
+        assert!(workspace.undo());
+
+        assert!(workspace.slide_clip(2, -99));
+        assert_eq!(
+            geometry(&workspace, 2),
+            (1, 20),
+            "clamped to the previous clip"
+        );
+        assert_eq!(
+            geometry(&workspace, 1),
+            (0, 1),
+            "the neighbour keeps one frame"
+        );
+        assert!(workspace.undo());
+
+        // A clip at either end of the row has no neighbour on one side, so it cannot slide.
+        assert!(!workspace.slide_clip(1, 5), "no previous neighbour");
+        assert!(!workspace.slide_clip(3, -5), "no next neighbour");
+
+        assert!(workspace.toggle_layer_lock(0));
+        assert!(!workspace.slide_clip(2, 5), "locked layer");
+    }
+
+    #[test]
+    fn slip_reports_no_change_without_a_known_source_and_clamps_inside_the_source() {
+        let workspace = workspace_with_row();
+
+        // Clip 2 is 20 frames long on a 40-frame source, so a legal in-point is 0..=20.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 10, 0, Some(40)),
+            Some(10)
+        );
+        // Past the end of the source the in-point clamps to the last legal frame.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 21, 0, Some(40)),
+            Some(20)
+        );
+        // Before the start it clamps to zero.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, -10, 5, Some(40)),
+            Some(0)
+        );
+
+        // Without a source length there is no safe bound, so the tool reports no change instead
+        // of guessing one.
+        assert_eq!(workspace.plan_clip_slip_source_start(2, 10, 0, None), None);
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 10, 0, Some(0)),
+            None
+        );
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 0, 0, Some(40)),
+            None
+        );
+        // Already at the bound, so another step the same way changes nothing.
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(2, 5, 20, Some(40)),
+            None
+        );
+        assert_eq!(
+            workspace.plan_clip_slip_source_start(99, 5, 0, Some(40)),
+            None
+        );
+
+        // A slip is a source-only edit: the planner returns a number and never touches the
+        // document, so no transaction and no undo entry exist.
+        assert_eq!(workspace.document_revision(), 0);
+        assert_eq!(geometry(&workspace, 2), (10, 20));
+    }
+
+    /// Two objects holding the same effect with different `count` values, so the selection reads
+    /// as mixed, plus a third object on a locked layer.
+    fn workspace_with_selection() -> WorkspaceModel {
+        let state = TimelineState::from_json(
+            br#"{
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+                "scenes": [{"id": 1, "name": "Root", "duration": 300, "lockedLayers": [1]}],
+                "clips": [
+                    {"id": 1, "sceneId": 1, "type": "rect", "start": 0, "duration": 100, "layer": 0,
+                     "effects": [{"id": "rect", "name": "Rectangle", "params": {"count": 5}}]},
+                    {"id": 2, "sceneId": 1, "type": "rect", "start": 0, "duration": 100, "layer": 0,
+                     "effects": [{"id": "rect", "name": "Rectangle", "params": {"count": 9}}]},
+                    {"id": 3, "sceneId": 1, "type": "rect", "start": 0, "duration": 100, "layer": 1,
+                     "effects": [{"id": "rect", "name": "Rectangle", "params": {"count": 2}}]}
+                ]
+            }"#,
+        )
+        .expect("selection workspace fixture loads");
+        let document = state.snapshot();
+        WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        })
+    }
+
+    fn rect_count(workspace: &WorkspaceModel, clip_id: i32) -> i64 {
+        workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+            .and_then(|clip| clip.effects.first())
+            .and_then(|effect| effect.params.get("count"))
+            .and_then(Value::as_i64)
+            .expect("count is a plain integer on this fixture")
+    }
+
+    #[test]
+    fn a_multi_object_edit_is_one_undo_step_that_restores_every_object() {
+        let mut workspace = workspace_with_selection();
+        workspace.selection.replace([2, 1]);
+
+        // The two objects disagree, so the control reads as mixed and shows the first value in
+        // document order rather than the selection's primary.
+        let state = workspace.selection_param_state("rect", "count");
+        assert!(state.is_mixed());
+        assert_eq!(state.display_value().and_then(Value::as_i64), Some(5));
+
+        let applied = workspace
+            .set_selection_param("rect", "count", json!(7))
+            .expect("the selection is editable");
+        assert_eq!(applied.selected_objects, 2);
+        assert_eq!(applied.edited_objects, 2);
+        assert_eq!(applied.skipped_objects(), 0);
+        assert_eq!(rect_count(&workspace, 1), 7);
+        assert_eq!(rect_count(&workspace, 2), 7);
+        assert!(workspace.status().contains("Applied to 2 object(s)"));
+
+        // One gesture, one undo entry, and it restores both objects together.
+        assert!(workspace.undo());
+        assert_eq!(rect_count(&workspace, 1), 5);
+        assert_eq!(rect_count(&workspace, 2), 9);
+        assert!(!workspace.undo(), "history is exhausted");
+    }
+
+    #[test]
+    fn a_multi_object_edit_skips_locked_and_absent_objects_without_failing() {
+        let mut workspace = workspace_with_selection();
+        // Select all three: one is locked, so the other two are still edited.
+        workspace.selection.replace([1, 2, 3]);
+
+        let applied = workspace
+            .set_selection_param("rect", "count", json!(7))
+            .expect("the unlocked objects are still editable");
+        assert_eq!(applied.selected_objects, 3);
+        assert_eq!(applied.edited_objects, 2);
+        assert_eq!(
+            applied.locked_objects, 1,
+            "the locked object keeps its value"
+        );
+        assert_eq!(
+            rect_count(&workspace, 3),
+            2,
+            "the locked object is untouched"
+        );
+        assert!(workspace.status().contains("skipped 1"));
+
+        assert!(workspace.undo());
+        assert_eq!(rect_count(&workspace, 1), 5);
+
+        // A parameter no selected object has edits nothing and pushes no undo entry.
+        workspace.selection.replace([1, 2]);
+        let revision = workspace.document_revision();
+        assert!(
+            workspace
+                .set_selection_param("blur", "size", json!(4))
+                .is_none(),
+            "no object carries this effect"
+        );
+        assert_eq!(workspace.document_revision(), revision);
+        assert!(workspace.status().contains("No editable object"));
+
+        // Writing a value the whole selection already agrees on is not an edit. Clip 2 still
+        // differs at this point, so resolve it first.
+        assert!(
+            workspace
+                .set_selection_param("rect", "count", json!(5))
+                .is_some(),
+            "clip 2 still differs, so this is an edit"
+        );
+        assert!(workspace.undo());
+
+        // Resolve the selection so both objects hold the same value, then write it again.
+        workspace
+            .set_selection_param("rect", "count", json!(9))
+            .expect("both objects move to 9");
+        let revision = workspace.document_revision();
+        assert_eq!(rect_count(&workspace, 1), 9);
+        assert_eq!(rect_count(&workspace, 2), 9);
+        assert!(
+            workspace
+                .set_selection_param("rect", "count", json!(9))
+                .is_none(),
+            "the selection already holds this value, so nothing changes"
+        );
+        assert_eq!(
+            workspace.document_revision(),
+            revision,
+            "a no-op pushes no undo entry"
+        );
+    }
+
+    #[test]
+    fn an_unselected_object_is_never_touched_by_a_selection_edit() {
+        let mut workspace = workspace_with_selection();
+        workspace.selection.replace([1]);
+
+        let applied = workspace
+            .set_selection_param("rect", "count", json!(7))
+            .expect("the single selected object is editable");
+        assert_eq!(applied.selected_objects, 1);
+        assert_eq!(rect_count(&workspace, 1), 7);
+        assert_eq!(
+            rect_count(&workspace, 2),
+            9,
+            "an unselected object is not in scope"
+        );
+        assert_eq!(rect_count(&workspace, 3), 2);
+    }
+
+    #[test]
+    fn a_selection_edit_is_documented_as_identical_to_editing_each_object_alone() {
+        // Multi-object editing is a presentation-layer capability over the existing per-object
+        // commands, so a project edited through it must be byte-identical to the same edits made
+        // one object at a time. This is the compatibility claim the design makes, so it is
+        // asserted rather than assumed.
+        let mut together = workspace_with_selection();
+        together.selection.replace([2, 1]);
+        together
+            .set_selection_param("rect", "count", json!(7))
+            .expect("edited");
+
+        let mut one_at_a_time = workspace_with_selection();
+        one_at_a_time.selection.replace([1]);
+        assert!(one_at_a_time.set_effect_param_for_clip(1, 0, "count", json!(7)));
+        one_at_a_time.selection.replace([2]);
+        assert!(one_at_a_time.set_effect_param_for_clip(2, 0, "count", json!(7)));
+
+        assert_eq!(
+            serde_json::to_string(&together.document()).expect("document serializes"),
+            serde_json::to_string(&one_at_a_time.document()).expect("document serializes"),
+        );
     }
 
     #[test]

@@ -45,6 +45,39 @@ The ignored tests cover four FFmpeg integrations, two Carla integrations, and
 one hardware GPU test. They were not explicitly run for this source-only
 refactoring. Qt compilation and interactive desktop validation were not run.
 
+## Batch 4 editing model
+
+Four AviUtl editing capabilities are now implemented as framework-neutral model
+layers in `aviqtl-core` and `aviqtl-app`, with the design and compatibility rules
+recorded in [the batch 4 design document](../docs/batch4-design.md) before any of
+it was wired to a window. None of it requires a GPU-backed adapter.
+
+- **Object midpoints** are stored in a clip's extra fields under `midpoints` and
+  exposed through the `SetClipMidpoints` command, so undo is the ordinary
+  whole-value snapshot. Geometry changes shift them and a split divides them
+  across both halves. They are markers only: ExEdit's per-parameter track shear is
+  a separate step that needs the desktop suite, so AviUtl midpoint compatibility
+  is not claimed.
+- **The media bin** is a `mediaBin` document key holding entries and flat groups.
+  It never owns the timeline: removing an entry touches no clip, and a missing
+  file is reported rather than dropped. Edits go through a new `SetProjectExtras`
+  command because `ReplaceDocument` deliberately discards a document's extras.
+- **Multi-object property editing** resolves each property across the selection
+  into Uniform, Mixed, or Absent, matching effects by catalog id rather than
+  index and skipping locked or absent objects instead of failing. It introduces
+  no persisted key, so a project edited through it is byte-identical to the same
+  edit made one object at a time, which a test asserts rather than assumes.
+- **The four trim tools** (ripple, roll, slide, slip) are opt-in per-command
+  planners over the existing clip geometry, so no new command variant was
+  needed. Preview and commit call the same planner. A ripple or magnetic default
+  was deliberately not introduced, because it would break AviUtl's
+  layered-subtitle muscle memory.
+
+Preview transform handles, the docked workspace, and every pixel-level
+affordance stay in the deferred native GUI suite: handle hit testing and
+coordinate mapping need a real window to verify, and free docking changes window
+ownership, GPU preview hosting, focus, and shortcut scope.
+
 ## Acceptance still pending
 
 The [Slint behavior checklist](aviqtl-slint/QT_UI_PARITY.md) remains the detailed

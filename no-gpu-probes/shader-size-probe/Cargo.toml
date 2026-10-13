@@ -1,0 +1,10 @@
+[package]
+name = "shader-size-probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pollster = "0.4"
+wgpu = { version = "29", default-features = false, features = ["std", "wgsl", "dx12"] }
+
+[workspace]

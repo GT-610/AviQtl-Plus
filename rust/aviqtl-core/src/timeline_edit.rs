@@ -298,6 +298,278 @@ pub(crate) fn clipboard_duration(clips: &[AviQtlTimelineClipGeometry]) -> i32 {
     clamp_i64(maximum_end.saturating_sub(minimum_start).max(0))
 }
 
+/// Which edge of a clip a trim tool acts on.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TrimEdge {
+    Start,
+    End,
+}
+
+/// Finds the clip that abuts `edge` of `clip` on the same layer, which is the neighbour a roll
+/// moves along with. Only a clip whose end equals the anchor's start, or whose start equals the
+/// anchor's end, counts as adjacent.
+fn find_adjacent(
+    clips: &[AviQtlTimelineClipGeometry],
+    clip: &AviQtlTimelineClipGeometry,
+    edge: TrimEdge,
+) -> Option<AviQtlTimelineClipGeometry> {
+    let anchor_start = i64::from(clip.start_frame);
+    let anchor_end = clip_end(clip);
+    clips.iter().copied().find(|candidate| {
+        candidate.clip_id != clip.clip_id
+            && candidate.layer == clip.layer
+            && match edge {
+                TrimEdge::Start => clip_end(candidate) == anchor_start,
+                TrimEdge::End => i64::from(candidate.start_frame) == anchor_end,
+            }
+    })
+}
+
+/// Plans a **ripple** trim: the dragged edge moves, and everything strictly after the clip on
+/// the same layer shifts by the amount the clip's length changed, so no gap opens.
+///
+/// Only clips whose geometry actually changes are returned, so a caller applying the plan as a
+/// diff never rewrites untouched clips. The trim keeps the anchor's positive-duration floor, and
+/// a tail shift that would collide is rejected rather than silently overwriting a clip.
+pub(crate) fn plan_ripple_trim(
+    clips: &[AviQtlTimelineClipGeometry],
+    clip_id: i32,
+    edge: TrimEdge,
+    delta_frames: i32,
+    minimum_duration_frames: i32,
+) -> Result<Vec<AviQtlTimelineClipGeometry>, u32> {
+    let Some(anchor) = clips.iter().copied().find(|clip| clip.clip_id == clip_id) else {
+        return Err(STATUS_INVALID_ARGUMENT);
+    };
+    if delta_frames == 0 {
+        return Ok(Vec::new());
+    }
+    let minimum = minimum_duration_frames.max(1);
+    let anchor_start = i64::from(anchor.start_frame);
+    let anchor_end = clip_end(&anchor);
+
+    // The dragged edge moves by the requested delta, bounded so the clip keeps at least the
+    // minimum duration. For the start edge the clip's end stays put, so only its start moves.
+    let (trimmed_start, trimmed_duration) = match edge {
+        TrimEdge::Start => {
+            let latest = anchor_end - i64::from(minimum);
+            let delta = i64::from(delta_frames)
+                .min(latest - anchor_start)
+                .max(-anchor_start);
+            (
+                clamp_i64(anchor_start + delta),
+                (anchor_end - anchor_start - delta) as i32,
+            )
+        }
+        TrimEdge::End => {
+            let earliest = anchor_start + i64::from(minimum);
+            let delta = i64::from(delta_frames).max(earliest - anchor_end);
+            (
+                anchor.start_frame,
+                (anchor_end + delta - anchor_start) as i32,
+            )
+        }
+    };
+    if trimmed_duration < minimum {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+
+    // The tail follows the anchor's trimmed end, not its length change: a start trim keeps the
+    // end in place, so the tail stays put and no gap or overlap opens, while an end trim moves
+    // the end and the tail closes the resulting gap. The collision boundary starts at that same
+    // trimmed end, so a shifted clip cannot run into the anchor or its predecessor.
+    let trimmed_end = i64::from(trimmed_start) + i64::from(trimmed_duration);
+    let change = trimmed_end - anchor_end;
+    let mut planned = vec![AviQtlTimelineClipGeometry {
+        clip_id: anchor.clip_id,
+        layer: anchor.layer,
+        start_frame: trimmed_start,
+        duration_frames: trimmed_duration,
+    }];
+    if change == 0 {
+        return Ok(planned);
+    }
+
+    // Everything strictly after the clip on the layer moves by the same delta. The tail is
+    // validated in order so a shift cannot run a clip into its predecessor.
+    let mut tail: Vec<_> = clips
+        .iter()
+        .copied()
+        .filter(|clip| {
+            clip.layer == anchor.layer
+                && i64::from(clip.start_frame) >= anchor_end
+                && clip.clip_id != anchor.clip_id
+        })
+        .collect();
+    tail.sort_by_key(|clip| clip.start_frame);
+    let mut boundary = trimmed_end;
+    for clip in tail {
+        let start = i64::from(clip.start_frame) + change;
+        if start < boundary {
+            return Err(STATUS_INVALID_ARGUMENT);
+        }
+        planned.push(AviQtlTimelineClipGeometry {
+            clip_id: clip.clip_id,
+            layer: clip.layer,
+            start_frame: clamp_i64(start),
+            duration_frames: clip.duration_frames,
+        });
+        boundary = start + i64::from(clip.duration_frames.max(0));
+    }
+    Ok(planned)
+}
+
+/// Plans a **roll**: the shared cut between two adjacent clips moves. Both clips keep their
+/// outer edges, so the cut shifts by `delta_frames` and each side changes duration by the same
+/// amount in opposite directions.
+pub(crate) fn plan_roll(
+    clips: &[AviQtlTimelineClipGeometry],
+    clip_id: i32,
+    edge: TrimEdge,
+    delta_frames: i32,
+    minimum_duration_frames: i32,
+) -> Result<Vec<AviQtlTimelineClipGeometry>, u32> {
+    if delta_frames == 0 {
+        return Ok(Vec::new());
+    }
+    let Some(anchor) = clips.iter().copied().find(|clip| clip.clip_id == clip_id) else {
+        return Err(STATUS_INVALID_ARGUMENT);
+    };
+    let Some(neighbour) = find_adjacent(clips, &anchor, edge) else {
+        return Err(STATUS_INVALID_ARGUMENT);
+    };
+    let minimum = minimum_duration_frames.max(1);
+    let delta = i64::from(delta_frames);
+
+    // Moving the cut later grows the earlier clip and shrinks the later one, and vice versa.
+    let new_cut = match edge {
+        TrimEdge::Start => clip_end(&neighbour) + delta,
+        TrimEdge::End => clip_end(&anchor) + delta,
+    };
+    let (earlier, later) = if edge == TrimEdge::Start {
+        (neighbour, anchor)
+    } else {
+        (anchor, neighbour)
+    };
+    let new_earlier_duration = new_cut - i64::from(earlier.start_frame);
+    let new_later_duration = clip_end(&later) - new_cut;
+    if new_earlier_duration < i64::from(minimum) || new_later_duration < i64::from(minimum) {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+    if new_cut < 0 {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+
+    Ok(vec![
+        AviQtlTimelineClipGeometry {
+            clip_id: earlier.clip_id,
+            layer: earlier.layer,
+            start_frame: earlier.start_frame,
+            duration_frames: clamp_i64(new_earlier_duration),
+        },
+        AviQtlTimelineClipGeometry {
+            clip_id: later.clip_id,
+            layer: later.layer,
+            start_frame: clamp_i64(new_cut),
+            duration_frames: clamp_i64(new_later_duration),
+        },
+    ])
+}
+
+/// Plans a **slide**: the clip keeps its duration and its source range, but moves in time. The
+/// clip before it grows to fill the vacated gap and the clip after it shrinks, so neither gap
+/// changes.
+pub(crate) fn plan_slide(
+    clips: &[AviQtlTimelineClipGeometry],
+    clip_id: i32,
+    delta_frames: i32,
+) -> Result<Vec<AviQtlTimelineClipGeometry>, u32> {
+    if delta_frames == 0 {
+        return Ok(Vec::new());
+    }
+    let Some(anchor) = clips.iter().copied().find(|clip| clip.clip_id == clip_id) else {
+        return Err(STATUS_INVALID_ARGUMENT);
+    };
+    let Some(previous) = find_adjacent(clips, &anchor, TrimEdge::Start) else {
+        return Err(STATUS_INVALID_ARGUMENT);
+    };
+    let Some(next) = find_adjacent(clips, &anchor, TrimEdge::End) else {
+        return Err(STATUS_INVALID_ARGUMENT);
+    };
+    let delta = i64::from(delta_frames);
+    // The slide is bounded by the row of neighbours on both sides: the previous clip and the next
+    // clip must each keep at least one frame, because a zero-length clip cannot be placed on the
+    // timeline at all. So the anchor's new start stays after the previous clip's start and its new
+    // end stays at least one frame before the next clip's end.
+    let earliest_start = i64::from(previous.start_frame) + 1;
+    let latest_end = clip_end(&next) - 1;
+    let latest_start = latest_end - i64::from(anchor.duration_frames);
+    // A row with no room at all leaves the anchor pinned between two one-frame neighbours. There
+    // is nothing to move, so the planner reports no change rather than an error, and no undo entry
+    // is created for a gesture that does nothing.
+    if latest_start < earliest_start
+        || (i64::from(anchor.start_frame) + delta)
+            .clamp(earliest_start, latest_start.max(earliest_start))
+            == i64::from(anchor.start_frame)
+    {
+        return Ok(Vec::new());
+    }
+    let start = (i64::from(anchor.start_frame) + delta).clamp(earliest_start, latest_start);
+    if start < earliest_start {
+        return Err(STATUS_INVALID_ARGUMENT);
+    }
+    let end = start + i64::from(anchor.duration_frames);
+    Ok(vec![
+        AviQtlTimelineClipGeometry {
+            clip_id: previous.clip_id,
+            layer: previous.layer,
+            start_frame: previous.start_frame,
+            duration_frames: clamp_i64(start - i64::from(previous.start_frame)),
+        },
+        AviQtlTimelineClipGeometry {
+            clip_id: anchor.clip_id,
+            layer: anchor.layer,
+            start_frame: clamp_i64(start),
+            duration_frames: anchor.duration_frames,
+        },
+        AviQtlTimelineClipGeometry {
+            clip_id: next.clip_id,
+            layer: next.layer,
+            start_frame: clamp_i64(end),
+            duration_frames: clamp_i64(clip_end(&next) - end),
+        },
+    ])
+}
+
+/// Plans a **slip**: the clip keeps its timeline span and duration, only its source in-point
+/// moves.
+///
+/// The new in-point is derived from the caller's current in-point and the requested delta and is
+/// then bounded to `0 <= in <= source_duration - clip_duration`, so the selected range always
+/// stays inside the source. The caller must supply the source length; without one there is no
+/// safe bound, so the planner reports no change rather than guessing a range.
+pub(crate) fn plan_slip(
+    current_source_start_frames: i32,
+    delta_frames: i32,
+    clip_duration_frames: i32,
+    source_duration_frames: Option<i32>,
+) -> Option<i32> {
+    if delta_frames == 0 {
+        return None;
+    }
+    let source_duration = source_duration_frames.filter(|frames| *frames > 0)?;
+    let clip_frames = clip_duration_frames.clamp(1, i32::MAX);
+    let latest_start = source_duration.saturating_sub(clip_frames);
+    let new_start = i64::from(current_source_start_frames) + i64::from(delta_frames);
+    // A delta that would run off either end of the source is clamped to the nearest legal
+    // in-point, which is the standard slip behaviour.
+    let clamped = new_start.clamp(0, i64::from(latest_start.max(0)));
+    if clamped == i64::from(current_source_start_frames) {
+        return None;
+    }
+    Some(clamp_i64(clamped))
+}
+
 #[derive(Clone, Copy)]
 struct ClipboardLayout {
     minimum_start: i32,
@@ -1229,5 +1501,213 @@ mod tests {
         assert_eq!(first.duration_frames, 8);
         assert_eq!(second.start_frame, 18);
         assert_eq!(second.duration_frames, 12);
+    }
+
+    fn planned(clips: &[AviQtlTimelineClipGeometry]) -> Vec<(i32, i32, i32)> {
+        clips
+            .iter()
+            .map(|clip| (clip.clip_id, clip.start_frame, clip.duration_frames))
+            .collect()
+    }
+
+    #[test]
+    fn ripple_trim_closes_the_gap_behind_the_anchor() {
+        // Two clips precede the anchor on the layer; the second follows its original end.
+        let clips = [clip(1, 0, 0, 10), clip(3, 0, 10, 20), clip(4, 0, 30, 10)];
+
+        // Shortening the anchor by 5 shifts the tail earlier, so no gap opens. Clip 1 is not
+        // touched, so the planner reports only the clips it changed.
+        assert_eq!(
+            planned(&plan_ripple_trim(&clips, 3, TrimEdge::End, -5, 1).expect("ripple plans")),
+            [(3, 10, 15), (4, 25, 10)]
+        );
+
+        // Lengthening the anchor by 5 shifts the tail later.
+        assert_eq!(
+            planned(&plan_ripple_trim(&clips, 3, TrimEdge::End, 5, 1).expect("ripple plans")),
+            [(3, 10, 25), (4, 35, 10)]
+        );
+    }
+
+    #[test]
+    fn ripple_trim_from_the_start_edge_keeps_the_tail_in_place() {
+        let clips = [clip(1, 0, 0, 10), clip(3, 0, 10, 20), clip(4, 0, 30, 10)];
+        // Trimming the start by 4 moves the anchor's start to 14 while its end stays at 30, so the
+        // tail, which already abutted that end, does not move: only the anchor changes.
+        assert_eq!(
+            planned(&plan_ripple_trim(&clips, 3, TrimEdge::Start, 4, 1).expect("ripple plans")),
+            [(3, 14, 16)]
+        );
+
+        // The start edge is bounded by the anchor's own end, so a trim that would empty the clip
+        // is clamped to the minimum duration; the end stays put and the tail does not move.
+        assert_eq!(
+            planned(&plan_ripple_trim(&clips, 3, TrimEdge::Start, 19, 1).expect("clamped")),
+            [(3, 29, 1)]
+        );
+        assert!(plan_ripple_trim(&clips, 3, TrimEdge::Start, -40, 1).is_ok());
+
+        // The lower bound is frame zero, so trimming past the row's first frame is clamped and
+        // the tail does not move at all.
+        assert_eq!(
+            planned(&plan_ripple_trim(&clips, 1, TrimEdge::Start, -5, 1).expect("clamped")),
+            [(1, 0, 10)]
+        );
+    }
+
+    #[test]
+    fn ripple_trim_rejects_unknown_clips_and_no_ops() {
+        let clips = [clip(1, 0, 0, 10), clip(3, 0, 10, 20)];
+        assert!(plan_ripple_trim(&clips, 99, TrimEdge::End, 5, 1).is_err());
+        assert!(
+            plan_ripple_trim(&clips, 3, TrimEdge::End, 0, 1)
+                .unwrap()
+                .is_empty()
+        );
+
+        // Growing the anchor pushes the tail into its predecessor's end, so the plan is
+        // rejected rather than silently overlapping.
+        let colliding = [clip(1, 0, 0, 10), clip(2, 0, 10, 20), clip(3, 0, 29, 10)];
+        assert!(plan_ripple_trim(&colliding, 1, TrimEdge::End, 5, 1).is_err());
+        // The same row without the overlap is accepted.
+        let roomy = [clip(1, 0, 0, 10), clip(2, 0, 10, 20), clip(3, 0, 40, 10)];
+        assert!(plan_ripple_trim(&roomy, 1, TrimEdge::End, 5, 1).is_ok());
+    }
+
+    #[test]
+    fn roll_moves_the_shared_cut_and_keeps_outer_edges() {
+        // Clip 3 sits between two neighbours on the layer.
+        let clips = [clip(2, 0, 0, 10), clip(3, 0, 10, 20), clip(4, 0, 30, 10)];
+
+        // Rolling the start later moves the cut right: the previous clip grows, the anchor shrinks.
+        assert_eq!(
+            planned(&plan_roll(&clips, 3, TrimEdge::Start, 4, 1).expect("roll plans")),
+            [(2, 0, 14), (3, 14, 16)]
+        );
+
+        // Rolling the end later moves the right cut right: the anchor grows, the next shrinks.
+        assert_eq!(
+            planned(&plan_roll(&clips, 3, TrimEdge::End, 4, 1).expect("roll plans")),
+            [(3, 10, 24), (4, 34, 6)]
+        );
+    }
+
+    #[test]
+    fn roll_rejects_a_cut_without_a_neighbour_and_below_minimum_duration() {
+        let no_left = [clip(2, 0, 10, 20), clip(3, 0, 30, 10)];
+        assert!(plan_roll(&no_left, 2, TrimEdge::Start, 4, 1).is_err());
+
+        // Neither neighbour may be squeezed below the minimum duration.
+        let clips = [clip(1, 0, 0, 3), clip(2, 0, 3, 20), clip(3, 0, 23, 10)];
+        assert!(plan_roll(&clips, 2, TrimEdge::Start, -3, 5).is_err());
+        assert!(plan_roll(&clips, 2, TrimEdge::End, 60, 1).is_err());
+        assert!(plan_roll(&clips, 99, TrimEdge::End, 4, 1).is_err());
+        assert!(
+            plan_roll(&clips, 2, TrimEdge::End, 0, 1)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn slide_keeps_duration_and_absorbs_the_move_in_both_neighbours() {
+        // Clip 2 has both neighbours adjacent on the layer.
+        let clips = [clip(1, 0, 0, 10), clip(2, 0, 10, 20), clip(3, 0, 30, 10)];
+
+        // Sliding 4 frames later grows the previous clip and shrinks the next one; the total
+        // span from 0 to 40 is unchanged.
+        assert_eq!(
+            planned(&plan_slide(&clips, 2, 4).expect("slide plans")),
+            [(1, 0, 14), (2, 14, 20), (3, 34, 6)]
+        );
+
+        // Sliding earlier is the mirror image.
+        assert_eq!(
+            planned(&plan_slide(&clips, 2, -4).expect("slide plans")),
+            [(1, 0, 6), (2, 6, 20), (3, 26, 14)]
+        );
+    }
+
+    #[test]
+    fn slide_rejects_a_move_without_both_neighbours_or_out_of_bounds() {
+        // Missing the left neighbour.
+        let missing_left = [clip(2, 0, 10, 20), clip(3, 0, 30, 10)];
+        assert!(plan_slide(&missing_left, 2, 4).is_err());
+
+        // Missing the right neighbour.
+        let missing_right = [clip(1, 0, 0, 10), clip(2, 0, 10, 20)];
+        assert!(plan_slide(&missing_right, 2, 4).is_err());
+
+        // Neither end may leave the row of neighbours: a slide that would push the clip before
+        // the previous clip's start, or past the next clip's end, is clamped so that both
+        // neighbours keep at least one frame.
+        let clips = [clip(1, 0, 0, 10), clip(2, 0, 10, 20), clip(3, 0, 30, 10)];
+        assert_eq!(
+            planned(&plan_slide(&clips, 2, -6).expect("clamped to the previous clip")),
+            [(1, 0, 4), (2, 4, 20), (3, 24, 16)]
+        );
+        assert_eq!(
+            planned(&plan_slide(&clips, 2, 6).expect("clamped to the next clip")),
+            [(1, 0, 16), (2, 16, 20), (3, 36, 4)]
+        );
+        assert_eq!(
+            planned(&plan_slide(&clips, 2, -99).expect("clamped to the previous clip")),
+            [(1, 0, 1), (2, 1, 20), (3, 21, 19)]
+        );
+        assert_eq!(
+            planned(&plan_slide(&clips, 2, 99).expect("clamped to the next clip")),
+            [(1, 0, 19), (2, 19, 20), (3, 39, 1)]
+        );
+        assert!(plan_slide(&clips, 99, 4).is_err(), "unknown clip");
+        assert!(plan_slide(&clips, 2, 0).unwrap().is_empty(), "no-op");
+
+        // A row where the anchor is exactly as long as the space between its neighbours still has
+        // room, because only one frame has to survive on each side.
+        let tight = [clip(1, 0, 0, 10), clip(2, 0, 10, 10), clip(3, 0, 20, 10)];
+        assert_eq!(
+            planned(&plan_slide(&tight, 2, 1).expect("one frame of room on each side")),
+            [(1, 0, 11), (2, 11, 10), (3, 21, 9)]
+        );
+
+        // A row with no room at all pins the anchor between two one-frame neighbours. The
+        // previous clip starts one frame before the anchor and the next clip ends one frame after
+        // it, so there is nothing to move and the planner reports no change rather than an error,
+        // which also keeps a wedged row from pushing an undo entry.
+        let wedged = [clip(1, 0, 9, 1), clip(2, 0, 10, 20), clip(3, 0, 30, 1)];
+        assert!(
+            plan_slide(&wedged, 2, 1)
+                .expect("a wedged row is not an error")
+                .is_empty()
+        );
+        assert!(
+            plan_slide(&wedged, 2, -1)
+                .expect("a wedged row is not an error")
+                .is_empty()
+        );
+        assert!(
+            plan_slide(&tight, 2, 0).unwrap().is_empty(),
+            "no-op is still a no-op"
+        );
+    }
+
+    #[test]
+    fn slip_is_a_no_op_without_a_known_source_duration() {
+        // Without a source length there is no safe bound, so the tool reports no change.
+        assert_eq!(plan_slip(0, 5, 20, None), None);
+        assert_eq!(plan_slip(0, 5, 20, Some(0)), None);
+        assert_eq!(plan_slip(0, 0, 20, Some(100)), None);
+    }
+
+    #[test]
+    fn slip_bounds_the_new_in_point_inside_the_source() {
+        // A 20-frame clip on a 40-frame source may start between 0 and 20.
+        assert_eq!(plan_slip(0, 10, 20, Some(40)), Some(10));
+        // Running past the end of the source clamps to the last legal in-point.
+        assert_eq!(plan_slip(0, 21, 20, Some(40)), Some(20));
+        // Running before the start clamps to zero.
+        assert_eq!(plan_slip(5, -10, 20, Some(40)), Some(0));
+        // Already at the bound, the move changes nothing.
+        assert_eq!(plan_slip(0, -1, 20, Some(40)), None);
+        assert_eq!(plan_slip(20, 1, 20, Some(40)), None);
     }
 }
