@@ -1,0 +1,474 @@
+//! Translation tables between ExEdit object files and AviQtl-Plus catalogue entries.
+//!
+//! ExEdit identifies an object or filter by its localized display name (`_name`), because
+//! that name is a pointer into the running `exedit.auf`'s own table. The Chinese translation
+//! pack therefore rewrote every built-in name, while script-backed objects keep an ASCII
+//! `name=` identifier. A reader has to accept every localization that exists in the wild, so
+//! each table below lists the Chinese names of the pack this work targets, the original
+//! Japanese names, and the English names some tools emit.
+//!
+//! Parameter tables follow the same idea: `轨` entries name the parameter in each language and
+//! describe the linear conversion into our units. Anything not listed here is preserved by the
+//! importer as a disabled placeholder instead of being guessed at.
+
+/// How one ExEdit trackbar maps onto a catalogue parameter.
+#[derive(Debug, Clone, Copy)]
+pub struct TrackMapping {
+    /// Accepted source keys, in the order they are tried.
+    pub keys: &'static [&'static str],
+    /// Catalogue parameter name.
+    pub param: &'static str,
+    /// `value * scale + offset`.
+    pub scale: f64,
+    pub offset: f64,
+}
+
+/// How one ExEdit colour parameter maps onto a catalogue parameter.
+#[derive(Debug, Clone, Copy)]
+pub struct ColorMapping {
+    pub keys: &'static [&'static str],
+    pub param: &'static str,
+}
+
+/// How one ExEdit integer parameter maps onto a catalogue parameter.
+#[derive(Debug, Clone, Copy)]
+pub struct IntegerMapping {
+    pub keys: &'static [&'static str],
+    pub param: &'static str,
+    pub scale: f64,
+    pub offset: f64,
+}
+
+/// A built-in ExEdit object this importer understands.
+pub struct ObjectMapping {
+    /// Catalogue id.
+    pub object_id: &'static str,
+    /// Accepted `_name` values.
+    pub aliases: &'static [&'static str],
+    pub tracks: &'static [TrackMapping],
+    pub colors: &'static [ColorMapping],
+    pub integers: &'static [IntegerMapping],
+    /// Accepted boolean keys, each written to a catalogue parameter when present.
+    pub flags: &'static [(&'static [&'static str], &'static str)],
+    /// Whether the referenced media path lives in the filter's `_exdata` blob.
+    pub media_path: bool,
+}
+
+/// A built-in ExEdit filter this importer understands.
+pub struct FilterMapping {
+    /// Catalogue id.
+    pub effect_id: &'static str,
+    pub aliases: &'static [&'static str],
+    pub tracks: &'static [TrackMapping],
+    pub colors: &'static [ColorMapping],
+    pub integers: &'static [IntegerMapping],
+    pub flags: &'static [(&'static [&'static str], &'static str)],
+}
+
+const fn track(keys: &'static [&'static str], param: &'static str, scale: f64) -> TrackMapping {
+    TrackMapping {
+        keys,
+        param,
+        scale,
+        offset: 0.0,
+    }
+}
+
+/// The drawing/transform filter. ExEdit stores it last in every object that has effects.
+pub const DRAWING_ALIASES: &[&str] = &[
+    "标准属性",
+    "標準描画",
+    "標準描画(拡張)",
+    "Standard drawing",
+    "standard_draw",
+];
+
+/// The transform's trackbars, in ExEdit's storage order, for objects that use
+/// `track0..track5` instead of the localized names.
+pub const DRAWING_TRACKS: &[TrackMapping] = &[
+    track(&["X", "x", "track0"], "x", 1.0),
+    track(&["Y", "y", "track1"], "y", 1.0),
+    track(&["Z", "z", "track2"], "z", 1.0),
+    track(&["缩放率", "拡大率", "scale", "track3"], "scale", 1.0),
+    track(&["透明度", "opacity", "track4"], "opacity", 0.01),
+    track(
+        &["旋转", "回転", "rotation", "rotationZ", "track5"],
+        "rotationZ",
+        1.0,
+    ),
+];
+
+pub const OBJECTS: &[ObjectMapping] = &[
+    ObjectMapping {
+        object_id: "text",
+        aliases: &["文本", "テキスト", "Text", "text"],
+        tracks: &[
+            track(
+                &["大小", "サイズ", "size", "fontSize", "track0"],
+                "fontSize",
+                1.0,
+            ),
+            track(
+                &["spacing_x", "文字間隔", "letterSpacing"],
+                "letterSpacing",
+                1.0,
+            ),
+            track(&["spacing_y", "行間隔", "lineSpacing"], "lineSpacing", 1.0),
+        ],
+        colors: &[
+            ColorMapping {
+                keys: &["color", "文字色"],
+                param: "color",
+            },
+            ColorMapping {
+                keys: &["color2", "縁色", "影色"],
+                param: "outlineColor",
+            },
+        ],
+        integers: &[IntegerMapping {
+            keys: &["align", "文字揃え"],
+            param: "alignment",
+            scale: 1.0,
+            offset: 0.0,
+        }],
+        flags: &[
+            (&["B", "太字", "bold"], "fontBold"),
+            (&["I", "斜体", "italic"], "fontItalic"),
+        ],
+        media_path: false,
+    },
+    ObjectMapping {
+        object_id: "image",
+        aliases: &["图像", "画像", "Image", "image"],
+        tracks: &[track(&["透明度", "opacity", "track0"], "opacity", 0.01)],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+        media_path: true,
+    },
+    ObjectMapping {
+        object_id: "video",
+        aliases: &["视频", "動画", "Video", "video"],
+        tracks: &[track(&["透明度", "opacity"], "opacity", 0.01)],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+        media_path: true,
+    },
+    ObjectMapping {
+        object_id: "audio",
+        aliases: &["音频", "音声", "Audio", "audio"],
+        tracks: &[
+            track(&["音量", "volume"], "volume", 0.001),
+            track(&["左右", "pan", "声道"], "pan", 0.01),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+        media_path: true,
+    },
+];
+
+pub const FILTERS: &[FilterMapping] = &[
+    FilterMapping {
+        effect_id: "blur",
+        aliases: &["模糊", "ぼかし", "Blur"],
+        tracks: &[track(&["范围", "範囲", "size"], "size", 1.0)],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "border_blur",
+        aliases: &["边缘模糊", "境界ぼかし", "Border blur"],
+        tracks: &[track(&["范围", "範囲"], "size", 1.0)],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "mosaic",
+        aliases: &["马赛克", "モザイク", "Mosaic"],
+        tracks: &[track(&["大小", "サイズ", "size"], "size", 1.0)],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "monochrome",
+        aliases: &["单色化", "単色化", "Monochrome"],
+        tracks: &[track(&["强度", "強さ", "strength"], "strength", 0.1)],
+        colors: &[ColorMapping {
+            keys: &["颜色", "色", "color"],
+            param: "color",
+        }],
+        integers: &[],
+        flags: &[(&["保持亮度", "輝度を保持"], "preserveLuma")],
+    },
+    FilterMapping {
+        effect_id: "clipping",
+        aliases: &["裁剪遮罩", "クリッピング", "Clipping"],
+        tracks: &[
+            track(&["上", "top"], "top", 1.0),
+            track(&["下", "bottom"], "bottom", 1.0),
+            track(&["左", "left"], "left", 1.0),
+            track(&["右", "right"], "right", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "color_correction",
+        aliases: &["色调修正", "色調補正", "Color correction"],
+        tracks: &[
+            track(&["亮度", "輝度", "brightness"], "brightness", 0.001),
+            track(&["对比度", "コントラスト", "contrast"], "contrast", 0.001),
+            track(&["色相", "色相", "hue"], "hue", 1.0),
+            track(&["发光度", "明るさ", "lightness"], "lightness", 0.001),
+            track(&["色度", "彩度", "saturation"], "saturation", 0.001),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "fade",
+        aliases: &["淡化", "フェード", "Fade"],
+        tracks: &[
+            track(&["入场", "イン", "fadeIn"], "fadeIn", 1.0),
+            track(&["出场", "アウト", "fadeOut"], "fadeOut", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "sharpen",
+        aliases: &["锐化", "シャープ", "Sharpen"],
+        tracks: &[
+            track(&["强度", "強さ", "strength"], "strength", 0.1),
+            track(&["范围", "範囲", "range"], "range", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "vibration",
+        aliases: &["振动", "振動", "Vibration"],
+        tracks: &[
+            track(&["X", "x"], "x", 1.0),
+            track(&["Y", "y"], "y", 1.0),
+            track(&["周期", "周期", "speed"], "speed", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "mirror",
+        aliases: &["镜像", "ミラー", "Mirror"],
+        tracks: &[
+            track(&["透明度", "透明度"], "transparency", 0.01),
+            track(&["淡化", "フェード"], "decay", 0.01),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "polar_transform",
+        aliases: &["极坐标变换", "極座標変換", "Polar transform"],
+        tracks: &[
+            track(&["中心径", "中心径"], "centerX", 1.0),
+            track(&["缩放率", "拡大率"], "scale", 0.01),
+            track(&["旋转", "回転"], "angleOffset", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "raster",
+        aliases: &["光栅", "ラスター", "Raster"],
+        tracks: &[
+            track(&["宽度", "幅", "width"], "width", 1.0),
+            track(&["高度", "高さ", "height"], "height", 1.0),
+            track(&["周期", "周期", "speed"], "speed", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "directional_blur",
+        aliases: &["方向模糊", "方向ブラー", "Directional blur"],
+        tracks: &[
+            track(&["范围", "範囲", "length"], "length", 1.0),
+            track(&["角度", "角度", "angle"], "angle", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "radial_blur",
+        aliases: &["放射模糊", "放射ブラー", "Radial blur"],
+        tracks: &[
+            track(&["范围", "範囲"], "strength", 1.0),
+            track(&["X", "x"], "x", 1.0),
+            track(&["Y", "y"], "y", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "lens_blur",
+        aliases: &["镜头模糊", "レンズブラー", "Lens blur"],
+        tracks: &[
+            track(&["范围", "範囲"], "radius", 1.0),
+            track(&["发光强度", "明るさ"], "brightness", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "glow",
+        aliases: &["发光", "グロー", "Glow"],
+        tracks: &[
+            track(&["强度", "強さ", "intensity"], "intensity", 0.1),
+            track(&["扩散度", "拡散", "radius"], "radius", 0.1),
+            track(&["阈值", "しきい値", "threshold"], "threshold", 0.1),
+        ],
+        colors: &[ColorMapping {
+            keys: &["颜色", "色", "color"],
+            param: "color",
+        }],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "border",
+        aliases: &["描边", "縁取り", "Border"],
+        tracks: &[
+            track(&["大小", "サイズ", "size"], "size", 1.0),
+            track(&["模糊", "ぼかし", "blur"], "blur", 1.0),
+        ],
+        colors: &[ColorMapping {
+            keys: &["颜色", "色", "color"],
+            param: "color",
+        }],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "drop_shadow",
+        aliases: &["阴影", "影", "Shadow"],
+        tracks: &[
+            track(&["X", "x"], "x", 1.0),
+            track(&["Y", "y"], "y", 1.0),
+            track(&["浓度", "濃度", "opacity"], "opacity", 0.01),
+            track(&["扩散度", "拡散", "radius"], "radius", 1.0),
+        ],
+        colors: &[ColorMapping {
+            keys: &["颜色", "色", "color"],
+            param: "color",
+        }],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "chroma_key",
+        aliases: &["色度键", "クロマキー", "Chroma key"],
+        tracks: &[
+            track(&["色相范围", "色相範囲"], "hueRange", 1.0),
+            track(&["色度范围", "彩度範囲"], "similarity", 0.01),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "luminance_key",
+        aliases: &["亮度键", "ルミナンスキー", "Luminance key"],
+        tracks: &[
+            track(&["基础亮度", "基準輝度"], "threshold", 0.001),
+            track(&["模糊", "ぼかし"], "blend", 0.001),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "gradient",
+        aliases: &["渐变", "グラデーション", "Gradient"],
+        tracks: &[
+            track(&["强度", "強さ"], "strength", 0.1),
+            track(&["中心X", "中心X"], "centerX", 1.0),
+            track(&["中心Y", "中心Y"], "centerY", 1.0),
+            track(&["角度", "角度"], "angle", 1.0),
+            track(&["宽", "幅"], "width", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "image_loop",
+        aliases: &["图像拼贴", "イメージループ", "Image loop"],
+        tracks: &[
+            track(&["横向数", "横"], "countX", 1.0),
+            track(&["纵向数", "縦"], "countY", 1.0),
+            track(&["速度X", "速度X"], "intervalX", 1.0),
+            track(&["速度Y", "速度Y"], "intervalY", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+];
+
+/// Finds the object mapping for an ExEdit `_name`.
+pub fn object_mapping(display_name: &str) -> Option<&'static ObjectMapping> {
+    OBJECTS
+        .iter()
+        .find(|mapping| mapping.aliases.contains(&display_name))
+}
+
+/// Finds the filter mapping for an ExEdit `_name`.
+pub fn filter_mapping(display_name: &str) -> Option<&'static FilterMapping> {
+    FILTERS
+        .iter()
+        .find(|mapping| mapping.aliases.contains(&display_name))
+}
+
+/// Reports whether a display name is ExEdit's drawing/transform filter.
+pub fn is_drawing_filter(display_name: &str) -> bool {
+    DRAWING_ALIASES.contains(&display_name)
+}
+
+/// The blend modes ExEdit stores as an index in the drawing filter's `blend` key.
+///
+/// The order matches `transform.json`'s `blendMode` options, which is the order AviUtl uses
+/// for its own 合成モード list.
+pub const BLEND_MODES: [&str; 16] = [
+    "通常",
+    "スクリーン",
+    "乗算",
+    "オーバーレイ",
+    "加算",
+    "減算",
+    "比較（明）",
+    "比較（暗）",
+    "色反転",
+    "ソフトライト",
+    "ハードライト",
+    "差の絶対値",
+    "色相",
+    "彩度",
+    "カラー",
+    "輝度",
+];
