@@ -2,6 +2,19 @@
 
 All notable changes to AviQtl-Plus are documented in this file.
 
+## [Unreleased]
+
+### Added
+- AviUtl ExEdit object files (`.exo`) can be imported into the current scene and
+  exported from it, covering text, image, video, audio, the drawing/transform
+  filter, and the built-in effects whose parameter meanings are confirmed
+- Object files are decoded per file from UTF-8, GBK, or Shift-JIS, so files
+  written by the Chinese translation packs and by stock Japanese installs both
+  read correctly
+- Unmapped ExEdit objects and filters are imported as disabled placeholders that
+  keep their names, script parameters, track values, and binary data, and are
+  written back unchanged on export
+
 ## [0.6.2] - 2026-09-05
 
 ### Added

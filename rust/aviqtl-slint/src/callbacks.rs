@@ -926,6 +926,12 @@ pub(super) fn install_callbacks(
     let main_open_ui = lifecycle_ui.clone();
     main.on_open_project(move || main_open_ui.open_project_dialog(false));
 
+    let import_exo_ui = lifecycle_ui.clone();
+    main.on_import_exo_object_file(move || import_exo_ui.import_exo_object_file());
+
+    let export_exo_ui = lifecycle_ui.clone();
+    main.on_export_exo_object_file(move || export_exo_ui.export_exo_object_file());
+
     let save_ui = lifecycle_ui.clone();
     main.on_save_project(move || {
         let step = save_ui.model.borrow_mut().request_save_current_project();

@@ -1,8 +1,9 @@
 //! Project window ownership, save/close sequencing, and recovery presentation.
 
 use crate::dialogs::{
-    choose_project_save_path, choose_project_to_open, insert_visible_window_geometry,
-    install_opaque_window, json_i32, show_and_redraw, show_error_dialog,
+    choose_exo_object_save_path, choose_exo_object_to_import, choose_project_save_path,
+    choose_project_to_open, insert_visible_window_geometry, install_opaque_window, json_i32,
+    show_and_redraw, show_error_dialog,
 };
 use crate::easing::refresh_easing_translations;
 use crate::localization::{current_ui_language, localized, select_bundled_ui_translation};
@@ -26,7 +27,7 @@ use aviqtl_app::{ApplicationModel, LifecycleStep, WorkspaceModel};
 use slint::winit_030::WinitWindowAccessor;
 use slint::{ComponentHandle, SharedString};
 use std::cell::{Cell, RefCell};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -264,6 +265,103 @@ impl LifecycleUi {
             return;
         };
         self.open_project_path(&path, from_launcher);
+    }
+
+    /// Imports an AviUtl ExEdit object file into the current scene.
+    ///
+    /// AviUtl's own "import object file" appends the file's objects after the existing data.
+    /// Frames keep their relative positions, and the layer offset lets a file authored on a
+    /// different layer count land beside the current work instead of on top of it.
+    pub(super) fn import_exo_object_file(&self) {
+        if self.model.borrow().lifecycle_pending() {
+            return;
+        }
+        let Some(path) = choose_exo_object_to_import() else {
+            return;
+        };
+        let file = match aviqtl_app::exo_import::load_object_file(&path) {
+            Ok(file) => file,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        let placement = aviqtl_app::exo_import::ImportPlacement {
+            frame_offset: 0,
+            layer_offset: 0,
+            maximum_layers: aviqtl_app::MAX_TIMELINE_LAYERS,
+        };
+        let catalog = self.effect_catalog.borrow();
+        let imported = {
+            let mut model = self.model.borrow_mut();
+            let Some(workspace) = model.current_workspace_mut() else {
+                show_error_dialog(localized(
+                    "Open a project before importing an object file.",
+                    "请先打开一个项目，再导入物件文件。",
+                    "オブジェクトファイルを読み込む前にプロジェクトを開いてください。",
+                ));
+                return;
+            };
+            workspace.import_exo_object_file(&file, placement, &catalog)
+        };
+        drop(catalog);
+        if imported {
+            self.sync();
+            if let Some(timeline) = self.timeline.upgrade() {
+                let _ = show_and_redraw(&timeline);
+            }
+        } else {
+            let message = self
+                .model
+                .borrow()
+                .current_workspace()
+                .map(|workspace| workspace.status().to_owned())
+                .unwrap_or_default();
+            show_error_dialog(&message);
+        }
+    }
+
+    /// Writes the current scene as an AviUtl ExEdit object file.
+    pub(super) fn export_exo_object_file(&self) {
+        let catalog = self.effect_catalog.borrow();
+        let exported = self
+            .model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| workspace.export_exo_object_file(&catalog));
+        drop(catalog);
+        let Some((file, report)) = exported else {
+            show_error_dialog(localized(
+                "This scene has no objects that AviUtl can read.",
+                "当前场景没有可导出到 AviUtl 的对象。",
+                "このシーンには AviUtl が読めるオブジェクトがありません。",
+            ));
+            return;
+        };
+        let suggested = self
+            .model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| workspace.project().path.clone())
+            .and_then(|path| {
+                path.file_stem()
+                    .map(|stem| PathBuf::from(stem).with_extension("exo"))
+            })
+            .unwrap_or_else(|| PathBuf::from("objects.exo"));
+        let Some(path) = choose_exo_object_save_path(&suggested) else {
+            return;
+        };
+        if let Err(message) = aviqtl_app::exo_import::save_object_file(&path, &file) {
+            show_error_dialog(&message);
+            return;
+        }
+        let status = report.summary();
+        if let Some(main) = self.main.upgrade() {
+            main.set_status_text(status.as_str().into());
+        }
+        if !report.skipped.is_empty() {
+            show_error_dialog(&format!("{status}\n\n{}", report.skipped.join("\n")));
+        }
     }
 
     pub(super) fn open_project_path(&self, path: &Path, from_launcher: bool) {
