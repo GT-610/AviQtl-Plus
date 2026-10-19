@@ -113,6 +113,19 @@ fn export_clip(
                 effect.params.get("exoObject").and_then(Value::as_bool) == Some(true)
             })
         })?;
+    // A clip this build can only partly express must not be written: ExEdit would load an
+    // object whose target, source, or figure data is missing and silently show something
+    // else. A placeholder is the exception, because it is reproduced verbatim from the data
+    // the importer kept.
+    if object_effect.id != PLACEHOLDER_ID && !object_is_expressible(&clip.clip_type) {
+        report.skipped.push(format!(
+            "{} (layer {}, frame {}): no AviUtl object for this type",
+            clip.clip_type,
+            clip.layer + 1,
+            clip.start + 1
+        ));
+        return None;
+    }
     let first = if object_effect.id == PLACEHOLDER_ID {
         placeholder_filter(object_effect)?
     } else if object_mapping_for_id(&clip.clip_type).is_none() {
@@ -229,6 +242,19 @@ fn object_filter_from_effect(
     }
     append_source_entries(&mut filter, effect);
     Some(filter)
+}
+
+/// Reports whether this clip type has an ExEdit object block this build can write in full.
+///
+/// Text and the media objects carry their whole state in parameters this exporter writes.
+/// The figure types are rebuilt from the geometry the importer stored. Anything else — a
+/// scene reference needs a target scene number, a camera control needs a target layer — would
+/// be written without the field that gives it meaning.
+fn object_is_expressible(clip_type: &str) -> bool {
+    matches!(clip_type, "text" | "image" | "video" | "audio")
+        || crate::exo_mapping::FIGURE_TYPES
+            .iter()
+            .any(|mapping| mapping.object_id == clip_type)
 }
 
 /// Rebuilds the ExEdit-internal filters the importer stored on the clip.
@@ -597,6 +623,20 @@ mod tests {
     fn text_is_written_as_utf16_hex() {
         assert_eq!(encode_utf16_hex("A"), "4100");
         assert_eq!(encode_utf16_hex("缓动"), "137fa852");
+    }
+
+    #[test]
+    fn clips_without_a_complete_object_block_are_reported() {
+        // A scene reference needs a target scene number this exporter does not write; writing
+        // the object anyway would give AviUtl an object that points nowhere.
+        assert!(!object_is_expressible("scene"));
+        assert!(!object_is_expressible("camera_control"));
+        assert!(!object_is_expressible("counter"));
+        assert!(object_is_expressible("text"));
+        assert!(object_is_expressible("image"));
+        assert!(object_is_expressible("audio"));
+        assert!(object_is_expressible("rect"));
+        assert!(object_is_expressible("polygon_shape"));
     }
 
     #[test]
