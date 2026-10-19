@@ -48,6 +48,27 @@ pub fn save_object_file(path: &std::path::Path, file: &ExoFile) -> Result<(), St
         .map_err(|error| format!("{}: {error}", path.display()))
 }
 
+/// The first frame and lowest layer the file's objects occupy, in 0-based timeline units.
+///
+/// AviUtl places a dropped object file relative to its earliest object, and appends an
+/// imported one after the current data, so both cases need to know where the file starts
+/// rather than assuming frame zero.
+pub fn file_anchor(file: &ExoFile) -> (i32, i32) {
+    let frame = file
+        .objects
+        .iter()
+        .map(|object| object.start.saturating_sub(1))
+        .min()
+        .unwrap_or(0);
+    let layer = file
+        .objects
+        .iter()
+        .map(|object| object.layer.saturating_sub(1))
+        .min()
+        .unwrap_or(0);
+    (frame.max(0), layer.max(0))
+}
+
 /// Where the imported objects go.
 #[derive(Debug, Clone, Copy)]
 pub struct ImportPlacement {

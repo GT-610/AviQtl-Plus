@@ -286,11 +286,6 @@ impl LifecycleUi {
                 return;
             }
         };
-        let placement = aviqtl_app::exo_import::ImportPlacement {
-            frame_offset: 0,
-            layer_offset: 0,
-            maximum_layers: aviqtl_app::MAX_TIMELINE_LAYERS,
-        };
         let catalog = self.effect_catalog.borrow();
         let imported = {
             let mut model = self.model.borrow_mut();
@@ -302,10 +297,10 @@ impl LifecycleUi {
                 ));
                 return;
             };
-            workspace.import_exo_object_file(&file, placement, &catalog)
+            workspace.append_exo_object_file(&file, &catalog, aviqtl_app::MAX_TIMELINE_LAYERS)
         };
         drop(catalog);
-        if imported {
+        if imported.is_some() {
             self.sync();
             if let Some(timeline) = self.timeline.upgrade() {
                 let _ = show_and_redraw(&timeline);

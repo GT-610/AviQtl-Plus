@@ -2611,15 +2611,19 @@ impl WorkspaceModel {
     ///
     /// The whole file is one transaction, matching AviUtl's own "import object file" command:
     /// a single undo removes every imported object.
+    ///
+    /// Returns where the import ends: the frame after the last imported object and the lowest
+    /// layer among the imported objects, so a drop can advance its target the way media drops
+    /// do.
     pub fn import_exo_object_file(
         &mut self,
         file: &aviqtl_rust_core::exo::ExoFile,
         placement: crate::exo_import::ImportPlacement,
         catalog: &EffectCatalog,
-    ) -> bool {
+    ) -> Option<(i32, i32)> {
         let Some(scene) = self.selected_scene_document().cloned() else {
             self.status = "No scene is selected".to_owned();
-            return false;
+            return None;
         };
         let ids = match self
             .project
@@ -2629,7 +2633,7 @@ impl WorkspaceModel {
             Ok(ids) => ids,
             Err(error) => {
                 self.status = error.to_string();
-                return false;
+                return None;
             }
         };
         let outcome = crate::exo_import::plan_import(file, &scene, catalog, ids[0], placement);
@@ -2642,8 +2646,20 @@ impl WorkspaceModel {
                     outcome.report.notes.join("; ")
                 }
             );
-            return false;
+            return None;
         }
+        let next_frame = outcome
+            .clips
+            .iter()
+            .map(|clip| clip.start.saturating_add(clip.duration))
+            .max()
+            .unwrap_or(0);
+        let next_layer = outcome
+            .clips
+            .iter()
+            .map(|clip| clip.layer)
+            .min()
+            .unwrap_or(0);
         let imported_ids = outcome.clips.iter().map(|clip| clip.id).collect::<Vec<_>>();
         let commands = outcome
             .clips
@@ -2651,12 +2667,52 @@ impl WorkspaceModel {
             .map(|clip| TimelineCommand::InsertClip { index: None, clip })
             .collect::<Vec<_>>();
         if !self.execute_batch(commands) {
-            return false;
+            return None;
         }
         self.selection.replace(imported_ids);
         self.reconcile_effect_selection();
         self.status = outcome.report.summary();
-        true
+        Some((next_frame, next_layer))
+    }
+
+    /// Imports an object file after the current scene's last object.
+    ///
+    /// This is what AviUtl's File → "import object file" does: the file's objects keep their
+    /// relative layout and land after existing data instead of on top of it.
+    pub fn append_exo_object_file(
+        &mut self,
+        file: &aviqtl_rust_core::exo::ExoFile,
+        catalog: &EffectCatalog,
+        maximum_layers: i32,
+    ) -> Option<(i32, i32)> {
+        let (file_frame, file_layer) = crate::exo_import::file_anchor(file);
+        let placement = crate::exo_import::ImportPlacement {
+            frame_offset: self.timeline_duration().saturating_sub(file_frame),
+            layer_offset: -file_layer,
+            maximum_layers,
+        };
+        self.import_exo_object_file(file, placement, catalog)
+    }
+
+    /// Imports an object file at a drop position.
+    ///
+    /// AviUtl anchors a dropped object file at its earliest object, so the whole file lands
+    /// where the pointer is instead of scattering around frame zero.
+    pub fn drop_exo_object_file(
+        &mut self,
+        file: &aviqtl_rust_core::exo::ExoFile,
+        frame: i32,
+        layer: i32,
+        catalog: &EffectCatalog,
+        maximum_layers: i32,
+    ) -> Option<(i32, i32)> {
+        let (file_frame, file_layer) = crate::exo_import::file_anchor(file);
+        let placement = crate::exo_import::ImportPlacement {
+            frame_offset: frame.max(0).saturating_sub(file_frame),
+            layer_offset: layer.max(0).saturating_sub(file_layer),
+            maximum_layers,
+        };
+        self.import_exo_object_file(file, placement, catalog)
     }
 
     /// Writes the selected scene as an AviUtl ExEdit object file.
@@ -3707,11 +3763,15 @@ mod tests {
         let mut workspace = workspace();
         let before = workspace.document().clips.len();
         let file = object_file_fixture();
-        assert!(workspace.import_exo_object_file(
-            &file,
-            crate::exo_import::ImportPlacement::default(),
-            &catalog
-        ));
+        assert!(
+            workspace
+                .import_exo_object_file(
+                    &file,
+                    crate::exo_import::ImportPlacement::default(),
+                    &catalog
+                )
+                .is_some()
+        );
         assert_eq!(workspace.document().clips.len(), before + 1);
         let imported = workspace
             .document()
@@ -3731,14 +3791,52 @@ mod tests {
     }
 
     #[test]
+    fn exo_drops_anchor_at_the_pointer_and_appends_after_the_timeline() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = object_file_fixture();
+
+        // The fixture's object starts at frame 0 of its own file, so a drop at 40 lands there.
+        let mut dropped = workspace();
+        let (next_frame, next_layer) = dropped
+            .drop_exo_object_file(&file, 40, 3, &catalog, 128)
+            .expect("the drop imports");
+        assert_eq!(next_frame, 56);
+        assert_eq!(next_layer, 3);
+        let clipped = dropped
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "text" && clip.start == 40)
+            .expect("the clip landed on the drop frame");
+        assert_eq!(clipped.layer, 3);
+
+        // The fixture scene ends at frame 50, so appending puts the import after that.
+        let mut appended = workspace();
+        appended
+            .append_exo_object_file(&file, &catalog, 128)
+            .expect("the append imports");
+        let appended_clip = appended
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "text" && clip.start >= 50)
+            .expect("the clip lands after the existing objects");
+        assert_eq!(appended_clip.start, 50);
+    }
+
+    #[test]
     fn exported_scene_can_be_imported_again() {
         let (catalog, _) = EffectCatalog::load();
         let mut workspace = workspace();
-        assert!(workspace.import_exo_object_file(
-            &object_file_fixture(),
-            crate::exo_import::ImportPlacement::default(),
-            &catalog
-        ));
+        assert!(
+            workspace
+                .import_exo_object_file(
+                    &object_file_fixture(),
+                    crate::exo_import::ImportPlacement::default(),
+                    &catalog
+                )
+                .is_some()
+        );
         let (file, report) = workspace
             .export_exo_object_file(&catalog)
             .expect("the imported clip exports");

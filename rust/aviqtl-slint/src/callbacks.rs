@@ -81,6 +81,24 @@ pub(super) fn install_timeline_file_drop(
                     ignore_snap,
                     f64::from(window.get_pixels_per_frame()),
                 );
+                // An AviUtl object file is dropped like media, but it brings its own objects
+                // and their timing instead of creating one clip.
+                if path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("exo"))
+                {
+                    return aviqtl_app::exo_import::load_object_file(&path)
+                        .ok()
+                        .and_then(|file| {
+                            workspace.drop_exo_object_file(
+                                &file,
+                                frame,
+                                layer,
+                                &catalog,
+                                window.get_maximum_layers(),
+                            )
+                        });
+                }
                 workspace.import_media_files(
                     std::slice::from_ref(&path),
                     frame,
