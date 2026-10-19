@@ -92,11 +92,55 @@ impl TrackValue {
     }
 }
 
-/// Parses a decimal field, tolerating the surrounding spaces some tools leave behind.
+/// Parses a decimal field the way AviUtl's own reader does: take the longest numeric prefix
+/// and ignore whatever follows.
+///
+/// This is not laxness for its own sake. ExEdit writes a trackbar value with full floating
+/// point precision and then appends its scale suffix, so a real file can contain
+/// `90.00000000000001.0`, which is not a number as a whole but is unambiguous to read. Its
+/// reader stops at the first byte that cannot continue the number, and refusing the field
+/// outright would silently drop the whole parameter.
 fn parse_number(field: &str) -> Option<f64> {
     let trimmed = field.trim();
-    let value: f64 = trimmed.parse().ok()?;
+    if let Ok(value) = trimmed.parse::<f64>() {
+        return value.is_finite().then_some(value);
+    }
+    let end = numeric_prefix_end(trimmed);
+    if end == 0 {
+        return None;
+    }
+    let value: f64 = trimmed[..end].parse().ok()?;
     value.is_finite().then_some(value)
+}
+
+/// Length of the leading substring that can still be a decimal number.
+fn numeric_prefix_end(text: &str) -> usize {
+    let mut end = 0;
+    let mut seen_dot = false;
+    let mut seen_exponent = false;
+    for (index, character) in text.char_indices() {
+        let accepted = match character {
+            '0'..='9' => true,
+            '+' | '-' => index == 0 || text[..index].ends_with(['e', 'E']),
+            '.' => !seen_dot && !seen_exponent,
+            'e' | 'E' => !seen_exponent && index > 0,
+            _ => false,
+        };
+        if !accepted {
+            break;
+        }
+        if character == '.' {
+            seen_dot = true;
+        } else if character == 'e' || character == 'E' {
+            seen_exponent = true;
+        }
+        end = index + character.len_utf8();
+    }
+    // A trailing exponent marker or sign is not part of the number.
+    while end > 0 && matches!(text.as_bytes()[end - 1], b'e' | b'E' | b'+' | b'-' | b'.') {
+        end -= 1;
+    }
+    end
 }
 
 /// Writes a number the way the source field was written: one decimal place for whole values,
@@ -135,6 +179,19 @@ mod tests {
         assert_eq!(plain_range.start, 0.0);
         assert_eq!(plain_range.end, Some(100.0));
         assert!(plain_range.motion.is_none());
+    }
+
+    #[test]
+    fn reads_a_value_with_a_precision_artifact() {
+        // As written by ExEdit in `script/[ティム]/1280_720_6.exo`.
+        let track = TrackValue::parse("180.0,90.00000000000001.0,1").unwrap();
+        assert_eq!(track.start, 180.0);
+        assert_eq!(track.end, Some(90.00000000000001));
+        assert_eq!(track.motion.as_deref(), Some("1"));
+        assert_eq!(
+            TrackValue::parse("2.2043642384652358e-14.0").unwrap().start,
+            2.2043642384652358e-14
+        );
     }
 
     #[test]
