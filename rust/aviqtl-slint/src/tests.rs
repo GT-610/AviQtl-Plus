@@ -1101,9 +1101,11 @@ fn validation_fixture_matches_the_shape_of_a_saved_project() {
             projection
                 .effects
                 .iter()
+                .filter(|effect| effect.id == clip.clip_type)
                 .any(|effect| !effect.controls.is_empty()),
-            "clip {} ({}) must expose object settings",
+            "clip {} ({}) must expose the object settings of its {} effect",
             clip.id,
+            clip.clip_type,
             clip.clip_type
         );
     }
