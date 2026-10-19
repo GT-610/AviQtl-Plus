@@ -42,6 +42,23 @@ impl ExportReport {
             )
         }
     }
+
+    /// Multi-line report for a dialog, limited to `max_items` entries.
+    pub fn details(&self, max_items: usize) -> String {
+        let mut lines = vec![self.summary()];
+        if self.skipped.is_empty() {
+            return lines.join("\n");
+        }
+        lines.push(String::new());
+        lines.extend(self.skipped.iter().take(max_items).cloned());
+        if self.skipped.len() > max_items {
+            lines.push(format!(
+                "… and {} more",
+                self.skipped.len().saturating_sub(max_items)
+            ));
+        }
+        lines.join("\n")
+    }
 }
 
 /// Builds an object file from one scene of `document`.

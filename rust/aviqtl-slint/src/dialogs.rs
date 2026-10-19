@@ -535,3 +535,13 @@ pub(super) fn show_error_dialog(message: &str) {
         .set_buttons(rfd::MessageButtons::Ok)
         .show();
 }
+
+/// Shows an informational dialog, used for reports the user may want to read.
+pub(super) fn show_info_dialog(title: &str, message: &str) {
+    let _ = rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Info)
+        .set_title(title)
+        .set_description(message)
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
+}

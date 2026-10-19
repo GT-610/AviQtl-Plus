@@ -100,6 +100,7 @@ pub struct WorkspaceModel {
     updating_continuous_edit: bool,
     document_revision: u64,
     status: String,
+    last_import_report: Option<crate::exo_import::ImportReport>,
 }
 
 impl WorkspaceModel {
@@ -121,6 +122,7 @@ impl WorkspaceModel {
             updating_continuous_edit: false,
             document_revision: 0,
             status: "Ready".to_owned(),
+            last_import_report: None,
         }
     }
 
@@ -2615,12 +2617,18 @@ impl WorkspaceModel {
     /// Returns where the import ends: the frame after the last imported object and the lowest
     /// layer among the imported objects, so a drop can advance its target the way media drops
     /// do.
+    /// The report produced by the most recent object-file import, until the UI reads it.
+    pub fn take_import_report(&mut self) -> Option<crate::exo_import::ImportReport> {
+        self.last_import_report.take()
+    }
+
     pub fn import_exo_object_file(
         &mut self,
         file: &aviqtl_rust_core::exo::ExoFile,
         placement: crate::exo_import::ImportPlacement,
         catalog: &EffectCatalog,
     ) -> Option<(i32, i32)> {
+        self.last_import_report = None;
         let Some(scene) = self.selected_scene_document().cloned() else {
             self.status = "No scene is selected".to_owned();
             return None;
@@ -2685,6 +2693,7 @@ impl WorkspaceModel {
         self.selection.replace(imported_ids);
         self.reconcile_effect_selection();
         self.status = outcome.report.summary();
+        self.last_import_report = Some(outcome.report);
         Some((next_frame, next_layer))
     }
 
@@ -3963,6 +3972,28 @@ mod tests {
         assert!(all_report.summary().contains("skipped"));
         assert_eq!(all.objects.len(), 1);
         assert_eq!(report.objects, 1);
+    }
+
+    #[test]
+    fn an_import_report_is_available_once_and_then_consumed() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        assert!(workspace.take_import_report().is_none());
+        workspace
+            .import_exo_object_file(
+                &object_file_fixture(),
+                crate::exo_import::ImportPlacement::default(),
+                &catalog,
+            )
+            .expect("the import succeeds");
+        let report = workspace
+            .take_import_report()
+            .expect("the import leaves a report");
+        assert_eq!(report.objects, 1);
+        assert!(
+            workspace.take_import_report().is_none(),
+            "the report is handed over once, so a second sync cannot show it again"
+        );
     }
 
     #[test]

@@ -3,7 +3,7 @@
 use crate::dialogs::{
     choose_exo_object_save_path, choose_exo_object_to_import, choose_project_save_path,
     choose_project_to_open, insert_visible_window_geometry, install_opaque_window, json_i32,
-    show_and_redraw, show_error_dialog,
+    show_and_redraw, show_error_dialog, show_info_dialog,
 };
 use crate::easing::refresh_easing_translations;
 use crate::localization::{current_ui_language, localized, select_bundled_ui_translation};
@@ -314,6 +314,32 @@ impl LifecycleUi {
         }
     }
 
+    /// Shows what the last import translated and what it had to preserve.
+    ///
+    /// Only shown when something was preserved: a clean import should not interrupt the user
+    /// with a dialog, but an import that left placeholders explains why the picture differs.
+    fn report_import(&self) {
+        let report = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .and_then(|workspace| workspace.take_import_report());
+        let Some(report) = report else {
+            return;
+        };
+        if report.notes.is_empty() {
+            return;
+        }
+        show_info_dialog(
+            localized(
+                "AviUtl object file imported",
+                "已导入 AviUtl 物件文件",
+                "AviUtl オブジェクトファイルを読み込みました",
+            ),
+            &report.details(12),
+        );
+    }
+
     /// Imports an AviUtl ExEdit object file into the current scene.
     ///
     /// AviUtl's own "import object file" appends the file's objects after the existing data.
@@ -348,6 +374,7 @@ impl LifecycleUi {
         };
         drop(catalog);
         if imported.is_some() {
+            self.report_import();
             self.sync();
             if let Some(timeline) = self.timeline.upgrade() {
                 let _ = show_and_redraw(&timeline);

@@ -112,6 +112,27 @@ impl ImportReport {
         }
         summary
     }
+
+    /// Multi-line report for a dialog, limited to `max_notes` entries.
+    ///
+    /// A user who imports a project and sees a different picture needs to know why, and the
+    /// status bar only has room for counts. The notes name each object or filter that was
+    /// preserved rather than translated.
+    pub fn details(&self, max_notes: usize) -> String {
+        let mut lines = vec![self.summary()];
+        if self.notes.is_empty() {
+            return lines.join("\n");
+        }
+        lines.push(String::new());
+        lines.extend(self.notes.iter().take(max_notes).cloned());
+        if self.notes.len() > max_notes {
+            lines.push(format!(
+                "… and {} more",
+                self.notes.len().saturating_sub(max_notes)
+            ));
+        }
+        lines.join("\n")
+    }
 }
 
 /// Clips produced by an import, in file order, plus what happened to each.
@@ -1041,6 +1062,33 @@ mod tests {
             assert_eq!(restored, Some(kind), "figure type {kind}");
             assert!(catalog.find(mapping.object_id).is_some());
         }
+    }
+
+    #[test]
+    fn report_details_list_notes_and_cap_the_rest() {
+        let report = ImportReport {
+            objects: 3,
+            translated: 2,
+            placeholders: 1,
+            notes: vec![
+                "动画效果: preserved".to_owned(),
+                "自定义物件: preserved".to_owned(),
+                "图形: preserved".to_owned(),
+            ],
+        };
+        let details = report.details(2);
+        assert!(details.starts_with(&report.summary()));
+        assert!(details.contains("动画效果"));
+        assert!(details.contains("自定义物件"));
+        assert!(!details.contains("图形: preserved"));
+        assert!(details.contains("… and 1 more"));
+
+        let clean = ImportReport {
+            objects: 1,
+            translated: 1,
+            ..ImportReport::default()
+        };
+        assert_eq!(clean.details(5), clean.summary());
     }
 
     #[test]
