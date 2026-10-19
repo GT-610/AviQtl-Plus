@@ -76,6 +76,7 @@ const fn track(keys: &'static [&'static str], param: &'static str, scale: f64) -
 
 /// The drawing/transform filter. ExEdit stores it last in every object that has effects.
 pub const DRAWING_ALIASES: &[&str] = &[
+    // The CN pack calls it 标准属性, stock ExEdit 標準描画; both ship in the wild.
     "标准属性",
     "標準描画",
     "標準描画(拡張)",
@@ -321,6 +322,20 @@ pub const FILTERS: &[FilterMapping] = &[
             (&["提取亮度边缘", "輝度エッジ"], "luminanceEdge"),
             (&["提取透明度边缘", "透明度エッジ"], "alphaEdge"),
         ],
+    },
+    FilterMapping {
+        effect_id: "diagonal_clipping",
+        aliases: &["斜向裁剪", "斜めクリッピング", "Diagonal clipping"],
+        tracks: &[
+            track(&["中心X", "中心X"], "centerX", 1.0),
+            track(&["中心Y", "中心Y"], "centerY", 1.0),
+            track(&["角度", "角度", "angle"], "angle", 1.0),
+            track(&["宽", "幅", "width"], "width", 1.0),
+            track(&["模糊", "ぼかし", "blur"], "blur", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
     },
     FilterMapping {
         effect_id: "clipping",
