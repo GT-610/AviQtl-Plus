@@ -515,6 +515,12 @@ fn build_object_effect(
                 } else {
                     "path"
                 };
+                // Remember the path as imported. ExEdit's binary blob has a layout this
+                // build does not reproduce, so an unchanged path is written back inside the
+                // original bytes instead of a reconstructed blob that may drop fields.
+                effect
+                    .params
+                    .insert("exoPath".to_owned(), Value::from(path.clone()));
                 effect.params.insert(key.to_owned(), Value::from(path));
             }
             None => {
@@ -1171,6 +1177,50 @@ mod tests {
         let plain = placeholder_note("图形", None);
         assert!(plain.contains("no AviQtl-Plus equivalent"));
         assert!(!plain.contains("needs the ExEdit script"));
+    }
+
+    #[test]
+    fn an_unchanged_media_path_keeps_the_original_exdata() {
+        let (catalog, _) = EffectCatalog::load();
+        // A media object whose blob carries a flag before the path, as ExEdit lays it out.
+        let blob: [u8; 12] = [1, 0, 0, 0, b'C', b':', b'\\', b'a', b'.', b'p', b'n', b'g'];
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xcd, 0xbc, 0xc6, 0xac, 0xce, 0xc4, 0xbc, 0xfe]); // 图片文件
+        bytes.extend_from_slice(b"\r\n_exdata=");
+        for byte in blob {
+            bytes.extend_from_slice(format!("{byte:02x}").as_bytes());
+        }
+        bytes.extend_from_slice(b"\r\n[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4]); // 标准属性
+        bytes.extend_from_slice(b"\r\nX=0.0\r\n");
+
+        let file = ExoFile::parse(&bytes).expect("media object file");
+        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+        assert_eq!(outcome.clips.len(), 1);
+        let image = outcome.clips[0]
+            .effects
+            .iter()
+            .find(|effect| effect.id == "image")
+            .expect("the image object translated");
+        assert_eq!(image.params["path"], Value::from("C:\\a.png"));
+
+        let session = ProjectSession::blank_with(ProjectDefaults::default());
+        let mut document = session.document.clone();
+        document.clips = outcome.clips.clone();
+        let (exported, _) = export_scene(&document, &scene(), &catalog);
+        let written = exported.objects[0]
+            .object_filter()
+            .and_then(|filter| filter.hex_payload("_exdata"))
+            .expect("exdata is written");
+        assert_eq!(
+            written,
+            blob.to_vec(),
+            "the original blob is kept byte for byte when the path is unchanged"
+        );
     }
 
     #[test]

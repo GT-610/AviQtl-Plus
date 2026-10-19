@@ -317,12 +317,28 @@ fn object_filter_from_effect(
         if let Some(path) = effect.params.get(key).and_then(Value::as_str)
             && !path.is_empty()
         {
-            // ExEdit stores the referenced file as an ANSI path, not UTF-8, so a
-            // non-ASCII directory name has to use the document's code page.
-            let mut blob = vec![0u8; 4];
-            blob.extend_from_slice(&encoding.encode(path));
-            blob.push(0);
-            filter.set("_exdata", hex_encode(&blob));
+            // ExEdit's blob has a layout this build does not reproduce: it may carry flags
+            // or padding around the path. When the path has not changed since the import,
+            // write the original bytes back untouched; only a new or edited path is built
+            // from scratch.
+            let unchanged = effect
+                .params
+                .get("exoPath")
+                .and_then(Value::as_str)
+                .is_some_and(|imported| imported == path);
+            match effect.params.get("exoExdata").and_then(Value::as_str) {
+                Some(exdata) if unchanged => {
+                    filter.set("_exdata", exdata);
+                }
+                _ => {
+                    // ExEdit stores the referenced file as an ANSI path, not UTF-8, so a
+                    // non-ASCII directory name has to use the document's code page.
+                    let mut blob = vec![0u8; 4];
+                    blob.extend_from_slice(&encoding.encode(path));
+                    blob.push(0);
+                    filter.set("_exdata", hex_encode(&blob));
+                }
+            }
         }
     }
     if !effect.enabled {
