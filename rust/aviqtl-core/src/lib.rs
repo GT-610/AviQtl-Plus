@@ -5,6 +5,7 @@ pub mod api;
 mod audio;
 mod bake_plan;
 mod effect;
+pub mod exo;
 mod export;
 mod keyframe;
 mod keyframe_document;
