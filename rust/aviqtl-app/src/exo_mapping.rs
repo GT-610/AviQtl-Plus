@@ -206,6 +206,34 @@ pub const FILTERS: &[FilterMapping] = &[
         flags: &[(&["保持亮度", "輝度を保持"], "preserveLuma")],
     },
     FilterMapping {
+        effect_id: "diffuse_light",
+        aliases: &["扩散光", "拡散光", "Diffuse light"],
+        tracks: &[
+            track(&["强度", "強さ", "strength"], "strength", 0.1),
+            track(&["扩散度", "拡散", "diffusion"], "diffusion", 1.0),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "edge_detection",
+        aliases: &["提取边缘", "エッジ抽出", "Edge detection"],
+        tracks: &[
+            track(&["强度", "強さ", "strength"], "strength", 0.1),
+            track(&["阈值", "しきい値", "threshold"], "threshold", 1.0),
+        ],
+        colors: &[ColorMapping {
+            keys: &["颜色", "色", "color"],
+            param: "color",
+        }],
+        integers: &[],
+        flags: &[
+            (&["提取亮度边缘", "輝度エッジ"], "luminanceEdge"),
+            (&["提取透明度边缘", "透明度エッジ"], "alphaEdge"),
+        ],
+    },
+    FilterMapping {
         effect_id: "clipping",
         aliases: &["裁剪遮罩", "クリッピング", "Clipping"],
         tracks: &[
@@ -227,6 +255,32 @@ pub const FILTERS: &[FilterMapping] = &[
             track(&["色相", "色相", "hue"], "hue", 1.0),
             track(&["发光度", "明るさ", "lightness"], "lightness", 0.001),
             track(&["色度", "彩度", "saturation"], "saturation", 0.001),
+        ],
+        colors: &[],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "emission",
+        aliases: &["辉光", "発光", "Emission"],
+        tracks: &[
+            track(&["强度", "強さ", "strength"], "strength", 0.1),
+            track(&["扩散度", "拡散", "diffusion"], "diffusion", 0.1),
+            track(&["阈值", "しきい値", "threshold"], "threshold", 0.1),
+        ],
+        colors: &[ColorMapping {
+            keys: &["颜色", "色", "color"],
+            param: "color",
+        }],
+        integers: &[],
+        flags: &[],
+    },
+    FilterMapping {
+        effect_id: "noise",
+        aliases: &["噪波", "ノイズ", "Noise"],
+        tracks: &[
+            track(&["强度", "強さ", "strength"], "strength", 0.1),
+            track(&["速度X", "速度X"], "speed", 1.0),
         ],
         colors: &[],
         integers: &[],
