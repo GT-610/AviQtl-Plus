@@ -11,6 +11,11 @@ All notable changes to AviQtl-Plus are documented in this file.
 - The import covers text, image, video, audio, the drawing/transform filter, the
   built-in figure types, and the built-in effects whose parameter meanings are
   confirmed
+- Filter names, media paths, and text are written in the code page the file came
+  from, so a file from a Chinese pack and one from stock Japanese ExEdit both stay
+  readable by the build that produced them
+- Import and export report what was translated, preserved, or skipped, and a
+  preserved script-backed effect names the script it needs
 - Object files are decoded per file from UTF-8, GBK, or Shift-JIS, so files
   written by the Chinese translation packs and by stock Japanese installs both
   read correctly
