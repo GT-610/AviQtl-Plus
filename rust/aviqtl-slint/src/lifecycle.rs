@@ -1,8 +1,8 @@
 //! Project window ownership, save/close sequencing, and recovery presentation.
 
 use crate::dialogs::{
-    choose_project_save_path, choose_project_to_open, insert_visible_window_geometry, json_i32,
-    show_and_redraw, show_error_dialog,
+    choose_project_save_path, choose_project_to_open, insert_visible_window_geometry,
+    install_opaque_window, json_i32, show_and_redraw, show_error_dialog,
 };
 use crate::easing::refresh_easing_translations;
 use crate::localization::{current_ui_language, localized, select_bundled_ui_translation};
@@ -184,6 +184,15 @@ impl LifecycleUi {
                 .unwrap_or(true)
             {
                 let _ = window.show();
+                // Restore shows the windows directly instead of going through
+                // `show_and_redraw`, so the native frame never got the
+                // appearance `sync_live_settings` could not apply while the
+                // window did not exist yet.
+                match id {
+                    "main" => install_opaque_window(&main),
+                    "timeline" => install_opaque_window(&timeline),
+                    _ => install_opaque_window(&objects),
+                }
             } else {
                 let _ = window.hide();
             }
