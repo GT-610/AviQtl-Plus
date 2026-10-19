@@ -652,6 +652,15 @@ fn placeholder_effect(filter: &ExoFilter) -> EffectDocument {
 /// the exporter has not already produced the same key, which makes a round trip lossless
 /// without teaching the mapper about each one.
 fn capture_source_entries(effect: &mut EffectDocument, filter: &ExoFilter) {
+    // The localized display name decides how AviUtl finds the filter, and the CN pack,
+    // stock ExEdit, and other translations each spell it differently. Keep the exact string
+    // the file used so an export is readable by the same build it came from.
+    let display = filter.display_name();
+    if !display.is_empty() {
+        effect
+            .params
+            .insert("exoName".to_owned(), Value::from(display.to_owned()));
+    }
     for (key, value) in &filter.entries {
         if matches!(key.as_str(), "_name" | "_disable" | "_exdata") {
             continue;
@@ -1089,6 +1098,38 @@ mod tests {
             ..ImportReport::default()
         };
         assert_eq!(clean.details(5), clean.summary());
+    }
+
+    #[test]
+    fn an_imported_filter_keeps_the_name_its_own_build_uses() {
+        let (catalog, _) = EffectCatalog::load();
+        // 標準描画 is what stock ExEdit writes; the CN pack writes 标准属性. Both resolve to
+        // the same transform, and the exported file has to keep whichever came in.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+        bytes.extend_from_slice(b"\r\ntext=4100\r\n[0.1]\r\n_name=");
+        // 標準描画 in GBK
+        bytes.extend_from_slice(&[0x98, 0xcb, 0x9c, 0xca, 0xc3, 0xe8, 0xbb, 0xad]);
+        bytes.extend_from_slice(b"\r\nX=10.0\r\nY=20.0\r\n");
+        let file = ExoFile::parse(&bytes).expect("file");
+        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+
+        let session = ProjectSession::blank_with(ProjectDefaults::default());
+        let mut document = session.document.clone();
+        document.clips = outcome.clips.clone();
+        let (exported, _) = export_scene(&document, &scene(), &catalog);
+        let drawing = exported.objects[0]
+            .drawing_filter()
+            .expect("the drawing filter is kept");
+        assert_eq!(
+            drawing.display_name(),
+            "標準描画",
+            "the original spelling has to survive"
+        );
     }
 
     #[test]

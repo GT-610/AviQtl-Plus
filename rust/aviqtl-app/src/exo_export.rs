@@ -267,7 +267,7 @@ fn object_filter_from_effect(
 ) -> Option<ExoFilter> {
     let mapping = object_mapping_for_id(clip_type)?;
     let mut filter = ExoFilter::default();
-    filter.set("_name", mapping.aliases[0]);
+    set_display_name(&mut filter, effect, mapping.aliases[0]);
     if mapping.object_id == "text" {
         if let Some(font) = effect.params.get("fontFamily").and_then(Value::as_str)
             && !font.is_empty()
@@ -388,7 +388,7 @@ fn figure_filter(clip_type: &str, effect: &EffectDocument) -> Option<ExoFilter> 
         -(1.0 - width / height.max(1.0)) * 100.0
     };
     let mut filter = ExoFilter::default();
-    filter.set("_name", crate::exo_mapping::FIGURE_ALIASES[0]);
+    set_display_name(&mut filter, effect, crate::exo_mapping::FIGURE_ALIASES[0]);
     // An animated 大小 is stored on `sizeW`, with both extents scaled from it.
     match effect
         .keyframes
@@ -440,6 +440,20 @@ fn round_to(value: f64, decimals: i32) -> f64 {
     (value * factor).round() / factor
 }
 
+/// Sets the display name AviUtl will look the filter up by.
+///
+/// AviUtl resolves `_name` against its own table, so a file written by the CN pack has to keep
+/// the Chinese name and a file from stock ExEdit keeps the Japanese one. `exoName` carries the
+/// exact string the source used; only an object created here falls back to the table default.
+fn set_display_name(filter: &mut ExoFilter, effect: &EffectDocument, fallback: &str) {
+    let name = effect
+        .params
+        .get("exoName")
+        .and_then(Value::as_str)
+        .unwrap_or(fallback);
+    filter.set("_name", name);
+}
+
 /// Appends the source keys the importer preserved, skipping any the exporter already wrote.
 ///
 /// ExEdit's own reader ignores keys it does not know, and it needs the positional markers and
@@ -475,7 +489,7 @@ fn object_mapping_for_id(clip_type: &str) -> Option<&'static ObjectMapping> {
 
 fn transform_filter(effect: &EffectDocument) -> ExoFilter {
     let mut filter = ExoFilter::default();
-    filter.set("_name", DRAWING_ALIASES[0]);
+    set_display_name(&mut filter, effect, DRAWING_ALIASES[0]);
     for mapping in DRAWING_TRACKS {
         write_track(&mut filter, effect, mapping);
     }
@@ -575,7 +589,7 @@ fn track_end_value(track: &Value) -> Option<f64> {
 fn effect_filter(effect: &EffectDocument) -> Option<ExoFilter> {
     let mapping: &FilterMapping = filter_mapping_by_id(&effect.id)?;
     let mut filter = ExoFilter::default();
-    filter.set("_name", mapping.aliases[0]);
+    set_display_name(&mut filter, effect, mapping.aliases[0]);
     for mapping in mapping.tracks {
         write_track(&mut filter, effect, mapping);
     }
