@@ -2742,6 +2742,27 @@ impl WorkspaceModel {
         (!file.objects.is_empty()).then_some((file, report))
     }
 
+    /// Writes the selected objects as an AviUtl ExEdit object file.
+    ///
+    /// ExEdit's export command works on the selection, so this is what a user pressing it
+    /// with objects selected expects, rather than the whole scene.
+    pub fn export_exo_selection(
+        &self,
+        catalog: &EffectCatalog,
+    ) -> Option<(
+        aviqtl_rust_core::exo::ExoFile,
+        crate::exo_export::ExportReport,
+    )> {
+        let scene = self.selected_scene_document()?;
+        let ids = self.selection.ids();
+        if ids.is_empty() {
+            return self.export_exo_object_file(catalog);
+        }
+        let (file, report) =
+            crate::exo_export::export_selection(&self.project.document, scene, ids, catalog);
+        (!file.objects.is_empty()).then_some((file, report))
+    }
+
     pub fn import_media_files(
         &mut self,
         paths: &[PathBuf],
@@ -3899,6 +3920,49 @@ mod tests {
             "the imported clip is gone"
         );
         let _ = original_duration;
+    }
+
+    #[test]
+    fn exporting_a_selection_writes_only_the_selected_objects() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        workspace
+            .import_exo_object_file(
+                &object_file_fixture(),
+                crate::exo_import::ImportPlacement::default(),
+                &catalog,
+            )
+            .expect("the import succeeds");
+        // The import leaves its own objects selected; the fixture already has a text clip,
+        // so finding by type would pick the wrong one.
+        workspace
+            .selection
+            .ids()
+            .first()
+            .expect("the import selects what it added");
+
+        let (_, report) = workspace
+            .export_exo_selection(&catalog)
+            .expect("the selection exports");
+        assert_eq!(report.objects, 1, "only the selected object is written");
+        assert!(report.selection_only);
+        assert!(
+            report.summary().contains("selected"),
+            "{}",
+            report.summary()
+        );
+
+        // With nothing selected the same command falls back to the whole scene. The fixture
+        // scene also holds two clips with no effect stack, which cannot be written, so the
+        // scene export reports them rather than producing more objects.
+        workspace.selection.clear();
+        let (all, all_report) = workspace
+            .export_exo_selection(&catalog)
+            .expect("the scene exports");
+        assert!(!all_report.selection_only);
+        assert!(all_report.summary().contains("skipped"));
+        assert_eq!(all.objects.len(), 1);
+        assert_eq!(report.objects, 1);
     }
 
     #[test]

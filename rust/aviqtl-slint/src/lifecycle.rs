@@ -370,7 +370,7 @@ impl LifecycleUi {
             .model
             .borrow()
             .current_workspace()
-            .and_then(|workspace| workspace.export_exo_object_file(&catalog));
+            .and_then(|workspace| workspace.export_exo_selection(&catalog));
         drop(catalog);
         let Some((file, report)) = exported else {
             show_error_dialog(localized(

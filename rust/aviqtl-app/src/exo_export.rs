@@ -20,16 +20,23 @@ use serde_json::Value;
 pub struct ExportReport {
     pub objects: usize,
     pub skipped: Vec<String>,
+    /// True when only the selected objects were written.
+    pub selection_only: bool,
 }
 
 impl ExportReport {
     /// One-line summary suitable for the status bar.
     pub fn summary(&self) -> String {
+        let scope = if self.selection_only {
+            "selected object(s)"
+        } else {
+            "object(s)"
+        };
         if self.skipped.is_empty() {
-            format!("Exported {} object(s)", self.objects)
+            format!("Exported {} {scope}", self.objects)
         } else {
             format!(
-                "Exported {} object(s), skipped {}",
+                "Exported {} {scope}, skipped {}",
                 self.objects,
                 self.skipped.len()
             )
@@ -46,13 +53,65 @@ pub fn export_scene(
     scene: &SceneDocument,
     catalog: &EffectCatalog,
 ) -> (ExoFile, ExportReport) {
-    let mut report = ExportReport::default();
-    let mut objects = Vec::new();
-    let mut clips = document
+    let clips = document
         .clips
         .iter()
         .filter(|clip| clip.scene_id == scene.id)
         .collect::<Vec<_>>();
+    build_file(document, scene, clips, catalog, false)
+}
+
+/// Builds an object file from the selected objects only.
+///
+/// This is what ExEdit's "export object file" does: it writes the selection, not the whole
+/// scene, which is how users hand a group of objects to someone else or keep a reusable
+/// fragment.
+pub fn export_selection(
+    document: &ProjectDocument,
+    scene: &SceneDocument,
+    clip_ids: &[i32],
+    catalog: &EffectCatalog,
+) -> (ExoFile, ExportReport) {
+    let clips = document
+        .clips
+        .iter()
+        .filter(|clip| clip.scene_id == scene.id && clip_ids.contains(&clip.id))
+        .collect::<Vec<_>>();
+    if clip_ids
+        .iter()
+        .any(|id| !clips.iter().any(|clip| clip.id == *id))
+    {
+        // The selection can name a clip in another scene; that is not an error, but the
+        // report has to say the object is not part of the file.
+        let mut report_scope = Vec::new();
+        for id in clip_ids {
+            if !clips.iter().any(|clip| clip.id == *id) {
+                report_scope.push(*id);
+            }
+        }
+        let (file, mut report) = build_file(document, scene, clips, catalog, true);
+        for id in report_scope {
+            report
+                .skipped
+                .push(format!("clip #{id}: not in this scene"));
+        }
+        return (file, report);
+    }
+    build_file(document, scene, clips, catalog, true)
+}
+
+fn build_file(
+    document: &ProjectDocument,
+    scene: &SceneDocument,
+    mut clips: Vec<&ClipDocument>,
+    catalog: &EffectCatalog,
+    selection_only: bool,
+) -> (ExoFile, ExportReport) {
+    let mut report = ExportReport {
+        selection_only,
+        ..ExportReport::default()
+    };
+    let mut objects = Vec::new();
     // AviUtl stacks layers upwards and objects are read in file order, so write the lowest
     // layer first and keep the original order inside a layer.
     clips.sort_by_key(|clip| (clip.layer, clip.start, clip.id));
