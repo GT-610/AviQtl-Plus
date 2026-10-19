@@ -876,3 +876,74 @@ mod tests {
         assert!(gain.keyframed);
     }
 }
+
+#[cfg(test)]
+mod text_object_tests {
+    use super::*;
+    use aviqtl_rust_core::api::TimelineState;
+
+    #[test]
+    fn a_clip_without_effects_projects_no_controls() {
+        // The `--frames` validation fixture writes clips with no effects at all,
+        // which is not what a saved project looks like: the loader always keeps
+        // the object and transform entries. Pin the distinction so an empty
+        // settings dialog is recognised as a fixture problem, not a projection
+        // bug.
+        let state = TimelineState::from_json(
+            br#"{
+                "version":3,
+                "scenes":[{"id":1,"name":"Root","duration":300}],
+                "clips":[{"id":9,"sceneId":1,"type":"text","start":0,"duration":100,"layer":0}]
+            }"#,
+        )
+        .expect("project");
+        let document = state.snapshot();
+        let clip = &document.clips[0];
+        let (catalog, _) = EffectCatalog::load();
+        let projection =
+            project_object_settings(&document, clip, 1, 0, &catalog, |index| index == 0);
+
+        assert!(projection.effects.is_empty());
+    }
+
+    #[test]
+    fn text_clips_project_their_object_controls() {
+        // A text clip saved by the app carries a transform effect plus the text
+        // object itself; both project their metadata controls.
+        let state = TimelineState::from_json(
+            br#"{
+                "version":3,
+                "scenes":[{"id":1,"name":"Root","duration":300}],
+                "clips":[{
+                    "id":9,"sceneId":1,"type":"text","start":0,"duration":100,"layer":0,
+                    "effects":[
+                        {"id":"transform","name":"","params":{}},
+                        {"id":"text","name":"","params":{"text":"hello","fontSize":48}}
+                    ]
+                }]
+            }"#,
+        )
+        .expect("project");
+        let document = state.snapshot();
+        let clip = &document.clips[0];
+        let (catalog, _) = EffectCatalog::load();
+        let projection =
+            project_object_settings(&document, clip, 1, 0, &catalog, |index| index == 1);
+
+        let text = projection
+            .effects
+            .iter()
+            .find(|effect| effect.id == "text")
+            .expect("text object effect is projected");
+        assert!(
+            text.controls
+                .iter()
+                .any(|control| control.param.as_deref() == Some("fontSize")),
+            "text object exposes its own controls, got {:?}",
+            text.controls
+                .iter()
+                .map(|control| control.param.clone())
+                .collect::<Vec<_>>()
+        );
+    }
+}
