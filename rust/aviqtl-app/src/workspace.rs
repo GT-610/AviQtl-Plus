@@ -2661,11 +2661,24 @@ impl WorkspaceModel {
             .min()
             .unwrap_or(0);
         let imported_ids = outcome.clips.iter().map(|clip| clip.id).collect::<Vec<_>>();
-        let commands = outcome
-            .clips
-            .into_iter()
-            .map(|clip| TimelineCommand::InsertClip { index: None, clip })
-            .collect::<Vec<_>>();
+        // AviUtl extends the scene to fit what was imported; a shorter scene would hide the
+        // tail of the file behind the end of the timeline. The extension is part of the same
+        // transaction, so one undo still removes the whole import.
+        let mut commands = Vec::with_capacity(outcome.clips.len() + 1);
+        if next_frame > scene.duration {
+            let mut extended = scene.clone();
+            extended.duration = next_frame;
+            commands.push(TimelineCommand::UpdateScene {
+                scene_id: scene.id,
+                scene: extended,
+            });
+        }
+        commands.extend(
+            outcome
+                .clips
+                .into_iter()
+                .map(|clip| TimelineCommand::InsertClip { index: None, clip }),
+        );
         if !self.execute_batch(commands) {
             return None;
         }
@@ -3848,6 +3861,44 @@ mod tests {
         assert_eq!(settings.fps, 60.0);
         assert_eq!(settings.sample_rate, 48_000);
         assert_eq!(workspace.document().clips.len(), 1);
+    }
+
+    #[test]
+    fn an_import_extends_a_short_scene_and_one_undo_reverts_it() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        let original_duration = workspace.selected_scene_document().unwrap().duration;
+        // The fixture object ends at frame 16, so a scene of 8 has to grow to hold it.
+        let mut short = workspace.selected_scene_document().cloned().unwrap();
+        short.duration = 8;
+        workspace.update_scene_settings(short.id, crate::workspace::scene_settings_input(&short));
+        assert_eq!(workspace.selected_scene_document().unwrap().duration, 8);
+
+        workspace
+            .import_exo_object_file(
+                &object_file_fixture(),
+                crate::exo_import::ImportPlacement::default(),
+                &catalog,
+            )
+            .expect("the import succeeds");
+        assert_eq!(
+            workspace.selected_scene_document().unwrap().duration,
+            16,
+            "the scene grows to cover the imported object"
+        );
+
+        assert!(workspace.undo());
+        assert_eq!(
+            workspace.selected_scene_document().unwrap().duration,
+            8,
+            "one undo restores the scene length as well as the objects"
+        );
+        assert_eq!(
+            workspace.document().clips.len(),
+            3,
+            "the imported clip is gone"
+        );
+        let _ = original_duration;
     }
 
     #[test]
