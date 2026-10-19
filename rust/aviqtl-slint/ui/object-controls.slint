@@ -644,10 +644,23 @@ export component ObjectSettingRow inherits Rectangle {
                 MenuSeparator { }
                 MenuItem { title: @tr("Advanced curve..."); activated => { root.open-easing(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame); } }
             }
-            Button {
-                text: root.row-data.parameter-button-label;
-                enabled: root.row-data.interactive;
-                clicked => { quick-easing-menu.show({ x: 0px, y: self.height }); }
+            // Slint's Button sizes its text to the whole label, so a long
+            // "{param} (ease in and out)" label used to draw past this fixed
+            // 100 px column and over the value fields beside it. The wrapper
+            // pins the button to the column and clips whatever the label would
+            // have spilled, keeping the columns of neighbouring rows aligned
+            // like Qt's ParamControl.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                clip: true;
+                Button {
+                    width: parent.width;
+                    height: parent.height;
+                    text: root.row-data.parameter-button-label;
+                    enabled: root.row-data.interactive;
+                    clicked => { quick-easing-menu.show({ x: 0px, y: self.height }); }
+                }
             }
         }
         if !root.row-data.audio-plugin : ScrubNumberEdit {
