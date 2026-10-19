@@ -94,7 +94,10 @@ impl Default for ImportPlacement {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ImportReport {
     pub objects: usize,
+    /// Objects whose own filter was translated rather than preserved.
     pub translated: usize,
+    /// Filters and objects preserved as disabled placeholders. This counts items, not
+    /// objects: one translated object can carry several preserved filters.
     pub placeholders: usize,
     /// Human-readable notes, one per approximated or preserved item.
     pub notes: Vec<String>,
@@ -104,7 +107,7 @@ impl ImportReport {
     /// One-line summary suitable for the status bar.
     pub fn summary(&self) -> String {
         let mut summary = format!(
-            "Imported {} object(s): {} translated, {} preserved",
+            "Imported {} object(s): {} with a translated object, {} item(s) preserved",
             self.objects, self.translated, self.placeholders
         );
         if !self.notes.is_empty() {
