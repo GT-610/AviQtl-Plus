@@ -108,8 +108,13 @@ struct DecodeScore {
     length: usize,
 }
 
+/// Full-width hiragana and katakana, the characters that identify Japanese prose.
+///
+/// Half-width katakana (`U+FF61..=U+FF9F`) are deliberately excluded: a GBK byte pair such as
+/// `0xCEC4` (文本) decodes to `ﾎﾄ` under Shift-JIS, so counting half-width forms made short
+/// Chinese values look Japanese and could pick the wrong code page for a whole file.
 fn is_kana(character: char) -> bool {
-    matches!(character, '\u{3040}'..='\u{30ff}' | '\u{ff66}'..='\u{ff9f}')
+    matches!(character, '\u{3040}'..='\u{30ff}')
 }
 
 fn table_lookup(table: &[u8], index: usize) -> Option<char> {
@@ -252,6 +257,17 @@ mod tests {
         assert_eq!(TextEncoding::Gbk.decode(&bytes), "标准属性");
         let scale = [0xcb, 0xf5, 0xb7, 0xc5, 0xc2, 0xca];
         assert_eq!(TextEncoding::Gbk.decode(&scale), "缩放率");
+    }
+
+    #[test]
+    fn prefers_gbk_when_the_shift_jis_reading_is_only_half_width_kana() {
+        // `文本` followed by `标准属性`, both GBK. Under Shift-JIS the first pair is `ﾎﾄ`,
+        // half-width katakana, which used to make the whole file look Japanese.
+        let bytes = [
+            0xce, 0xc4, 0xb1, 0xbe, 0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4,
+        ];
+        assert_eq!(TextEncoding::detect(&bytes), TextEncoding::Gbk);
+        assert_eq!(TextEncoding::Gbk.decode(&bytes), "文本标准属性");
     }
 
     #[test]
