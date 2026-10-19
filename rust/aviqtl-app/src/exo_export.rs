@@ -125,6 +125,11 @@ fn export_clip(
 
     let mut filters = vec![first];
     let transform = clip.effects.iter().find(|effect| effect.id == "transform");
+    // Restore the internal filters ExEdit keeps in the stack but the importer parked on the
+    // clip, in their original position just before the drawing filter.
+    for filter in internal_filters(clip) {
+        filters.push(filter);
+    }
     for effect in &clip.effects {
         if std::ptr::eq(effect, object_effect) || effect.id == "transform" {
             continue;
@@ -224,6 +229,30 @@ fn object_filter_from_effect(
     }
     append_source_entries(&mut filter, effect);
     Some(filter)
+}
+
+/// Rebuilds the ExEdit-internal filters the importer stored on the clip.
+fn internal_filters(clip: &ClipDocument) -> Vec<ExoFilter> {
+    let Some(filters) = clip
+        .extra
+        .get("exoInternalFilters")
+        .and_then(Value::as_array)
+    else {
+        return Vec::new();
+    };
+    filters
+        .iter()
+        .filter_map(|filter| {
+            let entries = filter.as_array()?;
+            Some(ExoFilter::new(entries.iter().filter_map(|entry| {
+                let pair = entry.as_array()?;
+                Some((
+                    pair.first()?.as_str()?.to_owned(),
+                    pair.get(1)?.as_str()?.to_owned(),
+                ))
+            })))
+        })
+        .collect()
 }
 
 /// Rebuilds ExEdit's 図形 block from a translated shape object.

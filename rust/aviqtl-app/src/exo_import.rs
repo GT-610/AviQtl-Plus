@@ -223,7 +223,20 @@ fn translate_object(
         .iter()
         .rposition(|filter| is_drawing_filter(filter.display_name()));
     let effect_end = drawing_index.unwrap_or(filters.len());
+    // ExEdit appends these itself; they carry no artist intent and translating them would add
+    // a filter AviUtl never showed in the object's stack.
+    let internal = |filter: &ExoFilter| {
+        matches!(
+            filter.display_name(),
+            "上层物件缓存" | "上層オブジェクトバッファ" | "直前オブジェクト" | "フレームバッファ"
+        )
+    };
+    let mut preserved = Vec::new();
     for filter in filters.iter().take(effect_end).skip(1) {
+        if internal(filter) {
+            preserved.push(filter.clone());
+            continue;
+        }
         effects.push(translate_filter(filter, catalog, report));
     }
 
@@ -261,8 +274,32 @@ fn translate_object(
         params: Map::new(),
         audio_plugins: Vec::new(),
         effects,
-        extra: BTreeMap::new(),
+        // Kept on the clip rather than in the stack: AviUtl's own filter list is the only
+        // place these belong, and the exporter writes them back unchanged.
+        extra: preserved_clip_extras(&preserved),
     })
+}
+
+/// Stores the internal filters an ExEdit object carries, so an export can reproduce them.
+fn preserved_clip_extras(filters: &[ExoFilter]) -> BTreeMap<String, Value> {
+    let mut extras = BTreeMap::new();
+    if filters.is_empty() {
+        return extras;
+    }
+    let entries = filters
+        .iter()
+        .map(|filter| {
+            Value::Array(
+                filter
+                    .entries
+                    .iter()
+                    .map(|(key, value)| json!([key, value]))
+                    .collect(),
+            )
+        })
+        .collect::<Vec<_>>();
+    extras.insert("exoInternalFilters".to_owned(), Value::Array(entries));
+    extras
 }
 
 /// Translates ExEdit's 図形 object, which is a solid regular polygon.
