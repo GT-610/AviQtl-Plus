@@ -4,9 +4,9 @@ use crate::ObjectSettingsWindow;
 use crate::localization::localized;
 use crate::projection::update_vec_model;
 use aviqtl_app::settings::SettingsStore;
-use slint::winit_030::WinitWindowAccessor;
-use slint::{CloseRequestResponse, Color, ComponentHandle, SharedString, Timer};
-use std::cell::RefCell;
+use slint::winit_030::{WinitWindowAccessor, winit};
+use slint::{CloseRequestResponse, Color, ComponentHandle, SharedString, Timer, TimerMode};
+use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Duration;
@@ -357,10 +357,78 @@ pub(super) fn choose_missing_media_replacement(
     dialog.pick_file()
 }
 
+thread_local! {
+    /// Native chrome appearance requested by the active app theme. Windows read
+    /// it when they are created and again whenever the theme changes.
+    static NATIVE_DARK: Cell<bool> = const { Cell::new(true) };
+}
+
+/// Record the theme that newly created native windows should adopt.
+pub(super) fn set_native_window_dark(dark: bool) {
+    NATIVE_DARK.with(|value| value.set(dark));
+}
+
+pub(super) fn native_window_dark() -> bool {
+    NATIVE_DARK.with(Cell::get)
+}
+
+/// Force an opaque frame and match the native chrome to the app theme.
+///
+/// Slint's winit backend always creates its native windows transparent. On
+/// macOS that also clears the background AppKit draws behind the titlebar, so
+/// the window chrome loses its fill and the title becomes unreadable over
+/// whatever sits behind it. Every AviQtl window paints its own opaque content,
+/// so the frame becomes opaque here.
+///
+/// The window also inherits the system appearance, which leaves a light
+/// titlebar above AviQtl's dark content whenever the app theme differs from the
+/// OS. Pushing the app's own dark/light choice to the native window keeps the
+/// chrome consistent with the window it belongs to.
+pub(super) fn apply_native_window_appearance(window: &slint::Window, dark: bool) {
+    window.with_winit_window(|winit_window| {
+        winit_window.set_transparent(false);
+        winit_window.set_theme(Some(if dark {
+            winit::window::Theme::Dark
+        } else {
+            winit::window::Theme::Light
+        }));
+        winit_window.request_redraw();
+    });
+}
+
+/// The native window only exists while the event loop runs, so right after
+/// `show()` there is nothing to configure yet. Poll briefly from a timer (which
+/// does run inside the event loop) until the window is available.
+///
+/// This deliberately does not use `on_winit_window_event`: that slot holds a
+/// single handler per window, and the timeline already uses it for native file
+/// drag and drop.
+pub(super) fn install_opaque_window<T: ComponentHandle + 'static>(window: &T) {
+    let weak = window.as_weak();
+    let attempts = Rc::new(Cell::new(0_u16));
+    let timer = Rc::new(Timer::default());
+    let tick = timer.clone();
+    timer.start(TimerMode::Repeated, Duration::from_millis(50), move || {
+        let attempt = attempts.get() + 1;
+        attempts.set(attempt);
+        let applied = weak.upgrade().is_some_and(|window| {
+            let has_window = window.window().with_winit_window(|_| ()).is_some();
+            if has_window {
+                apply_native_window_appearance(window.window(), native_window_dark());
+            }
+            has_window
+        });
+        if applied || attempt >= 40 {
+            tick.stop();
+        }
+    });
+}
+
 pub(super) fn show_and_redraw<T: ComponentHandle + 'static>(
     window: &T,
 ) -> Result<(), slint::PlatformError> {
     window.show()?;
+    install_opaque_window(window);
     let window = window.as_weak();
     Timer::single_shot(Duration::ZERO, move || {
         if let Some(window) = window.upgrade() {
@@ -382,6 +450,7 @@ where
     P: ComponentHandle + 'static,
 {
     window.show()?;
+    install_opaque_window(window);
     let window = window.as_weak();
     let parent = parent.as_weak();
     Timer::single_shot(Duration::ZERO, move || {
