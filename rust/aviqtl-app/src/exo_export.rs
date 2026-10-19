@@ -162,18 +162,23 @@ fn export_clip(
         filters.push(transform_filter(effect));
     }
 
+    let flag = |key: &str| clip.extra.get(key).and_then(Value::as_bool) == Some(true);
     Some(ExoObject {
         start: clip.start.saturating_add(1),
         end: clip.start.saturating_add(clip.duration).max(1),
         layer: clip.layer.saturating_add(1),
-        group: None,
+        group: clip
+            .extra
+            .get("exoGroup")
+            .and_then(Value::as_i64)
+            .and_then(|group| i32::try_from(group).ok()),
         overlay: clip.clip_by_upper_object,
-        clipping: false,
+        clipping: flag("exoClipping"),
         // ExEdit writes `camera` on every object: `1` for the object that drives a camera,
         // `0` for everything else.
-        camera: Some(clip.clip_type == "camera_control"),
-        audio: false,
-        chain: false,
+        camera: Some(clip.clip_type == "camera_control" || flag("exoCamera")),
+        audio: flag("exoAudioObject"),
+        chain: flag("exoChain"),
         filters,
         extra: Vec::new(),
     })

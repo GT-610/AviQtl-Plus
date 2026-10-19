@@ -276,13 +276,34 @@ fn translate_object(
         effects,
         // Kept on the clip rather than in the stack: AviUtl's own filter list is the only
         // place these belong, and the exporter writes them back unchanged.
-        extra: preserved_clip_extras(&preserved),
+        extra: preserved_clip_extras(object, &preserved),
     })
 }
 
-/// Stores the internal filters an ExEdit object carries, so an export can reproduce them.
-fn preserved_clip_extras(filters: &[ExoFilter]) -> BTreeMap<String, Value> {
+/// Stores the ExEdit-only object state a clip has no field for, so an export can
+/// reproduce it.
+///
+/// `group`, `clipping`, `audio` and `chain` are placement and routing flags ExEdit writes on
+/// the object section; AviQtl-Plus has no equivalent, but dropping them would change which
+/// object an effect applies to after a round trip. `camera` is kept unless it is the plain
+/// `0` every ordinary object carries.
+fn preserved_clip_extras(object: &ExoObject, filters: &[ExoFilter]) -> BTreeMap<String, Value> {
     let mut extras = BTreeMap::new();
+    if let Some(group) = object.group {
+        extras.insert("exoGroup".to_owned(), Value::from(group));
+    }
+    if object.clipping {
+        extras.insert("exoClipping".to_owned(), Value::Bool(true));
+    }
+    if object.audio {
+        extras.insert("exoAudioObject".to_owned(), Value::Bool(true));
+    }
+    if object.chain {
+        extras.insert("exoChain".to_owned(), Value::Bool(true));
+    }
+    if object.camera == Some(true) {
+        extras.insert("exoCamera".to_owned(), Value::Bool(true));
+    }
     if filters.is_empty() {
         return extras;
     }

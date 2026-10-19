@@ -127,6 +127,39 @@ fn compare(original: &ExoFile, reparsed: &ExoFile) -> Vec<String> {
         if (before.start, before.end, before.layer) != (after.start, after.end, after.layer) {
             problems.push(format!("[{index}] placement changed"));
         }
+        // ExEdit's per-object routing flags decide which object an effect applies to, so a
+        // round trip has to keep them.
+        if (
+            before.group,
+            before.overlay,
+            before.clipping,
+            before.camera,
+            before.audio,
+            before.chain,
+        ) != (
+            after.group,
+            after.overlay,
+            after.clipping,
+            after.camera,
+            after.audio,
+            after.chain,
+        ) {
+            problems.push(format!(
+                "[{index}] flags {:?}/{:?}/{:?}/{:?}/{:?}/{:?} -> {:?}/{:?}/{:?}/{:?}/{:?}/{:?}",
+                before.group,
+                before.overlay,
+                before.clipping,
+                before.camera,
+                before.audio,
+                before.chain,
+                after.group,
+                after.overlay,
+                after.clipping,
+                after.camera,
+                after.audio,
+                after.chain
+            ));
+        }
         if before.filters.len() != after.filters.len() {
             problems.push(format!(
                 "[{index}] filter count {} -> {}",
