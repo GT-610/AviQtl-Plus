@@ -5,7 +5,7 @@ use crate::localization::localized;
 use crate::projection::update_vec_model;
 use aviqtl_app::settings::SettingsStore;
 use slint::winit_030::{WinitWindowAccessor, winit};
-use slint::{CloseRequestResponse, Color, ComponentHandle, SharedString, Timer, TimerMode};
+use slint::{CloseRequestResponse, Color, ComponentHandle, SharedString, Timer};
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -396,30 +396,46 @@ pub(super) fn apply_native_window_appearance(window: &slint::Window, dark: bool)
     });
 }
 
+/// How long the poll below waits between attempts, and how often it retries.
+/// Two seconds covers a slow first launch, and the poll ends as soon as it
+/// reaches a window.
+const NATIVE_WINDOW_POLL_INTERVAL: Duration = Duration::from_millis(50);
+const NATIVE_WINDOW_POLL_ATTEMPTS: u16 = 40;
+
 /// The native window only exists while the event loop runs, so right after
-/// `show()` there is nothing to configure yet. Poll briefly from a timer (which
-/// does run inside the event loop) until the window is available.
+/// `show()` there is nothing to configure yet. Poll briefly from the event loop
+/// (a timer runs inside it) until the window is available.
+///
+/// Every attempt schedules the next one, and the chain stops once it succeeded
+/// or used up its attempts, so nothing outlives the poll. A repeated timer would
+/// instead keep its callback — and the timer handle the callback needs to stop
+/// itself — registered for the rest of the session.
 ///
 /// This deliberately does not use `on_winit_window_event`: that slot holds a
 /// single handler per window, and the timeline already uses it for native file
 /// drag and drop.
 pub(super) fn install_opaque_window<T: ComponentHandle + 'static>(window: &T) {
-    let weak = window.as_weak();
-    let attempts = Rc::new(Cell::new(0_u16));
-    let timer = Rc::new(Timer::default());
-    let tick = timer.clone();
-    timer.start(TimerMode::Repeated, Duration::from_millis(50), move || {
-        let attempt = attempts.get() + 1;
-        attempts.set(attempt);
-        let applied = weak.upgrade().is_some_and(|window| {
-            let has_window = window.window().with_winit_window(|_| ()).is_some();
-            if has_window {
+    // A window whose native frame already exists (restore re-shows windows that
+    // were created earlier, without the event loop having run since) takes the
+    // appearance right away. The poll below still re-applies it after the frame
+    // becomes visible again.
+    if window.window().has_winit_window() {
+        apply_native_window_appearance(window.window(), native_window_dark());
+    }
+    poll_native_window(window.as_weak(), NATIVE_WINDOW_POLL_ATTEMPTS);
+}
+
+fn poll_native_window<T: ComponentHandle + 'static>(window: slint::Weak<T>, attempts: u16) {
+    Timer::single_shot(NATIVE_WINDOW_POLL_INTERVAL, move || {
+        let applied = window.upgrade().is_some_and(|window| {
+            let ready = window.window().has_winit_window();
+            if ready {
                 apply_native_window_appearance(window.window(), native_window_dark());
             }
-            has_window
+            ready
         });
-        if applied || attempt >= 40 {
-            tick.stop();
+        if !applied && attempts > 1 {
+            poll_native_window(window, attempts - 1);
         }
     });
 }
