@@ -231,9 +231,9 @@ fn translate_object(
             },
             None => {
                 report.placeholders += 1;
-                report.notes.push(format!(
-                    "{display}: no AviQtl-Plus equivalent, preserved as a disabled placeholder"
-                ));
+                report
+                    .notes
+                    .push(placeholder_note(display, object_filter.script_name()));
                 is_object_placeholder = true;
                 (placeholder_type(display), placeholder_effect(object_filter))
             }
@@ -554,9 +554,9 @@ fn translate_filter(
     let display = filter.display_name();
     let Some(mapping): Option<&FilterMapping> = filter_mapping(display) else {
         report.placeholders += 1;
-        report.notes.push(format!(
-            "{display}: no AviQtl-Plus equivalent, preserved as a disabled placeholder"
-        ));
+        report
+            .notes
+            .push(placeholder_note(display, filter.script_name()));
         return placeholder_effect(filter);
     };
     let Some(metadata) = catalog.find(mapping.effect_id) else {
@@ -584,6 +584,23 @@ fn translate_filter(
     apply_metadata_defaults(&mut effect, metadata);
     report.translated += 1;
     effect
+}
+
+/// Explains why something was preserved, naming the script when there is one.
+///
+/// Most preserved entries are script-backed effects. Naming the script turns an opaque
+/// "placeholder" into something the user can act on: the script is a file in AviUtl's
+/// `script` folder, and knowing which one is missing is the difference between a usable note
+/// and a shrug.
+fn placeholder_note(display: &str, script: Option<&str>) -> String {
+    match script.filter(|script| !script.is_empty()) {
+        Some(script) => format!(
+            "{display}: needs the ExEdit script {script}, preserved as a disabled placeholder"
+        ),
+        None => {
+            format!("{display}: no AviQtl-Plus equivalent, preserved as a disabled placeholder")
+        }
+    }
 }
 
 /// Preserves an object or filter this build cannot translate.
@@ -1133,6 +1150,27 @@ mod tests {
             "標準描画",
             "the original spelling has to survive"
         );
+    }
+
+    #[test]
+    fn a_preserved_script_names_the_file_it_needs() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(&file, &scene(), &catalog, 10, ImportPlacement::default());
+        let note = outcome
+            .report
+            .notes
+            .iter()
+            .find(|note| note.contains("自定义物件"))
+            .expect("the script object is noted");
+        assert!(
+            note.contains("uf_easing"),
+            "the note has to name the script: {note}"
+        );
+        // A filter with no script identifier keeps the plain wording.
+        let plain = placeholder_note("图形", None);
+        assert!(plain.contains("no AviQtl-Plus equivalent"));
+        assert!(!plain.contains("needs the ExEdit script"));
     }
 
     #[test]
