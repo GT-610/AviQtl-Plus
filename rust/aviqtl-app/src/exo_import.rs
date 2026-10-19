@@ -163,6 +163,7 @@ fn translate_object(
 
     let display = object_filter.display_name();
     let mut effects = Vec::new();
+    let mut is_object_placeholder = false;
     let (clip_type, object_effect) = match object_mapping(display) {
         Some(mapping) => match build_object_effect(object_filter, mapping, catalog) {
             Some(effect) => {
@@ -183,6 +184,7 @@ fn translate_object(
             report.notes.push(format!(
                 "{display}: no AviQtl-Plus equivalent, preserved as a disabled placeholder"
             ));
+            is_object_placeholder = true;
             (placeholder_type(display), placeholder_effect(object_filter))
         }
     };
@@ -199,10 +201,9 @@ fn translate_object(
     }
 
     let transform_source = drawing_index.and_then(|index| filters.get(index));
-    let mut transform = match transform_source {
-        Some(filter) => build_transform(filter, catalog),
-        None => default_transform(catalog),
-    };
+    // An object without a drawing filter has no transform in AviUtl either; adding one here
+    // would change the picture and add a filter the source file never had.
+    let mut transform = transform_source.and_then(|filter| build_transform(filter, catalog));
     if let Some(filter) = transform_source
         && filter.is_disabled()
         && let Some(effect) = transform.as_mut()
@@ -211,6 +212,14 @@ fn translate_object(
     }
     if let Some(transform) = transform {
         effects.insert(0, transform);
+    }
+    let mut object_effect = object_effect;
+    if is_object_placeholder {
+        // ExEdit's other filters can also be placeholders, so the object's own placeholder
+        // carries a marker the exporter can find.
+        object_effect
+            .params
+            .insert("exoObject".to_owned(), Value::Bool(true));
     }
     effects.push(object_effect);
 
@@ -267,6 +276,8 @@ fn build_object_effect(
         mapping.integers,
         mapping.flags,
     );
+    capture_source_entries(&mut effect, filter);
+    effect.enabled = !filter.is_disabled();
     if mapping.object_id == "text" {
         if let Some(text) = filter.utf16_text("text") {
             effect.params.insert("text".to_owned(), Value::from(text));
@@ -318,6 +329,7 @@ fn build_transform(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<Effect
     for mapping in DRAWING_TRACKS {
         apply_track(&mut effect, filter, mapping);
     }
+    capture_source_entries(&mut effect, filter);
     if let Some(blend) = filter
         .named_integer("blend")
         .and_then(|index| usize::try_from(index).ok())
@@ -329,10 +341,6 @@ fn build_transform(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<Effect
     }
     apply_metadata_defaults(&mut effect, metadata);
     Some(effect)
-}
-
-fn default_transform(catalog: &EffectCatalog) -> Option<EffectDocument> {
-    catalog.effect_document("transform")
 }
 
 fn translate_filter(
@@ -368,6 +376,7 @@ fn translate_filter(
         mapping.integers,
         mapping.flags,
     );
+    capture_source_entries(&mut effect, filter);
     effect.enabled = !filter.is_disabled();
     apply_metadata_defaults(&mut effect, metadata);
     report.translated += 1;
@@ -406,13 +415,17 @@ fn placeholder_effect(filter: &ExoFilter) -> EffectDocument {
     if let Some(exdata) = filter.hex_payload("_exdata") {
         params.insert("exoExdata".to_owned(), Value::from(hex_encode(&exdata)));
     }
+    // The placeholder itself is always disabled so it never changes the picture, but the
+    // file's own disabled state has to survive an export separately from that.
+    if filter.is_disabled() {
+        params.insert("exoDisabled".to_owned(), Value::Bool(true));
+    }
     for (key, value) in &filter.entries {
-        let is_structurally_known = key.starts_with("track")
-            || key.starts_with("check")
-            || matches!(
-                key.as_str(),
-                "_name" | "name" | "param" | "_exdata" | "_disable"
-            );
+        // `name` and `param` are also kept verbatim: script_name and script_parameter
+        // above only store their non-empty forms, and an empty `name=` still has to come
+        // back out.
+        let is_structurally_known =
+            key.starts_with("track") || matches!(key.as_str(), "_name" | "_exdata" | "_disable");
         if !is_structurally_known {
             params.insert(format!("exo_{key}"), Value::from(value.clone()));
         }
@@ -428,6 +441,29 @@ fn placeholder_effect(filter: &ExoFilter) -> EffectDocument {
         params,
         keyframes: None,
         extra: BTreeMap::new(),
+    }
+}
+
+/// Keeps every source key on a translated effect so exporting can reproduce the file.
+///
+/// ExEdit filters carry keys this build does not interpret - positional `type`/`filter`
+/// markers, script parameters, text-object toggles such as `autoadjust`, and the original
+/// disabled flag. They are stored verbatim under an `exo_` prefix and written back only when
+/// the exporter has not already produced the same key, which makes a round trip lossless
+/// without teaching the mapper about each one.
+fn capture_source_entries(effect: &mut EffectDocument, filter: &ExoFilter) {
+    for (key, value) in &filter.entries {
+        if matches!(key.as_str(), "_name" | "_disable" | "_exdata") {
+            continue;
+        }
+        effect
+            .params
+            .insert(format!("exo_{key}"), Value::from(value.clone()));
+    }
+    if let Some(exdata) = filter.hex_payload("_exdata") {
+        effect
+            .params
+            .insert("exoExdata".to_owned(), Value::from(hex_encode(&exdata)));
     }
 }
 
@@ -552,11 +588,16 @@ fn apply_text_alignment(effect: &mut EffectDocument, filter: &ExoFilter) {
     let Some(align) = filter.named_integer("align") else {
         return;
     };
-    let alignment = match align {
-        0 => 1,
-        1 => 4,
-        2 => 2,
-        _ => 8,
+    // ExEdit stores alignment as a flag: 1 left, 2 centre, 4 right, 8 justify. Our
+    // `alignment` parameter reuses different numbers for the same four choices.
+    let alignment = if align & 4 != 0 {
+        2
+    } else if align & 2 != 0 {
+        4
+    } else if align & 8 != 0 {
+        8
+    } else {
+        1
     };
     effect
         .params
@@ -749,7 +790,8 @@ mod tests {
         assert_eq!(body["outlineColor"], Value::from("#000000"));
         assert_eq!(body["outlineEnabled"], Value::Bool(true));
         assert_eq!(body["fontBold"], Value::Bool(true));
-        assert_eq!(body["alignment"], Value::from(4));
+        // ExEdit stores 1 for left alignment on this fixture.
+        assert_eq!(body["alignment"], Value::from(1));
 
         let transform = &text.effects[0].params;
         assert_eq!(transform["y"], Value::from(-50.0));
@@ -774,8 +816,10 @@ mod tests {
         let outcome = plan_import(&file, &scene(), &catalog, 10, ImportPlacement::default());
         let script = &outcome.clips[1];
         assert_eq!(script.clip_type, "exo.自定义物件");
-        assert_eq!(script.effects.len(), 2);
-        let placeholder = &script.effects[1];
+        // The script object has no drawing filter, so it stays a two-effect clip: only the
+        // object placeholder, with no transform invented for it.
+        assert_eq!(script.effects.len(), 1);
+        let placeholder = &script.effects[0];
         assert_eq!(placeholder.id, PLACEHOLDER_ID);
         assert!(!placeholder.enabled);
         assert_eq!(placeholder.params["exoScript"], Value::from("uf_easing"));
@@ -871,12 +915,12 @@ mod tests {
             .find(|clip| clip.clip_type == "exo.自定义物件")
             .expect("script clip");
         assert_eq!(
-            script_before.effects[1].params["exoScript"],
-            script_after.effects[1].params["exoScript"]
+            script_before.effects[0].params["exoScript"],
+            script_after.effects[0].params["exoScript"]
         );
         assert_eq!(
-            script_before.effects[1].params["exoTracks"],
-            script_after.effects[1].params["exoTracks"]
+            script_before.effects[0].params["exoTracks"],
+            script_after.effects[0].params["exoTracks"]
         );
     }
 }

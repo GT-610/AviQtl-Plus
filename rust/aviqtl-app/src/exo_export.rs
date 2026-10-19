@@ -9,7 +9,7 @@
 use crate::effect_catalog::EffectCatalog;
 use crate::exo_import::PLACEHOLDER_ID;
 use crate::exo_mapping::{
-    BLEND_MODES, DRAWING_ALIASES, DRAWING_TRACKS, FilterMapping, ObjectMapping,
+    BLEND_MODES, DRAWING_ALIASES, DRAWING_TRACKS, FilterMapping, ObjectMapping, TrackMapping,
 };
 use aviqtl_rust_core::api::{ClipDocument, EffectDocument, ProjectDocument, SceneDocument};
 use aviqtl_rust_core::exo::{ExoFile, ExoFilter, ExoHeader, ExoObject, TextEncoding, TrackValue};
@@ -107,9 +107,11 @@ fn export_clip(
         .iter()
         .find(|effect| effect.id == clip.clip_type && effect.id != PLACEHOLDER_ID)
         .or_else(|| {
-            clip.effects
-                .iter()
-                .find(|effect| effect.id == PLACEHOLDER_ID)
+            // A placeholder marks the object it stands for; the other placeholders in the
+            // same clip are its effects.
+            clip.effects.iter().find(|effect| {
+                effect.params.get("exoObject").and_then(Value::as_bool) == Some(true)
+            })
         })?;
     let first = if object_effect.id == PLACEHOLDER_ID {
         placeholder_filter(object_effect)?
@@ -134,19 +136,20 @@ fn export_clip(
             None => report.skipped.push(format!("{} effect", effect.id)),
         }
     }
-    filters.push(match transform {
-        Some(effect) => transform_filter(effect),
-        None => empty_transform_filter(),
-    });
+    if let Some(effect) = transform {
+        filters.push(transform_filter(effect));
+    }
 
     Some(ExoObject {
         start: clip.start.saturating_add(1),
         end: clip.start.saturating_add(clip.duration).max(1),
         layer: clip.layer.saturating_add(1),
         group: None,
-        overlay: false,
+        overlay: clip.clip_by_upper_object,
         clipping: false,
-        camera: None,
+        // ExEdit writes `camera` on every object: `1` for the object that drives a camera,
+        // `0` for everything else.
+        camera: Some(clip.clip_type == "camera_control"),
         audio: false,
         chain: false,
         filters,
@@ -193,10 +196,11 @@ fn object_filter_from_effect(
         }
         if let Some(alignment) = effect.params.get("alignment").and_then(Value::as_i64) {
             let align = match alignment {
-                1 => 0,
-                4 => 1,
-                2 => 2,
-                _ => 3,
+                4 => 2,
+                2 => 4,
+                8 => 8,
+                // ExEdit's default, left alignment, is stored as zero.
+                _ => 0,
             };
             filter.set("align", align.to_string());
         }
@@ -216,7 +220,38 @@ fn object_filter_from_effect(
             filter.set("_exdata", hex_encode(&blob));
         }
     }
+    if !effect.enabled {
+        filter.set("_disable", "1");
+    }
+    append_source_entries(&mut filter, effect);
     Some(filter)
+}
+
+/// Appends the source keys the importer preserved, skipping any the exporter already wrote.
+///
+/// ExEdit's own reader ignores keys it does not know, and it needs the positional markers and
+/// per-object toggles this build does not interpret, so writing them back keeps a file usable
+/// by AviUtl after a round trip.
+fn append_source_entries(filter: &mut ExoFilter, effect: &EffectDocument) {
+    for (key, value) in &effect.params {
+        let Some(source_key) = key.strip_prefix("exo_") else {
+            continue;
+        };
+        if source_key.starts_with("exo") {
+            continue;
+        }
+        if filter.value(source_key).is_some() {
+            continue;
+        }
+        if let Some(value) = value.as_str() {
+            filter.set(source_key, value);
+        }
+    }
+    if let Some(exdata) = effect.params.get("exoExdata").and_then(Value::as_str)
+        && filter.value("_exdata").is_none()
+    {
+        filter.set("_exdata", exdata);
+    }
 }
 
 fn object_mapping_for_id(clip_type: &str) -> Option<&'static ObjectMapping> {
@@ -229,23 +264,7 @@ fn transform_filter(effect: &EffectDocument) -> ExoFilter {
     let mut filter = ExoFilter::default();
     filter.set("_name", DRAWING_ALIASES[0]);
     for mapping in DRAWING_TRACKS {
-        if let Some(value) = effect.params.get(mapping.param).and_then(Value::as_f64) {
-            let raw = (value - mapping.offset) / mapping.scale;
-            let key = mapping.keys[0];
-            // Write the range form when the parameter is animated.
-            match effect
-                .keyframes
-                .as_ref()
-                .and_then(|tracks| tracks.get(mapping.param))
-                .and_then(track_end_value)
-            {
-                Some(end) => {
-                    let end = (end - mapping.offset) / mapping.scale;
-                    filter.set(key, TrackValue::range(raw, end, None).to_text());
-                }
-                None => filter.set(key, number_text(raw)),
-            }
-        }
+        write_track(&mut filter, effect, mapping);
     }
     if let Some(mode) = effect.params.get("blendMode").and_then(Value::as_str)
         && let Some(index) = BLEND_MODES.iter().position(|candidate| *candidate == mode)
@@ -257,21 +276,58 @@ fn transform_filter(effect: &EffectDocument) -> ExoFilter {
     } else {
         filter.set("_disable", "1");
     }
+    append_source_entries(&mut filter, effect);
     filter
 }
 
-fn empty_transform_filter() -> ExoFilter {
-    let mut filter = ExoFilter::default();
-    filter.set("_name", DRAWING_ALIASES[0]);
-    for mapping in DRAWING_TRACKS {
-        if mapping.param == "scale" {
-            filter.set(mapping.keys[0], "100.00");
-        } else {
-            filter.set(mapping.keys[0], "0.0");
+/// Writes one trackbar, using the range form when the parameter is animated.
+///
+/// The motion label AviUtl stored is kept on the keyframe options, so an imported animation is
+/// written back with the easing it came from instead of being flattened to a plain range.
+fn write_track(filter: &mut ExoFilter, effect: &EffectDocument, mapping: &TrackMapping) {
+    let Some(value) = effect.params.get(mapping.param).and_then(Value::as_f64) else {
+        return;
+    };
+    let raw = (value - mapping.offset) / mapping.scale;
+    let key = mapping.keys[0];
+    let track = effect
+        .keyframes
+        .as_ref()
+        .and_then(|tracks| tracks.get(mapping.param));
+    match track.and_then(track_end_value) {
+        Some(end) => {
+            let end = (end - mapping.offset) / mapping.scale;
+            let (motion, motion_parameter) = track.and_then(stored_motion).unzip();
+            filter.set(
+                key,
+                TrackValue {
+                    start: raw,
+                    end: Some(end),
+                    motion,
+                    motion_parameter: motion_parameter
+                        .flatten()
+                        .and_then(|value| i32::try_from(value).ok()),
+                }
+                .to_text(),
+            );
         }
+        None => filter.set(key, number_text(raw)),
     }
-    filter.set("blend", "0");
-    filter
+}
+
+/// Reads the ExEdit motion label an imported keyframe carries.
+fn stored_motion(track: &Value) -> Option<(String, Option<i64>)> {
+    let options = track
+        .get("points")?
+        .as_array()?
+        .last()?
+        .get("options")?
+        .as_object()?;
+    let motion = options.get("exoMotion")?.as_str()?.to_owned();
+    Some((
+        motion,
+        options.get("exoMotionParameter").and_then(Value::as_i64),
+    ))
 }
 
 /// Reads the last keyframe value of a track, which is the value at the object's end frame.
@@ -289,12 +345,7 @@ fn effect_filter(effect: &EffectDocument) -> Option<ExoFilter> {
     let mut filter = ExoFilter::default();
     filter.set("_name", mapping.aliases[0]);
     for mapping in mapping.tracks {
-        if let Some(value) = effect.params.get(mapping.param).and_then(Value::as_f64) {
-            filter.set(
-                mapping.keys[0],
-                number_text((value - mapping.offset) / mapping.scale),
-            );
-        }
+        write_track(&mut filter, effect, mapping);
     }
     for mapping in mapping.colors {
         if let Some(color) = effect.params.get(mapping.param).and_then(Value::as_str) {
@@ -315,6 +366,7 @@ fn effect_filter(effect: &EffectDocument) -> Option<ExoFilter> {
     if !effect.enabled {
         filter.set("_disable", "1");
     }
+    append_source_entries(&mut filter, effect);
     Some(filter)
 }
 
@@ -362,9 +414,10 @@ fn placeholder_filter(effect: &EffectDocument) -> Option<ExoFilter> {
             filter.set(key, value);
         }
     }
-    if !effect.enabled {
+    if effect.params.get("exoDisabled").and_then(Value::as_bool) == Some(true) {
         filter.set("_disable", "1");
     }
+    append_source_entries(&mut filter, effect);
     Some(filter)
 }
 
