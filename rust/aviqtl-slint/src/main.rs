@@ -403,8 +403,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if validation_frames.is_some() {
-        let project =
-            ProjectSession::from_json(VALIDATION_PROJECT).map_err(std::io::Error::other)?;
+        let project = ProjectSession::from_json(VALIDATION_PROJECT.as_bytes())
+            .map_err(std::io::Error::other)?;
         model.borrow_mut().add_project_session(project);
         sync_windows(&main, &timeline, &model.borrow());
         show_and_redraw(&main)?;

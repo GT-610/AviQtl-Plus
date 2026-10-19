@@ -1,8 +1,8 @@
 //! Project window ownership, save/close sequencing, and recovery presentation.
 
 use crate::dialogs::{
-    choose_project_save_path, choose_project_to_open, insert_visible_window_geometry, json_i32,
-    show_and_redraw, show_error_dialog,
+    choose_project_save_path, choose_project_to_open, insert_visible_window_geometry,
+    install_opaque_window, json_i32, show_and_redraw, show_error_dialog,
 };
 use crate::easing::refresh_easing_translations;
 use crate::localization::{current_ui_language, localized, select_bundled_ui_translation};
@@ -184,6 +184,15 @@ impl LifecycleUi {
                 .unwrap_or(true)
             {
                 let _ = window.show();
+                // Restore shows the windows directly instead of going through
+                // `show_and_redraw`, so the native frame never got the
+                // appearance `sync_live_settings` could not apply while the
+                // window did not exist yet.
+                match id {
+                    "main" => install_opaque_window(&main),
+                    "timeline" => install_opaque_window(&timeline),
+                    _ => install_opaque_window(&objects),
+                }
             } else {
                 let _ = window.hide();
             }
@@ -345,25 +354,33 @@ impl LifecycleUi {
             sync_timeline_runtime_settings(&main, &timeline, &object_settings, &settings);
         }
         let theme_index = system_theme_index(&settings);
+        // Native window chrome follows the same choice as the Slint palette, so
+        // a light OS appearance cannot leave a light titlebar above dark content.
+        let dark = theme_index == 0;
+        crate::dialogs::set_native_window_dark(dark);
         if let Some(window) = self.launcher.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
         if let Some(window) = self.recovery.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
         if let Some(window) = self.main.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
         if let Some(window) = self.timeline.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
             if language_changed {
                 initialize_timeline_object_catalog(&window, &self.effect_catalog.borrow());
             }
@@ -372,6 +389,7 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
             if language_changed {
                 let model = self.model.borrow();
                 let catalog = self.effect_catalog.borrow();
@@ -390,6 +408,7 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
             if language_changed {
                 refresh_easing_translations(&window);
             }
@@ -398,21 +417,25 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
         if let Some(window) = self.scene_settings.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
         if let Some(window) = self.system_settings.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
         if let Some(window) = self.export.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
             if language_changed && !window.get_exporting() {
                 window.set_progress_label(
                     format!("0 / 0 {}", localized("frames", "帧", "フレーム")).into(),
@@ -423,11 +446,13 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
         if let Some(window) = self.plugin_permissions.upgrade() {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
             if language_changed {
                 sync_plugin_permissions(&window, &settings);
             }
@@ -436,6 +461,7 @@ impl LifecycleUi {
             window
                 .global::<AppTheme>()
                 .set_preference_index(theme_index);
+            crate::dialogs::apply_native_window_appearance(window.window(), dark);
         }
     }
 

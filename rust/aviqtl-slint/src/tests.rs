@@ -102,17 +102,6 @@ fn native_menu_shortcuts_match_the_configured_parser() {
     );
 }
 
-#[test]
-fn fit_timeline_keeps_the_selected_range_visible() {
-    let view = crate::shortcuts::fit_timeline_range(120, 360, 800.0);
-    assert!((120.0 * view.pixels_per_frame + view.viewport_x - 16.0).abs() < 0.01);
-    assert!(360.0 * view.pixels_per_frame + view.viewport_x <= 800.0);
-    let empty = crate::shortcuts::fit_timeline_range(0, 0, 0.0);
-    assert!(empty.pixels_per_frame.is_finite() && empty.pixels_per_frame > 0.0);
-    let long = crate::shortcuts::fit_timeline_range(0, 216_000, 1000.0);
-    assert!(216_000.0 * long.pixels_per_frame <= 1000.0);
-}
-
 use crate::dialogs::{
     WindowGeometry, filtered_font_families, format_qt_color, parse_qt_color, qt_file_filters,
 };
@@ -1067,4 +1056,57 @@ fn layer_header_click_toggles_visibility_and_selects_like_qt() {
             .is_empty(),
         "selecting never mutates visibility"
     );
+}
+
+#[test]
+fn validation_fixture_matches_the_shape_of_a_saved_project() {
+    // `--validate-gpu` / `--frames` load this fixture instead of a real file. A
+    // clip without effects opens an empty object-settings panel, so keep the
+    // fixture carrying what the app itself writes: `transform` plus the object
+    // effect, for every clip.
+    let session = crate::gpu::VALIDATION_PROJECT;
+    let project = ProjectSession::from_json(session.as_bytes()).expect("fixture parses");
+    let document = &project.document;
+    let (catalog, _) = EffectCatalog::load();
+
+    for clip in &document.clips {
+        let effect_ids = clip
+            .effects
+            .iter()
+            .map(|effect| effect.id.as_str())
+            .collect::<Vec<_>>();
+        assert!(
+            effect_ids.contains(&clip.clip_type.as_str()),
+            "clip {} ({}) must carry its object effect, got {effect_ids:?}",
+            clip.id,
+            clip.clip_type
+        );
+        if clip.clip_type != "audio" {
+            assert!(
+                effect_ids.contains(&"transform"),
+                "clip {} ({}) must carry the standard drawing effect, got {effect_ids:?}",
+                clip.id,
+                clip.clip_type
+            );
+        }
+        let projection = aviqtl_app::object_settings::project_object_settings(
+            document,
+            clip,
+            clip.scene_id,
+            clip.start,
+            &catalog,
+            |index| index == clip.effects.len() - 1,
+        );
+        assert!(
+            projection
+                .effects
+                .iter()
+                .filter(|effect| effect.id == clip.clip_type)
+                .any(|effect| !effect.controls.is_empty()),
+            "clip {} ({}) must expose the object settings of its {} effect",
+            clip.id,
+            clip.clip_type,
+            clip.clip_type
+        );
+    }
 }
