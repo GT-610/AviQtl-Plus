@@ -54,12 +54,6 @@ pub(super) fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: 
         return;
     };
     let missing_media = workspace.missing_media();
-    timeline.set_snap_enabled(
-        workspace
-            .selected_scene_document()
-            .is_some_and(|scene| scene.enable_snap),
-    );
-    timeline.set_can_fit_selection(workspace.timeline_clips().iter().any(|clip| clip.selected));
     let missing_media = missing_media
         .into_iter()
         .map(|entry| MissingMediaData {
