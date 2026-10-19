@@ -133,8 +133,11 @@ fn build_file(
     // layer first and keep the original order inside a layer.
     clips.sort_by_key(|clip| (clip.layer, clip.start, clip.id));
 
+    // Paths inside the object data use the document code page, same as the text.
+    let encoding = TextEncoding::Gbk;
+
     for clip in clips {
-        match export_clip(clip, catalog, &mut report) {
+        match export_clip(clip, catalog, &mut report, encoding) {
             Some(object) => objects.push(object),
             None => report.skipped.push(format!(
                 "{} (layer {}, frame {})",
@@ -175,6 +178,7 @@ fn export_clip(
     clip: &ClipDocument,
     catalog: &EffectCatalog,
     report: &mut ExportReport,
+    encoding: TextEncoding,
 ) -> Option<ExoObject> {
     // The object's own filter is the clip-type effect, or the placeholder that stands in for
     // an object this build cannot render. Either way it is written once, first.
@@ -209,7 +213,7 @@ fn export_clip(
         // shape objects have no object mapping to rebuild from.
         figure_filter(&clip.clip_type, object_effect)?
     } else {
-        object_filter_from_effect(&clip.clip_type, object_effect, catalog)?
+        object_filter_from_effect(&clip.clip_type, object_effect, catalog, encoding)?
     };
 
     let mut filters = vec![first];
@@ -264,6 +268,7 @@ fn object_filter_from_effect(
     clip_type: &str,
     effect: &EffectDocument,
     _catalog: &EffectCatalog,
+    encoding: TextEncoding,
 ) -> Option<ExoFilter> {
     let mapping = object_mapping_for_id(clip_type)?;
     let mut filter = ExoFilter::default();
@@ -312,8 +317,10 @@ fn object_filter_from_effect(
         if let Some(path) = effect.params.get(key).and_then(Value::as_str)
             && !path.is_empty()
         {
+            // ExEdit stores the referenced file as an ANSI path, not UTF-8, so a
+            // non-ASCII directory name has to use the document's code page.
             let mut blob = vec![0u8; 4];
-            blob.extend_from_slice(path.as_bytes());
+            blob.extend_from_slice(&encoding.encode(path));
             blob.push(0);
             filter.set("_exdata", hex_encode(&blob));
         }
@@ -706,6 +713,69 @@ pub fn clip_is_exportable(clip: &ClipDocument) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn media_paths_are_written_in_the_document_code_page() {
+        // ExEdit reads the referenced file with the ANSI APIs, so a path containing Chinese or
+        // Japanese has to be encoded, not written as raw UTF-8.
+        let session = crate::project_io::ProjectSession::blank_with(Default::default());
+        let scene = session.document.scenes[0].clone();
+        let mut document = session.document.clone();
+        document.clips.push(ClipDocument {
+            id: 1,
+            scene_id: scene.id,
+            clip_type: "image".to_owned(),
+            start: 0,
+            duration: 10,
+            layer: 0,
+            clip_by_upper_object: false,
+            params: Default::default(),
+            audio_plugins: Vec::new(),
+            effects: vec![
+                EffectDocument {
+                    id: "transform".to_owned(),
+                    name: "transform".to_owned(),
+                    enabled: true,
+                    params: Default::default(),
+                    keyframes: None,
+                    extra: Default::default(),
+                },
+                EffectDocument {
+                    id: "image".to_owned(),
+                    name: "image".to_owned(),
+                    enabled: true,
+                    params: serde_json::Map::from_iter([(
+                        "path".to_owned(),
+                        Value::from(
+                            "C:\\materials\\picture.png".replace("materials", "\u{7d20}\u{6750}"),
+                        ),
+                    )]),
+                    keyframes: None,
+                    extra: Default::default(),
+                },
+            ],
+            extra: Default::default(),
+        });
+        let (catalog, _) = crate::effect_catalog::EffectCatalog::load();
+        let (file, _) = export_scene(&document, &scene, &catalog);
+        let exdata = file.objects[0]
+            .object_filter()
+            .expect("object filter")
+            .hex_payload("_exdata")
+            .expect("the path is stored as binary data");
+        let utf8 = String::from_utf8_lossy(&exdata);
+        assert!(
+            !utf8.contains('\u{7d20}'),
+            "the path must not be stored as UTF-8: {utf8}"
+        );
+        // GBK for 素材, which is what ExEdit will read back.
+        assert!(
+            exdata
+                .windows(4)
+                .any(|window| window == [0xcb, 0xd8, 0xb2, 0xc4]),
+            "expected GBK bytes for the directory name"
+        );
+    }
 
     #[test]
     fn numbers_keep_one_decimal_for_whole_values() {
