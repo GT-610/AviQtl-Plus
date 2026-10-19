@@ -27,6 +27,7 @@ See [AviUtl Operability Targets](https://aviqtl.gt610.dpdns.org/developer/operab
 ### Key Features
 
 - UI closely resembling AviUtl
+- **AviUtl ExEdit object files (.exo)** can be imported and exported
 - **Fast and powerful GPU-accelerated effects**
 - Support for **audio effects** such as VST3 and LV2
 - **LuaJIT plugin system** with package management, declarative parameters, and permission control
