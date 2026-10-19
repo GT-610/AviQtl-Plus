@@ -235,6 +235,8 @@ export component TimelineWindow inherits Window {
         root.context-popup-x = max(x, 0px);
         root.context-popup-y = max(y, 0px);
         root.filter-context-catalog("", kind);
+        // Callers pass window coordinates; the area sits at the window origin,
+        // so those are also its local coordinates.
         timeline-context-menu.show({ x: root.context-popup-x, y: root.context-popup-y });
     }
 
@@ -1039,7 +1041,13 @@ export component TimelineWindow inherits Window {
         }
     }
 
+    // A 1x1 anchor at the window origin. `show()` takes its argument relative
+    // to the area's own origin, and a positioned element without explicit x/y
+    // is centered in its parent, so this unanchored area used to push every
+    // programmatic menu half a window away from the pointer.
     timeline-context-menu := ContextMenuArea {
+        x: 0px;
+        y: 0px;
         width: 1px;
         height: 1px;
         Menu {
