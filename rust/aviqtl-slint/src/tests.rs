@@ -1057,3 +1057,54 @@ fn layer_header_click_toggles_visibility_and_selects_like_qt() {
         "selecting never mutates visibility"
     );
 }
+
+#[test]
+fn validation_fixture_matches_the_shape_of_a_saved_project() {
+    // `--validate-gpu` / `--frames` load this fixture instead of a real file. A
+    // clip without effects opens an empty object-settings panel, so keep the
+    // fixture carrying what the app itself writes: `transform` plus the object
+    // effect, for every clip.
+    let session = crate::gpu::VALIDATION_PROJECT;
+    let project = ProjectSession::from_json(session.as_bytes()).expect("fixture parses");
+    let document = &project.document;
+    let (catalog, _) = EffectCatalog::load();
+
+    for clip in &document.clips {
+        let effect_ids = clip
+            .effects
+            .iter()
+            .map(|effect| effect.id.as_str())
+            .collect::<Vec<_>>();
+        assert!(
+            effect_ids.contains(&clip.clip_type.as_str()),
+            "clip {} ({}) must carry its object effect, got {effect_ids:?}",
+            clip.id,
+            clip.clip_type
+        );
+        if clip.clip_type != "audio" {
+            assert!(
+                effect_ids.contains(&"transform"),
+                "clip {} ({}) must carry the standard drawing effect, got {effect_ids:?}",
+                clip.id,
+                clip.clip_type
+            );
+        }
+        let projection = aviqtl_app::object_settings::project_object_settings(
+            document,
+            clip,
+            clip.scene_id,
+            clip.start,
+            &catalog,
+            |index| index == clip.effects.len() - 1,
+        );
+        assert!(
+            projection
+                .effects
+                .iter()
+                .any(|effect| !effect.controls.is_empty()),
+            "clip {} ({}) must expose object settings",
+            clip.id,
+            clip.clip_type
+        );
+    }
+}

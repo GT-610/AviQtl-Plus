@@ -6,7 +6,14 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-pub(super) const VALIDATION_PROJECT: &[u8] = br#"{
+/// A project with one video, one text, and one audio clip, used by
+/// `--validate-gpu` / `--frames`.
+///
+/// Each clip carries the effects a saved project has: `transform` plus the
+/// object effect itself. Clips without effects load fine but project an
+/// empty object-settings panel, which looks like a UI bug rather than a
+/// fixture problem.
+pub(super) const VALIDATION_PROJECT: &str = r##"{
     "version": 3,
     "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
     "scenes": [
@@ -14,11 +21,22 @@ pub(super) const VALIDATION_PROJECT: &[u8] = br#"{
         {"id": 2, "name": "Scene 2", "duration": 600}
     ],
     "clips": [
-        {"id": 1, "sceneId": 1, "type": "video", "start": 30, "duration": 180, "layer": 0},
-        {"id": 2, "sceneId": 1, "type": "text", "start": 120, "duration": 100, "layer": 1},
-        {"id": 3, "sceneId": 1, "type": "audio", "start": 60, "duration": 240, "layer": 3}
+        {"id": 1, "sceneId": 1, "type": "video", "start": 30, "duration": 180, "layer": 0,
+         "effects": [
+                {"enabled": true, "id": "transform", "params": {"backfaceVisible": true, "blendMode": "通常", "cx": 0, "cy": 0, "cz": 0, "opacity": 1.0, "rotationX": 0, "rotationY": 0, "rotationZ": 0, "scale": 100, "x": 0, "y": 0, "z": 0}},
+                {"enabled": true, "id": "video", "params": {"directFrame": 0, "opacity": 1.0, "path": "", "playMode": "normal", "speed": 100.0, "startFrame": 0}}
+         ]},
+        {"id": 2, "sceneId": 1, "type": "text", "start": 120, "duration": 100, "layer": 1,
+         "effects": [
+                {"enabled": true, "id": "transform", "params": {"backfaceVisible": true, "blendMode": "通常", "cx": 0, "cy": 0, "cz": 0, "opacity": 1.0, "rotationX": 0, "rotationY": 0, "rotationZ": 0, "scale": 100, "x": 0, "y": 0, "z": 0}},
+                {"enabled": true, "id": "text", "params": {"alignment": 4, "backgroundColor": "#80000000", "backgroundPaddingX": 20, "backgroundPaddingY": 10, "backgroundRadius": 10, "bgEnabled": false, "color": "#ffffff", "fontBold": false, "fontFamily": "sans-serif", "fontItalic": false, "fontSize": 48, "letterSpacing": 0, "lineSpacing": 0, "outlineColor": "#000000", "outlineEnabled": false, "outlineWidth": 2, "shadowColor": "#80000000", "shadowEnabled": false, "shadowOffsetX": 5, "shadowOffsetY": 5, "text": "テキスト"}}
+         ]},
+        {"id": 3, "sceneId": 1, "type": "audio", "start": 60, "duration": 240, "layer": 3,
+         "effects": [
+                {"enabled": true, "id": "audio", "params": {"directTime": 0, "fadeIn": 0.0, "fadeOut": 0.0, "limiter": true, "linkedVideo": false, "masterVolume": 1.0, "mute": false, "pan": 0.0, "playMode": "normal", "solo": false, "source": "", "speed": 100.0, "startTime": 0, "volume": 1.0}}
+         ]}
     ]
-}"#;
+}"##;
 
 /// Reports whether the host exposes a wgpu adapter backed by real GPU hardware.
 ///
