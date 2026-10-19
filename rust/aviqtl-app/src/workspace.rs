@@ -2607,6 +2607,72 @@ impl WorkspaceModel {
         true
     }
 
+    /// Imports an AviUtl ExEdit object file into the selected scene as one undoable edit.
+    ///
+    /// The whole file is one transaction, matching AviUtl's own "import object file" command:
+    /// a single undo removes every imported object.
+    pub fn import_exo_object_file(
+        &mut self,
+        file: &aviqtl_rust_core::exo::ExoFile,
+        placement: crate::exo_import::ImportPlacement,
+        catalog: &EffectCatalog,
+    ) -> bool {
+        let Some(scene) = self.selected_scene_document().cloned() else {
+            self.status = "No scene is selected".to_owned();
+            return false;
+        };
+        let ids = match self
+            .project
+            .state
+            .reserve_clip_ids(file.objects.len().max(1))
+        {
+            Ok(ids) => ids,
+            Err(error) => {
+                self.status = error.to_string();
+                return false;
+            }
+        };
+        let outcome = crate::exo_import::plan_import(file, &scene, catalog, ids[0], placement);
+        if outcome.clips.is_empty() {
+            self.status = format!(
+                "Nothing to import: {}",
+                if outcome.report.notes.is_empty() {
+                    "the file has no objects".to_owned()
+                } else {
+                    outcome.report.notes.join("; ")
+                }
+            );
+            return false;
+        }
+        let imported_ids = outcome.clips.iter().map(|clip| clip.id).collect::<Vec<_>>();
+        let commands = outcome
+            .clips
+            .into_iter()
+            .map(|clip| TimelineCommand::InsertClip { index: None, clip })
+            .collect::<Vec<_>>();
+        if !self.execute_batch(commands) {
+            return false;
+        }
+        self.selection.replace(imported_ids);
+        self.reconcile_effect_selection();
+        self.status = outcome.report.summary();
+        true
+    }
+
+    /// Writes the selected scene as an AviUtl ExEdit object file.
+    pub fn export_exo_object_file(
+        &self,
+        catalog: &EffectCatalog,
+    ) -> Option<(
+        aviqtl_rust_core::exo::ExoFile,
+        crate::exo_export::ExportReport,
+    )> {
+        let scene = self.selected_scene_document()?;
+        let (file, report) =
+            crate::exo_export::export_scene(&self.project.document, scene, catalog);
+        (!file.objects.is_empty()).then_some((file, report))
+    }
+
     pub fn import_media_files(
         &mut self,
         paths: &[PathBuf],
@@ -3613,6 +3679,113 @@ mod tests {
         })
     }
 
+    /// A minimal object file with one text object, enough to exercise the import path.
+    fn object_file_fixture() -> aviqtl_rust_core::exo::ExoFile {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1920\r\nheight=1080\r\nrate=60\r\nscale=100\r\nlength=300\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        bytes.extend_from_slice(b"[0]\r\nstart=1\r\nend=16\r\nlayer=2\r\n");
+        bytes.extend_from_slice(b"[0.0]\r\n_name=");
+        bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+        bytes.extend_from_slice(b"\r\n\xb4\xf3\xd0\xa1=24\r\ncolor=ffffff\r\ntext=4100\r\n");
+        bytes.extend_from_slice(b"[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4]); // 标准属性
+        bytes.extend_from_slice(
+            b"\r\nX=10.0\r\nY=20.0\r\nZ=0.0\r\n\xcb\xf5\xb7\xc5\xc2\xca=100.00\r\n",
+        );
+        bytes.extend_from_slice(
+            b"\xcd\xb8\xc3\xf7\xb6\xc8=0.0\r\n\xd0\xfd\xd7\xaa=0.0\r\nblend=0\r\n",
+        );
+        aviqtl_rust_core::exo::ExoFile::parse(&bytes).expect("fixture parses")
+    }
+
+    #[test]
+    fn exo_import_adds_clips_as_one_undoable_edit() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        let before = workspace.document().clips.len();
+        let file = object_file_fixture();
+        assert!(workspace.import_exo_object_file(
+            &file,
+            crate::exo_import::ImportPlacement::default(),
+            &catalog
+        ));
+        assert_eq!(workspace.document().clips.len(), before + 1);
+        let imported = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "text" && clip.start == 0)
+            .expect("the imported text clip exists");
+        assert_eq!(imported.duration, 16);
+        assert_eq!(imported.layer, 1);
+        assert_eq!(imported.effects[1].id, "text");
+        assert_eq!(imported.effects[1].params["text"], serde_json::json!("A"));
+
+        assert!(workspace.undo());
+        assert_eq!(workspace.document().clips.len(), before);
+        assert!(workspace.redo());
+        assert_eq!(workspace.document().clips.len(), before + 1);
+    }
+
+    #[test]
+    fn exported_scene_can_be_imported_again() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        assert!(workspace.import_exo_object_file(
+            &object_file_fixture(),
+            crate::exo_import::ImportPlacement::default(),
+            &catalog
+        ));
+        let (file, report) = workspace
+            .export_exo_object_file(&catalog)
+            .expect("the imported clip exports");
+        assert_eq!(file.header.width, 1920);
+        assert_eq!(file.header.rate, 60.0);
+        assert_eq!(report.objects, 1);
+        // The fixture's own clips carry no effect stack, so they have nothing AviUtl could
+        // read; the export reports them instead of writing empty objects.
+        assert_eq!(report.skipped.len(), 2, "{:?}", report.skipped);
+
+        let text = &file.objects[0];
+        assert_eq!(text.start, 1);
+        assert_eq!(text.end, 16);
+        assert_eq!(
+            text.object_filter().expect("object filter").display_name(),
+            "文本"
+        );
+        let drawing = text.drawing_filter().expect("drawing filter");
+        assert!(
+            drawing
+                .entries
+                .iter()
+                .any(|(key, value)| key == "X" && value == "10.0"),
+            "{:?}",
+            drawing.entries
+        );
+
+        // Reading the exported file back reproduces the clip.
+        let reparsed = aviqtl_rust_core::exo::ExoFile::parse(&file.to_bytes()).unwrap();
+        let scene = workspace.selected_scene_document().cloned().unwrap();
+        let outcome = crate::exo_import::plan_import(
+            &reparsed,
+            &scene,
+            &catalog,
+            100,
+            crate::exo_import::ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips.len(), 1);
+        assert_eq!(outcome.clips[0].clip_type, "text");
+        assert_eq!(outcome.clips[0].duration, 16);
+        let body = outcome.clips[0]
+            .effects
+            .iter()
+            .find(|effect| effect.id == "text")
+            .expect("text effect");
+        assert_eq!(body.params["text"], serde_json::json!("A"));
+    }
     fn workspace_with_effects() -> WorkspaceModel {
         let state = TimelineState::from_json(
             br#"{
