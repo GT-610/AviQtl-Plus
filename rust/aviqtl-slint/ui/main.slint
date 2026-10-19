@@ -41,6 +41,7 @@ export component MainWindow inherits Window {
     callback save-project-as();
     callback export-media();
     callback import-exo-object-file();
+    callback new-project-from-exo-file();
     callback export-exo-object-file();
     callback quit-requested();
     callback undo();
@@ -81,6 +82,7 @@ export component MainWindow inherits Window {
                 activated => { root.missing-media-dialog-visible = true; }
             }
             MenuSeparator { }
+            MenuItem { title: @tr("New Project from AviUtl Object File..."); enabled: !root.save-confirmation-visible; activated => { root.new-project-from-exo-file(); } }
             MenuItem { title: @tr("Import AviUtl Object File..."); enabled: !root.save-confirmation-visible; activated => { root.import-exo-object-file(); } }
             MenuItem { title: @tr("Export AviUtl Object File..."); enabled: !root.save-confirmation-visible; activated => { root.export-exo-object-file(); } }
             MenuSeparator { }

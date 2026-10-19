@@ -267,6 +267,53 @@ impl LifecycleUi {
         self.open_project_path(&path, from_launcher);
     }
 
+    /// Creates a project from an AviUtl object file.
+    ///
+    /// This is AviUtl's "new project from object file": the file's header decides the
+    /// resolution, frame rate, and audio rate, and its objects become the first scene, so a
+    /// downloaded `.exo` turns into a project in one step instead of importing into a blank
+    /// project that has the wrong settings.
+    pub(super) fn new_project_from_exo_file(&self) {
+        if self.model.borrow().lifecycle_pending() {
+            return;
+        }
+        let Some(path) = choose_exo_object_to_import() else {
+            return;
+        };
+        let file = match aviqtl_app::exo_import::load_object_file(&path) {
+            Ok(file) => file,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        let mut defaults = crate::settings::project_defaults(&self.settings.borrow());
+        defaults.width = file.header.width;
+        defaults.height = file.header.height;
+        defaults.fps = file.header.rate;
+        defaults.sample_rate = file.header.audio_rate;
+        defaults.duration = defaults.duration.max(file.header.length).max(1);
+        let index = self.model.borrow_mut().create_project(defaults);
+        {
+            let catalog = self.effect_catalog.borrow();
+            let mut model = self.model.borrow_mut();
+            let Some(workspace) = model.workspace_mut(index) else {
+                return;
+            };
+            workspace.append_exo_object_file(&file, &catalog, aviqtl_app::MAX_TIMELINE_LAYERS);
+        }
+        self.sync();
+        if let Some(main) = self.main.upgrade() {
+            let _ = show_and_redraw(&main);
+        }
+        if let Some(timeline) = self.timeline.upgrade() {
+            let _ = show_and_redraw(&timeline);
+        }
+        if let Some(launcher) = self.launcher.upgrade() {
+            let _ = launcher.hide();
+        }
+    }
+
     /// Imports an AviUtl ExEdit object file into the current scene.
     ///
     /// AviUtl's own "import object file" appends the file's objects after the existing data.

@@ -3684,6 +3684,7 @@ fn bounded_positive_f64(value: f64, maximum: f64, fallback: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ApplicationModel;
     use crate::timeline_interaction::TimelineDragKind;
     use aviqtl_rust_core::api::{TimelineState, clip_midpoints};
 
@@ -3822,6 +3823,31 @@ mod tests {
             .find(|clip| clip.clip_type == "text" && clip.start >= 50)
             .expect("the clip lands after the existing objects");
         assert_eq!(appended_clip.start, 50);
+    }
+
+    #[test]
+    fn a_new_project_takes_its_settings_from_the_object_file() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut application = ApplicationModel::default();
+        let file = object_file_fixture();
+        let defaults = ProjectDefaults {
+            width: file.header.width,
+            height: file.header.height,
+            fps: file.header.rate,
+            sample_rate: file.header.audio_rate,
+            ..ProjectDefaults::default()
+        };
+        let index = application.create_project(defaults);
+        let workspace = application.workspace_mut(index).expect("workspace");
+        workspace
+            .append_exo_object_file(&file, &catalog, MAX_TIMELINE_LAYERS)
+            .expect("the object file imports");
+        let settings = workspace.project_settings();
+        assert_eq!(settings.width, 1920);
+        assert_eq!(settings.height, 1080);
+        assert_eq!(settings.fps, 60.0);
+        assert_eq!(settings.sample_rate, 48_000);
+        assert_eq!(workspace.document().clips.len(), 1);
     }
 
     #[test]

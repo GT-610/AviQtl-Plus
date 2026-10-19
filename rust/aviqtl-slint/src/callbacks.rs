@@ -944,6 +944,9 @@ pub(super) fn install_callbacks(
     let main_open_ui = lifecycle_ui.clone();
     main.on_open_project(move || main_open_ui.open_project_dialog(false));
 
+    let new_exo_ui = lifecycle_ui.clone();
+    main.on_new_project_from_exo_file(move || new_exo_ui.new_project_from_exo_file());
+
     let import_exo_ui = lifecycle_ui.clone();
     main.on_import_exo_object_file(move || import_exo_ui.import_exo_object_file());
 
