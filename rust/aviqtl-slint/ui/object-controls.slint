@@ -444,7 +444,7 @@ export component ObjectSettingRow inherits Rectangle {
     }
     visible: !root.row-data.folded || root.row-data.row-kind == "effect";
     height: root.row-data.folded && root.row-data.row-kind != "effect" ? 0px
-        : root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" ? 64px
+        : root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" ? 34px
         : root.row-data.row-kind == "effect" ? 34px
         : root.row-data.row-kind == "header" ? 28px
         : root.row-data.row-kind == "text" ? 68px
@@ -539,40 +539,21 @@ export component ObjectSettingRow inherits Rectangle {
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
-    if root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" : VerticalLayout {
+    // One row, five columns, like Qt's ParamControl: start slider, start
+    // value, the easing/label button, end value, end slider. The button used
+    // to live on its own line, which pushed it above the fields it labels.
+    if root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" : HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
-        spacing: 7px;
-        HorizontalLayout {
-            if root.row-data.audio-plugin : Text {
-                text: root.row-data.label;
-                color: AppTheme.foreground;
-                overflow: elide;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-            }
-        quick-easing-menu := ContextMenuArea {
-            visible: !root.row-data.audio-plugin;
-            horizontal-stretch: 1;
-            height: 30px;
-            Menu {
-                MenuItem { title: @tr("No movement"); activated => { root.choose-easing("none"); } }
-                MenuItem { title: @tr("Linear"); activated => { root.choose-easing("linear"); } }
-                MenuItem { title: @tr("Ease in"); activated => { root.choose-easing("ease_in_quad"); } }
-                MenuItem { title: @tr("Ease out"); activated => { root.choose-easing("ease_out_quad"); } }
-                MenuItem { title: @tr("Ease in and out"); activated => { root.choose-easing("ease_in_out_quad"); } }
-                MenuSeparator { }
-                MenuItem { title: @tr("Advanced curve..."); activated => { root.open-easing(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame); } }
-            }
-        Button {
-            text: root.row-data.parameter-button-label;
-            enabled: root.row-data.interactive;
-            clicked => { quick-easing-menu.show({ x: 0px, y: self.height }); }
-        }
-        }
-        }
-        HorizontalLayout {
         spacing: 6px;
+
+        if root.row-data.audio-plugin : Text {
+            text: root.row-data.label;
+            width: 100px;
+            color: AppTheme.foreground;
+            overflow: elide;
+            vertical-alignment: center;
+        }
         Slider {
             height: 26px;
             horizontal-stretch: 1;
@@ -605,7 +586,7 @@ export component ObjectSettingRow inherits Rectangle {
             }
         }
         ScrubNumberEdit {
-            width: 92px;
+            width: 70px;
             height: 26px;
             source-text: root.row-data.text-value;
             enabled: root.row-data.interactive;
@@ -634,8 +615,8 @@ export component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        Button {
-            visible: root.row-data.audio-plugin;
+        if root.row-data.audio-plugin : Button {
+            width: 24px;
             height: 26px;
             text: "K";
             enabled: root.row-data.interactive;
@@ -648,8 +629,29 @@ export component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
+        if !root.row-data.audio-plugin : quick-easing-menu := ContextMenuArea {
+            // Qt's ParamControl puts the five controls on one line and lets
+            // the label button keep a fixed 100 px so the value fields of
+            // neighbouring rows line up.
+            width: 100px;
+            height: 26px;
+            Menu {
+                MenuItem { title: @tr("No movement"); activated => { root.choose-easing("none"); } }
+                MenuItem { title: @tr("Linear"); activated => { root.choose-easing("linear"); } }
+                MenuItem { title: @tr("Ease in"); activated => { root.choose-easing("ease_in_quad"); } }
+                MenuItem { title: @tr("Ease out"); activated => { root.choose-easing("ease_out_quad"); } }
+                MenuItem { title: @tr("Ease in and out"); activated => { root.choose-easing("ease_in_out_quad"); } }
+                MenuSeparator { }
+                MenuItem { title: @tr("Advanced curve..."); activated => { root.open-easing(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame); } }
+            }
+            Button {
+                text: root.row-data.parameter-button-label;
+                enabled: root.row-data.interactive;
+                clicked => { quick-easing-menu.show({ x: 0px, y: self.height }); }
+            }
+        }
         if !root.row-data.audio-plugin : ScrubNumberEdit {
-            width: 92px;
+            width: 70px;
             height: 26px;
             source-text: root.row-data.right-interactive
                 ? root.row-data.end-text-value
@@ -699,16 +701,23 @@ export component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
-        Text { text: root.row-data.unit; visible: root.row-data.unit != ""; vertical-alignment: center; }
-        if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
-            }
+        if root.row-data.unit != "" : Text {
+            text: root.row-data.unit;
+            color: AppTheme.muted-foreground;
+            vertical-alignment: center;
+        }
+        if root.row-data.keyframed : Text {
+            text: "KF";
+            color: AppTheme.warning;
+            vertical-alignment: center;
+        }
     }
 
     if root.row-data.row-kind == "choice" : HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
-        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        Text { text: root.row-data.label; width: 100px; overflow: elide; vertical-alignment: center; }
         ComboBox {
             width: 220px;
             height: 26px;
@@ -733,7 +742,7 @@ export component ObjectSettingRow inherits Rectangle {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
-        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: top; }
+        Text { text: root.row-data.label; width: 100px; overflow: elide; vertical-alignment: top; }
         CommitTextEdit {
             height: 62px;
             live-preview: true;
@@ -764,7 +773,7 @@ export component ObjectSettingRow inherits Rectangle {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
-        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Text { text: root.row-data.label; width: 100px; overflow: elide; vertical-alignment: center; }
         CommitLineEdit {
             height: 26px;
             horizontal-stretch: 1;
@@ -803,7 +812,7 @@ export component ObjectSettingRow inherits Rectangle {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
-        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Text { text: root.row-data.label; width: 100px; overflow: elide; vertical-alignment: center; }
         Button {
             horizontal-stretch: 1;
             height: 26px;
@@ -833,7 +842,7 @@ export component ObjectSettingRow inherits Rectangle {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
-        Text { text: root.row-data.label; width: 105px; overflow: elide; vertical-alignment: center; }
+        Text { text: root.row-data.label; width: 100px; overflow: elide; vertical-alignment: center; }
         Rectangle {
             width: 52px;
             height: 26px;
@@ -974,7 +983,7 @@ export component ObjectSettingRow inherits Rectangle {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 7px;
-        Text { text: root.row-data.label; width: 135px; overflow: elide; vertical-alignment: center; }
+        Text { text: root.row-data.label; width: 100px; overflow: elide; vertical-alignment: center; }
         Text { text: root.row-data.text-value; color: AppTheme.muted-foreground; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
     }
 }
