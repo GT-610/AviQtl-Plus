@@ -115,6 +115,10 @@ fn export_clip(
         })?;
     let first = if object_effect.id == PLACEHOLDER_ID {
         placeholder_filter(object_effect)?
+    } else if object_mapping_for_id(&clip.clip_type).is_none() {
+        // ExEdit stores 図形 as one object whose figure type lives in its own block, so the
+        // shape objects have no object mapping to rebuild from.
+        figure_filter(&clip.clip_type, object_effect)?
     } else {
         object_filter_from_effect(&clip.clip_type, object_effect, catalog)?
     };
@@ -171,15 +175,13 @@ fn object_filter_from_effect(
         {
             filter.set("font", font);
         }
-        for parameter in &["fontSize", "letterSpacing", "lineSpacing"] {
-            if let Some(number) = effect.params.get(*parameter).and_then(Value::as_f64) {
-                let key = match *parameter {
-                    "fontSize" => "大小",
-                    "letterSpacing" => "spacing_x",
-                    _ => "spacing_y",
-                };
-                filter.set(key, number_text(number));
-            }
+        // These three are trackbars, so an animated value has to keep its range form.
+        for (parameter, key) in [
+            ("fontSize", "大小"),
+            ("letterSpacing", "spacing_x"),
+            ("lineSpacing", "spacing_y"),
+        ] {
+            write_track_named(&mut filter, effect, parameter, key, 1.0);
         }
         if let Some(text) = effect.params.get("text").and_then(Value::as_str) {
             filter.set("text", encode_utf16_hex(text));
@@ -194,15 +196,12 @@ fn object_filter_from_effect(
                 filter.set(key, "1");
             }
         }
-        if let Some(alignment) = effect.params.get("alignment").and_then(Value::as_i64) {
-            let align = match alignment {
-                4 => 2,
-                2 => 4,
-                8 => 8,
-                // ExEdit's default, left alignment, is stored as zero.
-                _ => 0,
-            };
-            filter.set("align", align.to_string());
+        // ExEdit's `align` is a packed setting whose encoding this build has not established,
+        // so an imported value is written back verbatim instead of being reconstructed from
+        // our own alignment number. A text object created here has no preserved value and
+        // keeps ExEdit's default.
+        if let Some(align) = effect.params.get("exo_align").and_then(Value::as_str) {
+            filter.set("align", align);
         }
     }
     if mapping.media_path {
@@ -225,6 +224,84 @@ fn object_filter_from_effect(
     }
     append_source_entries(&mut filter, effect);
     Some(filter)
+}
+
+/// Rebuilds ExEdit's 図形 block from a translated shape object.
+///
+/// The inverse of the importer's conversion: the widest axis becomes `大小`, and a narrow
+/// second axis becomes a `长宽比` percentage. The type index comes back from the catalogue id,
+/// shape kind, and vertex count the importer wrote.
+fn figure_filter(clip_type: &str, effect: &EffectDocument) -> Option<ExoFilter> {
+    let sides = effect.params.get("sides").and_then(Value::as_i64)?;
+    let shape_type = effect.params.get("shapeType").and_then(Value::as_str);
+    let kind = crate::exo_mapping::figure_type_for(clip_type, shape_type, sides)?;
+    let width = effect
+        .params
+        .get("sizeW")
+        .and_then(Value::as_f64)
+        .unwrap_or(60.0);
+    let height = effect
+        .params
+        .get("sizeH")
+        .and_then(Value::as_f64)
+        .unwrap_or(width);
+    let size = width.max(height) / 2.0;
+    let aspect = if width >= height {
+        (1.0 - height / width.max(1.0)) * 100.0
+    } else {
+        -(1.0 - width / height.max(1.0)) * 100.0
+    };
+    let mut filter = ExoFilter::default();
+    filter.set("_name", crate::exo_mapping::FIGURE_ALIASES[0]);
+    // An animated 大小 is stored on `sizeW`, with both extents scaled from it.
+    match effect
+        .keyframes
+        .as_ref()
+        .and_then(|tracks| tracks.get("sizeW"))
+        .and_then(track_end_value)
+    {
+        Some(end) => {
+            let (motion, motion_parameter) = effect
+                .keyframes
+                .as_ref()
+                .and_then(|tracks| tracks.get("sizeW"))
+                .and_then(stored_motion)
+                .unzip();
+            filter.set(
+                "大小",
+                TrackValue {
+                    start: size,
+                    end: Some(end / 2.0),
+                    motion,
+                    motion_parameter: motion_parameter
+                        .flatten()
+                        .and_then(|value| i32::try_from(value).ok()),
+                }
+                .to_text(),
+            );
+        }
+        None => filter.set("大小", number_text(size)),
+    }
+    filter.set("长宽比", number_text(round_to(aspect, 2)));
+    if let Some(stroke) = effect.params.get("strokeWidth").and_then(Value::as_f64)
+        && stroke > 0.0
+    {
+        filter.set("线宽", number_text(stroke * 100.0));
+    }
+    filter.set("type", kind.to_string());
+    if let Some(color) = effect.params.get("color").and_then(Value::as_str) {
+        filter.set("color", color.trim_start_matches('#'));
+    }
+    if !effect.enabled {
+        filter.set("_disable", "1");
+    }
+    append_source_entries(&mut filter, effect);
+    Some(filter)
+}
+
+fn round_to(value: f64, decimals: i32) -> f64 {
+    let factor = 10f64.powi(decimals);
+    (value * factor).round() / factor
 }
 
 /// Appends the source keys the importer preserved, skipping any the exporter already wrote.
@@ -285,18 +362,37 @@ fn transform_filter(effect: &EffectDocument) -> ExoFilter {
 /// The motion label AviUtl stored is kept on the keyframe options, so an imported animation is
 /// written back with the easing it came from instead of being flattened to a plain range.
 fn write_track(filter: &mut ExoFilter, effect: &EffectDocument, mapping: &TrackMapping) {
-    let Some(value) = effect.params.get(mapping.param).and_then(Value::as_f64) else {
+    write_track_named(
+        filter,
+        effect,
+        mapping.param,
+        mapping.keys[0],
+        mapping.scale,
+    );
+}
+
+/// Writes one trackbar under an explicit key and scale.
+///
+/// Objects whose ExEdit parameter names are fixed rather than looked up in a mapping table
+/// use this directly.
+fn write_track_named(
+    filter: &mut ExoFilter,
+    effect: &EffectDocument,
+    param: &str,
+    key: &str,
+    scale: f64,
+) {
+    let Some(value) = effect.params.get(param).and_then(Value::as_f64) else {
         return;
     };
-    let raw = (value - mapping.offset) / mapping.scale;
-    let key = mapping.keys[0];
+    let raw = value / scale;
     let track = effect
         .keyframes
         .as_ref()
-        .and_then(|tracks| tracks.get(mapping.param));
+        .and_then(|tracks| tracks.get(param));
     match track.and_then(track_end_value) {
         Some(end) => {
-            let end = (end - mapping.offset) / mapping.scale;
+            let end = end / scale;
             let (motion, motion_parameter) = track.and_then(stored_motion).unzip();
             filter.set(
                 key,

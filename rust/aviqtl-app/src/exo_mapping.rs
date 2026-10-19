@@ -169,6 +169,95 @@ pub const OBJECTS: &[ObjectMapping] = &[
     },
 ];
 
+/// ExEdit's 図形 object and its built-in figure types.
+///
+/// `FUN_10073470` turns the stored figure type into a vertex count:
+///
+/// ```text
+/// if (type == 1) { fill the whole object rectangle }
+/// else if (2 < type && type < 7) {
+///     vertices = type;            // 3, 4, 5, 6
+///     if (type == 6) vertices = 10;   // the star
+///     else if (type != 3) vertices = type + 1;
+/// }
+/// else { use the object's own rectangle }
+/// ```
+///
+/// So the built-in types are a filled rectangle (1), a circle (2, which skips the polygon
+/// path), a triangle (3), a pentagon (4), a hexagon (5), and a ten-vertex star (6). A square
+/// comes from the filled rectangle, not from the polygon list, which is why type 4 is the
+/// pentagon even though the localized figure list names a 四边形: that one is a bitmap figure
+/// loaded from the `figure` folder, not a built-in type.
+pub struct ShapeMapping {
+    /// Catalogue object id.
+    pub object_id: &'static str,
+    /// `shapeType` value, when the catalogue object has one.
+    pub shape_type: Option<&'static str>,
+    /// Vertex count for `sides`.
+    pub sides: i32,
+}
+
+/// The 図形 object's display names.
+pub const FIGURE_ALIASES: &[&str] = &["图形", "図形", "Shape", "figure"];
+
+/// Built-in figure types, indexed by the `type` value stored in the object file.
+pub const FIGURE_TYPES: [ShapeMapping; 6] = [
+    ShapeMapping {
+        object_id: "rect",
+        shape_type: Some("polygon"),
+        sides: 4,
+    },
+    // A circle has no vertex count; a dense polygon is the closest primitive we have.
+    ShapeMapping {
+        object_id: "polygon_shape",
+        shape_type: None,
+        sides: 64,
+    },
+    ShapeMapping {
+        object_id: "polygon_shape",
+        shape_type: None,
+        sides: 3,
+    },
+    ShapeMapping {
+        object_id: "polygon_shape",
+        shape_type: None,
+        sides: 5,
+    },
+    ShapeMapping {
+        object_id: "polygon_shape",
+        shape_type: None,
+        sides: 6,
+    },
+    ShapeMapping {
+        object_id: "rect",
+        shape_type: Some("star"),
+        sides: 5,
+    },
+];
+
+/// Looks up the built-in figure type for a stored `type` value.
+///
+/// Values outside 1..=6 are not built-in figures; they fall back to the filled rectangle,
+/// which is what the dispatcher does for them too.
+pub fn figure_mapping(kind: i32) -> &'static ShapeMapping {
+    let index = usize::try_from(kind.saturating_sub(1)).unwrap_or(0);
+    &FIGURE_TYPES[index.min(FIGURE_TYPES.len() - 1)]
+}
+
+/// Recovers the stored `type` value for a translated shape object.
+pub fn figure_type_for(object_id: &str, shape_type: Option<&str>, sides: i64) -> Option<i32> {
+    FIGURE_TYPES
+        .iter()
+        .position(|mapping| {
+            mapping.object_id == object_id
+                && i64::from(mapping.sides) == sides
+                && mapping
+                    .shape_type
+                    .is_none_or(|expected| Some(expected) == shape_type)
+        })
+        .map(|index| index as i32 + 1)
+}
+
 pub const FILTERS: &[FilterMapping] = &[
     FilterMapping {
         effect_id: "blur",

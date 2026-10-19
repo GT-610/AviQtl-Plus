@@ -185,29 +185,35 @@ fn translate_object(
     let display = object_filter.display_name();
     let mut effects = Vec::new();
     let mut is_object_placeholder = false;
-    let (clip_type, object_effect) = match object_mapping(display) {
-        Some(mapping) => match build_object_effect(object_filter, mapping, catalog) {
-            Some(effect) => {
-                report.translated += 1;
-                (mapping.object_id.to_owned(), effect)
-            }
+    let (clip_type, object_effect) = match figure_shape(object_filter, catalog) {
+        Some((clip_type, effect)) => {
+            report.translated += 1;
+            (clip_type, effect)
+        }
+        None => match object_mapping(display) {
+            Some(mapping) => match build_object_effect(object_filter, mapping, catalog) {
+                Some(effect) => {
+                    report.translated += 1;
+                    (mapping.object_id.to_owned(), effect)
+                }
+                None => {
+                    report.placeholders += 1;
+                    report.notes.push(format!(
+                        "{display}: the {} object is not available",
+                        mapping.object_id
+                    ));
+                    (placeholder_type(display), placeholder_effect(object_filter))
+                }
+            },
             None => {
                 report.placeholders += 1;
                 report.notes.push(format!(
-                    "{display}: the {} object is not available",
-                    mapping.object_id
+                    "{display}: no AviQtl-Plus equivalent, preserved as a disabled placeholder"
                 ));
+                is_object_placeholder = true;
                 (placeholder_type(display), placeholder_effect(object_filter))
             }
         },
-        None => {
-            report.placeholders += 1;
-            report.notes.push(format!(
-                "{display}: no AviQtl-Plus equivalent, preserved as a disabled placeholder"
-            ));
-            is_object_placeholder = true;
-            (placeholder_type(display), placeholder_effect(object_filter))
-        }
     };
 
     // ExEdit stores the drawing/transform filter last; everything between the object and it
@@ -257,6 +263,100 @@ fn translate_object(
         effects,
         extra: BTreeMap::new(),
     })
+}
+
+/// Translates ExEdit's 図形 object, which is a solid regular polygon.
+///
+/// `FUN_10073470` hands the object's size to the rasteriser as the polygon's half-extent:
+/// the vertex loops run from `-size` to `+size`, so a figure is `2 * 大小` across. A positive
+/// `长宽比` shrinks the vertical axis by that percentage and a negative one shrinks the
+/// horizontal axis, which maps onto our width and height.
+fn figure_shape(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<(String, EffectDocument)> {
+    if !crate::exo_mapping::FIGURE_ALIASES.contains(&filter.display_name()) {
+        return None;
+    }
+    let kind = filter.named_integer("type").unwrap_or(1);
+    let mapping = crate::exo_mapping::figure_mapping(kind);
+    let metadata = catalog.find(mapping.object_id)?;
+    let mut effect = effect_from_metadata(metadata);
+    let size_track = filter
+        .named_track("大小")
+        .or_else(|| filter.track(0))
+        .unwrap_or_else(|| TrackValue::constant(30.0));
+    let size = size_track.start;
+    let aspect = filter
+        .named_track("长宽比")
+        .or_else(|| filter.track(1))
+        .map_or(0.0, |track| track.start);
+    let (width, height) = if aspect >= 0.0 {
+        (size * 2.0, size * 2.0 * (1.0 - aspect / 100.0).max(0.0))
+    } else {
+        (size * 2.0 * (1.0 + aspect / 100.0).max(0.0), size * 2.0)
+    };
+    effect.params.insert("sizeW".to_owned(), number(width));
+    effect.params.insert("sizeH".to_owned(), number(height));
+    effect
+        .params
+        .insert("sides".to_owned(), Value::from(mapping.sides));
+    if let Some(shape_type) = mapping.shape_type {
+        effect
+            .params
+            .insert("shapeType".to_owned(), Value::from(shape_type));
+    }
+    if let Some(color) = filter.color("color") {
+        effect
+            .params
+            .insert("color".to_owned(), Value::from(format!("#{color:06x}")));
+    }
+    // `線幅` is stored at the same hundredths scale as the other figure tracks.
+    if let Some(line_width) = filter
+        .named_track("线宽")
+        .or_else(|| filter.track(2))
+        .map(|track| track.start / 100.0)
+        && line_width > 0.0
+    {
+        effect
+            .params
+            .insert("strokeWidth".to_owned(), number(line_width));
+        if let Some(color) = filter.color("color") {
+            effect.params.insert(
+                "strokeColor".to_owned(),
+                Value::from(format!("#{color:06x}")),
+            );
+        }
+    }
+    // An animated 大小 drives both extents, so it becomes a keyframe track on the width and
+    // the export writes the range back.
+    if let Some(end) = size_track.end
+        && (end - size).abs() > f64::EPSILON
+    {
+        let interpolation = size_track
+            .motion
+            .as_deref()
+            .map(interpolation_for)
+            .unwrap_or("linear");
+        let mut options = json!({"interp": interpolation});
+        if let Some(motion) = &size_track.motion
+            && let Some(options) = options.as_object_mut()
+        {
+            options.insert("exoMotion".to_owned(), Value::from(motion.clone()));
+            if let Some(parameter) = size_track.motion_parameter {
+                options.insert("exoMotionParameter".to_owned(), Value::from(parameter));
+            }
+        }
+        let keyframes = effect.keyframes.get_or_insert_with(Map::new);
+        keyframes.insert(
+            "sizeW".to_owned(),
+            json!({
+                "start": {"frame": 0, "value": number(size * 2.0), "interp": interpolation},
+                "points": [{"frame": 0, "value": number(end * 2.0), "interp": interpolation, "options": options}],
+            }),
+        );
+    }
+    capture_source_entries(&mut effect, filter);
+    effect.enabled = !filter.is_disabled();
+    apply_metadata_defaults(&mut effect, metadata);
+    Some((mapping.object_id.to_owned(), effect))
 }
 
 /// A clip type that no renderer claims, so an untranslated object draws nothing and the
@@ -828,6 +928,61 @@ mod tests {
             track["points"][0]["options"]["exoMotionParameter"],
             Value::from(16)
         );
+    }
+
+    #[test]
+    fn translates_the_figure_object_into_a_regular_polygon() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=120\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xcd, 0xbc, 0xd0, 0xce]); // 图形
+        bytes.extend_from_slice(b"\r\n\xb4\xf3\xd0\xa1=30\r\n"); // 大小 = 30
+        bytes.extend_from_slice(b"\xb3\xa4\xbf\xed\xb1\xc8=50.0\r\n"); // 长宽比 = 50
+        bytes.extend_from_slice(b"\xcf\xdf\xbf\xed=4000\r\n"); // 线宽 = 4000
+        bytes.extend_from_slice(b"type=4\r\ncolor=ffffff\r\nname=\r\n");
+        let file = ExoFile::parse(&bytes).expect("figure object file");
+        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+        assert_eq!(outcome.clips.len(), 1);
+        let clip = &outcome.clips[0];
+        // Type 4 is the pentagon, and a figure is two half-extents across.
+        assert_eq!(clip.clip_type, "polygon_shape");
+        let body = &clip.effects[0].params;
+        assert_eq!(body["sides"], Value::from(5));
+        assert_eq!(body["sizeW"], Value::from(60.0));
+        assert_eq!(body["sizeH"], Value::from(30.0));
+        assert_eq!(body["strokeWidth"], Value::from(40.0));
+        assert_eq!(body["color"], Value::from("#ffffff"));
+        assert_eq!(outcome.report.placeholders, 0);
+
+        // Exporting reproduces the figure block the file started with.
+        let session = ProjectSession::blank_with(ProjectDefaults::default());
+        let mut document = session.document.clone();
+        document.clips = outcome.clips.clone();
+        let (exported, _) = export_scene(&document, &scene(), &catalog);
+        let figure = exported.objects[0].object_filter().expect("figure filter");
+        assert_eq!(figure.display_name(), "图形");
+        assert_eq!(figure.value("type"), Some("4"));
+        assert_eq!(figure.named_track("大小").unwrap().start, 30.0);
+        assert_eq!(figure.named_track("长宽比").unwrap().start, 50.0);
+        assert_eq!(figure.named_track("线宽").unwrap().start, 4000.0);
+    }
+
+    #[test]
+    fn every_built_in_figure_type_round_trips() {
+        let (catalog, _) = EffectCatalog::load();
+        for kind in 1..=6 {
+            let mapping = crate::exo_mapping::figure_mapping(kind);
+            let restored = crate::exo_mapping::figure_type_for(
+                mapping.object_id,
+                mapping.shape_type,
+                i64::from(mapping.sides),
+            );
+            assert_eq!(restored, Some(kind), "figure type {kind}");
+            assert!(catalog.find(mapping.object_id).is_some());
+        }
     }
 
     #[test]
