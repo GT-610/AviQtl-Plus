@@ -32,6 +32,25 @@ pub enum TextEncoding {
 }
 
 impl TextEncoding {
+    /// Short stable identifier, used when a project has to remember where a file came from.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Utf8 => "utf-8",
+            Self::Gbk => "gbk",
+            Self::ShiftJis => "shift_jis",
+        }
+    }
+
+    /// Parses an identifier produced by [`Self::id`].
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "utf-8" => Some(Self::Utf8),
+            "gbk" => Some(Self::Gbk),
+            "shift_jis" => Some(Self::ShiftJis),
+            _ => None,
+        }
+    }
+
     /// Picks the encoding that decodes `bytes` with the fewest unmapped sequences.
     ///
     /// Valid UTF-8 wins outright. Otherwise GBK and Shift-JIS are both attempted and the
@@ -51,8 +70,11 @@ impl TextEncoding {
                 Self::ShiftJis
             };
         }
-        let kana_ratio = shift_jis.kana as f64 / shift_jis.length.max(1) as f64;
-        if kana_ratio > 0.02 && shift_jis.kana > gbk.kana {
+        // An object file is mostly ASCII keys and numbers, so kana has to be measured
+        // against the non-ASCII characters rather than the whole document: four katakana in
+        // a header of several hundred characters would otherwise never reach any threshold.
+        let non_ascii = shift_jis.non_ascii.max(1);
+        if shift_jis.kana >= 2 && shift_jis.kana * 4 >= non_ascii && shift_jis.kana > gbk.kana {
             Self::ShiftJis
         } else {
             Self::Gbk
@@ -97,7 +119,10 @@ impl TextEncoding {
                 .filter(|character| *character == '\u{fffd}')
                 .count(),
             kana: text.chars().filter(|character| is_kana(*character)).count(),
-            length: text.chars().count(),
+            non_ascii: text
+                .chars()
+                .filter(|character| !character.is_ascii())
+                .count(),
         }
     }
 }
@@ -105,7 +130,8 @@ impl TextEncoding {
 struct DecodeScore {
     invalid: usize,
     kana: usize,
-    length: usize,
+    /// Characters outside ASCII. A code-page decision only concerns those.
+    non_ascii: usize,
 }
 
 /// Full-width hiragana and katakana, the characters that identify Japanese prose.
@@ -268,6 +294,18 @@ mod tests {
         ];
         assert_eq!(TextEncoding::detect(&bytes), TextEncoding::Gbk);
         assert_eq!(TextEncoding::Gbk.decode(&bytes), "文本标准属性");
+    }
+
+    #[test]
+    fn identifiers_round_trip() {
+        for encoding in [
+            TextEncoding::Utf8,
+            TextEncoding::Gbk,
+            TextEncoding::ShiftJis,
+        ] {
+            assert_eq!(TextEncoding::from_id(encoding.id()), Some(encoding));
+        }
+        assert_eq!(TextEncoding::from_id("latin1"), None);
     }
 
     #[test]
