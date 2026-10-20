@@ -2727,7 +2727,9 @@ impl WorkspaceModel {
     ) -> Option<(i32, i32)> {
         let (file_frame, file_layer) = crate::exo_import::file_anchor(file);
         let placement = crate::exo_import::ImportPlacement {
-            frame_offset: self.timeline_duration().saturating_sub(file_frame),
+            // Same rule as a fragment: content that already starts past this scene's end
+            // stays where it is rather than being pulled backwards.
+            frame_offset: self.timeline_duration().saturating_sub(file_frame).max(0),
             layer_offset: -file_layer,
             maximum_layers,
         };
@@ -2841,7 +2843,13 @@ impl WorkspaceModel {
     ) -> Option<(i32, i32)> {
         let (fragment_frame, fragment_layer) = fragment.anchor();
         let placement = crate::fragment::FragmentPlacement {
-            frame_offset: self.timeline_duration().saturating_sub(fragment_frame),
+            // `.max(0)` matters: a block authored later than this scene's end already sits
+            // after everything else, and subtracting its own start would drag it backwards
+            // into the existing work.
+            frame_offset: self
+                .timeline_duration()
+                .saturating_sub(fragment_frame)
+                .max(0),
             layer_offset: -fragment_layer,
             maximum_layers,
         };
@@ -4261,6 +4269,39 @@ mod tests {
             .expect("the source clip");
         assert_eq!(landed.effects.len(), original.effects.len());
         assert_eq!(landed.params, original.params);
+    }
+
+    #[test]
+    fn appending_a_block_that_starts_past_the_end_leaves_it_there() {
+        // A project saved with its work at frame 500 is appended to a scene that ends at 300.
+        // Subtracting the block's own start would drag it back over the existing clips.
+        let mut workspace = workspace();
+        let mut source = workspace.export_fragment().expect("the scene exports").0;
+        for clip in &mut source.clips {
+            clip.start += 500;
+        }
+        workspace
+            .append_fragment(&source, aviqtl_app_max_layers())
+            .expect("the fragment imports");
+        let report = workspace
+            .take_fragment_report()
+            .expect("the import leaves a report");
+        assert!(
+            !report.notes.iter().any(|note| note.contains("moved")),
+            "nothing had to move: {:?}",
+            report.notes
+        );
+        let starts = workspace
+            .document()
+            .clips
+            .iter()
+            .filter(|clip| clip.scene_id == 1)
+            .map(|clip| clip.start)
+            .collect::<Vec<_>>();
+        let first = starts.iter().copied().min().expect("clips exist");
+        let last = starts.iter().copied().max().expect("clips exist");
+        // The fixture's own clips start at 0 and 30, so the block lands at 500 and 530.
+        assert_eq!((first, last), (0, 530), "{starts:?}");
     }
 
     #[test]
