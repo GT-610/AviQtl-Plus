@@ -353,6 +353,25 @@ mod tests {
         assert_eq!(reparsed, fragment);
     }
 
+    /// The documented file shape, pinned: the developer page shows this JSON, and a reader
+    /// that relied on it would break silently if a field were renamed.
+    #[test]
+    fn the_file_carries_the_marker_and_the_authoring_settings() {
+        let document = project(vec![clip(1, 0, 30, 0)]);
+        let fragment = FragmentDocument::new(&document, &scene(), document.clips.clone());
+        let json: serde_json::Value =
+            serde_json::from_slice(&fragment.to_bytes().expect("serializes")).expect("json");
+        assert_eq!(json["format"], Value::from(FRAGMENT_FORMAT));
+        assert_eq!(json["version"], Value::from(FRAGMENT_VERSION));
+        assert_eq!(json["settings"]["fps"], Value::from(60.0));
+        assert_eq!(json["settings"]["sampleRate"], Value::from(48_000));
+        let clip = &json["clips"][0];
+        assert_eq!(clip["type"], Value::from("text"));
+        assert_eq!(clip["sceneId"], Value::from(1));
+        assert!(clip["effects"].is_array(), "{clip}");
+        assert!(clip["params"].is_object(), "{clip}");
+    }
+
     #[test]
     fn a_project_document_is_rejected_with_a_useful_error() {
         let document = project(vec![clip(1, 0, 30, 0)]);
