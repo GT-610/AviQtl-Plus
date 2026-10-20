@@ -245,20 +245,6 @@ pub fn figure_mapping(kind: i32) -> &'static ShapeMapping {
     &FIGURE_TYPES[index.min(FIGURE_TYPES.len() - 1)]
 }
 
-/// Recovers the stored `type` value for a translated shape object.
-pub fn figure_type_for(object_id: &str, shape_type: Option<&str>, sides: i64) -> Option<i32> {
-    FIGURE_TYPES
-        .iter()
-        .position(|mapping| {
-            mapping.object_id == object_id
-                && i64::from(mapping.sides) == sides
-                && mapping
-                    .shape_type
-                    .is_none_or(|expected| Some(expected) == shape_type)
-        })
-        .map(|index| index as i32 + 1)
-}
-
 pub const FILTERS: &[FilterMapping] = &[
     FilterMapping {
         effect_id: "blur",

@@ -1068,18 +1068,23 @@ mod tests {
     }
 
     #[test]
-    fn every_built_in_figure_type_maps_back_to_its_own_number() {
+    fn every_built_in_figure_type_points_at_a_catalogue_object() {
         let (catalog, _) = EffectCatalog::load();
         for kind in 1..=6 {
             let mapping = crate::exo_mapping::figure_mapping(kind);
-            let restored = crate::exo_mapping::figure_type_for(
-                mapping.object_id,
-                mapping.shape_type,
-                i64::from(mapping.sides),
+            assert!(
+                catalog.find(mapping.object_id).is_some(),
+                "figure type {kind} maps to {}, which is not in the catalogue",
+                mapping.object_id
             );
-            assert_eq!(restored, Some(kind), "figure type {kind}");
-            assert!(catalog.find(mapping.object_id).is_some());
+            assert!(mapping.sides >= 3, "figure type {kind} is not a polygon");
         }
+        // A value the file should never hold still has to resolve to something drawable
+        // rather than panicking on the import path.
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(0).object_id,
+            crate::exo_mapping::figure_mapping(1).object_id
+        );
     }
 
     #[test]
