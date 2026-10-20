@@ -160,16 +160,14 @@ pub fn plan_import(
     let mut outcome = ImportOutcome::default();
     let maximum_layer = placement.maximum_layers.clamp(1, 512) - 1;
     for (index, object) in file.objects.iter().enumerate() {
-        let clip_id = first_clip_id.saturating_add(index as i32);
-        let Some(clip) = translate_object(
-            object,
-            scene,
-            catalog,
-            clip_id,
+        let target = ObjectTarget {
+            clip_id: first_clip_id.saturating_add(index as i32),
             placement,
             maximum_layer,
-            &mut outcome.report,
-        ) else {
+            encoding: file.encoding,
+        };
+        let Some(clip) = translate_object(object, scene, catalog, target, &mut outcome.report)
+        else {
             continue;
         };
         outcome.report.objects += 1;
@@ -178,15 +176,27 @@ pub fn plan_import(
     outcome
 }
 
+/// Where one object goes, and which code page its file used.
+struct ObjectTarget {
+    clip_id: i32,
+    placement: ImportPlacement,
+    maximum_layer: i32,
+    encoding: aviqtl_rust_core::exo::TextEncoding,
+}
+
 fn translate_object(
     object: &ExoObject,
     scene: &SceneDocument,
     catalog: &EffectCatalog,
-    clip_id: i32,
-    placement: ImportPlacement,
-    maximum_layer: i32,
+    target: ObjectTarget,
     report: &mut ImportReport,
 ) -> Option<ClipDocument> {
+    let ObjectTarget {
+        clip_id,
+        placement,
+        maximum_layer,
+        encoding,
+    } = target;
     let duration = object.duration().max(1);
     let start = object
         .start
@@ -300,7 +310,13 @@ fn translate_object(
         effects,
         // Kept on the clip rather than in the stack: AviUtl's own filter list is the only
         // place these belong, and the exporter writes them back unchanged.
-        extra: preserved_clip_extras(object, &preserved),
+        extra: {
+            let mut extras = preserved_clip_extras(object, &preserved);
+            // The file's code page has to survive into an export, or a Japanese file comes
+            // back as GBK and AviUtl cannot read its own object names.
+            extras.insert("exoEncoding".to_owned(), Value::from(encoding.id()));
+            extras
+        },
     })
 }
 
@@ -1220,6 +1236,45 @@ mod tests {
             written,
             blob.to_vec(),
             "the original blob is kept byte for byte when the path is unchanged"
+        );
+    }
+
+    #[test]
+    fn a_shift_jis_file_is_exported_as_shift_jis() {
+        let (catalog, _) = EffectCatalog::load();
+        // A stock Japanese install: Shift-JIS テキスト and 標準描画.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0x83, 0x65, 0x83, 0x4c, 0x83, 0x58, 0x83, 0x67]); // テキスト
+        bytes.extend_from_slice(b"\r\ntext=4100\r\n[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0x95, 0x4a, 0x97, 0x76, 0x95, 0x5c, 0x89, 0x7e]); // 標準描画
+        bytes.extend_from_slice(b"\r\nX=10.0\r\n");
+        let file = ExoFile::parse(&bytes).expect("shift-jis object file");
+        assert_eq!(file.encoding, aviqtl_rust_core::exo::TextEncoding::ShiftJis);
+
+        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+        assert_eq!(outcome.clips.len(), 1);
+        assert_eq!(outcome.clips[0].effects[1].id, "text");
+
+        let session = ProjectSession::blank_with(ProjectDefaults::default());
+        let mut document = session.document.clone();
+        document.clips = outcome.clips.clone();
+        let (exported, _) = export_scene(&document, &scene(), &catalog);
+        assert_eq!(
+            exported.encoding,
+            aviqtl_rust_core::exo::TextEncoding::ShiftJis,
+            "the code page has to follow the source file"
+        );
+        let reparsed = ExoFile::parse(&exported.to_bytes()).expect("reparsed");
+        assert_eq!(
+            reparsed.objects[0]
+                .object_filter()
+                .expect("object filter")
+                .display_name(),
+            "テキスト"
         );
     }
 

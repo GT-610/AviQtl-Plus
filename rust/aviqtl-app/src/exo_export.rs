@@ -133,8 +133,19 @@ fn build_file(
     // layer first and keep the original order inside a layer.
     clips.sort_by_key(|clip| (clip.layer, clip.start, clip.id));
 
-    // Paths inside the object data use the document code page, same as the text.
-    let encoding = TextEncoding::Gbk;
+    // Write the file back in the code page it came from when every source object agrees,
+    // which is the normal case for an imported file. A project built here has no recorded
+    // source, so it gets the code page AviUtl's translation packs expect.
+    let encoding = clips
+        .iter()
+        .filter_map(|clip| {
+            clip.extra
+                .get("exoEncoding")
+                .and_then(Value::as_str)
+                .and_then(TextEncoding::from_id)
+        })
+        .next()
+        .unwrap_or(TextEncoding::Gbk);
 
     for clip in clips {
         match export_clip(clip, catalog, &mut report, encoding) {
@@ -164,9 +175,9 @@ fn build_file(
     (
         ExoFile {
             // AviUtl reads object files with its ANSI APIs, so the file has to be in the
-            // code page of the machine that will open it. GBK is the safe default for the
-            // translation packs this feature targets; UTF-8 remains readable by us.
-            encoding: TextEncoding::Gbk,
+            // code page of the machine that will open it: the one the source came from when
+            // that is known, GBK for a project built here.
+            encoding,
             header,
             objects,
         },
