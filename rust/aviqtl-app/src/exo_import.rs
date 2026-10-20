@@ -4,7 +4,7 @@
 //! is the part that knows what the names mean: it maps ExEdit's localized object and filter
 //! names onto catalogue entries, converts parameter units, turns ExEdit's start/end trackbar
 //! ranges into keyframes, and preserves everything it cannot translate as a disabled
-//! placeholder so that a later export can still write it back.
+//! placeholder so the source file's own settings stay visible in the project.
 //!
 //! Translation is deliberately conservative. A filter is only converted when both the name
 //! and the parameter semantics are known (see `exo_mapping`); guessing would silently change
@@ -393,8 +393,7 @@ fn figure_shape(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<(String, 
             );
         }
     }
-    // An animated 大小 drives both extents, so it becomes a keyframe track on the width and
-    // the export writes the range back.
+    // An animated 大小 drives both extents, so it becomes a keyframe track on the width.
     if let Some(end) = size_track.end
         && (end - size).abs() > f64::EPSILON
     {
@@ -627,8 +626,9 @@ fn placeholder_effect(filter: &ExoFilter) -> EffectDocument {
     if let Some(exdata) = filter.hex_payload("_exdata") {
         params.insert("exoExdata".to_owned(), Value::from(hex_encode(&exdata)));
     }
-    // The placeholder itself is always disabled so it never changes the picture, but the
-    // file's own disabled state has to survive an export separately from that.
+    // The placeholder itself is always disabled so it never changes the picture. The file
+    // may also have had its own filter switched off, and that is a separate fact worth
+    // keeping.
     if filter.is_disabled() {
         params.insert("exoDisabled".to_owned(), Value::Bool(true));
     }
@@ -774,7 +774,7 @@ fn track_at(filter: &ExoFilter, key: &str) -> Option<TrackValue> {
 /// ExEdit stores a motion as `<index>@<name>@<script>`, where the name is a label inside the
 /// easing script rather than a curve identifier. Only labels whose meaning matches a built-in
 /// curve are converted; everything else stays linear and keeps the original text in the
-/// keyframe options so an export can write it back.
+/// keyframe options, so the label is not lost.
 fn interpolation_for(motion: &str) -> &'static str {
     let name = motion
         .split('@')
