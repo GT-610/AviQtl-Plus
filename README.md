@@ -28,7 +28,7 @@ See [AviUtl Operability Targets](https://aviqtl.gt610.dpdns.org/developer/operab
 
 - UI closely resembling AviUtl
 - **Fragments (.aviqtlfrag)** save a block of clips and insert it elsewhere, losslessly
-- **AviUtl ExEdit object files (.exo)** can be imported and exported for interoperability
+- **AviUtl ExEdit object files (.exo)** can be imported, bringing existing AviUtl material into a project
 - **Fast and powerful GPU-accelerated effects**
 - Support for **audio effects** such as VST3 and LV2
 - **LuaJIT plugin system** with package management, declarative parameters, and permission control
