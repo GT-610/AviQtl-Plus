@@ -146,6 +146,23 @@ impl FragmentDocument {
     }
 }
 
+/// True when `bytes` carries the fragment marker.
+///
+/// A fragment and a project are both JSON, and opening one as the other would produce a
+/// project whose clips belong to a scene that does not exist. The project loader asks this
+/// first so it can say what the file actually is.
+pub fn is_fragment_document(bytes: &[u8]) -> bool {
+    serde_json::from_slice::<serde_json::Value>(bytes)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("format")
+                .and_then(serde_json::Value::as_str)
+                .map(|format| format == FRAGMENT_FORMAT)
+        })
+        .unwrap_or(false)
+}
+
 /// Reads a fragment from disk.
 pub fn load_fragment(path: &std::path::Path) -> Result<FragmentDocument, String> {
     let bytes = crate::file_io::read_bounded(path, MAX_FRAGMENT_BYTES)
@@ -392,6 +409,22 @@ mod tests {
             FragmentDocument::parse(&bytes),
             Err(FragmentError::UnsupportedVersion)
         );
+    }
+
+    #[test]
+    fn the_marker_check_tells_fragments_from_projects() {
+        let document = project(vec![clip(1, 0, 30, 0)]);
+        let fragment = FragmentDocument::new(&document, &scene(), document.clips.clone());
+        assert!(is_fragment_document(
+            &fragment.to_bytes().expect("serializes")
+        ));
+
+        let project_bytes = serde_json::to_vec(&document).expect("project serializes");
+        assert!(!is_fragment_document(&project_bytes));
+        assert!(!is_fragment_document(b"not json"));
+        assert!(!is_fragment_document(
+            br#"{"format":"something.else","version":1}"#
+        ));
     }
 
     #[test]
