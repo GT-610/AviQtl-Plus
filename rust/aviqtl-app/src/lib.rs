@@ -9,6 +9,7 @@ pub mod exo_export;
 pub mod exo_import;
 pub mod exo_mapping;
 mod file_io;
+pub mod fragment;
 pub mod lifecycle;
 pub mod media_bin;
 pub mod media_import;
