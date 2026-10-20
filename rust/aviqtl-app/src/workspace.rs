@@ -4097,6 +4097,83 @@ mod tests {
         assert_eq!(report.objects, 1);
     }
 
+    /// An object file whose second object is a script object this build cannot run, so the
+    /// import has to preserve it as a placeholder.
+    fn object_file_with_a_script_object() -> aviqtl_rust_core::exo::ExoFile {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1920\r\nheight=1080\r\nrate=60\r\nscale=100\r\nlength=300\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        bytes.extend_from_slice(b"[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=");
+        // 自定义物件 in GBK
+        bytes.extend_from_slice(&[0xd7, 0xd4, 0xb6, 0xa8, 0xd2, 0xe5, 0xce, 0xef, 0xbc, 0xfe]);
+        bytes.extend_from_slice(
+            b"\r\nname=uf_easing\r\nparam=local P_VIEW=1;\r\ntrack0=0.00\r\ncheck0=1\r\n",
+        );
+        aviqtl_rust_core::exo::ExoFile::parse(&bytes).expect("fixture parses")
+    }
+
+    #[test]
+    fn a_fragment_keeps_what_the_object_file_could_only_preserve() {
+        // The combination that matters: material arrives from AviUtl with objects this build
+        // cannot run, and the user saves it as a fragment. The placeholder's script, its
+        // parameter block, and its track values have to survive, or the fragment would lose
+        // exactly what the object file was careful to keep.
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        workspace
+            .append_exo_object_file(
+                &object_file_with_a_script_object(),
+                &catalog,
+                aviqtl_app_max_layers(),
+            )
+            .expect("the object file imports");
+
+        let (placeholder_id, placeholder_effect_count, placeholder_params) = {
+            let placeholder = workspace
+                .document()
+                .clips
+                .iter()
+                .find(|clip| clip.clip_type.starts_with("exo."))
+                .expect("the script object became a placeholder");
+            (
+                placeholder.id,
+                placeholder.effects.len(),
+                placeholder.effects[0].params.clone(),
+            )
+        };
+        assert_eq!(
+            placeholder_params["exoScript"],
+            serde_json::json!("uf_easing")
+        );
+
+        workspace.selection.replace(vec![placeholder_id]);
+        let (fragment, _) = workspace.export_fragment().expect("the selection exports");
+        let bytes = fragment.to_bytes().expect("the fragment serializes");
+        let reparsed =
+            crate::fragment::FragmentDocument::parse(&bytes).expect("the fragment parses");
+
+        let kept = &reparsed.clips[0];
+        assert_eq!(kept.effects.len(), placeholder_effect_count);
+        assert_eq!(
+            kept.effects[0].params["exoScript"],
+            serde_json::json!("uf_easing")
+        );
+        assert_eq!(
+            kept.effects[0].params["exoScriptParameter"],
+            serde_json::json!("local P_VIEW=1;")
+        );
+        assert_eq!(
+            kept.effects[0].params["exoTracks"]["track0"],
+            serde_json::json!("0.00")
+        );
+        assert_eq!(
+            kept.effects[0].params["exoChecks"]["check0"],
+            serde_json::json!("1")
+        );
+    }
+
     #[test]
     fn a_fragment_export_writes_every_clip_the_selection_holds() {
         let mut workspace = workspace();
