@@ -390,6 +390,12 @@ msgstr "終了"
 msgid "Export"
 msgstr "書き出し"
 
+msgid "Export AviUtl Object File (Compatibility)..."
+msgstr "AviUtl オブジェクトファイルを書き出す（互換）..."
+
+msgid "Export Fragment..."
+msgstr "フラグメントの書き出し..."
+
 msgid "Export Media"
 msgstr "メディアの書き出し"
 
@@ -495,8 +501,14 @@ msgstr "最高品質 (veryslow)"
 msgid "Image Sequence"
 msgstr "画像シーケンス"
 
+msgid "Import AviUtl Object File (Compatibility)..."
+msgstr "AviUtl オブジェクトファイルを読み込む（互換）..."
+
 msgid "Increasing this count increases memory usage"
 msgstr "回数を増やすとメモリ使用量が増えます"
+
+msgid "Insert Fragment..."
+msgstr "フラグメントの挿入..."
 
 msgid "Insert Layer Above (1 row)"
 msgstr "上にレイヤーを挿入 (1行)"
@@ -656,6 +668,9 @@ msgstr "このレイヤー以降をまとめて移動"
 
 msgid "New Project"
 msgstr "新規プロジェクト"
+
+msgid "New Project from AviUtl Object File..."
+msgstr "AviUtl オブジェクトファイルから新規プロジェクト..."
 
 msgid "No"
 msgstr "いいえ"

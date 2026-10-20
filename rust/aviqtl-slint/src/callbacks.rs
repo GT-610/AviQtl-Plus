@@ -99,6 +99,22 @@ pub(super) fn install_timeline_file_drop(
                             )
                         });
                 }
+                // A fragment is the same idea without the translation step.
+                if path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("aviqtlfrag"))
+                {
+                    return aviqtl_app::fragment::load_fragment(&path)
+                        .ok()
+                        .and_then(|fragment| {
+                            workspace.drop_fragment(
+                                &fragment,
+                                frame,
+                                layer,
+                                window.get_maximum_layers(),
+                            )
+                        });
+                }
                 workspace.import_media_files(
                     std::slice::from_ref(&path),
                     frame,
@@ -952,6 +968,10 @@ pub(super) fn install_callbacks(
 
     let export_exo_ui = lifecycle_ui.clone();
     main.on_export_exo_object_file(move || export_exo_ui.export_exo_object_file());
+    let import_fragment_ui = lifecycle_ui.clone();
+    main.on_import_fragment(move || import_fragment_ui.import_fragment());
+    let export_fragment_ui = lifecycle_ui.clone();
+    main.on_export_fragment(move || export_fragment_ui.export_fragment());
 
     let save_ui = lifecycle_ui.clone();
     main.on_save_project(move || {

@@ -1,9 +1,10 @@
 //! Project window ownership, save/close sequencing, and recovery presentation.
 
 use crate::dialogs::{
-    choose_exo_object_save_path, choose_exo_object_to_import, choose_project_save_path,
-    choose_project_to_open, insert_visible_window_geometry, install_opaque_window, json_i32,
-    show_and_redraw, show_error_dialog, show_info_dialog,
+    choose_exo_object_save_path, choose_exo_object_to_import, choose_fragment_save_path,
+    choose_fragment_to_import, choose_project_save_path, choose_project_to_open,
+    insert_visible_window_geometry, install_opaque_window, json_i32, show_and_redraw,
+    show_error_dialog, show_info_dialog,
 };
 use crate::easing::refresh_easing_translations;
 use crate::localization::{current_ui_language, localized, select_bundled_ui_translation};
@@ -430,6 +431,121 @@ impl LifecycleUi {
         }
         if !report.skipped.is_empty() {
             show_error_dialog(&format!("{status}\n\n{}", report.skipped.join("\n")));
+        }
+    }
+
+    /// Inserts a fragment into the current scene.
+    ///
+    /// A fragment holds this build's own clips, so nothing is translated and nothing is
+    /// skipped: what arrives is exactly what was saved.
+    pub(super) fn import_fragment(&self) {
+        if self.model.borrow().lifecycle_pending() {
+            return;
+        }
+        let Some(path) = choose_fragment_to_import() else {
+            return;
+        };
+        let fragment = match aviqtl_app::fragment::load_fragment(&path) {
+            Ok(fragment) => fragment,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        let imported = {
+            let mut model = self.model.borrow_mut();
+            let Some(workspace) = model.current_workspace_mut() else {
+                show_error_dialog(localized(
+                    "Open a project before inserting a fragment.",
+                    "请先打开一个项目，再插入片段。",
+                    "フラグメントを挿入する前にプロジェクトを開いてください。",
+                ));
+                return;
+            };
+            workspace.append_fragment(&fragment, aviqtl_app::MAX_TIMELINE_LAYERS)
+        };
+        if imported.is_some() {
+            self.report_fragment();
+            self.sync();
+            if let Some(timeline) = self.timeline.upgrade() {
+                let _ = show_and_redraw(&timeline);
+            }
+        } else {
+            let message = self
+                .model
+                .borrow()
+                .current_workspace()
+                .map(|workspace| workspace.status().to_owned())
+                .unwrap_or_default();
+            show_error_dialog(&message);
+        }
+    }
+
+    /// Shows what a fragment import had to say.
+    ///
+    /// A clean insert says nothing beyond the status line; a fragment made at another frame
+    /// rate, or one that had to move to clear existing objects, says so here.
+    fn report_fragment(&self) {
+        let report = self
+            .model
+            .borrow_mut()
+            .current_workspace_mut()
+            .and_then(|workspace| workspace.take_fragment_report());
+        let Some(report) = report else {
+            return;
+        };
+        if report.notes.is_empty() {
+            return;
+        }
+        show_info_dialog(
+            localized(
+                "Fragment inserted",
+                "已插入片段",
+                "フラグメントを挿入しました",
+            ),
+            &report.details(12),
+        );
+    }
+
+    /// Writes the selection, or the whole scene, as a fragment.
+    pub(super) fn export_fragment(&self) {
+        let exported = self
+            .model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| workspace.export_fragment());
+        let Some((fragment, report)) = exported else {
+            show_error_dialog(localized(
+                "This scene has no clips to export.",
+                "当前场景没有可导出的片段。",
+                "このシーンには書き出せるクリップがありません。",
+            ));
+            return;
+        };
+        let suggested = self
+            .model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| workspace.project().path.clone())
+            .and_then(|path| {
+                path.file_stem()
+                    .map(|stem| PathBuf::from(stem).with_extension("aviqtlfrag"))
+            })
+            .unwrap_or_else(|| PathBuf::from("fragment.aviqtlfrag"));
+        let Some(path) = choose_fragment_save_path(&suggested) else {
+            return;
+        };
+        if let Err(message) = aviqtl_app::fragment::save_fragment(&path, &fragment) {
+            show_error_dialog(&message);
+            return;
+        }
+        let status = if report.selection_only {
+            format!("Exported {} selected clip(s) to a fragment", report.clips)
+        } else {
+            format!("Exported {} clip(s) to a fragment", report.clips)
+        };
+        if let Some(main) = self.main.upgrade() {
+            main.set_status_text(status.as_str().into());
         }
     }
 

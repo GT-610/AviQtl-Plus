@@ -43,6 +43,8 @@ export component MainWindow inherits Window {
     callback import-exo-object-file();
     callback new-project-from-exo-file();
     callback export-exo-object-file();
+    callback import-fragment();
+    callback export-fragment();
     callback quit-requested();
     callback undo();
     callback redo();
@@ -82,9 +84,12 @@ export component MainWindow inherits Window {
                 activated => { root.missing-media-dialog-visible = true; }
             }
             MenuSeparator { }
+            MenuItem { title: @tr("Insert Fragment..."); enabled: !root.save-confirmation-visible; activated => { root.import-fragment(); } }
+            MenuItem { title: @tr("Export Fragment..."); enabled: !root.save-confirmation-visible; activated => { root.export-fragment(); } }
+            MenuSeparator { }
             MenuItem { title: @tr("New Project from AviUtl Object File..."); enabled: !root.save-confirmation-visible; activated => { root.new-project-from-exo-file(); } }
-            MenuItem { title: @tr("Import AviUtl Object File..."); enabled: !root.save-confirmation-visible; activated => { root.import-exo-object-file(); } }
-            MenuItem { title: @tr("Export AviUtl Object File..."); enabled: !root.save-confirmation-visible; activated => { root.export-exo-object-file(); } }
+            MenuItem { title: @tr("Import AviUtl Object File (Compatibility)..."); enabled: !root.save-confirmation-visible; activated => { root.import-exo-object-file(); } }
+            MenuItem { title: @tr("Export AviUtl Object File (Compatibility)..."); enabled: !root.save-confirmation-visible; activated => { root.export-exo-object-file(); } }
             MenuSeparator { }
             MenuItem { title: @tr("Export Media..."); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[4] : root.no-shortcut; icon: @image-url("icons/export.svg"); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
             MenuSeparator { }

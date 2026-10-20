@@ -264,6 +264,44 @@ pub(super) fn choose_exo_object_save_path(suggested_path: &Path) -> Option<PathB
     Some(path)
 }
 
+/// Picks a fragment file to insert.
+pub(super) fn choose_fragment_to_import() -> Option<PathBuf> {
+    rfd::FileDialog::new()
+        .set_title(localized(
+            "Insert a fragment",
+            "插入片段",
+            "フラグメントを挿入",
+        ))
+        .add_filter("AviQtl Plus fragments", &["aviqtlfrag"])
+        .add_filter("All Files", &["*"])
+        .pick_file()
+}
+
+/// Picks where to write a fragment.
+pub(super) fn choose_fragment_save_path(suggested_path: &Path) -> Option<PathBuf> {
+    let mut dialog = rfd::FileDialog::new()
+        .set_title(localized(
+            "Export a fragment",
+            "导出片段",
+            "フラグメントを書き出す",
+        ))
+        .add_filter("AviQtl Plus fragments", &["aviqtlfrag"]);
+    if let Some(file_name) = suggested_path.file_name() {
+        dialog = dialog.set_file_name(file_name.to_string_lossy().into_owned());
+    }
+    if let Some(parent) = suggested_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        dialog = dialog.set_directory(parent);
+    }
+    let mut path = dialog.save_file()?;
+    if path.extension().is_none() {
+        path.set_extension("aviqtlfrag");
+    }
+    Some(path)
+}
+
 pub(super) fn choose_project_save_path(suggested_path: &Path) -> Option<PathBuf> {
     let mut dialog = project_file_dialog();
     if let Some(file_name) = suggested_path.file_name() {

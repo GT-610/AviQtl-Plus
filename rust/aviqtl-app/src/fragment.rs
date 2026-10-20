@@ -146,6 +146,22 @@ impl FragmentDocument {
     }
 }
 
+/// Reads a fragment from disk.
+pub fn load_fragment(path: &std::path::Path) -> Result<FragmentDocument, String> {
+    let bytes = crate::file_io::read_bounded(path, MAX_FRAGMENT_BYTES)
+        .map_err(|error| format!("{}: {error}", path.display()))?;
+    FragmentDocument::parse(&bytes).map_err(|error| format!("{}: {error}", path.display()))
+}
+
+/// Writes a fragment, replacing any existing file atomically.
+pub fn save_fragment(path: &std::path::Path, fragment: &FragmentDocument) -> Result<(), String> {
+    let bytes = fragment
+        .to_bytes()
+        .map_err(|error| format!("{}: {error}", path.display()))?;
+    crate::project_io::write_atomic(path, &bytes)
+        .map_err(|error| format!("{}: {error}", path.display()))
+}
+
 /// Where the fragment's clips land.
 #[derive(Debug, Clone, Copy)]
 pub struct FragmentPlacement {
@@ -480,6 +496,33 @@ mod tests {
         other.clips[0].scene_id = 2;
         let (scoped, _) = select_clips(&other, 1, &[]);
         assert_eq!(scoped.len(), 2);
+    }
+
+    #[test]
+    fn a_fragment_survives_a_trip_through_the_filesystem() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        let path = directory.path().join("title.aviqtlfrag");
+        let document = project(vec![clip(1, 0, 30, 0), clip(2, 5, 25, 1)]);
+        let fragment = FragmentDocument::new(&document, &scene(), document.clips.clone());
+        save_fragment(&path, &fragment).expect("saves");
+        assert_eq!(load_fragment(&path).expect("loads"), fragment);
+    }
+
+    #[test]
+    fn loading_a_missing_file_names_the_path() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        let path = directory.path().join("absent.aviqtlfrag");
+        let message = load_fragment(&path).expect_err("the file does not exist");
+        assert!(message.contains("absent.aviqtlfrag"), "{message}");
+    }
+
+    #[test]
+    fn a_file_that_is_not_json_is_reported_as_damaged() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        let path = directory.path().join("broken.aviqtlfrag");
+        std::fs::write(&path, b"not a fragment").expect("writes");
+        let message = load_fragment(&path).expect_err("the file is not a fragment");
+        assert!(message.contains("damaged"), "{message}");
     }
 
     #[test]
