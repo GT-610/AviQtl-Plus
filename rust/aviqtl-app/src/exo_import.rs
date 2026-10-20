@@ -178,47 +178,15 @@ pub fn plan_import(
     outcome
 }
 
-/// Moves the whole import forward until no object overlaps one already in the scene.
-///
-/// ExEdit refuses to load an object file onto occupied positions. Dropping a file onto an
-/// existing object would otherwise leave two objects sharing a layer and a frame, which the
-/// Renderer resolves by stacking order rather than by intent. The import keeps its internal
-/// layout and moves as one block, the way a drag-move of a selection does.
+/// ExEdit refuses to load an object file onto occupied positions, so an import that would
+/// land on existing objects moves forward as a block instead of stacking on top of them.
 fn resolve_overlaps(document: &ProjectDocument, scene_id: i32, outcome: &mut ImportOutcome) {
-    if outcome.clips.is_empty() {
-        return;
-    }
-    let mut total_shift: i32 = 0;
-    // A shift can expose a new collision further along, so repeat until the block is clear.
-    // Each pass moves at least one frame, and the bound keeps a pathological file from
-    // scanning forever.
-    for _ in 0..64 {
-        let mut shift = 0;
-        for clip in &outcome.clips {
-            let clip_end = clip.start.saturating_add(clip.duration);
-            for existing in document.clips.iter().filter(|existing| {
-                existing.scene_id == scene_id
-                    && existing.layer == clip.layer
-                    && existing.id != clip.id
-            }) {
-                let existing_end = existing.start.saturating_add(existing.duration);
-                if clip.start < existing_end && existing.start < clip_end {
-                    shift = shift.max(existing_end.saturating_sub(clip.start));
-                }
-            }
-        }
-        if shift == 0 {
-            break;
-        }
-        for clip in &mut outcome.clips {
-            clip.start = clip.start.saturating_add(shift);
-        }
-        total_shift = total_shift.saturating_add(shift);
-    }
-    if total_shift > 0 {
-        outcome.report.notes.push(format!(
-            "moved the import {total_shift} frame(s) forward to avoid overlapping existing objects"
-        ));
+    let shift = crate::clip_insert::shift_past_existing(document, scene_id, &mut outcome.clips);
+    if shift > 0 {
+        outcome
+            .report
+            .notes
+            .push(crate::clip_insert::shift_note(shift));
     }
 }
 

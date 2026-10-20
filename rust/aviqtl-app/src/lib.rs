@@ -1,6 +1,7 @@
 //! Framework-neutral application state shared by desktop frontends.
 
 pub mod audio_plugin;
+pub mod clip_insert;
 pub mod easing;
 pub mod effect_catalog;
 pub mod effect_selection;
