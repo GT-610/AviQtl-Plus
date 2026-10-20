@@ -213,8 +213,7 @@ fn shipped_object_files_round_trip_without_changing_meaning() {
         let bytes = std::fs::read(path).expect("object file is readable");
         let original = ExoFile::parse(&bytes).expect("object file parses");
         let scene = scene_for(&original);
-        let outcome = plan_import(&original, &scene, &catalog, 1, ImportPlacement::default());
-        let document = ProjectDocument {
+        let empty = ProjectDocument {
             version: 3,
             settings: ProjectSettings {
                 width: original.header.width,
@@ -224,8 +223,22 @@ fn shipped_object_files_round_trip_without_changing_meaning() {
                 extra: Default::default(),
             },
             scenes: vec![scene.clone()],
-            clips: outcome.clips,
+            clips: Vec::new(),
             extra: Default::default(),
+        };
+        // The scene starts empty, so the import has nothing to collide with and keeps the
+        // file's own layout; this test is about the translation, not about placement.
+        let outcome = plan_import(
+            &original,
+            &scene,
+            &empty,
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        let document = ProjectDocument {
+            clips: outcome.clips,
+            ..empty
         };
         let (exported, _) = export_scene(&document, &scene, &catalog);
         let reparsed = ExoFile::parse(&exported.to_bytes()).expect("exported file parses");

@@ -2644,7 +2644,14 @@ impl WorkspaceModel {
                 return None;
             }
         };
-        let outcome = crate::exo_import::plan_import(file, &scene, catalog, ids[0], placement);
+        let outcome = crate::exo_import::plan_import(
+            file,
+            &scene,
+            &self.project.document,
+            catalog,
+            ids[0],
+            placement,
+        );
         if outcome.clips.is_empty() {
             self.status = format!(
                 "Nothing to import: {}",
@@ -4042,6 +4049,7 @@ mod tests {
         let outcome = crate::exo_import::plan_import(
             &reparsed,
             &scene,
+            &workspace.project().document,
             &catalog,
             100,
             crate::exo_import::ImportPlacement::default(),

@@ -153,6 +153,7 @@ pub struct ImportOutcome {
 pub fn plan_import(
     file: &ExoFile,
     scene: &SceneDocument,
+    document: &ProjectDocument,
     catalog: &EffectCatalog,
     first_clip_id: i32,
     placement: ImportPlacement,
@@ -173,7 +174,52 @@ pub fn plan_import(
         outcome.report.objects += 1;
         outcome.clips.push(clip);
     }
+    resolve_overlaps(document, scene.id, &mut outcome);
     outcome
+}
+
+/// Moves the whole import forward until no object overlaps one already in the scene.
+///
+/// ExEdit refuses to load an object file onto occupied positions. Dropping a file onto an
+/// existing object would otherwise leave two objects sharing a layer and a frame, which the
+/// Renderer resolves by stacking order rather than by intent. The import keeps its internal
+/// layout and moves as one block, the way a drag-move of a selection does.
+fn resolve_overlaps(document: &ProjectDocument, scene_id: i32, outcome: &mut ImportOutcome) {
+    if outcome.clips.is_empty() {
+        return;
+    }
+    let mut total_shift: i32 = 0;
+    // A shift can expose a new collision further along, so repeat until the block is clear.
+    // Each pass moves at least one frame, and the bound keeps a pathological file from
+    // scanning forever.
+    for _ in 0..64 {
+        let mut shift = 0;
+        for clip in &outcome.clips {
+            let clip_end = clip.start.saturating_add(clip.duration);
+            for existing in document.clips.iter().filter(|existing| {
+                existing.scene_id == scene_id
+                    && existing.layer == clip.layer
+                    && existing.id != clip.id
+            }) {
+                let existing_end = existing.start.saturating_add(existing.duration);
+                if clip.start < existing_end && existing.start < clip_end {
+                    shift = shift.max(existing_end.saturating_sub(clip.start));
+                }
+            }
+        }
+        if shift == 0 {
+            break;
+        }
+        for clip in &mut outcome.clips {
+            clip.start = clip.start.saturating_add(shift);
+        }
+        total_shift = total_shift.saturating_add(shift);
+    }
+    if total_shift > 0 {
+        outcome.report.notes.push(format!(
+            "moved the import {total_shift} frame(s) forward to avoid overlapping existing objects"
+        ));
+    }
 }
 
 /// Where one object goes, and which code page its file used.
@@ -1015,11 +1061,24 @@ mod tests {
         session.document.scenes[0].clone()
     }
 
+    /// A project holding the scene the tests import into and no clips, so nothing can collide
+    /// with an import unless a test puts it there.
+    fn empty_project() -> ProjectDocument {
+        ProjectSession::blank_with(ProjectDefaults::default()).document
+    }
+
     #[test]
     fn translates_text_transform_and_mapped_effects() {
         let (catalog, _) = EffectCatalog::load();
         let file = ExoFile::parse(&sample()).expect("sample object file");
-        let outcome = plan_import(&file, &scene(), &catalog, 10, ImportPlacement::default());
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
         assert_eq!(outcome.clips.len(), 2);
         assert_eq!(outcome.report.objects, 2);
 
@@ -1074,7 +1133,14 @@ mod tests {
         bytes.extend_from_slice(b"\xcf\xdf\xbf\xed=4000\r\n"); // 线宽 = 4000
         bytes.extend_from_slice(b"type=4\r\ncolor=ffffff\r\nname=\r\n");
         let file = ExoFile::parse(&bytes).expect("figure object file");
-        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
         assert_eq!(outcome.clips.len(), 1);
         let clip = &outcome.clips[0];
         // Type 4 is the pentagon, and a figure is two half-extents across.
@@ -1158,7 +1224,14 @@ mod tests {
         bytes.extend_from_slice(&[0x98, 0xcb, 0x9c, 0xca, 0xc3, 0xe8, 0xbb, 0xad]);
         bytes.extend_from_slice(b"\r\nX=10.0\r\nY=20.0\r\n");
         let file = ExoFile::parse(&bytes).expect("file");
-        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
 
         let session = ProjectSession::blank_with(ProjectDefaults::default());
         let mut document = session.document.clone();
@@ -1178,7 +1251,14 @@ mod tests {
     fn a_preserved_script_names_the_file_it_needs() {
         let (catalog, _) = EffectCatalog::load();
         let file = ExoFile::parse(&sample()).expect("sample object file");
-        let outcome = plan_import(&file, &scene(), &catalog, 10, ImportPlacement::default());
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
         let note = outcome
             .report
             .notes
@@ -1215,7 +1295,14 @@ mod tests {
         bytes.extend_from_slice(b"\r\nX=0.0\r\n");
 
         let file = ExoFile::parse(&bytes).expect("media object file");
-        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
         assert_eq!(outcome.clips.len(), 1);
         let image = outcome.clips[0]
             .effects
@@ -1255,7 +1342,14 @@ mod tests {
         let file = ExoFile::parse(&bytes).expect("shift-jis object file");
         assert_eq!(file.encoding, aviqtl_rust_core::exo::TextEncoding::ShiftJis);
 
-        let outcome = plan_import(&file, &scene(), &catalog, 1, ImportPlacement::default());
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
         assert_eq!(outcome.clips.len(), 1);
         assert_eq!(outcome.clips[0].effects[1].id, "text");
 
@@ -1282,7 +1376,14 @@ mod tests {
     fn preserves_script_objects_as_disabled_placeholders() {
         let (catalog, _) = EffectCatalog::load();
         let file = ExoFile::parse(&sample()).expect("sample object file");
-        let outcome = plan_import(&file, &scene(), &catalog, 10, ImportPlacement::default());
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
         let script = &outcome.clips[1];
         assert_eq!(script.clip_type, "exo.自定义物件");
         // The script object has no drawing filter, so it stays a two-effect clip: only the
@@ -1313,10 +1414,80 @@ mod tests {
             layer_offset: 4,
             maximum_layers: 8,
         };
-        let outcome = plan_import(&file, &scene(), &catalog, 1, placement);
+        let outcome = plan_import(&file, &scene(), &empty_project(), &catalog, 1, placement);
         assert_eq!(outcome.clips[0].start, 35);
         assert_eq!(outcome.clips[0].layer, 6);
         assert_eq!(outcome.clips[1].layer, 4);
+    }
+
+    /// The sample file's first object sits on layer 3 (0-based 2) from frame 10 to 40.
+    #[test]
+    fn an_import_that_would_land_on_an_existing_object_moves_forward() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut project = empty_project();
+        project.clips.push(ClipDocument {
+            id: 900,
+            scene_id: project.scenes[0].id,
+            clip_type: "text".to_owned(),
+            start: 0,
+            duration: 25,
+            layer: 2,
+            clip_by_upper_object: false,
+            params: Map::new(),
+            audio_plugins: Vec::new(),
+            effects: Vec::new(),
+            extra: Default::default(),
+        });
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &project,
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
+
+        // The obstacle ends at frame 25, so the block moves 15 frames: the text object starts
+        // at 10 and has to clear frame 25.
+        assert_eq!(outcome.clips[0].start, 25);
+        assert_eq!(
+            outcome.clips[1].start, 15,
+            "the whole file keeps its internal layout"
+        );
+        assert!(
+            outcome
+                .report
+                .notes
+                .iter()
+                .any(|note| note.contains("moved")),
+            "{:?}",
+            outcome.report.notes
+        );
+    }
+
+    #[test]
+    fn an_import_onto_free_space_does_not_move() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips[0].start, 10);
+        assert!(
+            !outcome
+                .report
+                .notes
+                .iter()
+                .any(|note| note.contains("moved")),
+            "{:?}",
+            outcome.report.notes
+        );
     }
 
     #[test]
@@ -1325,7 +1496,14 @@ mod tests {
         let mut session = ProjectSession::blank_with(ProjectDefaults::default());
         let scene = session.document.scenes[0].clone();
         let file = ExoFile::parse(&sample()).expect("sample object file");
-        let first = plan_import(&file, &scene, &catalog, 1, ImportPlacement::default());
+        let first = plan_import(
+            &file,
+            &scene,
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
 
         for clip in &first.clips {
             session.document.clips.push(clip.clone());
@@ -1335,7 +1513,14 @@ mod tests {
         assert!(report.skipped.is_empty());
 
         let reparsed = ExoFile::parse(&exported.to_bytes()).expect("exported file parses");
-        let second = plan_import(&reparsed, &scene, &catalog, 1, ImportPlacement::default());
+        let second = plan_import(
+            &reparsed,
+            &scene,
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
         assert_eq!(second.clips.len(), first.clips.len());
         // The exporter writes layers from the bottom up, so compare by placement rather than
         // by the order the source file happened to use.
