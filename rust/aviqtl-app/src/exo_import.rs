@@ -42,12 +42,6 @@ pub fn load_object_file(path: &std::path::Path) -> Result<ExoFile, String> {
     ExoFile::parse(&bytes).map_err(|error| format!("{}: {error}", path.display()))
 }
 
-/// Writes an object file, replacing any existing file atomically.
-pub fn save_object_file(path: &std::path::Path, file: &ExoFile) -> Result<(), String> {
-    crate::project_io::write_atomic(path, &file.to_bytes())
-        .map_err(|error| format!("{}: {error}", path.display()))
-}
-
 /// The first frame and lowest layer the file's objects occupy, in 0-based timeline units.
 ///
 /// AviUtl places a dropped object file relative to its earliest object, and appends an
@@ -165,7 +159,6 @@ pub fn plan_import(
             clip_id: first_clip_id.saturating_add(index as i32),
             placement,
             maximum_layer,
-            encoding: file.encoding,
         };
         let Some(clip) = translate_object(object, scene, catalog, target, &mut outcome.report)
         else {
@@ -190,12 +183,11 @@ fn resolve_overlaps(document: &ProjectDocument, scene_id: i32, outcome: &mut Imp
     }
 }
 
-/// Where one object goes, and which code page its file used.
+/// Where one object goes.
 struct ObjectTarget {
     clip_id: i32,
     placement: ImportPlacement,
     maximum_layer: i32,
-    encoding: aviqtl_rust_core::exo::TextEncoding,
 }
 
 fn translate_object(
@@ -209,7 +201,6 @@ fn translate_object(
         clip_id,
         placement,
         maximum_layer,
-        encoding,
     } = target;
     let duration = object.duration().max(1);
     let start = object
@@ -232,7 +223,6 @@ fn translate_object(
 
     let display = object_filter.display_name();
     let mut effects = Vec::new();
-    let mut is_object_placeholder = false;
     let (clip_type, object_effect) = match figure_shape(object_filter, catalog) {
         Some((clip_type, effect)) => {
             report.translated += 1;
@@ -258,7 +248,6 @@ fn translate_object(
                 report
                     .notes
                     .push(placeholder_note(display, object_filter.script_name()));
-                is_object_placeholder = true;
                 (placeholder_type(display), placeholder_effect(object_filter))
             }
         },
@@ -279,13 +268,10 @@ fn translate_object(
             "上层物件缓存" | "上層オブジェクトバッファ" | "直前オブジェクト" | "フレームバッファ"
         )
     };
-    let mut preserved = Vec::new();
     for filter in filters.iter().take(effect_end).skip(1) {
-        if internal(filter) {
-            preserved.push(filter.clone());
-            continue;
+        if !internal(filter) {
+            effects.push(translate_filter(filter, catalog, report));
         }
-        effects.push(translate_filter(filter, catalog, report));
     }
 
     let transform_source = drawing_index.and_then(|index| filters.get(index));
@@ -301,14 +287,6 @@ fn translate_object(
     if let Some(transform) = transform {
         effects.insert(0, transform);
     }
-    let mut object_effect = object_effect;
-    if is_object_placeholder {
-        // ExEdit's other filters can also be placeholders, so the object's own placeholder
-        // carries a marker the exporter can find.
-        object_effect
-            .params
-            .insert("exoObject".to_owned(), Value::Bool(true));
-    }
     effects.push(object_effect);
 
     Some(ClipDocument {
@@ -323,25 +301,19 @@ fn translate_object(
         audio_plugins: Vec::new(),
         effects,
         // Kept on the clip rather than in the stack: AviUtl's own filter list is the only
-        // place these belong, and the exporter writes them back unchanged.
-        extra: {
-            let mut extras = preserved_clip_extras(object, &preserved);
-            // The file's code page has to survive into an export, or a Japanese file comes
-            // back as GBK and AviUtl cannot read its own object names.
-            extras.insert("exoEncoding".to_owned(), Value::from(encoding.id()));
-            extras
-        },
+        // place these belong, and a clip whose effect stack grew an entry the file never had
+        // would render differently.
+        extra: preserved_clip_extras(object),
     })
 }
 
-/// Stores the ExEdit-only object state a clip has no field for, so an export can
-/// reproduce it.
+/// Stores the ExEdit-only object state a clip has no field for.
 ///
 /// `group`, `clipping`, `audio` and `chain` are placement and routing flags ExEdit writes on
-/// the object section; AviQtl-Plus has no equivalent, but dropping them would change which
-/// object an effect applies to after a round trip. `camera` is kept unless it is the plain
-/// `0` every ordinary object carries.
-fn preserved_clip_extras(object: &ExoObject, filters: &[ExoFilter]) -> BTreeMap<String, Value> {
+/// the object section. AviQtl-Plus has no equivalent yet, and dropping them on the floor would
+/// throw away the only record of what the file said, so they ride along on the clip. `camera`
+/// is kept unless it is the plain `0` every ordinary object carries.
+fn preserved_clip_extras(object: &ExoObject) -> BTreeMap<String, Value> {
     let mut extras = BTreeMap::new();
     if let Some(group) = object.group {
         extras.insert("exoGroup".to_owned(), Value::from(group));
@@ -358,22 +330,6 @@ fn preserved_clip_extras(object: &ExoObject, filters: &[ExoFilter]) -> BTreeMap<
     if object.camera == Some(true) {
         extras.insert("exoCamera".to_owned(), Value::Bool(true));
     }
-    if filters.is_empty() {
-        return extras;
-    }
-    let entries = filters
-        .iter()
-        .map(|filter| {
-            Value::Array(
-                filter
-                    .entries
-                    .iter()
-                    .map(|(key, value)| json!([key, value]))
-                    .collect(),
-            )
-        })
-        .collect::<Vec<_>>();
-    extras.insert("exoInternalFilters".to_owned(), Value::Array(entries));
     extras
 }
 
@@ -700,23 +656,13 @@ fn placeholder_effect(filter: &ExoFilter) -> EffectDocument {
     }
 }
 
-/// Keeps every source key on a translated effect so exporting can reproduce the file.
+/// Keeps every source key on a translated effect.
 ///
 /// ExEdit filters carry keys this build does not interpret - positional `type`/`filter`
 /// markers, script parameters, text-object toggles such as `autoadjust`, and the original
-/// disabled flag. They are stored verbatim under an `exo_` prefix and written back only when
-/// the exporter has not already produced the same key, which makes a round trip lossless
-/// without teaching the mapper about each one.
+/// disabled flag. They are stored verbatim under an `exo_` prefix so nothing the file said is
+/// silently dropped, without teaching the mapper about each one.
 fn capture_source_entries(effect: &mut EffectDocument, filter: &ExoFilter) {
-    // The localized display name decides how AviUtl finds the filter, and the CN pack,
-    // stock ExEdit, and other translations each spell it differently. Keep the exact string
-    // the file used so an export is readable by the same build it came from.
-    let display = filter.display_name();
-    if !display.is_empty() {
-        effect
-            .params
-            .insert("exoName".to_owned(), Value::from(display.to_owned()));
-    }
     for (key, value) in &filter.entries {
         if matches!(key.as_str(), "_name" | "_disable" | "_exdata") {
             continue;
@@ -952,7 +898,6 @@ pub fn out_of_range_objects(file: &ExoFile, document: &ProjectDocument, scene_id
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::exo_export::export_scene;
     use crate::project_io::{ProjectDefaults, ProjectSession};
 
     #[test]
@@ -1120,22 +1065,10 @@ mod tests {
         assert_eq!(body["strokeWidth"], Value::from(40.0));
         assert_eq!(body["color"], Value::from("#ffffff"));
         assert_eq!(outcome.report.placeholders, 0);
-
-        // Exporting reproduces the figure block the file started with.
-        let session = ProjectSession::blank_with(ProjectDefaults::default());
-        let mut document = session.document.clone();
-        document.clips = outcome.clips.clone();
-        let (exported, _) = export_scene(&document, &scene(), &catalog);
-        let figure = exported.objects[0].object_filter().expect("figure filter");
-        assert_eq!(figure.display_name(), "图形");
-        assert_eq!(figure.value("type"), Some("4"));
-        assert_eq!(figure.named_track("大小").unwrap().start, 30.0);
-        assert_eq!(figure.named_track("长宽比").unwrap().start, 50.0);
-        assert_eq!(figure.named_track("线宽").unwrap().start, 4000.0);
     }
 
     #[test]
-    fn every_built_in_figure_type_round_trips() {
+    fn every_built_in_figure_type_maps_back_to_its_own_number() {
         let (catalog, _) = EffectCatalog::load();
         for kind in 1..=6 {
             let mapping = crate::exo_mapping::figure_mapping(kind);
@@ -1177,10 +1110,10 @@ mod tests {
     }
 
     #[test]
-    fn an_imported_filter_keeps_the_name_its_own_build_uses() {
+    fn both_spellings_of_the_drawing_filter_resolve_to_the_transform() {
         let (catalog, _) = EffectCatalog::load();
-        // 標準描画 is what stock ExEdit writes; the CN pack writes 标准属性. Both resolve to
-        // the same transform, and the exported file has to keep whichever came in.
+        // 標準描画 is what stock ExEdit writes; the CN pack writes 标准属性. A file from
+        // either pack has to produce the same effect.
         let mut bytes = Vec::new();
         bytes.extend_from_slice(
             b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
@@ -1201,17 +1134,11 @@ mod tests {
             ImportPlacement::default(),
         );
 
-        let session = ProjectSession::blank_with(ProjectDefaults::default());
-        let mut document = session.document.clone();
-        document.clips = outcome.clips.clone();
-        let (exported, _) = export_scene(&document, &scene(), &catalog);
-        let drawing = exported.objects[0]
-            .drawing_filter()
-            .expect("the drawing filter is kept");
+        assert_eq!(outcome.clips[0].effects[0].id, "transform");
         assert_eq!(
-            drawing.display_name(),
-            "標準描画",
-            "the original spelling has to survive"
+            outcome.clips[0].effects[0].params["x"],
+            Value::from(10.0),
+            "the drawn position comes through the transform"
         );
     }
 
@@ -1278,24 +1205,22 @@ mod tests {
             .find(|effect| effect.id == "image")
             .expect("the image object translated");
         assert_eq!(image.params["path"], Value::from("C:\\a.png"));
-
-        let session = ProjectSession::blank_with(ProjectDefaults::default());
-        let mut document = session.document.clone();
-        document.clips = outcome.clips.clone();
-        let (exported, _) = export_scene(&document, &scene(), &catalog);
-        let written = exported.objects[0]
-            .object_filter()
-            .and_then(|filter| filter.hex_payload("_exdata"))
-            .expect("exdata is written");
+        // The blob itself is kept on the effect: it is the only record of what the file
+        // carried, and the path extracted from it is what the clip actually uses.
+        let kept = image.params["exoExdata"]
+            .as_str()
+            .expect("the source blob is preserved");
         assert_eq!(
-            written,
-            blob.to_vec(),
-            "the original blob is kept byte for byte when the path is unchanged"
+            kept,
+            blob.iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+            "the original blob is kept byte for byte"
         );
     }
 
     #[test]
-    fn a_shift_jis_file_is_exported_as_shift_jis() {
+    fn a_shift_jis_file_is_read_in_its_own_code_page() {
         let (catalog, _) = EffectCatalog::load();
         // A stock Japanese install: Shift-JIS テキスト and 標準描画.
         let mut bytes = Vec::new();
@@ -1321,23 +1246,14 @@ mod tests {
         assert_eq!(outcome.clips.len(), 1);
         assert_eq!(outcome.clips[0].effects[1].id, "text");
 
-        let session = ProjectSession::blank_with(ProjectDefaults::default());
-        let mut document = session.document.clone();
-        document.clips = outcome.clips.clone();
-        let (exported, _) = export_scene(&document, &scene(), &catalog);
-        assert_eq!(
-            exported.encoding,
-            aviqtl_rust_core::exo::TextEncoding::ShiftJis,
-            "the code page has to follow the source file"
-        );
-        let reparsed = ExoFile::parse(&exported.to_bytes()).expect("reparsed");
-        assert_eq!(
-            reparsed.objects[0]
-                .object_filter()
-                .expect("object filter")
-                .display_name(),
-            "テキスト"
-        );
+        // The Japanese object names resolved, which is the point: the reader decoded the
+        // file with the code page it was written in.
+        let body = outcome.clips[0]
+            .effects
+            .iter()
+            .find(|effect| effect.id == "text")
+            .expect("the text object translated");
+        assert_eq!(body.params["text"], Value::from("A"));
     }
 
     #[test]
@@ -1455,94 +1371,6 @@ mod tests {
                 .any(|note| note.contains("moved")),
             "{:?}",
             outcome.report.notes
-        );
-    }
-
-    #[test]
-    fn exported_objects_read_back_as_the_same_clips() {
-        let (catalog, _) = EffectCatalog::load();
-        let mut session = ProjectSession::blank_with(ProjectDefaults::default());
-        let scene = session.document.scenes[0].clone();
-        let file = ExoFile::parse(&sample()).expect("sample object file");
-        let first = plan_import(
-            &file,
-            &scene,
-            &empty_project(),
-            &catalog,
-            1,
-            ImportPlacement::default(),
-        );
-
-        for clip in &first.clips {
-            session.document.clips.push(clip.clone());
-        }
-        let (exported, report) = export_scene(&session.document, &scene, &catalog);
-        assert_eq!(report.objects, 2, "both clips export");
-        assert!(report.skipped.is_empty());
-
-        let reparsed = ExoFile::parse(&exported.to_bytes()).expect("exported file parses");
-        let second = plan_import(
-            &reparsed,
-            &scene,
-            &empty_project(),
-            &catalog,
-            1,
-            ImportPlacement::default(),
-        );
-        assert_eq!(second.clips.len(), first.clips.len());
-        // The exporter writes layers from the bottom up, so compare by placement rather than
-        // by the order the source file happened to use.
-        let mut before = first.clips.clone();
-        before.sort_by_key(|clip| (clip.layer, clip.start, clip.id));
-        let mut after = second.clips.clone();
-        after.sort_by_key(|clip| (clip.layer, clip.start, clip.id));
-        for (before, after) in before.iter().zip(&after) {
-            assert_eq!(before.clip_type, after.clip_type);
-            assert_eq!(
-                (before.start, before.duration, before.layer),
-                (after.start, after.duration, after.layer)
-            );
-            assert_eq!(before.effects.len(), after.effects.len());
-        }
-        let text_before = before
-            .iter()
-            .find(|clip| clip.clip_type == "text")
-            .expect("text clip");
-        let text_after = after
-            .iter()
-            .find(|clip| clip.clip_type == "text")
-            .expect("text clip");
-        assert_eq!(
-            text_before.effects[2].params["text"],
-            text_after.effects[2].params["text"]
-        );
-        assert_eq!(
-            text_before.effects[2].params["fontFamily"],
-            text_after.effects[2].params["fontFamily"]
-        );
-        assert_eq!(
-            text_before.effects[0].params["opacity"],
-            text_after.effects[0].params["opacity"]
-        );
-        assert_eq!(
-            text_before.effects[1].params["size"],
-            text_after.effects[1].params["size"]
-        );
-        let script_before = before
-            .iter()
-            .find(|clip| clip.clip_type == "exo.自定义物件")
-            .expect("script clip");
-        let script_after = after
-            .iter()
-            .find(|clip| clip.clip_type == "exo.自定义物件")
-            .expect("script clip");
-        assert_eq!(
-            script_before.effects[0].params["exoScript"],
-            script_after.effects[0].params["exoScript"]
-        );
-        assert_eq!(
-            script_before.effects[0].params["exoTracks"],
-            script_after.effects[0].params["exoTracks"]
         );
     }
 }

@@ -2757,41 +2757,6 @@ impl WorkspaceModel {
         self.import_exo_object_file(file, placement, catalog)
     }
 
-    /// Writes the selected scene as an AviUtl ExEdit object file.
-    pub fn export_exo_object_file(
-        &self,
-        catalog: &EffectCatalog,
-    ) -> Option<(
-        aviqtl_rust_core::exo::ExoFile,
-        crate::exo_export::ExportReport,
-    )> {
-        let scene = self.selected_scene_document()?;
-        let (file, report) =
-            crate::exo_export::export_scene(&self.project.document, scene, catalog);
-        (!file.objects.is_empty()).then_some((file, report))
-    }
-
-    /// Writes the selected objects as an AviUtl ExEdit object file.
-    ///
-    /// ExEdit's export command works on the selection, so this is what a user pressing it
-    /// with objects selected expects, rather than the whole scene.
-    pub fn export_exo_selection(
-        &self,
-        catalog: &EffectCatalog,
-    ) -> Option<(
-        aviqtl_rust_core::exo::ExoFile,
-        crate::exo_export::ExportReport,
-    )> {
-        let scene = self.selected_scene_document()?;
-        let ids = self.selection.ids();
-        if ids.is_empty() {
-            return self.export_exo_object_file(catalog);
-        }
-        let (file, report) =
-            crate::exo_export::export_selection(&self.project.document, scene, ids, catalog);
-        (!file.objects.is_empty()).then_some((file, report))
-    }
-
     /// The report produced by the most recent fragment import, until the UI reads it.
     pub fn take_fragment_report(&mut self) -> Option<crate::fragment::FragmentReport> {
         self.last_fragment_report.take()
@@ -4062,49 +4027,6 @@ mod tests {
         let _ = original_duration;
     }
 
-    #[test]
-    fn exporting_a_selection_writes_only_the_selected_objects() {
-        let (catalog, _) = EffectCatalog::load();
-        let mut workspace = workspace();
-        workspace
-            .import_exo_object_file(
-                &object_file_fixture(),
-                crate::exo_import::ImportPlacement::default(),
-                &catalog,
-            )
-            .expect("the import succeeds");
-        // The import leaves its own objects selected; the fixture already has a text clip,
-        // so finding by type would pick the wrong one.
-        workspace
-            .selection
-            .ids()
-            .first()
-            .expect("the import selects what it added");
-
-        let (_, report) = workspace
-            .export_exo_selection(&catalog)
-            .expect("the selection exports");
-        assert_eq!(report.objects, 1, "only the selected object is written");
-        assert!(report.selection_only);
-        assert!(
-            report.summary().contains("selected"),
-            "{}",
-            report.summary()
-        );
-
-        // With nothing selected the same command falls back to the whole scene. The fixture
-        // scene also holds two clips with no effect stack, which cannot be written, so the
-        // scene export reports them rather than producing more objects.
-        workspace.selection.clear();
-        let (all, all_report) = workspace
-            .export_exo_selection(&catalog)
-            .expect("the scene exports");
-        assert!(!all_report.selection_only);
-        assert!(all_report.summary().contains("skipped"));
-        assert_eq!(all.objects.len(), 1);
-        assert_eq!(report.objects, 1);
-    }
-
     /// An object file whose second object is a script object this build cannot run, so the
     /// import has to preserve it as a placeholder.
     fn object_file_with_a_script_object() -> aviqtl_rust_core::exo::ExoFile {
@@ -4348,67 +4270,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn exported_scene_can_be_imported_again() {
-        let (catalog, _) = EffectCatalog::load();
-        let mut workspace = workspace();
-        assert!(
-            workspace
-                .import_exo_object_file(
-                    &object_file_fixture(),
-                    crate::exo_import::ImportPlacement::default(),
-                    &catalog
-                )
-                .is_some()
-        );
-        let (file, report) = workspace
-            .export_exo_object_file(&catalog)
-            .expect("the imported clip exports");
-        assert_eq!(file.header.width, 1920);
-        assert_eq!(file.header.rate, 60.0);
-        assert_eq!(report.objects, 1);
-        // The fixture's own clips carry no effect stack, so they have nothing AviUtl could
-        // read; the export reports them instead of writing empty objects.
-        assert_eq!(report.skipped.len(), 2, "{:?}", report.skipped);
-
-        let text = &file.objects[0];
-        assert_eq!(text.start, 1);
-        assert_eq!(text.end, 16);
-        assert_eq!(
-            text.object_filter().expect("object filter").display_name(),
-            "文本"
-        );
-        let drawing = text.drawing_filter().expect("drawing filter");
-        assert!(
-            drawing
-                .entries
-                .iter()
-                .any(|(key, value)| key == "X" && value == "10.0"),
-            "{:?}",
-            drawing.entries
-        );
-
-        // Reading the exported file back reproduces the clip.
-        let reparsed = aviqtl_rust_core::exo::ExoFile::parse(&file.to_bytes()).unwrap();
-        let scene = workspace.selected_scene_document().cloned().unwrap();
-        let outcome = crate::exo_import::plan_import(
-            &reparsed,
-            &scene,
-            &workspace.project().document,
-            &catalog,
-            100,
-            crate::exo_import::ImportPlacement::default(),
-        );
-        assert_eq!(outcome.clips.len(), 1);
-        assert_eq!(outcome.clips[0].clip_type, "text");
-        assert_eq!(outcome.clips[0].duration, 16);
-        let body = outcome.clips[0]
-            .effects
-            .iter()
-            .find(|effect| effect.id == "text")
-            .expect("text effect");
-        assert_eq!(body.params["text"], serde_json::json!("A"));
-    }
     fn workspace_with_effects() -> WorkspaceModel {
         let state = TimelineState::from_json(
             br#"{

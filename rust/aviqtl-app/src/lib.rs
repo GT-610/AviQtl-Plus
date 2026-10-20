@@ -5,7 +5,6 @@ pub mod clip_insert;
 pub mod easing;
 pub mod effect_catalog;
 pub mod effect_selection;
-pub mod exo_export;
 pub mod exo_import;
 pub mod exo_mapping;
 mod file_io;

@@ -390,9 +390,6 @@ msgstr "終了"
 msgid "Export"
 msgstr "書き出し"
 
-msgid "Export AviUtl Object File (Compatibility)..."
-msgstr "AviUtl オブジェクトファイルを書き出す（互換）..."
-
 msgid "Export Fragment..."
 msgstr "フラグメントの書き出し..."
 

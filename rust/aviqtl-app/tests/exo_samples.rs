@@ -1,9 +1,9 @@
-//! Round-trip check against a real AviUtl installation.
+//! Import check against a real AviUtl installation.
 //!
-//! The importer's guarantee is that an object file comes back with the same objects,
-//! filters, and values it went in with. Synthetic fixtures cover the code paths, but only
-//! real files exercise the combinations AviUtl actually writes, so this test runs against a
-//! directory of them.
+//! Synthetic fixtures cover the code paths an object file can take, but only real files
+//! exercise the combinations AviUtl actually writes: the object types mixed together, the
+//! filter stacks, the code pages, the parameter spellings. This test imports every shipped
+//! `.exo` and checks that nothing was silently lost on the way in.
 //!
 //! It is ignored by default because it needs an AviUtl package that is not part of the
 //! repository. Point `AVIUTL_SAMPLES` at the package root (the directory holding
@@ -13,16 +13,12 @@
 //! AVIUTL_SAMPLES=/path/to/AviUtl_CN set
 //! cargo test -p aviqtl-app --test exo_samples -- --ignored --nocapture
 //! ```
-//!
-//! Only differences that change meaning are failures. AviUtl pads its text buffers to a fixed
-//! size and writes numbers with the parameter's own decimal count; the exporter writes both
-//! canonically, so those differences are expected and reported as counts rather than compared.
 
 use aviqtl_app::effect_catalog::EffectCatalog;
-use aviqtl_app::exo_export::export_scene;
-use aviqtl_app::exo_import::{ImportPlacement, plan_import};
+use aviqtl_app::exo_import::{ImportPlacement, PLACEHOLDER_ID, plan_import};
 use aviqtl_rust_core::api::{ProjectDocument, ProjectSettings, SceneDocument};
-use aviqtl_rust_core::exo::{ExoFile, ExoObject, TrackValue};
+use aviqtl_rust_core::exo::{ExoFile, ExoObject};
+use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 /// Collects every `.exo` file below `root`.
@@ -49,48 +45,6 @@ fn object_files(root: &Path) -> Vec<PathBuf> {
     files
 }
 
-/// True when two trackbar values mean the same thing.
-///
-/// Values are compared through the same parser the importer uses, so a field whose precision
-/// artifact ExEdit appends (`.0` after a full-precision double) is not mistaken for a change,
-/// and a single value compares equal to a range whose ends coincide.
-fn same_track(left: &str, right: &str) -> bool {
-    if left == right {
-        return true;
-    }
-    let parse = |value: &str| -> Option<(f64, f64)> {
-        let track = TrackValue::parse(value)?;
-        Some((track.start, track.end.unwrap_or(track.start)))
-    };
-    match (parse(left), parse(right)) {
-        (Some((a_start, a_end)), Some((b_start, b_end))) => a_start == b_start && a_end == b_end,
-        _ => false,
-    }
-}
-
-/// True when two hex-encoded UTF-16 buffers hold the same string.
-///
-/// AviUtl pads the buffer to a fixed size with NUL units and the exporter writes it without
-/// the padding, so the bytes differ while the text does not.
-fn same_text_buffer(left: &str, right: &str) -> bool {
-    let decode = |value: &str| -> Option<String> {
-        let bytes = (0..value.len())
-            .step_by(2)
-            .map(|index| u8::from_str_radix(&value[index..index + 2], 16).ok())
-            .collect::<Option<Vec<u8>>>()?;
-        let units = bytes
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
-            .take_while(|unit| *unit != 0)
-            .collect::<Vec<_>>();
-        Some(String::from_utf16_lossy(&units))
-    };
-    match (decode(left), decode(right)) {
-        (Some(a), Some(b)) => a == b,
-        _ => left == right,
-    }
-}
-
 fn scene_for(file: &ExoFile) -> SceneDocument {
     SceneDocument {
         id: 1,
@@ -114,84 +68,108 @@ fn scene_for(file: &ExoFile) -> SceneDocument {
     }
 }
 
-fn compare(original: &ExoFile, reparsed: &ExoFile) -> Vec<String> {
-    let mut problems = Vec::new();
-    let mut left: Vec<&ExoObject> = original.objects.iter().collect();
-    left.sort_by_key(|object| (object.start, object.end, object.layer));
-    let mut right: Vec<&ExoObject> = reparsed.objects.iter().collect();
-    right.sort_by_key(|object| (object.start, object.end, object.layer));
-    if left.len() != right.len() {
-        problems.push(format!("object count {} -> {}", left.len(), right.len()));
+fn empty_project(file: &ExoFile, scene: &SceneDocument) -> ProjectDocument {
+    ProjectDocument {
+        version: 3,
+        settings: ProjectSettings {
+            width: file.header.width,
+            height: file.header.height,
+            fps: file.header.rate,
+            sample_rate: file.header.audio_rate,
+            extra: Default::default(),
+        },
+        scenes: vec![scene.clone()],
+        clips: Vec::new(),
+        extra: Default::default(),
     }
-    for (index, (before, after)) in left.iter().zip(&right).enumerate() {
-        if (before.start, before.end, before.layer) != (after.start, after.end, after.layer) {
-            problems.push(format!("[{index}] placement changed"));
-        }
-        // ExEdit's per-object routing flags decide which object an effect applies to, so a
-        // round trip has to keep them.
-        if (
-            before.group,
-            before.overlay,
-            before.clipping,
-            before.camera,
-            before.audio,
-            before.chain,
-        ) != (
-            after.group,
-            after.overlay,
-            after.clipping,
-            after.camera,
-            after.audio,
-            after.chain,
-        ) {
+}
+
+/// What went wrong for one file, or nothing when the import held up.
+fn check_import(file: &ExoFile, catalog: &EffectCatalog) -> Vec<String> {
+    let mut problems = Vec::new();
+    let scene = scene_for(file);
+    // An empty scene means the import has nothing to collide with, so every object keeps the
+    // placement the file gave it and the two lists line up one to one.
+    let outcome = plan_import(
+        file,
+        &scene,
+        &empty_project(file, &scene),
+        catalog,
+        1,
+        ImportPlacement::default(),
+    );
+
+    let expected = file
+        .objects
+        .iter()
+        .filter(|object| object.object_filter().is_some())
+        .collect::<Vec<&ExoObject>>();
+    if expected.len() != outcome.clips.len() {
+        problems.push(format!(
+            "{} object(s) with a body became {} clip(s)",
+            expected.len(),
+            outcome.clips.len()
+        ));
+    }
+    if outcome.report.objects != outcome.clips.len() {
+        problems.push(format!(
+            "the report counted {} object(s) for {} clip(s)",
+            outcome.report.objects,
+            outcome.clips.len()
+        ));
+    }
+    if outcome.report.translated + outcome.report.placeholders == 0 && !outcome.clips.is_empty() {
+        problems.push("the import reported nothing about what it did".to_owned());
+    }
+
+    for (index, (object, clip)) in expected.iter().zip(&outcome.clips).enumerate() {
+        // ExEdit frames and layers are 1-based on disk.
+        let expected_start = object.start.saturating_sub(1);
+        let expected_layer = object.layer.saturating_sub(1);
+        if clip.start != expected_start {
             problems.push(format!(
-                "[{index}] flags {:?}/{:?}/{:?}/{:?}/{:?}/{:?} -> {:?}/{:?}/{:?}/{:?}/{:?}/{:?}",
-                before.group,
-                before.overlay,
-                before.clipping,
-                before.camera,
-                before.audio,
-                before.chain,
-                after.group,
-                after.overlay,
-                after.clipping,
-                after.camera,
-                after.audio,
-                after.chain
+                "[{index}] start {expected_start} -> {}",
+                clip.start
             ));
         }
-        if before.filters.len() != after.filters.len() {
+        if clip.duration != object.duration().max(1) {
             problems.push(format!(
-                "[{index}] filter count {} -> {}",
-                before.filters.len(),
-                after.filters.len()
+                "[{index}] duration {} -> {}",
+                object.duration().max(1),
+                clip.duration
             ));
-            continue;
         }
-        for (slot, (a, b)) in before.filters.iter().zip(&after.filters).enumerate() {
-            if a.display_name() != b.display_name() {
-                problems.push(format!(
-                    "[{index}.{slot}] name {:?} -> {:?}",
-                    a.display_name(),
-                    b.display_name()
-                ));
+        if clip.layer != expected_layer {
+            problems.push(format!(
+                "[{index}] layer {expected_layer} -> {}",
+                clip.layer
+            ));
+        }
+        if clip.clip_type.is_empty() {
+            problems.push(format!("[{index}] the clip has no type"));
+        }
+        if clip.clip_by_upper_object != object.overlay {
+            problems.push(format!("[{index}] overlay flag changed"));
+        }
+        if clip.effects.is_empty() {
+            problems.push(format!("[{index}] the clip has no effects"));
+        }
+        // Every preserved entry keeps enough to be recognised: its name, and its script when
+        // it had one. That is the promise that makes a partial translation acceptable.
+        for effect in &clip.effects {
+            if effect.id != PLACEHOLDER_ID {
+                continue;
             }
-            for (key, value) in &a.entries {
-                let Some(other) = b.value(key) else {
-                    problems.push(format!("[{index}.{slot}] lost {key}"));
-                    continue;
-                };
-                if key == "text" {
-                    if !same_text_buffer(value, other) {
-                        problems.push(format!("[{index}.{slot}] text changed"));
-                    }
-                    continue;
-                }
-                if !same_track(value, other) {
-                    problems.push(format!(
-                        "[{index}.{slot}] {key}: {value:.40} -> {other:.40}"
-                    ));
-                }
+            let named = effect
+                .params
+                .get("exoDisplayName")
+                .and_then(Value::as_str)
+                .is_some_and(|name| !name.is_empty());
+            if !named {
+                problems.push(format!("[{index}] a placeholder lost its name"));
+            }
+            if effect.enabled {
+                problems.push(format!("[{index}] a placeholder is enabled"));
             }
         }
     }
@@ -200,7 +178,7 @@ fn compare(original: &ExoFile, reparsed: &ExoFile) -> Vec<String> {
 
 #[test]
 #[ignore = "needs an AviUtl package; set AVIUTL_SAMPLES to its root"]
-fn shipped_object_files_round_trip_without_changing_meaning() {
+fn shipped_object_files_import_without_losing_objects() {
     let root = std::env::var("AVIUTL_SAMPLES")
         .map(PathBuf::from)
         .expect("set AVIUTL_SAMPLES to the AviUtl package root");
@@ -209,48 +187,21 @@ fn shipped_object_files_round_trip_without_changing_meaning() {
 
     let (catalog, _) = EffectCatalog::load();
     let mut failures = Vec::new();
+    let mut total = 0;
     for path in &files {
         let bytes = std::fs::read(path).expect("object file is readable");
-        let original = ExoFile::parse(&bytes).expect("object file parses");
-        let scene = scene_for(&original);
-        let empty = ProjectDocument {
-            version: 3,
-            settings: ProjectSettings {
-                width: original.header.width,
-                height: original.header.height,
-                fps: original.header.rate,
-                sample_rate: original.header.audio_rate,
-                extra: Default::default(),
-            },
-            scenes: vec![scene.clone()],
-            clips: Vec::new(),
-            extra: Default::default(),
-        };
-        // The scene starts empty, so the import has nothing to collide with and keeps the
-        // file's own layout; this test is about the translation, not about placement.
-        let outcome = plan_import(
-            &original,
-            &scene,
-            &empty,
-            &catalog,
-            1,
-            ImportPlacement::default(),
-        );
-        let document = ProjectDocument {
-            clips: outcome.clips,
-            ..empty
-        };
-        let (exported, _) = export_scene(&document, &scene, &catalog);
-        let reparsed = ExoFile::parse(&exported.to_bytes()).expect("exported file parses");
-        for problem in compare(&original, &reparsed) {
+        let file = ExoFile::parse(&bytes).expect("object file parses");
+        total += file.objects.len();
+        for problem in check_import(&file, &catalog) {
             failures.push(format!("{}: {problem}", path.display()));
         }
     }
     assert!(
         failures.is_empty(),
-        "{} problem(s) across {} file(s):\n{}",
+        "{} problem(s) across {} file(s), {} object(s):\n{}",
         failures.len(),
         files.len(),
+        total,
         failures.join("\n")
     );
 }

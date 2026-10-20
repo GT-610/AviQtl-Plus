@@ -966,8 +966,6 @@ pub(super) fn install_callbacks(
     let import_exo_ui = lifecycle_ui.clone();
     main.on_import_exo_object_file(move || import_exo_ui.import_exo_object_file());
 
-    let export_exo_ui = lifecycle_ui.clone();
-    main.on_export_exo_object_file(move || export_exo_ui.export_exo_object_file());
     let import_fragment_ui = lifecycle_ui.clone();
     main.on_import_fragment(move || import_fragment_ui.import_fragment());
     let export_fragment_ui = lifecycle_ui.clone();

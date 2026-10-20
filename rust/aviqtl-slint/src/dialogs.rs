@@ -239,31 +239,6 @@ pub(super) fn choose_exo_object_to_import() -> Option<PathBuf> {
         .pick_file()
 }
 
-/// Picks where to write an exported object file.
-pub(super) fn choose_exo_object_save_path(suggested_path: &Path) -> Option<PathBuf> {
-    let mut dialog = rfd::FileDialog::new()
-        .set_title(localized(
-            "Export an AviUtl object file",
-            "导出 AviUtl 物件文件",
-            "AviUtl オブジェクトファイルを書き出す",
-        ))
-        .add_filter("AviUtl ExEdit object files", &["exo"]);
-    if let Some(file_name) = suggested_path.file_name() {
-        dialog = dialog.set_file_name(file_name.to_string_lossy().into_owned());
-    }
-    if let Some(parent) = suggested_path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-    {
-        dialog = dialog.set_directory(parent);
-    }
-    let mut path = dialog.save_file()?;
-    if path.extension().is_none() {
-        path.set_extension("exo");
-    }
-    Some(path)
-}
-
 /// Picks a fragment file to insert.
 pub(super) fn choose_fragment_to_import() -> Option<PathBuf> {
     rfd::FileDialog::new()

@@ -1,10 +1,9 @@
 //! Project window ownership, save/close sequencing, and recovery presentation.
 
 use crate::dialogs::{
-    choose_exo_object_save_path, choose_exo_object_to_import, choose_fragment_save_path,
-    choose_fragment_to_import, choose_project_save_path, choose_project_to_open,
-    insert_visible_window_geometry, install_opaque_window, json_i32, show_and_redraw,
-    show_error_dialog, show_info_dialog,
+    choose_exo_object_to_import, choose_fragment_save_path, choose_fragment_to_import,
+    choose_project_save_path, choose_project_to_open, insert_visible_window_geometry,
+    install_opaque_window, json_i32, show_and_redraw, show_error_dialog, show_info_dialog,
 };
 use crate::easing::refresh_easing_translations;
 use crate::localization::{current_ui_language, localized, select_bundled_ui_translation};
@@ -388,49 +387,6 @@ impl LifecycleUi {
                 .map(|workspace| workspace.status().to_owned())
                 .unwrap_or_default();
             show_error_dialog(&message);
-        }
-    }
-
-    /// Writes the current scene as an AviUtl ExEdit object file.
-    pub(super) fn export_exo_object_file(&self) {
-        let catalog = self.effect_catalog.borrow();
-        let exported = self
-            .model
-            .borrow()
-            .current_workspace()
-            .and_then(|workspace| workspace.export_exo_selection(&catalog));
-        drop(catalog);
-        let Some((file, report)) = exported else {
-            show_error_dialog(localized(
-                "This scene has no objects that AviUtl can read.",
-                "当前场景没有可导出到 AviUtl 的对象。",
-                "このシーンには AviUtl が読めるオブジェクトがありません。",
-            ));
-            return;
-        };
-        let suggested = self
-            .model
-            .borrow()
-            .current_workspace()
-            .and_then(|workspace| workspace.project().path.clone())
-            .and_then(|path| {
-                path.file_stem()
-                    .map(|stem| PathBuf::from(stem).with_extension("exo"))
-            })
-            .unwrap_or_else(|| PathBuf::from("objects.exo"));
-        let Some(path) = choose_exo_object_save_path(&suggested) else {
-            return;
-        };
-        if let Err(message) = aviqtl_app::exo_import::save_object_file(&path, &file) {
-            show_error_dialog(&message);
-            return;
-        }
-        let status = report.summary();
-        if let Some(main) = self.main.upgrade() {
-            main.set_status_text(status.as_str().into());
-        }
-        if !report.skipped.is_empty() {
-            show_error_dialog(&format!("{status}\n\n{}", report.skipped.join("\n")));
         }
     }
 
