@@ -100,6 +100,8 @@ pub struct WorkspaceModel {
     updating_continuous_edit: bool,
     document_revision: u64,
     status: String,
+    last_import_report: Option<crate::exo_import::ImportReport>,
+    last_fragment_report: Option<crate::fragment::FragmentReport>,
 }
 
 impl WorkspaceModel {
@@ -121,6 +123,8 @@ impl WorkspaceModel {
             updating_continuous_edit: false,
             document_revision: 0,
             status: "Ready".to_owned(),
+            last_import_report: None,
+            last_fragment_report: None,
         }
     }
 
@@ -208,6 +212,23 @@ impl WorkspaceModel {
                 .iter()
                 .filter(|clip| clip.scene_id == self.selected_scene),
         )
+    }
+
+    /// The frame just past the last existing clip, and zero when the scene is empty.
+    ///
+    /// [`Self::timeline_duration`] clamps an empty timeline to one frame so the view always
+    /// has a length. Placement must not inherit that clamp: appending into an empty scene has
+    /// to start at frame zero, or every object of the file lands one frame later than it did
+    /// in AviUtl.
+    fn content_end_frame(&self) -> i32 {
+        self.project
+            .document
+            .clips
+            .iter()
+            .filter(|clip| clip.scene_id == self.selected_scene && clip.duration > 0)
+            .map(|clip| clip.start.saturating_add(clip.duration))
+            .max()
+            .unwrap_or(0)
     }
 
     pub fn timeline_view_duration(&self) -> i32 {
@@ -2607,6 +2628,288 @@ impl WorkspaceModel {
         true
     }
 
+    /// Imports an AviUtl ExEdit object file into the selected scene as one undoable edit.
+    ///
+    /// The whole file is one transaction, matching AviUtl's own "import object file" command:
+    /// a single undo removes every imported object.
+    ///
+    /// Returns where the import ends: the frame after the last imported object and the lowest
+    /// layer among the imported objects, so a drop can advance its target the way media drops
+    /// do.
+    /// The report produced by the most recent object-file import, until the UI reads it.
+    pub fn take_import_report(&mut self) -> Option<crate::exo_import::ImportReport> {
+        self.last_import_report.take()
+    }
+
+    pub fn import_exo_object_file(
+        &mut self,
+        file: &aviqtl_rust_core::exo::ExoFile,
+        placement: crate::exo_import::ImportPlacement,
+        catalog: &EffectCatalog,
+    ) -> Option<(i32, i32)> {
+        self.last_import_report = None;
+        let Some(scene) = self.selected_scene_document().cloned() else {
+            self.status = "No scene is selected".to_owned();
+            return None;
+        };
+        let ids = match self
+            .project
+            .state
+            .reserve_clip_ids(file.objects.len().max(1))
+        {
+            Ok(ids) => ids,
+            Err(error) => {
+                self.status = error.to_string();
+                return None;
+            }
+        };
+        let outcome = crate::exo_import::plan_import(
+            file,
+            &scene,
+            &self.project.document,
+            catalog,
+            ids[0],
+            placement,
+        );
+        if outcome.clips.is_empty() {
+            self.status = format!(
+                "Nothing to import: {}",
+                if outcome.report.notes.is_empty() {
+                    "the file has no objects".to_owned()
+                } else {
+                    outcome.report.notes.join("; ")
+                }
+            );
+            return None;
+        }
+        if let Some(layer) = crate::fragment::overlapping_layer(&outcome.clips) {
+            // The same folding a fragment can suffer: a file authored on more layers than this
+            // scene has puts two of its objects on one layer and one frame.
+            self.status =
+                Self::layer_overflow_status("object file", placement.maximum_layers, layer);
+            return None;
+        }
+        let summary = outcome.report.summary();
+        let next = self.insert_imported_clips(&scene, outcome.clips, summary)?;
+        self.last_import_report = Some(outcome.report);
+        Some(next)
+    }
+
+    /// The message shown when an import does not fit the scene's layer stack.
+    ///
+    /// `layer` is zero-based, as clips store it; the message speaks to the user, so it is one-based.
+    fn layer_overflow_status(subject: &str, maximum_layers: i32, layer: i32) -> String {
+        format!(
+            "The {subject} uses more layers than this scene has ({}), so its clips would overlap on layer {}. Raise the layer count and try again.",
+            maximum_layers.clamp(1, 512),
+            layer.saturating_add(1)
+        )
+    }
+
+    /// Inserts a block of clips that came from outside the project as one undoable edit.
+    ///
+    /// Every importer shares this: insert the block, extend the scene when the block runs past
+    /// its end, and select what arrived. Returning the frame after the block and its lowest
+    /// layer lets a drop advance its target the way media drops do.
+    fn insert_imported_clips(
+        &mut self,
+        scene: &aviqtl_rust_core::api::SceneDocument,
+        clips: Vec<ClipDocument>,
+        summary: String,
+    ) -> Option<(i32, i32)> {
+        let next_frame = clips
+            .iter()
+            .map(|clip| clip.start.saturating_add(clip.duration))
+            .max()
+            .unwrap_or(0);
+        let next_layer = clips.iter().map(|clip| clip.layer).min().unwrap_or(0);
+        let imported_ids = clips.iter().map(|clip| clip.id).collect::<Vec<_>>();
+        // AviUtl extends the scene to fit what was imported; a shorter scene would hide the
+        // tail of the file behind the end of the timeline. The extension is part of the same
+        // transaction, so one undo still removes the whole import.
+        let mut commands = Vec::with_capacity(clips.len() + 1);
+        if next_frame > scene.duration {
+            let mut extended = scene.clone();
+            extended.duration = next_frame;
+            commands.push(TimelineCommand::UpdateScene {
+                scene_id: scene.id,
+                scene: extended,
+            });
+        }
+        commands.extend(
+            clips
+                .into_iter()
+                .map(|clip| TimelineCommand::InsertClip { index: None, clip }),
+        );
+        if !self.execute_batch(commands) {
+            return None;
+        }
+        self.selection.replace(imported_ids);
+        self.reconcile_effect_selection();
+        self.status = summary;
+        Some((next_frame, next_layer))
+    }
+
+    /// Imports an object file after the current scene's last object.
+    ///
+    /// This is what AviUtl's File → "import object file" does: the file's objects keep their
+    /// relative layout and land after existing data instead of on top of it.
+    pub fn append_exo_object_file(
+        &mut self,
+        file: &aviqtl_rust_core::exo::ExoFile,
+        catalog: &EffectCatalog,
+        maximum_layers: i32,
+    ) -> Option<(i32, i32)> {
+        let (file_frame, file_layer) = crate::exo_import::file_anchor(file);
+        let placement = crate::exo_import::ImportPlacement {
+            // Same rule as a fragment: content that already starts past this scene's end
+            // stays where it is rather than being pulled backwards.
+            frame_offset: self.content_end_frame().saturating_sub(file_frame).max(0),
+            layer_offset: -file_layer,
+            maximum_layers,
+        };
+        self.import_exo_object_file(file, placement, catalog)
+    }
+
+    /// Imports an object file at a drop position.
+    ///
+    /// AviUtl anchors a dropped object file at its earliest object, so the whole file lands
+    /// where the pointer is instead of scattering around frame zero.
+    pub fn drop_exo_object_file(
+        &mut self,
+        file: &aviqtl_rust_core::exo::ExoFile,
+        frame: i32,
+        layer: i32,
+        catalog: &EffectCatalog,
+        maximum_layers: i32,
+    ) -> Option<(i32, i32)> {
+        let (file_frame, file_layer) = crate::exo_import::file_anchor(file);
+        let placement = crate::exo_import::ImportPlacement {
+            frame_offset: frame.max(0).saturating_sub(file_frame),
+            layer_offset: layer.max(0).saturating_sub(file_layer),
+            maximum_layers,
+        };
+        self.import_exo_object_file(file, placement, catalog)
+    }
+
+    /// The report produced by the most recent fragment import, until the UI reads it.
+    pub fn take_fragment_report(&mut self) -> Option<crate::fragment::FragmentReport> {
+        self.last_fragment_report.take()
+    }
+
+    /// Inserts a fragment's clips into the current scene.
+    pub fn import_fragment(
+        &mut self,
+        fragment: &crate::fragment::FragmentDocument,
+        placement: crate::fragment::FragmentPlacement,
+    ) -> Option<(i32, i32)> {
+        self.last_fragment_report = None;
+        let Some(scene) = self.selected_scene_document().cloned() else {
+            self.status = "No scene is selected".to_owned();
+            return None;
+        };
+        if fragment.clips.is_empty() {
+            self.status = "Nothing to import: the fragment has no clips".to_owned();
+            return None;
+        }
+        let ids = match self.project.state.reserve_clip_ids(fragment.clips.len()) {
+            Ok(ids) => ids,
+            Err(error) => {
+                self.status = error.to_string();
+                return None;
+            }
+        };
+        let (clips, report) = crate::fragment::plan_import(
+            fragment,
+            &scene,
+            &self.project.document,
+            ids[0],
+            placement,
+        );
+        if let Some(layer) = crate::fragment::overlapping_layer(&clips) {
+            // Clamping the fragment's layers onto this scene folds clips onto one another.
+            // Importing that would put two objects on a layer and a frame, which the timeline
+            // cannot show and the renderer would resolve by stacking order.
+            self.status = Self::layer_overflow_status("fragment", placement.maximum_layers, layer);
+            return None;
+        }
+        let summary = report.summary();
+        let next = self.insert_imported_clips(&scene, clips, summary)?;
+        self.last_fragment_report = Some(report);
+        Some(next)
+    }
+
+    /// Inserts a fragment after the current scene's last clip.
+    ///
+    /// Appending rather than inserting at the playhead is the safe default for a file the user
+    /// did not aim at a position: nothing existing moves, and nothing is covered.
+    pub fn append_fragment(
+        &mut self,
+        fragment: &crate::fragment::FragmentDocument,
+        maximum_layers: i32,
+    ) -> Option<(i32, i32)> {
+        let (fragment_frame, fragment_layer) = fragment.anchor();
+        let placement = crate::fragment::FragmentPlacement {
+            // `.max(0)` matters: a block authored later than this scene's end already sits
+            // after everything else, and subtracting its own start would drag it backwards
+            // into the existing work.
+            frame_offset: self
+                .content_end_frame()
+                .saturating_sub(fragment_frame)
+                .max(0),
+            layer_offset: -fragment_layer,
+            maximum_layers,
+        };
+        self.import_fragment(fragment, placement)
+    }
+
+    /// Inserts a fragment at a drop position, anchored at its own first frame and lowest layer.
+    pub fn drop_fragment(
+        &mut self,
+        fragment: &crate::fragment::FragmentDocument,
+        frame: i32,
+        layer: i32,
+        maximum_layers: i32,
+    ) -> Option<(i32, i32)> {
+        let (fragment_frame, fragment_layer) = fragment.anchor();
+        let placement = crate::fragment::FragmentPlacement {
+            frame_offset: frame.max(0).saturating_sub(fragment_frame),
+            layer_offset: layer.max(0).saturating_sub(fragment_layer),
+            maximum_layers,
+        };
+        self.import_fragment(fragment, placement)
+    }
+
+    /// Writes the selected clips, or the whole scene when nothing is selected, as a fragment.
+    ///
+    /// This is the lossless way for work to leave the project: the clips keep every parameter
+    /// and effect they have, including the ones no AviUtl filter could hold.
+    pub fn export_fragment(
+        &self,
+    ) -> Option<(
+        crate::fragment::FragmentDocument,
+        crate::fragment::FragmentReport,
+    )> {
+        let scene = self.selected_scene_document()?.clone();
+        let ids = self.selection.ids();
+        let (clips, selection_only) =
+            crate::fragment::select_clips(&self.project.document, scene.id, ids);
+        if clips.is_empty() {
+            return None;
+        }
+        let fragment = crate::fragment::FragmentDocument::new(
+            &self.project.document,
+            &scene,
+            clips.into_iter().cloned(),
+        );
+        let report = crate::fragment::FragmentReport {
+            clips: fragment.clips.len(),
+            selection_only,
+            notes: Vec::new(),
+        };
+        Some((fragment, report))
+    }
+
     pub fn import_media_files(
         &mut self,
         paths: &[PathBuf],
@@ -3562,6 +3865,7 @@ fn bounded_positive_f64(value: f64, maximum: f64, fallback: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ApplicationModel;
     use crate::timeline_interaction::TimelineDragKind;
     use aviqtl_rust_core::api::{TimelineState, clip_midpoints};
 
@@ -3611,6 +3915,497 @@ mod tests {
             path: None,
             dirty: false,
         })
+    }
+
+    /// A minimal object file with one text object, enough to exercise the import path.
+    fn object_file_fixture() -> aviqtl_rust_core::exo::ExoFile {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1920\r\nheight=1080\r\nrate=60\r\nscale=100\r\nlength=300\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        bytes.extend_from_slice(b"[0]\r\nstart=1\r\nend=16\r\nlayer=2\r\n");
+        bytes.extend_from_slice(b"[0.0]\r\n_name=");
+        bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+        bytes.extend_from_slice(b"\r\n\xb4\xf3\xd0\xa1=24\r\ncolor=ffffff\r\ntext=4100\r\n");
+        bytes.extend_from_slice(b"[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4]); // 标准属性
+        bytes.extend_from_slice(
+            b"\r\nX=10.0\r\nY=20.0\r\nZ=0.0\r\n\xcb\xf5\xb7\xc5\xc2\xca=100.00\r\n",
+        );
+        bytes.extend_from_slice(
+            b"\xcd\xb8\xc3\xf7\xb6\xc8=0.0\r\n\xd0\xfd\xd7\xaa=0.0\r\nblend=0\r\n",
+        );
+        aviqtl_rust_core::exo::ExoFile::parse(&bytes).expect("fixture parses")
+    }
+
+    #[test]
+    fn exo_import_adds_clips_as_one_undoable_edit() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        let before = workspace.document().clips.len();
+        let file = object_file_fixture();
+        assert!(
+            workspace
+                .import_exo_object_file(
+                    &file,
+                    crate::exo_import::ImportPlacement::default(),
+                    &catalog
+                )
+                .is_some()
+        );
+        assert_eq!(workspace.document().clips.len(), before + 1);
+        let imported = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "text" && clip.start == 0)
+            .expect("the imported text clip exists");
+        assert_eq!(imported.duration, 16);
+        assert_eq!(imported.layer, 1);
+        assert_eq!(imported.effects[1].id, "text");
+        assert_eq!(imported.effects[1].params["text"], serde_json::json!("A"));
+
+        assert!(workspace.undo());
+        assert_eq!(workspace.document().clips.len(), before);
+        assert!(workspace.redo());
+        assert_eq!(workspace.document().clips.len(), before + 1);
+    }
+
+    #[test]
+    fn exo_drops_anchor_at_the_pointer_and_appends_after_the_timeline() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = object_file_fixture();
+
+        // The fixture's object starts at frame 0 of its own file, so a drop at 40 lands there.
+        let mut dropped = workspace();
+        let (next_frame, next_layer) = dropped
+            .drop_exo_object_file(&file, 40, 3, &catalog, 128)
+            .expect("the drop imports");
+        assert_eq!(next_frame, 56);
+        assert_eq!(next_layer, 3);
+        let clipped = dropped
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "text" && clip.start == 40)
+            .expect("the clip landed on the drop frame");
+        assert_eq!(clipped.layer, 3);
+
+        // The fixture scene ends at frame 50, so appending puts the import after that.
+        let mut appended = workspace();
+        appended
+            .append_exo_object_file(&file, &catalog, 128)
+            .expect("the append imports");
+        let appended_clip = appended
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.clip_type == "text" && clip.start >= 50)
+            .expect("the clip lands after the existing objects");
+        assert_eq!(appended_clip.start, 50);
+    }
+
+    #[test]
+    fn a_new_project_takes_its_settings_from_the_object_file() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut application = ApplicationModel::default();
+        let file = object_file_fixture();
+        let defaults = ProjectDefaults {
+            width: file.header.width,
+            height: file.header.height,
+            fps: file.header.rate,
+            sample_rate: file.header.audio_rate,
+            ..ProjectDefaults::default()
+        };
+        let index = application.create_project(defaults);
+        let workspace = application.workspace_mut(index).expect("workspace");
+        workspace
+            .append_exo_object_file(&file, &catalog, MAX_TIMELINE_LAYERS)
+            .expect("the object file imports");
+        let settings = workspace.project_settings();
+        assert_eq!(settings.width, 1920);
+        assert_eq!(settings.height, 1080);
+        assert_eq!(settings.fps, 60.0);
+        assert_eq!(settings.sample_rate, 48_000);
+        assert_eq!(workspace.document().clips.len(), 1);
+    }
+
+    #[test]
+    fn appending_into_an_empty_project_keeps_the_file_timing() {
+        // An object file's first object sits at frame zero of its own timeline, so appending
+        // into a project with no clips has to leave it there. The timeline-length helper
+        // reports one frame for an empty scene, and using that as the append point moved
+        // every imported object one frame later than it sits in AviUtl.
+        let (catalog, _) = EffectCatalog::load();
+        let file = object_file_fixture();
+        let mut application = ApplicationModel::default();
+        let index = application.create_project(ProjectDefaults::default());
+        let workspace = application.workspace_mut(index).expect("workspace");
+        workspace
+            .append_exo_object_file(&file, &catalog, MAX_TIMELINE_LAYERS)
+            .expect("the object file imports");
+        let clip = &workspace.document().clips[0];
+        assert_eq!(clip.start, 0);
+        assert_eq!(clip.duration, 16);
+    }
+
+    #[test]
+    fn an_import_extends_a_short_scene_and_one_undo_reverts_it() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        let original_duration = workspace.selected_scene_document().unwrap().duration;
+        // The fixture object ends at frame 16, so a scene of 8 has to grow to hold it.
+        let mut short = workspace.selected_scene_document().cloned().unwrap();
+        short.duration = 8;
+        workspace.update_scene_settings(short.id, crate::workspace::scene_settings_input(&short));
+        assert_eq!(workspace.selected_scene_document().unwrap().duration, 8);
+
+        workspace
+            .import_exo_object_file(
+                &object_file_fixture(),
+                crate::exo_import::ImportPlacement::default(),
+                &catalog,
+            )
+            .expect("the import succeeds");
+        assert_eq!(
+            workspace.selected_scene_document().unwrap().duration,
+            16,
+            "the scene grows to cover the imported object"
+        );
+
+        assert!(workspace.undo());
+        assert_eq!(
+            workspace.selected_scene_document().unwrap().duration,
+            8,
+            "one undo restores the scene length as well as the objects"
+        );
+        assert_eq!(
+            workspace.document().clips.len(),
+            3,
+            "the imported clip is gone"
+        );
+        let _ = original_duration;
+    }
+
+    /// An object file whose second object is a script object this build cannot run, so the
+    /// import has to preserve it as a placeholder.
+    fn object_file_with_a_script_object() -> aviqtl_rust_core::exo::ExoFile {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1920\r\nheight=1080\r\nrate=60\r\nscale=100\r\nlength=300\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        bytes.extend_from_slice(b"[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=");
+        // 自定义物件 in GBK
+        bytes.extend_from_slice(&[0xd7, 0xd4, 0xb6, 0xa8, 0xd2, 0xe5, 0xce, 0xef, 0xbc, 0xfe]);
+        bytes.extend_from_slice(
+            b"\r\nname=uf_easing\r\nparam=local P_VIEW=1;\r\ntrack0=0.00\r\ncheck0=1\r\n",
+        );
+        aviqtl_rust_core::exo::ExoFile::parse(&bytes).expect("fixture parses")
+    }
+
+    #[test]
+    fn a_fragment_keeps_what_the_object_file_could_only_preserve() {
+        // The combination that matters: material arrives from AviUtl with objects this build
+        // cannot run, and the user saves it as a fragment. The placeholder's script, its
+        // parameter block, and its track values have to survive, or the fragment would lose
+        // exactly what the object file was careful to keep.
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        workspace
+            .append_exo_object_file(
+                &object_file_with_a_script_object(),
+                &catalog,
+                aviqtl_app_max_layers(),
+            )
+            .expect("the object file imports");
+
+        let (placeholder_id, placeholder_effect_count, placeholder_params) = {
+            let placeholder = workspace
+                .document()
+                .clips
+                .iter()
+                .find(|clip| clip.clip_type.starts_with("exo."))
+                .expect("the script object became a placeholder");
+            (
+                placeholder.id,
+                placeholder.effects.len(),
+                placeholder.effects[0].params.clone(),
+            )
+        };
+        assert_eq!(
+            placeholder_params["exoScript"],
+            serde_json::json!("uf_easing")
+        );
+
+        workspace.selection.replace(vec![placeholder_id]);
+        let (fragment, _) = workspace.export_fragment().expect("the selection exports");
+        let bytes = fragment.to_bytes().expect("the fragment serializes");
+        let reparsed =
+            crate::fragment::FragmentDocument::parse(&bytes).expect("the fragment parses");
+
+        let kept = &reparsed.clips[0];
+        assert_eq!(kept.effects.len(), placeholder_effect_count);
+        assert_eq!(
+            kept.effects[0].params["exoScript"],
+            serde_json::json!("uf_easing")
+        );
+        assert_eq!(
+            kept.effects[0].params["exoScriptParameter"],
+            serde_json::json!("local P_VIEW=1;")
+        );
+        assert_eq!(
+            kept.effects[0].params["exoTracks"]["track0"],
+            serde_json::json!("0.00")
+        );
+        assert_eq!(
+            kept.effects[0].params["exoChecks"]["check0"],
+            serde_json::json!("1")
+        );
+    }
+
+    #[test]
+    fn a_fragment_export_writes_every_clip_the_selection_holds() {
+        let mut workspace = workspace();
+        // Scene 1 holds a rect and a text clip. An object file cannot hold the rect, because
+        // no AviUtl filter describes it; a fragment has no such limit.
+        let (fragment, report) = workspace.export_fragment().expect("the scene exports");
+        assert_eq!(fragment.clips.len(), 2);
+        assert_eq!(report.clips, 2);
+        assert!(!report.selection_only);
+        assert!(workspace.take_fragment_report().is_none());
+
+        workspace.selection.replace(vec![2]);
+        let (selected, report) = workspace.export_fragment().expect("the selection exports");
+        assert_eq!(selected.clips.len(), 1);
+        assert_eq!(selected.clips[0].id, 2);
+        assert!(report.selection_only);
+    }
+
+    #[test]
+    fn a_fragment_that_needs_more_layers_than_the_scene_has_is_refused() {
+        let mut workspace = workspace();
+        let before = workspace.document().clips.len();
+        // Scene 1 holds two clips on two layers, one starting where the other ends. Put them
+        // on the same frames: a one-layer timeline cannot hold both.
+        let scene = workspace
+            .selected_scene_document()
+            .cloned()
+            .expect("a scene is selected");
+        let first = workspace.document().clips[0].clone();
+        let mut second = workspace.document().clips[1].clone();
+        second.start = first.start;
+        let fragment = crate::fragment::FragmentDocument::new(
+            workspace.document(),
+            &scene,
+            vec![first, second],
+        );
+        assert!(
+            workspace.append_fragment(&fragment, 1).is_none(),
+            "the import is refused rather than writing overlapping clips"
+        );
+        assert_eq!(workspace.document().clips.len(), before);
+        assert!(
+            workspace.status.contains("more layers"),
+            "the status explains why: {}",
+            workspace.status
+        );
+        assert!(workspace.take_fragment_report().is_none());
+    }
+
+    #[test]
+    fn a_fragment_import_adds_its_clips_as_one_undoable_edit() {
+        let mut workspace = workspace();
+        let (fragment, _) = workspace.export_fragment().expect("the scene exports");
+        let before = workspace.document().clips.len();
+
+        workspace
+            .append_fragment(&fragment, aviqtl_app_max_layers())
+            .expect("the fragment imports");
+        assert_eq!(workspace.document().clips.len(), before + 2);
+        let report = workspace
+            .take_fragment_report()
+            .expect("the import leaves a report");
+        assert_eq!(report.clips, 2);
+        // The second scene is empty, so this is where an import lands without moving.
+        assert!(
+            !report.notes.iter().any(|note| note.contains("moved")),
+            "{:?}",
+            report.notes
+        );
+
+        assert!(workspace.undo());
+        assert_eq!(
+            workspace.document().clips.len(),
+            before,
+            "one undo removes the whole import"
+        );
+    }
+
+    #[test]
+    fn a_fragment_moves_out_of_another_scene_without_losing_its_effects() {
+        let mut workspace = workspace();
+        workspace.selection.replace(vec![2]);
+        let (fragment, _) = workspace.export_fragment().expect("the selection exports");
+        let bytes = fragment.to_bytes().expect("the fragment serializes");
+        let reparsed =
+            crate::fragment::FragmentDocument::parse(&bytes).expect("the fragment parses");
+
+        // Land it in scene 2 at frame 100, past the clip that scene already holds.
+        workspace
+            .switch_scene(2)
+            .then_some(())
+            .expect("scene 2 exists");
+        let (next_frame, next_layer) = workspace
+            .drop_fragment(&reparsed, 100, 0, aviqtl_app_max_layers())
+            .expect("the fragment imports");
+        // The drop position wins over the fragment's own anchor, and the returned frame is the
+        // end of the block.
+        assert_eq!(next_layer, 0);
+        assert_eq!(next_frame, 120);
+
+        let landed = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.scene_id == 2 && clip.id != 3)
+            .expect("the imported clip is in scene 2");
+        assert_eq!(landed.clip_type, "text");
+        assert_eq!(landed.start, 100);
+        // The clip's effect stack survives the round trip in full, which is the whole point of
+        // the format: nothing was translated into another program's vocabulary.
+        let original = workspace
+            .document()
+            .clips
+            .iter()
+            .find(|clip| clip.id == 2)
+            .expect("the source clip");
+        assert_eq!(landed.effects.len(), original.effects.len());
+        assert_eq!(landed.params, original.params);
+    }
+
+    #[test]
+    fn appending_a_block_that_starts_past_the_end_leaves_it_there() {
+        // A project saved with its work at frame 500 is appended to a scene that ends at 300.
+        // Subtracting the block's own start would drag it back over the existing clips.
+        let mut workspace = workspace();
+        let mut source = workspace.export_fragment().expect("the scene exports").0;
+        for clip in &mut source.clips {
+            clip.start += 500;
+        }
+        workspace
+            .append_fragment(&source, aviqtl_app_max_layers())
+            .expect("the fragment imports");
+        let report = workspace
+            .take_fragment_report()
+            .expect("the import leaves a report");
+        assert!(
+            !report.notes.iter().any(|note| note.contains("moved")),
+            "nothing had to move: {:?}",
+            report.notes
+        );
+        let starts = workspace
+            .document()
+            .clips
+            .iter()
+            .filter(|clip| clip.scene_id == 1)
+            .map(|clip| clip.start)
+            .collect::<Vec<_>>();
+        let first = starts.iter().copied().min().expect("clips exist");
+        let last = starts.iter().copied().max().expect("clips exist");
+        // The fixture's own clips start at 0 and 30, so the block lands at 500 and 530.
+        assert_eq!((first, last), (0, 530), "{starts:?}");
+    }
+
+    #[test]
+    fn a_fragment_onto_occupied_frames_reports_the_move() {
+        let mut workspace = workspace();
+        let (fragment, _) = workspace.export_fragment().expect("the scene exports");
+        // Both scenes hold clips; drop the block onto scene 1's first frame, which is taken.
+        let (_, _) = workspace
+            .drop_fragment(&fragment, 0, 0, aviqtl_app_max_layers())
+            .expect("the fragment imports");
+        let report = workspace
+            .take_fragment_report()
+            .expect("the import leaves a report");
+        assert!(
+            report.notes.iter().any(|note| note.contains("moved")),
+            "{:?}",
+            report.notes
+        );
+    }
+
+    fn aviqtl_app_max_layers() -> i32 {
+        crate::MAX_TIMELINE_LAYERS
+    }
+
+    #[test]
+    fn an_import_report_is_available_once_and_then_consumed() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        assert!(workspace.take_import_report().is_none());
+        workspace
+            .import_exo_object_file(
+                &object_file_fixture(),
+                crate::exo_import::ImportPlacement::default(),
+                &catalog,
+            )
+            .expect("the import succeeds");
+        let report = workspace
+            .take_import_report()
+            .expect("the import leaves a report");
+        assert_eq!(report.objects, 1);
+        assert!(
+            workspace.take_import_report().is_none(),
+            "the report is handed over once, so a second sync cannot show it again"
+        );
+    }
+
+    #[test]
+    fn an_object_file_that_folds_onto_too_few_layers_is_refused() {
+        // Two objects on layers 4 and 5, both covering frames 1..=16. A three-layer scene
+        // clamps both onto layer 2, which cannot hold two objects on the same frames.
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        let before = workspace.document().clips.len();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1920\r\nheight=1080\r\nrate=60\r\nscale=100\r\nlength=300\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        for layer in [4, 5] {
+            bytes.extend_from_slice(
+                format!("[{}]\r\nstart=1\r\nend=16\r\nlayer={layer}\r\n", layer - 4).as_bytes(),
+            );
+            bytes.extend_from_slice(b"[");
+            bytes.extend_from_slice(format!("{}.0", layer - 4).as_bytes());
+            bytes.extend_from_slice(b"]\r\n_name=");
+            bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+            bytes.extend_from_slice(b"\r\ntext=4100\r\ncolor=ffffff\r\n");
+        }
+        let file = aviqtl_rust_core::exo::ExoFile::parse(&bytes).expect("fixture parses");
+
+        assert!(
+            workspace
+                .import_exo_object_file(
+                    &file,
+                    crate::exo_import::ImportPlacement {
+                        frame_offset: 0,
+                        layer_offset: 0,
+                        maximum_layers: 3,
+                    },
+                    &catalog,
+                )
+                .is_none(),
+            "the import is refused rather than writing overlapping clips"
+        );
+        assert_eq!(workspace.document().clips.len(), before);
+        assert_eq!(
+            workspace.status,
+            "The object file uses more layers than this scene has (3), so its clips would overlap on layer 3. Raise the layer count and try again."
+        );
+        assert!(workspace.take_import_report().is_none());
     }
 
     fn workspace_with_effects() -> WorkspaceModel {

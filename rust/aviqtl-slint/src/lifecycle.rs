@@ -1,8 +1,9 @@
 //! Project window ownership, save/close sequencing, and recovery presentation.
 
 use crate::dialogs::{
+    choose_exo_object_to_import, choose_fragment_save_path, choose_fragment_to_import,
     choose_project_save_path, choose_project_to_open, insert_visible_window_geometry,
-    install_opaque_window, json_i32, show_and_redraw, show_error_dialog,
+    install_opaque_window, json_i32, show_and_redraw, show_error_dialog, show_info_dialog,
 };
 use crate::easing::refresh_easing_translations;
 use crate::localization::{current_ui_language, localized, select_bundled_ui_translation};
@@ -26,7 +27,7 @@ use aviqtl_app::{ApplicationModel, LifecycleStep, WorkspaceModel};
 use slint::winit_030::WinitWindowAccessor;
 use slint::{ComponentHandle, SharedString};
 use std::cell::{Cell, RefCell};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,6 +74,57 @@ pub(super) struct WindowRefs<'a> {
     pub(super) package_manager: &'a PackageManagerWindow,
     pub(super) plugin_permissions: &'a PluginPermissionWindow,
     pub(super) about: &'a AboutWindow,
+}
+
+/// Shows what the last object-file import translated and what it had to preserve.
+///
+/// Only shown when something was preserved: a clean import should not interrupt the user with
+/// a dialog, but an import that left placeholders explains why the picture differs.
+///
+/// Free-standing so the drop handler, which has the model but not this struct, can show the
+/// same report; a dropped object file deserves the same explanation as an opened one.
+pub(super) fn show_import_report(model: &mut ApplicationModel) {
+    let report = model
+        .current_workspace_mut()
+        .and_then(|workspace| workspace.take_import_report());
+    let Some(report) = report else {
+        return;
+    };
+    if report.notes.is_empty() {
+        return;
+    }
+    show_info_dialog(
+        localized(
+            "AviUtl object file imported",
+            "已导入 AviUtl 物件文件",
+            "AviUtl オブジェクトファイルを読み込みました",
+        ),
+        &report.details(12),
+    );
+}
+
+/// Shows what a fragment import had to say.
+///
+/// A clean insert says nothing beyond the status line; a fragment made at another frame rate,
+/// or one that had to move to clear existing objects, says so here.
+pub(super) fn show_fragment_report(model: &mut ApplicationModel) {
+    let report = model
+        .current_workspace_mut()
+        .and_then(|workspace| workspace.take_fragment_report());
+    let Some(report) = report else {
+        return;
+    };
+    if report.notes.is_empty() {
+        return;
+    }
+    show_info_dialog(
+        localized(
+            "Fragment inserted",
+            "已插入片段",
+            "フラグメントを挿入しました",
+        ),
+        &report.details(12),
+    );
 }
 
 impl LifecycleUi {
@@ -264,6 +316,215 @@ impl LifecycleUi {
             return;
         };
         self.open_project_path(&path, from_launcher);
+    }
+
+    /// Creates a project from an AviUtl object file.
+    ///
+    /// This is AviUtl's "new project from object file": the file's header decides the
+    /// resolution, frame rate, and audio rate, and its objects become the first scene, so a
+    /// downloaded `.exo` turns into a project in one step instead of importing into a blank
+    /// project that has the wrong settings.
+    pub(super) fn new_project_from_exo_file(&self) {
+        if self.model.borrow().lifecycle_pending() {
+            return;
+        }
+        let Some(path) = choose_exo_object_to_import() else {
+            return;
+        };
+        let file = match aviqtl_app::exo_import::load_object_file(&path) {
+            Ok(file) => file,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        let mut defaults = crate::settings::project_defaults(&self.settings.borrow());
+        defaults.width = file.header.width;
+        defaults.height = file.header.height;
+        defaults.fps = file.header.rate;
+        defaults.sample_rate = file.header.audio_rate;
+        defaults.duration = defaults.duration.max(file.header.length).max(1);
+        let index = self.model.borrow_mut().create_project(defaults);
+        let imported = {
+            let catalog = self.effect_catalog.borrow();
+            let mut model = self.model.borrow_mut();
+            let Some(workspace) = model.workspace_mut(index) else {
+                return;
+            };
+            // The project exists now, so a failure here leaves an empty one behind rather than
+            // nothing; say so instead of showing an empty timeline without a word.
+            if workspace
+                .append_exo_object_file(&file, &catalog, aviqtl_app::MAX_TIMELINE_LAYERS)
+                .is_some()
+            {
+                Ok(())
+            } else {
+                Err(workspace.status().to_owned())
+            }
+        };
+        self.sync();
+        match imported {
+            Ok(()) => self.report_import(),
+            Err(status) => show_error_dialog(&status),
+        }
+        if let Some(main) = self.main.upgrade() {
+            let _ = show_and_redraw(&main);
+        }
+        if let Some(timeline) = self.timeline.upgrade() {
+            let _ = show_and_redraw(&timeline);
+        }
+        if let Some(launcher) = self.launcher.upgrade() {
+            let _ = launcher.hide();
+        }
+    }
+
+    /// Shows what the last import translated and what it had to preserve.
+    fn report_import(&self) {
+        show_import_report(&mut self.model.borrow_mut());
+    }
+
+    /// Imports an AviUtl ExEdit object file into the current scene.
+    ///
+    /// AviUtl's own "import object file" appends the file's objects after the existing data.
+    /// Frames keep their relative positions, and the layer offset lets a file authored on a
+    /// different layer count land beside the current work instead of on top of it.
+    pub(super) fn import_exo_object_file(&self) {
+        if self.model.borrow().lifecycle_pending() {
+            return;
+        }
+        let Some(path) = choose_exo_object_to_import() else {
+            return;
+        };
+        let file = match aviqtl_app::exo_import::load_object_file(&path) {
+            Ok(file) => file,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        let catalog = self.effect_catalog.borrow();
+        let imported = {
+            let mut model = self.model.borrow_mut();
+            let Some(workspace) = model.current_workspace_mut() else {
+                show_error_dialog(localized(
+                    "Open a project before importing an object file.",
+                    "请先打开一个项目，再导入物件文件。",
+                    "オブジェクトファイルを読み込む前にプロジェクトを開いてください。",
+                ));
+                return;
+            };
+            workspace.append_exo_object_file(&file, &catalog, aviqtl_app::MAX_TIMELINE_LAYERS)
+        };
+        drop(catalog);
+        if imported.is_some() {
+            self.report_import();
+            self.sync();
+            if let Some(timeline) = self.timeline.upgrade() {
+                let _ = show_and_redraw(&timeline);
+            }
+        } else {
+            let message = self
+                .model
+                .borrow()
+                .current_workspace()
+                .map(|workspace| workspace.status().to_owned())
+                .unwrap_or_default();
+            show_error_dialog(&message);
+        }
+    }
+
+    /// Inserts a fragment into the current scene.
+    ///
+    /// A fragment holds this build's own clips, so nothing is translated and nothing is
+    /// skipped: what arrives is exactly what was saved.
+    pub(super) fn import_fragment(&self) {
+        if self.model.borrow().lifecycle_pending() {
+            return;
+        }
+        let Some(path) = choose_fragment_to_import() else {
+            return;
+        };
+        let fragment = match aviqtl_app::fragment::load_fragment(&path) {
+            Ok(fragment) => fragment,
+            Err(message) => {
+                show_error_dialog(&message);
+                return;
+            }
+        };
+        let imported = {
+            let mut model = self.model.borrow_mut();
+            let Some(workspace) = model.current_workspace_mut() else {
+                show_error_dialog(localized(
+                    "Open a project before inserting a fragment.",
+                    "请先打开一个项目，再插入片段。",
+                    "フラグメントを挿入する前にプロジェクトを開いてください。",
+                ));
+                return;
+            };
+            workspace.append_fragment(&fragment, aviqtl_app::MAX_TIMELINE_LAYERS)
+        };
+        if imported.is_some() {
+            self.report_fragment();
+            self.sync();
+            if let Some(timeline) = self.timeline.upgrade() {
+                let _ = show_and_redraw(&timeline);
+            }
+        } else {
+            let message = self
+                .model
+                .borrow()
+                .current_workspace()
+                .map(|workspace| workspace.status().to_owned())
+                .unwrap_or_default();
+            show_error_dialog(&message);
+        }
+    }
+
+    /// Shows what a fragment import had to say.
+    fn report_fragment(&self) {
+        show_fragment_report(&mut self.model.borrow_mut());
+    }
+
+    /// Writes the selection, or the whole scene, as a fragment.
+    pub(super) fn export_fragment(&self) {
+        let exported = self
+            .model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| workspace.export_fragment());
+        let Some((fragment, report)) = exported else {
+            show_error_dialog(localized(
+                "This scene has no clips to export.",
+                "当前场景没有可导出的片段。",
+                "このシーンには書き出せるクリップがありません。",
+            ));
+            return;
+        };
+        let suggested = self
+            .model
+            .borrow()
+            .current_workspace()
+            .and_then(|workspace| workspace.project().path.clone())
+            .and_then(|path| {
+                path.file_stem()
+                    .map(|stem| PathBuf::from(stem).with_extension("aviqtlfrag"))
+            })
+            .unwrap_or_else(|| PathBuf::from("fragment.aviqtlfrag"));
+        let Some(path) = choose_fragment_save_path(&suggested) else {
+            return;
+        };
+        if let Err(message) = aviqtl_app::fragment::save_fragment(&path, &fragment) {
+            show_error_dialog(&message);
+            return;
+        }
+        let status = if report.selection_only {
+            format!("Exported {} selected clip(s) to a fragment", report.clips)
+        } else {
+            format!("Exported {} clip(s) to a fragment", report.clips)
+        };
+        if let Some(main) = self.main.upgrade() {
+            main.set_status_text(status.as_str().into());
+        }
     }
 
     pub(super) fn open_project_path(&self, path: &Path, from_launcher: bool) {

@@ -1,10 +1,14 @@
 //! Framework-neutral application state shared by desktop frontends.
 
 pub mod audio_plugin;
+pub mod clip_insert;
 pub mod easing;
 pub mod effect_catalog;
 pub mod effect_selection;
+pub mod exo_import;
+pub mod exo_mapping;
 mod file_io;
+pub mod fragment;
 pub mod lifecycle;
 pub mod media_bin;
 pub mod media_import;

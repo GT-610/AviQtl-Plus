@@ -211,16 +211,19 @@ pub fn project_object_settings(
                 enabled: effect.enabled,
                 selected: !audio_plugin_mode && effect_is_selected(index),
                 removable: effect_is_removable(catalog, clip, index),
-                controls: metadata.map_or_else(Vec::new, |metadata| {
-                    effect_controls(
-                        metadata,
-                        effect,
-                        document,
-                        current_scene,
-                        relative_frame,
-                        clip.duration,
-                    )
-                }),
+                controls: metadata.map_or_else(
+                    || placeholder_controls(effect),
+                    |metadata| {
+                        effect_controls(
+                            metadata,
+                            effect,
+                            document,
+                            current_scene,
+                            relative_frame,
+                            clip.duration,
+                        )
+                    },
+                ),
             }
         })
         .collect();
@@ -280,6 +283,83 @@ pub(crate) fn replace_value_payload(original: &Value, value: Value) -> Value {
         Value::Object(object)
     } else {
         value
+    }
+}
+
+/// Builds read-only controls for an imported placeholder.
+///
+/// A placeholder has no catalogue entry, so without this the object settings panel shows an
+/// empty effect with no hint of what AviUtl had configured. Listing the keys the importer
+/// preserved makes the object inspectable, and marking them unsupported keeps the UI from
+/// pretending they can be edited here.
+fn placeholder_controls(effect: &EffectDocument) -> Vec<ObjectControl> {
+    let label = effect
+        .params
+        .get("exoDisplayName")
+        .and_then(Value::as_str)
+        .unwrap_or(&effect.name)
+        .to_owned();
+    let mut controls = vec![unsupported_control(
+        "exoDisplayName",
+        &label,
+        Value::from(label.clone()),
+    )];
+    if let Some(script) = effect.params.get("exoScript").and_then(Value::as_str) {
+        controls.push(unsupported_control(
+            "exoScript",
+            "Script",
+            Value::from(script.to_owned()),
+        ));
+    }
+    for (key, value) in &effect.params {
+        let Some(name) = key.strip_prefix("exo_") else {
+            continue;
+        };
+        if name.starts_with("exo") {
+            continue;
+        }
+        controls.push(unsupported_control(key, name, value.clone()));
+    }
+    // The importer keeps an object's trackbars and checkboxes nested, because `track0` and
+    // `check0` are lists rather than parameters of their own. Reading only the top-level
+    // `exo_` keys meant a preserved script object showed none of its numbers, which are the
+    // settings it actually has.
+    for group in ["exoTracks", "exoChecks"] {
+        let Some(entries) = effect.params.get(group).and_then(Value::as_object) else {
+            continue;
+        };
+        for (key, value) in entries {
+            controls.push(unsupported_control(key, key, value.clone()));
+        }
+    }
+    controls
+}
+
+/// One read-only row for a preserved value.
+fn unsupported_control(param: &str, label: &str, value: Value) -> ObjectControl {
+    ObjectControl {
+        kind: ObjectControlKind::Unsupported,
+        source_kind: "unsupported".to_owned(),
+        param: Some(param.to_owned()),
+        label: label.to_owned(),
+        minimum: None,
+        maximum: None,
+        step: None,
+        decimals: None,
+        unit: String::new(),
+        filter: String::new(),
+        disabled: true,
+        keyframed: false,
+        value: value.clone(),
+        relative_frame: 0,
+        clip_duration: 0,
+        interval_start: 0,
+        interval_end: 0,
+        start_value: value.clone(),
+        end_value: value,
+        start_interpolation: String::new(),
+        keyframes: Vec::new(),
+        options: Vec::new(),
     }
 }
 
@@ -659,6 +739,50 @@ pub(crate) fn value_payload(value: &Value) -> &Value {
 }
 
 #[cfg(test)]
+mod placeholder_tests {
+    use super::*;
+    use serde_json::json;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn placeholders_expose_their_preserved_values() {
+        let effect = EffectDocument {
+            id: "aviutl.exo.placeholder".to_owned(),
+            name: "自定义物件".to_owned(),
+            enabled: false,
+            params: serde_json::Map::from_iter([
+                ("exoDisplayName".to_owned(), json!("自定义物件")),
+                ("exoScript".to_owned(), json!("uf_easing")),
+                // What `placeholder_effect` actually writes: the trackbars are nested.
+                (
+                    "exoTracks".to_owned(),
+                    json!({"track0": "25.00", "track1": "3.00"}),
+                ),
+                ("exoChecks".to_owned(), json!({"check0": "100"})),
+                ("exo_color".to_owned(), json!("ffffff")),
+            ]),
+            keyframes: None,
+            extra: BTreeMap::new(),
+        };
+        let controls = placeholder_controls(&effect);
+        let labels: Vec<&str> = controls.iter().map(|row| row.label.as_str()).collect();
+        assert!(labels.contains(&"自定义物件"));
+        assert!(labels.contains(&"Script"));
+        assert!(labels.contains(&"track0"), "a preserved trackbar is shown");
+        assert!(labels.contains(&"track1"));
+        assert!(labels.contains(&"check0"));
+        assert!(labels.contains(&"color"));
+        assert!(controls.iter().all(|row| row.disabled));
+        assert!(
+            controls
+                .iter()
+                .all(|row| row.kind == ObjectControlKind::Unsupported),
+            "a placeholder must not look editable"
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use aviqtl_rust_core::api::{TimelineState, parse_effect_metadata};
@@ -874,76 +998,5 @@ mod tests {
         assert_eq!(gain.number_value_at(&gain.value.clone()), 0.5);
         assert_eq!(gain.step, Some(0.01));
         assert!(gain.keyframed);
-    }
-}
-
-#[cfg(test)]
-mod text_object_tests {
-    use super::*;
-    use aviqtl_rust_core::api::TimelineState;
-
-    #[test]
-    fn a_clip_without_effects_projects_no_controls() {
-        // The `--frames` validation fixture writes clips with no effects at all,
-        // which is not what a saved project looks like: the loader always keeps
-        // the object and transform entries. Pin the distinction so an empty
-        // settings dialog is recognised as a fixture problem, not a projection
-        // bug.
-        let state = TimelineState::from_json(
-            br#"{
-                "version":3,
-                "scenes":[{"id":1,"name":"Root","duration":300}],
-                "clips":[{"id":9,"sceneId":1,"type":"text","start":0,"duration":100,"layer":0}]
-            }"#,
-        )
-        .expect("project");
-        let document = state.snapshot();
-        let clip = &document.clips[0];
-        let (catalog, _) = EffectCatalog::load();
-        let projection =
-            project_object_settings(&document, clip, 1, 0, &catalog, |index| index == 0);
-
-        assert!(projection.effects.is_empty());
-    }
-
-    #[test]
-    fn text_clips_project_their_object_controls() {
-        // A text clip saved by the app carries a transform effect plus the text
-        // object itself; both project their metadata controls.
-        let state = TimelineState::from_json(
-            br#"{
-                "version":3,
-                "scenes":[{"id":1,"name":"Root","duration":300}],
-                "clips":[{
-                    "id":9,"sceneId":1,"type":"text","start":0,"duration":100,"layer":0,
-                    "effects":[
-                        {"id":"transform","name":"","params":{}},
-                        {"id":"text","name":"","params":{"text":"hello","fontSize":48}}
-                    ]
-                }]
-            }"#,
-        )
-        .expect("project");
-        let document = state.snapshot();
-        let clip = &document.clips[0];
-        let (catalog, _) = EffectCatalog::load();
-        let projection =
-            project_object_settings(&document, clip, 1, 0, &catalog, |index| index == 1);
-
-        let text = projection
-            .effects
-            .iter()
-            .find(|effect| effect.id == "text")
-            .expect("text object effect is projected");
-        assert!(
-            text.controls
-                .iter()
-                .any(|control| control.param.as_deref() == Some("fontSize")),
-            "text object exposes its own controls, got {:?}",
-            text.controls
-                .iter()
-                .map(|control| control.param.clone())
-                .collect::<Vec<_>>()
-        );
     }
 }

@@ -72,6 +72,9 @@ pub(super) fn install_timeline_file_drop(
             .i32_value("defaultClipDuration", 100)
             .max(1);
         let path = PathBuf::from(path.as_str());
+        // A file that cannot be read has to say why. Dropping one used to do nothing at all,
+        // which reads as the drop not having been noticed.
+        let mut load_error = None;
         let result = {
             let catalog = dropped_catalog.borrow();
             let mut application = dropped_model.borrow_mut();
@@ -81,6 +84,46 @@ pub(super) fn install_timeline_file_drop(
                     ignore_snap,
                     f64::from(window.get_pixels_per_frame()),
                 );
+                // An AviUtl object file is dropped like media, but it brings its own objects
+                // and their timing instead of creating one clip.
+                if path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("exo"))
+                {
+                    let file = match aviqtl_app::exo_import::load_object_file(&path) {
+                        Ok(file) => file,
+                        Err(error) => {
+                            load_error = Some(error.to_string());
+                            return None;
+                        }
+                    };
+                    return workspace.drop_exo_object_file(
+                        &file,
+                        frame,
+                        layer,
+                        &catalog,
+                        window.get_maximum_layers(),
+                    );
+                }
+                // A fragment is the same idea without the translation step.
+                if path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("aviqtlfrag"))
+                {
+                    let fragment = match aviqtl_app::fragment::load_fragment(&path) {
+                        Ok(fragment) => fragment,
+                        Err(error) => {
+                            load_error = Some(error.to_string());
+                            return None;
+                        }
+                    };
+                    return workspace.drop_fragment(
+                        &fragment,
+                        frame,
+                        layer,
+                        window.get_maximum_layers(),
+                    );
+                }
                 workspace.import_media_files(
                     std::slice::from_ref(&path),
                     frame,
@@ -91,6 +134,37 @@ pub(super) fn install_timeline_file_drop(
                 )
             })
         };
+        let extension = path
+            .extension()
+            .map(|extension| extension.to_string_lossy().to_ascii_lowercase());
+        let brings_a_report = matches!(extension.as_deref(), Some("exo" | "aviqtlfrag"));
+        match &load_error {
+            Some(message) => show_error_dialog(message),
+            // The file read fine and the workspace refused it — too few layers for a fragment,
+            // for instance. The workspace already has the explanation; without this the drop
+            // would look like it never happened.
+            None if result.is_none() && brings_a_report => {
+                let status = dropped_model
+                    .borrow()
+                    .current_workspace()
+                    .map(|workspace| workspace.status().to_owned())
+                    .unwrap_or_default();
+                if !status.is_empty() {
+                    show_error_dialog(&status);
+                }
+            }
+            None => {}
+        }
+        // An object file or fragment brings its own report; a drop that had to move, or that
+        // left placeholders, has as much to explain as the same import from the menu.
+        if result.is_some() && brings_a_report {
+            let mut application = dropped_model.borrow_mut();
+            match extension.as_deref() {
+                Some("exo") => crate::lifecycle::show_import_report(&mut application),
+                Some("aviqtlfrag") => crate::lifecycle::show_fragment_report(&mut application),
+                _ => {}
+            }
+        }
         let drop_result = result.map_or(
             TimelineMediaDropResult {
                 imported: false,
@@ -925,6 +999,17 @@ pub(super) fn install_callbacks(
 
     let main_open_ui = lifecycle_ui.clone();
     main.on_open_project(move || main_open_ui.open_project_dialog(false));
+
+    let new_exo_ui = lifecycle_ui.clone();
+    main.on_new_project_from_exo_file(move || new_exo_ui.new_project_from_exo_file());
+
+    let import_exo_ui = lifecycle_ui.clone();
+    main.on_import_exo_object_file(move || import_exo_ui.import_exo_object_file());
+
+    let import_fragment_ui = lifecycle_ui.clone();
+    main.on_import_fragment(move || import_fragment_ui.import_fragment());
+    let export_fragment_ui = lifecycle_ui.clone();
+    main.on_export_fragment(move || export_fragment_ui.export_fragment());
 
     let save_ui = lifecycle_ui.clone();
     main.on_save_project(move || {

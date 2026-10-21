@@ -1,0 +1,1716 @@
+//! Imports AviUtl ExEdit object files into project clips.
+//!
+//! The object-file reader lives in `aviqtl_rust_core::exo` and is purely textual. This module
+//! is the part that knows what the names mean: it maps ExEdit's localized object and filter
+//! names onto catalogue entries, converts parameter units, turns ExEdit's start/end trackbar
+//! ranges into keyframes, and preserves everything it cannot translate as a disabled
+//! placeholder so the source file's own settings stay visible in the project.
+//!
+//! Translation is deliberately conservative. A filter is only converted when both the name
+//! and the parameter semantics are known (see `exo_mapping`); guessing would silently change
+//! the picture, while a placeholder is visible in the effect stack and can be inspected.
+
+use crate::effect_catalog::EffectCatalog;
+use crate::exo_mapping::{
+    BLEND_MODES, DRAWING_TRACKS, FilterMapping, ObjectMapping, TrackMapping, filter_mapping,
+    is_drawing_filter, object_mapping,
+};
+use aviqtl_rust_core::api::{
+    ClipDocument, EffectDocument, EffectMetadata, ProjectDocument, SceneDocument,
+};
+use aviqtl_rust_core::exo::{ExoFile, ExoFilter, ExoObject, TextEncoding, TrackValue};
+use serde_json::{Map, Value, json};
+use std::collections::BTreeMap;
+
+/// Catalogue id used for an object or filter this build cannot translate.
+pub const PLACEHOLDER_ID: &str = "aviutl.exo.placeholder";
+
+/// Extensions used when looking for a media path inside an object's `_exdata` blob.
+const MEDIA_EXTENSIONS: &[&str] = &[
+    "avi", "bmp", "flac", "gif", "jpeg", "jpg", "m4a", "mkv", "mov", "mp3", "mp4", "ogg", "png",
+    "wav", "webm", "wmv",
+];
+
+/// Largest object file this importer will read. Real files are a few hundred kilobytes; the
+/// cap keeps a malformed or hostile path from allocating without bound.
+pub const MAX_OBJECT_FILE_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Reads and parses an AviUtl object file from disk.
+pub fn load_object_file(path: &std::path::Path) -> Result<ExoFile, String> {
+    let bytes = crate::file_io::read_bounded(path, MAX_OBJECT_FILE_BYTES)
+        .map_err(|error| format!("{}: {error}", path.display()))?;
+    ExoFile::parse(&bytes).map_err(|error| format!("{}: {error}", path.display()))
+}
+
+/// The first frame and lowest layer the file's objects occupy, in 0-based timeline units.
+///
+/// AviUtl places a dropped object file relative to its earliest object, and appends an
+/// imported one after the current data, so both cases need to know where the file starts
+/// rather than assuming frame zero.
+pub fn file_anchor(file: &ExoFile) -> (i32, i32) {
+    let frame = file
+        .objects
+        .iter()
+        .map(|object| object.start.saturating_sub(1))
+        .min()
+        .unwrap_or(0);
+    let layer = file
+        .objects
+        .iter()
+        .map(|object| object.layer.saturating_sub(1))
+        .min()
+        .unwrap_or(0);
+    (frame.max(0), layer.max(0))
+}
+
+/// Where the imported objects go.
+#[derive(Debug, Clone, Copy)]
+pub struct ImportPlacement {
+    /// Added to every object's first frame. ExEdit frames are 1-based on disk.
+    pub frame_offset: i32,
+    /// Added to every object's layer. ExEdit layers are 1-based on disk.
+    pub layer_offset: i32,
+    /// Upper bound on layers in the destination scene.
+    pub maximum_layers: i32,
+}
+
+impl Default for ImportPlacement {
+    fn default() -> Self {
+        Self {
+            frame_offset: 0,
+            layer_offset: 0,
+            maximum_layers: 512,
+        }
+    }
+}
+
+/// What an import did, for the status line and the user-facing summary.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ImportReport {
+    pub objects: usize,
+    /// Objects whose own filter was translated rather than preserved.
+    pub translated: usize,
+    /// Filters and objects preserved as disabled placeholders. This counts items, not
+    /// objects: one translated object can carry several preserved filters.
+    pub placeholders: usize,
+    /// Human-readable notes, one per approximated or preserved item.
+    pub notes: Vec<String>,
+}
+
+impl ImportReport {
+    /// One-line summary suitable for the status bar.
+    pub fn summary(&self) -> String {
+        let mut summary = format!(
+            "Imported {} object(s): {} with a translated object, {} item(s) preserved",
+            self.objects, self.translated, self.placeholders
+        );
+        if !self.notes.is_empty() {
+            summary.push_str(&format!(", {} note(s)", self.notes.len()));
+        }
+        summary
+    }
+
+    /// Multi-line report for a dialog, limited to `max_notes` entries.
+    ///
+    /// A user who imports a project and sees a different picture needs to know why, and the
+    /// status bar only has room for counts. The notes name each object or filter that was
+    /// preserved rather than translated.
+    pub fn details(&self, max_notes: usize) -> String {
+        let mut lines = vec![self.summary()];
+        if self.notes.is_empty() {
+            return lines.join("\n");
+        }
+        lines.push(String::new());
+        lines.extend(self.notes.iter().take(max_notes).cloned());
+        if self.notes.len() > max_notes {
+            lines.push(format!(
+                "… and {} more",
+                self.notes.len().saturating_sub(max_notes)
+            ));
+        }
+        lines.join("\n")
+    }
+}
+
+/// Clips produced by an import, in file order, plus what happened to each.
+#[derive(Debug, Clone, Default)]
+pub struct ImportOutcome {
+    pub clips: Vec<ClipDocument>,
+    pub report: ImportReport,
+}
+
+/// Plans an import of `file` into `scene`.
+///
+/// The caller supplies the first clip id to use; ids are allocated consecutively. Nothing is
+/// applied to the document here, so the workspace can run the whole import as one reversible
+/// transaction.
+pub fn plan_import(
+    file: &ExoFile,
+    scene: &SceneDocument,
+    document: &ProjectDocument,
+    catalog: &EffectCatalog,
+    first_clip_id: i32,
+    placement: ImportPlacement,
+) -> ImportOutcome {
+    let mut outcome = ImportOutcome::default();
+    let maximum_layer = placement.maximum_layers.clamp(1, 512) - 1;
+    for (index, object) in file.objects.iter().enumerate() {
+        let target = ObjectTarget {
+            clip_id: first_clip_id.saturating_add(index as i32),
+            placement,
+            maximum_layer,
+        };
+        let Some(clip) = translate_object(
+            object,
+            scene,
+            catalog,
+            target,
+            file.encoding,
+            &mut outcome.report,
+        ) else {
+            continue;
+        };
+        outcome.report.objects += 1;
+        outcome.clips.push(clip);
+    }
+    resolve_overlaps(document, scene.id, &mut outcome);
+    outcome
+}
+
+/// ExEdit refuses to load an object file onto occupied positions, so an import that would
+/// land on existing objects moves forward as a block instead of stacking on top of them.
+fn resolve_overlaps(document: &ProjectDocument, scene_id: i32, outcome: &mut ImportOutcome) {
+    let shift = crate::clip_insert::shift_past_existing(document, scene_id, &mut outcome.clips);
+    if shift > 0 {
+        outcome
+            .report
+            .notes
+            .push(crate::clip_insert::shift_note(shift));
+    }
+}
+
+/// Where one object goes.
+struct ObjectTarget {
+    clip_id: i32,
+    placement: ImportPlacement,
+    maximum_layer: i32,
+}
+
+fn translate_object(
+    object: &ExoObject,
+    scene: &SceneDocument,
+    catalog: &EffectCatalog,
+    target: ObjectTarget,
+    encoding: TextEncoding,
+    report: &mut ImportReport,
+) -> Option<ClipDocument> {
+    let ObjectTarget {
+        clip_id,
+        placement,
+        maximum_layer,
+    } = target;
+    let duration = object.duration().max(1);
+    let start = object
+        .start
+        .saturating_sub(1)
+        .saturating_add(placement.frame_offset)
+        .max(0);
+    let layer = object
+        .layer
+        .saturating_sub(1)
+        .saturating_add(placement.layer_offset)
+        .clamp(0, maximum_layer);
+    let Some(object_filter) = object.object_filter() else {
+        report.placeholders += 1;
+        report
+            .notes
+            .push(format!("object at frame {} has no filters", object.start));
+        return None;
+    };
+
+    let display = object_filter.display_name();
+    let mut effects = Vec::new();
+    let (clip_type, object_effect) = match figure_shape(object_filter, catalog, duration) {
+        Some((clip_type, effect)) => {
+            report.translated += 1;
+            (clip_type, effect)
+        }
+        None => match object_mapping(display) {
+            Some(mapping) => {
+                match build_object_effect(object_filter, mapping, catalog, duration, encoding) {
+                    Some(effect) => {
+                        report.translated += 1;
+                        (mapping.object_id.to_owned(), effect)
+                    }
+                    None => {
+                        report.placeholders += 1;
+                        report.notes.push(format!(
+                            "{display}: the {} object is not available",
+                            mapping.object_id
+                        ));
+                        (placeholder_type(display), placeholder_effect(object_filter))
+                    }
+                }
+            }
+            None => {
+                report.placeholders += 1;
+                report
+                    .notes
+                    .push(placeholder_note(display, object_filter.script_name()));
+                (placeholder_type(display), placeholder_effect(object_filter))
+            }
+        },
+    };
+
+    // ExEdit stores the drawing/transform filter last; everything between the object and it
+    // is an effect in evaluation order.
+    let filters = &object.filters;
+    let drawing_index = filters
+        .iter()
+        .rposition(|filter| is_drawing_filter(filter.display_name()));
+    let effect_end = drawing_index.unwrap_or(filters.len());
+    // ExEdit appends these itself; they carry no artist intent and translating them would add
+    // a filter AviUtl never showed in the object's stack.
+    let internal = |filter: &ExoFilter| {
+        matches!(
+            filter.display_name(),
+            "上层物件缓存" | "上層オブジェクトバッファ" | "直前オブジェクト" | "フレームバッファ"
+        )
+    };
+    for filter in filters.iter().take(effect_end).skip(1) {
+        if !internal(filter) {
+            effects.push(translate_filter(filter, catalog, report, duration));
+        }
+    }
+
+    let transform_source = drawing_index.and_then(|index| filters.get(index));
+    // An object without a drawing filter has no transform in AviUtl either; adding one here
+    // would change the picture and add a filter the source file never had.
+    let mut transform =
+        transform_source.and_then(|filter| build_transform(filter, catalog, duration));
+    if let Some(filter) = transform_source
+        && filter.is_disabled()
+        && let Some(effect) = transform.as_mut()
+    {
+        effect.enabled = false;
+    }
+    if let Some(transform) = transform {
+        effects.insert(0, transform);
+    }
+    effects.push(object_effect);
+
+    Some(ClipDocument {
+        id: clip_id,
+        scene_id: scene.id,
+        clip_type,
+        start,
+        duration,
+        layer,
+        clip_by_upper_object: object.overlay,
+        params: Map::new(),
+        audio_plugins: Vec::new(),
+        effects,
+        // Kept on the clip rather than in the stack: AviUtl's own filter list is the only
+        // place these belong, and a clip whose effect stack grew an entry the file never had
+        // would render differently.
+        extra: preserved_clip_extras(object),
+    })
+}
+
+/// Stores the ExEdit-only object state a clip has no field for.
+///
+/// `group`, `clipping`, `audio` and `chain` are placement and routing flags ExEdit writes on
+/// the object section. AviQtl-Plus has no equivalent yet, and dropping them on the floor would
+/// throw away the only record of what the file said, so they ride along on the clip. `camera`
+/// is kept unless it is the plain `0` every ordinary object carries.
+fn preserved_clip_extras(object: &ExoObject) -> BTreeMap<String, Value> {
+    let mut extras = BTreeMap::new();
+    if let Some(group) = object.group {
+        extras.insert("exoGroup".to_owned(), Value::from(group));
+    }
+    if object.clipping {
+        extras.insert("exoClipping".to_owned(), Value::Bool(true));
+    }
+    if object.audio {
+        extras.insert("exoAudioObject".to_owned(), Value::Bool(true));
+    }
+    if object.chain {
+        extras.insert("exoChain".to_owned(), Value::Bool(true));
+    }
+    if object.camera == Some(true) {
+        extras.insert("exoCamera".to_owned(), Value::Bool(true));
+    }
+    extras
+}
+
+/// Translates ExEdit's 図形 object, which is a solid regular polygon.
+///
+/// `FUN_10073470` hands the object's size to the rasteriser as the polygon's half-extent:
+/// the vertex loops run from `-size` to `+size`, so a figure is `2 * 大小` across. A positive
+/// `长宽比` shrinks the vertical axis by that percentage and a negative one shrinks the
+/// horizontal axis, which maps onto our width and height.
+fn figure_shape(
+    filter: &ExoFilter,
+    catalog: &EffectCatalog,
+    duration: i32,
+) -> Option<(String, EffectDocument)> {
+    if !crate::exo_mapping::FIGURE_ALIASES.contains(&filter.display_name()) {
+        return None;
+    }
+    let kind = filter.named_integer("type").unwrap_or(1);
+    let mapping = crate::exo_mapping::figure_mapping(kind);
+    let metadata = catalog.find(mapping.object_id)?;
+    let mut effect = effect_from_metadata(metadata);
+    let size_track = filter
+        .named_track("大小")
+        .or_else(|| filter.named_track("サイズ"))
+        .or_else(|| filter.track(0))
+        .unwrap_or_else(|| TrackValue::constant(30.0));
+    let size = size_track.start;
+    let aspect = filter
+        .named_track("长宽比")
+        .or_else(|| filter.named_track("縦横比"))
+        .or_else(|| filter.track(1))
+        .map_or(0.0, |track| track.start);
+    let (width, height) = if aspect >= 0.0 {
+        (size * 2.0, size * 2.0 * (1.0 - aspect / 100.0).max(0.0))
+    } else {
+        (size * 2.0 * (1.0 + aspect / 100.0).max(0.0), size * 2.0)
+    };
+    effect.params.insert("sizeW".to_owned(), number(width));
+    effect.params.insert("sizeH".to_owned(), number(height));
+    effect
+        .params
+        .insert("sides".to_owned(), Value::from(mapping.sides));
+    if let Some(shape_type) = mapping.shape_type {
+        effect
+            .params
+            .insert("shapeType".to_owned(), Value::from(shape_type));
+    }
+    if let Some(color) = filter.color("color") {
+        effect
+            .params
+            .insert("color".to_owned(), Value::from(format!("#{color:06x}")));
+    }
+    // `線幅` is stored at the same hundredths scale as the other figure tracks.
+    if let Some(line_width) = filter
+        .named_track("线宽")
+        .or_else(|| filter.named_track("ライン幅"))
+        .or_else(|| filter.track(2))
+        .map(|track| track.start / 100.0)
+        && line_width > 0.0
+    {
+        effect
+            .params
+            .insert("strokeWidth".to_owned(), number(line_width));
+        if let Some(color) = filter.color("color") {
+            effect.params.insert(
+                "strokeColor".to_owned(),
+                Value::from(format!("#{color:06x}")),
+            );
+        }
+    }
+    // An animated 大小 drives both extents, so it becomes a keyframe track on the width. The
+    // end point belongs on the clip's last frame: normalization drops anything at frame 0.
+    let last_frame = duration.saturating_sub(1).max(1);
+    if let Some(end) = size_track.end
+        && (end - size).abs() > f64::EPSILON
+    {
+        let interpolation = size_track
+            .motion
+            .as_deref()
+            .map(interpolation_for)
+            .unwrap_or("linear");
+        let mut options = json!({"interp": interpolation});
+        if let Some(motion) = &size_track.motion
+            && let Some(options) = options.as_object_mut()
+        {
+            options.insert("exoMotion".to_owned(), Value::from(motion.clone()));
+            if let Some(parameter) = size_track.motion_parameter {
+                options.insert("exoMotionParameter".to_owned(), Value::from(parameter));
+            }
+        }
+        let keyframes = effect.keyframes.get_or_insert_with(Map::new);
+        keyframes.insert(
+            "sizeW".to_owned(),
+            json!({
+                "start": {"frame": 0, "value": number(size * 2.0), "interp": interpolation},
+                "points": [{"frame": last_frame, "value": number(end * 2.0), "interp": interpolation, "options": options}],
+            }),
+        );
+    }
+    capture_source_entries(&mut effect, filter);
+    effect.enabled = !filter.is_disabled();
+    apply_metadata_defaults(&mut effect, metadata);
+    Some((mapping.object_id.to_owned(), effect))
+}
+
+/// A clip type that no renderer claims, so an untranslated object draws nothing and the
+/// effect stack still explains what it was.
+fn placeholder_type(display: &str) -> String {
+    format!("exo.{display}")
+}
+
+fn catalog_effect(catalog: &EffectCatalog, id: &str) -> Option<EffectDocument> {
+    // `effect_document` only serves effects, so objects are built from their metadata here.
+    catalog.find(id).map(effect_from_metadata)
+}
+
+/// Builds an effect document from catalogue metadata, the same way new objects start life.
+fn effect_from_metadata(metadata: &EffectMetadata) -> EffectDocument {
+    EffectDocument {
+        id: metadata.id.clone(),
+        name: metadata.name.clone(),
+        enabled: true,
+        params: metadata.params.clone(),
+        keyframes: None,
+        extra: BTreeMap::new(),
+    }
+}
+
+fn build_object_effect(
+    filter: &ExoFilter,
+    mapping: &ObjectMapping,
+    catalog: &EffectCatalog,
+    duration: i32,
+    encoding: TextEncoding,
+) -> Option<EffectDocument> {
+    let metadata = catalog.find(mapping.object_id)?;
+    let mut effect = catalog_effect(catalog, mapping.object_id)?;
+    apply_mappings(
+        &mut effect,
+        filter,
+        mapping.tracks,
+        mapping.colors,
+        mapping.integers,
+        mapping.flags,
+        duration,
+    );
+    capture_source_entries(&mut effect, filter);
+    effect.enabled = !filter.is_disabled();
+    if mapping.object_id == "text" {
+        if let Some(text) = filter.utf16_text("text") {
+            effect.params.insert("text".to_owned(), Value::from(text));
+        }
+        if let Some(font) = filter.value("font").filter(|font| !font.is_empty()) {
+            effect
+                .params
+                .insert("fontFamily".to_owned(), Value::from(font.to_owned()));
+        }
+        apply_text_alignment(&mut effect, filter);
+        // `color2` is the decoration colour every text object carries, including a plain one
+        // that never shows it. Whether it is drawn is decided by `type`: 0 標準文字, 1/2
+        // 影付き文字, 3/4 縁取り文字. Enabling the outline whenever the colour was present gave
+        // every imported plain text a black 2-px outline, so the import changed the picture.
+        // The shadow styles have no counterpart here; `exo_type` keeps the original.
+        if matches!(filter.named_integer("type"), Some(3 | 4)) && filter.color("color2").is_some() {
+            effect
+                .params
+                .insert("outlineEnabled".to_owned(), Value::Bool(true));
+            if !effect.params.contains_key("outlineWidth") {
+                effect
+                    .params
+                    .insert("outlineWidth".to_owned(), Value::from(2.0));
+            }
+        }
+    }
+    if mapping.media_path {
+        match filter
+            .hex_payload("_exdata")
+            .and_then(|blob| extract_media_path(&blob, encoding))
+        {
+            Some(path) => {
+                let key = if mapping.object_id == "audio" {
+                    "source"
+                } else {
+                    "path"
+                };
+                // Remember the path as imported. ExEdit's binary blob has a layout this
+                // build does not reproduce, so an unchanged path is written back inside the
+                // original bytes instead of a reconstructed blob that may drop fields.
+                effect
+                    .params
+                    .insert("exoPath".to_owned(), Value::from(path.clone()));
+                effect.params.insert(key.to_owned(), Value::from(path));
+            }
+            None => {
+                return Some(effect);
+            }
+        }
+    }
+    apply_metadata_defaults(&mut effect, metadata);
+    Some(effect)
+}
+
+fn build_transform(
+    filter: &ExoFilter,
+    catalog: &EffectCatalog,
+    duration: i32,
+) -> Option<EffectDocument> {
+    let metadata = catalog.find("transform")?;
+    let mut effect = catalog_effect(catalog, "transform")?;
+    for mapping in DRAWING_TRACKS {
+        apply_track(&mut effect, filter, mapping, duration);
+    }
+    capture_source_entries(&mut effect, filter);
+    if let Some(blend) = filter
+        .named_integer("blend")
+        .and_then(|index| usize::try_from(index).ok())
+        .and_then(|index| BLEND_MODES.get(index))
+    {
+        effect
+            .params
+            .insert("blendMode".to_owned(), Value::from(*blend));
+    }
+    apply_metadata_defaults(&mut effect, metadata);
+    Some(effect)
+}
+
+fn translate_filter(
+    filter: &ExoFilter,
+    catalog: &EffectCatalog,
+    report: &mut ImportReport,
+    duration: i32,
+) -> EffectDocument {
+    let display = filter.display_name();
+    let Some(mapping): Option<&FilterMapping> = filter_mapping(display) else {
+        report.placeholders += 1;
+        report
+            .notes
+            .push(placeholder_note(display, filter.script_name()));
+        return placeholder_effect(filter);
+    };
+    let Some(metadata) = catalog.find(mapping.effect_id) else {
+        report.placeholders += 1;
+        report.notes.push(format!(
+            "{display}: the {} effect is not available",
+            mapping.effect_id
+        ));
+        return placeholder_effect(filter);
+    };
+    let Some(mut effect) = catalog_effect(catalog, mapping.effect_id) else {
+        report.placeholders += 1;
+        return placeholder_effect(filter);
+    };
+    apply_mappings(
+        &mut effect,
+        filter,
+        mapping.tracks,
+        mapping.colors,
+        mapping.integers,
+        mapping.flags,
+        duration,
+    );
+    capture_source_entries(&mut effect, filter);
+    effect.enabled = !filter.is_disabled();
+    apply_metadata_defaults(&mut effect, metadata);
+    report.translated += 1;
+    effect
+}
+
+/// Explains why something was preserved, naming the script when there is one.
+///
+/// Most preserved entries are script-backed effects. Naming the script turns an opaque
+/// "placeholder" into something the user can act on: the script is a file in AviUtl's
+/// `script` folder, and knowing which one is missing is the difference between a usable note
+/// and a shrug.
+fn placeholder_note(display: &str, script: Option<&str>) -> String {
+    match script.filter(|script| !script.is_empty()) {
+        Some(script) => format!(
+            "{display}: needs the ExEdit script {script}, preserved as a disabled placeholder"
+        ),
+        None => {
+            format!("{display}: no AviQtl-Plus equivalent, preserved as a disabled placeholder")
+        }
+    }
+}
+
+/// Preserves an object or filter this build cannot translate.
+fn placeholder_effect(filter: &ExoFilter) -> EffectDocument {
+    let display = filter.display_name();
+    let mut params = Map::new();
+    params.insert("exoDisplayName".to_owned(), Value::from(display));
+    if let Some(script) = filter.script_name() {
+        params.insert("exoScript".to_owned(), Value::from(script));
+    }
+    if let Some(parameter) = filter.script_parameter() {
+        params.insert("exoScriptParameter".to_owned(), Value::from(parameter));
+    }
+    let tracks = filter
+        .entries
+        .iter()
+        .filter(|(key, _)| key.starts_with("track"))
+        .map(|(key, value)| (key.clone(), Value::from(value.clone())))
+        .collect::<Map<_, _>>();
+    if !tracks.is_empty() {
+        params.insert("exoTracks".to_owned(), Value::Object(tracks));
+    }
+    let checks = filter
+        .entries
+        .iter()
+        .filter(|(key, _)| key.starts_with("check"))
+        .map(|(key, value)| (key.clone(), Value::from(value.clone())))
+        .collect::<Map<_, _>>();
+    if !checks.is_empty() {
+        params.insert("exoChecks".to_owned(), Value::Object(checks));
+    }
+    if let Some(exdata) = filter.hex_payload("_exdata") {
+        params.insert("exoExdata".to_owned(), Value::from(hex_encode(&exdata)));
+    }
+    // The placeholder itself is always disabled so it never changes the picture. The file
+    // may also have had its own filter switched off, and that is a separate fact worth
+    // keeping.
+    if filter.is_disabled() {
+        params.insert("exoDisabled".to_owned(), Value::Bool(true));
+    }
+    for (key, value) in &filter.entries {
+        // `name` and `param` are also kept verbatim: script_name and script_parameter
+        // above only store their non-empty forms, and an empty `name=` still has to come
+        // back out.
+        let is_structurally_known =
+            key.starts_with("track") || matches!(key.as_str(), "_name" | "_exdata" | "_disable");
+        if !is_structurally_known {
+            params.insert(format!("exo_{key}"), Value::from(value.clone()));
+        }
+    }
+    EffectDocument {
+        id: PLACEHOLDER_ID.to_owned(),
+        name: if display.is_empty() {
+            "AviUtl object".to_owned()
+        } else {
+            display.to_owned()
+        },
+        enabled: false,
+        params,
+        keyframes: None,
+        extra: BTreeMap::new(),
+    }
+}
+
+/// Keeps every source key on a translated effect.
+///
+/// ExEdit filters carry keys this build does not interpret - positional `type`/`filter`
+/// markers, script parameters, text-object toggles such as `autoadjust`, and the original
+/// disabled flag. They are stored verbatim under an `exo_` prefix so nothing the file said is
+/// silently dropped, without teaching the mapper about each one.
+fn capture_source_entries(effect: &mut EffectDocument, filter: &ExoFilter) {
+    for (key, value) in &filter.entries {
+        if matches!(key.as_str(), "_name" | "_disable" | "_exdata") {
+            continue;
+        }
+        effect
+            .params
+            .insert(format!("exo_{key}"), Value::from(value.clone()));
+    }
+    if let Some(exdata) = filter.hex_payload("_exdata") {
+        effect
+            .params
+            .insert("exoExdata".to_owned(), Value::from(hex_encode(&exdata)));
+    }
+}
+
+fn apply_mappings(
+    effect: &mut EffectDocument,
+    filter: &ExoFilter,
+    tracks: &[TrackMapping],
+    colors: &[crate::exo_mapping::ColorMapping],
+    integers: &[crate::exo_mapping::IntegerMapping],
+    flags: &[(&[&str], &str)],
+    duration: i32,
+) {
+    for mapping in tracks {
+        apply_track(effect, filter, mapping, duration);
+    }
+    for mapping in colors {
+        if let Some(color) = mapping.keys.iter().find_map(|key| filter.color(key)) {
+            effect.params.insert(
+                mapping.param.to_owned(),
+                Value::from(format!("#{color:06x}")),
+            );
+        }
+    }
+    for mapping in integers {
+        if let Some(value) = mapping
+            .keys
+            .iter()
+            .find_map(|key| filter.named_integer(key))
+        {
+            let converted = f64::from(value) * mapping.scale + mapping.offset;
+            effect
+                .params
+                .insert(mapping.param.to_owned(), number(converted));
+        }
+    }
+    for (keys, param) in flags {
+        if let Some(value) = keys.iter().find_map(|key| filter.named_flag(key)) {
+            effect
+                .params
+                .insert((*param).to_owned(), Value::Bool(value));
+        }
+    }
+}
+
+/// Converts one trackbar, writing a keyframe track when the value changes across the object.
+fn apply_track(
+    effect: &mut EffectDocument,
+    filter: &ExoFilter,
+    mapping: &TrackMapping,
+    duration: i32,
+) {
+    let Some(track) = mapping
+        .keys
+        .iter()
+        .find_map(|key| filter.named_track(key).or_else(|| track_at(filter, key)))
+    else {
+        return;
+    };
+    // A keyframe at frame 0 is the start value, and normalization keeps only points with
+    // `0 < frame <= duration`, so an end point written at 0 was dropped and the imported
+    // parameter stayed at its start value. It belongs on the clip's last frame.
+    let last_frame = duration.saturating_sub(1).max(1);
+    let start = track.start * mapping.scale + mapping.offset;
+    effect
+        .params
+        .insert(mapping.param.to_owned(), number(start));
+    let Some(end) = track.end else {
+        return;
+    };
+    let end = end * mapping.scale + mapping.offset;
+    if (end - start).abs() <= f64::EPSILON {
+        return;
+    }
+    let interpolation = track
+        .motion
+        .as_deref()
+        .map(interpolation_for)
+        .unwrap_or("linear");
+    let mut options = json!({"interp": interpolation});
+    if let Some(motion) = &track.motion
+        && let Some(options) = options.as_object_mut()
+    {
+        options.insert("exoMotion".to_owned(), Value::from(motion.clone()));
+        if let Some(parameter) = track.motion_parameter {
+            options.insert("exoMotionParameter".to_owned(), Value::from(parameter));
+        }
+    }
+    let keyframes = effect.keyframes.get_or_insert_with(Map::new);
+    keyframes.insert(
+        mapping.param.to_owned(),
+        json!({
+            "start": {"frame": 0, "value": number(start), "interp": interpolation},
+            "points": [{"frame": last_frame, "value": number(end), "interp": interpolation, "options": options}],
+        }),
+    );
+}
+
+/// Reads a positional `trackN` key, which is how script-backed filters store parameters.
+fn track_at(filter: &ExoFilter, key: &str) -> Option<TrackValue> {
+    let index = key.strip_prefix("track")?;
+    let index: usize = index.parse().ok()?;
+    filter.track(index)
+}
+
+/// Maps an ExEdit motion identifier onto one of our interpolation names.
+///
+/// ExEdit stores a motion as `<index>@<name>@<script>`, where the name is a label inside the
+/// easing script rather than a curve identifier. Only labels whose meaning matches a built-in
+/// curve are converted; everything else stays linear and keeps the original text in the
+/// keyframe options, so the label is not lost.
+fn interpolation_for(motion: &str) -> &'static str {
+    let name = motion
+        .split('@')
+        .nth(1)
+        .unwrap_or(motion)
+        .to_ascii_lowercase();
+    if name.contains("普通") || name.contains("linear") {
+        "linear"
+    } else if name.contains("加速") && name.contains("減速") || name.contains("加減速") {
+        "ease_in_out_cubic"
+    } else if name.contains("加速") {
+        "ease_in_cubic"
+    } else if name.contains("減速") || name.contains("减速") {
+        "ease_out_cubic"
+    } else {
+        "linear"
+    }
+}
+
+/// ExEdit's `align` is an index into its 揃え list; ours is a bit flag.
+fn apply_text_alignment(effect: &mut EffectDocument, filter: &ExoFilter) {
+    let Some(align) = filter.named_integer("align") else {
+        return;
+    };
+    // ExEdit numbers 文字揃え as an index into its list, not a flag: 0 左寄せ[上], 1 中央揃え[上],
+    // 2 右寄せ[上], then the same three for [中] and [下]. The horizontal choice is therefore
+    // the remainder modulo three. Reading the value as a bitmask turned 中央揃え[上] (1) into
+    // left and 中央揃え[中] (4) into right.
+    //
+    // 9 and above is 縦書き. This build has no vertical-writing setting, so those keep the
+    // default alignment and the original value stays available as `exo_align`.
+    if !(0..9).contains(&align) {
+        return;
+    }
+    let alignment = match align % 3 {
+        0 => 1, // left
+        1 => 4, // centre
+        _ => 2, // right
+    };
+    effect
+        .params
+        .insert("alignment".to_owned(), Value::from(alignment));
+}
+
+/// Fills in parameters the file did not carry from the catalogue's own defaults.
+fn apply_metadata_defaults(effect: &mut EffectDocument, metadata: &EffectMetadata) {
+    for (key, value) in &metadata.params {
+        effect
+            .params
+            .entry(key.clone())
+            .or_insert_with(|| value.clone());
+    }
+}
+
+fn number(value: f64) -> Value {
+    let value = if value.is_finite() { value } else { 0.0 };
+    serde_json::Number::from_f64(value)
+        .map(Value::Number)
+        .unwrap_or_else(|| Value::from(0))
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        text.push_str(&format!("{byte:02x}"));
+    }
+    text
+}
+
+/// Finds a media path inside an object's `_exdata` blob.
+///
+/// ExEdit stores per-object binary data whose layout depends on the object type; for media
+/// objects the referenced file name is one of the NUL-terminated strings inside it. Rather
+/// than hard-coding an offset that differs per ExEdit build, this scans the blob for
+/// NUL-terminated runs that end in a known media extension and keeps the longest one.
+pub fn extract_media_path(blob: &[u8], encoding: TextEncoding) -> Option<String> {
+    let mut best: Option<&[u8]> = None;
+    for segment in blob.split(|byte| *byte == 0) {
+        let segment = trim_control(segment);
+        if segment.len() < 4 || segment.len() > 1024 {
+            continue;
+        }
+        let Some(extension) = segment.rsplit(|byte| *byte == b'.').next() else {
+            continue;
+        };
+        let extension = String::from_utf8_lossy(extension).to_ascii_lowercase();
+        if !MEDIA_EXTENSIONS.contains(&extension.as_str()) {
+            continue;
+        }
+        if best.is_none_or(|current| segment.len() > current.len()) {
+            best = Some(segment);
+        }
+    }
+    let segment = best?;
+    // The path belongs to the file being imported, so it is written in the document's code
+    // page. Detecting it again on a handful of bytes gets it wrong whenever the path holds
+    // kanji and no kana — `C:\素材\背景.png` read as GBK — and the clip then points at
+    // media that cannot be found.
+    Some(encoding.decode(segment))
+}
+
+fn trim_control(mut segment: &[u8]) -> &[u8] {
+    while let [first, rest @ ..] = segment {
+        if first.is_ascii_control() {
+            segment = rest;
+        } else {
+            break;
+        }
+    }
+    segment
+}
+
+/// Returns the objects of `file` that would be placed outside the destination scene.
+pub fn out_of_range_objects(file: &ExoFile, document: &ProjectDocument, scene_id: i32) -> usize {
+    let Some(scene) = document.scenes.iter().find(|scene| scene.id == scene_id) else {
+        return 0;
+    };
+    let duration = scene.start.saturating_add(scene.duration);
+    file.objects
+        .iter()
+        .filter(|object| {
+            let start = object.start.saturating_sub(1);
+            start >= duration || object.end < 1
+        })
+        .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::project_io::{ProjectDefaults, ProjectSession};
+
+    #[test]
+    fn finds_a_media_path_inside_an_exdata_blob() {
+        let mut blob = vec![0u8, 0, 0, 0];
+        blob.extend_from_slice(b"C:\\media\\clip.mp4");
+        blob.push(0);
+        blob.extend_from_slice(&[1, 2, 3, 4]);
+        assert_eq!(
+            extract_media_path(&blob, TextEncoding::Gbk).as_deref(),
+            Some("C:\\media\\clip.mp4")
+        );
+        assert_eq!(extract_media_path(&[0, 1, 2], TextEncoding::Gbk), None);
+        assert_eq!(extract_media_path(b"no-extension", TextEncoding::Gbk), None);
+    }
+
+    #[test]
+    fn a_media_path_is_read_in_the_document_code_page() {
+        // `C:\素材\背景.png` holds kanji and no kana, so detecting the code page on the path
+        // alone picked GBK and the clip pointed at media nothing could find. The document's
+        // code page is already known by the time the path is read.
+        let mut blob = vec![0u8, 0, 0, 0];
+        blob.extend_from_slice(b"C:\\");
+        blob.extend_from_slice(&[0x91, 0x66, 0x8d, 0xde]); // 素材
+        blob.push(b'\\');
+        blob.extend_from_slice(&[0x94, 0x77, 0x8c, 0x69]); // 背景
+        blob.extend_from_slice(b".png");
+
+        assert_eq!(
+            extract_media_path(&blob, TextEncoding::ShiftJis).as_deref(),
+            Some(r"C:\素材\背景.png")
+        );
+    }
+
+    #[test]
+    fn prefers_the_longest_media_path() {
+        let mut blob = Vec::new();
+        blob.extend_from_slice(b"a.png");
+        blob.push(0);
+        blob.extend_from_slice(b"C:\\media\\long-name.mkv");
+        blob.push(0);
+        assert_eq!(
+            extract_media_path(&blob, TextEncoding::Gbk).as_deref(),
+            Some("C:\\media\\long-name.mkv")
+        );
+    }
+
+    #[test]
+    fn maps_exedit_motion_labels_onto_our_curves() {
+        assert_eq!(interpolation_for("15@easing_普通@uf_easing"), "linear");
+        assert_eq!(interpolation_for("2@加減速@builtin"), "ease_in_out_cubic");
+        assert_eq!(interpolation_for("3@加速@builtin"), "ease_in_cubic");
+        assert_eq!(interpolation_for("4@減速@builtin"), "ease_out_cubic");
+        assert_eq!(interpolation_for("7@不明@builtin"), "linear");
+    }
+
+    /// A text object with a mapped effect and a script object, as the Chinese pack writes them.
+    fn sample() -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=120\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        bytes.extend_from_slice(b"[0]\r\nstart=11\r\nend=40\r\nlayer=3\r\noverlay=1\r\n");
+        bytes.extend_from_slice(b"[0.0]\r\n_name=");
+        bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+        bytes.extend_from_slice(b"\r\n\xb4\xf3\xd0\xa1=36\r\n"); // 大小
+        // type 3 is 縁取り文字, the style that draws color2 as an outline.
+        bytes.extend_from_slice(b"color=ff8000\r\ncolor2=000000\r\nalign=1\r\nB=1\r\ntype=3\r\n");
+        bytes.extend_from_slice(b"font=");
+        bytes.extend_from_slice(&[0xba, 0xda, 0xcc, 0xe5]); // 黑体
+        bytes.extend_from_slice(b"\r\ntext=604f7d59\r\n"); // 你好 in UTF-16LE
+        bytes.extend_from_slice(b"[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0xc4, 0xa3, 0xba, 0xfd]); // 模糊
+        bytes.extend_from_slice(b"\r\n\xb7\xb6\xce\xa7=8\r\n"); // 范围
+        bytes.extend_from_slice(b"[0.2]\r\n_name=");
+        bytes.extend_from_slice(&[0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4]); // 标准属性
+        bytes.extend_from_slice(
+            b"\r\nX=100.0,300.0,15@easing_\xc6\xd5\xcd\xa8@uf_easing,16\r\nY=-50.0\r\nZ=0.0\r\n\
+              \xcb\xf5\xb7\xc5\xc2\xca=150.00\r\n\xcd\xb8\xc3\xf7\xb6\xc8=20.0\r\n\
+              \xd0\xfd\xd7\xaa=0.00\r\nblend=2\r\n",
+        );
+        bytes.extend_from_slice(b"[1]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[1.0]\r\n_name=");
+        bytes.extend_from_slice(&[0xd7, 0xd4, 0xb6, 0xa8, 0xd2, 0xe5, 0xce, 0xef, 0xbc, 0xfe]);
+        bytes.extend_from_slice(
+            b"\r\nname=uf_easing\r\nparam=local P_VIEW=1;\r\ntrack0=0.00\r\ncheck0=1\r\n",
+        );
+        bytes
+    }
+
+    fn scene() -> SceneDocument {
+        let session = ProjectSession::blank_with(ProjectDefaults::default());
+        session.document.scenes[0].clone()
+    }
+
+    /// A project holding the scene the tests import into and no clips, so nothing can collide
+    /// with an import unless a test puts it there.
+    fn empty_project() -> ProjectDocument {
+        ProjectSession::blank_with(ProjectDefaults::default()).document
+    }
+
+    #[test]
+    fn translates_text_transform_and_mapped_effects() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips.len(), 2);
+        assert_eq!(outcome.report.objects, 2);
+
+        let text = &outcome.clips[0];
+        assert_eq!(text.id, 10);
+        assert_eq!(text.clip_type, "text");
+        assert_eq!((text.start, text.duration, text.layer), (10, 30, 2));
+        assert!(text.clip_by_upper_object);
+        assert_eq!(text.effects[0].id, "transform");
+        assert_eq!(text.effects[1].id, "blur");
+        assert_eq!(text.effects[1].params["size"], Value::from(8.0));
+        assert_eq!(text.effects[2].id, "text");
+
+        let body = &text.effects[2].params;
+        assert_eq!(body["text"], Value::from("你好"));
+        assert_eq!(body["fontFamily"], Value::from("黑体"));
+        assert_eq!(body["fontSize"], Value::from(36.0));
+        assert_eq!(body["color"], Value::from("#ff8000"));
+        assert_eq!(body["outlineColor"], Value::from("#000000"));
+        assert_eq!(body["outlineEnabled"], Value::Bool(true));
+        assert_eq!(body["fontBold"], Value::Bool(true));
+        // ExEdit numbers 文字揃え from zero, so 1 is 中央揃え[上]: the centre.
+        assert_eq!(body["alignment"], Value::from(4));
+
+        let transform = &text.effects[0].params;
+        assert_eq!(transform["y"], Value::from(-50.0));
+        assert_eq!(transform["scale"], Value::from(150.0));
+        // ExEdit's 透明度=20.0 means a fifth of the way towards invisible.
+        assert_eq!(transform["opacity"], Value::from(0.8));
+        assert_eq!(transform["blendMode"], Value::from("乗算"));
+
+        // The trackbar range becomes a keyframe track whose end value is 300.
+        let track = &text.effects[0].keyframes.as_ref().expect("keyframes")["x"];
+        assert_eq!(track["start"]["value"], Value::from(100.0));
+        assert_eq!(track["points"][0]["value"], Value::from(300.0));
+        // The object runs frames 11..=40, so the clip is 30 frames long and the end point
+        // belongs on frame 29. Written at 0 it was dropped by track normalization, which
+        // keeps only points with 0 < frame <= duration, and the value stayed at the start.
+        assert_eq!(track["points"][0]["frame"], Value::from(29));
+        assert_eq!(
+            track["points"][0]["options"]["exoMotionParameter"],
+            Value::from(16)
+        );
+    }
+
+    #[test]
+    fn translates_the_figure_object_into_a_regular_polygon() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=120\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xcd, 0xbc, 0xd0, 0xce]); // 图形
+        bytes.extend_from_slice(b"\r\n\xb4\xf3\xd0\xa1=30\r\n"); // 大小 = 30
+        bytes.extend_from_slice(b"\xb3\xa4\xbf\xed\xb1\xc8=50.0\r\n"); // 长宽比 = 50
+        bytes.extend_from_slice(b"\xcf\xdf\xbf\xed=4000\r\n"); // 线宽 = 4000
+        bytes.extend_from_slice(b"type=4\r\ncolor=ffffff\r\nname=\r\n");
+        let file = ExoFile::parse(&bytes).expect("figure object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips.len(), 1);
+        let clip = &outcome.clips[0];
+        // Type 4 is the pentagon, and a figure is two half-extents across.
+        assert_eq!(clip.clip_type, "polygon_shape");
+        let body = &clip.effects[0].params;
+        assert_eq!(body["sides"], Value::from(5));
+        assert_eq!(body["sizeW"], Value::from(60.0));
+        assert_eq!(body["sizeH"], Value::from(30.0));
+        assert_eq!(body["strokeWidth"], Value::from(40.0));
+        assert_eq!(body["color"], Value::from("#ffffff"));
+        assert_eq!(outcome.report.placeholders, 0);
+    }
+
+    #[test]
+    fn an_animated_figure_size_ends_on_the_clips_last_frame() {
+        // 大小 from 20 to 40 over an object that runs frames 1..=30: a 30-frame clip whose end
+        // keyframe belongs on frame 29. Written at 0, normalization dropped it.
+        let (catalog, _) = EffectCatalog::load();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=120\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xcd, 0xbc, 0xd0, 0xce]); // 图形
+        bytes.extend_from_slice(b"\r\n");
+        bytes.extend_from_slice(&[0xb4, 0xf3, 0xd0, 0xa1]); // 大小
+        bytes.extend_from_slice(b"=20,40,0\r\ntype=2\r\ncolor=ffffff\r\n");
+        let file = ExoFile::parse(&bytes).expect("figure object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        let clip = &outcome.clips[0];
+        let track = &clip.effects[0]
+            .keyframes
+            .as_ref()
+            .expect("the animated size keeps keyframes")["sizeW"];
+        assert_eq!(track["start"]["value"], Value::from(40.0));
+        assert_eq!(track["points"][0]["value"], Value::from(80.0));
+        assert_eq!(track["points"][0]["frame"], Value::from(29));
+    }
+
+    #[test]
+    fn a_stock_japanese_figure_keeps_its_shape_and_size() {
+        // A Japanese install names the tracks サイズ, 縦横比 and ライン幅, and numbers the
+        // figure types from zero: type 1 is 円. Reading only the CN spellings left every
+        // stock figure at size 30 with no stroke, and a one-based table drew 円 as the
+        // rectangle and 四角形 as a 64-gon.
+        let (catalog, _) = EffectCatalog::load();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=120\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0x90, 0x7d, 0x8c, 0x60]); // 図形
+        bytes.extend_from_slice(b"\r\n");
+        bytes.extend_from_slice(&[0x83, 0x54, 0x83, 0x43, 0x83, 0x59]); // サイズ
+        bytes.extend_from_slice(b"=40\r\n");
+        bytes.extend_from_slice(&[0x8f, 0x63, 0x89, 0xa1, 0x94, 0xe4]); // 縦横比
+        bytes.extend_from_slice(b"=50.0\r\n");
+        bytes.extend_from_slice(&[0x83, 0x89, 0x83, 0x43, 0x83, 0x93, 0x95, 0x9d]); // ライン幅
+        bytes.extend_from_slice(b"=200\r\n");
+        bytes.extend_from_slice(b"type=1\r\ncolor=00ff00\r\n");
+
+        let file = ExoFile::parse(&bytes).expect("figure object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        let body = &outcome.clips[0].effects[0].params;
+        assert_eq!(outcome.clips[0].clip_type, "polygon_shape");
+        assert_eq!(body["sides"], Value::from(64), "type 1 is 円");
+        assert_eq!(
+            body["sizeW"],
+            Value::from(80.0),
+            "サイズ reached the importer"
+        );
+        assert_eq!(body["sizeH"], Value::from(40.0), "縦横比 shrank one axis");
+        assert_eq!(
+            body["strokeWidth"],
+            Value::from(2.0),
+            "ライン幅 reached the importer"
+        );
+        assert_eq!(body["color"], Value::from("#00ff00"));
+        assert_eq!(outcome.report.placeholders, 0);
+    }
+
+    #[test]
+    fn every_built_in_figure_type_points_at_a_catalogue_object() {
+        let (catalog, _) = EffectCatalog::load();
+        for kind in 0..=6 {
+            let mapping = crate::exo_mapping::figure_mapping(kind);
+            assert!(
+                catalog.find(mapping.object_id).is_some(),
+                "figure type {kind} maps to {}, which is not in the catalogue",
+                mapping.object_id
+            );
+            assert!(mapping.sides >= 3, "figure type {kind} is not a polygon");
+        }
+        // The stored value is zero-based, in the order the 図形 dialog lists the types.
+        assert_eq!(crate::exo_mapping::figure_mapping(0).object_id, "rect");
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(1).sides,
+            64,
+            "円 is the dense polygon"
+        );
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(2).object_id,
+            "rect",
+            "四角形 is the rectangle"
+        );
+        assert_eq!(crate::exo_mapping::figure_mapping(3).sides, 3);
+        assert_eq!(crate::exo_mapping::figure_mapping(4).sides, 5);
+        assert_eq!(crate::exo_mapping::figure_mapping(5).sides, 6);
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(6).shape_type,
+            Some("star")
+        );
+        // A value the file should never hold still has to resolve to something drawable
+        // rather than panicking on the import path.
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(99).object_id,
+            crate::exo_mapping::figure_mapping(0).object_id
+        );
+    }
+
+    #[test]
+    fn report_details_list_notes_and_cap_the_rest() {
+        let report = ImportReport {
+            objects: 3,
+            translated: 2,
+            placeholders: 1,
+            notes: vec![
+                "动画效果: preserved".to_owned(),
+                "自定义物件: preserved".to_owned(),
+                "图形: preserved".to_owned(),
+            ],
+        };
+        let details = report.details(2);
+        assert!(details.starts_with(&report.summary()));
+        assert!(details.contains("动画效果"));
+        assert!(details.contains("自定义物件"));
+        assert!(!details.contains("图形: preserved"));
+        assert!(details.contains("… and 1 more"));
+
+        let clean = ImportReport {
+            objects: 1,
+            translated: 1,
+            ..ImportReport::default()
+        };
+        assert_eq!(clean.details(5), clean.summary());
+    }
+
+    #[test]
+    fn a_plain_text_keeps_no_outline_and_its_alignment() {
+        // Every text object carries `color2`; only the 縁取り文字 styles draw it. ExEdit also
+        // numbers 文字揃え from zero, so 0/1/2 are left/centre/right on the first row and 3/4/5
+        // the same three centred vertically.
+        let (catalog, _) = EffectCatalog::load();
+        let text_body = |decoration: i32, align: i32| {
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(
+                b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\n\
+                  length=60\r\naudio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\n\
+                  end=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+            );
+            bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+            bytes.extend_from_slice(
+                format!(
+                    "\r\ntext=4100\r\ncolor=ffffff\r\ncolor2=000000\r\ntype={decoration}\r\n\
+                     align={align}\r\n"
+                )
+                .as_bytes(),
+            );
+            let file = ExoFile::parse(&bytes).expect("text object file");
+            plan_import(
+                &file,
+                &scene(),
+                &empty_project(),
+                &catalog,
+                1,
+                ImportPlacement::default(),
+            )
+            .clips[0]
+                .effects[0]
+                .params
+                .clone()
+        };
+
+        assert_eq!(text_body(0, 0)["outlineEnabled"], Value::Bool(false));
+        assert_eq!(text_body(0, 0)["alignment"], Value::from(1), "0 is left");
+        assert_eq!(text_body(3, 1)["outlineEnabled"], Value::Bool(true));
+        assert_eq!(text_body(4, 1)["alignment"], Value::from(4), "1 is centre");
+        assert_eq!(text_body(0, 2)["alignment"], Value::from(2), "2 is right");
+        assert_eq!(text_body(0, 4)["alignment"], Value::from(4), "4 is centre");
+        assert_eq!(
+            text_body(0, 12)["alignment"],
+            Value::from(4),
+            "12 is 縦書き, which keeps the default"
+        );
+    }
+
+    #[test]
+    fn transparency_arrives_as_opacity() {
+        // ExEdit writes 透明度 with 0 opaque and 100 invisible; our transform takes `opacity`
+        // with 1 opaque. Read straight across, a stock object (透明度=0.0) came in fully
+        // transparent, so an imported project previewed black and anything the author had
+        // faded out arrived solid.
+        let (catalog, _) = EffectCatalog::load();
+        let opacity_for = |transparency: &str| {
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(
+                b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\n\
+                  length=60\r\naudio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\n\
+                  end=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+            );
+            bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+            bytes.extend_from_slice(b"\r\ntext=4100\r\n[0.1]\r\n_name=");
+            bytes.extend_from_slice(&[0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4]); // 标准属性
+            bytes.extend_from_slice(b"\r\n");
+            bytes.extend_from_slice(&[0xcd, 0xb8, 0xc3, 0xf7, 0xb6, 0xc8]); // 透明度
+            bytes.extend_from_slice(format!("={transparency}\r\n").as_bytes());
+            let file = ExoFile::parse(&bytes).expect("object file");
+            let outcome = plan_import(
+                &file,
+                &scene(),
+                &empty_project(),
+                &catalog,
+                1,
+                ImportPlacement::default(),
+            );
+            outcome.clips[0].effects[0].params["opacity"].clone()
+        };
+        assert_eq!(opacity_for("0.0"), Value::from(1.0), "opaque stays visible");
+        assert_eq!(
+            opacity_for("100.0"),
+            Value::from(0.0),
+            "invisible stays hidden"
+        );
+        assert_eq!(opacity_for("20.0"), Value::from(0.8));
+    }
+
+    #[test]
+    fn both_spellings_of_the_drawing_filter_resolve_to_the_transform() {
+        let (catalog, _) = EffectCatalog::load();
+        // 標準描画 is what stock ExEdit writes; the CN pack writes 标准属性. A file from
+        // either pack has to produce the same effect.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+        bytes.extend_from_slice(b"\r\ntext=4100\r\n[0.1]\r\n_name=");
+        // 標準描画 in GBK
+        bytes.extend_from_slice(&[0x98, 0xcb, 0x9c, 0xca, 0xc3, 0xe8, 0xbb, 0xad]);
+        bytes.extend_from_slice(b"\r\nX=10.0\r\nY=20.0\r\n");
+        let file = ExoFile::parse(&bytes).expect("file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+
+        assert_eq!(outcome.clips[0].effects[0].id, "transform");
+        assert_eq!(
+            outcome.clips[0].effects[0].params["x"],
+            Value::from(10.0),
+            "the drawn position comes through the transform"
+        );
+    }
+
+    #[test]
+    fn a_preserved_script_names_the_file_it_needs() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
+        let note = outcome
+            .report
+            .notes
+            .iter()
+            .find(|note| note.contains("自定义物件"))
+            .expect("the script object is noted");
+        assert!(
+            note.contains("uf_easing"),
+            "the note has to name the script: {note}"
+        );
+        // A filter with no script identifier keeps the plain wording.
+        let plain = placeholder_note("图形", None);
+        assert!(plain.contains("no AviQtl-Plus equivalent"));
+        assert!(!plain.contains("needs the ExEdit script"));
+    }
+
+    #[test]
+    fn an_unchanged_media_path_keeps_the_original_exdata() {
+        let (catalog, _) = EffectCatalog::load();
+        // A media object whose blob carries a flag before the path, as ExEdit lays it out.
+        let blob: [u8; 12] = [1, 0, 0, 0, b'C', b':', b'\\', b'a', b'.', b'p', b'n', b'g'];
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xcd, 0xbc, 0xc6, 0xac, 0xce, 0xc4, 0xbc, 0xfe]); // 图片文件
+        bytes.extend_from_slice(b"\r\n_exdata=");
+        for byte in blob {
+            bytes.extend_from_slice(format!("{byte:02x}").as_bytes());
+        }
+        bytes.extend_from_slice(b"\r\n[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4]); // 标准属性
+        bytes.extend_from_slice(b"\r\nX=0.0\r\n");
+
+        let file = ExoFile::parse(&bytes).expect("media object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips.len(), 1);
+        let image = outcome.clips[0]
+            .effects
+            .iter()
+            .find(|effect| effect.id == "image")
+            .expect("the image object translated");
+        assert_eq!(image.params["path"], Value::from("C:\\a.png"));
+        // The blob itself is kept on the effect: it is the only record of what the file
+        // carried, and the path extracted from it is what the clip actually uses.
+        let kept = image.params["exoExdata"]
+            .as_str()
+            .expect("the source blob is preserved");
+        assert_eq!(
+            kept,
+            blob.iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+            "the original blob is kept byte for byte"
+        );
+    }
+
+    #[test]
+    fn a_shift_jis_file_is_read_in_its_own_code_page() {
+        let (catalog, _) = EffectCatalog::load();
+        // A stock Japanese install: Shift-JIS テキスト and 標準描画.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0x83, 0x65, 0x83, 0x4c, 0x83, 0x58, 0x83, 0x67]); // テキスト
+        bytes.extend_from_slice(b"\r\ntext=4100\r\n[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0x95, 0x57, 0x8f, 0x80, 0x95, 0x60, 0x89, 0xe6]); // 標準描画
+        bytes.extend_from_slice(b"\r\nX=10.0\r\n");
+        let file = ExoFile::parse(&bytes).expect("shift-jis object file");
+        assert_eq!(file.encoding, aviqtl_rust_core::exo::TextEncoding::ShiftJis);
+
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips.len(), 1);
+        // Both Japanese names resolved, which is the point: the reader decoded the file with
+        // the code page it was written in, so neither fell back to a placeholder.
+        assert_eq!(outcome.clips[0].effects[0].id, "transform");
+        assert_eq!(outcome.clips[0].effects[1].id, "text");
+
+        let body = outcome.clips[0]
+            .effects
+            .iter()
+            .find(|effect| effect.id == "text")
+            .expect("the text object translated");
+        assert_eq!(body.params["text"], Value::from("A"));
+    }
+
+    #[test]
+    fn stock_japanese_media_object_names_translate() {
+        let (catalog, _) = EffectCatalog::load();
+        // Stock ExEdit names the media objects 動画ファイル, 画像ファイル, and 音声ファイル.
+        // Reading them as unknown turned every media object of a real project into a
+        // disabled placeholder, so the file link never reached the clip.
+        let blob: [u8; 9] = [b'C', b':', b'\\', b'a', b'.', b'p', b'n', b'g', 0];
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        for (index, name) in [
+            &[
+                0x93u8, 0xae, 0x89, 0xe6, 0x83, 0x74, 0x83, 0x40, 0x83, 0x43, 0x83, 0x8b,
+            ][..],
+            &[
+                0x89, 0xe6, 0x91, 0x9c, 0x83, 0x74, 0x83, 0x40, 0x83, 0x43, 0x83, 0x8b,
+            ],
+            &[
+                0x89, 0xb9, 0x90, 0xba, 0x83, 0x74, 0x83, 0x40, 0x83, 0x43, 0x83, 0x8b,
+            ],
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            bytes.extend_from_slice(
+                format!(
+                    "[{index}]\r\nstart=1\r\nend=10\r\nlayer={}\r\n[{index}.0]\r\n_name=",
+                    index + 1
+                )
+                .as_bytes(),
+            );
+            bytes.extend_from_slice(name);
+            bytes.extend_from_slice(b"\r\n_exdata=");
+            for byte in blob {
+                bytes.extend_from_slice(format!("{byte:02x}").as_bytes());
+            }
+            bytes.extend_from_slice(b"\r\n");
+        }
+
+        let file = ExoFile::parse(&bytes).expect("stock japanese object file");
+        assert_eq!(file.encoding, aviqtl_rust_core::exo::TextEncoding::ShiftJis);
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips.len(), 3);
+        for (clip, expected) in outcome.clips.iter().zip(["video", "image", "audio"]) {
+            assert_eq!(clip.clip_type, expected, "the media object translated");
+            let effect = clip
+                .effects
+                .iter()
+                .find(|effect| effect.id == expected)
+                .unwrap_or_else(|| panic!("{expected} effect translated"));
+            let key = if expected == "audio" {
+                "source"
+            } else {
+                "path"
+            };
+            assert_eq!(effect.params[key], Value::from("C:\\a.png"));
+        }
+        assert_eq!(
+            outcome.report.placeholders, 0,
+            "nothing had to be preserved"
+        );
+    }
+
+    #[test]
+    fn preserves_script_objects_as_disabled_placeholders() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
+        let script = &outcome.clips[1];
+        assert_eq!(script.clip_type, "exo.自定义物件");
+        // The script object has no drawing filter, so it stays a two-effect clip: only the
+        // object placeholder, with no transform invented for it.
+        assert_eq!(script.effects.len(), 1);
+        let placeholder = &script.effects[0];
+        assert_eq!(placeholder.id, PLACEHOLDER_ID);
+        assert!(!placeholder.enabled);
+        assert_eq!(placeholder.params["exoScript"], Value::from("uf_easing"));
+        assert_eq!(
+            placeholder.params["exoScriptParameter"],
+            Value::from("local P_VIEW=1;")
+        );
+        assert_eq!(
+            placeholder.params["exoTracks"]["track0"],
+            Value::from("0.00")
+        );
+        assert_eq!(placeholder.params["exoChecks"]["check0"], Value::from("1"));
+        assert_eq!(outcome.report.placeholders, 1);
+    }
+
+    #[test]
+    fn applies_the_requested_frame_and_layer_offset() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let placement = ImportPlacement {
+            frame_offset: 25,
+            layer_offset: 4,
+            maximum_layers: 8,
+        };
+        let outcome = plan_import(&file, &scene(), &empty_project(), &catalog, 1, placement);
+        assert_eq!(outcome.clips[0].start, 35);
+        assert_eq!(outcome.clips[0].layer, 6);
+        assert_eq!(outcome.clips[1].layer, 4);
+    }
+
+    /// The sample file's first object sits on layer 3 (0-based 2) from frame 10 to 40.
+    #[test]
+    fn an_import_that_would_land_on_an_existing_object_moves_forward() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut project = empty_project();
+        project.clips.push(ClipDocument {
+            id: 900,
+            scene_id: project.scenes[0].id,
+            clip_type: "text".to_owned(),
+            start: 0,
+            duration: 25,
+            layer: 2,
+            clip_by_upper_object: false,
+            params: Map::new(),
+            audio_plugins: Vec::new(),
+            effects: Vec::new(),
+            extra: Default::default(),
+        });
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &project,
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
+
+        // The obstacle ends at frame 25, so the block moves 15 frames: the text object starts
+        // at 10 and has to clear frame 25.
+        assert_eq!(outcome.clips[0].start, 25);
+        assert_eq!(
+            outcome.clips[1].start, 15,
+            "the whole file keeps its internal layout"
+        );
+        assert!(
+            outcome
+                .report
+                .notes
+                .iter()
+                .any(|note| note.contains("moved")),
+            "{:?}",
+            outcome.report.notes
+        );
+    }
+
+    #[test]
+    fn an_import_onto_free_space_does_not_move() {
+        let (catalog, _) = EffectCatalog::load();
+        let file = ExoFile::parse(&sample()).expect("sample object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            10,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips[0].start, 10);
+        assert!(
+            !outcome
+                .report
+                .notes
+                .iter()
+                .any(|note| note.contains("moved")),
+            "{:?}",
+            outcome.report.notes
+        );
+    }
+}

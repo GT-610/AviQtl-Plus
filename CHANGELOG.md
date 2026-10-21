@@ -2,6 +2,30 @@
 
 All notable changes to AviQtl-Plus are documented in this file.
 
+## [Unreleased]
+
+### Added
+- A block of clips can be saved as a fragment (`.aviqtlfrag`) and inserted into
+  another scene or project; the format keeps every clip, effect, and parameter
+  exactly as this build stores them, so nothing is translated or dropped, and an
+  insert that would land on existing objects moves forward instead of overlapping
+- AviUtl ExEdit object files (`.exo`) can be imported into the current scene,
+  dropped onto the timeline at the pointer, or used to start a new project whose
+  settings come from the file. They are read only: writing one would have to drop
+  whatever AviUtl cannot express, so fragments are the way work is saved
+- The import covers text, image, video, audio, the drawing/transform filter, the
+  built-in figure types, and the built-in effects whose parameter meanings are
+  confirmed
+- Object files are decoded in the code page they were written in, so a file from
+  a Chinese pack and one from stock Japanese ExEdit both read correctly
+- An import reports what it translated and what it preserved, and a preserved
+  script-backed effect names the script it needs
+- Importing an object file that would land on occupied frames moves the whole
+  block forward and reports it, instead of leaving two objects sharing a layer
+  and a frame
+- Unmapped ExEdit objects and filters are imported as disabled placeholders that
+  keep their names, script parameters, track values, and binary data
+
 ## [0.6.2] - 2026-09-05
 
 ### Added

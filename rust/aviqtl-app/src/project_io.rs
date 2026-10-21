@@ -99,6 +99,15 @@ impl ProjectSession {
     }
 
     pub fn from_json(input: &[u8]) -> Result<Self, String> {
+        // A fragment is a block of clips, not a project: it has no scenes, so reading one as
+        // a project would open an empty timeline and hide the work it holds.
+        if crate::fragment::is_fragment_document(input) {
+            return Err(
+                "This is a fragment, not a project. Use File \u{2192} Insert Fragment to add \
+                 its clips to a project."
+                    .to_owned(),
+            );
+        }
         let state = TimelineState::from_json(input).map_err(|error| error.to_string())?;
         let document = state.snapshot();
         Ok(Self {
@@ -191,6 +200,29 @@ mod tests {
     use super::*;
     use aviqtl_rust_core::api::TimelineCommand;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn a_fragment_is_refused_as_a_project_and_says_what_to_do() {
+        // A fragment has clips but no scenes, so opening one as a project would produce an
+        // empty timeline and hide everything the file holds.
+        let fragment = crate::fragment::FragmentDocument::new(
+            &ProjectSession::blank().document,
+            &ProjectSession::blank().document.scenes[0],
+            Vec::new(),
+        );
+        let bytes = fragment.to_bytes().expect("fragment serializes");
+        let message = match ProjectSession::from_json(&bytes) {
+            Ok(_) => panic!("a fragment is not a project"),
+            Err(message) => message,
+        };
+        assert!(message.contains("fragment"), "{message}");
+        assert!(message.contains("Insert Fragment"), "{message}");
+
+        // A real project still opens.
+        let project = ProjectSession::blank();
+        let bytes = project.snapshot_bytes().expect("project serializes");
+        assert!(ProjectSession::from_json(&bytes).is_ok());
+    }
 
     #[test]
     fn concurrent_saves_publish_complete_files_and_remove_temporary_files() {

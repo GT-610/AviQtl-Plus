@@ -226,6 +226,57 @@ pub(super) fn choose_project_to_open() -> Option<PathBuf> {
     project_file_dialog().pick_file()
 }
 
+/// Picks an AviUtl ExEdit object file to import.
+pub(super) fn choose_exo_object_to_import() -> Option<PathBuf> {
+    rfd::FileDialog::new()
+        .set_title(localized(
+            "Import an AviUtl object file",
+            "导入 AviUtl 物件文件",
+            "AviUtl オブジェクトファイルを読み込む",
+        ))
+        .add_filter("AviUtl ExEdit object files", &["exo"])
+        .add_filter("All Files", &["*"])
+        .pick_file()
+}
+
+/// Picks a fragment file to insert.
+pub(super) fn choose_fragment_to_import() -> Option<PathBuf> {
+    rfd::FileDialog::new()
+        .set_title(localized(
+            "Insert a fragment",
+            "插入片段",
+            "フラグメントを挿入",
+        ))
+        .add_filter("AviQtl Plus fragments", &["aviqtlfrag"])
+        .add_filter("All Files", &["*"])
+        .pick_file()
+}
+
+/// Picks where to write a fragment.
+pub(super) fn choose_fragment_save_path(suggested_path: &Path) -> Option<PathBuf> {
+    let mut dialog = rfd::FileDialog::new()
+        .set_title(localized(
+            "Export a fragment",
+            "导出片段",
+            "フラグメントを書き出す",
+        ))
+        .add_filter("AviQtl Plus fragments", &["aviqtlfrag"]);
+    if let Some(file_name) = suggested_path.file_name() {
+        dialog = dialog.set_file_name(file_name.to_string_lossy().into_owned());
+    }
+    if let Some(parent) = suggested_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        dialog = dialog.set_directory(parent);
+    }
+    let mut path = dialog.save_file()?;
+    if path.extension().is_none() {
+        path.set_extension("aviqtlfrag");
+    }
+    Some(path)
+}
+
 pub(super) fn choose_project_save_path(suggested_path: &Path) -> Option<PathBuf> {
     let mut dialog = project_file_dialog();
     if let Some(file_name) = suggested_path.file_name() {
@@ -493,6 +544,16 @@ pub(super) fn show_error_dialog(message: &str) {
     let _ = rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
         .set_title("AviQtl Plus")
+        .set_description(message)
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
+}
+
+/// Shows an informational dialog, used for reports the user may want to read.
+pub(super) fn show_info_dialog(title: &str, message: &str) {
+    let _ = rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Info)
+        .set_title(title)
         .set_description(message)
         .set_buttons(rfd::MessageButtons::Ok)
         .show();
