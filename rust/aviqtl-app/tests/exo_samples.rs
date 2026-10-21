@@ -10,8 +10,8 @@
 //! `exedit.auf`) and run:
 //!
 //! ```sh
-//! AVIUTL_SAMPLES=/path/to/AviUtl_CN set
-//! cargo test -p aviqtl-app --test exo_samples -- --ignored --nocapture
+//! AVIUTL_SAMPLES=/path/to/AviUtl_CN \
+//!     cargo test -p aviqtl-app --test exo_samples -- --ignored --nocapture
 //! ```
 
 use aviqtl_app::effect_catalog::EffectCatalog;
