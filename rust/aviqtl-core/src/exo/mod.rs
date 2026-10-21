@@ -237,15 +237,17 @@ impl ExoFilter {
     }
 
     /// A hex-encoded binary payload (`_exdata`, or a text object's `text`).
+    ///
+    /// Anything that is not an even run of hex digits is rejected rather than sliced apart.
+    /// The value is read from the file, so a hand-edited one can hold a multi-byte character
+    /// where a byte pair was expected; cutting a character in half used to panic the import.
     pub fn hex_payload(&self, key: &str) -> Option<Vec<u8>> {
         let value = self.value(key)?.trim();
-        if value.len() % 2 != 0 {
+        let digits = value.as_bytes();
+        if digits.len() % 2 != 0 {
             return None;
         }
-        (0..value.len())
-            .step_by(2)
-            .map(|index| u8::from_str_radix(&value[index..index + 2], 16).ok())
-            .collect()
+        digits.chunks_exact(2).map(hex_byte).collect()
     }
 
     /// The object's text content, which ExEdit stores as hex-encoded UTF-16LE.
@@ -287,6 +289,20 @@ pub struct ExoFile {
     pub encoding: TextEncoding,
     pub header: ExoHeader,
     pub objects: Vec<ExoObject>,
+}
+
+/// One byte written as two hex digits, or `None` when the pair is not hex.
+fn hex_byte(pair: &[u8]) -> Option<u8> {
+    Some(hex_digit(pair[0])? << 4 | hex_digit(pair[1])?)
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
 }
 
 impl ExoFile {
@@ -610,6 +626,24 @@ mod tests {
         bytes.extend_from_slice(b"check0=100\r\ntype=0\r\nfilter=2\r\nname=uf_easing\r\n");
         bytes.extend_from_slice(b"param=local P_VIEW=1;\r\n");
         bytes
+    }
+
+    #[test]
+    fn a_non_hex_payload_is_refused_instead_of_sliced() {
+        // `_exdata=ああ` is six bytes, so the old length check passed and the pair slicing
+        // cut a three-byte character in half. A hand-edited file could crash the import.
+        let filter = ExoFilter::new([
+            ("_name".to_owned(), "テキスト".to_owned()),
+            ("_exdata".to_owned(), "ああ".to_owned()),
+            ("text".to_owned(), "4100zz4100".to_owned()),
+        ]);
+        assert_eq!(filter.hex_payload("_exdata"), None);
+        assert_eq!(filter.hex_payload("text"), None);
+        assert_eq!(filter.utf16_text("text"), None);
+
+        let good = ExoFilter::new([("text".to_owned(), "41004200".to_owned())]);
+        assert_eq!(good.hex_payload("text"), Some(vec![0x41, 0x00, 0x42, 0x00]));
+        assert_eq!(good.utf16_text("text").as_deref(), Some("AB"));
     }
 
     #[test]
