@@ -74,6 +74,22 @@ const fn track(keys: &'static [&'static str], param: &'static str, scale: f64) -
     }
 }
 
+/// ExEdit's 透明度 runs the other way round from our `opacity`: there, 0 is opaque and 100 is
+/// invisible, while here 1 is opaque. The negative scale flips the direction and the offset
+/// puts full opacity at zero, so a stock object — written with 透明度=0.0 — arrives visible.
+///
+/// Reading it the other way made every imported object fully transparent, which is why a
+/// freshly imported project previewed black, and made an object the author had faded out
+/// arrive opaque.
+const fn transparency_track(keys: &'static [&'static str], param: &'static str) -> TrackMapping {
+    TrackMapping {
+        keys,
+        param,
+        scale: -0.01,
+        offset: 1.0,
+    }
+}
+
 /// The drawing/transform filter. ExEdit stores it last in every object that has effects.
 pub const DRAWING_ALIASES: &[&str] = &[
     // The CN pack calls it 标准属性, stock ExEdit 標準描画; both ship in the wild.
@@ -91,7 +107,7 @@ pub const DRAWING_TRACKS: &[TrackMapping] = &[
     track(&["Y", "y", "track1"], "y", 1.0),
     track(&["Z", "z", "track2"], "z", 1.0),
     track(&["缩放率", "拡大率", "scale", "track3"], "scale", 1.0),
-    track(&["透明度", "opacity", "track4"], "opacity", 0.01),
+    transparency_track(&["透明度", "opacity", "track4"], "opacity"),
     track(
         &["旋转", "回転", "rotation", "rotationZ", "track5"],
         "rotationZ",
@@ -142,7 +158,10 @@ pub const OBJECTS: &[ObjectMapping] = &[
         object_id: "image",
         // Stock ExEdit names the object 画像ファイル; the CN pack calls it 图片文件.
         aliases: &["图像", "图片文件", "画像", "画像ファイル", "Image", "image"],
-        tracks: &[track(&["透明度", "opacity", "track0"], "opacity", 0.01)],
+        tracks: &[transparency_track(
+            &["透明度", "opacity", "track0"],
+            "opacity",
+        )],
         colors: &[],
         integers: &[],
         flags: &[],
@@ -152,7 +171,7 @@ pub const OBJECTS: &[ObjectMapping] = &[
         object_id: "video",
         // Stock ExEdit names the object 動画ファイル; the CN pack calls it 视频文件.
         aliases: &["视频", "视频文件", "動画", "動画ファイル", "Video", "video"],
-        tracks: &[track(&["透明度", "opacity"], "opacity", 0.01)],
+        tracks: &[transparency_track(&["透明度", "opacity"], "opacity")],
         colors: &[],
         integers: &[],
         flags: &[],

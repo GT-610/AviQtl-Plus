@@ -1019,7 +1019,8 @@ mod tests {
         let transform = &text.effects[0].params;
         assert_eq!(transform["y"], Value::from(-50.0));
         assert_eq!(transform["scale"], Value::from(150.0));
-        assert_eq!(transform["opacity"], Value::from(0.2));
+        // ExEdit's 透明度=20.0 means a fifth of the way towards invisible.
+        assert_eq!(transform["opacity"], Value::from(0.8));
         assert_eq!(transform["blendMode"], Value::from("乗算"));
 
         // The trackbar range becomes a keyframe track whose end value is 300.
@@ -1112,6 +1113,46 @@ mod tests {
             ..ImportReport::default()
         };
         assert_eq!(clean.details(5), clean.summary());
+    }
+
+    #[test]
+    fn transparency_arrives_as_opacity() {
+        // ExEdit writes 透明度 with 0 opaque and 100 invisible; our transform takes `opacity`
+        // with 1 opaque. Read straight across, a stock object (透明度=0.0) came in fully
+        // transparent, so an imported project previewed black and anything the author had
+        // faded out arrived solid.
+        let (catalog, _) = EffectCatalog::load();
+        let opacity_for = |transparency: &str| {
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(
+                b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\n\
+                  length=60\r\naudio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\n\
+                  end=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+            );
+            bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+            bytes.extend_from_slice(b"\r\ntext=4100\r\n[0.1]\r\n_name=");
+            bytes.extend_from_slice(&[0xb1, 0xea, 0xd7, 0xbc, 0xca, 0xf4, 0xd0, 0xd4]); // 标准属性
+            bytes.extend_from_slice(b"\r\n");
+            bytes.extend_from_slice(&[0xcd, 0xb8, 0xc3, 0xf7, 0xb6, 0xc8]); // 透明度
+            bytes.extend_from_slice(format!("={transparency}\r\n").as_bytes());
+            let file = ExoFile::parse(&bytes).expect("object file");
+            let outcome = plan_import(
+                &file,
+                &scene(),
+                &empty_project(),
+                &catalog,
+                1,
+                ImportPlacement::default(),
+            );
+            outcome.clips[0].effects[0].params["opacity"].clone()
+        };
+        assert_eq!(opacity_for("0.0"), Value::from(1.0), "opaque stays visible");
+        assert_eq!(
+            opacity_for("100.0"),
+            Value::from(0.0),
+            "invisible stays hidden"
+        );
+        assert_eq!(opacity_for("20.0"), Value::from(0.8));
     }
 
     #[test]
