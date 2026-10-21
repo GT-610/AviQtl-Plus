@@ -182,7 +182,8 @@ pub const OBJECTS: &[ObjectMapping] = &[
         // Stock ExEdit names the object 音声ファイル; the CN pack calls it 音频文件.
         aliases: &["音频", "音频文件", "音声", "音声ファイル", "Audio", "audio"],
         tracks: &[
-            track(&["音量", "volume"], "volume", 0.001),
+            // ExEdit stores 音量 as a percentage: 100.0 is unity gain, which is our 1.0.
+            track(&["音量", "volume"], "volume", 0.01),
             track(&["左右", "pan", "声道"], "pan", 0.01),
         ],
         colors: &[],
@@ -362,11 +363,14 @@ pub const FILTERS: &[FilterMapping] = &[
         effect_id: "color_correction",
         aliases: &["色调修正", "色調補正", "Color correction"],
         tracks: &[
-            track(&["亮度", "輝度", "brightness"], "brightness", 0.001),
-            track(&["对比度", "コントラスト", "contrast"], "contrast", 0.001),
+            // Both sides store these as percentages against 100, so the values carry over
+            // unchanged. The Japanese names were on the wrong pair: 明るさ is brightness and
+            // 輝度 is lightness, the same way the CN pack's 亮度 and 发光度 divide them.
+            track(&["亮度", "明るさ", "brightness"], "brightness", 1.0),
+            track(&["对比度", "コントラスト", "contrast"], "contrast", 1.0),
             track(&["色相", "色相", "hue"], "hue", 1.0),
-            track(&["发光度", "明るさ", "lightness"], "lightness", 0.001),
-            track(&["色度", "彩度", "saturation"], "saturation", 0.001),
+            track(&["发光度", "輝度", "lightness"], "lightness", 1.0),
+            track(&["色度", "彩度", "saturation"], "saturation", 1.0),
         ],
         colors: &[],
         integers: &[],
