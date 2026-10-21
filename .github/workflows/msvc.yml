@@ -13,17 +13,6 @@ on:
       - "vcpkg.json"
       - "vcpkg-configuration.json"
       - "ports/**"
-  pull_request:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/msvc.yml"
-      - "BUILD.py"
-      - "tests/test_build_version.py"
-      - "rust/**"
-      - "rust-toolchain.toml"
-      - "vcpkg.json"
-      - "vcpkg-configuration.json"
-      - "ports/**"
 
 permissions:
   contents: read
