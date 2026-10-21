@@ -2682,10 +2682,28 @@ impl WorkspaceModel {
             );
             return None;
         }
+        if let Some(layer) = crate::fragment::overlapping_layer(&outcome.clips) {
+            // The same folding a fragment can suffer: a file authored on more layers than this
+            // scene has puts two of its objects on one layer and one frame.
+            self.status =
+                Self::layer_overflow_status("object file", placement.maximum_layers, layer);
+            return None;
+        }
         let summary = outcome.report.summary();
         let next = self.insert_imported_clips(&scene, outcome.clips, summary)?;
         self.last_import_report = Some(outcome.report);
         Some(next)
+    }
+
+    /// The message shown when an import does not fit the scene's layer stack.
+    ///
+    /// `layer` is zero-based, as clips store it; the message speaks to the user, so it is one-based.
+    fn layer_overflow_status(subject: &str, maximum_layers: i32, layer: i32) -> String {
+        format!(
+            "The {subject} uses more layers than this scene has ({}), so its clips would overlap on layer {}. Raise the layer count and try again.",
+            maximum_layers.clamp(1, 512),
+            layer.saturating_add(1)
+        )
     }
 
     /// Inserts a block of clips that came from outside the project as one undoable edit.
@@ -2812,11 +2830,7 @@ impl WorkspaceModel {
             // Clamping the fragment's layers onto this scene folds clips onto one another.
             // Importing that would put two objects on a layer and a frame, which the timeline
             // cannot show and the renderer would resolve by stacking order.
-            self.status = format!(
-                "The fragment uses more layers than this scene has ({}), so its clips would                  overlap on layer {}. Raise the layer count and try again.",
-                placement.maximum_layers.clamp(1, 512),
-                layer.saturating_add(1)
-            );
+            self.status = Self::layer_overflow_status("fragment", placement.maximum_layers, layer);
             return None;
         }
         let summary = report.summary();
@@ -4346,6 +4360,52 @@ mod tests {
             workspace.take_import_report().is_none(),
             "the report is handed over once, so a second sync cannot show it again"
         );
+    }
+
+    #[test]
+    fn an_object_file_that_folds_onto_too_few_layers_is_refused() {
+        // Two objects on layers 4 and 5, both covering frames 1..=16. A three-layer scene
+        // clamps both onto layer 2, which cannot hold two objects on the same frames.
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace();
+        let before = workspace.document().clips.len();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1920\r\nheight=1080\r\nrate=60\r\nscale=100\r\nlength=300\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        for layer in [4, 5] {
+            bytes.extend_from_slice(
+                format!("[{}]\r\nstart=1\r\nend=16\r\nlayer={layer}\r\n", layer - 4).as_bytes(),
+            );
+            bytes.extend_from_slice(b"[");
+            bytes.extend_from_slice(format!("{}.0", layer - 4).as_bytes());
+            bytes.extend_from_slice(b"]\r\n_name=");
+            bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+            bytes.extend_from_slice(b"\r\ntext=4100\r\ncolor=ffffff\r\n");
+        }
+        let file = aviqtl_rust_core::exo::ExoFile::parse(&bytes).expect("fixture parses");
+
+        assert!(
+            workspace
+                .import_exo_object_file(
+                    &file,
+                    crate::exo_import::ImportPlacement {
+                        frame_offset: 0,
+                        layer_offset: 0,
+                        maximum_layers: 3,
+                    },
+                    &catalog,
+                )
+                .is_none(),
+            "the import is refused rather than writing overlapping clips"
+        );
+        assert_eq!(workspace.document().clips.len(), before);
+        assert_eq!(
+            workspace.status,
+            "The object file uses more layers than this scene has (3), so its clips would overlap on layer 3. Raise the layer count and try again."
+        );
+        assert!(workspace.take_import_report().is_none());
     }
 
     fn workspace_with_effects() -> WorkspaceModel {
