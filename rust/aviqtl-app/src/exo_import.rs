@@ -18,7 +18,7 @@ use crate::exo_mapping::{
 use aviqtl_rust_core::api::{
     ClipDocument, EffectDocument, EffectMetadata, ProjectDocument, SceneDocument,
 };
-use aviqtl_rust_core::exo::{ExoFile, ExoFilter, ExoObject, TrackValue};
+use aviqtl_rust_core::exo::{ExoFile, ExoFilter, ExoObject, TextEncoding, TrackValue};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
@@ -160,8 +160,14 @@ pub fn plan_import(
             placement,
             maximum_layer,
         };
-        let Some(clip) = translate_object(object, scene, catalog, target, &mut outcome.report)
-        else {
+        let Some(clip) = translate_object(
+            object,
+            scene,
+            catalog,
+            target,
+            file.encoding,
+            &mut outcome.report,
+        ) else {
             continue;
         };
         outcome.report.objects += 1;
@@ -195,6 +201,7 @@ fn translate_object(
     scene: &SceneDocument,
     catalog: &EffectCatalog,
     target: ObjectTarget,
+    encoding: TextEncoding,
     report: &mut ImportReport,
 ) -> Option<ClipDocument> {
     let ObjectTarget {
@@ -229,20 +236,22 @@ fn translate_object(
             (clip_type, effect)
         }
         None => match object_mapping(display) {
-            Some(mapping) => match build_object_effect(object_filter, mapping, catalog, duration) {
-                Some(effect) => {
-                    report.translated += 1;
-                    (mapping.object_id.to_owned(), effect)
+            Some(mapping) => {
+                match build_object_effect(object_filter, mapping, catalog, duration, encoding) {
+                    Some(effect) => {
+                        report.translated += 1;
+                        (mapping.object_id.to_owned(), effect)
+                    }
+                    None => {
+                        report.placeholders += 1;
+                        report.notes.push(format!(
+                            "{display}: the {} object is not available",
+                            mapping.object_id
+                        ));
+                        (placeholder_type(display), placeholder_effect(object_filter))
+                    }
                 }
-                None => {
-                    report.placeholders += 1;
-                    report.notes.push(format!(
-                        "{display}: the {} object is not available",
-                        mapping.object_id
-                    ));
-                    (placeholder_type(display), placeholder_effect(object_filter))
-                }
-            },
+            }
             None => {
                 report.placeholders += 1;
                 report
@@ -401,7 +410,9 @@ fn figure_shape(
             );
         }
     }
-    // An animated 大小 drives both extents, so it becomes a keyframe track on the width.
+    // An animated 大小 drives both extents, so it becomes a keyframe track on the width. The
+    // end point belongs on the clip's last frame: normalization drops anything at frame 0.
+    let last_frame = duration.saturating_sub(1).max(1);
     if let Some(end) = size_track.end
         && (end - size).abs() > f64::EPSILON
     {
@@ -462,6 +473,7 @@ fn build_object_effect(
     mapping: &ObjectMapping,
     catalog: &EffectCatalog,
     duration: i32,
+    encoding: TextEncoding,
 ) -> Option<EffectDocument> {
     let metadata = catalog.find(mapping.object_id)?;
     let mut effect = catalog_effect(catalog, mapping.object_id)?;
@@ -505,7 +517,7 @@ fn build_object_effect(
     if mapping.media_path {
         match filter
             .hex_payload("_exdata")
-            .and_then(|blob| extract_media_path(&blob))
+            .and_then(|blob| extract_media_path(&blob, encoding))
         {
             Some(path) => {
                 let key = if mapping.object_id == "audio" {
@@ -879,7 +891,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 /// objects the referenced file name is one of the NUL-terminated strings inside it. Rather
 /// than hard-coding an offset that differs per ExEdit build, this scans the blob for
 /// NUL-terminated runs that end in a known media extension and keeps the longest one.
-pub fn extract_media_path(blob: &[u8]) -> Option<String> {
+pub fn extract_media_path(blob: &[u8], encoding: TextEncoding) -> Option<String> {
     let mut best: Option<&[u8]> = None;
     for segment in blob.split(|byte| *byte == 0) {
         let segment = trim_control(segment);
@@ -898,8 +910,11 @@ pub fn extract_media_path(blob: &[u8]) -> Option<String> {
         }
     }
     let segment = best?;
-    let decoded = aviqtl_rust_core::exo::TextEncoding::detect(segment);
-    Some(decoded.decode(segment))
+    // The path belongs to the file being imported, so it is written in the document's code
+    // page. Detecting it again on a handful of bytes gets it wrong whenever the path holds
+    // kanji and no kana — `C:\素材\背景.png` read as GBK — and the clip then points at
+    // media that cannot be found.
+    Some(encoding.decode(segment))
 }
 
 fn trim_control(mut segment: &[u8]) -> &[u8] {
@@ -940,11 +955,29 @@ mod tests {
         blob.push(0);
         blob.extend_from_slice(&[1, 2, 3, 4]);
         assert_eq!(
-            extract_media_path(&blob).as_deref(),
+            extract_media_path(&blob, TextEncoding::Gbk).as_deref(),
             Some("C:\\media\\clip.mp4")
         );
-        assert_eq!(extract_media_path(&[0, 1, 2]), None);
-        assert_eq!(extract_media_path(b"no-extension"), None);
+        assert_eq!(extract_media_path(&[0, 1, 2], TextEncoding::Gbk), None);
+        assert_eq!(extract_media_path(b"no-extension", TextEncoding::Gbk), None);
+    }
+
+    #[test]
+    fn a_media_path_is_read_in_the_document_code_page() {
+        // `C:\素材\背景.png` holds kanji and no kana, so detecting the code page on the path
+        // alone picked GBK and the clip pointed at media nothing could find. The document's
+        // code page is already known by the time the path is read.
+        let mut blob = vec![0u8, 0, 0, 0];
+        blob.extend_from_slice(b"C:\\");
+        blob.extend_from_slice(&[0x91, 0x66, 0x8d, 0xde]); // 素材
+        blob.push(b'\\');
+        blob.extend_from_slice(&[0x94, 0x77, 0x8c, 0x69]); // 背景
+        blob.extend_from_slice(b".png");
+
+        assert_eq!(
+            extract_media_path(&blob, TextEncoding::ShiftJis).as_deref(),
+            Some(r"C:\素材\背景.png")
+        );
     }
 
     #[test]
@@ -955,7 +988,7 @@ mod tests {
         blob.extend_from_slice(b"C:\\media\\long-name.mkv");
         blob.push(0);
         assert_eq!(
-            extract_media_path(&blob).as_deref(),
+            extract_media_path(&blob, TextEncoding::Gbk).as_deref(),
             Some("C:\\media\\long-name.mkv")
         );
     }
