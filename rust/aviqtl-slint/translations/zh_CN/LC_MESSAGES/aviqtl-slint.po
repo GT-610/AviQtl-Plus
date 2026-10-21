@@ -1240,3 +1240,21 @@ msgstr "切换收藏"
 
 msgid "Workspace"
 msgstr "工作区"
+
+msgid "BPM:"
+msgstr "BPM:"
+
+msgid "FPS:"
+msgstr "帧率:"
+
+msgid "Image format"
+msgstr "图片格式"
+
+msgid "Resize clip end"
+msgstr "调整片段终点"
+
+msgid "Resize clip start"
+msgstr "调整片段起点"
+
+msgid "CRF:"
+msgstr "CRF:"

@@ -194,7 +194,9 @@ export component MainWindow inherits Window {
                 padding-right: 10px;
                 padding-top: 3px;
                 padding-bottom: 3px;
-                spacing: 10px;
+                // 8px keeps the natural-width speed spin box clear of the right
+                // padding at the 640px default window width.
+                spacing: 8px;
                 seek-slider := Slider {
                     value: root.playhead;
                     minimum: 0;
@@ -225,7 +227,9 @@ export component MainWindow inherits Window {
                     TransportButton { symbol: "next"; accessible-name: @tr("Forward 1 Frame"); help-text: @tr("Move playback position 1 frame forward"); clicked => { root.next-frame(); } }
                 }
                 StereoAudioMeter {
-                    width: 74px;
+                    // 58px keeps the transport row inside the 640px default
+                    // window even with a translated speed label.
+                    width: 58px;
                     height: 28px;
                     peak-left: root.audio-peak-left;
                     peak-right: root.audio-peak-right;
@@ -235,19 +239,29 @@ export component MainWindow inherits Window {
                 Text {
                     text: @tr("Audio unavailable");
                     visible: root.audio-output-status != "";
+                    // A long device error must not push the speed control past
+                    // the right edge; the full text stays available to
+                    // assistive technology through the description.
+                    max-width: 120px;
+                    overflow: elide;
                     color: AppTheme.danger;
                     font-size: 0.72rem;
                     vertical-alignment: center;
                     accessible-description: root.audio-output-status;
                 }
                 HorizontalLayout {
-                    min-width: 130px;
-                    max-width: 130px;
+                    // Size to its content instead of a fixed 130px. The label,
+                    // the native SpinBox, and the "1.0x" multiplier need more
+                    // than that, so the fixed width clipped the multiplier at
+                    // the window edge.
+                    min-width: 150px;
                     horizontal-stretch: 0;
                     spacing: 5px;
                     Text { text: @tr("Speed"); vertical-alignment: center; }
                     speed-input := SpinBox {
-                        width: 80px;
+                        // Let the widget use its natural width. A fixed 80px is
+                        // narrower than the spin buttons need, so the theme drew
+                        // the lower button outside the box, on top of "1.0x".
                         height: 28px;
                         value <=> root.playback-speed-percent;
                         minimum: 10;
@@ -267,6 +281,27 @@ export component MainWindow inherits Window {
                         vertical-alignment: center;
                         color: AppTheme.muted-foreground;
                     }
+                }
+            }
+        }
+        // The workspace reports the result of every edit ("Added effect ...",
+        // "Relinked media to ...") and the reason a command was refused. Those
+        // messages used to be projected into a property nothing rendered, so a
+        // rejected action looked like a no-op.
+        Rectangle {
+            height: AppTheme.status-height;
+            background: AppTheme.raised-background;
+            border-width: 1px;
+            border-color: AppTheme.subtle-border;
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                Text {
+                    text: root.status-text;
+                    color: AppTheme.muted-foreground;
+                    font-size: 0.78rem;
+                    vertical-alignment: center;
+                    overflow: elide;
                 }
             }
         }
@@ -385,57 +420,78 @@ export component MainWindow inherits Window {
         }
     }
 
-    if root.save-confirmation-visible : Rectangle {
+    if root.save-confirmation-visible : save-confirmation-focus := FocusScope {
         z: 1000;
         width: 100%;
         height: 100%;
-        background: AppTheme.scrim;
-
-        TouchArea { }
+        // Qt raises a modal dialog with Save/Discard/Cancel, so Escape cancels
+        // the pending close and Return accepts the default Save action
+        // (MainWindow.qml:672-716). Without focus the overlay could only be
+        // answered with the pointer.
+        init => { self.focus(); }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.confirm-cancel();
+                accept
+            } else if event.text == Key.Return {
+                root.confirm-save();
+                accept
+            } else {
+                reject
+            }
+        }
 
         Rectangle {
-            width: min(parent.width - 32px, 460px);
-            height: 174px;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            background: AppTheme.raised-background;
-            border-width: 1px;
-            border-color: AppTheme.border;
-            border-radius: 6px;
+            width: 100%;
+            height: 100%;
+            background: AppTheme.scrim;
 
-            VerticalLayout {
-                padding: 16px;
-                spacing: 12px;
+            TouchArea { }
 
-                Text {
-                    text: @tr("Confirm Save");
-                    color: AppTheme.foreground;
-                    font-size: 1.15rem;
-                    font-weight: 700;
-                }
-                Text {
-                    text: root.save-confirmation-project + @tr(" has unsaved changes.\nSave before continuing?");
-                    color: AppTheme.muted-foreground;
-                    wrap: word-wrap;
-                    vertical-stretch: 1;
-                }
-                HorizontalLayout {
-                    alignment: end;
-                    spacing: 8px;
-                    Button {
-                        text: @tr("confirm-save" => "Save");
-                        accessible-label: @tr("confirm-save" => "Save");
-                        clicked => { root.confirm-save(); }
+            Rectangle {
+                width: min(parent.width - 32px, 460px);
+                height: 174px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                background: AppTheme.raised-background;
+                border-width: 1px;
+                border-color: AppTheme.border;
+                border-radius: 6px;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    Text {
+                        text: @tr("Confirm Save");
+                        color: AppTheme.foreground;
+                        font-size: 1.15rem;
+                        font-weight: 700;
                     }
-                    Button {
-                        text: @tr("Discard");
-                        accessible-label: @tr("Discard");
-                        clicked => { root.confirm-discard(); }
+                    Text {
+                        text: root.save-confirmation-project + @tr(" has unsaved changes.\nSave before continuing?");
+                        color: AppTheme.muted-foreground;
+                        wrap: word-wrap;
+                        vertical-stretch: 1;
                     }
-                    Button {
-                        text: @tr("Cancel");
-                        accessible-label: @tr("Cancel");
-                        clicked => { root.confirm-cancel(); }
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 8px;
+                        Button {
+                            text: @tr("confirm-save" => "Save");
+                            accessible-label: @tr("confirm-save" => "Save");
+                            clicked => { root.confirm-save(); }
+                        }
+                        Button {
+                            text: @tr("Discard");
+                            accessible-label: @tr("Discard");
+                            clicked => { root.confirm-discard(); }
+                        }
+                        Button {
+                            text: @tr("Cancel");
+                            accessible-label: @tr("Cancel");
+                            clicked => { root.confirm-cancel(); }
+                        }
                     }
                 }
             }

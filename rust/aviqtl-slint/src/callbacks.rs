@@ -2274,12 +2274,12 @@ pub(super) fn install_callbacks(
     let empty_model = model.clone();
     let empty_main = main.as_weak();
     let empty_timeline = timeline.as_weak();
-    let empty_audio = audio_playback.clone();
-    timeline.on_empty_clicked(move |frame, layer| {
+    timeline.on_empty_clicked(move |_frame, layer| {
+        // Qt selects the target layer and clears the clip selection on an empty
+        // press; it does not move the playhead. Only the ruler seeks
+        // (TimelineView.qml:596-605).
         if let Some(workspace) = empty_model.borrow_mut().current_workspace_mut() {
             workspace.select_layer(layer);
-            workspace.seek(frame);
-            empty_audio.borrow_mut().reset_queue();
         }
         sync_weak_windows(&empty_main, &empty_timeline, &empty_model);
     });

@@ -77,14 +77,17 @@ export component ExportWindow inherits Window {
                 ComboBox {
                     model: [@tr("Video File"), @tr("Image Sequence")];
                     current-index <=> root.format-index;
+                    accessible-label: @tr("Format:");
                 }
                 if root.format-index == 1 : ComboBox {
                     model: ["PNG", "JPEG"];
                     current-index <=> root.image-format-index;
+                    accessible-label: @tr("Image format");
                 }
                 LineEdit {
                     text <=> root.output-path;
                     placeholder-text: root.format-index == 1 ? @tr("Destination folder...") : @tr("Destination file path...");
+                    accessible-label: root.format-index == 1 ? @tr("Destination folder...") : @tr("Destination file path...");
                     horizontal-stretch: 1;
                 }
                 Button {
@@ -103,7 +106,7 @@ export component ExportWindow inherits Window {
                         Text { text: root.project-width + " × " + root.project-height; font-weight: 700; vertical-alignment: center; }
                     }
                     Row {
-                        Text { text: "FPS:"; vertical-alignment: center; }
+                        Text { text: @tr("FPS:"); vertical-alignment: center; }
                         Text { text: root.project-fps.to-fixed(3); font-weight: 700; vertical-alignment: center; }
                     }
                     Row {
@@ -111,6 +114,7 @@ export component ExportWindow inherits Window {
                         ComboBox {
                             model: root.video-codec-labels;
                             current-index <=> root.video-codec-index;
+                            accessible-label: @tr("Codec:");
                             selected(value) => { root.video-codec-selected(self.current-index); }
                         }
                     }
@@ -118,6 +122,7 @@ export component ExportWindow inherits Window {
                         Text { text: @tr("Quality mode:"); vertical-alignment: center; }
                         RadioGroup {
                             orientation: Orientation.horizontal;
+                            accessible-label: @tr("Quality mode:");
                             RadioButton { text: "CRF"; checked <=> root.crf-mode; }
                             RadioButton { text: @tr("Bitrate"); checked <=> root.bitrate-mode; }
                         }
@@ -126,7 +131,13 @@ export component ExportWindow inherits Window {
                         Text { text: "CRF:"; vertical-alignment: center; }
                         HorizontalLayout {
                             spacing: 8px;
-                            Slider { value <=> root.crf; minimum: 0; maximum: 51; horizontal-stretch: 1; }
+                            Slider {
+                                value <=> root.crf;
+                                minimum: 0;
+                                maximum: 51;
+                                accessible-label: @tr("CRF:");
+                                horizontal-stretch: 1;
+                            }
                             Text { text: root.crf.round(); preferred-width: 28px; vertical-alignment: center; }
                             Text {
                                 text: root.crf <= 17 ? @tr("High quality") : root.crf <= 28 ? @tr("Standard") : @tr("Low quality");
@@ -138,7 +149,12 @@ export component ExportWindow inherits Window {
                     if root.bitrate-mode : Row {
                         Text { text: @tr("Bitrate:"); vertical-alignment: center; }
                         HorizontalLayout {
-                            SpinBox { value <=> root.bitrate-mbps; minimum: 1; maximum: 500; }
+                            SpinBox {
+                                value <=> root.bitrate-mbps;
+                                minimum: 1;
+                                maximum: 500;
+                                accessible-label: @tr("Bitrate:");
+                            }
                             Text { text: "Mbps"; vertical-alignment: center; }
                             Rectangle { horizontal-stretch: 1; }
                         }
@@ -148,6 +164,7 @@ export component ExportWindow inherits Window {
                         ComboBox {
                             model: [@tr("Fastest (ultrafast)"), @tr("Fast (fast)"), @tr("Standard (medium)"), @tr("High quality (slow)"), @tr("Highest quality (veryslow)")];
                             current-index <=> root.preset-index;
+                            accessible-label: @tr("Preset:");
                         }
                     }
                     if root.software-codec : Row {
@@ -155,6 +172,7 @@ export component ExportWindow inherits Window {
                         ComboBox {
                             model: [@tr("Auto"), "Baseline", "Main", "High"];
                             current-index <=> root.profile-index;
+                            accessible-label: @tr("Profile:");
                         }
                     }
                 }
@@ -170,6 +188,7 @@ export component ExportWindow inherits Window {
                         ComboBox {
                             model: root.audio-codec-labels;
                             current-index <=> root.audio-codec-index;
+                            accessible-label: @tr("Codec:");
                             selected(value) => { root.audio-codec-selected(self.current-index); }
                         }
                     }
@@ -178,6 +197,7 @@ export component ExportWindow inherits Window {
                         ComboBox {
                             model: ["96 kbps", "128 kbps", "192 kbps", "256 kbps", "320 kbps"];
                             current-index <=> root.audio-bitrate-index;
+                            accessible-label: @tr("Bitrate:");
                             enabled: root.audio-bitrate-enabled;
                         }
                     }
@@ -195,6 +215,7 @@ export component ExportWindow inherits Window {
                         value <=> root.start-frame;
                         minimum: 0;
                         maximum: max(root.end-frame - 1, 0);
+                        accessible-label: @tr("Start:");
                         enabled: !root.full-range;
                     }
                     Text { text: @tr("End:"); vertical-alignment: center; }
@@ -202,6 +223,7 @@ export component ExportWindow inherits Window {
                         value <=> root.end-frame;
                         minimum: root.start-frame + 1;
                         maximum: max(root.timeline-duration, root.start-frame + 1);
+                        accessible-label: @tr("End:");
                         enabled: !root.full-range;
                     }
                     Text {
@@ -254,12 +276,26 @@ export component ExportWindow inherits Window {
         }
     }
 
-    if root.cancel-confirmation-visible : Rectangle {
+    if root.cancel-confirmation-visible : cancel-confirmation-focus := FocusScope {
         z: 1100;
         width: 100%;
         height: 100%;
-        background: AppTheme.scrim;
-        TouchArea { }
+        // Qt's confirmation is a Dialog, so Escape rejects it and returns to
+        // the export window instead of leaving the overlay keyboard-dead.
+        init => { self.focus(); }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.dismiss-cancel();
+                accept
+            } else {
+                reject
+            }
+        }
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: AppTheme.scrim;
+            TouchArea { }
         Rectangle {
             width: 330px;
             height: 170px;
@@ -282,14 +318,27 @@ export component ExportWindow inherits Window {
                 }
             }
         }
+        }
     }
 
-    if root.result-visible : Rectangle {
+    if root.result-visible : result-focus := FocusScope {
         z: 1200;
         width: 100%;
         height: 100%;
-        background: AppTheme.scrim;
-        TouchArea { }
+        init => { self.focus(); }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.dismiss-result();
+                accept
+            } else {
+                reject
+            }
+        }
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: AppTheme.scrim;
+            TouchArea { }
         Rectangle {
             width: min(parent.width - 32px, 450px);
             height: 170px;
@@ -309,6 +358,7 @@ export component ExportWindow inherits Window {
                     Button { text: "OK"; clicked => { root.dismiss-result(); } }
                 }
             }
+        }
         }
     }
 }

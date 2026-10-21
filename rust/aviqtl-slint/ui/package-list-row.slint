@@ -79,8 +79,11 @@ export component PackageListRow inherits Rectangle {
             Button {
                 text: root.package-data.has-update ? @tr("Update") : @tr("Install");
                 primary: true;
+                // Qt gates this on the installed version, not on removability:
+                // an installed local-file plugin cannot be removed but must not
+                // be offered for installation again (PackageListView.qml:114).
                 visible: root.show-install-button
-                    && (!root.package-data.can-remove || root.package-data.has-update)
+                    && (root.package-data.installed-version == "" || root.package-data.has-update)
                     && root.package-data.latest-version != "";
                 enabled: !root.busy;
                 clicked => { root.install(root.package-data.id, root.package-data.source-repository); }

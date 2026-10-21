@@ -442,7 +442,7 @@ export component SystemSettingsWindow inherits Window {
                         SystemSettingSpinRow { label: @tr("Height"); value <=> root.default-project-height; minimum: 1; maximum: 16000; }
                         HorizontalLayout {
                             spacing: 10px;
-                            Text { text: @tr("Frame rate"); width: 260px; vertical-alignment: center; }
+                            Text { text: @tr("Frame rate"); width: 240px; vertical-alignment: center; }
                             LineEdit { text <=> root.default-project-fps; accessible-label: @tr("Frame rate"); horizontal-stretch: 1; }
                         }
                         SystemSettingSpinRow { label: @tr("Total frames"); value <=> root.default-project-frames; minimum: 1; maximum: 1000000; }

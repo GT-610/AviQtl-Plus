@@ -20,7 +20,6 @@ export component TimelineWindow inherits Window {
     min-width: 720px;
     min-height: 220px;
     forward-focus: timeline-shortcuts;
-    in-out property <string> action-status: "";
     private property <bool> drag-active: false;
     private property <TimelineDragFeedback> drag-feedback;
     callback preview-clip-drag(string, int, float, float, bool) -> TimelineDragFeedback;
@@ -112,8 +111,19 @@ export component TimelineWindow inherits Window {
         ) + 3,
         512
     );
-    private property <int> ruler-tick-count: min(floor(root.duration / 60) + 1, 2048);
-    private property <float> ruler-tick-interval: 1.0 * root.duration / max(root.ruler-tick-count - 1, 1);
+    // Qt picks the ruler interval from the zoom so labels keep a readable
+    // distance: 10 frames when zoomed in, 300 when zoomed out
+    // (Ruler.qml:160-175). A fixed 60-frame interval overlapped the labels at
+    // low zoom and spread them far apart at high zoom.
+    private property <float> ruler-tick-interval: root.pixels-per-frame > 5
+        ? 10
+        : root.pixels-per-frame > 1
+            ? 30
+            : root.pixels-per-frame > 0.5 ? 60 : 300;
+    private property <int> ruler-tick-count: min(
+        floor(root.duration / root.ruler-tick-interval) + 1,
+        2048
+    );
     callback timeline-action(string, int, int);
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
@@ -201,7 +211,11 @@ export component TimelineWindow inherits Window {
     }
 
     changed pixels-per-frame => {
-        root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+        // Do not overwrite what the user is typing in the zoom field. Qt only
+        // refreshes the box while it is not focused (Ruler.qml:107-111).
+        if !zoom-field.has-focus {
+            root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+        }
     }
 
     function update-skimmer(frame: float, layer: int, ignore-snap: bool) {
