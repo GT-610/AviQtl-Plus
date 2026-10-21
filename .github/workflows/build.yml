@@ -67,6 +67,9 @@ jobs:
         id: vcpkg-tools
         shell: pwsh
         run: |
+          # A half-computed fingerprint would key a cache to a toolchain that is
+          # not the one this run uses, so a failed probe has to fail the step.
+          $ErrorActionPreference = "Stop"
           $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
           if (-not $vcpkgRoot) { $vcpkgRoot = "C:\vcpkg" }
           $vcpkg = Join-Path $vcpkgRoot "vcpkg.exe"
@@ -86,22 +89,49 @@ jobs:
             $PSVersionTable.PSVersion.ToString()
             (& cmake --version | Select-Object -First 1)
           )
-          # BUILD.py prefers the vcpkg bundled with Visual Studio once vcvarsall
-          # exports VCPKG_ROOT, so fingerprint that copy as well.
+          # The vcpkg bundled with Visual Studio and the installed MSVC toolsets
+          # feed vcpkg's ports.cmake and triplet_abi hashes, so they belong in the
+          # fingerprint; BUILD.py prefers that bundled vcpkg once vcvarsall has
+          # exported VCPKG_ROOT.
+          function Get-VisualStudioToolchain([string] $installPath) {
+            $bundled = Join-Path $installPath "VC\vcpkg\vcpkg.exe"
+            if (Test-Path -LiteralPath $bundled) {
+              & $bundled version | Select-Object -First 1
+            }
+            $msvcRoots = Join-Path $installPath "VC\Tools\MSVC"
+            if (Test-Path -LiteralPath $msvcRoots) {
+              Get-ChildItem -LiteralPath $msvcRoots -Directory |
+                Sort-Object Name | ForEach-Object { $_.Name }
+            }
+          }
+
+          # Query vswhere exactly as BUILD.py's find_vcvarsall does, then follow
+          # the VCVARSALL / VCVARSALL_BAT overrides that it prefers.
           $vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vswhereArgs = @(
+            "-latest", "-products", "*",
+            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-version", "[17.0,)", "-property", "installationPath"
+          )
           if (Test-Path -LiteralPath $vswherePath) {
-            foreach ($installPath in (& $vswherePath -latest -products * -property installationPath)) {
-              $bundled = Join-Path $installPath "VC\vcpkg\vcpkg.exe"
-              if (Test-Path -LiteralPath $bundled) {
-                $tools += (& $bundled version | Select-Object -First 1)
-              }
-              # The MSVC toolset hash is part of vcpkg's triplet_abi, so an update
-              # that only moves Visual Studio must rotate the key as well.
-              $msvcRoots = Join-Path $installPath "VC\Tools\MSVC"
-              if (Test-Path -LiteralPath $msvcRoots) {
-                $tools += (Get-ChildItem -LiteralPath $msvcRoots -Directory |
-                  Sort-Object Name | ForEach-Object { $_.Name })
-              }
+            foreach ($installPath in (& $vswherePath @vswhereArgs)) {
+              $tools += @(Get-VisualStudioToolchain $installPath)
+            }
+          }
+          $vcvarsallOverrides = @($env:VCVARSALL, $env:VCVARSALL_BAT) | Where-Object { $_ }
+          foreach ($vcvarsall in $vcvarsallOverrides) {
+            $tools += "vcvarsall=$vcvarsall"
+            if (Test-Path -LiteralPath $vcvarsall) {
+              $tools += "vcvarsall.sha256=$((Get-FileHash -LiteralPath $vcvarsall -Algorithm SHA256).Hash)"
+              # <VS>\VC\Auxiliary\Build\vcvarsall.bat -> <VS>
+              $vsRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $vcvarsall)))
+              $tools += @(Get-VisualStudioToolchain $vsRoot)
+            }
+          }
+          if ($env:VCPKG_ROOT -and $env:VCPKG_ROOT -ne $vcpkgRoot) {
+            $rootExe = Join-Path $env:VCPKG_ROOT "vcpkg.exe"
+            if (Test-Path -LiteralPath $rootExe) {
+              $tools += (& $rootExe version | Select-Object -First 1)
             }
           }
           $fingerprint = $tools -join "`n"
