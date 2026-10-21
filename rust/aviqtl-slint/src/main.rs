@@ -156,6 +156,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let about = AboutWindow::new()?;
     for (window, id, fallback) in [
         (
+            export.window(),
+            "export",
+            // The Slint layout alone opened this window at its 520x460 minimum,
+            // which scrolled the range controls and the Start Export buttons
+            // out of sight. Qt's 620x580 fits its own, tighter layout; the
+            // Slint form needs about 700px before everything is visible.
+            WindowGeometry::new(475, 119, 620, 700),
+        ),
+        (
             project_settings.window(),
             "projectSettings",
             WindowGeometry::new(800, 100, 450, 240),
