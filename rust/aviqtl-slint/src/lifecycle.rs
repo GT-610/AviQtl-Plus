@@ -76,6 +76,57 @@ pub(super) struct WindowRefs<'a> {
     pub(super) about: &'a AboutWindow,
 }
 
+/// Shows what the last object-file import translated and what it had to preserve.
+///
+/// Only shown when something was preserved: a clean import should not interrupt the user with
+/// a dialog, but an import that left placeholders explains why the picture differs.
+///
+/// Free-standing so the drop handler, which has the model but not this struct, can show the
+/// same report; a dropped object file deserves the same explanation as an opened one.
+pub(super) fn show_import_report(model: &mut ApplicationModel) {
+    let report = model
+        .current_workspace_mut()
+        .and_then(|workspace| workspace.take_import_report());
+    let Some(report) = report else {
+        return;
+    };
+    if report.notes.is_empty() {
+        return;
+    }
+    show_info_dialog(
+        localized(
+            "AviUtl object file imported",
+            "已导入 AviUtl 物件文件",
+            "AviUtl オブジェクトファイルを読み込みました",
+        ),
+        &report.details(12),
+    );
+}
+
+/// Shows what a fragment import had to say.
+///
+/// A clean insert says nothing beyond the status line; a fragment made at another frame rate,
+/// or one that had to move to clear existing objects, says so here.
+pub(super) fn show_fragment_report(model: &mut ApplicationModel) {
+    let report = model
+        .current_workspace_mut()
+        .and_then(|workspace| workspace.take_fragment_report());
+    let Some(report) = report else {
+        return;
+    };
+    if report.notes.is_empty() {
+        return;
+    }
+    show_info_dialog(
+        localized(
+            "Fragment inserted",
+            "已插入片段",
+            "フラグメントを挿入しました",
+        ),
+        &report.details(12),
+    );
+}
+
 impl LifecycleUi {
     pub(super) fn workspace_action(&self, action: &str) {
         let (Some(main), Some(timeline), Some(objects)) = (
@@ -294,15 +345,28 @@ impl LifecycleUi {
         defaults.sample_rate = file.header.audio_rate;
         defaults.duration = defaults.duration.max(file.header.length).max(1);
         let index = self.model.borrow_mut().create_project(defaults);
-        {
+        let imported = {
             let catalog = self.effect_catalog.borrow();
             let mut model = self.model.borrow_mut();
             let Some(workspace) = model.workspace_mut(index) else {
                 return;
             };
-            workspace.append_exo_object_file(&file, &catalog, aviqtl_app::MAX_TIMELINE_LAYERS);
-        }
+            // The project exists now, so a failure here leaves an empty one behind rather than
+            // nothing; say so instead of showing an empty timeline without a word.
+            if workspace
+                .append_exo_object_file(&file, &catalog, aviqtl_app::MAX_TIMELINE_LAYERS)
+                .is_some()
+            {
+                Ok(())
+            } else {
+                Err(workspace.status().to_owned())
+            }
+        };
         self.sync();
+        match imported {
+            Ok(()) => self.report_import(),
+            Err(status) => show_error_dialog(&status),
+        }
         if let Some(main) = self.main.upgrade() {
             let _ = show_and_redraw(&main);
         }
@@ -315,29 +379,8 @@ impl LifecycleUi {
     }
 
     /// Shows what the last import translated and what it had to preserve.
-    ///
-    /// Only shown when something was preserved: a clean import should not interrupt the user
-    /// with a dialog, but an import that left placeholders explains why the picture differs.
     fn report_import(&self) {
-        let report = self
-            .model
-            .borrow_mut()
-            .current_workspace_mut()
-            .and_then(|workspace| workspace.take_import_report());
-        let Some(report) = report else {
-            return;
-        };
-        if report.notes.is_empty() {
-            return;
-        }
-        show_info_dialog(
-            localized(
-                "AviUtl object file imported",
-                "已导入 AviUtl 物件文件",
-                "AviUtl オブジェクトファイルを読み込みました",
-            ),
-            &report.details(12),
-        );
+        show_import_report(&mut self.model.borrow_mut());
     }
 
     /// Imports an AviUtl ExEdit object file into the current scene.
@@ -438,29 +481,8 @@ impl LifecycleUi {
     }
 
     /// Shows what a fragment import had to say.
-    ///
-    /// A clean insert says nothing beyond the status line; a fragment made at another frame
-    /// rate, or one that had to move to clear existing objects, says so here.
     fn report_fragment(&self) {
-        let report = self
-            .model
-            .borrow_mut()
-            .current_workspace_mut()
-            .and_then(|workspace| workspace.take_fragment_report());
-        let Some(report) = report else {
-            return;
-        };
-        if report.notes.is_empty() {
-            return;
-        }
-        show_info_dialog(
-            localized(
-                "Fragment inserted",
-                "已插入片段",
-                "フラグメントを挿入しました",
-            ),
-            &report.details(12),
-        );
+        show_fragment_report(&mut self.model.borrow_mut());
     }
 
     /// Writes the selection, or the whole scene, as a fragment.

@@ -72,6 +72,9 @@ pub(super) fn install_timeline_file_drop(
             .i32_value("defaultClipDuration", 100)
             .max(1);
         let path = PathBuf::from(path.as_str());
+        // A file that cannot be read has to say why. Dropping one used to do nothing at all,
+        // which reads as the drop not having been noticed.
+        let mut load_error = None;
         let result = {
             let catalog = dropped_catalog.borrow();
             let mut application = dropped_model.borrow_mut();
@@ -87,33 +90,39 @@ pub(super) fn install_timeline_file_drop(
                     .extension()
                     .is_some_and(|extension| extension.eq_ignore_ascii_case("exo"))
                 {
-                    return aviqtl_app::exo_import::load_object_file(&path)
-                        .ok()
-                        .and_then(|file| {
-                            workspace.drop_exo_object_file(
-                                &file,
-                                frame,
-                                layer,
-                                &catalog,
-                                window.get_maximum_layers(),
-                            )
-                        });
+                    let file = match aviqtl_app::exo_import::load_object_file(&path) {
+                        Ok(file) => file,
+                        Err(error) => {
+                            load_error = Some(error.to_string());
+                            return None;
+                        }
+                    };
+                    return workspace.drop_exo_object_file(
+                        &file,
+                        frame,
+                        layer,
+                        &catalog,
+                        window.get_maximum_layers(),
+                    );
                 }
                 // A fragment is the same idea without the translation step.
                 if path
                     .extension()
                     .is_some_and(|extension| extension.eq_ignore_ascii_case("aviqtlfrag"))
                 {
-                    return aviqtl_app::fragment::load_fragment(&path)
-                        .ok()
-                        .and_then(|fragment| {
-                            workspace.drop_fragment(
-                                &fragment,
-                                frame,
-                                layer,
-                                window.get_maximum_layers(),
-                            )
-                        });
+                    let fragment = match aviqtl_app::fragment::load_fragment(&path) {
+                        Ok(fragment) => fragment,
+                        Err(error) => {
+                            load_error = Some(error.to_string());
+                            return None;
+                        }
+                    };
+                    return workspace.drop_fragment(
+                        &fragment,
+                        frame,
+                        layer,
+                        window.get_maximum_layers(),
+                    );
                 }
                 workspace.import_media_files(
                     std::slice::from_ref(&path),
@@ -125,6 +134,22 @@ pub(super) fn install_timeline_file_drop(
                 )
             })
         };
+        if let Some(message) = load_error {
+            show_error_dialog(&message);
+        }
+        // An object file or fragment brings its own report; a drop that had to move, or that
+        // left placeholders, has as much to explain as the same import from the menu.
+        if result.is_some() {
+            let extension = path
+                .extension()
+                .map(|extension| extension.to_string_lossy().to_ascii_lowercase());
+            let mut application = dropped_model.borrow_mut();
+            match extension.as_deref() {
+                Some("exo") => crate::lifecycle::show_import_report(&mut application),
+                Some("aviqtlfrag") => crate::lifecycle::show_fragment_report(&mut application),
+                _ => {}
+            }
+        }
         let drop_result = result.map_or(
             TimelineMediaDropResult {
                 imported: false,
