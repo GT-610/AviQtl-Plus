@@ -76,10 +76,22 @@ jobs:
           # and feed the result into the cache key: a tool change then produces a
           # new key that is actually stored, instead of hitting a stale entry that
           # actions/cache refuses to overwrite.
+          # A native command never raises on failure, so a probe that exits
+          # non-zero or prints nothing would enter the fingerprint as a blank
+          # line and let a later probe hide it.  Check both right away.
+          function Invoke-Probe([string] $name, [string] $command, [string[]] $arguments) {
+            $output = @(& $command @arguments)
+            $code = $LASTEXITCODE
+            if ($code -ne 0) { throw "$name probe failed with exit code $code" }
+            $first = $output | Where-Object { $_ } | Select-Object -First 1
+            if (-not $first) { throw "$name probe produced no output" }
+            $first.Trim()
+          }
+
           $tools = @(
-            (& $vcpkg version | Select-Object -First 1)
+            (Invoke-Probe "vcpkg" $vcpkg @("version"))
             $PSVersionTable.PSVersion.ToString()
-            (& cmake --version | Select-Object -First 1)
+            (Invoke-Probe "cmake" "cmake" @("--version"))
           )
           # The vcpkg bundled with Visual Studio and the installed MSVC toolsets
           # feed vcpkg's ports.cmake and triplet_abi hashes, so they belong in the
@@ -88,7 +100,7 @@ jobs:
           function Get-VisualStudioToolchain([string] $installPath) {
             $bundled = Join-Path $installPath "VC\vcpkg\vcpkg.exe"
             if (Test-Path -LiteralPath $bundled) {
-              & $bundled version | Select-Object -First 1
+              Invoke-Probe "vcpkg bundled with Visual Studio" $bundled @("version")
             }
             $msvcRoots = Join-Path $installPath "VC\Tools\MSVC"
             if (Test-Path -LiteralPath $msvcRoots) {
@@ -123,7 +135,7 @@ jobs:
           if ($env:VCPKG_ROOT -and $env:VCPKG_ROOT -ne $vcpkgRoot) {
             $rootExe = Join-Path $env:VCPKG_ROOT "vcpkg.exe"
             if (Test-Path -LiteralPath $rootExe) {
-              $tools += (& $rootExe version | Select-Object -First 1)
+              $tools += (Invoke-Probe "VCPKG_ROOT vcpkg" $rootExe @("version"))
             }
           }
           $fingerprint = $tools -join "`n"
