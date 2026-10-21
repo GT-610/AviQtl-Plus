@@ -62,25 +62,134 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Locate vcpkg
+      - name: Locate vcpkg and fingerprint the ABI tools
         if: matrix.platform == 'windows'
+        id: vcpkg-tools
         shell: pwsh
         run: |
+          # A half-computed fingerprint would key a cache to a toolchain that is
+          # not the one this run uses, so a failed probe has to fail the step.
+          $ErrorActionPreference = "Stop"
           $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
           if (-not $vcpkgRoot) { $vcpkgRoot = "C:\vcpkg" }
-          if (-not (Test-Path -LiteralPath (Join-Path $vcpkgRoot "vcpkg.exe"))) {
+          $vcpkg = Join-Path $vcpkgRoot "vcpkg.exe"
+          if (-not (Test-Path -LiteralPath $vcpkg)) {
             throw "vcpkg.exe was not found under $vcpkgRoot"
           }
           "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Restore vcpkg caches
+          # vcpkg hashes ABI-sensitive host tools (PowerShell and CMake) and the
+          # vcpkg checkout itself into every package ABI, so a runner image update
+          # silently invalidates the whole binary cache. Fingerprint those inputs
+          # and feed the result into the cache key: a tool change then produces a
+          # new key that is actually stored, instead of hitting a stale entry that
+          # actions/cache refuses to overwrite.
+          # A native command never raises on failure, so a probe that exits
+          # non-zero or prints nothing would enter the fingerprint as a blank
+          # line and let a later probe hide it.  Check both right away.
+          function Invoke-Probe([string] $name, [string] $command, [string[]] $arguments) {
+            $output = @(& $command @arguments)
+            $code = $LASTEXITCODE
+            if ($code -ne 0) { throw "$name probe failed with exit code $code" }
+            $first = $output | Where-Object { $_ } | Select-Object -First 1
+            if (-not $first) { throw "$name probe produced no output" }
+            $first.Trim()
+          }
+
+          $tools = @(
+            (Invoke-Probe "vcpkg" $vcpkg @("version"))
+            $PSVersionTable.PSVersion.ToString()
+            (Invoke-Probe "cmake" "cmake" @("--version"))
+          )
+          # The vcpkg bundled with Visual Studio and the installed MSVC toolsets
+          # feed vcpkg's ports.cmake and triplet_abi hashes, so they belong in the
+          # fingerprint; BUILD.py prefers that bundled vcpkg once vcvarsall has
+          # exported VCPKG_ROOT.
+          function Get-VisualStudioToolchain([string] $installPath) {
+            $bundled = Join-Path $installPath "VC\vcpkg\vcpkg.exe"
+            if (Test-Path -LiteralPath $bundled) {
+              Invoke-Probe "vcpkg bundled with Visual Studio" $bundled @("version")
+            }
+            $msvcRoots = Join-Path $installPath "VC\Tools\MSVC"
+            if (Test-Path -LiteralPath $msvcRoots) {
+              Get-ChildItem -LiteralPath $msvcRoots -Directory |
+                Sort-Object Name | ForEach-Object { $_.Name }
+            }
+          }
+
+          # Query vswhere exactly as BUILD.py's find_vcvarsall does, then follow
+          # the VCVARSALL / VCVARSALL_BAT overrides that it prefers.
+          $vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vswhereArgs = @(
+            "-latest", "-products", "*",
+            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-version", "[17.0,)", "-property", "installationPath"
+          )
+          if (Test-Path -LiteralPath $vswherePath) {
+            foreach ($installPath in (& $vswherePath @vswhereArgs)) {
+              $tools += @(Get-VisualStudioToolchain $installPath)
+            }
+          }
+          $vcvarsallOverrides = @($env:VCVARSALL, $env:VCVARSALL_BAT) | Where-Object { $_ }
+          foreach ($vcvarsall in $vcvarsallOverrides) {
+            $tools += "vcvarsall=$vcvarsall"
+            if (Test-Path -LiteralPath $vcvarsall) {
+              $tools += "vcvarsall.sha256=$((Get-FileHash -LiteralPath $vcvarsall -Algorithm SHA256).Hash)"
+              # <VS>\VC\Auxiliary\Build\vcvarsall.bat -> <VS>
+              $vsRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $vcvarsall)))
+              $tools += @(Get-VisualStudioToolchain $vsRoot)
+            }
+          }
+          if ($env:VCPKG_ROOT -and $env:VCPKG_ROOT -ne $vcpkgRoot) {
+            $rootExe = Join-Path $env:VCPKG_ROOT "vcpkg.exe"
+            if (Test-Path -LiteralPath $rootExe) {
+              $tools += (Invoke-Probe "VCPKG_ROOT vcpkg" $rootExe @("version"))
+            }
+          }
+          $fingerprint = $tools -join "`n"
+          Write-Output "ABI tool fingerprint inputs:"
+          Write-Output $fingerprint
+          $sha = [System.Security.Cryptography.SHA256]::Create()
+          $hash = ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($fingerprint)) |
+            ForEach-Object { $_.ToString("x2") }) -join ""
+          if (-not $hash) { throw "Failed to compute the ABI tool fingerprint" }
+          "fingerprint=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Restore vcpkg downloads
+        if: matrix.platform == 'windows'
+        uses: actions/cache@v4
+        with:
+          path: .build_tmp/vcpkg-downloads
+          key: windows-msvc-vcpkg-downloads-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}
+          restore-keys: |
+            windows-msvc-vcpkg-downloads-
+
+      - name: Restore vcpkg binary cache
         if: matrix.platform == 'windows'
         uses: actions/cache@v4
         with:
           path: |
             .build_tmp/vcpkg-binary-cache
             .build_tmp/msvc/Release/vcpkg_installed
-          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}
+          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}-${{ steps.vcpkg-tools.outputs.fingerprint }}
+          restore-keys: |
+            windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}-
+
+      - name: Restore Rust build cache
+        if: matrix.platform == 'windows'
+        uses: actions/cache@v4
+        with:
+          # BUILD.py redirects CARGO_TARGET_DIR into .build_tmp, so the release
+          # build does not live in rust/target. The registry is cached too: cargo
+          # skips a dependency only while its extracted sources are older than the
+          # restored fingerprints.
+          path: |
+            .build_tmp/msvc/Release/cargo-target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: windows-msvc-rust-${{ hashFiles('rust/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            windows-msvc-rust-
 
       - name: Prepare vcpkg cache
         if: matrix.platform == 'windows'
@@ -118,6 +227,9 @@ jobs:
         shell: pwsh
         env:
           VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.build_tmp\vcpkg-binary-cache,readwrite
+          # Without this, vcpkg downloads into %LOCALAPPDATA%\vcpkg\downloads and
+          # the cached .build_tmp/vcpkg-downloads directory stays empty.
+          VCPKG_DOWNLOADS: ${{ github.workspace }}\.build_tmp\vcpkg-downloads
         run: python BUILD.py --msvc --version "${{ steps.version.outputs.version }}"
 
       - name: Verify package has no Qt runtime
