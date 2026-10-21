@@ -140,7 +140,8 @@ pub const OBJECTS: &[ObjectMapping] = &[
     },
     ObjectMapping {
         object_id: "image",
-        aliases: &["图像", "图片文件", "画像", "Image", "image"],
+        // Stock ExEdit names the object 画像ファイル; the CN pack calls it 图片文件.
+        aliases: &["图像", "图片文件", "画像", "画像ファイル", "Image", "image"],
         tracks: &[track(&["透明度", "opacity", "track0"], "opacity", 0.01)],
         colors: &[],
         integers: &[],
@@ -149,7 +150,8 @@ pub const OBJECTS: &[ObjectMapping] = &[
     },
     ObjectMapping {
         object_id: "video",
-        aliases: &["视频", "视频文件", "動画", "Video", "video"],
+        // Stock ExEdit names the object 動画ファイル; the CN pack calls it 视频文件.
+        aliases: &["视频", "视频文件", "動画", "動画ファイル", "Video", "video"],
         tracks: &[track(&["透明度", "opacity"], "opacity", 0.01)],
         colors: &[],
         integers: &[],
@@ -158,7 +160,8 @@ pub const OBJECTS: &[ObjectMapping] = &[
     },
     ObjectMapping {
         object_id: "audio",
-        aliases: &["音频", "音频文件", "音声", "Audio", "audio"],
+        // Stock ExEdit names the object 音声ファイル; the CN pack calls it 音频文件.
+        aliases: &["音频", "音频文件", "音声", "音声ファイル", "Audio", "audio"],
         tracks: &[
             track(&["音量", "volume"], "volume", 0.001),
             track(&["左右", "pan", "声道"], "pan", 0.01),

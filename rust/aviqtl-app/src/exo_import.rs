@@ -1235,7 +1235,7 @@ mod tests {
         );
         bytes.extend_from_slice(&[0x83, 0x65, 0x83, 0x4c, 0x83, 0x58, 0x83, 0x67]); // テキスト
         bytes.extend_from_slice(b"\r\ntext=4100\r\n[0.1]\r\n_name=");
-        bytes.extend_from_slice(&[0x95, 0x4a, 0x97, 0x76, 0x95, 0x5c, 0x89, 0x7e]); // 標準描画
+        bytes.extend_from_slice(&[0x95, 0x57, 0x8f, 0x80, 0x95, 0x60, 0x89, 0xe6]); // 標準描画
         bytes.extend_from_slice(b"\r\nX=10.0\r\n");
         let file = ExoFile::parse(&bytes).expect("shift-jis object file");
         assert_eq!(file.encoding, aviqtl_rust_core::exo::TextEncoding::ShiftJis);
@@ -1249,16 +1249,89 @@ mod tests {
             ImportPlacement::default(),
         );
         assert_eq!(outcome.clips.len(), 1);
+        // Both Japanese names resolved, which is the point: the reader decoded the file with
+        // the code page it was written in, so neither fell back to a placeholder.
+        assert_eq!(outcome.clips[0].effects[0].id, "transform");
         assert_eq!(outcome.clips[0].effects[1].id, "text");
 
-        // The Japanese object names resolved, which is the point: the reader decoded the
-        // file with the code page it was written in.
         let body = outcome.clips[0]
             .effects
             .iter()
             .find(|effect| effect.id == "text")
             .expect("the text object translated");
         assert_eq!(body.params["text"], Value::from("A"));
+    }
+
+    #[test]
+    fn stock_japanese_media_object_names_translate() {
+        let (catalog, _) = EffectCatalog::load();
+        // Stock ExEdit names the media objects 動画ファイル, 画像ファイル, and 音声ファイル.
+        // Reading them as unknown turned every media object of a real project into a
+        // disabled placeholder, so the file link never reached the clip.
+        let blob: [u8; 9] = [b'C', b':', b'\\', b'a', b'.', b'p', b'n', b'g', 0];
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n",
+        );
+        for (index, name) in [
+            &[
+                0x93u8, 0xae, 0x89, 0xe6, 0x83, 0x74, 0x83, 0x40, 0x83, 0x43, 0x83, 0x8b,
+            ][..],
+            &[
+                0x89, 0xe6, 0x91, 0x9c, 0x83, 0x74, 0x83, 0x40, 0x83, 0x43, 0x83, 0x8b,
+            ],
+            &[
+                0x89, 0xb9, 0x90, 0xba, 0x83, 0x74, 0x83, 0x40, 0x83, 0x43, 0x83, 0x8b,
+            ],
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            bytes.extend_from_slice(
+                format!(
+                    "[{index}]\r\nstart=1\r\nend=10\r\nlayer={}\r\n[{index}.0]\r\n_name=",
+                    index + 1
+                )
+                .as_bytes(),
+            );
+            bytes.extend_from_slice(name);
+            bytes.extend_from_slice(b"\r\n_exdata=");
+            for byte in blob {
+                bytes.extend_from_slice(format!("{byte:02x}").as_bytes());
+            }
+            bytes.extend_from_slice(b"\r\n");
+        }
+
+        let file = ExoFile::parse(&bytes).expect("stock japanese object file");
+        assert_eq!(file.encoding, aviqtl_rust_core::exo::TextEncoding::ShiftJis);
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        assert_eq!(outcome.clips.len(), 3);
+        for (clip, expected) in outcome.clips.iter().zip(["video", "image", "audio"]) {
+            assert_eq!(clip.clip_type, expected, "the media object translated");
+            let effect = clip
+                .effects
+                .iter()
+                .find(|effect| effect.id == expected)
+                .unwrap_or_else(|| panic!("{expected} effect translated"));
+            let key = if expected == "audio" {
+                "source"
+            } else {
+                "path"
+            };
+            assert_eq!(effect.params[key], Value::from("C:\\a.png"));
+        }
+        assert_eq!(
+            outcome.report.placeholders, 0,
+            "nothing had to be preserved"
+        );
     }
 
     #[test]
