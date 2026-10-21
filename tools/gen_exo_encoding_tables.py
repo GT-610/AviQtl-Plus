@@ -35,7 +35,12 @@ def gbk_index(lead: int, trail: int) -> int:
 
 
 def sjis_index(lead: int, trail: int) -> int:
-    """Shift-JIS: lead 0x81..0x9F or 0xE0..0xEF, trail 0x40..0xFC skipping 0x7F."""
+    """CP932: lead 0x81..0x9F or 0xE0..0xFC, trail 0x40..0xFC skipping 0x7F.
+
+    The upper lead range runs past 0xEF on purpose: CP932, which is what a
+    Japanese Windows writes, adds the NEC-selected IBM extensions at 0xFA..0xFC
+    (髙, 﨑 and friends). Strict JIS X 0208 stops at 0xEF and would drop them.
+    """
     trail_index = trail - 0x40 if trail < 0x7F else trail - 0x41
     if lead <= 0x9F:
         return (lead - 0x81) * 188 + trail_index
@@ -43,7 +48,7 @@ def sjis_index(lead: int, trail: int) -> int:
 
 
 GBK_SIZE = 126 * 190
-SJIS_SIZE = 47 * 188
+SJIS_SIZE = (0x9F - 0x81 + 1 + 0xFC - 0xE0 + 1) * 188
 
 
 def build(name: str, size: int, index) -> bytes:
@@ -51,7 +56,7 @@ def build(name: str, size: int, index) -> bytes:
     mapped = 0
     for lead in range(0x81, 0xFF):
         for trail in list(range(0x40, 0x7F)) + list(range(0x80, 0xFF)):
-            if lead == 0x80 or (name == "sjis" and 0xA0 <= lead <= 0xDF):
+            if lead == 0x80 or (name == "cp932" and 0xA0 <= lead <= 0xDF):
                 continue
             try:
                 text = bytes([lead, trail]).decode(name)
@@ -73,13 +78,16 @@ def build(name: str, size: int, index) -> bytes:
 
 def main() -> int:
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    for name, size, index, filename in (
-        ("gbk", GBK_SIZE, gbk_index, "gbk.bin"),
-        ("shift_jis", SJIS_SIZE, sjis_index, "shift_jis.bin"),
+    # `cp932`, not `shift_jis`: the strict codec is JIS X 0208 and leaves the
+    # NEC/IBM extensions unmapped, while a Japanese install writes CP932. The
+    # two also disagree on a few code points (0x8160 is U+FF5E, not U+301C).
+    for name, codec, size, index, filename in (
+        ("gbk", "gbk", GBK_SIZE, gbk_index, "gbk.bin"),
+        ("shift_jis", "cp932", SJIS_SIZE, sjis_index, "shift_jis.bin"),
     ):
-        table, mapped = build(name, size, index)
+        table, mapped = build(codec, size, index)
         (OUTPUT / filename).write_bytes(table)
-        print(f"{filename}: {len(table)} bytes, {mapped} mapped pairs")
+        print(f"{filename}: {len(table)} bytes, {mapped} mapped pairs ({codec})")
     return 0
 
 

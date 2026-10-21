@@ -165,7 +165,10 @@ fn gbk_pair_is_valid(lead: u8, trail: u8) -> bool {
 }
 
 fn shift_jis_pair_is_valid(lead: u8, trail: u8) -> bool {
-    ((0x81..=0x9f).contains(&lead) || (0xe0..=0xef).contains(&lead))
+    // CP932, not strict JIS X 0208: a Japanese install writes the NEC/IBM extensions at
+    // 0xFA..0xFC, and the table carries them, so the lead range has to reach 0xFC or those
+    // pairs are refused before the table is consulted.
+    ((0x81..=0x9f).contains(&lead) || (0xe0..=0xfc).contains(&lead))
         && (0x40..=0xfc).contains(&trail)
         && trail != 0x7f
 }
@@ -375,6 +378,28 @@ mod tests {
                 .decode(&bytes)
                 .contains("画像ファイル\r\n[0.1]\r\n_name=標準描画")
         );
+    }
+
+    #[test]
+    fn keeps_the_cp932_extensions_a_japanese_install_writes() {
+        // Strict JIS X 0208 stops at 0xEF and spells 0x8160 as U+301C. A Japanese install
+        // writes CP932, which adds the NEC-selected characters at lead 0x87 and the IBM
+        // extensions at 0xFA..0xFC, and spells 0x8160 as U+FF5E.
+        for (bytes, expected) in [
+            ([0x87, 0x40], '①'),
+            ([0x87, 0x82], '№'),
+            ([0x87, 0x8a], '㈱'),
+            ([0xee, 0xe0], '髙'),
+            ([0xed, 0x95], '﨑'),
+            ([0x81, 0x60], '～'),
+            ([0x81, 0x7c], '－'),
+        ] {
+            assert_eq!(
+                TextEncoding::ShiftJis.decode(&bytes),
+                expected.to_string(),
+                "{bytes:02x?} should decode to {expected}"
+            );
+        }
     }
 
     #[test]
