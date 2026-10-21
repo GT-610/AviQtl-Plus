@@ -133,6 +133,22 @@ jobs:
           restore-keys: |
             windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}-
 
+      - name: Restore Rust build cache
+        if: matrix.platform == 'windows'
+        uses: actions/cache@v4
+        with:
+          # BUILD.py redirects CARGO_TARGET_DIR into .build_tmp, so the release
+          # build does not live in rust/target. The registry is cached too: cargo
+          # skips a dependency only while its extracted sources are older than the
+          # restored fingerprints.
+          path: |
+            .build_tmp/msvc/Release/cargo-target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: windows-msvc-rust-${{ hashFiles('rust/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            windows-msvc-rust-
+
       - name: Prepare vcpkg cache
         if: matrix.platform == 'windows'
         shell: pwsh

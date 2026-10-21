@@ -26,6 +26,11 @@ All notable changes to AviQtl-Plus are documented in this file.
 - Unmapped ExEdit objects and filters are imported as disabled placeholders that
   keep their names, script parameters, track values, and binary data
 
+### Changed
+- The Windows MSVC jobs key their vcpkg and Rust caches on the tool versions that
+  feed vcpkg's ABI hash, so a runner image update repopulates the caches instead
+  of rebuilding FFmpeg on every run
+
 ## [0.6.2] - 2026-09-05
 
 ### Added
