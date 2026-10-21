@@ -214,6 +214,23 @@ impl WorkspaceModel {
         )
     }
 
+    /// The frame just past the last existing clip, and zero when the scene is empty.
+    ///
+    /// [`Self::timeline_duration`] clamps an empty timeline to one frame so the view always
+    /// has a length. Placement must not inherit that clamp: appending into an empty scene has
+    /// to start at frame zero, or every object of the file lands one frame later than it did
+    /// in AviUtl.
+    fn content_end_frame(&self) -> i32 {
+        self.project
+            .document
+            .clips
+            .iter()
+            .filter(|clip| clip.scene_id == self.selected_scene && clip.duration > 0)
+            .map(|clip| clip.start.saturating_add(clip.duration))
+            .max()
+            .unwrap_or(0)
+    }
+
     pub fn timeline_view_duration(&self) -> i32 {
         self.scene_timing()
             .1
@@ -2729,7 +2746,7 @@ impl WorkspaceModel {
         let placement = crate::exo_import::ImportPlacement {
             // Same rule as a fragment: content that already starts past this scene's end
             // stays where it is rather than being pulled backwards.
-            frame_offset: self.timeline_duration().saturating_sub(file_frame).max(0),
+            frame_offset: self.content_end_frame().saturating_sub(file_frame).max(0),
             layer_offset: -file_layer,
             maximum_layers,
         };
@@ -2812,7 +2829,7 @@ impl WorkspaceModel {
             // after everything else, and subtracting its own start would drag it backwards
             // into the existing work.
             frame_offset: self
-                .timeline_duration()
+                .content_end_frame()
                 .saturating_sub(fragment_frame)
                 .max(0),
             layer_offset: -fragment_layer,
@@ -3987,6 +4004,25 @@ mod tests {
         assert_eq!(settings.fps, 60.0);
         assert_eq!(settings.sample_rate, 48_000);
         assert_eq!(workspace.document().clips.len(), 1);
+    }
+
+    #[test]
+    fn appending_into_an_empty_project_keeps_the_file_timing() {
+        // An object file's first object sits at frame zero of its own timeline, so appending
+        // into a project with no clips has to leave it there. The timeline-length helper
+        // reports one frame for an empty scene, and using that as the append point moved
+        // every imported object one frame later than it sits in AviUtl.
+        let (catalog, _) = EffectCatalog::load();
+        let file = object_file_fixture();
+        let mut application = ApplicationModel::default();
+        let index = application.create_project(ProjectDefaults::default());
+        let workspace = application.workspace_mut(index).expect("workspace");
+        workspace
+            .append_exo_object_file(&file, &catalog, MAX_TIMELINE_LAYERS)
+            .expect("the object file imports");
+        let clip = &workspace.document().clips[0];
+        assert_eq!(clip.start, 0);
+        assert_eq!(clip.duration, 16);
     }
 
     #[test]
