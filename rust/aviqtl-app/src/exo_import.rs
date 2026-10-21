@@ -223,13 +223,13 @@ fn translate_object(
 
     let display = object_filter.display_name();
     let mut effects = Vec::new();
-    let (clip_type, object_effect) = match figure_shape(object_filter, catalog) {
+    let (clip_type, object_effect) = match figure_shape(object_filter, catalog, duration) {
         Some((clip_type, effect)) => {
             report.translated += 1;
             (clip_type, effect)
         }
         None => match object_mapping(display) {
-            Some(mapping) => match build_object_effect(object_filter, mapping, catalog) {
+            Some(mapping) => match build_object_effect(object_filter, mapping, catalog, duration) {
                 Some(effect) => {
                     report.translated += 1;
                     (mapping.object_id.to_owned(), effect)
@@ -270,14 +270,15 @@ fn translate_object(
     };
     for filter in filters.iter().take(effect_end).skip(1) {
         if !internal(filter) {
-            effects.push(translate_filter(filter, catalog, report));
+            effects.push(translate_filter(filter, catalog, report, duration));
         }
     }
 
     let transform_source = drawing_index.and_then(|index| filters.get(index));
     // An object without a drawing filter has no transform in AviUtl either; adding one here
     // would change the picture and add a filter the source file never had.
-    let mut transform = transform_source.and_then(|filter| build_transform(filter, catalog));
+    let mut transform =
+        transform_source.and_then(|filter| build_transform(filter, catalog, duration));
     if let Some(filter) = transform_source
         && filter.is_disabled()
         && let Some(effect) = transform.as_mut()
@@ -339,7 +340,11 @@ fn preserved_clip_extras(object: &ExoObject) -> BTreeMap<String, Value> {
 /// the vertex loops run from `-size` to `+size`, so a figure is `2 * 大小` across. A positive
 /// `长宽比` shrinks the vertical axis by that percentage and a negative one shrinks the
 /// horizontal axis, which maps onto our width and height.
-fn figure_shape(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<(String, EffectDocument)> {
+fn figure_shape(
+    filter: &ExoFilter,
+    catalog: &EffectCatalog,
+    duration: i32,
+) -> Option<(String, EffectDocument)> {
     if !crate::exo_mapping::FIGURE_ALIASES.contains(&filter.display_name()) {
         return None;
     }
@@ -419,7 +424,7 @@ fn figure_shape(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<(String, 
             "sizeW".to_owned(),
             json!({
                 "start": {"frame": 0, "value": number(size * 2.0), "interp": interpolation},
-                "points": [{"frame": 0, "value": number(end * 2.0), "interp": interpolation, "options": options}],
+                "points": [{"frame": last_frame, "value": number(end * 2.0), "interp": interpolation, "options": options}],
             }),
         );
     }
@@ -456,6 +461,7 @@ fn build_object_effect(
     filter: &ExoFilter,
     mapping: &ObjectMapping,
     catalog: &EffectCatalog,
+    duration: i32,
 ) -> Option<EffectDocument> {
     let metadata = catalog.find(mapping.object_id)?;
     let mut effect = catalog_effect(catalog, mapping.object_id)?;
@@ -466,6 +472,7 @@ fn build_object_effect(
         mapping.colors,
         mapping.integers,
         mapping.flags,
+        duration,
     );
     capture_source_entries(&mut effect, filter);
     effect.enabled = !filter.is_disabled();
@@ -523,11 +530,15 @@ fn build_object_effect(
     Some(effect)
 }
 
-fn build_transform(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<EffectDocument> {
+fn build_transform(
+    filter: &ExoFilter,
+    catalog: &EffectCatalog,
+    duration: i32,
+) -> Option<EffectDocument> {
     let metadata = catalog.find("transform")?;
     let mut effect = catalog_effect(catalog, "transform")?;
     for mapping in DRAWING_TRACKS {
-        apply_track(&mut effect, filter, mapping);
+        apply_track(&mut effect, filter, mapping, duration);
     }
     capture_source_entries(&mut effect, filter);
     if let Some(blend) = filter
@@ -547,6 +558,7 @@ fn translate_filter(
     filter: &ExoFilter,
     catalog: &EffectCatalog,
     report: &mut ImportReport,
+    duration: i32,
 ) -> EffectDocument {
     let display = filter.display_name();
     let Some(mapping): Option<&FilterMapping> = filter_mapping(display) else {
@@ -575,6 +587,7 @@ fn translate_filter(
         mapping.colors,
         mapping.integers,
         mapping.flags,
+        duration,
     );
     capture_source_entries(&mut effect, filter);
     effect.enabled = !filter.is_disabled();
@@ -691,9 +704,10 @@ fn apply_mappings(
     colors: &[crate::exo_mapping::ColorMapping],
     integers: &[crate::exo_mapping::IntegerMapping],
     flags: &[(&[&str], &str)],
+    duration: i32,
 ) {
     for mapping in tracks {
-        apply_track(effect, filter, mapping);
+        apply_track(effect, filter, mapping, duration);
     }
     for mapping in colors {
         if let Some(color) = mapping.keys.iter().find_map(|key| filter.color(key)) {
@@ -725,7 +739,12 @@ fn apply_mappings(
 }
 
 /// Converts one trackbar, writing a keyframe track when the value changes across the object.
-fn apply_track(effect: &mut EffectDocument, filter: &ExoFilter, mapping: &TrackMapping) {
+fn apply_track(
+    effect: &mut EffectDocument,
+    filter: &ExoFilter,
+    mapping: &TrackMapping,
+    duration: i32,
+) {
     let Some(track) = mapping
         .keys
         .iter()
@@ -733,6 +752,10 @@ fn apply_track(effect: &mut EffectDocument, filter: &ExoFilter, mapping: &TrackM
     else {
         return;
     };
+    // A keyframe at frame 0 is the start value, and normalization keeps only points with
+    // `0 < frame <= duration`, so an end point written at 0 was dropped and the imported
+    // parameter stayed at its start value. It belongs on the clip's last frame.
+    let last_frame = duration.saturating_sub(1).max(1);
     let start = track.start * mapping.scale + mapping.offset;
     effect
         .params
@@ -763,7 +786,7 @@ fn apply_track(effect: &mut EffectDocument, filter: &ExoFilter, mapping: &TrackM
         mapping.param.to_owned(),
         json!({
             "start": {"frame": 0, "value": number(start), "interp": interpolation},
-            "points": [{"frame": 0, "value": number(end), "interp": interpolation, "options": options}],
+            "points": [{"frame": last_frame, "value": number(end), "interp": interpolation, "options": options}],
         }),
     );
 }
@@ -1038,6 +1061,10 @@ mod tests {
         let track = &text.effects[0].keyframes.as_ref().expect("keyframes")["x"];
         assert_eq!(track["start"]["value"], Value::from(100.0));
         assert_eq!(track["points"][0]["value"], Value::from(300.0));
+        // The object runs frames 11..=40, so the clip is 30 frames long and the end point
+        // belongs on frame 29. Written at 0 it was dropped by track normalization, which
+        // keeps only points with 0 < frame <= duration, and the value stayed at the start.
+        assert_eq!(track["points"][0]["frame"], Value::from(29));
         assert_eq!(
             track["points"][0]["options"]["exoMotionParameter"],
             Value::from(16)
@@ -1077,6 +1104,39 @@ mod tests {
         assert_eq!(body["strokeWidth"], Value::from(40.0));
         assert_eq!(body["color"], Value::from("#ffffff"));
         assert_eq!(outcome.report.placeholders, 0);
+    }
+
+    #[test]
+    fn an_animated_figure_size_ends_on_the_clips_last_frame() {
+        // 大小 from 20 to 40 over an object that runs frames 1..=30: a 30-frame clip whose end
+        // keyframe belongs on frame 29. Written at 0, normalization dropped it.
+        let (catalog, _) = EffectCatalog::load();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=120\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0xcd, 0xbc, 0xd0, 0xce]); // 图形
+        bytes.extend_from_slice(b"\r\n");
+        bytes.extend_from_slice(&[0xb4, 0xf3, 0xd0, 0xa1]); // 大小
+        bytes.extend_from_slice(b"=20,40,0\r\ntype=2\r\ncolor=ffffff\r\n");
+        let file = ExoFile::parse(&bytes).expect("figure object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        let clip = &outcome.clips[0];
+        let track = &clip.effects[0]
+            .keyframes
+            .as_ref()
+            .expect("the animated size keeps keyframes")["sizeW"];
+        assert_eq!(track["start"]["value"], Value::from(40.0));
+        assert_eq!(track["points"][0]["value"], Value::from(80.0));
+        assert_eq!(track["points"][0]["frame"], Value::from(29));
     }
 
     #[test]
