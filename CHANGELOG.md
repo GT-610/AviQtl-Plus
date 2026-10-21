@@ -27,9 +27,10 @@ All notable changes to AviQtl-Plus are documented in this file.
   keep their names, script parameters, track values, and binary data
 
 ### Changed
-- The Windows MSVC jobs key their vcpkg and Rust caches on the tool versions that
-  feed vcpkg's ABI hash, so a runner image update repopulates the caches instead
-  of rebuilding FFmpeg on every run
+- The Windows MSVC jobs key the vcpkg binary cache on a fingerprint of the tools
+  that feed vcpkg's ABI hash, and key the Rust caches on `Cargo.lock` and
+  `rust-toolchain.toml`, so a runner image update repopulates them instead of
+  rebuilding FFmpeg on every run
 
 ## [0.6.2] - 2026-09-05
 
