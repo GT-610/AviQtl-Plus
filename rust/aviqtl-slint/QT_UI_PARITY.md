@@ -335,6 +335,10 @@ are untouched. Every item below was reproduced against a running debug build bef
   width as its neighbours.
 - Export, project-settings, scene-settings, package-manager, and object-settings fields that
   relied on adjacent text now carry explicit accessible labels.
+- The export window opens at 620x700 instead of the 520x460 layout minimum. The form lives in a
+  `ScrollView`, so the smaller first-open size scrolled the range controls and the Start Export
+  buttons out of sight. Qt's `ExportDialog` is 620x580 for its tighter layout; the Slint form needs
+  about 700px of content height. The size is not persisted, matching Qt's transient dialog.
 
 Residual items deliberately not changed in this pass: playback viewport follow and drag
 auto-scroll (they change pointer feel and need the deferred native suite), multi-clip drag preview,

@@ -83,6 +83,15 @@ misleading or unreachable UI; **Low** = cosmetic or wording only.
   now keeps the right padding. Qt shows the multiplier inside an 80px box; Slint's `SpinBox` has no
   text formatter, so the percent value and the multiplier label stay separate.
 
+### P9. Export window opened smaller than its own form
+- The window had `preferred-width: 620px` / `preferred-height: 580px` but opened at its layout
+  minimum (520x460 content). The form is wrapped in a `ScrollView`, so at that size the range
+  controls and the Cancel / Start Export buttons sat below the fold on first open.
+- Fixed by giving the export window an explicit default geometry (620x700) from the window-geometry
+  table, like the other dialogs. Qt's `ExportDialog` is 620x580 because its layout is tighter; the
+  Slint form needs about 700px of content height. The dialog keeps the scroll view for smaller
+  screens and does not persist its size, matching Qt's transient dialog.
+
 ---
 
 ## Low severity
