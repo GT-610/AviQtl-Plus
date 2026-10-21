@@ -479,9 +479,12 @@ fn build_object_effect(
                 .insert("fontFamily".to_owned(), Value::from(font.to_owned()));
         }
         apply_text_alignment(&mut effect, filter);
-        // AviUtl always paints the outline colour behind the glyph fill, so an imported text
-        // object keeps its outline unless the file omits the colour entirely.
-        if filter.color("color2").is_some() {
+        // `color2` is the decoration colour every text object carries, including a plain one
+        // that never shows it. Whether it is drawn is decided by `type`: 0 標準文字, 1/2
+        // 影付き文字, 3/4 縁取り文字. Enabling the outline whenever the colour was present gave
+        // every imported plain text a black 2-px outline, so the import changed the picture.
+        // The shadow styles have no counterpart here; `exo_type` keeps the original.
+        if matches!(filter.named_integer("type"), Some(3 | 4)) && filter.color("color2").is_some() {
             effect
                 .params
                 .insert("outlineEnabled".to_owned(), Value::Bool(true));
@@ -802,16 +805,20 @@ fn apply_text_alignment(effect: &mut EffectDocument, filter: &ExoFilter) {
     let Some(align) = filter.named_integer("align") else {
         return;
     };
-    // ExEdit stores alignment as a flag: 1 left, 2 centre, 4 right, 8 justify. Our
-    // `alignment` parameter reuses different numbers for the same four choices.
-    let alignment = if align & 4 != 0 {
-        2
-    } else if align & 2 != 0 {
-        4
-    } else if align & 8 != 0 {
-        8
-    } else {
-        1
+    // ExEdit numbers 文字揃え as an index into its list, not a flag: 0 左寄せ[上], 1 中央揃え[上],
+    // 2 右寄せ[上], then the same three for [中] and [下]. The horizontal choice is therefore
+    // the remainder modulo three. Reading the value as a bitmask turned 中央揃え[上] (1) into
+    // left and 中央揃え[中] (4) into right.
+    //
+    // 9 and above is 縦書き. This build has no vertical-writing setting, so those keep the
+    // default alignment and the original value stays available as `exo_align`.
+    if !(0..9).contains(&align) {
+        return;
+    }
+    let alignment = match align % 3 {
+        0 => 1, // left
+        1 => 4, // centre
+        _ => 2, // right
     };
     effect
         .params
@@ -950,7 +957,8 @@ mod tests {
         bytes.extend_from_slice(b"[0.0]\r\n_name=");
         bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
         bytes.extend_from_slice(b"\r\n\xb4\xf3\xd0\xa1=36\r\n"); // 大小
-        bytes.extend_from_slice(b"color=ff8000\r\ncolor2=000000\r\nalign=1\r\nB=1\r\n");
+        // type 3 is 縁取り文字, the style that draws color2 as an outline.
+        bytes.extend_from_slice(b"color=ff8000\r\ncolor2=000000\r\nalign=1\r\nB=1\r\ntype=3\r\n");
         bytes.extend_from_slice(b"font=");
         bytes.extend_from_slice(&[0xba, 0xda, 0xcc, 0xe5]); // 黑体
         bytes.extend_from_slice(b"\r\ntext=604f7d59\r\n"); // 你好 in UTF-16LE
@@ -1016,8 +1024,8 @@ mod tests {
         assert_eq!(body["outlineColor"], Value::from("#000000"));
         assert_eq!(body["outlineEnabled"], Value::Bool(true));
         assert_eq!(body["fontBold"], Value::Bool(true));
-        // ExEdit stores 1 for left alignment on this fixture.
-        assert_eq!(body["alignment"], Value::from(1));
+        // ExEdit numbers 文字揃え from zero, so 1 is 中央揃え[上]: the centre.
+        assert_eq!(body["alignment"], Value::from(4));
 
         let transform = &text.effects[0].params;
         assert_eq!(transform["y"], Value::from(-50.0));
@@ -1184,6 +1192,55 @@ mod tests {
             ..ImportReport::default()
         };
         assert_eq!(clean.details(5), clean.summary());
+    }
+
+    #[test]
+    fn a_plain_text_keeps_no_outline_and_its_alignment() {
+        // Every text object carries `color2`; only the 縁取り文字 styles draw it. ExEdit also
+        // numbers 文字揃え from zero, so 0/1/2 are left/centre/right on the first row and 3/4/5
+        // the same three centred vertically.
+        let (catalog, _) = EffectCatalog::load();
+        let text_body = |decoration: i32, align: i32| {
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(
+                b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\n\
+                  length=60\r\naudio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\n\
+                  end=10\r\nlayer=1\r\n[0.0]\r\n_name=",
+            );
+            bytes.extend_from_slice(&[0xce, 0xc4, 0xb1, 0xbe]); // 文本
+            bytes.extend_from_slice(
+                format!(
+                    "\r\ntext=4100\r\ncolor=ffffff\r\ncolor2=000000\r\ntype={decoration}\r\n\
+                     align={align}\r\n"
+                )
+                .as_bytes(),
+            );
+            let file = ExoFile::parse(&bytes).expect("text object file");
+            plan_import(
+                &file,
+                &scene(),
+                &empty_project(),
+                &catalog,
+                1,
+                ImportPlacement::default(),
+            )
+            .clips[0]
+                .effects[0]
+                .params
+                .clone()
+        };
+
+        assert_eq!(text_body(0, 0)["outlineEnabled"], Value::Bool(false));
+        assert_eq!(text_body(0, 0)["alignment"], Value::from(1), "0 is left");
+        assert_eq!(text_body(3, 1)["outlineEnabled"], Value::Bool(true));
+        assert_eq!(text_body(4, 1)["alignment"], Value::from(4), "1 is centre");
+        assert_eq!(text_body(0, 2)["alignment"], Value::from(2), "2 is right");
+        assert_eq!(text_body(0, 4)["alignment"], Value::from(4), "4 is centre");
+        assert_eq!(
+            text_body(0, 12)["alignment"],
+            Value::from(4),
+            "12 is 縦書き, which keeps the default"
+        );
     }
 
     #[test]

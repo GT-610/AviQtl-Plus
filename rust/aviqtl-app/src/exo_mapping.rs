@@ -142,12 +142,10 @@ pub const OBJECTS: &[ObjectMapping] = &[
                 param: "outlineColor",
             },
         ],
-        integers: &[IntegerMapping {
-            keys: &["align", "文字揃え"],
-            param: "alignment",
-            scale: 1.0,
-            offset: 0.0,
-        }],
+        // `align` is not passed through: ExEdit numbers 文字揃え as an index into its list,
+        // which `apply_text_alignment` decodes. Copying the value across mapped 中央揃え to
+        // whatever number the list position happened to be.
+        integers: &[],
         flags: &[
             (&["B", "太字", "bold"], "fontBold"),
             (&["I", "斜体", "italic"], "fontItalic"),
