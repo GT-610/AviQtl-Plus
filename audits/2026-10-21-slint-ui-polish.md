@@ -96,12 +96,12 @@ misleading or unreachable UI; **Low** = cosmetic or wording only.
 
 ## Low severity
 
-### P9. Untranslated literals
+### P10. Untranslated literals
 - `FPS:` (export, project, scene), `BPM:` (scene), `Image format`, `CRF:`, and the two new trim
   handle labels had no catalog entry. Added to both `zh_CN` and `ja_JP`; all `@tr` strings in the
   Slint sources are now covered (msgctxt entries included).
 
-### P10. Accessible labels on form fields
+### P11. Accessible labels on form fields
 - Export, project-settings, scene-settings, package-manager, object-settings, and system-settings
   fields that relied on adjacent text now carry explicit `accessible-label`s (format, image
   format, destination, codec, quality mode, CRF, bitrate, preset, profile, audio codec/bitrate,
