@@ -349,11 +349,13 @@ fn figure_shape(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<(String, 
     let mut effect = effect_from_metadata(metadata);
     let size_track = filter
         .named_track("大小")
+        .or_else(|| filter.named_track("サイズ"))
         .or_else(|| filter.track(0))
         .unwrap_or_else(|| TrackValue::constant(30.0));
     let size = size_track.start;
     let aspect = filter
         .named_track("长宽比")
+        .or_else(|| filter.named_track("縦横比"))
         .or_else(|| filter.track(1))
         .map_or(0.0, |track| track.start);
     let (width, height) = if aspect >= 0.0 {
@@ -379,6 +381,7 @@ fn figure_shape(filter: &ExoFilter, catalog: &EffectCatalog) -> Option<(String, 
     // `線幅` is stored at the same hundredths scale as the other figure tracks.
     if let Some(line_width) = filter
         .named_track("线宽")
+        .or_else(|| filter.named_track("ライン幅"))
         .or_else(|| filter.track(2))
         .map(|track| track.start / 100.0)
         && line_width > 0.0
@@ -1069,9 +1072,58 @@ mod tests {
     }
 
     #[test]
+    fn a_stock_japanese_figure_keeps_its_shape_and_size() {
+        // A Japanese install names the tracks サイズ, 縦横比 and ライン幅, and numbers the
+        // figure types from zero: type 1 is 円. Reading only the CN spellings left every
+        // stock figure at size 30 with no stroke, and a one-based table drew 円 as the
+        // rectangle and 四角形 as a 64-gon.
+        let (catalog, _) = EffectCatalog::load();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=120\r\n\
+              audio_rate=48000\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=30\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[0x90, 0x7d, 0x8c, 0x60]); // 図形
+        bytes.extend_from_slice(b"\r\n");
+        bytes.extend_from_slice(&[0x83, 0x54, 0x83, 0x43, 0x83, 0x59]); // サイズ
+        bytes.extend_from_slice(b"=40\r\n");
+        bytes.extend_from_slice(&[0x8f, 0x63, 0x89, 0xa1, 0x94, 0xe4]); // 縦横比
+        bytes.extend_from_slice(b"=50.0\r\n");
+        bytes.extend_from_slice(&[0x83, 0x89, 0x83, 0x43, 0x83, 0x93, 0x95, 0x9d]); // ライン幅
+        bytes.extend_from_slice(b"=200\r\n");
+        bytes.extend_from_slice(b"type=1\r\ncolor=00ff00\r\n");
+
+        let file = ExoFile::parse(&bytes).expect("figure object file");
+        let outcome = plan_import(
+            &file,
+            &scene(),
+            &empty_project(),
+            &catalog,
+            1,
+            ImportPlacement::default(),
+        );
+        let body = &outcome.clips[0].effects[0].params;
+        assert_eq!(outcome.clips[0].clip_type, "polygon_shape");
+        assert_eq!(body["sides"], Value::from(64), "type 1 is 円");
+        assert_eq!(
+            body["sizeW"],
+            Value::from(80.0),
+            "サイズ reached the importer"
+        );
+        assert_eq!(body["sizeH"], Value::from(40.0), "縦横比 shrank one axis");
+        assert_eq!(
+            body["strokeWidth"],
+            Value::from(2.0),
+            "ライン幅 reached the importer"
+        );
+        assert_eq!(body["color"], Value::from("#00ff00"));
+        assert_eq!(outcome.report.placeholders, 0);
+    }
+
+    #[test]
     fn every_built_in_figure_type_points_at_a_catalogue_object() {
         let (catalog, _) = EffectCatalog::load();
-        for kind in 1..=6 {
+        for kind in 0..=6 {
             let mapping = crate::exo_mapping::figure_mapping(kind);
             assert!(
                 catalog.find(mapping.object_id).is_some(),
@@ -1080,11 +1132,30 @@ mod tests {
             );
             assert!(mapping.sides >= 3, "figure type {kind} is not a polygon");
         }
+        // The stored value is zero-based, in the order the 図形 dialog lists the types.
+        assert_eq!(crate::exo_mapping::figure_mapping(0).object_id, "rect");
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(1).sides,
+            64,
+            "円 is the dense polygon"
+        );
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(2).object_id,
+            "rect",
+            "四角形 is the rectangle"
+        );
+        assert_eq!(crate::exo_mapping::figure_mapping(3).sides, 3);
+        assert_eq!(crate::exo_mapping::figure_mapping(4).sides, 5);
+        assert_eq!(crate::exo_mapping::figure_mapping(5).sides, 6);
+        assert_eq!(
+            crate::exo_mapping::figure_mapping(6).shape_type,
+            Some("star")
+        );
         // A value the file should never hold still has to resolve to something drawable
         // rather than panicking on the import path.
         assert_eq!(
-            crate::exo_mapping::figure_mapping(0).object_id,
-            crate::exo_mapping::figure_mapping(1).object_id
+            crate::exo_mapping::figure_mapping(99).object_id,
+            crate::exo_mapping::figure_mapping(0).object_id
         );
     }
 
