@@ -282,6 +282,29 @@ pub fn plan_import(
     (clips, report)
 }
 
+/// The layer on which the planned clips overlap each other, if any.
+///
+/// Clamping `layer + offset` to the scene's layer count is right for one clip that lands too
+/// high, but a fragment authored on ten layers into a three-layer scene folds several of them
+/// onto the same layer, and two objects cannot share a layer and a frame. `shift_past_existing`
+/// cannot help: it moves the block as a whole and never separates its own clips, so the caller
+/// has to refuse the import instead of writing a block the renderer will stack arbitrarily.
+pub fn overlapping_layer(clips: &[ClipDocument]) -> Option<i32> {
+    for (index, clip) in clips.iter().enumerate() {
+        for other in &clips[index + 1..] {
+            if clip.layer != other.layer {
+                continue;
+            }
+            let clip_end = clip.start.saturating_add(clip.duration);
+            let other_end = other.start.saturating_add(other.duration);
+            if clip.start < other_end && other.start < clip_end {
+                return Some(clip.layer);
+            }
+        }
+    }
+    None
+}
+
 /// Picks the clips a fragment export writes.
 ///
 /// `ids` is the current selection. When it is empty the whole scene is exported, which is what
@@ -479,6 +502,25 @@ mod tests {
         };
         let (clips, _) = plan_import(&fragment, &scene(), &project(Vec::new()), 100, placement);
         assert_eq!(clips[0].layer, 3, "the last layer of a four-layer timeline");
+    }
+
+    #[test]
+    fn folding_a_fragment_onto_too_few_layers_is_detected() {
+        // Authored on layers 0 and 6; the scene has four, so both land on layer 3.
+        let source = vec![clip(1, 0, 10, 0), clip(2, 0, 10, 6)];
+        let fragment = FragmentDocument::new(&project(Vec::new()), &scene(), source);
+        let placement = FragmentPlacement {
+            frame_offset: 0,
+            layer_offset: 3,
+            maximum_layers: 4,
+        };
+        let (clips, _) = plan_import(&fragment, &scene(), &project(Vec::new()), 100, placement);
+        assert_eq!(clips[0].layer, clips[1].layer);
+        assert_eq!(
+            overlapping_layer(&clips),
+            Some(3),
+            "two clips now share layer 3 and frames 0..10"
+        );
     }
 
     #[test]

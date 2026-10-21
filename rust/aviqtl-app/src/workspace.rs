@@ -2808,6 +2808,17 @@ impl WorkspaceModel {
             ids[0],
             placement,
         );
+        if let Some(layer) = crate::fragment::overlapping_layer(&clips) {
+            // Clamping the fragment's layers onto this scene folds clips onto one another.
+            // Importing that would put two objects on a layer and a frame, which the timeline
+            // cannot show and the renderer would resolve by stacking order.
+            self.status = format!(
+                "The fragment uses more layers than this scene has ({}), so its clips would                  overlap on layer {}. Raise the layer count and try again.",
+                placement.maximum_layers.clamp(1, 512),
+                layer.saturating_add(1)
+            );
+            return None;
+        }
         let summary = report.summary();
         let next = self.insert_imported_clips(&scene, clips, summary)?;
         self.last_fragment_report = Some(report);
@@ -4156,6 +4167,37 @@ mod tests {
         assert_eq!(selected.clips.len(), 1);
         assert_eq!(selected.clips[0].id, 2);
         assert!(report.selection_only);
+    }
+
+    #[test]
+    fn a_fragment_that_needs_more_layers_than_the_scene_has_is_refused() {
+        let mut workspace = workspace();
+        let before = workspace.document().clips.len();
+        // Scene 1 holds two clips on two layers, one starting where the other ends. Put them
+        // on the same frames: a one-layer timeline cannot hold both.
+        let scene = workspace
+            .selected_scene_document()
+            .cloned()
+            .expect("a scene is selected");
+        let first = workspace.document().clips[0].clone();
+        let mut second = workspace.document().clips[1].clone();
+        second.start = first.start;
+        let fragment = crate::fragment::FragmentDocument::new(
+            workspace.document(),
+            &scene,
+            vec![first, second],
+        );
+        assert!(
+            workspace.append_fragment(&fragment, 1).is_none(),
+            "the import is refused rather than writing overlapping clips"
+        );
+        assert_eq!(workspace.document().clips.len(), before);
+        assert!(
+            workspace.status.contains("more layers"),
+            "the status explains why: {}",
+            workspace.status
+        );
+        assert!(workspace.take_fragment_report().is_none());
     }
 
     #[test]
