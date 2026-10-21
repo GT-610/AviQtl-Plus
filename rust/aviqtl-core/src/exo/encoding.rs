@@ -73,8 +73,15 @@ impl TextEncoding {
         // An object file is mostly ASCII keys and numbers, so kana has to be measured
         // against the non-ASCII characters rather than the whole document: four katakana in
         // a header of several hundred characters would otherwise never reach any threshold.
+        //
+        // The share only has to clear an eighth. A drawing filter is written with kanji-only
+        // parameter names, so a minimal export — one 画像ファイル object and its 標準描画,
+        // nothing else — is four kana against eighteen non-ASCII characters, and a quarter
+        // would call that Chinese and read every name as mojibake. Chinese text read as
+        // Shift-JIS carries almost no full-width kana at all, because GB2312 never uses the
+        // `0x82`/`0x83` lead bytes kana are stored behind, so the margin stays wide.
         let non_ascii = shift_jis.non_ascii.max(1);
-        if shift_jis.kana >= 2 && shift_jis.kana * 4 >= non_ascii && shift_jis.kana > gbk.kana {
+        if shift_jis.kana >= 2 && shift_jis.kana * 8 >= non_ascii && shift_jis.kana > gbk.kana {
             Self::ShiftJis
         } else {
             Self::Gbk
@@ -335,6 +342,39 @@ mod tests {
                 "{encoding:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_minimal_japanese_export_is_not_read_as_chinese() {
+        // Dragging one image object out of AviUtl writes just its own sections, and every
+        // parameter of the drawing filter is a kanji-only name: four katakana (ファイル)
+        // among eighteen non-ASCII characters, which is 0.22 rather than the 0.25 a quarter
+        // threshold asked for. Read as GBK the same bytes are 夋憸僼傽僀儖昗弨昤夋奼戝, so the
+        // object and its filter both became unresolvable placeholders.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(
+            b"[exedit]\r\nwidth=1280\r\nheight=720\r\nrate=30\r\nscale=100\r\nlength=60\r\n\
+              audio_rate=44100\r\naudio_ch=2\r\n[0]\r\nstart=1\r\nend=60\r\nlayer=1\r\n[0.0]\r\n_name=",
+        );
+        bytes.extend_from_slice(&[
+            0x89, 0xe6, 0x91, 0x9c, 0x83, 0x74, 0x83, 0x40, 0x83, 0x43, 0x83, 0x8b,
+        ]); // 画像ファイル
+        bytes.extend_from_slice(b"\r\n[0.1]\r\n_name=");
+        bytes.extend_from_slice(&[0x95, 0x57, 0x8f, 0x80, 0x95, 0x60, 0x89, 0xe6]); // 標準描画
+        bytes.extend_from_slice(b"\r\nX=0.0\r\nY=0.0\r\nZ=0.0\r\n");
+        bytes.extend_from_slice(&[0x8a, 0x67, 0x91, 0xe5, 0x97, 0x66]); // 拡大率
+        bytes.extend_from_slice(b"=100.0\r\n");
+        bytes.extend_from_slice(&[0x93, 0x78, 0x96, 0xbe, 0x93, 0x78]); // 透明度
+        bytes.extend_from_slice(b"=0.0\r\n");
+        bytes.extend_from_slice(&[0x89, 0xf1, 0x93, 0x5c]); // 回転
+        bytes.extend_from_slice(b"=0.0\r\nblend=0\r\n");
+
+        assert_eq!(TextEncoding::detect(&bytes), TextEncoding::ShiftJis);
+        assert!(
+            TextEncoding::ShiftJis
+                .decode(&bytes)
+                .contains("画像ファイル\r\n[0.1]\r\n_name=標準描画")
+        );
     }
 
     #[test]
