@@ -283,9 +283,15 @@ impl ObjectSettingsUi {
                     {
                         continue;
                     }
+                    // A row kind alone does not identify a parameter: every
+                    // numeric control of every effect projects one "number"
+                    // row plus one "keyframes" row. Matching by kind would
+                    // swap this row's label, value, range, and markers for
+                    // the first numeric parameter in the stack while the user
+                    // drags a later one.
                     if let Some(mut updated) = updated_rows
                         .iter()
-                        .find(|row| row.row_kind == current.row_kind)
+                        .find(|row| is_same_parameter_row(&current, row))
                         .cloned()
                     {
                         updated.folded = current.folded;
@@ -932,6 +938,22 @@ pub(super) fn sync_object_catalog(
     {
         window.set_effect_picker_current(index as i32);
     }
+}
+
+/// True when both rows describe the same control of the same effect.
+///
+/// A control kind is not unique inside a projection: a clip with two numeric
+/// parameters projects two `number` rows and two `keyframes` rows. Refreshing
+/// a row after a live edit therefore has to compare the owning effect, the
+/// parameter name, and the audio-plugin flag as well.
+pub(super) fn is_same_parameter_row(
+    current: &ObjectSettingRowData,
+    candidate: &ObjectSettingRowData,
+) -> bool {
+    candidate.row_kind == current.row_kind
+        && candidate.effect_index == current.effect_index
+        && candidate.param_name == current.param_name
+        && candidate.audio_plugin == current.audio_plugin
 }
 
 pub(super) fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> {

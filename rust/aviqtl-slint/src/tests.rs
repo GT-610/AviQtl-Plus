@@ -114,7 +114,8 @@ use crate::lifecycle::{RecentProject, merge_recent_project, recent_projects_from
 use crate::localization::{CURRENT_UI_LANGUAGE, UiLanguage};
 use crate::localization::{localized_effect_metadata, ui_language_from_locale};
 use crate::object_settings::{
-    object_settings_rows, timeline_context_catalog_categories, timeline_context_catalog_items,
+    is_same_parameter_row, object_settings_rows, timeline_context_catalog_categories,
+    timeline_context_catalog_items,
 };
 use crate::playback::{
     audio_queue_lead_frames, samples_for_timeline_frame, scene_fps, stereo_levels,
@@ -953,6 +954,100 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
     assert!(markers.row_data(1).unwrap().removable);
     assert!(!markers.row_data(1).unwrap().draggable);
     assert!(!markers.row_data(2).unwrap().removable);
+}
+
+#[test]
+fn parameter_preview_updates_only_the_edited_control() {
+    // A live drag refreshes the affected rows without rebuilding the model.
+    // Every numeric control projects a "number" row and a "keyframes" row, so
+    // matching by kind alone would repaint the second effect's row with the
+    // first effect's label, value, range, and markers.
+    let number_control = |param: &str, label: &str, value: f64| ObjectControl {
+        kind: ObjectControlKind::Number,
+        source_kind: "slider".to_owned(),
+        param: Some(param.to_owned()),
+        label: label.to_owned(),
+        minimum: Some(0.0),
+        maximum: Some(100.0),
+        step: Some(1.0),
+        decimals: Some(1),
+        unit: String::new(),
+        filter: String::new(),
+        disabled: false,
+        keyframed: true,
+        value: json!(value),
+        relative_frame: 0,
+        clip_duration: 100,
+        interval_start: 0,
+        interval_end: 100,
+        start_value: json!(value),
+        end_value: json!(value),
+        start_interpolation: "linear".to_owned(),
+        keyframes: vec![KeyframePoint {
+            frame: 0,
+            value: json!(value),
+            interpolation: "linear".to_owned(),
+            options: json!({"interp": "linear"}),
+        }],
+        options: Vec::new(),
+    };
+    let settings = ObjectSettings {
+        clip_id: 3,
+        clip_label: "Clip".to_owned(),
+        audio_plugin_mode: false,
+        effects: vec![
+            ObjectEffect {
+                index: 0,
+                id: "blur".to_owned(),
+                name: "Blur".to_owned(),
+                enabled: true,
+                selected: true,
+                removable: true,
+                controls: vec![number_control("size", "Size", 10.0)],
+            },
+            ObjectEffect {
+                index: 1,
+                id: "color".to_owned(),
+                name: "Color".to_owned(),
+                enabled: true,
+                selected: false,
+                removable: true,
+                controls: vec![number_control("amount", "Amount", 0.4)],
+            },
+        ],
+        audio_plugins: Vec::new(),
+    };
+
+    let rows = object_settings_rows(&settings);
+    // Every visible row refreshes itself from the refreshed projection, so the
+    // matcher must pick that row's own parameter for the "number" row and for
+    // the "keyframes" row underneath it.
+    for current in rows
+        .iter()
+        .filter(|row| row.param_name == "amount")
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        let matched = rows
+            .iter()
+            .find(|row| is_same_parameter_row(&current, row))
+            .expect("every projected control row has a refreshed counterpart");
+        assert_eq!(matched.row_kind, current.row_kind);
+        assert_eq!(matched.effect_index, 1);
+        assert_eq!(matched.param_name.as_str(), "amount");
+    }
+
+    // The rule this replaced: the first row of the same kind belongs to the
+    // other effect, which is what used to be written into the live row.
+    let edited = rows
+        .iter()
+        .find(|row| row.param_name == "amount")
+        .expect("the second effect's numeric parameter is projected");
+    let kind_only = rows
+        .iter()
+        .find(|row| row.row_kind == edited.row_kind)
+        .expect("the first number row exists");
+    assert_eq!(kind_only.param_name.as_str(), "size");
 }
 
 #[test]
