@@ -22,9 +22,16 @@ pub fn shift_past_existing(
     }
     let mut total_shift: i32 = 0;
     // A shift can expose a new collision further along, so repeat until the block is clear.
-    // Each pass moves at least one frame, and the bound keeps a pathological file from
-    // scanning forever.
-    for _ in 0..64 {
+    // Each pass moves the block past at least one existing clip, so the number of clips in
+    // the scene bounds the passes; the fixed 64 it used to be was reachable, and a layer
+    // with more than 64 objects left the import overlapping.
+    let passes = document
+        .clips
+        .iter()
+        .filter(|existing| existing.scene_id == scene_id)
+        .count()
+        .saturating_add(1);
+    for _ in 0..passes {
         let mut shift = 0;
         for clip in clips.iter() {
             let clip_end = clip.start.saturating_add(clip.duration);
@@ -151,6 +158,22 @@ mod tests {
         let shift = shift_past_existing(&document, 1, &mut block);
         assert_eq!(shift, 20);
         assert_eq!(block[0].start, 20);
+    }
+
+    #[test]
+    fn more_obstacles_than_the_old_pass_limit_are_all_cleared() {
+        // The loop used to give up after 64 passes. Each pass can only clear the obstacles
+        // the block is touching, so a layer holding more than 64 one-frame-apart objects
+        // left the import sitting on top of the ones it never got to.
+        let mut obstacles = Vec::new();
+        for index in 0..200 {
+            obstacles.push(clip(index + 1, index, 1, 0));
+        }
+        let document = project(obstacles);
+        let mut block = vec![clip(1_000, 0, 10, 0)];
+        let shift = shift_past_existing(&document, 1, &mut block);
+        assert_eq!(shift, 200, "the block ends up past the last obstacle");
+        assert_eq!(block[0].start, 200);
     }
 
     #[test]
