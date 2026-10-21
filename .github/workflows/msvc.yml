@@ -40,6 +40,9 @@ jobs:
     env:
       GIT_TERMINAL_PROMPT: "0"
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\.build_tmp\vcpkg-binary-cache,readwrite
+      # Without this, vcpkg downloads into %LOCALAPPDATA%\vcpkg\downloads and the
+      # cached .build_tmp/vcpkg-downloads directory stays empty on every run.
+      VCPKG_DOWNLOADS: ${{ github.workspace }}\.build_tmp\vcpkg-downloads
 
     steps:
       - uses: actions/checkout@v4
@@ -52,24 +55,73 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - name: Locate vcpkg
+      - name: Locate vcpkg and fingerprint the ABI tools
+        id: vcpkg-tools
         shell: pwsh
         run: |
           $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
           if (-not $vcpkgRoot) { $vcpkgRoot = "C:\vcpkg" }
-          if (-not (Test-Path -LiteralPath (Join-Path $vcpkgRoot "vcpkg.exe"))) {
+          $vcpkg = Join-Path $vcpkgRoot "vcpkg.exe"
+          if (-not (Test-Path -LiteralPath $vcpkg)) {
             throw "vcpkg.exe was not found under $vcpkgRoot"
           }
           "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Restore vcpkg caches
+          # vcpkg hashes ABI-sensitive host tools (PowerShell and CMake) and the
+          # vcpkg checkout itself into every package ABI, so a runner image update
+          # silently invalidates the whole binary cache. Fingerprint those inputs
+          # and feed the result into the cache key: a tool change then produces a
+          # new key that is actually stored, instead of hitting a stale entry that
+          # actions/cache refuses to overwrite.
+          $tools = @(
+            (& $vcpkg version | Select-Object -First 1)
+            $PSVersionTable.PSVersion.ToString()
+            (& cmake --version | Select-Object -First 1)
+          )
+          # BUILD.py prefers the vcpkg bundled with Visual Studio once vcvarsall
+          # exports VCPKG_ROOT, so fingerprint that copy as well.
+          $vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path -LiteralPath $vswherePath) {
+            foreach ($installPath in (& $vswherePath -latest -products * -property installationPath)) {
+              $bundled = Join-Path $installPath "VC\vcpkg\vcpkg.exe"
+              if (Test-Path -LiteralPath $bundled) {
+                $tools += (& $bundled version | Select-Object -First 1)
+              }
+              # The MSVC toolset hash is part of vcpkg's triplet_abi, so an update
+              # that only moves Visual Studio must rotate the key as well.
+              $msvcRoots = Join-Path $installPath "VC\Tools\MSVC"
+              if (Test-Path -LiteralPath $msvcRoots) {
+                $tools += (Get-ChildItem -LiteralPath $msvcRoots -Directory |
+                  Sort-Object Name | ForEach-Object { $_.Name })
+              }
+            }
+          }
+          $fingerprint = $tools -join "`n"
+          Write-Output "ABI tool fingerprint inputs:"
+          Write-Output $fingerprint
+          $sha = [System.Security.Cryptography.SHA256]::Create()
+          $hash = ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($fingerprint)) |
+            ForEach-Object { $_.ToString("x2") }) -join ""
+          if (-not $hash) { throw "Failed to compute the ABI tool fingerprint" }
+          "fingerprint=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Restore vcpkg downloads
+        uses: actions/cache@v4
+        with:
+          path: .build_tmp/vcpkg-downloads
+          key: windows-msvc-vcpkg-downloads-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}
+          restore-keys: |
+            windows-msvc-vcpkg-downloads-
+
+      - name: Restore vcpkg binary cache
         uses: actions/cache@v4
         with:
           path: |
-            .build_tmp/vcpkg-downloads
             .build_tmp/vcpkg-binary-cache
             .build_tmp/msvc/Release/vcpkg_installed
-          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}
+          key: windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}-${{ steps.vcpkg-tools.outputs.fingerprint }}
+          restore-keys: |
+            windows-msvc-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'ports/**') }}-
 
       - name: Prepare cache directory
         shell: pwsh
