@@ -320,6 +320,18 @@ fn placeholder_controls(effect: &EffectDocument) -> Vec<ObjectControl> {
         }
         controls.push(unsupported_control(key, name, value.clone()));
     }
+    // The importer keeps an object's trackbars and checkboxes nested, because `track0` and
+    // `check0` are lists rather than parameters of their own. Reading only the top-level
+    // `exo_` keys meant a preserved script object showed none of its numbers, which are the
+    // settings it actually has.
+    for group in ["exoTracks", "exoChecks"] {
+        let Some(entries) = effect.params.get(group).and_then(Value::as_object) else {
+            continue;
+        };
+        for (key, value) in entries {
+            controls.push(unsupported_control(key, key, value.clone()));
+        }
+    }
     controls
 }
 
@@ -741,7 +753,12 @@ mod placeholder_tests {
             params: serde_json::Map::from_iter([
                 ("exoDisplayName".to_owned(), json!("自定义物件")),
                 ("exoScript".to_owned(), json!("uf_easing")),
-                ("exo_track0".to_owned(), json!("25.00")),
+                // What `placeholder_effect` actually writes: the trackbars are nested.
+                (
+                    "exoTracks".to_owned(),
+                    json!({"track0": "25.00", "track1": "3.00"}),
+                ),
+                ("exoChecks".to_owned(), json!({"check0": "100"})),
                 ("exo_color".to_owned(), json!("ffffff")),
             ]),
             keyframes: None,
@@ -751,7 +768,9 @@ mod placeholder_tests {
         let labels: Vec<&str> = controls.iter().map(|row| row.label.as_str()).collect();
         assert!(labels.contains(&"自定义物件"));
         assert!(labels.contains(&"Script"));
-        assert!(labels.contains(&"track0"));
+        assert!(labels.contains(&"track0"), "a preserved trackbar is shown");
+        assert!(labels.contains(&"track1"));
+        assert!(labels.contains(&"check0"));
         assert!(labels.contains(&"color"));
         assert!(controls.iter().all(|row| row.disabled));
         assert!(
