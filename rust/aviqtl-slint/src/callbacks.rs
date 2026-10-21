@@ -134,15 +134,30 @@ pub(super) fn install_timeline_file_drop(
                 )
             })
         };
-        if let Some(message) = load_error {
-            show_error_dialog(&message);
+        let extension = path
+            .extension()
+            .map(|extension| extension.to_string_lossy().to_ascii_lowercase());
+        let brings_a_report = matches!(extension.as_deref(), Some("exo" | "aviqtlfrag"));
+        match &load_error {
+            Some(message) => show_error_dialog(message),
+            // The file read fine and the workspace refused it — too few layers for a fragment,
+            // for instance. The workspace already has the explanation; without this the drop
+            // would look like it never happened.
+            None if result.is_none() && brings_a_report => {
+                let status = dropped_model
+                    .borrow()
+                    .current_workspace()
+                    .map(|workspace| workspace.status().to_owned())
+                    .unwrap_or_default();
+                if !status.is_empty() {
+                    show_error_dialog(&status);
+                }
+            }
+            None => {}
         }
         // An object file or fragment brings its own report; a drop that had to move, or that
         // left placeholders, has as much to explain as the same import from the menu.
-        if result.is_some() {
-            let extension = path
-                .extension()
-                .map(|extension| extension.to_string_lossy().to_ascii_lowercase());
+        if result.is_some() && brings_a_report {
             let mut application = dropped_model.borrow_mut();
             match extension.as_deref() {
                 Some("exo") => crate::lifecycle::show_import_report(&mut application),
