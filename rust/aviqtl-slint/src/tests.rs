@@ -516,6 +516,28 @@ fn macos_command_matches_the_ctrl_bindings_and_keeps_ctrl_working() {
 }
 
 #[test]
+fn a_control_character_answers_the_letter_it_stands_for() {
+    // Backends that follow the terminal convention report `^Z` as `\u{1a}`
+    // while Control is held.
+    let control_z = ShortcutInput {
+        text: "\u{1a}".to_owned(),
+        alt: false,
+        control: true,
+        shift: false,
+        meta: false,
+    };
+    assert!(shortcut_matches("Ctrl+Z", &control_z));
+    assert!(!shortcut_matches("Ctrl+Y", &control_z));
+
+    // Without Control the same character is just a character, not a binding.
+    let bare = ShortcutInput {
+        control: false,
+        ..control_z.clone()
+    };
+    assert!(!shortcut_matches("Ctrl+Z", &bare));
+}
+
+#[test]
 fn recording_a_command_shortcut_on_macos_keeps_the_ctrl_spelling() {
     use crate::shortcuts::record_shortcut;
     let recorded = record_shortcut(ShortcutInput {

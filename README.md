@@ -69,7 +69,7 @@ AviQtl-Plus stands on the shoulders of many wonderful projects.
 | AviQtl-Plus | AGPLv3 | This project — migrating from Qt Quick + QRhi + ECS to Rust + Slint + wgpu |
 | Carla | GPLv2+ | Audio effect host (VST3/LV2 etc.) |
 | FFmpeg | GPLv2+ | Video/audio decoding & encoding |
-| LuaJIT | MIT | High-performance script engine |
+| LuaJIT | MIT | Script engine of the legacy Qt frontend |
 | Qt | GPLv3 | UI/UX framework for the legacy frontend |
 | Slint | GPLv3 | UI framework for the default frontend |
 | Zrythm | AGPLv3 | Reference for audio plugin implementation |

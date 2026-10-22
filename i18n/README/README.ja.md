@@ -64,7 +64,7 @@ AviQtl-Plusは、多くの素晴らしいプロジェクトの上に成り立っ
 | AviQtl-Plus | AGPLv3 | このプロジェクト — Qt Quick + QRhi + ECS から Rust + Slint + wgpu へ移行中 |
 | Carla | GPLv2+ | 音声エフェクト（VST3/LV2等）のホスト |
 | FFmpeg | GPLv2+ | 動画・音声のデコード / エンコード |
-| LuaJIT | MIT | 高速なスクリプトエンジン |
+| LuaJIT | MIT | 旧Qtフロントエンドのスクリプトエンジン |
 | Qt | GPLv3 | 従来フロントエンドのUI/UXフレームワーク |
 | Slint | GPLv3 | デフォルトフロントエンドのUIフレームワーク |
 | Zrythm | AGPLv3 | 音声プラグイン実装の参考 |

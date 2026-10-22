@@ -919,7 +919,15 @@ export component TimelineWindow inherits Window {
     shortcut-refocus := Timer {
         interval: 1ms;
         running: false;
-        triggered => { self.stop(); timeline-shortcuts.focus(); }
+        // Another popup can still be up when the deferred tick arrives, and
+        // taking the focus then would pull it out of that popup's field.
+        triggered => {
+            self.stop();
+            if (!root.context-search-visible && !root.insert-layers-visible
+                && !root.shift-layers-visible && !root.object-picker-visible) {
+                timeline-shortcuts.focus();
+            }
+        }
     }
 
     changed context-search-visible => {

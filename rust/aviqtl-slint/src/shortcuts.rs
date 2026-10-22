@@ -419,7 +419,27 @@ fn extra_meta_modifier(input: &ShortcutInput) -> bool {
 /// The comparison is case-insensitive because the backend already reports Shift
 /// through the modifier bits, and that bit is checked separately.
 fn shortcut_text_matches(pattern_text: &str, input: &ShortcutInput) -> bool {
-    pattern_text == input.text.to_lowercase()
+    if pattern_text == input.text.to_lowercase() {
+        return true;
+    }
+    // A backend that follows the terminal convention reports the control
+    // character while Control is held, so `^Z` arrives as `\u{1a}` instead of
+    // `z`. Normalize it back to the letter rather than losing the binding.
+    input.control && control_letter(&input.text) == Some(pattern_text)
+}
+
+/// The letter a single-byte ASCII control character stands for, if any.
+fn control_letter(text: &str) -> Option<&'static str> {
+    let mut chars = text.chars();
+    let code = chars.next()? as u32;
+    if chars.next().is_some() || !(1..=26).contains(&code) {
+        return None;
+    }
+    const LETTERS: [&str; 26] = [
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r",
+        "s", "t", "u", "v", "w", "x", "y", "z",
+    ];
+    LETTERS.get(code as usize - 1).copied()
 }
 
 pub(super) fn native_shortcut(value: &str) -> slint::Keys {

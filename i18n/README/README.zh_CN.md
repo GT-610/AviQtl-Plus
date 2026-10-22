@@ -64,7 +64,7 @@ AviQtl-Plus 站在众多优秀项目的肩膀上。
 | AviQtl-Plus | AGPLv3 | 本项目 — 正在从 Qt Quick + QRhi + ECS 向 Rust + Slint + wgpu 迁移 |
 | Carla | GPLv2+ | 音频特效宿主（VST3/LV2等） |
 | FFmpeg | GPLv2+ | 视频/音频编解码 |
-| LuaJIT | MIT | 高性能脚本引擎 |
+| LuaJIT | MIT | 旧 Qt 前端的脚本引擎 |
 | Qt | GPLv3 | 旧前端的 UI/UX 框架 |
 | Slint | GPLv3 | 默认前端的 UI 框架 |
 | Zrythm | AGPLv3 | 音频插件实现参考 |
