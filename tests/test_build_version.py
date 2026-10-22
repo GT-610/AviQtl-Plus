@@ -236,7 +236,13 @@ class TestReleaseVersionBaseline(unittest.TestCase):
         self.version = read_project_version(SOURCE_DIR)
 
     def test_workspace_version_is_semantic(self):
-        self.assertEqual(len(parse_semver(self.version)), 3)
+        # `parse_semver` raises for anything that is not SemVer, and the shape check
+        # pins the three-part core the release tools and the bundle metadata assume.
+        parse_semver(self.version)
+        self.assertRegex(
+            self.version,
+            r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$",
+        )
 
     def test_prerelease_uses_the_dotted_counter_form(self):
         # SemVer compares prerelease identifiers one by one, so `rc.10` is newer
@@ -255,7 +261,13 @@ class TestReleaseVersionBaseline(unittest.TestCase):
 
     def test_changelog_documents_the_workspace_version(self):
         changelog = (SOURCE_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
-        self.assertIn(f"## [{self.version}]", changelog)
+        # A dated heading of its own, so a prerelease section cannot satisfy the
+        # check for its numeric core and body text cannot satisfy it either.
+        heading = re.compile(
+            rf"^## \[{re.escape(self.version)}\] - [0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$",
+            flags=re.MULTILINE,
+        )
+        self.assertRegex(changelog, heading)
 
 
 if __name__ == "__main__":

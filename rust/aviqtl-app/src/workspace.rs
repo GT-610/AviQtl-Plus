@@ -4782,7 +4782,6 @@ mod tests {
         let entry = workspace.media_bin();
         let entry = entry.entry(id).expect("entry exists");
         assert_eq!((entry.in_frame, entry.out_frame), (9, 10));
-        assert_eq!(entry.range_frames(), 1);
 
         assert!(!workspace.set_media_bin_range(999, Some(0), Some(1)));
         assert!(workspace.status().contains("cannot use that range"));
@@ -4791,9 +4790,7 @@ mod tests {
         std::fs::remove_file(&path).expect("temporary media placeholder is removable");
         let bin = workspace.media_bin();
         assert!(
-            bin.entry(id)
-                .expect("a missing entry is kept")
-                .is_missing(None),
+            !std::path::Path::new(&bin.entry(id).expect("a missing entry is kept").path).exists(),
             "the entry is retained so it can be relinked"
         );
     }
@@ -5261,15 +5258,17 @@ mod tests {
         // The two objects disagree, so the control reads as mixed and shows the first value in
         // document order rather than the selection's primary.
         let state = workspace.selection_param_state("rect", "count");
-        assert!(state.is_mixed());
-        assert_eq!(state.display_value().and_then(Value::as_i64), Some(5));
+        let SelectionValue::Mixed(first) = state else {
+            panic!("the selection should read as mixed, got {state:?}");
+        };
+        assert_eq!(first.as_i64(), Some(5));
 
         let applied = workspace
             .set_selection_param("rect", "count", json!(7))
             .expect("the selection is editable");
         assert_eq!(applied.selected_objects, 2);
         assert_eq!(applied.edited_objects, 2);
-        assert_eq!(applied.skipped_objects(), 0);
+        assert_eq!(applied.locked_objects + applied.absent_objects, 0);
         assert_eq!(rect_count(&workspace, 1), 7);
         assert_eq!(rect_count(&workspace, 2), 7);
         assert!(workspace.status().contains("Applied to 2 object(s)"));

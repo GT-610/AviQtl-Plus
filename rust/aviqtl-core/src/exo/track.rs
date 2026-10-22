@@ -8,10 +8,7 @@
 //!
 //! ExEdit abbreviates the first shape when the motion identifier is zero, which is why most
 //! values in a real file have only one field. The parser accepts one to four fields so files
-//! from other tools, and our own output, stay readable; the writer reproduces the shape the
-//! value was parsed from.
-
-use std::fmt::Write as _;
+//! from other tools stay readable, and ignores a trailing field it does not know.
 
 /// One trackbar (or check/colour) parameter as stored in an object file.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,12 +44,6 @@ impl TrackValue {
         }
     }
 
-    /// Whether the value changes over the object.
-    pub fn is_animated(&self) -> bool {
-        self.end
-            .is_some_and(|end| (end - self.start).abs() > f64::EPSILON)
-    }
-
     /// Parses one `key=value` right-hand side. Returns `None` when the first field is not a
     /// finite number, which is what keeps a stray key from being mistaken for a trackbar.
     pub fn parse(text: &str) -> Option<Self> {
@@ -74,21 +65,6 @@ impl TrackValue {
             motion,
             motion_parameter,
         })
-    }
-
-    /// Writes the value back in ExEdit's shape.
-    pub fn to_text(&self) -> String {
-        let mut text = format_number(self.start);
-        if let Some(end) = self.end {
-            let _ = write!(text, ",{}", format_number(end));
-            if let Some(motion) = &self.motion {
-                let _ = write!(text, ",{motion}");
-                if let Some(parameter) = self.motion_parameter {
-                    let _ = write!(text, ",{parameter}");
-                }
-            }
-        }
-        text
     }
 }
 
@@ -143,20 +119,6 @@ fn numeric_prefix_end(text: &str) -> usize {
     end
 }
 
-/// Writes a number the way the source field was written: one decimal place for whole values,
-/// and the shortest exact form otherwise.
-fn format_number(value: f64) -> String {
-    if value == value.trunc() && value.abs() < 1e15 {
-        format!("{value:.1}")
-    } else {
-        let mut text = format!("{value}");
-        if text.contains('e') {
-            text = format!("{value:.6}");
-        }
-        text
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,14 +128,12 @@ mod tests {
         let constant = TrackValue::parse("350.0").unwrap();
         assert_eq!(constant.start, 350.0);
         assert!(constant.end.is_none());
-        assert!(!constant.is_animated());
 
         let range = TrackValue::parse("23.00,-30.00,15@easing_普通@uf_easing,16").unwrap();
         assert_eq!(range.start, 23.0);
         assert_eq!(range.end, Some(-30.0));
         assert_eq!(range.motion.as_deref(), Some("15@easing_普通@uf_easing"));
         assert_eq!(range.motion_parameter, Some(16));
-        assert!(range.is_animated());
 
         let plain_range = TrackValue::parse("0,100").unwrap();
         assert_eq!(plain_range.start, 0.0);
@@ -200,19 +160,5 @@ mod tests {
         assert!(TrackValue::parse("ffffff").is_none());
         assert!(TrackValue::parse("nan").is_none());
         assert!(TrackValue::parse("1,oops").is_none());
-    }
-
-    #[test]
-    fn writes_the_shape_it_parsed() {
-        for text in [
-            "350.0",
-            "-30.0",
-            "23.0,-30.0",
-            "23.0,-30.0,15@easing_普通@uf_easing,16",
-        ] {
-            assert_eq!(TrackValue::parse(text).unwrap().to_text(), text);
-        }
-        assert_eq!(TrackValue::constant(12.0).to_text(), "12.0");
-        assert_eq!(TrackValue::constant(12.5).to_text(), "12.5");
     }
 }

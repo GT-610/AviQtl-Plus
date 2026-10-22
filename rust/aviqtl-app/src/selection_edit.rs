@@ -22,7 +22,7 @@
 //! the plan it returns through the one mutation funnel, so undo, redo, dirty tracking and the
 //! continuous-edit session all come for free.
 
-use crate::object_settings::{ObjectControlKind, replace_value_payload, value_payload};
+use crate::object_settings::{replace_value_payload, value_payload};
 use aviqtl_rust_core::api::{
     AudioPluginDocument, ClipDocument, EffectDocument, ProjectDocument, TimelineCommand,
     inspect_keyframe_track,
@@ -40,28 +40,6 @@ pub enum SelectionValue {
     Mixed(Value),
     /// No selected object has this parameter, so there is nothing to display or edit.
     Absent,
-}
-
-impl SelectionValue {
-    /// The value a control should display. A mixed selection shows the first value, because every
-    /// mainstream editor shows *something* and marks it as mixed rather than showing nothing.
-    pub fn display_value(&self) -> Option<&Value> {
-        match self {
-            Self::Uniform(value) | Self::Mixed(value) => Some(value),
-            Self::Absent => None,
-        }
-    }
-
-    /// Whether the objects disagree. A sidebar uses this to show its mixed-state affordance.
-    pub fn is_mixed(&self) -> bool {
-        matches!(self, Self::Mixed(_))
-    }
-
-    /// Whether the value should be drawn in the placeholder style, which every editor does for a
-    /// value that is not really the selection's value.
-    pub fn is_absent(&self) -> bool {
-        matches!(self, Self::Absent)
-    }
 }
 
 /// The aggregate state of one property control across the selection.
@@ -135,13 +113,6 @@ pub struct SelectionApplied {
     pub locked_objects: usize,
     /// How many were skipped because they do not carry the effect or the parameter.
     pub absent_objects: usize,
-}
-
-impl SelectionApplied {
-    /// How many selected objects the edit left alone.
-    pub fn skipped_objects(&self) -> usize {
-        self.locked_objects + self.absent_objects
-    }
 }
 
 /// Resolves a single parameter across the selection, without planning an edit.
@@ -406,15 +377,6 @@ pub fn selection_properties(clips: &[&ClipDocument], playhead: i32) -> Vec<Selec
 
 /// Whether every control kind can carry a multi-object edit.
 ///
-/// Only the kinds that hold a single value do. A header is not a value, and an unsupported control
-/// has no parameter to write, so both are excluded rather than silently accepted and dropped.
-pub fn control_kind_is_editable(kind: ObjectControlKind) -> bool {
-    !matches!(
-        kind,
-        ObjectControlKind::Header | ObjectControlKind::Unsupported
-    )
-}
-
 /// The value a parameter reads at the playhead, following a keyframe track when one exists.
 ///
 /// This is the same evaluation the single-object sidebar uses, so a multi-object control and a
@@ -469,6 +431,14 @@ pub fn audio_plugins(clip: &ClipDocument) -> &[AudioPluginDocument] {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The value a control would show: uniform or mixed carry one, absent carries none.
+    fn displayed_value(value: &SelectionValue) -> Option<&Value> {
+        match value {
+            SelectionValue::Uniform(value) | SelectionValue::Mixed(value) => Some(value),
+            SelectionValue::Absent => None,
+        }
+    }
     use aviqtl_rust_core::api::TimelineState;
     use serde_json::json;
 
@@ -532,16 +502,17 @@ mod tests {
         ]);
         let refs = clips_of(&disagreeing);
         let mixed = selection_value(&refs, "rect", "count", 0);
-        assert!(mixed.is_mixed(), "the objects disagree");
         // The payload is the first value in document order, which is only a display hint.
+        let SelectionValue::Mixed(first) = &mixed else {
+            panic!("the objects disagree, got {mixed:?}");
+        };
         assert_eq!(
-            mixed.display_value(),
-            Some(&json!({"$aviqtlType": "int", "value": 5, "extension": 7}))
+            first,
+            &json!({"$aviqtlType": "int", "value": 5, "extension": 7})
         );
 
         let absent = selection_value(&refs, "blur", "size", 0);
-        assert!(absent.is_absent());
-        assert_eq!(absent.display_value(), None);
+        assert!(matches!(absent, SelectionValue::Absent));
     }
 
     #[test]
@@ -562,15 +533,15 @@ mod tests {
         // the result is a float; the payload comparison is what decides uniformity, not the
         // JSON number spelling.
         let at_twenty = selection_value(&refs, "rect", "size", 20);
-        assert!(!at_twenty.is_mixed());
+        assert!(matches!(at_twenty, SelectionValue::Uniform(_)));
         assert_eq!(
-            at_twenty.display_value().and_then(Value::as_f64),
+            displayed_value(&at_twenty).and_then(Value::as_f64),
             Some(50.0),
             "the playhead reads the interpolated value"
         );
         let at_sixty = selection_value(&refs, "rect", "size", 60);
         assert_eq!(
-            at_sixty.display_value().and_then(Value::as_f64),
+            displayed_value(&at_sixty).and_then(Value::as_f64),
             Some(100.0),
             "past the last keyframe the track holds its final value"
         );
@@ -771,7 +742,7 @@ mod tests {
             .iter()
             .find(|property| property.param.as_deref() == Some("count"))
             .expect("count is listed once");
-        assert!(count.value.is_mixed());
+        assert!(matches!(count.value, SelectionValue::Mixed(_)));
         assert_eq!(count.editable_objects, 2);
         // `opacity` exists on only one object, so it reads as uniform but is present on one object.
         let opacity = properties
@@ -780,13 +751,5 @@ mod tests {
             .expect("opacity is listed");
         assert_eq!(opacity.editable_objects, 1);
         assert_eq!(opacity.present_objects(), 1);
-    }
-
-    #[test]
-    fn only_value_backed_controls_are_editable() {
-        assert!(control_kind_is_editable(ObjectControlKind::Number));
-        assert!(control_kind_is_editable(ObjectControlKind::Choice));
-        assert!(!control_kind_is_editable(ObjectControlKind::Header));
-        assert!(!control_kind_is_editable(ObjectControlKind::Unsupported));
     }
 }
