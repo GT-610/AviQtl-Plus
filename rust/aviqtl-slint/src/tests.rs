@@ -461,30 +461,85 @@ fn shortcut_parser_preserves_qt_cross_platform_names_and_punctuation() {
 }
 
 #[test]
-fn shortcut_matching_uses_slint_command_and_physical_control_semantics() {
-    let command_save = ShortcutInput {
+fn shortcut_matching_uses_the_platform_accelerator_modifier() {
+    // What the backend reports for Control on Windows and Linux, and for Command
+    // on macOS, where the Command key arrives in the meta bit.
+    let control_save = ShortcutInput {
         text: "s".to_owned(),
         alt: false,
         control: true,
         shift: false,
         meta: false,
     };
-    assert!(shortcut_matches("Ctrl+S", &command_save));
+    assert!(shortcut_matches("Ctrl+S", &control_save));
+    assert!(shortcut_matches("Control+S", &control_save));
+    assert!(shortcut_matches("Command+S", &control_save));
+    assert!(!shortcut_matches("Alt+S", &control_save));
+    assert!(!shortcut_matches("Ctrl+Shift+S", &control_save));
 
-    let physical_control_save = ShortcutInput {
-        control: false,
-        meta: true,
-        ..command_save.clone()
+    // Case is carried by the modifier bits, not by the character.
+    let shifted = ShortcutInput {
+        text: "S".to_owned(),
+        shift: true,
+        ..control_save.clone()
     };
-    assert!(shortcut_matches("Meta+S", &physical_control_save));
+    assert!(shortcut_matches("Ctrl+Shift+S", &shifted));
+}
+
+#[test]
+fn macos_command_matches_the_ctrl_bindings_and_keeps_ctrl_working() {
+    let command_save = ShortcutInput {
+        text: "s".to_owned(),
+        alt: false,
+        control: false,
+        shift: false,
+        meta: true,
+    };
     if cfg!(target_os = "macos") {
-        assert!(shortcut_matches("Command+S", &command_save));
-        assert!(!shortcut_matches("Control+S", &command_save));
-        assert!(shortcut_matches("Control+S", &physical_control_save));
+        // Every default ships as "Ctrl+...", the menu renders it as Command, and
+        // the backend reports the Command key through the meta bit.
+        assert!(shortcut_matches("Ctrl+S", &command_save));
+        assert!(shortcut_matches("Cmd+S", &command_save));
+        assert!(shortcut_matches("Meta+S", &command_save));
+        // The AviUtl habit keeps working: Control is the accelerator as well.
+        let physical_control = ShortcutInput {
+            control: true,
+            meta: false,
+            ..command_save.clone()
+        };
+        assert!(shortcut_matches("Ctrl+S", &physical_control));
     } else {
-        assert!(shortcut_matches("Control+S", &command_save));
-        assert!(!shortcut_matches("Command+S", &command_save));
-        assert!(shortcut_matches("Command+S", &physical_control_save));
+        // Elsewhere meta is the platform key and stays separate from Control.
+        assert!(!shortcut_matches("Ctrl+S", &command_save));
+        assert!(shortcut_matches("Meta+S", &command_save));
+    }
+}
+
+#[test]
+fn recording_a_command_shortcut_on_macos_keeps_the_ctrl_spelling() {
+    use crate::shortcuts::record_shortcut;
+    let recorded = record_shortcut(ShortcutInput {
+        text: "s".to_owned(),
+        alt: false,
+        control: false,
+        shift: false,
+        meta: true,
+    });
+    if cfg!(target_os = "macos") {
+        assert_eq!(recorded.as_deref(), Some("Ctrl+S"));
+        // The recorded spelling immediately answers the Command key again.
+        assert!(shortcut_matches(
+            recorded.as_deref().expect("recorded"),
+            &ShortcutInput {
+                text: "s".to_owned(),
+                alt: false,
+                control: false,
+                shift: false,
+                meta: true,
+            }
+        ));
+    } else {
+        assert_eq!(recorded.as_deref(), Some("Meta+S"));
     }
 }
 

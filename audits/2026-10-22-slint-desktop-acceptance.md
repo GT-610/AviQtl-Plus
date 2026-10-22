@@ -38,26 +38,37 @@ wording only.
 
 ## Deviations
 
-### P1. Editor shortcuts are unreliable (High)
+### P1. Editor shortcuts did not reach the commands (High, fixed)
 
-⌘Z and ⌃Z left the model unchanged in four of six attempts, in both the preview
-and the timeline window. Two attempts did undo (a moved clip returned from frame
-340 to 240; an inserted object was removed), and ⌘⇧Z redid afterwards.
+The first passes pressed ⌘Z and ⌃Z with real events and the model never changed,
+while the same keys occasionally worked after the preview window had been
+focused. The initial explanation was a wrong one: the injection tool posted key
+events with modifier flags but no `flagsChanged` transitions, so the backend
+reported every key without modifiers. With the transitions added, the callback
+received `text="z" control=false shift=false meta=true` for ⌘Z and a control
+character for ⌃Z, which turned the defect into two concrete ones.
 
-Reproduction: insert an object from the timeline context catalog, click inside
-the timeline viewport, press ⌘Z. The clip keeps its position and the accessible
-description (`剪辑：标准绘制，图层 3，从第 90 帧开始，持续 100 帧`) does not change.
-Clicking the preview window and pressing ⌘Z undid the same edit in two earlier
-attempts and did nothing in two later ones.
+**Neither of them could match a shipped binding.** `shortcut_matches` compared
+the recorded `Ctrl` against the control bit only, and macOS reports the Command
+key through the meta bit, so ⌘Z, ⌘S, ⌘N, and the rest were unreachable from the
+in-window path. Motion for the menu accelerators was no better: they are built
+from the same pattern and only exist while the window that owns the `MenuBar`
+holds the menus.
 
-The failure is silent: no status message, no history entry consumed. For an
-editor whose timeline workflow is keyboard driven this is the most important
-finding of the session. It is consistent with the `foundation` status of the
-"Timeline focus" row, but it also means that row cannot be promoted yet.
+**The focus was gone after any popup.** Once the catalog search, a layer dialog,
+or the object picker had been closed, the window had no focused item and
+`forward-focus` did not reapply, so `key-pressed` stopped firing entirely. The
+first diagnostic build logged nothing at all for keys pressed after a popup had
+been used, and the literal `z` that ended up in the search field earlier in the
+session was the same event reaching a text control.
 
-A related observation: typing into the catalog search field after a ⌘Z attempt
-left a literal `z` in the query (`z文本`), so the shortcut is being delivered to
-whichever text field still holds focus instead of reaching the command.
+Both are fixed: `Ctrl` now names the accelerator modifier of the platform (so
+Command matches on macOS and Control still does), recording on macOS keeps the
+`Ctrl` spelling, and the timeline takes the focus back on the next event-loop
+turn whenever one of its popups closes. On this host the sequence "insert an
+object from the catalog search, click the timeline viewport, press ⌘Z" now
+removes the object, ⌘⇧Z restores it, and ⌃Z removes it again; ⌘S opens the save
+panel from the same state.
 
 ### P2. Status messages stay English in a Chinese UI (Medium)
 
@@ -107,30 +118,13 @@ any persistent write failure behaves the same way.
 
 ## Follow-up
 
-`QT_UI_PARITY.md` keeps its statuses except where this session provides evidence;
-the rows it exercises but does not clear are listed in the audit rather than
-promoted. The undo route deserves a code-level investigation before the tag.
+`QT_UI_PARITY.md` keeps its statuses except where this session provides evidence.
+The shortcut rows stay `foundation` until the fixed build is exercised on Windows
+and Linux as well, where the accelerator is Control and the recorded `Ctrl`
+spelling has always been correct.
 
-Reading the two dispatch paths next to the observations narrows the failure to
-two mechanisms that both have to change:
-
-1. **The in-window path cannot match on macOS.** `parse_shortcut` maps `Ctrl` to
-   the literal control flag (`"cmd"` is the one that becomes control on macOS),
-   and `shortcut_matches` compares `input.text` character by character. Pressing
-   ⌃Z makes the backend deliver the control character as the text, and ⌘Z arrives
-   as `meta`, so neither ever equals the recorded pattern. That is why ⌃Z did
-   nothing in every attempt and no in-window shortcut fired.
-2. **The native menu accelerator is the only working route, and it depends on
-   which window is key.** The `MenuBar` lives in `MainWindow`, and ⌘Z worked in
-   exactly the attempts made right after the preview window was focused. While
-   the timeline held focus the accelerator was gone, and ⌘Q from the always
-   present application menu quit reliably, which shows the menu path itself
-   works.
-
-A third condition can disable the accelerators without any visible sign:
-`menu-accelerators-enabled` (`!speed-input.has-focus` and
-`!missing-media-dialog-visible`) and the per-item `save-confirmation-visible`
-gate clear the shortcut of the affected items.
-
-The literal `z` left in the catalog search field after a ⌘Z attempt is the same
-event reaching a focused text control instead of the command.
+Not covered by the fix: the native menu bar is installed only for the window that
+owns the `MenuBar` (the preview window), so the menus themselves are still absent
+while the timeline window is key. Shortcuts no longer depend on that path, but a
+user who wants `文件 -> 导出媒体` while editing on the timeline still has to focus
+the preview window first.
