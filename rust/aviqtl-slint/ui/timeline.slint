@@ -913,7 +913,15 @@ export component TimelineWindow inherits Window {
         z: 300;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { insert-layers-focus-timer.start(); }
+        insert-layers-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { insert-layers-focus.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.insert-layers-visible = false;
@@ -987,7 +995,15 @@ export component TimelineWindow inherits Window {
         z: 300;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { shift-layers-focus-timer.start(); }
+        shift-layers-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { shift-layers-focus.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.shift-layers-visible = false;
@@ -1177,7 +1193,15 @@ export component TimelineWindow inherits Window {
         width: 100%;
         height: 100%;
         forward-focus: context-search;
-        init => { context-search.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { context-search-focus-timer.start(); }
+        context-search-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { context-search.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.close-context-search();
@@ -1327,7 +1351,15 @@ export component TimelineWindow inherits Window {
         width: 100%;
         height: 100%;
         forward-focus: object-search;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { object-picker-focus-timer.start(); }
+        object-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { object-picker-focus.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.object-picker-visible = false;

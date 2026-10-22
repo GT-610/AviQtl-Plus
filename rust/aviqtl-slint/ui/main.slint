@@ -344,7 +344,15 @@ export component MainWindow inherits Window {
         height: min(root.height - 32px, 360px);
         x: (root.width - self.width) / 2;
         y: (root.height - self.height) / 2;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { missing-media-focus-timer.start(); }
+        missing-media-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { missing-media-focus.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape {
                 root.missing-media-dialog-visible = false;
@@ -428,7 +436,15 @@ export component MainWindow inherits Window {
         // the pending close and Return accepts the default Save action
         // (MainWindow.qml:672-716). Without focus the overlay could only be
         // answered with the pointer.
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { save-confirmation-focus-timer.start(); }
+        save-confirmation-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { save-confirmation-focus.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape {
                 root.confirm-cancel();

@@ -624,7 +624,15 @@ export component SystemSettingsWindow inherits Window {
         z: 200;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { capture-focus-timer.start(); }
+        capture-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { capture.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.recording-shortcut-index = -1;

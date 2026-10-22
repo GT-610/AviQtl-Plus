@@ -58,16 +58,19 @@ misleading or unreachable UI; **Low** = cosmetic or wording only.
 ### P5. Modal overlays could only be answered with the pointer
 - Save confirmation, export cancel confirmation, export result, effect-preset save, color picker,
   and font picker were plain `Rectangle`s: no initial focus, no Escape, no Return.
-- Converted to `FocusScope`s with `init => { self.focus(); }` (preset and font focus their text
-  field) and `key-pressed` handling: Escape closes; save confirmation also accepts Return as Save.
-  This follows the existing missing-media overlay pattern and Qt's `Dialog` behavior.
-- **Follow-up found while reviewing the change:** taking the focus from `init` panicked the winit
-  backend ("RefCell already borrowed", `winitwindowadapter.rs:1593`) when the overlay was created
-  from a menu click in the object settings: the focus change re-entered the accessibility adapter
-  while it was updating. Opening "保存预设" from an effect's context menu crashed the app.
-  The object-settings overlays now start a 1ms `Timer` in `init` and focus from its `triggered`
-  callback, which runs after the tree update. Verified: the preset dialog opens with the name field
-  focused and the process stays alive.
+- Converted to `FocusScope`s with `key-pressed` handling: Escape closes; save confirmation also
+  accepts Return as Save. This follows the existing missing-media overlay pattern and Qt's `Dialog`
+  behavior. The preset and font overlays focus their text field rather than the scope itself.
+- **Focus is deferred by one event-loop turn.** The first version called `focus()` straight from
+  `init` and panicked the winit backend ("RefCell already borrowed",
+  `winitwindowadapter.rs:1593`) when an overlay was created from a menu click in the object
+  settings: the focus change re-entered the accessibility adapter while it was updating the tree.
+  Opening "保存预设" from an effect's context menu crashed the app. The object-settings overlays
+  were the first exception, and the same deferral now covers every overlay listed here plus the
+  missing-media dialog, shortcut capture, insert/shift layer dialogs, context search, and object
+  picker: each starts a 1ms `Timer` in `init` and focuses from its `triggered` callback, which runs
+  after the tree update. Verified: the preset dialog opens with the name field focused and the
+  process stays alive.
 - The same deferred refocus runs after the preset/color/font overlays close, so the dialog's
   Escape/Delete scope gets the keyboard back instead of being left without a focused item.
 

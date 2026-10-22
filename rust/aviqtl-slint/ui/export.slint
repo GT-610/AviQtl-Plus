@@ -282,7 +282,15 @@ export component ExportWindow inherits Window {
         height: 100%;
         // Qt's confirmation is a Dialog, so Escape rejects it and returns to
         // the export window instead of leaving the overlay keyboard-dead.
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { cancel-confirmation-focus-timer.start(); }
+        cancel-confirmation-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { cancel-confirmation-focus.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape {
                 root.dismiss-cancel();
@@ -325,7 +333,15 @@ export component ExportWindow inherits Window {
         z: 1200;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { result-focus-timer.start(); }
+        result-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { result-focus.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape {
                 root.dismiss-result();
