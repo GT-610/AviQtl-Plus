@@ -517,6 +517,14 @@ export component TimelineWindow inherits Window {
                         height: 100%;
                         text <=> root.zoom-percent-text;
                         accessible-label: @tr("Timeline zoom");
+                        // Typing a zoom and then moving the focus away without
+                        // accepting it used to leave unapplied text in the
+                        // box; Qt refreshes the box whenever it loses focus.
+                        changed has-focus => {
+                            if !self.has-focus {
+                                root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+                            }
+                        }
                         accepted(value) => {
                             if value.is-float() {
                                 root.apply-zoom-percent(value.to-float());

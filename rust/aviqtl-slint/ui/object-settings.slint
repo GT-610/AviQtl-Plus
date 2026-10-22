@@ -31,6 +31,19 @@ export component ObjectSettingsWindow inherits Window {
     in-out property <int> effect-catalog-mode: 0;
     in property <string> selection-key;
     changed selection-key => { root.effect-picker-visible = false; }
+    // Each overlay takes the focus in `init`; hiding it drops that focus and
+    // Qt hands the shortcuts back to the dialog, so refocus the scope that
+    // owns Escape and Delete. The refocus waits for the next event-loop turn:
+    // the overlay subtree is still being torn down (and the scope still reads
+    // as disabled) while the visibility change is being processed.
+    changed preset-save-visible => { if !root.preset-save-visible { restore-shortcuts.start(); } }
+    changed color-picker-visible => { if !root.color-picker-visible { restore-shortcuts.start(); } }
+    changed font-picker-visible => { if !root.font-picker-visible { restore-shortcuts.start(); } }
+    restore-shortcuts := Timer {
+        interval: 1ms;
+        running: false;
+        triggered => { object-settings-shortcuts.focus(); }
+    }
     callback toggle-catalog-favorite(string);
     function close-effect-picker() {
         root.effect-picker-visible = false;
@@ -348,7 +361,15 @@ export component ObjectSettingsWindow inherits Window {
         z: 100;
         width: 100%;
         height: 100%;
-        init => { effect-search.focus(); }
+        // Focus one event-loop turn later: focusing while the overlay is being
+        // created re-enters the backend's accessibility borrow (see the preset
+        // overlay below).
+        init => { effect-picker-focus-timer.start(); }
+        effect-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { effect-search.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape { root.close-effect-picker(); accept }
             else if event.text == Key.Return { root.add-picker-selection(); accept }
@@ -418,8 +439,16 @@ export component ObjectSettingsWindow inherits Window {
         width: 100%;
         height: 100%;
         // Qt opens this as a modal dialog with a focused name field, so the
-        // user can type immediately and Escape cancels.
-        init => { preset-name-field.focus(); }
+        // user can type immediately and Escape cancels. The focus has to wait
+        // for the next event-loop turn: focusing while the overlay is being
+        // created re-enters the backend's accessibility borrow and panics
+        // ("RefCell already borrowed") when the dialog opens from a menu.
+        init => { preset-name-focus.start(); }
+        preset-name-focus := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { preset-name-field.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape {
                 root.preset-save-visible = false;
@@ -479,7 +508,12 @@ export component ObjectSettingsWindow inherits Window {
         z: 120;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        init => { color-picker-focus-timer.start(); }
+        color-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { color-picker-focus.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape {
                 root.color-picker-visible = false;
@@ -595,7 +629,12 @@ export component ObjectSettingsWindow inherits Window {
         z: 130;
         width: 100%;
         height: 100%;
-        init => { font-filter-field.focus(); }
+        init => { font-picker-focus-timer.start(); }
+        font-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { font-filter-field.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape {
                 root.font-picker-visible = false;

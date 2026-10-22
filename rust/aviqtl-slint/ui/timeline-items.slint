@@ -375,8 +375,8 @@ export component TimelineClipItem inherits Rectangle {
                 // the handle has to forward the context request itself.
                 root.context-activate(
                     root.clip-data.id,
-                    (root.absolute-position.x + self.mouse-x) / 1px,
-                    (root.absolute-position.y + self.mouse-y) / 1px
+                    (self.absolute-position.x + self.mouse-x) / 1px,
+                    (self.absolute-position.y + self.mouse-y) / 1px
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
@@ -441,8 +441,8 @@ export component TimelineClipItem inherits Rectangle {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
                 root.context-activate(
                     root.clip-data.id,
-                    (root.absolute-position.x + self.mouse-x) / 1px,
-                    (root.absolute-position.y + self.mouse-y) / 1px
+                    (self.absolute-position.x + self.mouse-x) / 1px,
+                    (self.absolute-position.y + self.mouse-y) / 1px
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {

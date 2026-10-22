@@ -61,6 +61,15 @@ misleading or unreachable UI; **Low** = cosmetic or wording only.
 - Converted to `FocusScope`s with `init => { self.focus(); }` (preset and font focus their text
   field) and `key-pressed` handling: Escape closes; save confirmation also accepts Return as Save.
   This follows the existing missing-media overlay pattern and Qt's `Dialog` behavior.
+- **Follow-up found while reviewing the change:** taking the focus from `init` panicked the winit
+  backend ("RefCell already borrowed", `winitwindowadapter.rs:1593`) when the overlay was created
+  from a menu click in the object settings: the focus change re-entered the accessibility adapter
+  while it was updating. Opening "保存预设" from an effect's context menu crashed the app.
+  The object-settings overlays now start a 1ms `Timer` in `init` and focus from its `triggered`
+  callback, which runs after the tree update. Verified: the preset dialog opens with the name field
+  focused and the process stays alive.
+- The same deferred refocus runs after the preset/color/font overlays close, so the dialog's
+  Escape/Delete scope gets the keyboard back instead of being left without a focused item.
 
 ### P6. Ruler labels ignored the zoom
 - `timeline.slint` used `duration / 60` ticks regardless of scale. Qt's `Ruler.qml:160-175` uses
@@ -92,16 +101,23 @@ misleading or unreachable UI; **Low** = cosmetic or wording only.
   Slint form needs about 700px of content height. The dialog keeps the scroll view for smaller
   screens and does not persist its size, matching Qt's transient dialog.
 
+### P10. Empty-track press moved the playhead
+- A press on empty timeline space selected the target layer and also seeked. Qt's
+  `TimelineView.qml:596-605` only selects the layer and clears the clip selection, so clicking
+  empty space jumped playback away from the edit point.
+- `on_empty_clicked` now only calls `select_layer`; the ruler and the skimming strip stay the seek
+  targets. `QT_UI_PARITY.md` already described the Qt behavior, so only this list was stale.
+
 ---
 
 ## Low severity
 
-### P10. Untranslated literals
+### P11. Untranslated literals
 - `FPS:` (export, project, scene), `BPM:` (scene), `Image format`, `CRF:`, and the two new trim
   handle labels had no catalog entry. Added to both `zh_CN` and `ja_JP`; all `@tr` strings in the
   Slint sources are now covered (msgctxt entries included).
 
-### P11. Accessible labels on form fields
+### P12. Accessible labels on form fields
 - Export, project-settings, scene-settings, package-manager, object-settings, and system-settings
   fields that relied on adjacent text now carry explicit `accessible-label`s (format, image
   format, destination, codec, quality mode, CRF, bitrate, preset, profile, audio codec/bitrate,
@@ -119,6 +135,3 @@ misleading or unreachable UI; **Low** = cosmetic or wording only.
   anchor. This is a visual approximation, not a behavior difference.
 - **Sidebar scroll-to-effect** and **sticky clip labels** — cosmetic.
 - **Audio-plugin keyframe easing/interpolation** — no Rust command exists; belongs to a model task.
-- **Empty-click seek.** Qt selects the layer and clears the clip selection but does not seek; the
-  Slint handler also seeks. Changing it without confirming the intended Qt behavior would be a
-  regression risk, so it is left as-is.
