@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,9 +14,12 @@ from BUILD import (
     XcodeBuilder,
     determine_target,
     normalize_macos_architecture,
+    numeric_version,
     parse_semver,
     read_project_version,
 )
+
+SOURCE_DIR = Path(__file__).resolve().parent.parent
 
 
 def config_for(source_dir: Path, *, debug=False, offline=False, target="test") -> BuildConfig:
@@ -27,7 +31,7 @@ def config_for(source_dir: Path, *, debug=False, offline=False, target="test") -
         is_debug=debug,
         use_container=False,
         is_offline=offline,
-        version_string="0.6.2",
+        version_string="0.7.0-rc.1",
     )
 
 
@@ -56,6 +60,32 @@ class TestBuildScript(unittest.TestCase):
                 '[workspace]\n[workspace.package]\nversion = "1.2.3-rc.1"\n', encoding="utf-8"
             )
             self.assertEqual(read_project_version(source), "1.2.3-rc.1")
+
+    def test_prerelease_keeps_a_numeric_bundle_version(self):
+        cases = {
+            "0.6.2": "0.6.2",
+            "0.7.0-rc.1": "0.7.0",
+            "1.2.3+build.2": "1.2.3",
+        }
+        for version, expected in cases.items():
+            with self.subTest(version=version):
+                self.assertEqual(numeric_version(version), expected)
+
+    def test_macos_plist_writes_a_numeric_version_for_a_candidate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            contents = source / "AviQtl.app" / "Contents"
+            contents.mkdir(parents=True)
+            config = config_for(source, target="xcode")
+            config.version_string = "0.7.0-rc.1"
+            builder = XcodeBuilder(config, Logger(lambda _message: None, lambda *_args: None))
+            builder.write_info_plist(contents)
+            plist = (contents / "Info.plist").read_text(encoding="utf-8")
+            # macOS accepts only period-separated integers in both version keys, so
+            # a release candidate must not leak its suffix into the bundle metadata.
+            self.assertIn("<key>CFBundleShortVersionString</key><string>0.7.0</string>", plist)
+            self.assertIn("<key>CFBundleVersion</key><string>0.7.0</string>", plist)
+            self.assertNotIn("rc.1", plist)
 
     def test_normalizes_macos_archive_architectures(self):
         for machine, expected in {

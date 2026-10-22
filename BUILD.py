@@ -41,6 +41,18 @@ def parse_semver(version_string: str) -> tuple[int, int, int]:
     return tuple(int(match.group(name)) for name in ("major", "minor", "patch"))
 
 
+def numeric_version(version_string: str) -> str:
+    """Return the ``major.minor.patch`` core of a semantic version.
+
+    macOS accepts only one to three period-separated integers in
+    ``CFBundleShortVersionString`` and ``CFBundleVersion``, so the prerelease
+    suffix of a candidate such as ``0.7.0-rc.1`` cannot be written into them
+    verbatim. The suffix stays visible through the About dialog, which reads the
+    crate version.
+    """
+    return ".".join(str(part) for part in parse_semver(version_string))
+
+
 def normalize_macos_architecture(machine: str) -> str:
     normalized = machine.strip().lower()
     normalized = {"aarch64": "arm64", "amd64": "x86_64", "x64": "x86_64"}.get(normalized, normalized)
@@ -848,6 +860,7 @@ class XcodeBuilder(PlatformBuilder):
         self.run_cmd(["brew", "install", "rust", "pkgconf", "ffmpeg"])
 
     def write_info_plist(self, contents: Path):
+        bundle_version = numeric_version(self.config.version_string)
         plist = f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -858,8 +871,8 @@ class XcodeBuilder(PlatformBuilder):
 <key>CFBundleName</key><string>AviQtl</string>
 <key>CFBundleDisplayName</key><string>AviQtl</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>{self.config.version_string}</string>
-<key>CFBundleVersion</key><string>{self.config.version_string}</string>
+<key>CFBundleShortVersionString</key><string>{bundle_version}</string>
+<key>CFBundleVersion</key><string>{bundle_version}</string>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
